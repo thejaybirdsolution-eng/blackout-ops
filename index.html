@@ -6,13 +6,15 @@
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
     <link rel="stylesheet" href="css/styles.css">
 
-    <!-- Locally Vendored Three.js r149 (100% Offline, works via file:// and localhost) -->
+    <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
+    <script defer src="vendor/peerjs.min.js"></script>
 
     <!-- Core -->
     <script defer src="src/core/Namespace.js"></script>
     <script defer src="src/core/SaveSystem.js"></script>
     <script defer src="src/core/Settings.js"></script>
+    <script defer src="src/net/NetworkManager.js"></script>
 
     <!-- Game Data -->
     <script defer src="src/data/WeaponsData.js"></script>
@@ -49,8 +51,6 @@
     <script defer src="src/ui/HUDController.js"></script>
     <script defer src="src/ui/GunsmithUI.js"></script>
     <script defer src="src/ui/MenuController.js"></script>
-    <!-- Online play with friends (WebRTC peer-to-peer). The PeerJS library is fetched on demand, so offline play still works. -->
-    <script defer src="src/net/Net.js"></script>
     <script defer src="src/main.js"></script>
 </head>
 <body>
@@ -60,7 +60,7 @@
     <section id="screen-main-menu" class="ui-screen">
         <header class="top-bar">
             <div class="brand-lockup">
-                <span class="brand-tag">OFFLINE EDITION</span>
+                <span class="brand-tag">ONLINE &amp; OFFLINE CO-OP</span>
                 <div class="brand-title">BLACKOUT OPS</div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
@@ -70,6 +70,10 @@
         </header>
         <div class="menu-body">
             <nav class="menu-nav">
+                <button class="menu-tile" id="btn-menu-online" style="border-left-color:#22c55e;border-color:rgba(34,197,94,0.45);background:linear-gradient(90deg,rgba(21,128,61,0.24),rgba(11,16,24,0.88));" data-tip-title="Create Online Lobby & Copy Invite Link" data-tip="Creates an online room and copies a shareable link to your clipboard! Send the link to your friends and they will automatically join your lobby for COD Zombies, Tower Defense, or Multiplayer!">
+                    <span class="tile-title" style="color:#4ade80;">🌐 ONLINE SQUAD LOBBY (INVITE FRIENDS)</span>
+                    <span class="tile-sub">1-Click Shareable Friend Link • Co-op Zombies, Tower Defense &amp; PvP/Co-op Multiplayer</span>
+                </button>
                 <button class="menu-tile zombies-tile" id="btn-menu-zombies" data-tip-title="COD Zombies Mode" data-tip="Fight endless waves of 20 unique zombies! A new zombie type joins the fight every 3 rounds, with giant Boss Battles on Rounds 5, 10, 20, 25, and 50." data-tip-sub="Buy doors, turn on power, drink Perks, spin the Mystery Box, and upgrade guns in Pack-a-Punch!">
                     <span class="tile-title" style="color:#f87171;">COD ZOMBIES</span>
                     <span class="tile-sub">20 Unique Zombies • Boss Rounds (5/10/20/25/50) • Perks, Box &amp; Pack-a-Punch</span>
@@ -316,6 +320,7 @@
         <div class="modal-box" style="width:430px;text-align:center;display:flex;flex-direction:column;gap:10px;">
             <h2 style="margin:0;letter-spacing:3px;color:var(--amber);">MATCH PAUSED</h2>
             <button class="btn btn-primary" id="btn-pause-resume" data-tip-title="Resume Game" data-tip="Jump right back into the action.">RESUME COMBAT</button>
+            <button class="btn" id="btn-pause-invite" style="border-color:#22c55e;color:#4ade80;" data-tip-title="Invite Friends to Match" data-tip="Copies your online room link! Friends who open the link will join your lobby and hot-join this match!">🔗 COPY FRIEND INVITE LINK</button>
             <button class="btn hidden" id="btn-pause-change-class" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Change Class In Battle" data-tip="Pick another Custom Class — your new weapons, attachments & perks take effect cleanly after your next death!">CHANGE CLASS [M] (ON RESPAWN)</button>
             <button class="btn hidden" id="btn-pause-modmenu" style="border-color:#fde047;color:#fde047;" data-tip-title="Zombies Mod Menu" data-tip="Turn any Zombies cheat ON or OFF with checkboxes right in the middle of your match!">★ MOD MENU (CHEATS)</button>
             <div id="pause-round-picker-wrap" class="round-picker-card hidden" data-tip-title="Jump to Any Round" data-tip="Pick any Zombies wave (like Boss Rounds 5, 10, 20, 25, or 50) and click GO to jump there immediately!">

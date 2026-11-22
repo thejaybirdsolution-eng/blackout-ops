@@ -513,9 +513,20 @@
                         this.zombiePerks.delete('quick_revive');
                     }
                     this.inLastStand = true;
+                    this.coopNeedsRevive = false;
                     this.lastStandTimer = 2.6;
                     this.hp = Math.round(this.maxHp * 0.6);
                     BO.Events.emit('hud:toast', { text: 'LAST STAND — SELF REVIVING...', color: '#ef4444' });
+                } else if (BO.Net && BO.Net.active && BO.Net.players.size > 1 && (BO.State.activeMode === 'zombies' || BO.State.activeMode === 'td')) {
+                    this.inLastStand = true;
+                    this.coopNeedsRevive = true;
+                    this.lastStandTimer = 45.0;
+                    this.hp = 10;
+                    BO.Events.emit('hud:banner', {
+                        title: 'DOWNED — CALL FOR REVIVE!',
+                        sub: 'TEAMMATE CAN PRESS [E] NEAR YOU TO REVIVE!',
+                        color: '#ef4444'
+                    });
                 } else {
                     this.hp = 0;
                     this.alive = false;
@@ -578,9 +589,17 @@
             }
 
             if (this.inLastStand) {
+                if (this.coopNeedsRevive && BO.Net && BO.Net.active && !BO.Net.isAnySquadmateAlive()) {
+                    this.inLastStand = false;
+                    this.coopNeedsRevive = false;
+                    this.hp = 0;
+                    this.alive = false;
+                    return;
+                }
                 this.lastStandTimer -= dt;
                 if (this.lastStandTimer <= 0) {
                     this.inLastStand = false;
+                    this.coopNeedsRevive = false;
                     this.reviveGraceTimer = 2.0;
                     this.hp = this.maxHp;
                     BO.Sound.playPerkBuy();

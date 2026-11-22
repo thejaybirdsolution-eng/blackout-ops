@@ -51,6 +51,7 @@
                 onExitToMenu: () => this.exitToMenu(),
                 onRestartMatch: () => this.restartMatch()
             });
+            if (BO.Net) BO.Net.init();
 
             this._bindInputs();
             this._onResize();
@@ -145,6 +146,11 @@
             // Request Pointer Lock at 0ms of user click gesture before world build!
             this._safePointerLock();
             this._clearInputState();
+
+            if (!opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+                BO.Net.broadcastMatchStart(opts);
+            }
+            if (BO.Net) BO.Net.clearRemoteAvatars();
 
             this.lastMatchOpts = BO.Math.deepClone(opts);
             BO.ZombiesMode.stop();
@@ -449,18 +455,6 @@
 
         _loop(now) {
             requestAnimationFrame((t) => this._loop(t));
-            this.lastRafTime = performance.now();
-            this._frame(now, true);
-        }
-
-        /** Simulates without drawing. Keeps online matches running while the browser tab is hidden. */
-        backgroundTick() {
-            const now = performance.now();
-            if (now - this.lastTime < 25) return;
-            this._frame(now, false);
-        }
-
-        _frame(now, render) {
             const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000));
             this.lastTime = now;
             this.elapsed += dt;
@@ -469,9 +463,7 @@
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
 
             if (BO.State.screen === 'playing') {
-                // Online matches keep simulating while you're in the pause menu (your friends are still playing!)
-                const netLive = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.active);
-                if (!BO.State.paused || netLive) {
+                if (!BO.State.paused) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -500,19 +492,18 @@
                         }
                     }
 
-                    if (BO.Net && BO.Net.game) BO.Net.game.update(dt);
                     BO.HUD.update(dt);
                 }
 
-                if (render) {
-                    this.renderer.clear();
-                    if (BO.World.scene) {
-                        this.renderer.render(BO.World.scene, this.worldCamera);
-                    }
-                    this.renderer.clearDepth();
-                    this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
+                if (BO.Net) BO.Net.update(dt, this.worldCamera);
+
+                this.renderer.clear();
+                if (BO.World.scene) {
+                    this.renderer.render(BO.World.scene, this.worldCamera);
                 }
-            } else if (render) {
+                this.renderer.clearDepth();
+                this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
+            } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {

@@ -194,6 +194,14 @@
 
             P.triggerMuzzleFlash();
             BO.Sound.playGunshot(w.stats.soundProfile, w.stats.suppressed, w.isPaP, 1.0);
+            if (BO.Net && BO.Net.active) {
+                BO.Net.sendPlayerFx({
+                    kind: 'shot',
+                    soundProfile: w.stats.soundProfile,
+                    suppressed: !!w.stats.suppressed,
+                    isPaP: !!w.isPaP
+                });
+            }
             if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.recordKillcamFx) {
                 BO.MPMode.recordKillcamFx({
                     kind: 'shot',
@@ -356,7 +364,15 @@
 
             const tracerCol = w.isPaP ? 0xc084fc : 0xffd166;
             BO.FX.spawnTracer(muzzlePos, endPoint, tracerCol, w.isPaP ? 0.036 : 0.022, 0.075);
-            if (BO.Net && BO.Net.game) BO.Net.game.queueShot(muzzlePos, endPoint, tracerCol, w.stats.soundProfile);
+            if (BO.Net && BO.Net.active) {
+                BO.Net.sendPlayerFx({
+                    kind: 'tracer',
+                    sx: Number(muzzlePos.x.toFixed(2)), sy: Number(muzzlePos.y.toFixed(2)), sz: Number(muzzlePos.z.toFixed(2)),
+                    ex: Number(endPoint.x.toFixed(2)), ey: Number(endPoint.y.toFixed(2)), ez: Number(endPoint.z.toFixed(2)),
+                    color: tracerCol,
+                    isPaP: !!w.isPaP
+                });
+            }
             if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.recordKillcamFx) {
                 BO.MPMode.recordKillcamFx({ kind: 'tracer', sx: muzzlePos.x, sy: muzzlePos.y, sz: muzzlePos.z, ex: endPoint.x, ey: endPoint.y, ez: endPoint.z, color: tracerCol });
             }

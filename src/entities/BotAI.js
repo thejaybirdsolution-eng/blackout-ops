@@ -138,6 +138,21 @@
                 return;
             }
 
+            // Online Client Puppet Interpolation
+            if (BO.Net && BO.Net.active && !BO.Net.isHost && this.netTargetPos) {
+                const dist = this.pos.distanceTo(this.netTargetPos);
+                const moveSpd = BO.Math.clamp(dist * 10, 0, 6.5);
+                this.pos.lerp(this.netTargetPos, Math.min(1, dt * 15));
+                if (typeof this.netTargetYaw === 'number') {
+                    this.yaw += BO.Math.angleDiff(this.yaw, this.netTargetYaw) * Math.min(1, dt * 15);
+                }
+                this.animPhase += dt * (moveSpd * 2.2 + 1.0);
+                this.parts.root.position.copy(this.pos);
+                this.parts.root.rotation.y = this.yaw;
+                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, 0, 0);
+                return;
+            }
+
             if (this.stunTimer > 0) {
                 this.stunTimer -= dt;
                 return;
@@ -260,6 +275,20 @@
                 }
             }
 
+            // Check remote online human players
+            if (BO.Net && BO.Net.active) {
+                for (const [pid, st] of BO.Net.remoteStates.entries()) {
+                    if (!st || !st.alive) continue;
+                    const hostileToRemote = isFFA || (this.team !== (st.team ?? 0));
+                    if (!hostileToRemote) continue;
+                    const d = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, st.x, st.y, st.z);
+                    if (d < bestDist && BO.World.hasLineOfSight(this.pos.x, myEyeY, this.pos.z, st.x, st.y + 1.35, st.z)) {
+                        bestDist = d;
+                        best = { kind: 'remote_player', peerId: pid, x: st.x, y: st.y + 1.25, z: st.z };
+                    }
+                }
+            }
+
             // Check other bots
             for (let i = 0; i < context.bots.length; i++) {
                 const o = context.bots[i];
@@ -305,7 +334,6 @@
             const dScale = BO.Math.clamp(1 - this.pos.distanceTo(BO.Player.pos) / 40, 0, 0.75);
             if (dScale > 0.05) BO.Sound.playGunshot(spec.soundProfile, false, false, dScale);
             BO.FX.spawnTracer(start, end, 0xfca5a5, 0.02, 0.07);
-            if (BO.Net && BO.Net.game) BO.Net.game.queueHostFx(start, end, 0xfca5a5, spec.soundProfile);
             if (context.onRecordFx) context.onRecordFx({ kind: 'tracer', sx: start.x, sy: start.y, sz: start.z, ex: end.x, ey: end.y, ez: end.z, color: 0xfca5a5 });
 
             // Accuracy roll
@@ -314,6 +342,17 @@
                 const dmg = this.oneShotKills ? 9999 : Math.round(spec.damage * 0.42 * this.difficulty.dmgMult);
                 if (target.kind === 'player') {
                     if (context.onBotShootPlayer) context.onBotShootPlayer(this, dmg);
+                } else if (target.kind === 'remote_player' && BO.Net && BO.Net.active) {
+                    BO.Net.sendToPeer(target.peerId, {
+                        type: 'mp_hit_player',
+                        targetPeerId: target.peerId,
+                        dmg,
+                        attackerCallsign: this.name,
+                        attackerTeam: this.team,
+                        weaponLabel: BO.WeaponsData.get(this.weaponId).shortName,
+                        weaponId: this.weaponId,
+                        isHead: false
+                    });
                 } else if (target.bot && target.bot.alive) {
                     const killed = target.bot.takeDamage(dmg, this);
                     if (killed && context.onBotKillBot) {

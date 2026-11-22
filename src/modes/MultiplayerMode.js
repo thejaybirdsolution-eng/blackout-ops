@@ -1,5 +1,5 @@
 /* ============================================================================
-   BLACKOUT OPS — Offline Multiplayer, Custom Games & 15s MW2 Winner Killcam
+   BLACKOUT OPS — Offline & Online Multiplayer, Custom Games & 15s MW2 Winner Killcam
    Supports TDM, FFA, Domination, Hardpoint, Gun Game + full Custom Game
    settings (enemy count, team size limit, enemy no-weapons/restrictions,
    custom kills/time/player HP/enemy HP, fun & serious modifiers), anti-cluster
@@ -31,10 +31,10 @@
     const DEFAULT_CUSTOM_RULES = {
         enemyCount: 6,
         teamSizeLimit: 6,
-        enemyWeaponMode: 'all',    // 'all' | 'unarmed' | 'pistols' | 'snipers' | 'shotguns' | 'smgs' | 'ar' | 'melee' | 'rpg'
-        playerWeaponMode: 'custom', // 'custom' | 'snipers' | 'pistols' | 'shotguns' | 'rpg' | 'raygun'
-        scoreLimit: 0,              // 0 = mode default
-        timeLimit: 0,               // 0 = mode default (minutes)
+        enemyWeaponMode: 'all',
+        playerWeaponMode: 'custom',
+        scoreLimit: 0,
+        timeLimit: 0,
         enemyHp: 100,
         playerHp: 100,
         respawnDelay: 2.4,
@@ -54,7 +54,7 @@
     class MultiplayerMode {
         constructor() {
             this.active = false;
-            this.modeType = 'tdm'; // 'tdm' | 'ffa' | 'dom' | 'hardpoint' | 'gun_game'
+            this.modeType = 'tdm';
             this.mapId = 'killhouse';
             this.difficulty = 'regular';
             this.customRules = Object.assign({}, DEFAULT_CUSTOM_RULES);
@@ -65,7 +65,6 @@
             this.timeRemaining = 480;
             this.elapsed = 0;
 
-            // Player Match Stats
             this.playerKills = 0;
             this.playerDeaths = 0;
             this.playerHeadshots = 0;
@@ -78,13 +77,11 @@
             this.pendingClassIndex = null;
             this.ended = false;
 
-            // Killstreaks
             this.equippedStreaks = ['uav', 'predator', 'chopper'];
             this.earnedStreaks = [];
             this.uavTimer = 0;
             this.nukeTimer = -1;
 
-            // Domination & Hardpoint State
             this.domStates = [];
             this.domTickTimer = 0;
             this.hpIndex = 0;
@@ -93,16 +90,14 @@
             this.hpTickTimer = 0;
             this.chopperFireCooldown = 0.5;
 
-            // Spawn cooldown history for anti-clustering
             this.recentSpawnTimes = new Map();
 
-            // 15-Second MW2 Winner Killcam Replay Buffer & Playback State
             this.camera = null;
             this.kcFrames = [];
             this.kcPendingFx = [];
             this.kcAccum = 0;
             this.lastKillMeta = null;
-            this.killcamPendingEnd = null; // 1.6s post-winning-kill capture window so replay includes AFTER the shot!
+            this.killcamPendingEnd = null;
             this.killcamActive = false;
             this.killcamData = null;
             this.playerAvatar3P = null;
@@ -145,7 +140,6 @@
             this.nukeTimer = -1;
             this.recentSpawnTimes.clear();
 
-            // Replay & Killcam init
             this.kcFrames = [];
             this.kcPendingFx = [];
             this.kcAccum = 0;
@@ -170,7 +164,9 @@
                 this.timeRemaining = Math.max(60, Math.min(3600, Math.round(this.customRules.timeLimit * 60)));
             }
 
-            const playerSpawn = map.team0Spawns[0];
+            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
+            const spawnList = myTeam === 1 && map.team1Spawns && map.team1Spawns.length > 0 ? map.team1Spawns : map.team0Spawns;
+            const playerSpawn = spawnList[Math.floor(Math.random() * spawnList.length)] || map.team0Spawns[0];
             BO.Player.initForMatch('mp', playerSpawn, loadout, false);
             this._applyPlayerCustomRules();
 
@@ -245,7 +241,6 @@
             const eHp = Math.max(1, Math.min(1000, Number(r.enemyHp) || 100));
 
             let botId = 0;
-            // Spawn Allies first (Team 0)
             for (let a = 0; a < allyCount; a++) {
                 const sp = this._pickBestSpawn(0);
                 const wId = isFFA && this.modeType === 'gun_game' ? GUN_GAME_LADDER[0] : WEAPON_POOLS.all[a % WEAPON_POOLS.all.length];
@@ -265,7 +260,6 @@
                 this.bots.push(bot);
             }
 
-            // Spawn Enemies (Team 1 or unique FFA IDs >= 2)
             for (let e = 0; e < enemyCount; e++) {
                 const team = isFFA ? (e + 2) : 1;
                 const sp = this._pickBestSpawn(1);
@@ -300,11 +294,6 @@
             }
         }
 
-        /**
-         * Anti-Clustering Spawn Selector:
-         * Checks EVERY candidate spawn against ALL alive combatants (enemies + allies/other players),
-         * spawn cooldowns, and direct line-of-sight so enemies NEVER spawn stacked next to each other!
-         */
         _pickBestSpawn(team) {
             const map = BO.World.mapData;
             const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
@@ -353,7 +342,6 @@
                     }
                 }
 
-                // Strongly reject spawning right next to ANY alive actor (< 2.8m)
                 const clusterPenalty = minAnyDist < 2.8 ? -200 : (minAnyDist < 5.5 ? -30 : 0);
                 const score = Math.min(minEnemyDist, 32) * 2.2 + Math.min(minAnyDist, 14) * 1.4
                     + (losExposed ? -28 : 12) + cooldownPenalty + clusterPenalty + Math.random() * 1.5;
@@ -370,9 +358,8 @@
 
         _onPlayerHitBot(bot, dmg, hitbox, weaponInst, hitPt) {
             if (!bot || !bot.alive) return false;
+            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
             const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
-            if (!isFFA && bot.team === 0) return false;
-
             const isHead = hitbox === 'head';
             if (this.customRules.headshotsOnly && !isHead) return false;
 
@@ -382,6 +369,36 @@
                 BO.Sound.playExplosion(0.45);
                 finalDmg *= 1.5;
             }
+            const wName = weaponInst?.stats?.shortName || 'MELEE';
+
+            if (bot.isRemotePlayer && BO.Net && BO.Net.active) {
+                BO.Net.broadcast({
+                    type: 'mp_hit_player',
+                    targetPeerId: bot.peerId,
+                    dmg: finalDmg,
+                    attackerCallsign: BO.Save.data.callsign || 'YOU',
+                    attackerTeam: myTeam,
+                    weaponLabel: wName,
+                    weaponId: weaponInst?.cfg?.id || null,
+                    isHead
+                });
+                BO.Player.addUltimateCharge(4);
+                return false;
+            }
+
+            if (!isFFA && bot.team === myTeam) return false;
+
+            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                BO.Net.sendToHost({
+                    type: 'mp_hit_bot',
+                    botId: bot.id,
+                    dmg: finalDmg,
+                    attackerCallsign: BO.Save.data.callsign || 'YOU',
+                    attackerTeam: myTeam,
+                    weaponLabel: wName,
+                    isHead
+                });
+            }
 
             const killed = bot.takeDamage(finalDmg, 'player');
             if (!killed) {
@@ -389,7 +406,6 @@
                 return false;
             }
 
-            const wName = weaponInst?.stats?.shortName || 'MELEE';
             this._awardPlayerKill(bot, isHead, wName, weaponInst?.cfg?.id || null);
             return true;
         }
@@ -431,7 +447,6 @@
             else if (BO.Player.pos.distanceTo(bot.pos) > 32.0) BO.Progression.awardMedal('longshot');
             if (BO.Player.sliding) BO.Progression.awardMedal('slide_kill');
 
-            // Epic Multikill Announcer Voice ("Double Kill!" / "Triple Kill!" / "Quad Kill!")
             this.multikillCount++;
             this.multikillTimer = 4.5;
             if (this.multikillCount === 2) {
@@ -562,7 +577,7 @@
         _recordReplaySnapshot(dt) {
             if (this.killcamActive || this.customRules.killcamEnabled === false) return;
             this.kcAccum += dt;
-            if (this.kcAccum < 0.04) return; // 25 Hz
+            if (this.kcAccum < 0.04) return;
             this.kcAccum = 0;
 
             const P = BO.Player;
@@ -610,7 +625,6 @@
                 this._endMatch(victory, customTitle);
                 return;
             }
-            // Capture 1.6s AFTER the winning shot (enemy drop, hitmarker, follow-through) before starting 15s Killcam!
             this.killcamPendingEnd = { victory, customTitle, timer: 1.6 };
             BO.Events.emit('hud:banner', {
                 title: victory ? 'VICTORY!' : 'MATCH OVER',
@@ -626,7 +640,6 @@
                 this._endMatch(victory, customTitle);
                 return;
             }
-            // Capture final aftermath frame
             this.kcAccum = 1;
             this._recordReplaySnapshot(0.05);
 
@@ -674,7 +687,6 @@
             const kd = this.killcamData;
             if (!kd || !this.camera) return;
 
-            // Slow-motion right around the winning shot & aftermath (MW2 style!)
             const nearShot = Math.abs(kd.playT - kd.killT) < 0.85 || (kd.endT - kd.playT) < 1.6;
             const playbackRate = nearShot ? 0.42 : 1.0;
             kd.playT += dt * playbackRate;
@@ -684,7 +696,6 @@
                 return;
             }
 
-            // Find interpolated frame
             const frames = kd.frames;
             let idx = 0;
             while (idx < frames.length - 2 && frames[idx + 1].t < kd.playT) idx++;
@@ -692,7 +703,6 @@
             const f1 = frames[Math.min(frames.length - 1, idx + 1)];
             const alpha = (f1.t > f0.t) ? BO.Math.clamp((kd.playT - f0.t) / (f1.t - f0.t), 0, 1) : 0;
 
-            // Replay recorded FX (tracers, muzzle flash + gunshots, hitmarkers) at exact timestamps!
             while (kd.emittedFxIdx < idx) {
                 kd.emittedFxIdx++;
                 const fxs = frames[kd.emittedFxIdx].fx || [];
@@ -709,7 +719,6 @@
                 }
             }
 
-            // Apply bot poses & walking animation
             for (const b of this.bots) {
                 const s0 = f0.bots[b.id];
                 const s1 = f1.bots[b.id] || s0;
@@ -724,7 +733,6 @@
                 BO.CharacterMesh.animateLimbs(b.parts, bSpd, BO.Math.lerp(s0.phase || 0, s1.phase || 0, alpha), 0, 0);
             }
 
-            // Position Camera & Exact 1st-Person Viewmodel Pose strictly from Killer's POV!
             if (kd.meta.killerKind === 'player') {
                 if (this.playerAvatar3P) this.playerAvatar3P.root.visible = false;
                 const px = BO.Math.lerp(f0.p.x, f1.p.x, alpha);
@@ -751,7 +759,6 @@
                     weaponId: f0.p.weaponId
                 }, this.camera, dt);
             } else {
-                // Bot Killer POV + show Player 3P Avatar!
                 BO.Player.vmAnchor.visible = false;
                 BO.Player.adsAlpha = 0;
                 if (this.camera) {
@@ -777,7 +784,6 @@
                     const kz = BO.Math.lerp(b0.z, b1.z, alpha);
                     const byaw = b0.yaw + BO.Math.angleDiff(b0.yaw, b1.yaw) * alpha;
                     this.camera.position.set(kx, ky, kz);
-                    // Bot models face +Z locally while Three camera looks -Z (yaw + PI!)
                     this.camera.quaternion.setFromEuler(new THREE.Euler(0, byaw + Math.PI, 0, 'YXZ'));
                 }
             }
@@ -805,7 +811,6 @@
             }
             if (this.uavTimer > 0) this.uavTimer = Math.max(0, this.uavTimer - dt);
 
-            // Tactical Nuke Countdown
             if (this.nukeTimer > 0) {
                 this.nukeTimer -= dt;
                 if (this.nukeTimer <= 0) {
@@ -816,7 +821,6 @@
                 }
             }
 
-            // Attack Chopper active gunning
             if (BO.FX.chopper) {
                 this.chopperFireCooldown -= dt;
                 if (this.chopperFireCooldown <= 0) {
@@ -833,7 +837,6 @@
                 }
             }
 
-            // Player Respawn Handling (Applies Mid-Battle Class Switch if Queued!)
             if (!BO.Player.alive) {
                 if (this.respawnTimer <= 0) {
                     if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
@@ -930,6 +933,7 @@
                 }
             };
 
+            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
             for (const b of this.bots) {
                 if (!b.alive) {
                     if (b.respawnTimer <= 0) {
@@ -940,16 +944,19 @@
                     continue;
                 }
                 b.update(dt, context);
-                if (this.modeType === 'ffa' || this.modeType === 'gun_game' || b.team !== 0) {
+                if (this.modeType === 'ffa' || this.modeType === 'gun_game' || b.team !== myTeam) {
                     const ms = b.getHitboxMeshes();
                     for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
                 }
+            }
+            if (BO.Net && BO.Net.active) {
+                const remoteMeshes = BO.Net.getRemoteHitboxMeshes();
+                for (let r = 0; r < remoteMeshes.length; r++) hitMeshes.push(remoteMeshes[r]);
             }
             BO.Combat.setTargetPool(hitMeshes);
 
             this._recordReplaySnapshot(dt);
 
-            // If winning kill already occurred, finish recording 1.6s of post-shot aftermath then launch 15s Killcam!
             if (this.killcamPendingEnd) {
                 this.killcamPendingEnd.timer -= dt;
                 if (this.killcamPendingEnd.timer <= 0) {
@@ -959,7 +966,6 @@
                 return;
             }
 
-            // Win Conditions Check -> Capture 1.6s Post-Shot Aftermath -> 15s Winner Killcam!
             if (this.modeType === 'tdm' || this.modeType === 'dom' || this.modeType === 'hardpoint') {
                 if (this.teamScores[0] >= this.scoreLimit) this._queueWinnerKillcam(true);
                 else if (this.teamScores[1] >= this.scoreLimit) this._queueWinnerKillcam(false);
@@ -1055,14 +1061,28 @@
         }
 
         getScoreboard() {
+            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
             const rows = [{
-                name: BO.Save.data.callsign || 'YOU',
-                team: 0,
+                name: (BO.Save.data.callsign || 'YOU') + ' (YOU)',
+                team: myTeam,
                 isPlayer: true,
                 kills: this.playerKills,
                 deaths: this.playerDeaths,
                 score: this.playerScore
             }];
+            if (BO.Net && BO.Net.active) {
+                for (const [pid, prof] of BO.Net.players.entries()) {
+                    if (pid === BO.Net.myPeerId) continue;
+                    rows.push({
+                        name: `★ ${prof.callsign || 'FRIEND'}`,
+                        team: prof.team ?? 0,
+                        isPlayer: false,
+                        kills: prof.kills || 0,
+                        deaths: prof.deaths || 0,
+                        score: prof.score || 0
+                    });
+                }
+            }
             for (const b of this.bots) {
                 rows.push({
                     name: b.name,

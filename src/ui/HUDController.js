@@ -187,54 +187,53 @@
             } else if (BO.State.activeMode === 'td') {
                 const td = BO.TowerDefenseMode;
                 title.textContent = `${BO.World.mapData.name} — TOWER DEFENSE WAVE ${td.wave}`;
-                let extra = '';
-                if (BO.Net && BO.Net.active && BO.Net.game) {
-                    for (const rp of BO.Net.game.remotes.values()) {
-                        if (!rp.inMatch()) continue;
-                        extra += `
-                    <tr>
-                        <td>${rp.name} (FRIEND)</td>
-                        <td><span style="color:#38bdf8">${rp.alive ? 'DEFENDERS' : 'DOWN'}</span></td>
-                        <td>${rp.kills}</td>
-                        <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
-                        <td>${rp.points} GOLD</td>
-                    </tr>`;
+                const peerRows = [];
+                if (BO.Net && BO.Net.active) {
+                    for (const [pid, prof] of BO.Net.players.entries()) {
+                        if (pid === BO.Net.myPeerId) continue;
+                        peerRows.push(`
+                            <tr>
+                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
+                                <td>${prof.kills || 0}</td>
+                                <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
+                                <td>${prof.score || 0} GOLD</td>
+                            </tr>`);
                     }
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'COMMANDER'}</td>
+                        <td>${BO.Save.data.callsign || 'COMMANDER'} (YOU)</td>
                         <td><span style="color:#22c55e">DEFENDERS</span></td>
                         <td>${td.kills}</td>
                         <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
                         <td>${td.gold} GOLD</td>
-                    </tr>${extra}`;
+                    </tr>${peerRows.join('')}`;
             } else {
                 const zm = BO.ZombiesMode;
-                const isCoop = !!(BO.Net && BO.Net.active && BO.Net.game && BO.Net.game.remotes.size > 0);
                 title.textContent = `${BO.World.mapData.name} — ZOMBIES ROUND ${BO.Math.toRoman(zm.round)}`;
-                let extra = '';
-                if (isCoop) {
-                    for (const rp of BO.Net.game.remotes.values()) {
-                        if (!rp.inMatch()) continue;
-                        extra += `
-                    <tr>
-                        <td>${rp.name} (FRIEND)</td>
-                        <td><span style="color:#38bdf8">${rp.alive ? 'CO-OP' : 'DOWN'}</span></td>
-                        <td>${rp.kills}</td>
-                        <td>${Math.round(rp.hp)} HP</td>
-                        <td>${rp.points} PTS</td>
-                    </tr>`;
+                const peerRows = [];
+                if (BO.Net && BO.Net.active) {
+                    for (const [pid, prof] of BO.Net.players.entries()) {
+                        if (pid === BO.Net.myPeerId) continue;
+                        peerRows.push(`
+                            <tr>
+                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
+                                <td>${prof.kills || 0}</td>
+                                <td>ALIVE</td>
+                                <td>${prof.score || 0} PTS</td>
+                            </tr>`);
                     }
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'SURVIVOR'}</td>
-                        <td><span style="color:${isCoop ? '#22c55e' : '#dc2626'}">${isCoop ? 'CO-OP' : 'SOLO'}</span></td>
+                        <td>${BO.Save.data.callsign || 'SURVIVOR'} (YOU)</td>
+                        <td><span style="color:#dc2626">${BO.Net && BO.Net.active && BO.Net.players.size > 1 ? 'CO-OP SQUAD' : 'SOLO'}</span></td>
                         <td>${zm.kills}</td>
                         <td>${zm.headshots} HS</td>
                         <td>${zm.points} PTS</td>
-                    </tr>${extra}`;
+                    </tr>${peerRows.join('')}`;
             }
         }
 
@@ -662,13 +661,16 @@
                     ctx.beginPath(); ctx.arc((z.pos.x - P.pos.x) * scale, (z.pos.z - P.pos.z) * scale, 2.6, 0, Math.PI * 2); ctx.fill();
                 }
             }
-            if (BO.Net && BO.Net.active && BO.Net.game) {
-                const pvp = BO.Net.game.isPvP();
-                for (const rp of BO.Net.game.remotes.values()) {
-                    if (!rp.inMatch()) continue;
-                    ctx.fillStyle = !rp.alive ? '#f59e0b' : (pvp ? '#ef4444' : '#38bdf8');
+
+            // Draw Online Squadmates / Remote Players on Minimap Radar
+            if (BO.Net && BO.Net.active) {
+                const isFFA = BO.State.activeMode === 'mp' && (BO.MPMode.modeType === 'ffa' || BO.MPMode.modeType === 'gun_game');
+                for (const [pid, st] of BO.Net.remoteStates.entries()) {
+                    if (pid === BO.Net.myPeerId || !st) continue;
+                    const isEnemy = BO.State.activeMode === 'mp' && (isFFA || (st.team !== undefined && st.team !== BO.Net.myTeam));
+                    ctx.fillStyle = (!st.alive || st.inLastStand) ? '#f59e0b' : (isEnemy ? '#ef4444' : '#22c55e');
                     ctx.beginPath();
-                    ctx.arc((rp.pos.x - P.pos.x) * scale, (rp.pos.z - P.pos.z) * scale, 3.6, 0, Math.PI * 2);
+                    ctx.arc((st.x - P.pos.x) * scale, (st.z - P.pos.z) * scale, 4.0, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }

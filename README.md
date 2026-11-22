@@ -1,37 +1,25 @@
-# BLACKOUT OPS — Online & Offline COD-Style FPS, Zombies & Tower Defense
+# BLACKOUT OPS — Online Co-op & Offline COD-Style FPS, Zombies & Tower Defense
 
-A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle Siege Tower Defense game powered by Three.js r149, procedural PBR `CanvasTexture` shaders, procedural Web Audio API DSP, and PeerJS WebRTC P2P online lobbies.
+A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle Tower Defense game powered by Three.js r149, procedural PBR `CanvasTexture` shaders, procedural Web Audio API DSP, and PeerJS WebRTC P2P Online Multiplayer.
 
-## Playing Online with Friends (GitHub Pages)
-1. Open the hosted game on GitHub Pages: **`https://thejaybirdsolution-eng.github.io/blackout-ops/`**
-2. Click **PLAY ONLINE WITH FRIENDS** on the main menu and click **HOST A LOBBY**.
-3. Click **COPY** next to your **Invite Link** (`https://thejaybirdsolution-eng.github.io/blackout-ops/?join=boops-xxxxxx`) and send it to your friends.
-4. When your friends open your link, they automatically join your lobby (up to 8 players).
-5. Pick **COD Zombies**, **Tower Defense (Castle Siege)**, or **Multiplayer Bot Combat** (Co-op vs. Bots or PvP Free-For-All / Gun Game) and press **DEPLOY** — everyone in your lobby drops into the same match together!
+## 🌐 Play Online With Friends (GitHub Pages)
+- **Live Online Game**: **[https://thejaybirdsolution-eng.github.io/blackout-ops/](https://thejaybirdsolution-eng.github.io/blackout-ops/)**
+- **How to Invite Friends into Your Lobby**:
+  1. Click **🌐 ONLINE SQUAD LOBBY (INVITE FRIENDS)** on the Main Menu (or click **🔗 CREATE ONLINE LOBBY & GET FRIEND LINK** inside the Deployment Lobby).
+  2. Click **📋 COPY LINK** and send the URL (e.g. `https://thejaybirdsolution-eng.github.io/blackout-ops/?room=XXXXXX`) to your friends!
+  3. When your friends open that link, they automatically join your exact lobby!
+  4. Choose **COD Zombies**, **Tower Defense**, or **Multiplayer** (Co-op vs Bots or PvP Friends vs Friends + Bots) and click **DEPLOY SQUAD INTO COMBAT** to launch everyone into the match together.
 
-## Launching Offline
-- **Option 1 (Recommended)**: Double-click **`play.bat`** (or run `python server.py`) to launch the local offline HTTP server and open the game automatically.
-- **Option 2 (Direct File)**: Double-click **`index.html`** directly in your browser — works offline with zero external network dependencies.
+## Launching Offline / Locally
+- **Option 1 (Recommended)**: Double-click **`play.bat`** (or run `python server.py`) to launch the local HTTP server and open the game automatically.
+- **Option 2 (Direct File)**: Double-click **`index.html`** directly in your browser.
 
 ## Features
-- **COD Zombies Mode** (`Der Bunker` & `Station Omega`):
-  - Classic M1911 starter or Custom Class deployment.
-  - Round waves with Roman numeral chalk counter (`I–V`, `6+`), 24-zombie active cap, Hellhound rounds every 5th wave, Armored Brutes, and Nova Screamers.
-  - Barricaded windows (tear & `[E]` repair for `+10 PTS`), buyable Sector Doors, Power Switch, 6 Perk-a-Cola machines (`Quick Revive`, `Juggernog`, `Speed Cola`, `Double Tap 2.0`, `Stamin-Up`, `Deadshot Daiquiri`), Chalk Wall Buys, Armor Plates, Mystery Box (with Wonder Weapons `Ray Gun` & `Thundergun` + Teddy Bear relocation), Pack-a-Punch Forge (`Mustang & Sally`, `Porter's X2 Ray Gun`, etc.), 6 spinning Power-Ups, Station Omega Teleporter, and Round 10+ Helicopter Exfil (`[H]`).
-- **Offline Multiplayer Bot Modes** (`Killhouse` & `Crash Site`):
-  - **Team Deathmatch**, **Free-For-All**, **Domination** (`A/B/C` flags), **Hardpoint**, and **Gun Game** (16-weapon ladder).
-  - 4 Bot Difficulties (`Recruit` → `Veteran`) & 6 Killstreaks (`Recon UAV`, `Care Package`, `Precision Airstrike`, `Attack Chopper`, `Juggernaut Suit`, `Tactical Nuke`).
+- **Online Co-op & Solo COD Zombies** (9 Maps including 1:1 WaW / BO1 / BO2 Classics):
+  - Shared Doors, Main Power Switch, Power-Ups, Co-op Teammate Revives (`[E]`), 20 Unique Zombies, 5 Boss Rounds (`5, 10, 20, 25, 50`), 6 Perk-a-Colas, Mystery Box, and 3-Tier Pack-a-Punch.
+- **Online Co-op & Solo Tower Defense (Castle Siege)** (3 Castle Setups):
+  - Defend 3 see-through/shoot-through Defense Wall Layers (`250 HP` each) and the `100 HP` Castle Heart with your squad, Sentry Turrets, Armored Guard Dogs, Allied Marines, and the 30s Intermission Shopkeeper.
+- **Online PvP / Co-op & Bot Multiplayer** (`Nuketown`, `Shipment`, `Terminal`, `Rust`, `Killhouse`, `Crash Site`):
+  - **Team Deathmatch**, **Free-For-All**, **Domination**, **Hardpoint**, and **Gun Game** + full Custom Game Rules and 15-second MW2 Winner Killcam.
 - **Create-a-Class & Interactive 3D Gunsmith**:
-  - 10 Custom Classes, 15 Loadout Weapons + 2 Wonder Weapons, 5 Attachment Slots (`Optic`, `Muzzle`, `Underbarrel`, `Magazine`, `Stock`), 10 Camos (including animated `Dark Matter`), Lethals, Tacticals, 12 Perks, 4 Field Upgrades, and 360° interactive 3D weapon preview.
-- **Progression & Barracks**:
-  - 55 Military Ranks, 10 Prestige tiers, Weapon Levels `1–20`, 16 Medals, 18 Challenges, Combat Record, and JSON Save Export/Import.
-
-## Controls
-- **Move**: `W A S D` | **Sprint / Tac-Sprint / Sniper Hold Breath**: `Shift`
-- **Jump / Slide-Cancel**: `Space` | **Crouch / Slide**: `C` or `Ctrl`
-- **Fire**: `Left Click` | **ADS / Scope**: `Right Click` | **Reload**: `R`
-- **Switch Weapon**: `1`, `2`, or `Mouse Wheel` | **Fire Mode**: `B`
-- **Interact (Doors / Perks / Mystery Box / PaP / Repairs)**: `E`
-- **Melee**: `V` | **Lethal**: `G` (hold to cook Frag, double-tap to detonate C4) | **Tactical**: `Q`
-- **Field Upgrade**: `X` | **Armor Plate**: `4` | **Killstreaks**: `5`, `6`, `7`
-- **Call Zombies Exfil (Round 10+)**: `H` | **Scoreboard**: `Tab` | **Pause**: `P` or `Esc`
+  - 10 Custom Classes, 70 Weapons (50 Firearms, 10 Melee, 10 Magic/Wonder Weapons), 5 Attachment Slots, 10 Camos, Perks, Special Powers, and Ultimate Powers.

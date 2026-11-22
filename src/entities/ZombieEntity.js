@@ -155,6 +155,24 @@
                 return this.deathTimer > 0;
             }
 
+            // Online Client Puppet Interpolation (Host is authoritative over Zombie AI)
+            if (BO.Net && BO.Net.active && !BO.Net.isHost && this.netTargetPos) {
+                if (this.attackSwing > 0) this.attackSwing = Math.max(0, this.attackSwing - dt * 2.5);
+                this.habitPhase += dt * 4.5;
+                const dist = this.pos.distanceTo(this.netTargetPos);
+                const moveSpd = BO.Math.clamp(dist * 10, 0, this.speed * 1.3);
+                this.pos.lerp(this.netTargetPos, Math.min(1, dt * 14));
+                if (typeof this.netTargetYaw === 'number') {
+                    this.yaw += BO.Math.angleDiff(this.yaw, this.netTargetYaw) * Math.min(1, dt * 14);
+                }
+                this.animPhase += dt * (moveSpd * 2.4 + 1.5);
+                const hoverOffset = this.movementHabit === 'hover_drift' ? Math.sin(this.habitPhase) * 0.16 : 0;
+                this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
+                this.parts.root.rotation.y = this.yaw;
+                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, this.attackSwing, 0);
+                return true;
+            }
+
             if (this.stunTimer > 0) this.stunTimer -= dt;
             if (this.frozenTimer > 0) this.frozenTimer -= dt;
             if (this.danceTimer > 0) this.danceTimer -= dt;
@@ -267,7 +285,8 @@
             } else {
                 const monkey = BO.Combat.activeMonkeyBomb;
                 const customTarget = (!monkey && !P.aetherActive && callbacks && callbacks.getTarget) ? callbacks.getTarget(this) : null;
-                let tx = P.pos.x, ty = P.pos.y, tz = P.pos.z;
+                const closestP = (BO.Net && BO.Net.active) ? BO.Net.getClosestLivingPlayer(this.pos) : { isLocal: true, pos: P.pos, alive: P.alive && !P.aetherActive };
+                let tx = closestP.pos.x, ty = closestP.pos.y, tz = closestP.pos.z;
                 let chasingMonkey = false;
 
                 if (monkey) {
@@ -275,7 +294,7 @@
                     chasingMonkey = true;
                 } else if (customTarget) {
                     tx = customTarget.x; ty = customTarget.y; tz = customTarget.z;
-                } else if (P.aetherActive) {
+                } else if (!closestP.alive || (closestP.isLocal && P.aetherActive)) {
                     tx = this.pos.x + Math.sin(this.id + performance.now() * 0.001) * 4;
                     tz = this.pos.z + Math.cos(this.id + performance.now() * 0.001) * 4;
                 }
@@ -287,7 +306,7 @@
 
                 // Special Ranged Attacks (Acid Spit, Fire Bolt, Frost Shard, Life Drain, Aether Bolt)
                 const isRanged = ['acid_spit', 'fire_bolt', 'frost_shard', 'life_drain', 'aether_bolt'].includes(this.attackType);
-                if (!chasingMonkey && !customTarget && !P.aetherActive && P.alive && isRanged && distToTarget > 3.5 && distToTarget < 22 && this.rangedCooldown <= 0) {
+                if (!chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < 22 && this.rangedCooldown <= 0) {
                     if (BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.3, this.pos.z, tx, ty + 1.2, tz)) {
                         this.rangedCooldown = this.isBoss ? 2.4 : 3.8;
                         this.attackSwing = 1.0;
@@ -297,7 +316,7 @@
 
                 // Special Movement Habits (Hop, Leap Pounce, Teleport Blink, Bull Charge)
                 this.habitTimer -= dt;
-                if (!chasingMonkey && !P.aetherActive && this.habitTimer <= 0 && distToTarget < 15) {
+                if (!chasingMonkey && closestP.alive && this.habitTimer <= 0 && distToTarget < 15) {
                     if (this.movementHabit === 'hop_erratic' || this.movementHabit === 'leap_pounce') {
                         this.habitTimer = 2.4 + Math.random() * 1.4;
                         if (this.pos.y <= floorY + 0.1) {
@@ -321,7 +340,7 @@
                     }
                 }
 
-                if (!chasingMonkey && !P.aetherActive && distToTarget <= attackRange && (customTarget || P.alive)) {
+                if (!chasingMonkey && distToTarget <= attackRange && (customTarget || closestP.alive)) {
                     this.yaw = Math.atan2(tx - this.pos.x, tz - this.pos.z);
                     if (this.attackCooldown <= 0) {
                         this.attackCooldown = this.attackType === 'double_claw' ? 0.65 : (this.isBoss ? 1.25 : 1.15);
@@ -339,6 +358,13 @@
                         }
                         if (customTarget) {
                             if (callbacks && callbacks.onAttackCustomTarget) callbacks.onAttackCustomTarget(this, customTarget);
+                        } else if (!closestP.isLocal && BO.Net && BO.Net.active) {
+                            BO.Net.sendToPeer(closestP.peerId, {
+                                type: 'z_damage_player',
+                                targetPeerId: closestP.peerId,
+                                damage: this.damage,
+                                ax: this.pos.x, ay: this.pos.y, az: this.pos.z
+                            });
                         } else {
                             if (callbacks && callbacks.onMeleePlayer) callbacks.onMeleePlayer(this);
                         }

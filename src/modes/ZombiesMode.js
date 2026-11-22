@@ -483,6 +483,17 @@
             const finalDmg = isInsta ? (z.isBoss ? modDmg * 4 : 99999) : (isPaP && z.isBoss ? modDmg * 1.35 : modDmg);
             const dmgKind = isMelee ? 'melee' : (weaponInst?.stats?.papEffect === 'incendiary' ? 'fire' : 'bullet');
 
+            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                BO.Net.sendToHost({
+                    type: 'z_hit',
+                    zid: z.id,
+                    dmg: finalDmg,
+                    hitbox,
+                    isHead: hitbox === 'head',
+                    dmgKind
+                });
+            }
+
             const killed = z.takeDamage(finalDmg, hitbox, hitbox === 'head', dir, dmgKind);
 
             if (weaponInst && weaponInst.stats && weaponInst.stats.papEffect === 'incendiary' && !killed) {
@@ -570,6 +581,16 @@
                         const falloff = 1 - (d / radius) * 0.55;
                         const dmg = this.instaKillTimer > 0 && !z.isBoss ? 99999 : damage * falloff;
                         const dir = z.pos.clone().sub(pos).normalize();
+                        if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                            BO.Net.sendToHost({
+                                type: 'z_hit',
+                                zid: z.id,
+                                dmg,
+                                hitbox: 'torso',
+                                isHead: false,
+                                dmgKind: 'explosive'
+                            });
+                        }
                         const killed = z.takeDamage(dmg, 'torso', false, dir, 'explosive');
                         if (killed) {
                             multi++;
@@ -672,7 +693,7 @@
             }
         }
 
-        startExfil() {
+        startExfil(fromNetwork = false) {
             if (!this.exfilAvailable || this.exfilActive) return;
             this.exfilActive = true;
             this.state = 'exfil';
@@ -681,12 +702,29 @@
             BO.World.spawnExfilBeacon(ep.x, ep.z);
             BO.Events.emit('hud:banner', { title: 'EXFIL INITIATED', sub: 'CLEAR ALL ZOMBIES & REACH GREEN SMOKE LZ!', color: '#22c55e' });
             BO.Sound.playPowerOn();
+            if (!fromNetwork && BO.Net && BO.Net.active) {
+                BO.Net.broadcast({
+                    type: 'z_world_event',
+                    event: { kind: 'exfil_start', actor: BO.Save.data.callsign || 'SQUAD' }
+                });
+            }
         }
 
         tryInteract() {
-            const inter = this.activePrompt;
-            if (!inter || !BO.Player.alive) return;
             const P = BO.Player;
+            if (!P.alive) return;
+
+            // Check if a downed co-op teammate is nearby first!
+            if (BO.Net && BO.Net.active) {
+                const downed = BO.Net.getDownedTeammateNear(P.pos);
+                if (downed) {
+                    BO.Net.reviveTeammate(downed.peerId);
+                    return;
+                }
+            }
+
+            const inter = this.activePrompt;
+            if (!inter) return;
 
             if (inter.type === 'door') {
                 const d = inter.data;
@@ -699,12 +737,17 @@
                 this.points -= d.cost;
                 BO.World.openDoor(inter);
                 BO.Events.emit('hud:toast', { text: `${d.label} UNLOCKED`, color: '#f5a623' });
+                if (BO.Net && BO.Net.active) {
+                    BO.Net.broadcast({
+                        type: 'z_world_event',
+                        event: { kind: 'open_door', doorId: d.id, actor: BO.Save.data.callsign || 'SQUAD' }
+                    });
+                }
             } else if (inter.type === 'window') {
                 if (inter.planksRemaining < inter.maxPlanks) {
                     const pm = inter.plankMeshes[inter.planksRemaining];
                     if (pm) pm.visible = true;
                     inter.planksRemaining++;
-                    if (BO.Net && BO.Net.isClient()) BO.Net.toHost({ t: 'repair', i: BO.World.interactives.indexOf(inter) });
                     this.addPoints(10, 'REPAIR');
                     BO.Sound.playReload('in');
                 }
@@ -712,6 +755,12 @@
                 if (!inter.activated) {
                     BO.World.activatePower();
                     BO.Events.emit('hud:banner', { title: 'POWER RESTORED', sub: 'PERKS, TELEPORTER & PACK-A-PUNCH ONLINE', color: '#38bdf8' });
+                    if (BO.Net && BO.Net.active) {
+                        BO.Net.broadcast({
+                            type: 'z_world_event',
+                            event: { kind: 'power_on', actor: BO.Save.data.callsign || 'SQUAD' }
+                        });
+                    }
                 }
             } else if (inter.type === 'wall_buy') {
                 const wb = inter.data;
@@ -1145,6 +1194,12 @@
         }
 
         getPromptText() {
+            if (BO.Net && BO.Net.active && BO.Player) {
+                const downed = BO.Net.getDownedTeammateNear(BO.Player.pos);
+                if (downed) {
+                    return { text: `[E] REVIVE ${downed.callsign} (+150 PTS)`, affordable: true };
+                }
+            }
             const inter = this.activePrompt;
             if (!inter) {
                 if (this.exfilAvailable && !this.exfilActive && this.state !== 'ended') {
@@ -1286,11 +1341,9 @@
             this._updateMapSystems(dt);
             this._updateNearestPrompt();
 
-            // Online: the host owns round flow; clients mirror it from network snapshots.
-            const netClient = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.isClient());
-            if (netClient) {
-                // Round state, spawning and exfil are driven by the host.
-            } else if (this.state === 'intermission') {
+            const isOnlineClient = !!(BO.Net && BO.Net.active && !BO.Net.isHost);
+
+            if (!isOnlineClient && this.state === 'intermission') {
                 this.stateTimer -= dt;
                 if (this.stateTimer <= 0) {
                     if (!this.firstRoundStarted) {
@@ -1300,7 +1353,7 @@
                         this._beginRound(this.round + 1);
                     }
                 }
-            } else if (this.state === 'fighting' || this.state === 'exfil') {
+            } else if (!isOnlineClient && (this.state === 'fighting' || this.state === 'exfil')) {
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
                 if (this.remainingToSpawn > 0 && aliveCount < 24) {
                     this.spawnCooldown -= dt;
@@ -1323,14 +1376,11 @@
                 }
             }
 
-            if (this.exfilActive && !netClient) {
+            if (this.exfilActive) {
                 this.exfilTimer -= dt;
                 const ep = BO.World.mapData.exfilPoint || { x: 0, z: 0 };
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
-                const atLz = (BO.Net && BO.Net.game && BO.Net.game.inMatch)
-                    ? BO.Net.game.anyPlayerNear(ep.x, ep.z, 4.0)
-                    : BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, ep.x, ep.z) < 4.0;
-                if (atLz && aliveCount <= 0 && this.remainingToSpawn <= 0) {
+                if (BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, ep.x, ep.z) < 4.0 && aliveCount <= 0 && this.remainingToSpawn <= 0) {
                     this._finishMatch(true);
                     return;
                 }
@@ -1372,24 +1422,16 @@
                 ep.pos.add(step);
                 ep.mesh.position.copy(ep.pos);
 
-                let hitTarget = (P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.78) ? P : null;
-                if (!hitTarget && BO.Net && BO.Net.isHost() && BO.Net.game && BO.Net.game.inMatch) {
-                    for (const rp of BO.Net.game.remotes.values()) {
-                        if (rp.inMatch() && rp.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, rp.pos.x, rp.pos.y + 1.1, rp.pos.z) < 0.78) {
-                            hitTarget = rp.standIn;
-                            break;
-                        }
-                    }
-                }
-                if (hitTarget) {
-                    hitTarget.takeDamage(ep.damage, ep.owner ? ep.owner.pos : ep.pos, false);
+                const hitPlayer = P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.78;
+                if (hitPlayer) {
+                    P.takeDamage(ep.damage, ep.owner ? ep.owner.pos : ep.pos, false);
                     if (ep.kind === 'life_drain' && ep.owner && ep.owner.alive) {
                         ep.owner.hp = Math.min(ep.owner.maxHp, ep.owner.hp + 55);
                     }
                     BO.FX.spawnParticles(ep.pos, 8, ep.color, 3.5, 6, 0.4, 1.2);
                 }
 
-                if (hitTarget || hitWall || ep.life <= 0) {
+                if (hitPlayer || hitWall || ep.life <= 0) {
                     if (hitWall) BO.FX.spawnParticles(ep.pos, 6, ep.color, 3, 6, 0.35, 1.0);
                     if (BO.World.scene) BO.World.scene.remove(ep.mesh);
                     this.enemyProjectiles.splice(i, 1);
@@ -1415,7 +1457,9 @@
                 }
             }
 
-            if (!P.alive) this._finishMatch(false);
+            if (!P.alive && (!BO.Net || !BO.Net.active || !BO.Net.isAnySquadmateAlive())) {
+                this._finishMatch(false);
+            }
         }
 
         _updateMapSystems(dt) {

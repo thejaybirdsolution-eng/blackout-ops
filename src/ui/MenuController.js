@@ -105,9 +105,47 @@
             BO.Events.on('save:updated', () => this.updateAllRankBadges());
             BO.Events.on('cheats:changed', () => this.updateCheatMenuVisibility());
             BO.Events.on('match:ended', (report) => this.showAAR(report));
+            BO.Events.on('net:updated', () => {
+                this._refreshNetUI();
+            });
+            BO.Events.on('net:chat', () => {
+                this._refreshNetChatUI();
+            });
+            BO.Events.on('net:link_copied', (d) => {
+                const btn = document.getElementById('btn-net-copy-link');
+                if (btn) {
+                    btn.textContent = '✓ LINK COPIED TO CLIPBOARD!';
+                    btn.style.borderColor = '#22c55e';
+                    btn.style.color = '#22c55e';
+                }
+                const pBtn = document.getElementById('btn-pause-invite');
+                if (pBtn) {
+                    pBtn.textContent = '✓ INVITE LINK COPIED! (' + (BO.Net ? BO.Net.roomCode : '') + ')';
+                }
+            });
         }
 
         _bindButtons() {
+            const onlineBtn = document.getElementById('btn-menu-online');
+            if (onlineBtn) {
+                onlineBtn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (BO.Net && !BO.Net.active) {
+                        BO.Net.hostRoom();
+                    }
+                    this.showScreen('play_lobby');
+                    setTimeout(() => {
+                        if (BO.Net && BO.Net.active) BO.Net.copyInviteLink();
+                    }, 120);
+                };
+            }
+            const pauseInviteBtn = document.getElementById('btn-pause-invite');
+            if (pauseInviteBtn) {
+                pauseInviteBtn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (BO.Net) BO.Net.copyInviteLink();
+                };
+            }
             document.getElementById('btn-menu-zombies').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'zombies'; this.showScreen('play_lobby'); };
             document.getElementById('btn-menu-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.showScreen('play_lobby'); };
             const tdBtn = document.getElementById('btn-menu-td');
@@ -611,12 +649,22 @@
                 });
             }
 
+            if (BO.Net && BO.Net.active && BO.Net.isHost) {
+                BO.Net.broadcastLobbySettings();
+            }
+
             const classes = BO.Loadout.getClasses();
             const selIdx = BO.Loadout.getSelectedClassIndex();
             const activeCls = classes[selIdx];
             const ult = BO.AttachmentsData.ULTIMATE_POWERS[activeCls.ultimatePower || 'gravity_spikes'];
+            const netActive = !!(BO.Net && BO.Net.active);
+            const isClientInLobby = netActive && !BO.Net.isHost;
+
             right.innerHTML = `
-                <div class="panel-title">ACTIVE CLASS DEPLOYMENT</div>
+                <div class="panel-title" style="color:#22c55e;">🌐 ONLINE SQUAD LOBBY (ALL 3 MODES)</div>
+                <div id="net-lobby-box" style="background:rgba(13,19,29,0.92);border:1px solid #22c55e;padding:10px;display:flex;flex-direction:column;gap:8px;"></div>
+
+                <div class="panel-title" style="margin-top:4px;">ACTIVE CLASS DEPLOYMENT</div>
                 <select id="lobby-class-select" data-tip-title="Pick Your Class" data-tip="Choose which of your 10 custom classes you want to take into this match." style="background:#0d131d;color:#f8fafc;border:1px solid var(--border-subtle);padding:10px;font-family:var(--font-ui);font-size:14px;">
                     ${classes.map((c, i) => `<option value="${i}" ${i === selIdx ? 'selected' : ''}>${i + 1}. ${c.name}</option>`).join('')}
                 </select>
@@ -626,19 +674,22 @@
                     <div class="card-sub">Grenade [G]: ${BO.AttachmentsData.LETHALS[activeCls.lethal]?.name} • Tactical [Q]: ${BO.AttachmentsData.TACTICALS[activeCls.tactical]?.name}</div>
                     <div class="card-sub">Special [X]: ${BO.AttachmentsData.FIELD_UPGRADES[activeCls.fieldUpgrade]?.name} • Ultimate [U]: ${ult ? ult.name : ''}</div>
                 </div>
-                <button class="btn" id="lobby-edit-class" data-tip-title="3D Gunsmith" data-tip="Customize your primary gun, side weapon, attachments, perks, grenade, tactical, special power, and ultimate power.">OPEN 3D GUNSMITH</button>
-                <button class="btn" id="lobby-open-legend" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Master Legend" data-tip="Read stats for all 70 weapons, 20 zombies, 5 bosses, Mystery Box odds, and cheat codes.">OPEN MASTER LEGEND</button>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn" id="lobby-edit-class" style="flex:1;" data-tip-title="3D Gunsmith" data-tip="Customize your primary gun, side weapon, attachments, perks, grenade, tactical, special power, and ultimate power.">3D GUNSMITH</button>
+                    <button class="btn" id="lobby-open-legend" style="flex:1;border-color:#38bdf8;color:#38bdf8;" data-tip-title="Master Legend" data-tip="Read stats for all 70 weapons, 20 zombies, 5 bosses, Mystery Box odds, and cheat codes.">LEGEND</button>
+                </div>
                 ${BO.Cheats && BO.Cheats.isModMenuUnlocked() ? `<button class="btn" id="lobby-open-modmenu" style="border-color:#fde047;color:#fde047;">★ OPEN ZOMBIES MOD MENU</button>` : ''}
                 <div style="flex:1"></div>
-                <div style="font-size:12px;color:var(--text-dim);line-height:1.45;">
-                    <b>CONTROLS:</b> WASD Move • Shift Sprint • C Slide • Space Jump • LMB Shoot • RMB Aim • R Reload • E Interact • V Melee • G Grenade • Q Tactical • X Special • U Ultimate • 4 Armor
-                </div>
-                <button class="btn ${isZ ? 'btn-zombies' : 'btn-primary'}" id="btn-deploy-match" style="padding:16px;font-size:18px;"
-                    data-tip-title="Start Match!" data-tip="Click to jump straight into the 3D battlefield!">
-                    DEPLOY INTO COMBAT ${isZ && roundsUnlocked && this.selectedStartRound > 1 ? `(ROUND ${this.selectedStartRound})` : ''}
+                <button class="btn ${isZ ? 'btn-zombies' : 'btn-primary'}" id="btn-deploy-match" style="padding:14px;font-size:17px;"
+                    data-tip-title="Start Match!" data-tip="Launches the 3D battlefield for everyone in your online lobby!">
+                    ${isClientInLobby ? 'DEPLOY NOW (OR WAIT FOR HOST)' : (netActive ? `DEPLOY SQUAD (${BO.Net.players.size}) INTO COMBAT` : `DEPLOY INTO COMBAT ${isZ && roundsUnlocked && this.selectedStartRound > 1 ? `(ROUND ${this.selectedStartRound})` : ''}`)}
                 </button>
             `;
-            document.getElementById('lobby-class-select').onchange = (e) => { BO.Loadout.setSelectedClassIndex(Number(e.target.value)); this.renderLobby(); };
+            document.getElementById('lobby-class-select').onchange = (e) => {
+                BO.Loadout.setSelectedClassIndex(Number(e.target.value));
+                if (BO.Net && BO.Net.active) BO.Net.syncMyProfile();
+                this.renderLobby();
+            };
             document.getElementById('lobby-edit-class').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('lobby-open-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
             const lModBtn = document.getElementById('lobby-open-modmenu');
@@ -670,6 +721,133 @@
                     }
                 }
             };
+            this._refreshNetUI();
+        }
+
+        _refreshNetUI() {
+            const box = document.getElementById('net-lobby-box');
+            if (!box || !BO.Net) return;
+            const N = BO.Net;
+
+            const deployBtn = document.getElementById('btn-deploy-match');
+            if (deployBtn) {
+                if (N.active && !N.isHost) {
+                    deployBtn.textContent = 'WAITING FOR HOST TO LAUNCH (OR CLICK TO START)';
+                } else if (N.active) {
+                    deployBtn.textContent = `DEPLOY SQUAD (${N.players.size}) INTO COMBAT`;
+                }
+            }
+
+            if (!N.active) {
+                box.innerHTML = `
+                    <div style="font-size:11.5px;color:#cbd5e1;line-height:1.35;">
+                        Create an Online Room to get a shareable link—anyone who opens your link automatically lands in this lobby with you!
+                    </div>
+                    <button class="btn btn-sm" id="btn-net-create" style="background:linear-gradient(135deg,#15803d,#22c55e);color:#052e16;border-color:#4ade80;font-weight:800;padding:10px;">
+                        🔗 CREATE ONLINE LOBBY &amp; GET FRIEND LINK
+                    </button>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="text" id="inp-net-code" placeholder="ENTER ROOM CODE" maxlength="8" style="flex:1;background:#070a0f;color:#fde047;border:1px solid var(--border-subtle);padding:6px 8px;font-family:var(--font-mono);font-weight:800;text-transform:uppercase;">
+                        <button class="btn btn-sm btn-primary" id="btn-net-join">JOIN CODE</button>
+                    </div>
+                `;
+                document.getElementById('btn-net-create').onclick = () => {
+                    BO.Sound.playUIClick();
+                    N.hostRoom();
+                    setTimeout(() => N.copyInviteLink(), 80);
+                };
+                const inp = document.getElementById('inp-net-code');
+                const jBtn = document.getElementById('btn-net-join');
+                jBtn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (inp.value.trim()) N.joinRoom(inp.value.trim(), false);
+                };
+                inp.onkeydown = (e) => {
+                    if (e.key === 'Enter' && inp.value.trim()) N.joinRoom(inp.value.trim(), false);
+                };
+                return;
+            }
+
+            const inviteUrl = N.getInviteUrl();
+            const players = Array.from(N.players.values());
+            const isMp = this.lobbyMode === 'mp';
+
+            box.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                    <span style="font-size:12px;font-weight:800;color:#4ade80;">● ${escAttr(N.statusText)}</span>
+                    <span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:#fde047;background:#070a0f;padding:2px 7px;border:1px solid var(--amber);">CODE: ${N.roomCode}</span>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    <input type="text" readonly value="${escAttr(inviteUrl)}" id="inp-invite-url" style="flex:1;background:#070a0f;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);padding:5px 7px;font-family:var(--font-mono);font-size:11px;user-select:all;">
+                    <button class="btn btn-sm btn-primary" id="btn-net-copy-link" title="Copy link to send to your friend">📋 COPY LINK</button>
+                </div>
+                <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;">
+                    <span>SQUAD IN LOBBY (${players.length} / 8)</span>
+                    ${isMp ? `<button class="btn btn-sm" id="btn-net-toggle-team" style="padding:2px 7px;font-size:10px;border-color:${N.myTeam === 0 ? '#38bdf8' : '#ef4444'};color:${N.myTeam === 0 ? '#38bdf8' : '#ef4444'};">MY TEAM: ${N.myTeam === 0 ? 'ALLIES (CO-OP)' : 'HOSTILES (VS FRIENDS)'}</button>` : ''}
+                </div>
+                <div style="display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto;">
+                    ${players.map((p) => {
+                        const wShort = BO.WeaponsData.get(p.weaponId || 'm4a1')?.shortName || 'M4A1';
+                        const isMe = p.peerId === N.myPeerId;
+                        const teamTag = isMp
+                            ? `<span style="color:${(p.team || 0) === 0 ? '#38bdf8' : '#ef4444'};font-size:10px;">[${(p.team || 0) === 0 ? 'ALLY' : 'ENEMY'}]</span>`
+                            : `<span style="color:#22c55e;font-size:10px;">[SQUAD]</span>`;
+                        return `
+                            <div style="display:flex;justify-content:space-between;align-items:center;background:#070a0f;padding:4px 8px;border-left:3px solid ${p.isHost ? '#fde047' : '#38bdf8'};font-size:11.5px;">
+                                <span><b>${escAttr(p.callsign)}</b> ${isMe ? '(YOU)' : ''} ${p.isHost ? '<span style="color:#fde047;font-size:10px;">★ HOST</span>' : ''}</span>
+                                <span>${teamTag} <span style="color:#94a3b8;font-size:10.5px;">LV${p.level || 1} • ${wShort}</span></span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div id="net-chat-log" style="background:#05080d;border:1px solid var(--border-subtle);padding:5px 7px;height:56px;overflow-y:auto;font-size:11px;display:flex;flex-direction:column;gap:2px;"></div>
+                <div style="display:flex;gap:4px;">
+                    <input type="text" id="inp-net-chat" placeholder="Chat with squad..." maxlength="120" style="flex:1;background:#070a0f;color:#f8fafc;border:1px solid var(--border-subtle);padding:4px 7px;font-size:11.5px;">
+                    <button class="btn btn-sm" id="btn-net-send">SEND</button>
+                    <button class="btn btn-sm btn-zombies" id="btn-net-leave" title="Leave Online Lobby">LEAVE</button>
+                </div>
+            `;
+
+            document.getElementById('btn-net-copy-link').onclick = () => {
+                BO.Sound.playUIClick();
+                N.copyInviteLink();
+            };
+            const urlInp = document.getElementById('inp-invite-url');
+            if (urlInp) urlInp.onclick = () => urlInp.select();
+
+            const teamBtn = document.getElementById('btn-net-toggle-team');
+            if (teamBtn) {
+                teamBtn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    N.setMyTeam(N.myTeam === 0 ? 1 : 0);
+                };
+            }
+
+            const chatInp = document.getElementById('inp-net-chat');
+            const sendBtn = document.getElementById('btn-net-send');
+            const doSend = () => {
+                if (chatInp && chatInp.value.trim()) {
+                    N.sendChat(chatInp.value.trim());
+                    chatInp.value = '';
+                }
+            };
+            if (sendBtn) sendBtn.onclick = doSend;
+            if (chatInp) chatInp.onkeydown = (e) => { if (e.key === 'Enter') doSend(); };
+
+            document.getElementById('btn-net-leave').onclick = () => {
+                BO.Sound.playUIClick();
+                N.leaveRoom(true);
+            };
+            this._refreshNetChatUI();
+        }
+
+        _refreshNetChatUI() {
+            const log = document.getElementById('net-chat-log');
+            if (!log || !BO.Net) return;
+            log.innerHTML = BO.Net.chatMessages.map((m) =>
+                `<div><b style="color:${m.color || '#38bdf8'}">${escAttr(m.sender)}:</b> <span style="color:#e2e8f0">${escAttr(m.text)}</span></div>`
+            ).join('');
+            log.scrollTop = log.scrollHeight;
         }
 
         /* ====================================================================

@@ -201,8 +201,6 @@
             this.shopkeeperObj = { x: sk.x, y: sk.y, z: sk.z, mesh: shopBuilt.root };
 
             // 3. Three Sequential SEE-THROUGH & SHOOT-THROUGH Defense Wall Layers (250 HP each)
-            //    Translucent energy/glass barrier panes framed with steel rails & posts so you can
-            //    see and shoot cleanly through every layer while zombies are physically blocked!
             const LAYER_COLORS = { 1: 0x22c55e, 2: 0x38bdf8, 3: 0xf59e0b };
             const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.72, roughness: 0.35 });
             const defs = map.defenseLayers || [];
@@ -212,7 +210,6 @@
                 for (const s of dl.segments) {
                     const segGroup = new THREE.Group();
 
-                    // Crystal-clear translucent see-through barrier pane (NOT added to worldMeshes -> 100% shoot-through!)
                     const paneMat = new THREE.MeshStandardMaterial({
                         color: baseHex,
                         emissive: baseHex,
@@ -229,7 +226,6 @@
                     pane.renderOrder = 2;
                     segGroup.add(pane);
 
-                    // Steel bottom curb & glowing top rail
                     const botRail = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.24, Math.min(s.d, 0.65)), frameMat);
                     botRail.position.set(s.x, s.y + 0.12, s.z);
                     const topRail = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.20, Math.min(s.d, 0.65)), frameMat);
@@ -241,7 +237,6 @@
                     glowStrip.position.set(s.x, s.y + s.h + 0.06, s.z);
                     segGroup.add(botRail, topRail, glowStrip);
 
-                    // Spaced vertical steel posts along the barrier length for clear depth & fortification silhouette
                     const longX = s.w >= s.d;
                     const span = longX ? s.w : s.d;
                     const postCount = Math.max(2, Math.floor(span / 10) + 1);
@@ -342,12 +337,11 @@
         }
 
         _pickBossForWave(wave) {
-            // Easier bosses unlocked at Round 10 first; harder bosses added at higher waves!
-            const pool = [BO.ZombiesData.BOSSES_BY_ROUND[5]]; // Butcher (easiest boss)
-            if (wave >= 14) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[10]); // Cerberus
-            if (wave >= 18) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[20]); // Dr. Plague
-            if (wave >= 24) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[25]); // Iron Colossus
-            if (wave >= 30) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[50]); // Overlord Nyx
+            const pool = [BO.ZombiesData.BOSSES_BY_ROUND[5]];
+            if (wave >= 14) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[10]);
+            if (wave >= 18) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[20]);
+            if (wave >= 24) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[25]);
+            if (wave >= 30) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[50]);
             return BO.Math.pick(pool.filter(Boolean));
         }
 
@@ -360,7 +354,6 @@
             this.spawnCooldown = 0.6;
             this.state = 'spawning';
 
-            // Decay Temporary Teammates (each lasts 2 full waves)
             for (let i = this.allies.length - 1; i >= 0; i--) {
                 this.allies[i].wavesLeft--;
                 if (this.allies[i].wavesLeft <= 0) {
@@ -369,7 +362,6 @@
                 }
             }
 
-            // Boss Zombies have a chance starting at Round 10!
             if (this.wave >= 10) {
                 const bossChance = this.wave === 10 ? 1.0 : BO.Math.clamp(0.32 + (this.wave - 10) * 0.04, 0.32, 0.90);
                 if (Math.random() < bossChance) {
@@ -429,6 +421,10 @@
         skipIntermission() {
             if (!this.active || this.state !== 'intermission') return;
             BO.Sound.playUIClick();
+            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                BO.Net.sendToHost({ type: 'td_action', action: 'skip_wait' });
+                return;
+            }
             this._beginNextWave();
         }
 
@@ -470,7 +466,6 @@
             }
 
             if (itemId === 'barrier') {
-                // Heal highest-priority damaged or destroyed layer (3 -> 2 -> 1)
                 let targetLayer = null;
                 for (let i = this.layers.length - 1; i >= 0; i--) {
                     if (this.layers[i].hp < this.layers[i].maxHp) {
@@ -487,13 +482,15 @@
                 this._syncLayerVisual(targetLayer);
                 BO.Sound.playShopBuy();
                 BO.Events.emit('hud:toast', { text: `REPAIRED ${targetLayer.name} (${targetLayer.hp}/${targetLayer.maxHp} HP)!`, color: '#22c55e' });
+                if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                    BO.Net.sendToHost({ type: 'td_action', action: 'barrier' });
+                }
                 return true;
             }
 
             if (itemId === 'turret') {
                 const pads = BO.World.mapData.turretPads || [];
                 if (this.turrets.length >= pads.length) {
-                    // Upgrade existing turrets instead!
                     this.gold -= item.cost;
                     for (const t of this.turrets) {
                         t.damage = Math.round(t.damage * 1.35);
@@ -515,6 +512,9 @@
                 });
                 BO.Sound.playShopBuy();
                 BO.Events.emit('hud:toast', { text: `SENTRY TURRET #${this.turrets.length} DEPLOYED!`, color: '#38bdf8' });
+                if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                    BO.Net.sendToHost({ type: 'td_action', action: 'turret' });
+                }
                 return true;
             }
 
@@ -559,6 +559,9 @@
                 this.allies.push(ally);
                 BO.Sound.playShopBuy();
                 BO.Events.emit('hud:toast', { text: 'TEMPORARY TEAMMATE HIRED (2 WAVES)!', color: '#38bdf8' });
+                if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                    BO.Net.sendToHost({ type: 'td_action', action: 'teammate' });
+                }
                 return true;
             }
 
@@ -575,6 +578,9 @@
                 this.dogs.push(dog);
                 BO.Sound.playDogBark();
                 BO.Events.emit('hud:toast', { text: 'GUARD DOG DEPLOYED (300 HP)!', color: '#facc15' });
+                if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                    BO.Net.sendToHost({ type: 'td_action', action: 'dog' });
+                }
                 return true;
             }
 
@@ -590,6 +596,9 @@
 
         _onBulletHit(zombie, dmg, hitbox, weaponInst) {
             if (!zombie || !zombie.alive) return false;
+            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                BO.Net.sendToHost({ type: 'td_hit', zid: zombie.id, dmg, hitbox, isHead: hitbox === 'head' });
+            }
             const killed = zombie.takeDamage(dmg, hitbox, hitbox === 'head', null, 'bullet');
             this.gold += killed ? 45 : 10;
             if (killed) {
@@ -608,10 +617,16 @@
                 if (d <= rad) {
                     if (isFlash || wid === 'cryo_nova') {
                         z.stunTimer = Math.max(z.stunTimer, stunDur || 4.0);
-                    } else if (z.takeDamage(dmg * (1 - (d / rad) * 0.45), 'torso', false, null, 'explosive')) {
-                        kills++;
-                        this.kills++;
-                        this.gold += 45;
+                    } else {
+                        const blastDmg = dmg * (1 - (d / rad) * 0.45);
+                        if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                            BO.Net.sendToHost({ type: 'td_hit', zid: z.id, dmg: blastDmg, hitbox: 'torso', isHead: false });
+                        }
+                        if (z.takeDamage(blastDmg, 'torso', false, null, 'explosive')) {
+                            kills++;
+                            this.kills++;
+                            this.gold += 45;
+                        }
                     }
                 }
             }
@@ -619,7 +634,6 @@
         }
 
         _getZombieTarget(z) {
-            // Engage nearby Guard Dogs or nearby Player first (even when walls are intact)
             for (const dog of this.dogs) {
                 if (dog.hp > 0 && dog.pos.distanceTo(z.pos) < 3.8) {
                     return { kind: 'dog', dog, x: dog.pos.x, y: dog.pos.y, z: dog.pos.z, attackRange: 1.45, forceDirect: true };
@@ -631,7 +645,6 @@
 
             const layer = this.getActiveBlockingLayer();
             if (layer) {
-                // Find nearest segment & clamp to nearest point along that wall!
                 let bestSeg = layer.segments[0];
                 let bestDist = Infinity;
                 let bestPtX = 0, bestPtZ = 0;
@@ -657,7 +670,6 @@
                 };
             }
 
-            // All 3 Layers Destroyed -> Target Guard Dog if close, else Castle Heart via stairs!
             for (const dog of this.dogs) {
                 if (dog.hp > 0 && dog.pos.distanceTo(z.pos) < 5.5) {
                     return { kind: 'dog', dog, x: dog.pos.x, y: dog.pos.y, z: dog.pos.z, attackRange: 1.45, forceDirect: true };
@@ -665,10 +677,9 @@
             }
 
             if (BO.Player.alive && BO.Player.pos.distanceTo(z.pos) < 6.5 && Math.abs(BO.Player.pos.y - z.pos.y) < 1.8) {
-                return null; // Chase player directly on same elevation!
+                return null;
             }
 
-            // Bulletproof Castle Stair-Climbing Guidance once all 3 Layers fall!
             const ch = this.heartObj || { x: 0, y: 5.4, z: 19.0 };
             if (z.pos.y < 4.9) {
                 const map = BO.World.mapData;
@@ -689,15 +700,12 @@
                 const alignedOnStairs = Math.abs(z.pos.x - bot.x) <= hw && z.pos.z >= minZ && z.pos.z <= maxZ;
 
                 if (alignedOnStairs) {
-                    // Climb straight up the center of the Castle staircase onto the y=5.4 Keep Deck!
                     return { kind: 'climb', x: top.x, y: top.y, z: top.z, attackRange: 0, forceDirect: true };
                 }
-                // First route cleanly to the foot of the Castle staircase (uses waypoints if around the side of Keep)
                 const hasClearLineToBot = BO.World.hasLineOfSight(z.pos.x, z.pos.y + 1.0, z.pos.z, bot.x, bot.y + 1.0, bot.z);
                 return { kind: 'stair_entry', x: bot.x, y: bot.y, z: bot.z, attackRange: 0, forceDirect: hasClearLineToBot };
             }
 
-            // On the Castle Keep top deck (y >= 4.9) -> march directly to attack the 100 HP Castle Heart!
             return { kind: 'heart', x: ch.x, y: ch.y, z: ch.z, attackRange: 2.2, forceDirect: true };
         }
 
@@ -705,7 +713,6 @@
             if (!this.active || this.ended) return;
             this.elapsed += dt;
 
-            // Animate Castle Heart Crystal
             if (this.heartObj) {
                 this.heartObj.crystal.rotation.y += dt * 1.8;
                 this.heartObj.halo.rotation.z += dt * 1.4;
@@ -713,24 +720,19 @@
                 this.heartObj.crystal.material.color.setHex(hpFrac < 0.35 ? 0xef4444 : (hpFrac < 0.65 ? 0xf59e0b : 0x38bdf8));
             }
 
-            if (!BO.Player.alive) {
-                // Online: keep spectating while any squadmate is still alive.
-                if (!(BO.Net && BO.Net.game && BO.Net.game.handleLocalDeath())) {
-                    this._endMatch(false, 'COMMANDER FALLEN');
-                    return;
-                }
+            if (!BO.Player.alive && (!BO.Net || !BO.Net.active || !BO.Net.isAnySquadmateAlive())) {
+                this._endMatch(false, 'COMMANDER FALLEN');
+                return;
             }
 
-            // Wave State Machine (online clients mirror the host's waves instead)
-            const netClient = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.isClient());
-            if (netClient) {
-                // Driven by host snapshots.
-            } else if (this.state === 'intermission') {
+            const isOnlineClient = !!(BO.Net && BO.Net.active && !BO.Net.isHost);
+
+            if (!isOnlineClient && this.state === 'intermission') {
                 this.intermissionTimer -= dt;
                 if (this.intermissionTimer <= 0) {
                     this._beginNextWave();
                 }
-            } else if (this.state === 'spawning') {
+            } else if (!isOnlineClient && this.state === 'spawning') {
                 this.spawnCooldown -= dt;
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
                 if (this.remainingToSpawn > 0 && this.spawnCooldown <= 0 && aliveCount < 24) {
@@ -739,7 +741,7 @@
                     this.spawnCooldown = Math.max(0.32, 1.15 - this.wave * 0.03);
                 }
                 if (this.remainingToSpawn <= 0) this.state = 'fighting';
-            } else if (this.state === 'fighting') {
+            } else if (!isOnlineClient && this.state === 'fighting') {
                 if (!this.zombies.some((z) => z.alive)) {
                     const bonus = 250 + this.wave * 60;
                     this.gold += bonus;
@@ -755,7 +757,6 @@
                 }
             }
 
-            // Update Turrets
             const livingZ = this.zombies.filter((z) => z.alive);
             for (const t of this.turrets) {
                 if (t.cooldown > 0) t.cooldown -= dt;
@@ -781,7 +782,6 @@
                 }
             }
 
-            // Update Armored Guard Dogs (Defends until HP runs out!)
             for (let i = this.dogs.length - 1; i >= 0; i--) {
                 const d = this.dogs[i];
                 if (d.attackCd > 0) d.attackCd -= dt;
@@ -824,7 +824,6 @@
                 }
             }
 
-            // Update Temporary Allied Soldiers
             for (const a of this.allies) {
                 if (a.cooldown > 0) a.cooldown -= dt;
                 let nearest = null, bestD = 68;
@@ -849,7 +848,6 @@
                 }
             }
 
-            // Update Zombies & Populate Hit Pool
             const anyWallAlive = !!this.getActiveBlockingLayer();
             const callbacks = {
                 preventBlink: anyWallAlive,
