@@ -187,6 +187,20 @@
             } else if (BO.State.activeMode === 'td') {
                 const td = BO.TowerDefenseMode;
                 title.textContent = `${BO.World.mapData.name} — TOWER DEFENSE WAVE ${td.wave}`;
+                let extra = '';
+                if (BO.Net && BO.Net.active && BO.Net.game) {
+                    for (const rp of BO.Net.game.remotes.values()) {
+                        if (!rp.inMatch()) continue;
+                        extra += `
+                    <tr>
+                        <td>${rp.name} (FRIEND)</td>
+                        <td><span style="color:#38bdf8">${rp.alive ? 'DEFENDERS' : 'DOWN'}</span></td>
+                        <td>${rp.kills}</td>
+                        <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
+                        <td>${rp.points} GOLD</td>
+                    </tr>`;
+                    }
+                }
                 body.innerHTML = `
                     <tr class="sb-row-player">
                         <td>${BO.Save.data.callsign || 'COMMANDER'}</td>
@@ -194,18 +208,33 @@
                         <td>${td.kills}</td>
                         <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
                         <td>${td.gold} GOLD</td>
-                    </tr>`;
+                    </tr>${extra}`;
             } else {
                 const zm = BO.ZombiesMode;
+                const isCoop = !!(BO.Net && BO.Net.active && BO.Net.game && BO.Net.game.remotes.size > 0);
                 title.textContent = `${BO.World.mapData.name} — ZOMBIES ROUND ${BO.Math.toRoman(zm.round)}`;
+                let extra = '';
+                if (isCoop) {
+                    for (const rp of BO.Net.game.remotes.values()) {
+                        if (!rp.inMatch()) continue;
+                        extra += `
+                    <tr>
+                        <td>${rp.name} (FRIEND)</td>
+                        <td><span style="color:#38bdf8">${rp.alive ? 'CO-OP' : 'DOWN'}</span></td>
+                        <td>${rp.kills}</td>
+                        <td>${Math.round(rp.hp)} HP</td>
+                        <td>${rp.points} PTS</td>
+                    </tr>`;
+                    }
+                }
                 body.innerHTML = `
                     <tr class="sb-row-player">
                         <td>${BO.Save.data.callsign || 'SURVIVOR'}</td>
-                        <td><span style="color:#dc2626">SOLO</span></td>
+                        <td><span style="color:${isCoop ? '#22c55e' : '#dc2626'}">${isCoop ? 'CO-OP' : 'SOLO'}</span></td>
                         <td>${zm.kills}</td>
                         <td>${zm.headshots} HS</td>
                         <td>${zm.points} PTS</td>
-                    </tr>`;
+                    </tr>${extra}`;
             }
         }
 
@@ -631,6 +660,16 @@
                 for (const z of td.zombies) {
                     if (!z.alive) continue;
                     ctx.beginPath(); ctx.arc((z.pos.x - P.pos.x) * scale, (z.pos.z - P.pos.z) * scale, 2.6, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            if (BO.Net && BO.Net.active && BO.Net.game) {
+                const pvp = BO.Net.game.isPvP();
+                for (const rp of BO.Net.game.remotes.values()) {
+                    if (!rp.inMatch()) continue;
+                    ctx.fillStyle = !rp.alive ? '#f59e0b' : (pvp ? '#ef4444' : '#38bdf8');
+                    ctx.beginPath();
+                    ctx.arc((rp.pos.x - P.pos.x) * scale, (rp.pos.z - P.pos.z) * scale, 3.6, 0, Math.PI * 2);
+                    ctx.fill();
                 }
             }
             ctx.restore();

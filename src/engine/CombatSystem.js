@@ -356,6 +356,7 @@
 
             const tracerCol = w.isPaP ? 0xc084fc : 0xffd166;
             BO.FX.spawnTracer(muzzlePos, endPoint, tracerCol, w.isPaP ? 0.036 : 0.022, 0.075);
+            if (BO.Net && BO.Net.game) BO.Net.game.queueShot(muzzlePos, endPoint, tracerCol, w.stats.soundProfile);
             if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.recordKillcamFx) {
                 BO.MPMode.recordKillcamFx({ kind: 'tracer', sx: muzzlePos.x, sy: muzzlePos.y, sz: muzzlePos.z, ex: endPoint.x, ey: endPoint.y, ez: endPoint.z, color: tracerCol });
             }

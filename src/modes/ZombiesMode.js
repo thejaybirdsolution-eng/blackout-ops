@@ -704,6 +704,7 @@
                     const pm = inter.plankMeshes[inter.planksRemaining];
                     if (pm) pm.visible = true;
                     inter.planksRemaining++;
+                    if (BO.Net && BO.Net.isClient()) BO.Net.toHost({ t: 'repair', i: BO.World.interactives.indexOf(inter) });
                     this.addPoints(10, 'REPAIR');
                     BO.Sound.playReload('in');
                 }
@@ -1285,7 +1286,11 @@
             this._updateMapSystems(dt);
             this._updateNearestPrompt();
 
-            if (this.state === 'intermission') {
+            // Online: the host owns round flow; clients mirror it from network snapshots.
+            const netClient = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.isClient());
+            if (netClient) {
+                // Round state, spawning and exfil are driven by the host.
+            } else if (this.state === 'intermission') {
                 this.stateTimer -= dt;
                 if (this.stateTimer <= 0) {
                     if (!this.firstRoundStarted) {
@@ -1318,11 +1323,14 @@
                 }
             }
 
-            if (this.exfilActive) {
+            if (this.exfilActive && !netClient) {
                 this.exfilTimer -= dt;
                 const ep = BO.World.mapData.exfilPoint || { x: 0, z: 0 };
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
-                if (BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, ep.x, ep.z) < 4.0 && aliveCount <= 0 && this.remainingToSpawn <= 0) {
+                const atLz = (BO.Net && BO.Net.game && BO.Net.game.inMatch)
+                    ? BO.Net.game.anyPlayerNear(ep.x, ep.z, 4.0)
+                    : BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, ep.x, ep.z) < 4.0;
+                if (atLz && aliveCount <= 0 && this.remainingToSpawn <= 0) {
                     this._finishMatch(true);
                     return;
                 }
@@ -1364,16 +1372,24 @@
                 ep.pos.add(step);
                 ep.mesh.position.copy(ep.pos);
 
-                const hitPlayer = P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.78;
-                if (hitPlayer) {
-                    P.takeDamage(ep.damage, ep.owner ? ep.owner.pos : ep.pos, false);
+                let hitTarget = (P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.78) ? P : null;
+                if (!hitTarget && BO.Net && BO.Net.isHost() && BO.Net.game && BO.Net.game.inMatch) {
+                    for (const rp of BO.Net.game.remotes.values()) {
+                        if (rp.inMatch() && rp.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, rp.pos.x, rp.pos.y + 1.1, rp.pos.z) < 0.78) {
+                            hitTarget = rp.standIn;
+                            break;
+                        }
+                    }
+                }
+                if (hitTarget) {
+                    hitTarget.takeDamage(ep.damage, ep.owner ? ep.owner.pos : ep.pos, false);
                     if (ep.kind === 'life_drain' && ep.owner && ep.owner.alive) {
                         ep.owner.hp = Math.min(ep.owner.maxHp, ep.owner.hp + 55);
                     }
                     BO.FX.spawnParticles(ep.pos, 8, ep.color, 3.5, 6, 0.4, 1.2);
                 }
 
-                if (hitPlayer || hitWall || ep.life <= 0) {
+                if (hitTarget || hitWall || ep.life <= 0) {
                     if (hitWall) BO.FX.spawnParticles(ep.pos, 6, ep.color, 3, 6, 0.35, 1.0);
                     if (BO.World.scene) BO.World.scene.remove(ep.mesh);
                     this.enemyProjectiles.splice(i, 1);

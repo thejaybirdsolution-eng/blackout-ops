@@ -449,6 +449,18 @@
 
         _loop(now) {
             requestAnimationFrame((t) => this._loop(t));
+            this.lastRafTime = performance.now();
+            this._frame(now, true);
+        }
+
+        /** Simulates without drawing. Keeps online matches running while the browser tab is hidden. */
+        backgroundTick() {
+            const now = performance.now();
+            if (now - this.lastTime < 25) return;
+            this._frame(now, false);
+        }
+
+        _frame(now, render) {
             const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000));
             this.lastTime = now;
             this.elapsed += dt;
@@ -457,7 +469,9 @@
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
 
             if (BO.State.screen === 'playing') {
-                if (!BO.State.paused) {
+                // Online matches keep simulating while you're in the pause menu (your friends are still playing!)
+                const netLive = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.active);
+                if (!BO.State.paused || netLive) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -486,16 +500,19 @@
                         }
                     }
 
+                    if (BO.Net && BO.Net.game) BO.Net.game.update(dt);
                     BO.HUD.update(dt);
                 }
 
-                this.renderer.clear();
-                if (BO.World.scene) {
-                    this.renderer.render(BO.World.scene, this.worldCamera);
+                if (render) {
+                    this.renderer.clear();
+                    if (BO.World.scene) {
+                        this.renderer.render(BO.World.scene, this.worldCamera);
+                    }
+                    this.renderer.clearDepth();
+                    this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
                 }
-                this.renderer.clearDepth();
-                this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
-            } else {
+            } else if (render) {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {

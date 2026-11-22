@@ -305,6 +305,7 @@
             const dScale = BO.Math.clamp(1 - this.pos.distanceTo(BO.Player.pos) / 40, 0, 0.75);
             if (dScale > 0.05) BO.Sound.playGunshot(spec.soundProfile, false, false, dScale);
             BO.FX.spawnTracer(start, end, 0xfca5a5, 0.02, 0.07);
+            if (BO.Net && BO.Net.game) BO.Net.game.queueHostFx(start, end, 0xfca5a5, spec.soundProfile);
             if (context.onRecordFx) context.onRecordFx({ kind: 'tracer', sx: start.x, sy: start.y, sz: start.z, ex: end.x, ey: end.y, ez: end.z, color: 0xfca5a5 });
 
             // Accuracy roll

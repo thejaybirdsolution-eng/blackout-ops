@@ -714,12 +714,18 @@
             }
 
             if (!BO.Player.alive) {
-                this._endMatch(false, 'COMMANDER FALLEN');
-                return;
+                // Online: keep spectating while any squadmate is still alive.
+                if (!(BO.Net && BO.Net.game && BO.Net.game.handleLocalDeath())) {
+                    this._endMatch(false, 'COMMANDER FALLEN');
+                    return;
+                }
             }
 
-            // Wave State Machine
-            if (this.state === 'intermission') {
+            // Wave State Machine (online clients mirror the host's waves instead)
+            const netClient = !!(BO.Net && BO.Net.game && BO.Net.game.inMatch && BO.Net.isClient());
+            if (netClient) {
+                // Driven by host snapshots.
+            } else if (this.state === 'intermission') {
                 this.intermissionTimer -= dt;
                 if (this.intermissionTimer <= 0) {
                     this._beginNextWave();

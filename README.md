@@ -1,6 +1,13 @@
-# BLACKOUT OPS — Offline COD-Style FPS & Zombies
+# BLACKOUT OPS — Online & Offline COD-Style FPS, Zombies & Tower Defense
 
-A 100% offline 3D Call of Duty–style First-Person Shooter and Round-Based Zombies game powered by Three.js r149, procedural PBR `CanvasTexture` shaders, and procedural Web Audio API DSP.
+A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle Siege Tower Defense game powered by Three.js r149, procedural PBR `CanvasTexture` shaders, procedural Web Audio API DSP, and PeerJS WebRTC P2P online lobbies.
+
+## Playing Online with Friends (GitHub Pages)
+1. Open the hosted game on GitHub Pages: **`https://thejaybirdsolution-eng.github.io/blackout-ops/`**
+2. Click **PLAY ONLINE WITH FRIENDS** on the main menu and click **HOST A LOBBY**.
+3. Click **COPY** next to your **Invite Link** (`https://thejaybirdsolution-eng.github.io/blackout-ops/?join=boops-xxxxxx`) and send it to your friends.
+4. When your friends open your link, they automatically join your lobby (up to 8 players).
+5. Pick **COD Zombies**, **Tower Defense (Castle Siege)**, or **Multiplayer Bot Combat** (Co-op vs. Bots or PvP Free-For-All / Gun Game) and press **DEPLOY** — everyone in your lobby drops into the same match together!
 
 ## Launching Offline
 - **Option 1 (Recommended)**: Double-click **`play.bat`** (or run `python server.py`) to launch the local offline HTTP server and open the game automatically.
