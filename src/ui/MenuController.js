@@ -57,6 +57,32 @@
             this.selectedMpMap = 'mp_nuketown';
             this.selectedDifficulty = 'regular';
             this.selectedTdMap = 'td_castle_1';
+            this.tdConfig = {
+                tdMode: 'standard',
+                difficulty: 'medium',
+                startingZombies: 10,
+                mapSize: 1.0,
+                wallHp: 250,
+                gunZombiePct: 0,
+                modifiers: {
+                    allBosses: false,
+                    fastZombies: false,
+                    allEnemiesUnlocked: false,
+                    cost4x: false,
+                    zombiesHeal: false,
+                    magicalZombies: false,
+                    explosiveDeath: false,
+                    giantZombies: false,
+                    tinyZombies: false,
+                    vampiric: false,
+                    bloodMoon: false,
+                    lowGravity: false,
+                    doubleGold: false,
+                    headshotsOnly: false,
+                    infiniteAmmo: false,
+                    randomLoadoutWave: false
+                }
+            };
             this.customRules = {
                 enemyCount: 6, teamSizeLimit: 6, enemyWeaponMode: 'all', playerWeaponMode: 'custom',
                 scoreLimit: 0, timeLimit: 0, enemyHp: 100, playerHp: 100, respawnDelay: 2.4,
@@ -97,6 +123,7 @@
             this.modalChoose = document.getElementById('modal-choose');
             this.modalMpClass = document.getElementById('modal-mp-class');
             this.modalTdShop = document.getElementById('modal-td-shop');
+            this.modalTdAttachments = document.getElementById('modal-td-attachments');
 
             this._bindButtons();
             this.updateAllRankBadges();
@@ -217,6 +244,14 @@
                 btnTdClose.onclick = () => {
                     BO.Sound.playUIClick();
                     if (this.modalTdShop) this.modalTdShop.classList.add('hidden');
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnTdAttClose = document.getElementById('btn-td-att-close');
+            if (btnTdAttClose) {
+                btnTdAttClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
                     if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
                 };
             }
@@ -344,6 +379,7 @@
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
             if (this.modalPause) this.modalPause.classList.toggle('hidden', !open);
             if (open && this.modalTdShop) this.modalTdShop.classList.add('hidden');
+            if (open && this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
             if (open && this.modalMpClass) this.modalMpClass.classList.add('hidden');
             if (!open && this.modalBoxPicker) this.modalBoxPicker.classList.add('hidden');
             if (open && document.pointerLockElement) document.exitPointerLock();
@@ -626,26 +662,136 @@
                 });
             } else {
                 const tdMaps = BO.MapsData.listByMode('td');
+                const tc = this.tdConfig;
+                const mods = tc.modifiers;
+                const tdModes = [
+                    { id: 'standard', name: 'STANDARD SIEGE', sub: 'Classic scaling waves with 20 rotating deployables.' },
+                    { id: 'all_bosses', name: '💀 ALL BOSSES', sub: 'Every single enemy spawned is a giant Boss!' },
+                    { id: 'boss_rush', name: '★ BOSS RUSH', sub: 'Guaranteed Bosses on Wave 1 and every wave!' },
+                    { id: 'gun_warfare', name: '🔫 GUN-TOTING HORDE', sub: '75%+ of zombies carry rifles & shoot back!' },
+                    { id: 'magic_siege', name: '✨ MAGICAL SIEGE', sub: 'Arcane zombies shoot purple magic bolts!' },
+                    { id: 'endless_swarm', name: '⚡ ENDLESS SWARM', sub: 'All 20 enemy types unlocked Wave 1 + Fast Horde!' }
+                ];
+                const tdDiffs = [
+                    { id: 'easy', name: 'EASY', col: '#22c55e' },
+                    { id: 'medium', name: 'MEDIUM', col: '#38bdf8' },
+                    { id: 'hard', name: 'HARD', col: '#f59e0b' },
+                    { id: 'hell', name: '🔥 HELL', col: '#ef4444' }
+                ];
+                const MOD_DEFS = [
+                    { k: 'allBosses', lbl: '💀 All Bosses' },
+                    { k: 'fastZombies', lbl: '⚡ Fast Zombies (1.65x)' },
+                    { k: 'allEnemiesUnlocked', lbl: '🔓 All Enemy Types Wave 1' },
+                    { k: 'cost4x', lbl: '💸 Everything Costs 4x' },
+                    { k: 'zombiesHeal', lbl: '💚 Zombies Heal Each Other' },
+                    { k: 'magicalZombies', lbl: '✨ Magical Zombies' },
+                    { k: 'explosiveDeath', lbl: '💥 Explosive Zombie Deaths' },
+                    { k: 'giantZombies', lbl: '🦖 Giant Zombies (1.65x)' },
+                    { k: 'tinyZombies', lbl: '🐜 Tiny Speedsters (0.6x)' },
+                    { k: 'vampiric', lbl: '🧛 Vampiric Zombies' },
+                    { k: 'bloodMoon', lbl: '🩸 Blood Moon Fog' },
+                    { k: 'lowGravity', lbl: '🌙 Low Gravity Jumps' },
+                    { k: 'doubleGold', lbl: '🪙 Double Gold (2x)' },
+                    { k: 'headshotsOnly', lbl: '🎯 Headshots Only' },
+                    { k: 'infiniteAmmo', lbl: '∞ Infinite Ammo' },
+                    { k: 'randomLoadoutWave', lbl: '🎲 Random Gun Each Wave' }
+                ];
+
                 left.innerHTML = `
-                    <div class="panel-title" style="color:#22c55e;">SELECT CASTLE DEFENSE SETUP (3 MAPS)</div>
+                    <div class="panel-title" style="color:#22c55e;">1. SELECT CASTLE DEFENSE SETUP (3 MAPS • 2 MULTI-HEIGHT SNIPING TOWERS EACH)</div>
                     <div class="card-grid">
                         ${tdMaps.map((m) => `
                             <button class="select-card ${this.selectedTdMap === m.id ? 'active' : ''}" data-tdmap="${m.id}"
-                                style="${this.selectedTdMap === m.id ? 'border-color:#22c55e;background:rgba(34,197,94,0.14);' : ''}"
-                                data-tip-title="${escAttr(m.name)}" data-tip="${escAttr(m.description)}">
+                                style="${this.selectedTdMap === m.id ? 'border-color:#22c55e;background:rgba(34,197,94,0.14);' : ''}">
                                 <div class="card-head" style="color:#4ade80;">${m.name}</div>
-                                <div class="card-sub">${m.subtitle}<br><br>${m.description}</div>
+                                <div class="card-sub">${m.subtitle}<br>Includes 2 Sniping Towers (4 Heights), 14 Perks (Max 8), Pack-a-Punch, Attachment Station &amp; War Gong!</div>
                             </button>`).join('')}
                     </div>
-                    <div class="panel-title" style="color:#fde047;margin-top:10px;">TOWER DEFENSE MECHANICS &amp; SHOPKEEPER</div>
-                    <div class="card-grid">
-                        <div class="select-card"><div class="card-head">3 CASTLE LAYERS (250 HP) + HEART (100 HP)</div><div class="card-sub">Spawn atop the Castle Keep overlooking zombies, or take the walkable Castle Stairs right down into combat! Layer 3 blocks the stairs until broken.</div></div>
-                        <div class="select-card"><div class="card-head">SCALING WAVES &amp; ROUND 10+ BOSSES</div><div class="card-sub">Every 3 waves adds a new zombie type (easier first, weighted RNG). Bosses can appear starting at Round 10!</div></div>
-                        <div class="select-card"><div class="card-head">30s INTERMISSION &amp; SHOPKEEPER [T] / [E]</div><div class="card-sub">Wait 30s between waves (or skip with [N]). Shopkeeper rolls 5 Weapons (60%/10%/5%/15%/5% Free/5% Magic) + Barriers, Turrets, Ammo, Grenades, RPG, Teammate, Dog &amp; Minigun!</div></div>
+
+                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">2. TOWER DEFENSE MODE &amp; DIFFICULTY</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-bottom:6px;">
+                        ${tdModes.map((mm) => `
+                            <button class="select-card ${tc.tdMode === mm.id ? 'active' : ''}" data-tdmode="${mm.id}" style="padding:8px;">
+                                <div class="card-head" style="font-size:12px;">${mm.name}</div>
+                                <div class="card-sub" style="font-size:10.5px;">${mm.sub}</div>
+                            </button>`).join('')}
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                        ${tdDiffs.map((d) => `
+                            <button class="btn btn-sm ${tc.difficulty === d.id ? 'btn-primary' : ''}" data-tddiff="${d.id}"
+                                style="${tc.difficulty === d.id ? `border-color:${d.col};color:${d.col};` : ''}">${d.name}</button>
+                        `).join('')}
+                    </div>
+
+                    <div class="panel-title" style="color:#fde047;">3. CUSTOM BATTLEFIELD &amp; HORDE SETTINGS</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;margin-bottom:8px;">
+                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
+                            <span>Starting Zombies: <b id="td-sz-lbl" style="color:#fde047;">${tc.startingZombies}</b></span>
+                            <input type="range" id="td-startZ" min="3" max="60" step="1" value="${tc.startingZombies}" style="width:110px;">
+                        </div>
+                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
+                            <span>Custom Map Size</span>
+                            <select id="td-mapSize" style="max-width:135px;">
+                                <option value="0.7" ${tc.mapSize === 0.7 ? 'selected' : ''}>COMPACT (0.7x)</option>
+                                <option value="1" ${tc.mapSize === 1.0 ? 'selected' : ''}>STANDARD (1.0x)</option>
+                                <option value="1.35" ${tc.mapSize === 1.35 ? 'selected' : ''}>LARGE (1.35x)</option>
+                                <option value="1.75" ${tc.mapSize === 1.75 ? 'selected' : ''}>MASSIVE (1.75x)</option>
+                            </select>
+                        </div>
+                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
+                            <span>Wall Barrier HP: <b id="td-whp-lbl" style="color:#4ade80;">${tc.wallHp}</b></span>
+                            <input type="range" id="td-wallHp" min="50" max="2000" step="50" value="${tc.wallHp}" style="width:110px;">
+                        </div>
+                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
+                            <span>Zombies w/ Guns: <b id="td-gpct-lbl" style="color:#f59e0b;">${tc.gunZombiePct}%</b></span>
+                            <input type="range" id="td-gunPct" min="0" max="100" step="5" value="${tc.gunZombiePct}" style="width:110px;">
+                        </div>
+                    </div>
+
+                    <div class="panel-title" style="color:#c084fc;">4. CUSTOM MODIFIERS (MIX &amp; MATCH ANY COMBINATION!)</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
+                        ${MOD_DEFS.map((md) => `
+                            <label class="mod-row ${mods[md.k] ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11.5px;">
+                                <span>${md.lbl}</span>
+                                <input type="checkbox" class="js-td-mod" data-tdmod="${md.k}" ${mods[md.k] ? 'checked' : ''}>
+                            </label>
+                        `).join('')}
                     </div>
                 `;
                 left.querySelectorAll('[data-tdmap]').forEach((b) => {
                     b.onclick = () => { BO.Sound.playUIClick(); this.selectedTdMap = b.dataset.tdmap; this.renderLobby(); };
+                });
+                left.querySelectorAll('[data-tdmode]').forEach((b) => {
+                    b.onclick = () => { BO.Sound.playUIClick(); tc.tdMode = b.dataset.tdmode; this.renderLobby(); };
+                });
+                left.querySelectorAll('[data-tddiff]').forEach((b) => {
+                    b.onclick = () => { BO.Sound.playUIClick(); tc.difficulty = b.dataset.tddiff; this.renderLobby(); };
+                });
+                document.getElementById('td-startZ').oninput = (e) => {
+                    tc.startingZombies = Number(e.target.value);
+                    document.getElementById('td-sz-lbl').textContent = tc.startingZombies;
+                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                };
+                document.getElementById('td-mapSize').onchange = (e) => {
+                    tc.mapSize = Number(e.target.value);
+                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                };
+                document.getElementById('td-wallHp').oninput = (e) => {
+                    tc.wallHp = Number(e.target.value);
+                    document.getElementById('td-whp-lbl').textContent = tc.wallHp;
+                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                };
+                document.getElementById('td-gunPct').oninput = (e) => {
+                    tc.gunZombiePct = Number(e.target.value);
+                    document.getElementById('td-gpct-lbl').textContent = tc.gunZombiePct + '%';
+                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                };
+                left.querySelectorAll('.js-td-mod').forEach((cb) => {
+                    cb.onchange = (e) => {
+                        BO.Sound.playUIClick();
+                        mods[e.target.dataset.tdmod] = e.target.checked;
+                        this.renderLobby();
+                    };
                 });
             }
 
@@ -716,7 +862,8 @@
                     } else {
                         this.onStartMatch({
                             mode: 'td',
-                            mapId: this.selectedTdMap
+                            mapId: this.selectedTdMap,
+                            tdConfig: BO.Math.deepClone(this.tdConfig)
                         });
                     }
                 }
@@ -2195,6 +2342,7 @@
             if (subEl) subEl.textContent = `Intermission: ${Math.ceil(td.intermissionTimer)}s remaining • Press [N] or button above to skip wait!`;
 
             const weapons = td.shopWeapons || [];
+            const cycleDeps = td.getCycleDeployables ? td.getCycleDeployables() : [];
             const items = td.getShopItems();
 
             body.innerHTML = `
@@ -2211,7 +2359,17 @@
                         </button>
                     `).join('')}
                 </div>
-                <div class="panel-title" style="color:#38bdf8;">CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
+                <div class="panel-title" style="color:#c084fc;">★ ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 UNIQUE DEPLOYABLES!)</div>
+                <div class="card-grid" style="margin-bottom:14px;">
+                    ${cycleDeps.map((d) => `
+                        <button class="select-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
+                            <div class="card-head" style="color:${d.color || '#c084fc'};">${d.name}</div>
+                            <div class="card-sub">${d.desc}</div>
+                            <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:#fde047;">${d.cost} GOLD</div>
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="panel-title" style="color:#38bdf8;">CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
                 <div class="card-grid">
                     ${items.map((it) => `
                         <button class="select-card js-td-buy-it" data-itid="${it.id}">
@@ -2229,10 +2387,67 @@
                     this.renderTdShop();
                 };
             });
+            body.querySelectorAll('.js-td-buy-dep').forEach((btn) => {
+                btn.onclick = () => {
+                    td.buyDeployable(btn.dataset.depid);
+                    this.renderTdShop();
+                };
+            });
             body.querySelectorAll('.js-td-buy-it').forEach((btn) => {
                 btn.onclick = () => {
                     td.buyShopItem(btn.dataset.itid);
                     this.renderTdShop();
+                };
+            });
+        }
+
+        /* ====================================================================
+           TOWER DEFENSE FIELD ATTACHMENT WORKBENCH STATION MODAL
+        ==================================================================== */
+        openTdAttachmentModal() {
+            if (!this.modalTdAttachments || !BO.Player || !BO.Player.activeWeapon) return;
+            if (document.pointerLockElement) document.exitPointerLock();
+            if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+            this.renderTdAttachments();
+            this.modalTdAttachments.classList.remove('hidden');
+        }
+
+        renderTdAttachments() {
+            const body = document.getElementById('td-att-body');
+            const sub = document.getElementById('td-att-sub');
+            const w = BO.Player ? BO.Player.activeWeapon : null;
+            if (!body || !w) return;
+            if (sub) sub.textContent = `Active Weapon: ${w.stats.name} — Click any attachment below to equip or unequip immediately!`;
+
+            const slots = [
+                { key: 'optic', label: 'OPTIC / SIGHT', list: Object.values(BO.AttachmentsData.OPTICS || {}) },
+                { key: 'muzzle', label: 'MUZZLE', list: Object.values(BO.AttachmentsData.MUZZLES || {}) },
+                { key: 'underbarrel', label: 'UNDERBARREL', list: Object.values(BO.AttachmentsData.UNDERBARRELS || {}) },
+                { key: 'magazine', label: 'MAGAZINE', list: Object.values(BO.AttachmentsData.MAGAZINES || {}) },
+                { key: 'stock', label: 'STOCK / GRIP', list: Object.values(BO.AttachmentsData.STOCKS || {}) },
+                { key: 'camo', label: 'WEAPON CAMO', list: Object.values(BO.AttachmentsData.CAMOS || {}) }
+            ];
+
+            body.innerHTML = slots.map((sl) => {
+                const curVal = sl.key === 'camo' ? (w.cfg.camo || 'default') : (w.cfg.attachments?.[sl.key] || 'none');
+                return `
+                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">${sl.label}</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+                        ${sl.list.map((a) => `
+                            <button class="btn btn-sm ${curVal === a.id ? 'btn-primary' : ''} js-td-att-pick"
+                                data-slot="${sl.key}" data-val="${a.id}">
+                                ${escAttr(a.name)}${curVal === a.id ? ' ✓' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+            }).join('');
+
+            body.querySelectorAll('.js-td-att-pick').forEach((btn) => {
+                btn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    BO.Player.updateActiveWeaponAttachments(btn.dataset.slot, btn.dataset.val);
+                    this.renderTdAttachments();
                 };
             });
         }

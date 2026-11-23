@@ -523,6 +523,7 @@
                 selectedMpMap: M.selectedMpMap,
                 selectedDifficulty: M.selectedDifficulty,
                 selectedTdMap: M.selectedTdMap,
+                tdConfig: M.tdConfig ? BO.Math.deepClone(M.tdConfig) : null,
                 customRules: BO.Math.deepClone(M.customRules)
             };
         }
@@ -735,6 +736,10 @@
             M.selectedMpMap = s.selectedMpMap || M.selectedMpMap;
             M.selectedDifficulty = s.selectedDifficulty || M.selectedDifficulty;
             M.selectedTdMap = s.selectedTdMap || M.selectedTdMap;
+            if (s.tdConfig && M.tdConfig) {
+                Object.assign(M.tdConfig, s.tdConfig);
+                if (s.tdConfig.modifiers) Object.assign(M.tdConfig.modifiers, s.tdConfig.modifiers);
+            }
             if (s.customRules) Object.assign(M.customRules, s.customRules);
             if (BO.State.screen === 'play_lobby') {
                 M.renderLobby();
@@ -1324,7 +1329,8 @@
                 zList.push([
                     z.id, z.spec.id, z.isBoss ? 1 : 0,
                     Number(z.pos.x.toFixed(2)), Number(z.pos.y.toFixed(2)), Number(z.pos.z.toFixed(2)),
-                    Number(z.yaw.toFixed(2)), Math.ceil(z.hp), z.maxHp, z.alive ? 1 : 0
+                    Number(z.yaw.toFixed(2)), Math.ceil(z.hp), z.maxHp, z.alive ? 1 : 0,
+                    z.hasGun ? 1 : 0, z.isMagical ? 1 : 0, Number((z.sizeMult || 1).toFixed(2))
                 ]);
             }
 
@@ -1378,14 +1384,17 @@
                 for (const z of td.zombies) mapById.set(z.id, z);
 
                 for (const row of snap.zombies) {
-                    const [id, typeId, isBoss, x, y, z, yaw, hp, maxHp, alive] = row;
+                    const [id, typeId, isBoss, x, y, z, yaw, hp, maxHp, alive, hasGun, isMagical, sizeMult] = row;
                     seen.add(id);
                     let ent = mapById.get(id);
                     if (!ent) {
                         const spec = isBoss
                             ? (Object.values(BO.ZombiesData.BOSSES_BY_ROUND).find((b) => b.id === typeId) || BO.ZombiesData.get(typeId))
                             : BO.ZombiesData.get(typeId);
-                        ent = new BO.ZombieEntity({ id, spec, round: td.wave, hp: maxHp, speed: spec.speed, damage: spec.attack, x, y, z });
+                        ent = new BO.ZombieEntity({
+                            id, spec, round: td.wave, hp: maxHp, speed: spec.speed, damage: spec.attack, x, y, z,
+                            hasGun: hasGun === 1, isMagical: isMagical === 1, sizeMult: sizeMult || 1.0
+                        });
                         td.zombies.push(ent);
                     }
                     ent.netTargetPos = new THREE.Vector3(x, y, z);
@@ -1417,6 +1426,8 @@
                 const act = msg.action;
                 if (act === 'skip_wait') {
                     td.skipIntermission();
+                } else if (act === 'deployable' && msg.depId) {
+                    td._spawnDeployableEntity(msg.depId);
                 } else if (act === 'barrier') {
                     for (let i = td.layers.length - 1; i >= 0; i--) {
                         if (td.layers[i].hp < td.layers[i].maxHp) {

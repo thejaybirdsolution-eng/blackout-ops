@@ -171,7 +171,8 @@
             const w = P.activeWeapon;
             if (!w || !this.camera) return;
 
-            const infAmmo = BO.Cheats && BO.Cheats.isActive('infammo');
+            const tdInf = BO.State.activeMode === 'td' && BO.TowerDefenseMode && (BO.TowerDefenseMode.modifiers?.infiniteAmmo || BO.TowerDefenseMode.overdriveTimer > 0);
+            const infAmmo = (BO.Cheats && BO.Cheats.isActive('infammo')) || tdInf;
             if (w.stats.kind === 'melee') {
                 this._executeMeleeWeaponSwing(w);
                 return;
@@ -189,7 +190,8 @@
             BO.Progression.recordStat('shotsFired', 1);
 
             const hasDoubleTap = P.zombiePerks.has('double_tap');
-            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0);
+            const tdGongBoost = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.overdriveTimer > 0) ? 1.85 : 1.0;
+            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost;
             P.fireCooldown = 60 / Math.max(30, rpm);
 
             P.triggerMuzzleFlash();
@@ -342,6 +344,24 @@
                 }
                 if (P.isJuggernaut) dmg *= 1.65;
                 if (P.overdriveActive) dmg *= 2.0;
+                if (P.zombiePerks.has('eagle_eye') && (h.distance >= 18 || w.stats.category === 'Sniper')) {
+                    dmg *= 1.35;
+                }
+
+                // Elemental Pop perk: 22% chance to trigger Fire, Cryo Freeze, or Chain Lightning!
+                if (P.zombiePerks.has('elemental_pop') && Math.random() < 0.22 && ent.pos) {
+                    const roll = Math.random();
+                    if (roll < 0.34) {
+                        ent.burnTimer = Math.max(ent.burnTimer || 0, 3.5);
+                        BO.FX.spawnParticles(h.point, 6, 0xf97316, 3.2, 4, 0.4, 1.0);
+                    } else if (roll < 0.67) {
+                        ent.frozenTimer = Math.max(ent.frozenTimer || 0, 2.5);
+                        BO.FX.spawnParticles(h.point, 6, 0x38bdf8, 3.2, 4, 0.4, 1.0);
+                    } else {
+                        dmg *= 1.45;
+                        BO.FX.spawnParticles(h.point, 8, 0x22d3ee, 4.5, 2, 0.45, 1.2);
+                    }
+                }
 
                 // Blood impact FX (respects bloodLevel setting!)
                 const bloodLvl = BO.Settings.get('bloodLevel') || 'normal';

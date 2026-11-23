@@ -12,7 +12,15 @@
         speed_cola: ['SC', '#22c55e'],
         double_tap: ['DT', '#f59e0b'],
         stamin_up: ['SU', '#eab308'],
-        deadshot: ['DD', '#a855f7']
+        phd_flopper: ['PHD', '#a855f7'],
+        deadshot: ['DD', '#ec4899'],
+        mule_kick: ['MK', '#10b981'],
+        electric_cherry: ['EC', '#06b6d4'],
+        vulture_aid: ['VA', '#84cc16'],
+        widows_wine: ['WW', '#cbd5e1'],
+        elemental_pop: ['EP', '#f472b6'],
+        golden_armor: ['AE', '#fde047'],
+        eagle_eye: ['EE', '#60a5fa']
     };
 
     class HUDController {
@@ -88,6 +96,7 @@
             this.elBusterLbl = document.getElementById('buster-charge-label');
             this.elBusterFill = document.getElementById('buster-charge-fill');
             this.elTdStatus = document.getElementById('hud-td-status');
+            this.elTdDirHints = document.getElementById('td-dir-hints');
             this.elKillcam = document.getElementById('killcam-overlay');
             this.elKillcamTimer = document.getElementById('killcam-timer');
             this.elKillcamCard = document.getElementById('killcam-card');
@@ -434,6 +443,7 @@
 
             // Mode-specific HUD
             if (this.elTdStatus) this.elTdStatus.classList.toggle('hidden', mode !== 'td');
+            if (this.elTdDirHints && mode !== 'td') this.elTdDirHints.innerHTML = '';
             if (mode === 'zombies') {
                 const zm = BO.ZombiesMode;
                 if (this.elZChalkRow) this.elZChalkRow.classList.remove('hidden');
@@ -546,16 +556,19 @@
                         ? `<span style="color:#22c55e;">INTERMISSION ${Math.ceil(td.intermissionTimer)}s • [T] SHOP • [N] SKIP</span>`
                         : `<span style="color:#f87171;">WAVE ${td.wave} • ${td.zombies.filter((z) => z.alive).length + td.remainingToSpawn} HOSTILES LEFT</span>`;
                     const heartPct = Math.round((td.heartHp / Math.max(1, td.heartMaxHp)) * 100);
+                    const depCount = (td.deployables ? td.deployables.length : 0);
+                    const hintCd = Math.max(0, Math.ceil(td.dirHintCooldown || 0));
+                    const gongStr = td.overdriveTimer > 0 ? ` • ⚡ OVERDRIVE ${td.overdriveTimer.toFixed(0)}s` : '';
                     this.elTdStatus.innerHTML = `
-                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;">
-                            <span>${phaseHtml}</span>
-                            <span style="color:#fde047;">${td.gold} GOLD • 🛡 ${td.turrets.length} TUR • 🐕 ${td.dogs.length} DOG • 👥 ${td.allies.length} ALLY</span>
+                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;flex-wrap:wrap;gap:6px;">
+                            <span>${phaseHtml}${gongStr}</span>
+                            <span style="color:#fde047;">${td.gold} GOLD • 🛡 ${td.turrets.length} TUR • ⚙ ${depCount} DEP • 🐕 ${td.dogs.length} DOG • 🧟 RADAR ${hintCd}s</span>
                         </div>
                         <div class="td-layer-row">
                             ${td.layers.map((l) => {
                                 const pct = Math.round((l.hp / Math.max(1, l.maxHp)) * 100);
                                 const col = pct > 55 ? '#22c55e' : (pct > 25 ? '#f59e0b' : '#ef4444');
-                                return `<div class="td-bar-card"><div>LAYER ${l.layer}: ${l.hp}/${l.maxHp}</div><div class="td-bar-bg"><div class="td-bar-fill" style="width:${pct}%;background:${col};"></div></div></div>`;
+                                return `<div class="td-bar-card"><div>LAYER ${l.layer}: ${Math.ceil(l.hp)}/${l.maxHp}</div><div class="td-bar-bg"><div class="td-bar-fill" style="width:${pct}%;background:${col};"></div></div></div>`;
                             }).join('')}
                             <div class="td-bar-card" style="border-color:#38bdf8;">
                                 <div style="color:#38bdf8;">CASTLE HEART: ${Math.ceil(td.heartHp)}/${td.heartMaxHp}</div>
@@ -563,6 +576,46 @@
                             </div>
                         </div>
                     `;
+                }
+
+                if (this.elPerkTray) {
+                    const icons = [];
+                    P.zombiePerks.forEach((pk) => {
+                        const info = PERK_SHORT[pk] || [pk.slice(0, 2).toUpperCase(), '#f5a623'];
+                        icons.push(`<div class="perk-icon" style="color:${info[1]};border-color:${info[1]}">${info[0]}</div>`);
+                    });
+                    if (icons.length > 0) {
+                        icons.push(`<div style="font-size:10px;color:#94a3b8;align-self:center;margin-left:4px;">${P.zombiePerks.size}/8</div>`);
+                    }
+                    this.elPerkTray.innerHTML = icons.join('');
+                }
+
+                // Every 60s Quick Zombie Head Direction Hints (each zombie flashes its incoming direction!)
+                if (this.elTdDirHints) {
+                    if (td.dirHintActiveTimer > 0 && td.zombies && td.zombies.length > 0) {
+                        const opacity = BO.Math.clamp(td.dirHintActiveTimer / 0.8, 0.25, 1.0);
+                        const living = td.zombies.filter((z) => z.alive).slice(0, 24);
+                        const cx = window.innerWidth * 0.5;
+                        const cy = window.innerHeight * 0.5;
+                        const rx = Math.min(window.innerWidth * 0.42, 420);
+                        const ry = Math.min(window.innerHeight * 0.38, 280);
+                        this.elTdDirHints.innerHTML = living.map((z) => {
+                            const dx = z.pos.x - P.pos.x;
+                            const dz = z.pos.z - P.pos.z;
+                            const dist = Math.round(Math.hypot(dx, dz));
+                            const worldAngle = Math.atan2(dx, dz);
+                            const rel = BO.Math.wrapAngle(worldAngle - P.yaw + Math.PI);
+                            const sx = cx + Math.sin(rel) * rx;
+                            const sy = cy - Math.cos(rel) * ry;
+                            const col = z.isBoss ? '#ef4444' : (z.isMagical ? '#c084fc' : (z.hasGun ? '#f59e0b' : '#4ade80'));
+                            return `<div style="position:absolute;left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px;transform:translate(-50%,-50%);opacity:${opacity};text-align:center;filter:drop-shadow(0 0 6px ${col});">
+                                <div style="font-size:18px;line-height:1;">${z.isBoss ? '💀' : '🧟'}</div>
+                                <div style="font-size:9px;font-weight:800;color:${col};font-family:var(--font-mono);background:rgba(5,8,13,0.75);padding:1px 4px;border-radius:3px;">${dist}m</div>
+                            </div>`;
+                        }).join('');
+                    } else {
+                        this.elTdDirHints.innerHTML = '';
+                    }
                 }
 
                 if (this.elPrompt) {

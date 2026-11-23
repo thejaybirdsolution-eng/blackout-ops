@@ -58,8 +58,43 @@
             this.path = [];
             this.pathTimer = 0;
 
+            // TD Modifiers & Special Attributes
+            this.hasGun = !!opts.hasGun;
+            this.isMagical = !!opts.isMagical;
+            this.explosiveDeath = !!opts.explosiveDeath;
+            this.sizeMult = opts.sizeMult || 1.0;
+            this.gunCooldown = 1.6 + Math.random() * 2.2;
+            this.magicCooldown = 2.5 + Math.random() * 2.5;
+            this.healCooldown = 3.5 + Math.random() * 3.0;
+            this.acidTimer = 0;
+            this.slowTimer = 0;
+
             this.parts = BO.CharacterMesh.buildZombieFromSpec(this.spec, this);
             this.parts.root.position.copy(this.pos);
+            if (this.sizeMult !== 1.0) {
+                this.parts.root.scale.setScalar(this.sizeMult);
+                this.radius = BO.Math.clamp(this.radius * this.sizeMult, 0.24, 1.35);
+            }
+            if (this.hasGun && this.parts.rightArmPivot && BO.WeaponMesh) {
+                try {
+                    const gunId = this.isBoss ? 'm249' : (Math.random() < 0.5 ? 'ak47' : 'mp5');
+                    const wBuilt = BO.WeaponMesh.buildWeapon(gunId, {}, 'default', false, false);
+                    wBuilt.root.scale.setScalar(0.95);
+                    wBuilt.root.position.set(0, -0.42, 0.28);
+                    wBuilt.root.rotation.set(0.15, Math.PI, 0);
+                    this.parts.rightArmPivot.add(wBuilt.root);
+                } catch (e) {}
+            }
+            if (this.isMagical) {
+                const aura = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.62, 0.05, 6, 18),
+                    new THREE.MeshBasicMaterial({ color: 0xc084fc })
+                );
+                aura.rotation.x = Math.PI * 0.5;
+                aura.position.y = 1.1;
+                this.parts.root.add(aura);
+                this._magicAura = aura;
+            }
             if (this.parts.headGroup && BO.Cheats && BO.Cheats.isActive('bighead')) {
                 this.parts.headGroup.scale.setScalar(3.0);
             }
@@ -103,9 +138,12 @@
                 }
             }
 
-            // Frozen shatter bonus (Absolute Zero ultimate!)
+            // Frozen shatter bonus (Absolute Zero ultimate!) & Corrosive Acid vulnerability
             if (this.frozenTimer > 0) {
                 dmg *= 2.5;
+            }
+            if (this.acidTimer > 0) {
+                dmg *= 1.45;
             }
 
             this.hp -= Math.max(1, dmg);
@@ -133,11 +171,11 @@
                 if (this.attackType === 'toxic_cloud' && !this.decapitated) {
                     BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 18, 0x4ade80, 3.8, 1.2, 1.0, 2.2);
                 }
-                if (this.attackType === 'suicide_blast') {
+                if (this.attackType === 'suicide_blast' || this.explosiveDeath) {
                     BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 4.2, 0xa3e635);
                     BO.Sound.playExplosion(0.65);
                     if (this.pos.distanceTo(BO.Player.pos) < 4.2) {
-                        BO.Player.takeDamage(this.damage * 0.85, this.pos, true);
+                        BO.Player.takeDamage(this.damage * 0.75, this.pos, true);
                     }
                 }
                 return true;
@@ -177,6 +215,9 @@
             if (this.frozenTimer > 0) this.frozenTimer -= dt;
             if (this.danceTimer > 0) this.danceTimer -= dt;
             if (this.flinchTimer > 0) this.flinchTimer -= dt;
+            if (this.acidTimer > 0) this.acidTimer -= dt;
+            if (this.slowTimer > 0) this.slowTimer -= dt;
+            if (this._magicAura) this._magicAura.rotation.z += dt * 3.5;
             if (this.attackCooldown > 0) this.attackCooldown -= dt;
             if (this.rangedCooldown > 0) this.rangedCooldown -= dt;
             if (this.attackSwing > 0) this.attackSwing = Math.max(0, this.attackSwing - dt * 2.5);
@@ -403,7 +444,8 @@
                     }
 
                     const chargeBoost = (this.movementHabit === 'charge_bull' && directLOS && distToTarget < 12) ? 1.35 : 1.0;
-                    const curSpeed = this.speed * chargeBoost * (this.flinchTimer > 0 ? 0.58 : 1.0);
+                    const slowMult = this.slowTimer > 0 ? 0.45 : 1.0;
+                    const curSpeed = this.speed * chargeBoost * slowMult * (this.flinchTimer > 0 ? 0.58 : 1.0);
                     this._steerToward(goalX, goalZ, curSpeed, dt, allZombies);
                     // Snap onto rising stairs/ramps BEFORE horizontal wall resolution so zombies climb cleanly!
                     const stepFloor = BO.World.getGroundHeight(this.pos.x, this.pos.z, this.pos.y);

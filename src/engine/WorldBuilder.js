@@ -27,8 +27,11 @@
             this.raycaster = new THREE.Raycaster();
         }
 
-        build(mapId) {
-            this.mapData = BO.MapsData.get(mapId);
+        build(mapId, buildOpts = {}) {
+            const rawMap = BO.MapsData.get(mapId);
+            this.mapData = (rawMap.mode === 'td' && buildOpts && (buildOpts.mapSize && buildOpts.mapSize !== 1.0 || buildOpts.bloodMoon))
+                ? this._scaleTdMapData(rawMap, buildOpts)
+                : rawMap;
             const scene = new THREE.Scene();
             this.scene = scene;
 
@@ -142,6 +145,8 @@
                 this._buildZombiesProps(scene);
             } else if (this.mapData.mode === 'mp') {
                 this._buildMPProps(scene);
+            } else if (this.mapData.mode === 'td') {
+                this._buildTdProps(scene);
             }
             this._buildMapLandmarks(scene);
 
@@ -174,7 +179,7 @@
 
             const tex = new THREE.CanvasTexture(c);
             const sky = new THREE.Mesh(
-                new THREE.SphereGeometry(360, 24, 16),
+                new THREE.SphereGeometry(540, 24, 16),
                 new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
             );
             scene.add(sky);
@@ -415,6 +420,323 @@
             g.add(panel, lamp, handle);
             this.scene.add(g);
             return { group: g, lamp, handle };
+        }
+
+        _scaleTdMapData(rawMap, buildOpts) {
+            const m = BO.Math.deepClone(rawMap);
+            const s = BO.Math.clamp(Number(buildOpts.mapSize) || 1.0, 0.55, 2.0);
+            if (buildOpts.bloodMoon && m.atmosphere) {
+                m.atmosphere.skyTop = 0x1a0305;
+                m.atmosphere.skyBottom = 0x5c0a0a;
+                m.atmosphere.fogColor = 0x3b0707;
+                m.atmosphere.fogDensity = 0.011;
+                m.atmosphere.sunColor = 0xff3b3b;
+                m.atmosphere.hemiSky = 0x991b1b;
+            }
+            if (Math.abs(s - 1.0) < 0.01) return m;
+
+            const isAll360 = m.castleSetup === 'all';
+            const scaleCoord = (v, keepSafe) => (Math.abs(v) <= keepSafe ? v : v * s);
+
+            if (Array.isArray(m.boxes)) {
+                for (let i = 0; i < m.boxes.length; i++) {
+                    const b = m.boxes[i];
+                    if (b.y < 0 && b.w > 30) {
+                        const minX = b.x - b.w * 0.5, maxX = b.x + b.w * 0.5;
+                        const minZ = b.z - b.d * 0.5, maxZ = b.z + b.d * 0.5;
+                        const nMinX = minX * s, nMaxX = maxX * s;
+                        const nMinZ = minZ * s, nMaxZ = isAll360 ? maxZ * s : Math.max(maxZ, 24);
+                        b.w = nMaxX - nMinX;
+                        b.d = nMaxZ - nMinZ;
+                        b.x = (nMinX + nMaxX) * 0.5;
+                        b.z = (nMinZ + nMaxZ) * 0.5;
+                    } else if (i >= 1 && i <= 4) {
+                        if (b.w > b.d) {
+                            b.w *= s;
+                            if (b.z < -25 || (isAll360 && b.z > 25)) b.z *= s;
+                        } else {
+                            b.d = isAll360 ? b.d * s : (Math.abs(b.z - b.d * 0.5) * s + 24);
+                            b.x *= s;
+                            if (!isAll360) b.z = (24 - b.d * 0.5);
+                        }
+                    } else if (b.y < 2.0 && (b.mat === 'sandbag' || b.mat === 'wood_crate')) {
+                        b.x = scaleCoord(b.x, 12);
+                        b.z = scaleCoord(b.z, 18);
+                    }
+                }
+            }
+
+            if (Array.isArray(m.defenseLayers)) {
+                for (const dl of m.defenseLayers) {
+                    const ls = dl.layer === 3 ? (0.5 + 0.5 * s) : s;
+                    for (const seg of dl.segments) {
+                        if (dl.layer === 3 && !isAll360 && m.castleSetup === 'front') {
+                            seg.w *= s;
+                        } else if (dl.layer === 3 && m.castleSetup === 'front_sides') {
+                        } else {
+                            seg.x *= ls;
+                            seg.z *= ls;
+                            if (seg.w > seg.d) seg.w *= ls;
+                            else seg.d *= ls;
+                        }
+                    }
+                }
+            }
+
+            if (Array.isArray(m.spawners)) {
+                for (const sp of m.spawners) { sp.x *= s; sp.z *= s; }
+            }
+            if (Array.isArray(m.turretPads)) {
+                for (const tp of m.turretPads) {
+                    if (tp.y < 1.0) { tp.x = scaleCoord(tp.x, 8); tp.z = scaleCoord(tp.z, 15); }
+                }
+            }
+            if (Array.isArray(m.waypoints)) {
+                for (const wp of m.waypoints) {
+                    if (wp.y < 1.0 && Math.hypot(wp.x, wp.z) > 22) { wp.x *= s; wp.z *= s; }
+                }
+            }
+            return m;
+        }
+
+        _addTdBox(scene, minX, minY, minZ, maxX, maxY, maxZ, matName) {
+            const w = Math.abs(maxX - minX);
+            const h = Math.abs(maxY - minY);
+            const d = Math.abs(maxZ - minZ);
+            const cx = (minX + maxX) * 0.5;
+            const cy = (minY + maxY) * 0.5;
+            const cz = (minZ + maxZ) * 0.5;
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(w, h, d),
+                BO.Textures.getWorldMaterial(matName, Math.max(w, d), h)
+            );
+            mesh.position.set(cx, cy, cz);
+            mesh.receiveShadow = true;
+            mesh.castShadow = h > 0.7;
+            scene.add(mesh);
+            this.worldMeshes.push(mesh);
+            this.colliders.push({ minX, maxX, minY, maxY, minZ, maxZ, active: true });
+            return mesh;
+        }
+
+        _buildTdSnipingTower(scene, tx, tz, sideSign, label) {
+            const levels = [5.4, 9.4, 13.4, 17.4];
+            const hw = 3.2;
+            const pOff = hw - 0.38;
+            const corners = [[-pOff, -pOff], [pOff, -pOff], [-pOff, pOff], [pOff, pOff]];
+            for (const [cx, cz] of corners) {
+                this._addTdBox(scene, tx + cx - 0.35, 0, tz + cz - 0.35, tx + cx + 0.35, 18.8, tz + cz + 0.35, 'castle_stone');
+            }
+            this._addTdBox(scene, tx - hw, 0, tz - hw, tx + hw, 5.4, tz + hw, 'castle_stone');
+
+            for (let li = 1; li < levels.length; li++) {
+                const y = levels[li];
+                this._addTdBox(scene, tx - hw, y - 0.35, tz - hw, tx + hw, y, tz + hw, 'diamond_plate');
+                this._addTdBox(scene, tx - hw, y, tz - hw, tx + hw, y + 1.0, tz - hw + 0.32, 'castle_battlement');
+                this._addTdBox(scene, tx - hw, y, tz + hw - 0.32, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
+                if (sideSign < 0) {
+                    this._addTdBox(scene, tx - hw, y, tz - hw, tx - hw + 0.32, y + 1.0, tz + hw, 'castle_battlement');
+                } else {
+                    this._addTdBox(scene, tx + hw - 0.32, y, tz - hw, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
+                }
+                this._addTdBox(scene, tx - 1.1, y, tz - hw + 0.4, tx + 1.1, y + 0.65, tz - hw + 1.0, 'sandbag');
+            }
+
+            const beacon = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.42, 0),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            );
+            beacon.position.set(tx, 19.6, tz);
+            scene.add(beacon);
+
+            const rampZ1 = tz + hw + 1.1;
+            const r1 = { x1: tx - hw, x2: tx + hw, z: rampZ1, w: 2.0, y1: 5.4, y2: 9.4, axis: 'x', mat: 'wood_plank' };
+            const r2 = { x1: tx + hw, x2: tx - hw, z: rampZ1 + 2.1, w: 2.0, y1: 9.4, y2: 13.4, axis: 'x', mat: 'wood_plank' };
+            const r3 = { x1: tx - hw, x2: tx + hw, z: rampZ1 + 4.2, w: 2.0, y1: 13.4, y2: 17.4, axis: 'x', mat: 'wood_plank' };
+            this._addTdBox(scene, tx + hw - 1.2, 9.0, rampZ1 - 1.1, tx + hw + 1.4, 9.4, rampZ1 + 3.2, 'wood_plank');
+            this._addTdBox(scene, tx - hw - 1.4, 13.0, rampZ1 + 1.0, tx - hw + 1.2, 13.4, rampZ1 + 5.3, 'wood_plank');
+            this._addTdBox(scene, tx + hw - 1.2, 17.0, tz - 1.5, tx + hw + 1.4, 17.4, rampZ1 + 5.3, 'wood_plank');
+            for (const rr of [r1, r2, r3]) {
+                this.ramps.push(rr);
+                this._buildRampMesh(scene, rr);
+            }
+
+            const padDefs = [
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 1.8, destY: 9.45, tag: `${label} — MID PERCH (9m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 0.0, destY: 13.45, tag: `${label} — HIGH DECK (13m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 1.8, destY: 17.45, tag: `${label} — CROW'S NEST (17m)` }
+            ];
+            for (const pd of padDefs) {
+                const padMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.62, 0.72, 0.14, 14),
+                    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+                );
+                padMesh.position.set(pd.px, pd.py + 0.08, pd.pz);
+                scene.add(padMesh);
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.76, 0.05, 6, 18),
+                    new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                );
+                ring.rotation.x = Math.PI * 0.5;
+                ring.position.set(pd.px, pd.py + 0.22, pd.pz);
+                scene.add(ring);
+                this.interactives.push({
+                    type: 'td_jump_pad',
+                    id: `jp_${pd.tag}`,
+                    label: pd.tag,
+                    x: pd.px, y: pd.py + 0.6, z: pd.pz,
+                    destX: tx, destY: pd.destY, destZ: tz,
+                    radius: 1.8
+                });
+            }
+        }
+
+        _buildTdProps(scene) {
+            const m = this.mapData;
+            const isAll360 = m.castleSetup === 'all';
+            const keepY = 5.4;
+
+            if (isAll360) {
+                this._addTdBox(scene, -11.5, 5.0, -2.0, -7.5, 5.4, 2.0, 'castle_battlement');
+                this._addTdBox(scene, 7.5, 5.0, -2.0, 11.5, 5.4, 2.0, 'castle_battlement');
+                this._buildTdSnipingTower(scene, -14.5, 0, -1, 'WEST SNIPER TOWER');
+                this._buildTdSnipingTower(scene, 14.5, 0, 1, 'EAST SNIPER TOWER');
+            } else {
+                const towerX = m.castleSetup === 'front' ? 19.5 : 14.2;
+                const towerZ = 14.0;
+                if (m.castleSetup === 'front_sides') {
+                    this._addTdBox(scene, -14.2, 5.0, 10.5, -10.8, 5.4, 17.5, 'castle_battlement');
+                    this._addTdBox(scene, 10.8, 5.0, 10.5, 14.2, 5.4, 17.5, 'castle_battlement');
+                }
+                this._buildTdSnipingTower(scene, -towerX, towerZ, -1, 'WEST SNIPER TOWER');
+                this._buildTdSnipingTower(scene, towerX, towerZ, 1, 'EAST SNIPER TOWER');
+            }
+
+            const papPos = isAll360
+                ? { x: -4.8, y: keepY, z: 2.8, rotY: Math.PI * 0.5 }
+                : { x: -5.5, y: keepY, z: 12.5, rotY: Math.PI * 0.4 };
+            this._spawnPaPMachine(papPos);
+
+            const attPos = isAll360
+                ? { x: 4.8, y: keepY, z: -2.8, rotY: -Math.PI * 0.5 }
+                : { x: -5.5, y: keepY, z: 17.8, rotY: Math.PI * 0.25 };
+            const ag = new THREE.Group();
+            ag.position.set(attPos.x, attPos.y, attPos.z);
+            ag.rotation.y = attPos.rotY;
+            const bench = new THREE.Mesh(
+                new THREE.BoxGeometry(1.9, 1.05, 0.95),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.75 })
+            );
+            bench.position.y = 0.525;
+            const holo = new THREE.Mesh(
+                new THREE.BoxGeometry(1.6, 0.55, 0.08),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ATTACHMENTS', '#38bdf8') })
+            );
+            holo.position.set(0, 1.55, -0.25);
+            const strip = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.08, 0.85),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            );
+            strip.position.y = 1.08;
+            ag.add(bench, holo, strip);
+            scene.add(ag);
+            this.worldMeshes.push(bench);
+            this.interactives.push({
+                type: 'td_attachment_station',
+                id: 'td_attachment_station',
+                x: attPos.x, y: attPos.y + 1.0, z: attPos.z,
+                radius: 2.6
+            });
+
+            const boxPos = isAll360
+                ? { x: -4.8, y: keepY, z: -2.8, rotY: Math.PI * 0.5 }
+                : { x: 5.5, y: keepY, z: 17.8, rotY: -Math.PI * 0.25 };
+            this.mapData.mysteryBoxPads = [boxPos];
+            const boxGroup = new THREE.Group();
+            boxGroup.position.set(boxPos.x, boxPos.y, boxPos.z);
+            boxGroup.rotation.y = boxPos.rotY || 0;
+            const chestBase = new THREE.Mesh(
+                new THREE.BoxGeometry(1.9, 0.72, 0.85),
+                new THREE.MeshStandardMaterial({ color: 0x573b22, roughness: 0.8 })
+            );
+            chestBase.position.y = 0.36;
+            const lidPivot = new THREE.Group();
+            lidPivot.position.set(0, 0.72, -0.42);
+            const lid = new THREE.Mesh(
+                new THREE.BoxGeometry(1.94, 0.22, 0.88),
+                new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.75 })
+            );
+            lid.position.set(0, 0.11, 0.42);
+            lidPivot.add(lid);
+            const beacon = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.10, 0.32, 16, 10, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+            );
+            beacon.position.y = 8.4;
+            const previewAnchor = new THREE.Group();
+            previewAnchor.position.set(0, 1.15, 0);
+            boxGroup.add(chestBase, lidPivot, beacon, previewAnchor);
+            scene.add(boxGroup);
+            this.mysteryBoxObj = {
+                type: 'mystery_box', id: 'td_mystery_box', group: boxGroup, lidPivot, beacon, previewAnchor,
+                x: boxPos.x, y: boxPos.y + 0.7, z: boxPos.z, radius: 2.6, padIndex: 0,
+                state: 'idle', rollTimer: 0, readyTimer: 0, rolledWeaponId: null, previewMesh: null
+            };
+            this.interactives.push(this.mysteryBoxObj);
+
+            const gongPos = isAll360 ? { x: 0, y: keepY, z: 3.8 } : { x: 0, y: keepY, z: 10.2 };
+            const gongG = new THREE.Group();
+            gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
+            const disc = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.75, 0.75, 0.12, 18),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.85, roughness: 0.22 })
+            );
+            disc.rotation.x = Math.PI * 0.5;
+            disc.position.y = 1.35;
+            const pL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
+            pL.position.set(-0.9, 1.1, 0);
+            const pR = pL.clone(); pR.position.set(0.9, 1.1, 0);
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, 0.14), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
+            bar.position.set(0, 2.15, 0);
+            gongG.add(disc, pL, pR, bar);
+            scene.add(gongG);
+            this.interactives.push({
+                type: 'td_overdrive_gong', id: 'td_overdrive_gong',
+                x: gongPos.x, y: gongPos.y + 1.2, z: gongPos.z, radius: 2.3
+            });
+
+            const ALL_14_PERKS = [
+                { id: 'juggernog', name: 'Juggernog', cost: 2000, color: '#ef4444', desc: '250 Max HP (+150 HP)' },
+                { id: 'speed_cola', name: 'Speed Cola', cost: 2200, color: '#22c55e', desc: '2x Reload Speed' },
+                { id: 'double_tap', name: 'Double Tap 2.0', cost: 2000, color: '#f59e0b', desc: '+25% Fire Rate & 2x Bullets' },
+                { id: 'quick_revive', name: 'Quick Revive', cost: 1200, color: '#38bdf8', desc: 'Fast HP Regen + 1 Self-Revive' },
+                { id: 'stamin_up', name: 'Stamin-Up', cost: 1500, color: '#eab308', desc: '+18% Move Speed & Infinite Tac Sprint' },
+                { id: 'phd_flopper', name: 'PhD Flopper', cost: 1800, color: '#a855f7', desc: 'Explosive Immunity & Slide Blast!' },
+                { id: 'deadshot', name: 'Deadshot Daiquiri', cost: 1600, color: '#ec4899', desc: '+45% Headshot Damage & Tighter Aim' },
+                { id: 'mule_kick', name: 'Mule Kick', cost: 2500, color: '#10b981', desc: 'Carry 3 Weapons at Once (Keys 1/2/3)!' },
+                { id: 'electric_cherry', name: 'Electric Cherry', cost: 1900, color: '#06b6d4', desc: 'Reloading Shocks & Stuns Nearby Zombies' },
+                { id: 'vulture_aid', name: 'Vulture Aid', cost: 1800, color: '#84cc16', desc: '+35% Bonus Gold & Extra Drops on Kills' },
+                { id: 'widows_wine', name: "Widow's Wine", cost: 2400, color: '#cbd5e1', desc: 'Freeze-Web Counterblast When Hit!' },
+                { id: 'elemental_pop', name: 'Elemental Pop', cost: 2600, color: '#f472b6', desc: '22% Chance for Fire/Cryo/Lightning Rounds' },
+                { id: 'golden_armor', name: 'Aegis Brew', cost: 2200, color: '#fde047', desc: '+100 Max Armor & Auto Armor Regen' },
+                { id: 'eagle_eye', name: 'Eagle Eye Brew', cost: 1700, color: '#60a5fa', desc: '+35% Long-Range/Sniper DMG & +25% Jump' }
+            ];
+
+            for (let i = 0; i < ALL_14_PERKS.length; i++) {
+                const pk = ALL_14_PERKS[i];
+                let px, py = keepY, pz, rotY = 0;
+                if (isAll360) {
+                    if (i < 7) { px = -6.4; pz = -4.5 + i * 1.5; rotY = Math.PI * 0.5; }
+                    else { px = 6.4; pz = -4.5 + (i - 7) * 1.5; rotY = -Math.PI * 0.5; }
+                } else {
+                    const spacing = m.castleSetup === 'front' ? 2.6 : 1.5;
+                    const startX = -((ALL_14_PERKS.length - 1) * spacing) * 0.5;
+                    px = startX + i * spacing;
+                    pz = 21.8;
+                    rotY = Math.PI;
+                }
+                this._spawnPerkMachine(Object.assign({}, pk, { x: px, y: py, z: pz, rotY, requiresPower: false }));
+            }
         }
 
         _buildZombiesProps(scene) {

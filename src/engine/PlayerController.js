@@ -323,7 +323,8 @@
                 }
             };
             const inst = this._createWeaponInstance(newCfg, isPaP);
-            if (this.weapons.length < 2) {
+            const maxSlots = this.zombiePerks.has('mule_kick') ? 3 : 2;
+            if (this.weapons.length < maxSlots) {
                 this.weapons.push(inst);
                 this.activeSlot = this.weapons.length - 1;
             } else {
@@ -331,6 +332,22 @@
             }
             this.reloading = false;
             this.rebuildViewmodel();
+        }
+
+        updateActiveWeaponAttachments(slotKey, val) {
+            const w = this.activeWeapon;
+            if (!w || !w.cfg) return false;
+            if (!w.cfg.attachments) w.cfg.attachments = {};
+            if (slotKey === 'camo') {
+                w.cfg.camo = val;
+            } else {
+                w.cfg.attachments[slotKey] = val;
+            }
+            w.stats = BO.Loadout.computeWeaponStats(w.cfg, w.papTier || 0, this.mpPerks, !!w.isDualWield);
+            w.mag = Math.min(w.mag, w.stats.magSize);
+            w.reserve = Math.min(w.reserve, w.stats.reserveMax);
+            this.rebuildViewmodel();
+            return true;
         }
 
         packAPunchActiveWeapon() {
@@ -388,6 +405,12 @@
             if (this.zombiePerks.has('quick_revive')) {
                 this.selfRevives = Math.max(this.selfRevives, 1);
             }
+            if (this.zombiePerks.has('golden_armor')) {
+                this.maxArmor = 250;
+                this.armor = Math.min(this.maxArmor, this.armor + 100);
+            } else {
+                this.maxArmor = 150;
+            }
         }
 
         refillAllAmmo() {
@@ -427,7 +450,7 @@
 
         switchWeapon(targetSlot = null) {
             if (this.weapons.length < 2 || this.swapTimer > 0) return;
-            const next = targetSlot !== null ? targetSlot : (this.activeSlot === 0 ? 1 : 0);
+            const next = targetSlot !== null ? targetSlot : ((this.activeSlot + 1) % this.weapons.length);
             if (next === this.activeSlot || !this.weapons[next]) return;
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.activeSlot = next;
@@ -454,6 +477,11 @@
             this.reloadTimer = this.reloadDuration;
             this.reloadStage = 0;
             BO.Sound.playReload(w.stats.shellReload ? 'shell' : 'out');
+            if (this.zombiePerks.has('electric_cherry') && BO.Combat && BO.Combat.onExplodeAt) {
+                BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 5.0, 0x06b6d4);
+                BO.Combat.onExplodeAt(this.pos.clone(), 5.8, 120, 'player', true, 3.0, 'electric_cherry');
+                BO.Combat.onExplodeAt(this.pos.clone(), 5.8, 110, 'player', false, 0, 'electric_cherry');
+            }
         }
 
         toggleFireMode() {
@@ -474,7 +502,16 @@
         takeDamage(amount, attackerPos = null, isExplosive = false) {
             if (!this.alive || this.inLastStand || this.reviveGraceTimer > 0) return;
             if (BO.Cheats && BO.Cheats.isActive('infhealth')) return;
+            if (isExplosive && this.zombiePerks.has('phd_flopper')) return;
             if (isExplosive && this.mpPerks.includes('flak_jacket')) amount *= 0.5;
+            if (this.zombiePerks.has('widows_wine') && (!this._widowCd || this._widowCd <= 0)) {
+                this._widowCd = 8.0;
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 22, 0xe2e8f0, 7, 2, 0.7, 1.6);
+                if (BO.Combat && BO.Combat.onExplodeAt) {
+                    BO.Combat.onExplodeAt(this.pos.clone(), 6.5, 65, 'player', false, 4.0, 'cryo_nova');
+                }
+                BO.Events.emit('hud:toast', { text: "WIDOW'S WINE WEB BLAST!", color: '#e2e8f0' });
+            }
             if (this.frenziedActive) {
                 // Frenzied Guard absorbs all health damage into armor/reduction
                 amount *= 0.35;
@@ -507,7 +544,7 @@
             if (this.hp <= 0) {
                 if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
                 const permPerks = BO.Cheats && BO.Cheats.isActive('perks');
-                if (BO.State.activeMode === 'zombies' && (this.selfRevives > 0 || permPerks)) {
+                if ((BO.State.activeMode === 'zombies' || BO.State.activeMode === 'td') && (this.selfRevives > 0 || permPerks)) {
                     if (!permPerks) {
                         this.selfRevives--;
                         this.zombiePerks.delete('quick_revive');
@@ -615,7 +652,11 @@
                 if (this.damageArcs[i].timer <= 0) this.damageArcs.splice(i, 1);
             }
 
-            // Health auto-regeneration
+            // Health & Aegis Armor auto-regeneration
+            if (this._widowCd > 0) this._widowCd = Math.max(0, this._widowCd - dt);
+            if (this.zombiePerks.has('golden_armor') && this.armor < this.maxArmor) {
+                this.armor = Math.min(this.maxArmor, this.armor + 10 * dt);
+            }
             if (this.regenDelayTimer > 0) {
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
@@ -855,7 +896,8 @@
                 }
             } else {
                 const mpGravMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.gravityScale || 1.0) : 1.0;
-                const grav = (lowGrav ? 9.5 : 24.0) * mpGravMult;
+                const tdGravMult = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.modifiers?.lowGravity) ? 0.48 : 1.0;
+                const grav = (lowGrav ? 9.5 : 24.0) * mpGravMult * tdGravMult;
                 this.vel.y -= grav * dt;
             }
 
@@ -915,7 +957,8 @@
                 this.crouching = false;
             }
             const mpJumpMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.jumpScale || 1.0) : 1.0;
-            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult;
+            const eagleJump = this.zombiePerks.has('eagle_eye') ? 1.25 : 1.0;
+            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump;
             const canDoubleJump = BO.Cheats && BO.Cheats.isActive('2jump');
             if (this.onGround || this.coyoteTimer > 0) {
                 this.vel.y = 7.6 * jumpMult;
@@ -937,6 +980,11 @@
                 this.slideTimer = 0.55;
                 this.slideDir.set(this.vel.x, 0, this.vel.z).normalize();
                 BO.Sound.playSlide();
+                if (this.zombiePerks.has('phd_flopper') && BO.Combat && BO.Combat.onExplodeAt) {
+                    BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 0.6, 0)), 4.6, 0xa855f7);
+                    BO.Sound.playExplosion(0.55);
+                    BO.Combat.onExplodeAt(this.pos.clone(), 5.0, 190, 'player', false, 0, 'phd_flopper');
+                }
             } else if (!this.sliding) {
                 this.crouching = !this.crouching;
             }

@@ -172,6 +172,7 @@
             } else if (opts.mode === 'td') {
                 BO.TowerDefenseMode.start({
                     mapId: opts.mapId,
+                    tdConfig: opts.tdConfig || null,
                     camera: this.worldCamera
                 });
             } else {
@@ -402,6 +403,8 @@
                     P.switchWeapon(0);
                 } else if (code === 'Digit2' && firstDown) {
                     P.switchWeapon(1);
+                } else if (code === 'Digit3' && firstDown) {
+                    P.switchWeapon(2);
                 } else if (code === kb.fireMode && firstDown) {
                     if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
                     else P.toggleFireMode();
@@ -425,7 +428,7 @@
                     BO.Combat.activateUltimate();
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
-                    else if (BO.State.activeMode === 'td') BO.Menus.openTdShopModal();
+                    else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
                 } else if (code === kb.exfil && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.startExfil();
                 } else if (code === kb.armor && firstDown) {
