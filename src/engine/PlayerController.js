@@ -508,7 +508,7 @@
             this.reloading = true;
             this.adsHeld = false;
             const speedColaMult = this.zombiePerks.has('speed_cola') ? 0.52 : 1.0;
-            const activeMods = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+            const activeMods = BO.Mods ? BO.Mods.active() : {};
             const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
             this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult;
             this.reloadTimer = this.reloadDuration;
@@ -556,6 +556,7 @@
             if (this.isJuggernaut || this.overdriveActive) {
                 amount *= 0.48;
             }
+            if (BO.Mods) amount *= BO.Mods.incomingDamageMult();
 
             // Directional indicator angle relative to player facing
             if (attackerPos) {
@@ -690,6 +691,7 @@
             }
 
             // Health & Aegis Armor auto-regeneration
+            if (BO.Mods) BO.Mods.tickPlayer(dt);
             if (this._widowCd > 0) this._widowCd = Math.max(0, this._widowCd - dt);
             if (this.zombiePerks.has('golden_armor') && this.armor < this.maxArmor) {
                 this.armor = Math.min(this.maxArmor, this.armor + 10 * dt);
@@ -697,9 +699,9 @@
             if (this.regenDelayTimer > 0) {
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
-                const activeMods = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+                const activeMods = BO.Mods ? BO.Mods.active() : {};
                 if (!activeMods.noRegen) {
-                    const regenRate = this.zombiePerks.has('quick_revive') ? 45 : 28;
+                    const regenRate = (this.zombiePerks.has('quick_revive') ? 45 : 28) * (BO.Mods ? BO.Mods.regenMult() : 1);
                     this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
                 }
             }
@@ -907,8 +909,9 @@
             if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) {
                 speed *= (BO.MPMode.customRules.speedScale || 1.0);
             }
-            const activeModsSpd = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+            const activeModsSpd = BO.Mods ? BO.Mods.active() : {};
             if (activeModsSpd.hyperSpeedPlayer) speed *= 1.60;
+            if (BO.Mods) speed *= BO.Mods.speedMult();
             this.inSwampMud = BO.World.isInSlowZone(this.pos.x, this.pos.y, this.pos.z) && !this.sliding && this.onGround;
             if (this.inSwampMud) speed *= 0.62;
             speed *= gunMoveMult;

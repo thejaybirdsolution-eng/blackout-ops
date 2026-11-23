@@ -816,6 +816,99 @@
             const pool = this.getUnlockedPool(Math.max(referenceRound, zombieSpec.unlockRound));
             const total = pool.reduce((acc, z) => acc + z.spawnWeight, 0);
             return ((zombieSpec.spawnWeight / Math.max(1, total)) * 100).toFixed(1);
+        },
+
+        /**
+         * Builds a detailed, plain-English field report for any enemy or boss.
+         * Returns { threat, threatLabel, movement, attack, traits[], weak[], resists[], tip, lines[] }.
+         */
+        describe(spec) {
+            if (!spec) return null;
+            const MOVE = {
+                lumber: 'Lumbers forward in a slow, steady line — easy to kite.',
+                crawl_fast: 'Scuttles low along the ground at speed; aim down, it is a small target.',
+                sprint: 'Sprints straight at you. Back-pedal and keep firing.',
+                hop_erratic: 'Hops unpredictably, making it hard to track.',
+                flank_circle: 'Circles around to flank you instead of charging head-on.',
+                charge_bull: 'Builds up and charges in a straight line — sidestep at the last second.',
+                stomp_march: 'Marches slowly but cannot be staggered easily.',
+                leap_pounce: 'Closes distance with long leaping pounces.',
+                zig_zag: 'Zig-zags as it approaches to throw off your aim.',
+                hover_drift: 'Floats and drifts through the air above obstacles.',
+                teleport_blink: 'Blinks short distances, appearing suddenly closer.'
+            };
+            const ATK = {
+                melee: 'Basic claw and bite swipes at close range.',
+                double_claw: 'Fast two-handed claw combos that shred armor.',
+                acid_spit: 'Spits acid from range that burns over time.',
+                suicide_blast: 'Explodes when it reaches you — kill it at range.',
+                pounce: 'Pounces on you from a distance.',
+                toxic_cloud: 'Leaves a lingering toxic cloud; do not stand in it.',
+                shield_bash: 'Bashes with a heavy shield; flank it or aim for exposed spots.',
+                fire_bolt: 'Hurls bolts of fire from range.',
+                frost_shard: 'Fires ice shards that slow you down.',
+                shockwave_slam: 'Slams the ground, sending out a damaging shockwave.',
+                life_drain: 'Drains your health from range to heal itself.',
+                aether_bolt: 'Casts glowing aether bolts from range.'
+            };
+            const BODY = {
+                missingLegs: 'Legless crawler', razorClaws: 'Razor claws', missingLeftArm: 'One arm',
+                giantClubArm: 'Giant club arm', backSac: 'Volatile back sac', headless: 'Headless (headshots do not apply)',
+                boneSpikes: 'Bone spikes', quadruped: 'Four-legged', horns: 'Horned', glowingRibs: 'Glowing ribcage',
+                riotShield: 'Riot shield', helmet: 'Helmet', extraHeads: 'Multiple heads', floating: 'Floating',
+                haloCrystal: 'Halo crystal', extraArms: 'Extra arms', tentacles: 'Tentacles', wings: 'Winged'
+            };
+            const RES_NAMES = { bullet: 'bullets', explosive: 'explosives', fire: 'fire', headshot: 'headshots', melee: 'melee' };
+            const res = spec.resistances || {};
+            const weak = [];
+            const resists = [];
+            Object.keys(RES_NAMES).forEach((k) => {
+                const v = Number(res[k] ?? 1);
+                if (v >= 1.15) weak.push(`${RES_NAMES[k]} (${v.toFixed(2)}x)`);
+                else if (v <= 0.85) resists.push(`${RES_NAMES[k]} (${Math.round((1 - v) * 100)}% less)`);
+            });
+            const bs = spec.bodySpec || {};
+            const traits = Object.keys(BODY).filter((k) => bs[k]).map((k) => BODY[k]);
+            if (spec.splitCount) traits.push(`Splits into ${spec.splitCount} on death`);
+            if (spec.jumpChance) traits.push(`Jumps (${Math.round(spec.jumpChance * 100)}% of the time)`);
+            if (spec.isMagical) traits.push('Casts magic');
+            const sc = bs.scale || [1, 1, 1];
+            const height = sc[1] || 1;
+            if (height >= 1.4) traits.push('Very tall');
+            else if (height <= 0.75) traits.push('Small');
+            if ((sc[0] || 1) >= 1.4) traits.push('Heavy build');
+
+            // Threat score from effective health, damage and speed
+            const effHp = (spec.hp || 100) / Math.max(0.2, 1 - (spec.defense || 0));
+            const score = effHp / 150 + (spec.attack || 20) / 25 + (spec.speed || 2) / 2.2 + (spec.isMagical ? 0.8 : 0) + (spec.splitCount ? 0.6 : 0);
+            const threat = spec.isBoss ? 5 : Math.max(1, Math.min(5, Math.round(score / 1.4)));
+            const threatLabel = ['', 'Low', 'Moderate', 'High', 'Severe', 'Extreme'][threat];
+
+            let tip;
+            if (bs.headless) tip = 'No head to hit — focus on body damage and explosives.';
+            else if (spec.attackType === 'suicide_blast') tip = 'Never let it reach you. Shoot it early, ideally into a crowd.';
+            else if (res.headshot >= 1.5) tip = 'Its head is a huge weak spot — precision weapons shine here.';
+            else if (res.explosive >= 1.2) tip = 'Explosives deal bonus damage. Save a grenade for it.';
+            else if (res.fire >= 1.2) tip = 'Fire hurts it badly — incendiary rounds or fire weapons work well.';
+            else if (res.melee >= 1.2) tip = 'Surprisingly weak to melee. Get close and swing.';
+            else if (spec.speed >= 4) tip = 'Very fast. Keep moving backward and aim slightly ahead of it.';
+            else if (['acid_spit', 'fire_bolt', 'frost_shard', 'aether_bolt', 'life_drain'].includes(spec.attackType)) tip = 'Ranged attacker — break line of sight and close in, or out-shoot it from cover.';
+            else if ((spec.defense || 0) >= 0.25) tip = 'Heavily armored. Use high-damage or armor-piercing weapons.';
+            else tip = 'Straightforward fighter — headshots end it fastest.';
+
+            const lines = [];
+            lines.push(spec.simpleDesc || 'A unique undead combatant.');
+            if (spec.title) lines.push(spec.title + '.');
+            lines.push(MOVE[spec.movementHabit] || 'Moves steadily toward you.');
+            lines.push(ATK[spec.attackType] || 'Attacks at close range.');
+            return {
+                threat, threatLabel,
+                movement: MOVE[spec.movementHabit] || '',
+                attack: ATK[spec.attackType] || '',
+                traits, weak, resists, tip, lines,
+                unlock: spec.isBoss ? (spec.bossRound ? `Boss round ${spec.bossRound}` : 'Boss pool') : `Joins from round ${spec.unlockRound || 1}`,
+                points: (spec.drops && spec.drops.points) || 0
+            };
         }
     };
 })(window);

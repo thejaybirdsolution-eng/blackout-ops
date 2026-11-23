@@ -4,54 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=20261123h">
+    <link rel="stylesheet" href="css/styles.css?v=20261124a">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
     <script defer src="vendor/peerjs.min.js"></script>
 
     <!-- Core -->
-    <script defer src="src/core/Namespace.js?v=20261123h"></script>
-    <script defer src="src/core/SaveSystem.js?v=20261123h"></script>
-    <script defer src="src/core/Settings.js?v=20261123h"></script>
-    <script defer src="src/net/NetworkManager.js?v=20261123h"></script>
+    <script defer src="src/core/Namespace.js?v=20261124a"></script>
+    <script defer src="src/core/SaveSystem.js?v=20261124a"></script>
+    <script defer src="src/core/Settings.js?v=20261124a"></script>
+    <script defer src="src/net/NetworkManager.js?v=20261124a"></script>
 
     <!-- Game Data -->
-    <script defer src="src/data/WeaponsData.js?v=20261123h"></script>
-    <script defer src="src/data/AttachmentsData.js?v=20261123h"></script>
-    <script defer src="src/data/ProgressionData.js?v=20261123h"></script>
-    <script defer src="src/data/ZombiesData.js?v=20261123h"></script>
-    <script defer src="src/data/MapsData.js?v=20261123h"></script>
+    <script defer src="src/data/WeaponsData.js?v=20261124a"></script>
+    <script defer src="src/data/AttachmentsData.js?v=20261124a"></script>
+    <script defer src="src/data/ProgressionData.js?v=20261124a"></script>
+    <script defer src="src/data/ZombiesData.js?v=20261124a"></script>
+    <script defer src="src/data/MapsData.js?v=20261124a"></script>
 
     <!-- Audio & 3D Graphics -->
-    <script defer src="src/audio/SoundEngine.js?v=20261123h"></script>
-    <script defer src="src/graphics/TextureFactory.js?v=20261123h"></script>
-    <script defer src="src/graphics/WeaponMeshBuilder.js?v=20261123h"></script>
-    <script defer src="src/graphics/CharacterMeshBuilder.js?v=20261123h"></script>
-    <script defer src="src/graphics/FXSystem.js?v=20261123h"></script>
+    <script defer src="src/audio/SoundEngine.js?v=20261124a"></script>
+    <script defer src="src/graphics/TextureFactory.js?v=20261124a"></script>
+    <script defer src="src/graphics/WeaponMeshBuilder.js?v=20261124a"></script>
+    <script defer src="src/graphics/CharacterMeshBuilder.js?v=20261124a"></script>
+    <script defer src="src/graphics/FXSystem.js?v=20261124a"></script>
 
     <!-- Progression & Loadouts -->
-    <script defer src="src/systems/ProgressionSystem.js?v=20261123h"></script>
-    <script defer src="src/systems/LoadoutSystem.js?v=20261123h"></script>
+    <script defer src="src/systems/ProgressionSystem.js?v=20261124a"></script>
+    <script defer src="src/systems/LoadoutSystem.js?v=20261124a"></script>
+    <script defer src="src/systems/ModifierSystem.js?v=20261124a"></script>
 
     <!-- Engine & Entities -->
-    <script defer src="src/engine/WorldBuilder.js?v=20261123h"></script>
-    <script defer src="src/engine/PlayerController.js?v=20261123h"></script>
-    <script defer src="src/engine/CombatSystem.js?v=20261123h"></script>
-    <script defer src="src/entities/ZombieEntity.js?v=20261123h"></script>
-    <script defer src="src/entities/BotAI.js?v=20261123h"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=20261124a"></script>
+    <script defer src="src/engine/PlayerController.js?v=20261124a"></script>
+    <script defer src="src/engine/CombatSystem.js?v=20261124a"></script>
+    <script defer src="src/entities/ZombieEntity.js?v=20261124a"></script>
+    <script defer src="src/entities/BotAI.js?v=20261124a"></script>
 
     <!-- Modes -->
-    <script defer src="src/modes/ZombiesMode.js?v=20261123h"></script>
-    <script defer src="src/modes/MultiplayerMode.js?v=20261123h"></script>
-    <script defer src="src/modes/TowerDefenseMode.js?v=20261123h"></script>
+    <script defer src="src/modes/ZombiesMode.js?v=20261124a"></script>
+    <script defer src="src/modes/MultiplayerMode.js?v=20261124a"></script>
+    <script defer src="src/modes/TowerDefenseMode.js?v=20261124a"></script>
 
     <!-- UI & Bootstrap -->
-    <script defer src="src/ui/TooltipSystem.js?v=20261123h"></script>
-    <script defer src="src/ui/HUDController.js?v=20261123h"></script>
-    <script defer src="src/ui/GunsmithUI.js?v=20261123h"></script>
-    <script defer src="src/ui/MenuController.js?v=20261123h"></script>
-    <script defer src="src/main.js?v=20261123h"></script>
+    <script defer src="src/ui/TooltipSystem.js?v=20261124a"></script>
+    <script defer src="src/ui/HUDController.js?v=20261124a"></script>
+    <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
+    <script defer src="src/ui/MenuController.js?v=20261124a"></script>
+    <script defer src="src/main.js?v=20261124a"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -69,55 +70,70 @@
             </div>
         </header>
         <div class="menu-body">
-            <nav class="menu-nav">
-                <button class="menu-tile" id="btn-menu-online" style="border-left-color:#22c55e;border-color:rgba(34,197,94,0.45);background:linear-gradient(90deg,rgba(21,128,61,0.24),rgba(11,16,24,0.88));" data-tip-title="Create Online Lobby & Copy Invite Link" data-tip="Creates an online room and copies a shareable link to your clipboard! Send the link to your friends and they will automatically join your lobby for COD Zombies, Tower Defense, or Multiplayer!">
-                    <span class="tile-title" style="color:#4ade80;">🌐 ONLINE SQUAD LOBBY (INVITE FRIENDS)</span>
-                    <span class="tile-sub">1-Click Shareable Friend Link • Co-op Zombies, Tower Defense &amp; PvP/Co-op Multiplayer</span>
+            <div class="menu-col">
+                <div class="menu-group-label">PLAY</div>
+                <div class="mode-cards">
+                    <button class="mode-card mode-card-z" id="btn-menu-zombies" data-tip-title="Zombies" data-tip="Survive endless rounds of zombies and bosses. Buy doors, drink perks, spin the Mystery Box and Pack-a-Punch your guns.">
+                        <span class="mode-card-ico">🧟</span>
+                        <span class="mode-card-text">
+                            <b>ZOMBIES</b>
+                            <small>Round-based survival • 70 enemies • 10 bosses • perks, box &amp; Pack-a-Punch</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Arena matches against AI bots or friends: Team Deathmatch, Free-for-All, Domination, Hardpoint and Gun Game, with full custom rules.">
+                        <span class="mode-card-ico">🎯</span>
+                        <span class="mode-card-text">
+                            <b>MULTIPLAYER</b>
+                            <small>5 modes • 6 arenas • bots or friends • custom games &amp; killcam</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
+                        <span class="mode-card-ico">🏰</span>
+                        <span class="mode-card-text">
+                            <b>TOWER DEFENSE</b>
+                            <small>3 castles • sniper towers • shopkeeper • turrets &amp; deployables</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                </div>
+                <button class="online-card" id="btn-menu-online" data-tip-title="Play with friends" data-tip="Creates an online room and copies an invite link. Friends who open it join your lobby for any mode.">
+                    <span class="online-dot"></span>
+                    <span><b>PLAY WITH FRIENDS</b><small>Create a lobby and copy an invite link</small></span>
+                    <span class="mode-card-go">INVITE →</span>
                 </button>
-                <button class="menu-tile zombies-tile" id="btn-menu-zombies" data-tip-title="COD Zombies Mode" data-tip="Fight endless waves of 20 unique zombies! A new zombie type joins the fight every 3 rounds, with giant Boss Battles on Rounds 5, 10, 20, 25, and 50." data-tip-sub="Buy doors, turn on power, drink Perks, spin the Mystery Box, and upgrade guns in Pack-a-Punch!">
-                    <span class="tile-title" style="color:#f87171;">COD ZOMBIES</span>
-                    <span class="tile-sub">20 Unique Zombies • Boss Rounds (5/10/20/25/50) • Perks, Box &amp; Pack-a-Punch</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-mp" data-tip-title="Offline Multiplayer Bots" data-tip="Jump into classic Call of Duty arena matches against smart AI bots—includes Nuketown, Shipment, Terminal, Rust, Custom Games & 15s Winner Killcam!">
-                    <span class="tile-title" style="color:#38bdf8;">MULTIPLAYER BOT COMBAT</span>
-                    <span class="tile-sub">Nuketown • Shipment • Terminal • Rust • Custom Games • 15s Killcam</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-td" data-tip-title="Tower Defense Mode (3 Castle Setups)" data-tip="Defend your 3D Castle Keep (3 Wall Layers x 250 HP + 100 HP Heart) from rising zombie waves & Bosses starting Round 10, with a Shopkeeper during 30s waits!">
-                    <span class="tile-title" style="color:#22c55e;">TOWER DEFENSE (CASTLE SIEGE)</span>
-                    <span class="tile-sub">3 Castle Setups • 3 Wall Layers • Turrets, Guard Dog &amp; Shopkeeper</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-gunsmith" data-tip-title="Create a Class & 3D Gunsmith" data-tip="Build your own custom loadouts just like Call of Duty: Primary & Side Weapon with attachments, 3 Perks, Tactical, Grenade, Special Power, and Ultimate Power!" data-tip-sub="Drag the 3D weapon in the center to spin and inspect your build.">
-                    <span class="tile-title" style="color:#f5a623;">CREATE A CLASS &amp; 3D GUNSMITH</span>
-                    <span class="tile-sub">Primary + Sidearm Attachments • 3 Perks • Special &amp; Ultimate Powers</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-barracks" data-tip-title="Barracks & Zombie Field Guide" data-tip="Check your career stats, enter Prestige at Level 55, track Medals & Challenges, export offline saves, and read the full guide to all 20 Zombies and 5 Bosses!">
-                    <span class="tile-title">BARRACKS &amp; ZOMBIE GUIDE</span>
-                    <span class="tile-sub">Ranks 1–55 • Prestige • 20-Zombie Bestiary • 5 Bosses • Save Backup</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-legend" data-tip-title="Master Legend & Encyclopedia" data-tip="Explains everything in plain words: How to Play, Mystery Box Odds, Personal Stats, all 50 Guns, 10 Melee Weapons, 10 Magic Weapons, Powers, 20 Zombies, 5 Bosses, Rounds & Cheat Codes!">
-                    <span class="tile-title" style="color:#38bdf8;">MASTER LEGEND &amp; STATS GUIDE</span>
-                    <span class="tile-sub">70 Weapons (50 Guns • 10 Melee • 10 Magic) • Box Odds • Enemies • Powers • Cheats</span>
-                </button>
-                <button class="menu-tile" id="btn-menu-settings" data-tip-title="Game Settings & Cheat Codes" data-tip="Customize controls, audio, video, graphics, blood & gore, fullscreen, enter Zombies cheat codes, manage save data, or open the Legend!">
-                    <span class="tile-title">SETTINGS &amp; CHEAT CODES</span>
-                    <span class="tile-sub">Custom Controls • Video &amp; GFX • Blood • Fullscreen • Cheat Codes • Save Game</span>
-                </button>
-                <button class="menu-tile zombies-tile hidden" id="btn-menu-modmenu" data-tip-title="Zombies Mod Menu (Unlocked!)" data-tip="Turn any Zombies cheat code ON or OFF anytime with checkboxes, or pick your starting Zombies round!">
-                    <span class="tile-title" style="color:#fde047;">★ MOD MENU (CHEATS)</span>
-                    <span class="tile-sub">Toggle All 12 Zombies Cheats (Checkboxes) &amp; Pick Starting Round Anytime</span>
-                </button>
-                <div id="menu-round-picker-wrap" class="round-picker-card hidden" data-tip-title="Pick Zombies Round (Cheat Active)" data-tip="Choose which round you want to start on when deploying into COD Zombies (including Boss Rounds 5, 10, 20, 25, and 50)!">
+
+                <div class="menu-group-label">LOADOUT &amp; INFO</div>
+                <div class="menu-mini-grid">
+                    <button class="mini-tile" id="btn-menu-gunsmith" data-tip-title="Create a Class" data-tip="Build up to 10 loadouts: weapons, attachments, camo, perks, equipment and powers.">
+                        <span class="mini-ico">🎖</span><b>Create a Class</b><small>Weapons, perks &amp; gear</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-barracks" data-tip-title="Barracks" data-tip="Career stats, prestige, medals, challenges, the enemy bestiary and save backups.">
+                        <span class="mini-ico">📊</span><b>Barracks</b><small>Stats, prestige &amp; bestiary</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-legend" data-tip-title="Legend" data-tip="A plain-English guide to every weapon, enemy, boss, power, box odds and cheat code.">
+                        <span class="mini-ico">📖</span><b>Legend</b><small>Every weapon &amp; enemy</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-settings" data-tip-title="Settings" data-tip="Controls, video, audio, gore, fullscreen, cheat codes and save data.">
+                        <span class="mini-ico">⚙</span><b>Settings</b><small>Controls, video &amp; cheats</small>
+                    </button>
+                    <button class="mini-tile mini-tile-gold hidden" id="btn-menu-modmenu" data-tip-title="Mod Menu" data-tip="Turn any zombies cheat on or off and pick a starting round.">
+                        <span class="mini-ico">★</span><b>Mod Menu</b><small>Toggle cheats</small>
+                    </button>
+                </div>
+                <div id="menu-round-picker-wrap" class="round-picker-card hidden" data-tip-title="Zombies start round" data-tip="Pick the round to start on when deploying into Zombies.">
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                        <span style="font-size:12px;font-weight:800;letter-spacing:1.2px;color:#fde047;">ZOMBIES START ROUND:</span>
-                        <input type="number" id="menu-round-input" min="1" max="999" value="1" style="width:68px;background:#0d131d;color:#fde047;border:1px solid var(--amber);padding:4px 8px;font-family:var(--font-mono);font-weight:800;">
-                        <button class="btn btn-sm btn-zombies" id="btn-menu-go-round">DEPLOY ROUND</button>
+                        <span style="font-size:12px;font-weight:800;letter-spacing:1.2px;color:#fde047;">ZOMBIES START ROUND</span>
+                        <input type="number" id="menu-round-input" min="1" max="999" value="1" style="width:68px;color:#fde047;padding:4px 8px;font-family:var(--font-mono);font-weight:800;">
+                        <button class="btn btn-sm btn-zombies" id="btn-menu-go-round">DEPLOY</button>
                     </div>
                 </div>
-            </nav>
+            </div>
             <div class="menu-showcase-caption">
-                <div style="font-size:11px;letter-spacing:2px;color:var(--amber);font-weight:800;">ACTIVE PRIMARY SHOWCASE</div>
-                <div id="menu-showcase-name" style="font-size:18px;font-weight:800;margin-top:4px;">M4A1 SOPMOD</div>
-                <div style="font-size:12px;color:var(--text-dim);margin-top:4px;">100% Offline • Procedural PBR &amp; WebAudio DSP</div>
+                <div class="showcase-label">ACTIVE CLASS</div>
+                <div id="menu-showcase-name" class="showcase-name">M4A1 SOPMOD</div>
+                <div class="showcase-sub">Shown in 3D behind the menu</div>
             </div>
         </div>
     </section>
@@ -143,22 +159,22 @@
         <header class="top-bar">
             <div style="display:flex;align-items:center;gap:14px;">
                 <button class="btn js-back-menu">← BACK</button>
-                <div class="brand-title" style="font-size:22px;">CREATE A CLASS — 3D GUNSMITH</div>
+                <div class="brand-title" style="font-size:22px;">CREATE A CLASS</div>
             </div>
             <div class="rank-pill js-rank-pill"></div>
         </header>
-        <div id="gs-class-tabs" class="class-tabs"></div>
-        <div class="gunsmith-layout">
-            <div id="gs-left-panel" class="panel gs-panel-anim"></div>
+        <div class="cac-layout">
+            <aside id="gs-left-panel" class="panel cac-left"></aside>
             <div class="gunsmith-center-stage">
                 <div id="gs-viewport-plate" class="gs-viewport-plate"></div>
                 <div style="flex:1"></div>
+                <div id="gs-stats-dock" class="gs-stats-dock"></div>
                 <div class="gunsmith-viewport-controls">
-                    <div class="gunsmith-viewport-hint">DRAG TO ORBIT 360° • SCROLL TO ZOOM</div>
+                    <div class="gunsmith-viewport-hint">DRAG TO ROTATE • SCROLL TO ZOOM</div>
                     <button class="btn btn-sm" id="gs-reset-orbit" title="Reset 3D camera angle">↺ RESET VIEW</button>
                 </div>
             </div>
-            <div id="gs-right-panel" class="panel gs-panel-anim"></div>
+            <aside id="gs-right-panel" class="panel cac-right"></aside>
         </div>
     </section>
 

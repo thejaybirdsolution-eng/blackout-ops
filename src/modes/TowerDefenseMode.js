@@ -286,7 +286,7 @@
             const baseGold = customStartGold > 0
                 ? customStartGold
                 : (this.modifiers.richStart ? 10000 : ((this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush') ? 2400 : 850));
-            this.gold = Math.round(baseGold * (this.modifiers.doubleGold ? 2 : 1));
+            this.gold = BO.Mods.startCurrency(this.modifiers, Math.round(baseGold * (this.modifiers.doubleGold ? 2 : 1)));
             this.kills = 0;
 
             // Progressive Enemy Pool Initialization:
@@ -345,6 +345,10 @@
                 BO.Player.maxHp = Math.min(BO.Player.maxHp, 50);
                 BO.Player.hp = Math.min(BO.Player.hp, 50);
             }
+            if (this.config.startProtocol && this.config.startProtocol !== 'custom') {
+                BO.Mods.applyStartProtocol(this.config.startProtocol, 'td');
+            }
+            BO.Mods.applyPlayerStart(this.modifiers, 'td');
             BO.Combat.reset(opts.camera);
             BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onBulletHit(ent, dmg, hitbox, w, pt);
             BO.Combat.onExplodeAt = (pos, rad, dmg, owner, isFlash, stunDur, wid) => this._onExplode(pos, rad, dmg, isFlash, stunDur, wid);
@@ -544,7 +548,7 @@
         _addGold(baseAmt) {
             const diffInfo = DIFFICULTY_SCALES[this.config.difficulty] || DIFFICULTY_SCALES.medium;
             const vultureMult = (BO.Player && BO.Player.zombiePerks.has('vulture_aid')) ? 1.35 : 1.0;
-            const dblMult = this.modifiers.doubleGold ? 2.0 : 1.0;
+            const dblMult = (this.modifiers.doubleGold ? 2.0 : 1.0) * BO.Mods.currencyMult(this.modifiers);
             this.gold += Math.round(baseAmt * diffInfo.gold * vultureMult * dblMult);
         }
 
@@ -658,7 +662,7 @@
             const projBlocked = !!(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.wave < 20));
             const finalDmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(1, Math.round(spec.attack * diff.dmg * glassDmg * customDmgMult));
 
-            return {
+            return BO.Mods.tweakSpawnOpts(this.modifiers, {
                 id: this.nextZombieId++,
                 spec,
                 round: this.wave,
@@ -674,7 +678,7 @@
                 splitCount: this.modifiers.megaSplitters ? Math.max(2, spec.splitCount || 0) : (spec.splitCount || 0),
                 jumpChance: this.modifiers.superJumpZombies ? Math.max(0.55, spec.jumpChance || 0) : (spec.jumpChance || 0),
                 sizeMult
-            };
+            }, { round: this.wave, isBoss });
         }
 
         _spawnBossZombie() {
@@ -686,6 +690,7 @@
             if (!bossSpec) return;
             const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
+            BO.Mods.afterSpawn(this.modifiers, ent);
             this.zombies.push(ent);
             BO.Sound.playBossIntro();
             BO.Events.emit('hud:toast', { text: `⚠ BOSS DEPLOYED: ${bossSpec.name}!`, color: '#f87171' });
@@ -701,6 +706,7 @@
                 if (bossSpec) {
                     const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
                     if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
+            BO.Mods.afterSpawn(this.modifiers, ent);
                     this.zombies.push(ent);
                     return;
                 }
@@ -712,6 +718,7 @@
             const spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
             const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, !!spec.isBoss));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
+            BO.Mods.afterSpawn(this.modifiers, ent);
             this.zombies.push(ent);
         }
 
@@ -1110,6 +1117,8 @@
             if (this.modifiers.meleeMayhem && isMelee) {
                 finalDmg = Math.round(finalDmg * 4.0);
             }
+            finalDmg = BO.Mods.outgoingDamage(this.modifiers, finalDmg, { hitbox, weaponInst, target: zombie });
+            if (finalDmg <= 0) return false;
             if (BO.Net && BO.Net.active && !BO.Net.isHost) {
                 BO.Net.sendToHost({ type: 'td_hit', zid: zombie.id, dmg: finalDmg, hitbox, isHead: hitbox === 'head' });
             }
@@ -1119,6 +1128,11 @@
                 this.kills++;
                 if (hitbox === 'head') this.headshots++;
                 BO.Progression.grantPlayerXP(zombie.isBoss ? 300 : 55);
+                BO.Mods.onKill(this.modifiers, zombie, {
+                    list: this.zombies,
+                    explode: (pt, rad, d) => this._onExplode(pt, rad, d, false, 0, 'corpse_bomb'),
+                    addCurrency: (amt) => { this.gold += amt; }
+                });
                 if (this.modifiers.vampirePlayer && BO.Player.alive) {
                     BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
                 }
@@ -1984,6 +1998,7 @@
             };
 
             const hitMeshes = [];
+            BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
             for (let i = this.zombies.length - 1; i >= 0; i--) {
                 const z = this.zombies[i];
                 const keep = z.update(dt, this.zombies, callbacks);

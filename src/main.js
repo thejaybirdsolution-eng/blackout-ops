@@ -166,6 +166,7 @@
                     mapId: opts.mapId,
                     difficulty: opts.difficulty || 'normal',
                     useClassicStarter: opts.useClassicStarter,
+                    startProtocol: opts.startProtocol || null,
                     startRound: opts.startRound || 1,
                     zModifiers: opts.zModifiers || {},
                     zCustomValues: opts.zCustomValues || {},

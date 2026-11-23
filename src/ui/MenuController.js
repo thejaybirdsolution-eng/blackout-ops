@@ -138,8 +138,13 @@
                 scoreLimit: 0, timeLimit: 0, enemyHp: 100, playerHp: 100, respawnDelay: 2.4,
                 headshotsOnly: false, oneShotKills: false, unlimitedAmmo: false, explosiveRounds: false,
                 bigHeads: false, alwaysRadar: false, killstreaksEnabled: true,
-                gravityScale: 1.0, speedScale: 1.0, jumpScale: 1.0, killcamEnabled: true
+                gravityScale: 1.0, speedScale: 1.0, jumpScale: 1.0, killcamEnabled: true,
+                mods: {}, startProtocol: 'custom'
             };
+            this.tdConfig.startProtocol = 'custom';
+            this.zStartProtocol = 'custom';
+            this.lobbySection = { zombies: 'map', mp: 'mode', td: 'castle' };
+            this.modFilter = { cat: 'all', q: '', onlyActive: false };
             this.barracksTab = 'bestiary';
             this.settingsTab = 'controls';
             this.legendTab = 'howto';
@@ -518,546 +523,655 @@
         /* ====================================================================
            DEPLOYMENT LOBBY
         ==================================================================== */
+        /* ====================================================================
+           DEPLOYMENT LOBBY — step-by-step setup (left) + live summary (right)
+        ==================================================================== */
+        _lobbySections(mode) {
+            if (mode === 'zombies') return [
+                { id: 'map', label: 'Map', icon: '🗺' },
+                { id: 'difficulty', label: 'Difficulty', icon: '⚙' },
+                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
+                { id: 'enemies', label: 'Enemies & Values', icon: '🧟' },
+                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+            ];
+            if (mode === 'mp') return [
+                { id: 'mode', label: 'Mode & Map', icon: '🗺' },
+                { id: 'bots', label: 'Bots', icon: '🤖' },
+                { id: 'rules', label: 'Match Rules', icon: '📜' },
+                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
+                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+            ];
+            return [
+                { id: 'castle', label: 'Castle', icon: '🏰' },
+                { id: 'difficulty', label: 'Mode & Difficulty', icon: '⚙' },
+                { id: 'battlefield', label: 'Battlefield', icon: '📐' },
+                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
+                { id: 'enemies', label: 'Enemy Pool', icon: '🧟' },
+                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+            ];
+        }
+
+        _lobbyMods(mode) {
+            if (mode === 'zombies') return this.zModifiers;
+            if (mode === 'td') return this.tdConfig.modifiers;
+            if (!this.customRules.mods) this.customRules.mods = {};
+            return this.customRules.mods;
+        }
+
+        _lobbyProtocol(mode) {
+            if (mode === 'zombies') return this.zStartProtocol || (this.classicStarter ? 'classic' : 'custom');
+            if (mode === 'td') return this.tdConfig.startProtocol || 'custom';
+            return this.customRules.startProtocol || 'custom';
+        }
+
+        _setLobbyProtocol(mode, id) {
+            if (mode === 'zombies') { this.zStartProtocol = id; this.classicStarter = id === 'classic'; }
+            else if (mode === 'td') this.tdConfig.startProtocol = id;
+            else this.customRules.startProtocol = id;
+        }
+
+        _lobbyBroadcast() {
+            if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+        }
+
+        _section(title, sub, inner) {
+            return `
+                <section class="lobby-section">
+                    <header class="lobby-section-head">
+                        <h3>${title}</h3>
+                        ${sub ? `<p>${sub}</p>` : ''}
+                    </header>
+                    ${inner}
+                </section>`;
+        }
+
+        _valueGrid(fields, values, cls, dataKey) {
+            return `
+                <div class="value-grid">
+                    ${fields.map((f) => `
+                        <label class="value-field" data-tip-title="${escAttr(f.lbl)}" data-tip="${escAttr(f.tip || `Exact value. Range ${f.min} – ${f.max}.`)}">
+                            <span>${f.lbl}</span>
+                            <input type="number" class="${cls}" data-${dataKey}="${f.k}" step="${f.step}" min="${f.min}" max="${f.max}" value="${values[f.k] ?? f.def ?? 1}">
+                        </label>`).join('')}
+                </div>`;
+        }
+
+        _protocolHtml(mode) {
+            const cur = this._lobbyProtocol(mode);
+            const mpNote = mode === 'mp' && this.customRules.playerWeaponMode && this.customRules.playerWeaponMode !== 'custom'
+                ? `<div class="lobby-note">⚠ The Match Rules "Player Weapon Rule" is set to <b>${escAttr(this.customRules.playerWeaponMode.toUpperCase())}</b>, which overrides this choice. Set it back to "My Custom Class" to use a protocol.</div>`
+                : '';
+            return `${mpNote}
+                <div class="protocol-grid">
+                    ${BO.Mods.PROTOCOLS.map((p) => `
+                        <button class="protocol-card ${cur === p.id ? 'active' : ''}" data-proto="${p.id}" data-tip-title="${escAttr(p.name)}" data-tip="${escAttr(p.desc)}">
+                            <span class="protocol-ico">${p.icon}</span>
+                            <span class="protocol-name">${escAttr(p.name)}</span>
+                            <span class="protocol-desc">${escAttr(p.desc)}</span>
+                        </button>`).join('')}
+                </div>`;
+        }
+
+        _bindProtocol(body, mode) {
+            body.querySelectorAll('[data-proto]').forEach((b) => {
+                b.onclick = () => {
+                    BO.Sound.playUIClick();
+                    this._setLobbyProtocol(mode, b.dataset.proto);
+                    body.querySelectorAll('[data-proto]').forEach((x) => x.classList.toggle('active', x === b));
+                    this._lobbyBroadcast();
+                    this._renderLobbySummary();
+                };
+            });
+        }
+
+        _modifiersHtml(mode) {
+            const mods = this._lobbyMods(mode);
+            const defs = BO.Mods.defsForMode(mode);
+            const f = this.modFilter;
+            const cats = BO.Mods.CATEGORIES.filter((c) => defs.some((d) => d.cat === c.id));
+            const active = defs.filter((d) => mods[d.k]).length;
+            return `
+                <div class="mod-toolbar">
+                    <input type="search" id="mod-search" placeholder="Search ${defs.length} modifiers…" value="${escAttr(f.q)}">
+                    <label class="mod-only-active"><input type="checkbox" id="mod-only-active" ${f.onlyActive ? 'checked' : ''}> Only active</label>
+                    <button class="btn btn-sm" id="mod-random">🎲 RANDOM 3</button>
+                    <button class="btn btn-sm" id="mod-clear">CLEAR ALL</button>
+                </div>
+                <div class="mod-cats">
+                    <button class="mod-cat ${f.cat === 'all' ? 'active' : ''}" data-mcat="all">All <span>${defs.length}</span></button>
+                    ${cats.map((c) => {
+                        const n = defs.filter((d) => d.cat === c.id).length;
+                        const on = defs.filter((d) => d.cat === c.id && mods[d.k]).length;
+                        return `<button class="mod-cat ${f.cat === c.id ? 'active' : ''}" data-mcat="${c.id}" style="--cat-col:${c.col};">${c.icon} ${c.name} <span>${on ? on + '/' : ''}${n}</span></button>`;
+                    }).join('')}
+                </div>
+                <div class="mod-count-line"><b id="mod-active-count">${active}</b> active</div>
+                <div class="mod-grid" id="mod-grid">
+                    ${defs.map((d) => {
+                        const cat = BO.Mods.CATEGORIES.find((c) => c.id === d.cat) || {};
+                        return `
+                            <button class="mod-card ${mods[d.k] ? 'active' : ''}" data-mod="${d.k}" data-mcat-of="${d.cat}" data-search="${escAttr((d.lbl + ' ' + d.desc + ' ' + (cat.name || '')).toLowerCase())}" style="--cat-col:${cat.col || '#38bdf8'};">
+                                <span class="mod-card-top"><span class="mod-card-ico">${cat.icon || '•'}</span><b>${escAttr(d.lbl)}</b><span class="mod-switch"></span></span>
+                                <span class="mod-card-desc">${escAttr(d.desc)}</span>
+                            </button>`;
+                    }).join('')}
+                </div>
+                <div class="mod-empty hidden" id="mod-empty">No modifiers match your search.</div>`;
+        }
+
+        _bindModifiers(body, mode) {
+            const mods = this._lobbyMods(mode);
+            const grid = body.querySelector('#mod-grid');
+            const applyFilter = () => {
+                const f = this.modFilter;
+                const q = f.q.trim().toLowerCase();
+                let shown = 0;
+                grid.querySelectorAll('.mod-card').forEach((c) => {
+                    const ok = (f.cat === 'all' || c.dataset.mcatOf === f.cat)
+                        && (!q || c.dataset.search.includes(q))
+                        && (!f.onlyActive || c.classList.contains('active'));
+                    c.classList.toggle('hidden', !ok);
+                    if (ok) shown++;
+                });
+                body.querySelector('#mod-empty').classList.toggle('hidden', shown > 0);
+            };
+            const refreshCounts = () => {
+                const n = BO.Mods.countActive(mods, mode);
+                const c = body.querySelector('#mod-active-count');
+                if (c) c.textContent = n;
+                const badge = document.getElementById('lobby-mod-badge');
+                if (badge) { badge.textContent = n; badge.classList.toggle('hidden', n === 0); }
+                this._renderLobbySummary();
+                this._lobbyBroadcast();
+            };
+            grid.querySelectorAll('.mod-card').forEach((c) => {
+                c.onclick = () => {
+                    BO.Sound.playUIClick();
+                    const k = c.dataset.mod;
+                    mods[k] = !mods[k];
+                    c.classList.toggle('active', !!mods[k]);
+                    refreshCounts();
+                    if (this.modFilter.onlyActive) applyFilter();
+                };
+            });
+            body.querySelectorAll('[data-mcat]').forEach((b) => {
+                b.onclick = () => {
+                    BO.Sound.playUIClick();
+                    this.modFilter.cat = b.dataset.mcat;
+                    body.querySelectorAll('[data-mcat]').forEach((x) => x.classList.toggle('active', x === b));
+                    applyFilter();
+                };
+            });
+            const search = body.querySelector('#mod-search');
+            search.oninput = () => { this.modFilter.q = search.value; applyFilter(); };
+            body.querySelector('#mod-only-active').onchange = (e) => { this.modFilter.onlyActive = e.target.checked; applyFilter(); };
+            body.querySelector('#mod-clear').onclick = () => {
+                BO.Sound.playUIClick();
+                BO.Mods.defsForMode(mode).forEach((d) => { mods[d.k] = false; });
+                this.renderLobby();
+            };
+            body.querySelector('#mod-random').onclick = () => {
+                BO.Sound.playUIClick();
+                const off = BO.Mods.defsForMode(mode).filter((d) => !mods[d.k]);
+                for (let i = 0; i < 3 && off.length; i++) {
+                    const d = off.splice(Math.floor(Math.random() * off.length), 1)[0];
+                    mods[d.k] = true;
+                }
+                this.renderLobby();
+            };
+            applyFilter();
+        }
+
         renderLobby() {
             const left = document.getElementById('lobby-left');
-            const right = document.getElementById('lobby-right');
             const mode = this.lobbyMode; // 'zombies' | 'mp' | 'td'
-            const isZ = mode === 'zombies';
-            const isMp = mode === 'mp';
-            const isTd = mode === 'td';
-            const roundsUnlocked = BO.Cheats && (BO.Cheats.isModMenuUnlocked() || BO.Cheats.isActive('rounds', true));
+            const roundsUnlocked = !!(BO.Cheats && (BO.Cheats.isModMenuUnlocked() || BO.Cheats.isActive('rounds', true)));
+            if (!this.lobbySection) this.lobbySection = { zombies: 'map', mp: 'mode', td: 'castle' };
+            if (!this.modFilter) this.modFilter = { cat: 'all', q: '', onlyActive: false };
+            if (!this.customRules.mods) this.customRules.mods = {};
 
-            document.getElementById('lobby-mode-tabs').innerHTML = `
-                <button class="btn ${isZ ? 'btn-zombies' : ''}" id="tab-lobby-z"
-                    data-tip-title="COD Zombies Mode" data-tip="Survive endless waves of 20 unique zombies, fight Bosses on Rounds 5, 10, 20, 25, & 50, drink Perks, and upgrade guns in Pack-a-Punch!">COD ZOMBIES</button>
-                <button class="btn ${isMp ? 'btn-primary' : ''}" id="tab-lobby-mp"
-                    data-tip-title="Multiplayer Bot Combat + Custom Games" data-tip="Play Nuketown (BO1), Shipment (CoD4), Terminal (MW2), Rust (MW2), Killhouse & Crash Site with Custom Games & 15s Winner Killcam!">MULTIPLAYER BOTS</button>
-                <button class="btn ${isTd ? 'btn-primary' : ''}" id="tab-lobby-td" style="${isTd ? 'background:linear-gradient(135deg,#15803d,#22c55e);color:#052e16;border-color:#4ade80;' : ''}"
-                    data-tip-title="Tower Defense (Castle Siege)" data-tip="Defend your 3D Castle Keep (3 Wall Layers x 250 HP + 100 HP Heart) across 3 Castle Setups with a 30s Shopkeeper Intermission!">TOWER DEFENSE</button>
-            `;
-            document.getElementById('tab-lobby-z').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'zombies'; this.renderLobby(); };
-            document.getElementById('tab-lobby-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.renderLobby(); };
-            document.getElementById('tab-lobby-td').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.renderLobby(); };
-
-            const ALL_WAVE_MODIFIERS = [
-                { k: 'allBosses', lbl: '💀 All Bosses' },
-                { k: 'fastZombies', lbl: '⚡ Fast Zombies (1.65x)' },
-                { k: 'allEnemiesUnlocked', lbl: '🔓 All 70+10 Unlocked Wave 1' },
-                { k: 'cost4x', lbl: '💸 Everything Costs 4x' },
-                { k: 'zombiesHeal', lbl: '💚 Zombies Heal Each Other' },
-                { k: 'magicalZombies', lbl: '✨ Magical Zombies' },
-                { k: 'explosiveDeath', lbl: '💥 Explosive Zombie Deaths' },
-                { k: 'giantZombies', lbl: '🦖 Giant Zombies (1.65x)' },
-                { k: 'tinyZombies', lbl: '🐜 Tiny Speedsters (0.6x)' },
-                { k: 'vampiric', lbl: '🧛 Vampiric Zombies' },
-                { k: 'bloodMoon', lbl: '🩸 Blood Moon Fog' },
-                { k: 'lowGravity', lbl: '🌙 Low Gravity Jumps' },
-                { k: 'doubleGold', lbl: '🪙 Double Gold / 2x Points' },
-                { k: 'headshotsOnly', lbl: '🎯 Headshots Only' },
-                { k: 'infiniteAmmo', lbl: '∞ Infinite Ammo' },
-                { k: 'randomLoadoutWave', lbl: '🎲 Random Gun Each Wave' },
-                { k: 'glassCannon', lbl: '🔥 Glass Cannon (3x Dmg / 0.5x HP)' },
-                { k: 'megaSplitters', lbl: '🧬 Mega Splitters (All Split!)' },
-                { k: 'superJumpZombies', lbl: '🦘 Super Jumping Horde' },
-                { k: 'vampirePlayer', lbl: '❤️ Vampire Player (+15 HP/Kill)' },
-                { k: 'sniperHeaven', lbl: '🔭 Sniper Heaven (2.5x Sniper Dmg)' },
-                { k: 'meleeMayhem', lbl: '⚔️ Melee Mayhem (4x + Heal)' },
-                { k: 'explosiveHeadshots', lbl: '💣 Explosive Headshots' },
-                { k: 'fastReload', lbl: '⚡ Hyper Reload (2.5x Speed)' },
-                { k: 'hyperSpeedPlayer', lbl: '🏃 Hyper Speed Player (1.45x)' },
-                { k: 'armoredHorde', lbl: '🛡️ Armored Horde (+35% Def)' },
-                { k: 'chaosSwarm', lbl: '🌊 Chaos Swarm (2x Count)' },
-                { k: 'noPerks', lbl: '🚫 No Perk Machines' },
-                { k: 'freePerks', lbl: '🎁 Free Perk Machines (0g)' },
-                { k: 'richStart', lbl: '💰 Rich Start (10,000 Gold/Pts)' },
-                { k: 'berserkerWave', lbl: '😡 Berserker Rage (<50% HP)' },
-                { k: 'nightmareDarkness', lbl: '🌑 Nightmare Darkness' },
-                { k: 'noRegen', lbl: '☠️ No Health Regen' },
-                { k: 'shieldedBosses', lbl: '🔰 Shielded Bosses (Regen)' },
-                { k: 'halfZombieHp', lbl: '💔 Zombies Have 1/2 Health' },
-                { k: 'quarterZombieHp', lbl: '🩸 Zombies Have 1/4 Health' },
-                { k: 'oneHitMeleeZombies', lbl: '💀 Zombies 99,999 Melee DMG' },
-                { k: 'noProjectiles', lbl: '🛡️ No Projectile Zombies' },
-                { k: 'noProjectilesUntil20', lbl: '⏳ No Projectiles Until Rd 20' }
+            const tabs = [
+                { id: 'zombies', label: 'ZOMBIES', sub: 'Survive the rounds', cls: 'z' },
+                { id: 'mp', label: 'MULTIPLAYER', sub: 'Bots & friends', cls: 'mp' },
+                { id: 'td', label: 'TOWER DEFENSE', sub: 'Hold the castle', cls: 'td' }
             ];
-            const disabledCount = (this.tdConfig.disabledEnemies || []).length;
+            document.getElementById('lobby-mode-tabs').innerHTML = tabs.map((t) => `
+                <button class="mode-tab mode-tab-${t.cls} ${mode === t.id ? 'active' : ''}" data-lmode="${t.id}">
+                    <b>${t.label}</b><small>${t.sub}</small>
+                </button>`).join('');
+            document.querySelectorAll('[data-lmode]').forEach((b) => {
+                b.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = b.dataset.lmode; this.renderLobby(); };
+            });
 
-            if (isZ) {
+            const sections = this._lobbySections(mode);
+            let sec = this.lobbySection[mode];
+            if (!sections.find((s) => s.id === sec)) { sec = sections[0].id; this.lobbySection[mode] = sec; }
+            const idx = sections.findIndex((s) => s.id === sec);
+            const modCount = BO.Mods.countActive(this._lobbyMods(mode), mode);
+
+            left.innerHTML = `
+                <nav class="lobby-steps">
+                    ${sections.map((s, i) => `
+                        <button class="lobby-step ${s.id === sec ? 'active' : ''} ${i < idx ? 'done' : ''}" data-lsec="${s.id}">
+                            <span class="lobby-step-num">${i + 1}</span>
+                            <span class="lobby-step-label">${s.icon} ${s.label}</span>
+                            ${s.id === 'modifiers' ? `<span class="lobby-step-badge ${modCount ? '' : 'hidden'}" id="lobby-mod-badge">${modCount}</span>` : ''}
+                        </button>`).join('')}
+                </nav>
+                <div class="lobby-step-body" id="lobby-step-body"></div>
+                <footer class="lobby-step-footer">
+                    <button class="btn btn-sm" id="lobby-prev" ${idx === 0 ? 'disabled' : ''}>← PREVIOUS</button>
+                    <span class="lobby-step-count">STEP ${idx + 1} / ${sections.length}</span>
+                    ${idx < sections.length - 1
+                        ? `<button class="btn btn-sm btn-primary" id="lobby-next">NEXT: ${sections[idx + 1].label.toUpperCase()} →</button>`
+                        : `<button class="btn btn-sm btn-primary" id="lobby-next-deploy">DEPLOY →</button>`}
+                </footer>`;
+            left.querySelectorAll('[data-lsec]').forEach((b) => {
+                b.onclick = () => { BO.Sound.playUIClick(); this.lobbySection[mode] = b.dataset.lsec; this.renderLobby(); };
+            });
+            const prev = document.getElementById('lobby-prev');
+            if (prev) prev.onclick = () => { BO.Sound.playUIClick(); this.lobbySection[mode] = sections[Math.max(0, idx - 1)].id; this.renderLobby(); };
+            const next = document.getElementById('lobby-next');
+            if (next) next.onclick = () => { BO.Sound.playUIClick(); this.lobbySection[mode] = sections[idx + 1].id; this.renderLobby(); };
+            const nextDeploy = document.getElementById('lobby-next-deploy');
+            if (nextDeploy) nextDeploy.onclick = () => { const d = document.getElementById('btn-deploy-match'); if (d) d.click(); };
+
+            const body = document.getElementById('lobby-step-body');
+            if (mode === 'zombies') this._renderZSection(body, sec, roundsUnlocked);
+            else if (mode === 'mp') this._renderMpSection(body, sec);
+            else this._renderTdSection(body, sec);
+            body.scrollTop = 0;
+
+            this._lobbyBroadcast();
+            this._renderLobbyRight(mode, roundsUnlocked);
+        }
+
+        _renderZSection(body, sec, roundsUnlocked) {
+            const disabledCount = (this.tdConfig.disabledEnemies || []).length;
+            if (sec === 'map') {
                 const maps = BO.MapsData.listByMode('zombies');
+                body.innerHTML = this._section('Choose a map', `${maps.length} zombies maps. Your best round on each is shown.`, `
+                    <div class="pick-grid">
+                        ${maps.map((m) => `
+                            <button class="pick-card ${this.selectedZMap === m.id ? 'active' : ''}" data-zmap="${m.id}" style="--pick-col:#f87171;"
+                                data-tip-title="${escAttr(m.name)}" data-tip="${escAttr(m.description)}">
+                                <span class="pick-name">${escAttr(m.name)}</span>
+                                <span class="pick-sub">${escAttr(m.subtitle || '')}</span>
+                                <span class="pick-desc">${escAttr(m.description || '')}</span>
+                                <span class="pick-foot">BEST ROUND <b>${BO.Save.data.stats.highestRoundByMap[m.id] || 0}</b></span>
+                            </button>`).join('')}
+                    </div>`);
+                body.querySelectorAll('[data-zmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZMap = b.dataset.zmap; this.renderLobby(); }; });
+            } else if (sec === 'difficulty') {
                 const u = BO.Save.data.unlockables || {};
                 const allUnlocked = BO.Settings.get('unlockAll');
                 const zDiffs = [
-                    { id: 'normal', name: 'NORMAL', unlocked: true, tip: 'Standard COD Zombies wave survival.' },
-                    { id: 'hard', name: 'HARD MODE', unlocked: !!(u.hardModeUnlocked || allUnlocked), tip: '1.5x Zombie HP, +18% Speed, 1.35x Attack. Unlocks by passing Round 50 (or "unlock" cheat)!' },
-                    { id: 'very_hard', name: 'VERY HARD', unlocked: !!(u.veryHardModeUnlocked || allUnlocked), tip: '2.25x Zombie HP, +32% Speed, 1.7x Attack. Unlocks by passing Round 50 on Hard Mode!' },
-                    { id: 'insanely_hard', name: 'INSANELY HARD', unlocked: !!(u.insanelyHardModeUnlocked || allUnlocked), tip: '3.5x Zombie HP, +48% Speed, 2.2x Attack. Unlocks by passing Round 50 on Very Hard Mode!' },
-                    { id: 'boss_rush', name: '★ BOSS RUSH', unlocked: !!(u.bossRushUnlocked || allUnlocked), tip: 'Start with 10,000 PTS and fight a Boss every single round! Unlocks by passing Round 50!' }
+                    { id: 'normal', name: 'Normal', unlocked: true, col: '#4ade80', tip: 'Standard zombies survival.' },
+                    { id: 'hard', name: 'Hard', unlocked: !!(u.hardModeUnlocked || allUnlocked), col: '#fbbf24', tip: '1.5x zombie health, +18% speed, 1.35x attack. Unlock by reaching round 50.' },
+                    { id: 'very_hard', name: 'Very Hard', unlocked: !!(u.veryHardModeUnlocked || allUnlocked), col: '#fb923c', tip: '2.25x health, +32% speed, 1.7x attack. Unlock by reaching round 50 on Hard.' },
+                    { id: 'insanely_hard', name: 'Insanely Hard', unlocked: !!(u.insanelyHardModeUnlocked || allUnlocked), col: '#ef4444', tip: '3.5x health, +48% speed, 2.2x attack. Unlock by reaching round 50 on Very Hard.' },
+                    { id: 'boss_rush', name: 'Boss Rush', unlocked: !!(u.bossRushUnlocked || allUnlocked), col: '#e879f9', tip: 'Start with 10,000 points and fight a boss every round. Unlock by reaching round 50.' }
                 ];
-                if (!zDiffs.find((d) => d.id === this.selectedZDifficulty && d.unlocked)) {
-                    this.selectedZDifficulty = 'normal';
-                }
-                left.innerHTML = `
-                    <div class="panel-title">SELECT ZOMBIES SECTOR (9 MAPS • INCLUDES 1:1 WAW / BO1 / BO2 CLASSICS)</div>
-                    <div class="card-grid">
-                        ${maps.map((m) => `
-                            <button class="select-card ${this.selectedZMap === m.id ? 'active-zombies' : ''}" data-zmap="${m.id}"
-                                data-tip-title="${escAttr(m.name)}" data-tip="${escAttr(m.description)}" data-tip-sub="Features Painted 'POWER →' Wall Arrows, Power Switch, 6 Perks, Mystery Box &amp; 3-Tier Pack-a-Punch!">
-                                <div class="card-head">${m.name}</div>
-                                <div class="card-sub">${m.subtitle}<br><br>${m.description}</div>
-                                <div style="margin-top:8px;font-size:11px;color:#f87171">BEST ROUND: ${BO.Save.data.stats.highestRoundByMap[m.id] || 0}</div>
-                            </button>`).join('')}
-                    </div>
-                    <div class="panel-title" style="margin-top:8px;">ZOMBIES DIFFICULTY &amp; BOSS RUSH (UNLOCKS AT ROUND 50)</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                if (!zDiffs.find((d) => d.id === this.selectedZDifficulty && d.unlocked)) this.selectedZDifficulty = 'normal';
+                body.innerHTML = this._section('Difficulty', 'Harder modes unlock as you survive to round 50.', `
+                    <div class="pick-grid pick-grid-sm">
                         ${zDiffs.map((d) => `
-                            <button class="btn btn-sm ${this.selectedZDifficulty === d.id ? 'btn-zombies' : ''}" data-zdiff="${d.id}" ${d.unlocked ? '' : 'disabled'}
-                                data-tip-title="${escAttr(d.name)}" data-tip="${escAttr(d.tip)}">
-                                ${d.name} ${d.unlocked ? '' : '🔒'}
-                            </button>
-                        `).join('')}
-                    </div>
-                    <div class="panel-title" style="margin-top:8px;">STARTING WEAPON PROTOCOL</div>
-                    <div class="card-grid">
-                        <button class="select-card ${!this.classicStarter ? 'active-zombies' : ''}" id="z-start-custom"
-                            data-tip-title="Custom Loadout Start" data-tip="Bring your custom Primary gun, Side Weapon, Perks, Special Power, and Ultimate Power right from Round 1!">
-                            <div class="card-head">CUSTOM CLASS LOADOUT</div>
-                            <div class="card-sub">Drop in with your active Gunsmith Primary + Sidearm + Special &amp; Ultimate Powers.</div>
-                        </button>
-                        <button class="select-card ${this.classicStarter ? 'active-zombies' : ''}" id="z-start-classic"
-                            data-tip-title="Classic M1911 Start" data-tip="Old-school Zombies challenge: start with only the M1911 pistol and 500 points, then buy wall guns or spin the Mystery Box!">
-                            <div class="card-head">CLASSIC M1911 PISTOL</div>
-                            <div class="card-sub">Purist COD Zombies survival: start with M1911 &amp; 500 points.</div>
-                        </button>
-                    </div>
-                    ${roundsUnlocked ? `
-                        <div class="round-picker-card" style="margin-top:8px;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-                                <span style="font-size:13px;font-weight:800;color:#fde047;">★ STARTING ROUND (CHEAT UNLOCKED):</span>
-                                <input type="number" id="lobby-round-input" min="1" max="999" value="${this.selectedStartRound}" style="width:80px;background:#0d131d;color:#fde047;border:1px solid var(--amber);padding:6px 10px;font-family:var(--font-mono);font-weight:800;">
-                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                                    ${[1, 5, 10, 20, 25, 50].map((r) => `<button class="btn btn-sm ${this.selectedStartRound === r ? 'btn-zombies' : ''}" data-lobbyrnd="${r}">RD ${r}${r >= 5 ? ' BOSS' : ''}</button>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                    <div class="panel-title" style="color:#f87171;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-                        <span>★ ENEMY POOL (70 ENEMIES + 10 BOSSES • BOSS 2% + 0.5%/RD AFTER RD 10)</span>
-                        <button class="btn btn-sm btn-zombies" id="btn-z-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
-                    </div>
-                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">★ 100% CUSTOM VALUE CONTROLS (EXACT NUMBERS!)</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:6px;margin-bottom:8px;">
-                        ${[
-                            { k: 'zombieHpMult', lbl: 'Zombie HP Mult', step: 0.1, min: 0.05, max: 20 },
-                            { k: 'zombieSpeedMult', lbl: 'Zombie Speed Mult', step: 0.1, min: 0.2, max: 5 },
-                            { k: 'zombieDamageMult', lbl: 'Zombie DMG Mult', step: 0.1, min: 0.1, max: 20 },
-                            { k: 'playerMaxHp', lbl: 'Player Max HP', step: 25, min: 1, max: 5000 },
-                            { k: 'startCurrency', lbl: 'Start Points (0=Def)', step: 500, min: 0, max: 100000 },
-                            { k: 'bossSpawnPct', lbl: 'Base Boss Chance %', step: 0.5, min: 0, max: 100 },
-                            { k: 'maxAliveZombies', lbl: 'Max Alive On Field', step: 2, min: 5, max: 60 },
-                            { k: 'spawnDelaySec', lbl: 'Spawn Delay s (0=Auto)', step: 0.1, min: 0, max: 4 },
-                            { k: 'waveSizeMult', lbl: 'Round Size Mult', step: 0.25, min: 0.25, max: 5 },
-                            { k: 'supplyDropPct', lbl: 'Supply Drop Rate %', step: 5, min: 0, max: 100 }
-                        ].map((f) => `
-                            <div class="setting-row" style="background:var(--glass-card);padding:6px 9px;border:1px solid var(--border-subtle);border-radius:8px;">
-                                <span style="font-size:11px;">${f.lbl}</span>
-                                <input type="number" class="js-z-cval" data-zk="${f.k}" step="${f.step}" min="${f.min}" max="${f.max}" value="${this.zCustomValues[f.k]}" style="width:74px;color:#38bdf8;font-family:var(--font-mono);font-weight:800;padding:4px 6px;">
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="panel-title" style="color:#c084fc;margin-top:8px;">★ ZOMBIES CUSTOM MODIFIERS (${ALL_WAVE_MODIFIERS.length} MODIFIERS!)</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
-                        ${ALL_WAVE_MODIFIERS.map((md) => `
-                            <label class="mod-row ${this.zModifiers[md.k] ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11.5px;">
-                                <span>${md.lbl}</span>
-                                <input type="checkbox" class="js-z-mod" data-zmod="${md.k}" ${this.zModifiers[md.k] ? 'checked' : ''}>
-                            </label>
-                        `).join('')}
-                    </div>
-                `;
-                left.querySelectorAll('[data-zmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZMap = b.dataset.zmap; this.renderLobby(); }; });
-                left.querySelectorAll('[data-zdiff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZDifficulty = b.dataset.zdiff; this.renderLobby(); }; });
-                document.getElementById('z-start-custom').onclick = () => { BO.Sound.playUIClick(); this.classicStarter = false; this.renderLobby(); };
-                document.getElementById('z-start-classic').onclick = () => { BO.Sound.playUIClick(); this.classicStarter = true; this.renderLobby(); };
-                const zEpBtn = document.getElementById('btn-z-open-ep');
-                if (zEpBtn) zEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
-                left.querySelectorAll('.js-z-cval').forEach((inp) => {
-                    inp.onchange = (e) => {
-                        this.zCustomValues[e.target.dataset.zk] = Number(e.target.value);
-                        if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
-                    };
-                });
-                left.querySelectorAll('.js-z-mod').forEach((cb) => {
-                    cb.onchange = (e) => {
-                        BO.Sound.playUIClick();
-                        this.zModifiers[e.target.dataset.zmod] = e.target.checked;
-                        this.renderLobby();
-                    };
-                });
+                            <button class="pick-card ${this.selectedZDifficulty === d.id ? 'active' : ''}" data-zdiff="${d.id}" ${d.unlocked ? '' : 'disabled'} style="--pick-col:${d.col};">
+                                <span class="pick-name">${d.name} ${d.unlocked ? '' : '🔒'}</span>
+                                <span class="pick-desc">${escAttr(d.tip)}</span>
+                            </button>`).join('')}
+                    </div>`) + (roundsUnlocked ? this._section('Starting round', 'Unlocked by cheat. Jump straight to any round.', `
+                    <div class="round-row">
+                        <input type="number" id="lobby-round-input" min="1" max="999" value="${this.selectedStartRound}">
+                        ${[1, 5, 10, 20, 25, 50].map((r) => `<button class="btn btn-sm ${this.selectedStartRound === r ? 'btn-zombies' : ''}" data-lobbyrnd="${r}">RD ${r}${r >= 5 ? ' BOSS' : ''}</button>`).join('')}
+                    </div>`) : '');
+                body.querySelectorAll('[data-zdiff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZDifficulty = b.dataset.zdiff; this.renderLobby(); }; });
                 const lri = document.getElementById('lobby-round-input');
-                if (lri) {
-                    lri.oninput = (e) => {
-                        this.selectedStartRound = Math.max(1, Math.min(999, parseInt(e.target.value, 10) || 1));
-                    };
-                }
-                left.querySelectorAll('[data-lobbyrnd]').forEach((b) => {
-                    b.onclick = () => {
-                        BO.Sound.playUIClick();
-                        this.selectedStartRound = parseInt(b.dataset.lobbyrnd, 10) || 1;
-                        this.renderLobby();
-                    };
+                if (lri) lri.oninput = (e) => { this.selectedStartRound = Math.max(1, Math.min(999, parseInt(e.target.value, 10) || 1)); this._renderLobbyRight('zombies', roundsUnlocked); };
+                body.querySelectorAll('[data-lobbyrnd]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedStartRound = parseInt(b.dataset.lobbyrnd, 10) || 1; this.renderLobby(); }; });
+            } else if (sec === 'loadout') {
+                body.innerHTML = this._section('Starting weapons', 'Pick what you spawn with. "Custom Class" uses the class selected on the right.', this._protocolHtml('zombies'));
+                this._bindProtocol(body, 'zombies');
+            } else if (sec === 'enemies') {
+                body.innerHTML = this._section('Enemy pool', 'Choose which of the 70 enemies and 10 bosses can spawn. Hover any enemy for a full field report.', `
+                    <button class="big-action" id="btn-z-open-ep">
+                        <span class="big-action-ico">🧟</span>
+                        <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per round after 10</small></span>
+                        <span class="big-action-go">OPEN →</span>
+                    </button>`) + this._section('Exact values', 'Fine-tune the horde with precise numbers.', this._valueGrid([
+                    { k: 'zombieHpMult', lbl: 'Zombie health ×', step: 0.1, min: 0.05, max: 20 },
+                    { k: 'zombieSpeedMult', lbl: 'Zombie speed ×', step: 0.1, min: 0.2, max: 5 },
+                    { k: 'zombieDamageMult', lbl: 'Zombie damage ×', step: 0.1, min: 0.1, max: 20 },
+                    { k: 'playerMaxHp', lbl: 'Your max health', step: 25, min: 1, max: 5000 },
+                    { k: 'startCurrency', lbl: 'Start points (0 = default)', step: 500, min: 0, max: 100000 },
+                    { k: 'bossSpawnPct', lbl: 'Base boss chance %', step: 0.5, min: 0, max: 100 },
+                    { k: 'maxAliveZombies', lbl: 'Max zombies alive', step: 2, min: 5, max: 60 },
+                    { k: 'spawnDelaySec', lbl: 'Spawn delay s (0 = auto)', step: 0.1, min: 0, max: 4 },
+                    { k: 'waveSizeMult', lbl: 'Round size ×', step: 0.25, min: 0.25, max: 5 },
+                    { k: 'supplyDropPct', lbl: 'Supply drop rate %', step: 5, min: 0, max: 100 }
+                ], this.zCustomValues, 'js-z-cval', 'zk'));
+                document.getElementById('btn-z-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                body.querySelectorAll('.js-z-cval').forEach((inp) => {
+                    inp.onchange = (e) => { this.zCustomValues[e.target.dataset.zk] = Number(e.target.value); this._lobbyBroadcast(); };
                 });
-            } else if (isMp) {
+            } else {
+                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover a card for details. They stack.', this._modifiersHtml('zombies'));
+                this._bindModifiers(body, 'zombies');
+            }
+        }
+
+        _renderMpSection(body, sec) {
+            const cr = this.customRules;
+            if (sec === 'mode') {
                 const mpModes = [
-                    { id: 'tdm', name: 'TEAM DEATHMATCH', sub: 'Squad Elimination (default 50 Kills).', tip: 'Work with AI teammates to reach the kill limit first!' },
-                    { id: 'ffa', name: 'FREE-FOR-ALL', sub: 'Every-Soldier-for-Himself (default 30 Kills).', tip: 'No teammates! Shoot everyone you see to win!' },
-                    { id: 'dom', name: 'DOMINATION', sub: 'Capture & Hold Flags A, B, C to 150 Points.', tip: 'Stand inside the glowing A, B, and C rings to earn points!' },
-                    { id: 'hardpoint', name: 'HARDPOINT', sub: 'Contest Rotating Tactical Zones to 150 Points.', tip: 'Hold the rotating objective zone!' },
-                    { id: 'gun_game', name: 'GUN GAME', sub: '16-Weapon Ladder Promotion ending in Ray Gun.', tip: 'Every kill upgrades your weapon!' }
+                    { id: 'tdm', name: 'Team Deathmatch', sub: 'First team to the kill limit wins (50 by default).' },
+                    { id: 'ffa', name: 'Free-for-All', sub: 'Everyone for themselves (30 kills).' },
+                    { id: 'dom', name: 'Domination', sub: 'Capture and hold flags A, B and C to 150 points.' },
+                    { id: 'hardpoint', name: 'Hardpoint', sub: 'Hold the rotating zone to 150 points.' },
+                    { id: 'gun_game', name: 'Gun Game', sub: 'Every kill upgrades your weapon. 16 steps to win.' }
                 ];
                 const maps = BO.MapsData.listByMode('mp');
-                const diffs = [
-                    { id: 'recruit', tip: 'Sight delay 2–5 seconds before shooting! Relaxed bots.' },
-                    { id: 'regular', tip: 'Sight delay 2–4 seconds before shooting! Balanced combat.' },
-                    { id: 'hardened', tip: 'Sight delay 2–3 seconds before shooting! Aggressive bots.' },
-                    { id: 'veteran', tip: 'Sight delay 1–2 seconds before shooting! Elite accuracy.' }
-                ];
-                const cr = this.customRules;
-                left.innerHTML = `
-                    <div class="panel-title">GAME MODE</div>
-                    <div class="card-grid">
+                body.innerHTML = this._section('Game mode', '', `
+                    <div class="pick-grid pick-grid-sm">
                         ${mpModes.map((mm) => `
-                            <button class="select-card ${this.selectedMpMode === mm.id ? 'active' : ''}" data-mpmode="${mm.id}"
-                                data-tip-title="${mm.name}" data-tip="${escAttr(mm.tip)}">
-                                <div class="card-head">${mm.name}</div>
-                                <div class="card-sub">${mm.sub}</div>
+                            <button class="pick-card ${this.selectedMpMode === mm.id ? 'active' : ''}" data-mpmode="${mm.id}" style="--pick-col:#38bdf8;">
+                                <span class="pick-name">${mm.name}</span>
+                                <span class="pick-desc">${mm.sub}</span>
                             </button>`).join('')}
-                    </div>
-                    <div class="panel-title">SELECT MAP (6 ARENAS • INCLUDES 1:1 NUKETOWN / SHIPMENT / TERMINAL / RUST)</div>
-                    <div class="card-grid">
+                    </div>`) + this._section('Map', `${maps.length} arenas.`, `
+                    <div class="pick-grid">
                         ${maps.map((m) => `
-                            <button class="select-card ${this.selectedMpMap === m.id ? 'active' : ''}" data-mpmap="${m.id}"
+                            <button class="pick-card ${this.selectedMpMap === m.id ? 'active' : ''}" data-mpmap="${m.id}" style="--pick-col:#38bdf8;"
                                 data-tip-title="${escAttr(m.name)}" data-tip="${escAttr(m.description)}">
-                                <div class="card-head">${m.name}</div>
-                                <div class="card-sub">${m.subtitle}<br>${m.description}</div>
+                                <span class="pick-name">${escAttr(m.name)}</span>
+                                <span class="pick-sub">${escAttr(m.subtitle || '')}</span>
+                                <span class="pick-desc">${escAttr(m.description || '')}</span>
                             </button>`).join('')}
-                    </div>
-                    <div class="panel-title">BOT DIFFICULTY (WITH AUTHENTIC SIGHT REACTION DELAYS)</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        ${diffs.map((d) => `<button class="btn ${this.selectedDifficulty === d.id ? 'btn-primary' : ''}" data-diff="${d.id}"
-                            data-tip-title="Difficulty: ${d.id.toUpperCase()}" data-tip="${escAttr(d.tip)}">${d.id.toUpperCase()}</button>`).join('')}
-                    </div>
-
-                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">★ CUSTOM GAMES &amp; FULL MATCH RULESET (SERIOUS &amp; FUN)</div>
-                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
-                        <button class="btn btn-sm js-cg-preset" data-preset="standard">PRESET: STANDARD COD</button>
-                        <button class="btn btn-sm js-cg-preset" data-preset="unarmed" style="border-color:#22c55e;color:#22c55e;">UNARMED TARGET PRACTICE</button>
-                        <button class="btn btn-sm js-cg-preset" data-preset="snipers" style="border-color:#38bdf8;color:#38bdf8;">ONE-SHOT SNIPERS</button>
-                        <button class="btn btn-sm js-cg-preset" data-preset="chaos" style="border-color:#c084fc;color:#c084fc;">MOON GRAVITY + BIG HEADS + SUPER SPEED</button>
-                        <button class="btn btn-sm js-cg-preset" data-preset="quickcam" style="border-color:#fde047;color:#fde047;">5-KILL WINNER KILLCAM BLITZ</button>
-                    </div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Enemy Count (1–18): <b id="cg-ec-lbl">${cr.enemyCount}</b></span>
-                            <input type="range" id="cg-enemyCount" min="1" max="18" step="1" value="${cr.enemyCount}" style="width:110px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Team Size Limit (1–12): <b id="cg-ts-lbl">${cr.teamSizeLimit}</b></span>
-                            <input type="range" id="cg-teamSize" min="1" max="12" step="1" value="${cr.teamSizeLimit}" style="width:110px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Enemy Weapons</span>
-                            <select id="cg-enemyWeapons" style="max-width:140px;">
-                                <option value="all" ${cr.enemyWeaponMode === 'all' ? 'selected' : ''}>ALL WEAPONS</option>
-                                <option value="unarmed" ${cr.enemyWeaponMode === 'unarmed' ? 'selected' : ''}>NO GUNS / UNARMED</option>
-                                <option value="pistols" ${cr.enemyWeaponMode === 'pistols' ? 'selected' : ''}>PISTOLS ONLY</option>
-                                <option value="snipers" ${cr.enemyWeaponMode === 'snipers' ? 'selected' : ''}>SNIPERS ONLY</option>
-                                <option value="shotguns" ${cr.enemyWeaponMode === 'shotguns' ? 'selected' : ''}>SHOTGUNS ONLY</option>
-                                <option value="smgs" ${cr.enemyWeaponMode === 'smgs' ? 'selected' : ''}>SMGS ONLY</option>
-                                <option value="ar" ${cr.enemyWeaponMode === 'ar' ? 'selected' : ''}>ASSAULT RIFLES</option>
-                                <option value="melee" ${cr.enemyWeaponMode === 'melee' ? 'selected' : ''}>MELEE BLADES ONLY</option>
-                                <option value="rpg" ${cr.enemyWeaponMode === 'rpg' ? 'selected' : ''}>RPG LAUNCHERS</option>
-                            </select>
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Player Weapon Rule</span>
-                            <select id="cg-playerWeapons" style="max-width:140px;">
-                                <option value="custom" ${cr.playerWeaponMode === 'custom' ? 'selected' : ''}>MY CUSTOM CLASS</option>
-                                <option value="snipers" ${cr.playerWeaponMode === 'snipers' ? 'selected' : ''}>FORCE SNIPERS</option>
-                                <option value="pistols" ${cr.playerWeaponMode === 'pistols' ? 'selected' : ''}>FORCE PISTOLS</option>
-                                <option value="shotguns" ${cr.playerWeaponMode === 'shotguns' ? 'selected' : ''}>FORCE SHOTGUNS</option>
-                                <option value="rpg" ${cr.playerWeaponMode === 'rpg' ? 'selected' : ''}>FORCE RPG-7</option>
-                                <option value="raygun" ${cr.playerWeaponMode === 'raygun' ? 'selected' : ''}>FORCE RAY GUN</option>
-                            </select>
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Kills / Score To Win (0=Def)</span>
-                            <input type="number" id="cg-scoreLimit" min="0" max="500" value="${cr.scoreLimit}" style="width:74px;background:#0d131d;color:#fde047;border:1px solid var(--border-subtle);padding:4px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Time Limit Min (0=Def)</span>
-                            <input type="number" id="cg-timeLimit" min="0" max="60" value="${cr.timeLimit}" style="width:74px;background:#0d131d;color:#fde047;border:1px solid var(--border-subtle);padding:4px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Enemy Health (1–1000)</span>
-                            <input type="number" id="cg-enemyHp" min="1" max="1000" value="${cr.enemyHp}" style="width:74px;background:#0d131d;color:#f87171;border:1px solid var(--border-subtle);padding:4px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Player Health (1–1000)</span>
-                            <input type="number" id="cg-playerHp" min="1" max="1000" value="${cr.playerHp}" style="width:74px;background:#0d131d;color:#22c55e;border:1px solid var(--border-subtle);padding:4px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Gravity: <b id="cg-grv-lbl">${cr.gravityScale}x</b></span>
-                            <input type="range" id="cg-gravity" min="0.4" max="1.6" step="0.1" value="${cr.gravityScale}" style="width:105px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Move Speed: <b id="cg-spd-lbl">${cr.speedScale}x</b></span>
-                            <input type="range" id="cg-speed" min="0.7" max="2.5" step="0.1" value="${cr.speedScale}" style="width:105px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Jump Height: <b id="cg-jmp-lbl">${cr.jumpScale}x</b></span>
-                            <input type="range" id="cg-jump" min="0.8" max="2.2" step="0.1" value="${cr.jumpScale}" style="width:105px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Respawn Delay: <b id="cg-rsp-lbl">${cr.respawnDelay}s</b></span>
-                            <input type="range" id="cg-respawn" min="0.5" max="8" step="0.5" value="${cr.respawnDelay}" style="width:105px;">
-                        </div>
-                    </div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;">
-                        <label class="mod-row ${cr.headshotsOnly ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Headshots Only</span><input type="checkbox" class="js-cg-cb" data-cg="headshotsOnly" ${cr.headshotsOnly ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.oneShotKills ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>One-Shot Kills (Minigame)</span><input type="checkbox" class="js-cg-cb" data-cg="oneShotKills" ${cr.oneShotKills ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.unlimitedAmmo ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Unlimited Ammo</span><input type="checkbox" class="js-cg-cb" data-cg="unlimitedAmmo" ${cr.unlimitedAmmo ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.explosiveRounds ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Explosive Bullets</span><input type="checkbox" class="js-cg-cb" data-cg="explosiveRounds" ${cr.explosiveRounds ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.bigHeads ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Big Head Mode (3x)</span><input type="checkbox" class="js-cg-cb" data-cg="bigHeads" ${cr.bigHeads ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.alwaysRadar ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Radar Always On</span><input type="checkbox" class="js-cg-cb" data-cg="alwaysRadar" ${cr.alwaysRadar ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.killstreaksEnabled !== false ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>Killstreaks Enabled</span><input type="checkbox" class="js-cg-cb" data-cg="killstreaksEnabled" ${cr.killstreaksEnabled !== false ? 'checked' : ''}></label>
-                        <label class="mod-row ${cr.killcamEnabled !== false ? 'active' : ''}" style="margin:0;padding:6px 10px;"><span>15s Winner Killcam</span><input type="checkbox" class="js-cg-cb" data-cg="killcamEnabled" ${cr.killcamEnabled !== false ? 'checked' : ''}></label>
-                    </div>
-                `;
-                left.querySelectorAll('[data-mpmode]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMode = b.dataset.mpmode; this.renderLobby(); }; });
-                left.querySelectorAll('[data-mpmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMap = b.dataset.mpmap; this.renderLobby(); }; });
-                left.querySelectorAll('[data-diff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedDifficulty = b.dataset.diff; this.renderLobby(); }; });
-
-                left.querySelectorAll('.js-cg-preset').forEach((pb) => {
+                    </div>`);
+                body.querySelectorAll('[data-mpmode]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMode = b.dataset.mpmode; this.renderLobby(); }; });
+                body.querySelectorAll('[data-mpmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMap = b.dataset.mpmap; this.renderLobby(); }; });
+            } else if (sec === 'bots') {
+                const diffs = [
+                    { id: 'recruit', tip: 'Waits 2–5 s after spotting you before shooting. Relaxed.' },
+                    { id: 'regular', tip: 'Waits 2–4 s before shooting. Balanced.' },
+                    { id: 'hardened', tip: 'Waits 2–3 s before shooting. Aggressive.' },
+                    { id: 'veteran', tip: 'Waits only 1–2 s and aims well. Elite.' }
+                ];
+                const weaponOpts = [['all', 'All weapons'], ['unarmed', 'Unarmed'], ['pistols', 'Pistols only'], ['snipers', 'Snipers only'], ['shotguns', 'Shotguns only'], ['smgs', 'SMGs only'], ['ar', 'Assault rifles'], ['melee', 'Melee only'], ['rpg', 'RPG launchers']];
+                body.innerHTML = this._section('Bot skill', '', `
+                    <div class="pick-grid pick-grid-sm">
+                        ${diffs.map((d) => `
+                            <button class="pick-card ${this.selectedDifficulty === d.id ? 'active' : ''}" data-diff="${d.id}" style="--pick-col:#38bdf8;">
+                                <span class="pick-name">${d.id.charAt(0).toUpperCase() + d.id.slice(1)}</span>
+                                <span class="pick-desc">${d.tip}</span>
+                            </button>`).join('')}
+                    </div>`) + this._section('Bot setup', '', `
+                    <div class="value-grid">
+                        <label class="value-field"><span>Enemy bots: <b id="cg-ec-lbl">${cr.enemyCount}</b></span><input type="range" id="cg-enemyCount" min="1" max="18" step="1" value="${cr.enemyCount}"></label>
+                        <label class="value-field"><span>Team size: <b id="cg-ts-lbl">${cr.teamSizeLimit}</b></span><input type="range" id="cg-teamSize" min="1" max="12" step="1" value="${cr.teamSizeLimit}"></label>
+                        <label class="value-field"><span>Bot health (1–1000)</span><input type="number" id="cg-enemyHp" min="1" max="1000" value="${cr.enemyHp}"></label>
+                        <label class="value-field"><span>Bot weapons</span>
+                            <select id="cg-enemyWeapons">${weaponOpts.map(([v, l]) => `<option value="${v}" ${cr.enemyWeaponMode === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                        </label>
+                    </div>`);
+                body.querySelectorAll('[data-diff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedDifficulty = b.dataset.diff; this.renderLobby(); }; });
+                document.getElementById('cg-enemyCount').oninput = (e) => { cr.enemyCount = Number(e.target.value); document.getElementById('cg-ec-lbl').textContent = cr.enemyCount; this._lobbyBroadcast(); };
+                document.getElementById('cg-teamSize').oninput = (e) => { cr.teamSizeLimit = Number(e.target.value); document.getElementById('cg-ts-lbl').textContent = cr.teamSizeLimit; this._lobbyBroadcast(); };
+                document.getElementById('cg-enemyHp').oninput = (e) => { cr.enemyHp = Math.max(1, parseInt(e.target.value, 10) || 100); this._lobbyBroadcast(); };
+                document.getElementById('cg-enemyWeapons').onchange = (e) => { cr.enemyWeaponMode = e.target.value; this._lobbyBroadcast(); };
+            } else if (sec === 'rules') {
+                const presets = [
+                    ['standard', 'Standard'], ['unarmed', 'Unarmed target practice'], ['snipers', 'One-shot snipers'],
+                    ['chaos', 'Moon gravity chaos'], ['quickcam', '5-kill blitz']
+                ];
+                const toggles = [
+                    ['headshotsOnly', 'Headshots only'], ['oneShotKills', 'One-shot kills'], ['unlimitedAmmo', 'Unlimited ammo'],
+                    ['explosiveRounds', 'Explosive bullets'], ['bigHeads', 'Big heads (3x)'], ['alwaysRadar', 'Radar always on'],
+                    ['killstreaksEnabled', 'Killstreaks'], ['killcamEnabled', 'Winner killcam']
+                ];
+                const isOn = (k) => (k === 'killstreaksEnabled' || k === 'killcamEnabled') ? cr[k] !== false : !!cr[k];
+                const playerOpts = [['custom', 'My custom class'], ['snipers', 'Force snipers'], ['pistols', 'Force pistols'], ['shotguns', 'Force shotguns'], ['rpg', 'Force RPG-7'], ['raygun', 'Force Ray Gun']];
+                body.innerHTML = this._section('Quick presets', 'Start from a preset, then tweak anything below.', `
+                    <div class="chip-row">${presets.map(([id, l]) => `<button class="chip js-cg-preset" data-preset="${id}">${l}</button>`).join('')}</div>`)
+                    + this._section('Win conditions & physics', '', `
+                    <div class="value-grid">
+                        <label class="value-field"><span>Score to win (0 = default)</span><input type="number" id="cg-scoreLimit" min="0" max="500" value="${cr.scoreLimit}"></label>
+                        <label class="value-field"><span>Time limit min (0 = default)</span><input type="number" id="cg-timeLimit" min="0" max="60" value="${cr.timeLimit}"></label>
+                        <label class="value-field"><span>Your health (1–1000)</span><input type="number" id="cg-playerHp" min="1" max="1000" value="${cr.playerHp}"></label>
+                        <label class="value-field"><span>Player weapon rule</span><select id="cg-playerWeapons">${playerOpts.map(([v, l]) => `<option value="${v}" ${cr.playerWeaponMode === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+                        <label class="value-field"><span>Gravity: <b id="cg-grv-lbl">${cr.gravityScale}x</b></span><input type="range" id="cg-gravity" min="0.4" max="1.6" step="0.1" value="${cr.gravityScale}"></label>
+                        <label class="value-field"><span>Move speed: <b id="cg-spd-lbl">${cr.speedScale}x</b></span><input type="range" id="cg-speed" min="0.7" max="2.5" step="0.1" value="${cr.speedScale}"></label>
+                        <label class="value-field"><span>Jump height: <b id="cg-jmp-lbl">${cr.jumpScale}x</b></span><input type="range" id="cg-jump" min="0.8" max="2.2" step="0.1" value="${cr.jumpScale}"></label>
+                        <label class="value-field"><span>Respawn delay: <b id="cg-rsp-lbl">${cr.respawnDelay}s</b></span><input type="range" id="cg-respawn" min="0.5" max="8" step="0.5" value="${cr.respawnDelay}"></label>
+                    </div>`)
+                    + this._section('Match switches', '', `
+                    <div class="switch-grid">${toggles.map(([k, l]) => `<button class="switch-card ${isOn(k) ? 'active' : ''}" data-cgk="${k}"><span>${l}</span><span class="mod-switch"></span></button>`).join('')}</div>`);
+                body.querySelectorAll('.js-cg-preset').forEach((pb) => {
                     pb.onclick = () => {
                         BO.Sound.playUIClick();
                         const p = pb.dataset.preset;
+                        const keepMods = this.customRules.mods || {};
+                        const keepProto = this.customRules.startProtocol || 'custom';
                         Object.assign(this.customRules, BO.MPMode.getDefaultCustomRules());
+                        this.customRules.mods = keepMods;
+                        this.customRules.startProtocol = keepProto;
                         if (p === 'unarmed') { this.customRules.enemyWeaponMode = 'unarmed'; this.customRules.enemyCount = 10; }
                         else if (p === 'snipers') { this.customRules.enemyWeaponMode = 'snipers'; this.customRules.playerWeaponMode = 'snipers'; this.customRules.oneShotKills = true; }
-                        else if (p === 'chaos') { this.customRules.gravityScale = 0.5; this.customRules.speedScale = 1.6; this.customRules.jumpScale = 1.6; this.customRules.bigHeads = true; this.customRules.explosiveRounds = true; this.customRules.unlimitedAmmo = true; }
-                        else if (p === 'quickcam') { this.customRules.scoreLimit = 5; this.customRules.enemyHp = 40; this.customRules.killcamEnabled = true; }
+                        else if (p === 'chaos') { Object.assign(this.customRules, { gravityScale: 0.5, speedScale: 1.6, jumpScale: 1.6, bigHeads: true, explosiveRounds: true, unlimitedAmmo: true }); }
+                        else if (p === 'quickcam') { Object.assign(this.customRules, { scoreLimit: 5, enemyHp: 40, killcamEnabled: true }); }
                         this.renderLobby();
                     };
                 });
-
-                document.getElementById('cg-enemyCount').oninput = (e) => { cr.enemyCount = Number(e.target.value); document.getElementById('cg-ec-lbl').textContent = cr.enemyCount; };
-                document.getElementById('cg-teamSize').oninput = (e) => { cr.teamSizeLimit = Number(e.target.value); document.getElementById('cg-ts-lbl').textContent = cr.teamSizeLimit; };
-                document.getElementById('cg-enemyWeapons').onchange = (e) => { cr.enemyWeaponMode = e.target.value; };
-                document.getElementById('cg-playerWeapons').onchange = (e) => { cr.playerWeaponMode = e.target.value; };
-                document.getElementById('cg-scoreLimit').oninput = (e) => { cr.scoreLimit = Math.max(0, parseInt(e.target.value, 10) || 0); };
-                document.getElementById('cg-timeLimit').oninput = (e) => { cr.timeLimit = Math.max(0, parseInt(e.target.value, 10) || 0); };
-                document.getElementById('cg-enemyHp').oninput = (e) => { cr.enemyHp = Math.max(1, parseInt(e.target.value, 10) || 100); };
-                document.getElementById('cg-playerHp').oninput = (e) => { cr.playerHp = Math.max(1, parseInt(e.target.value, 10) || 100); };
-                document.getElementById('cg-gravity').oninput = (e) => { cr.gravityScale = Number(e.target.value); document.getElementById('cg-grv-lbl').textContent = cr.gravityScale + 'x'; };
-                document.getElementById('cg-speed').oninput = (e) => { cr.speedScale = Number(e.target.value); document.getElementById('cg-spd-lbl').textContent = cr.speedScale + 'x'; };
-                document.getElementById('cg-jump').oninput = (e) => { cr.jumpScale = Number(e.target.value); document.getElementById('cg-jmp-lbl').textContent = cr.jumpScale + 'x'; };
-                document.getElementById('cg-respawn').oninput = (e) => { cr.respawnDelay = Number(e.target.value); document.getElementById('cg-rsp-lbl').textContent = cr.respawnDelay + 's'; };
-                left.querySelectorAll('.js-cg-cb').forEach((cb) => {
-                    cb.onchange = (e) => { BO.Sound.playUIClick(); cr[e.target.dataset.cg] = e.target.checked; this.renderLobby(); };
+                const num = (id, k, def) => { document.getElementById(id).oninput = (e) => { cr[k] = Math.max(0, parseInt(e.target.value, 10) || def); this._lobbyBroadcast(); }; };
+                num('cg-scoreLimit', 'scoreLimit', 0);
+                num('cg-timeLimit', 'timeLimit', 0);
+                num('cg-playerHp', 'playerHp', 100);
+                document.getElementById('cg-playerWeapons').onchange = (e) => { cr.playerWeaponMode = e.target.value; this._lobbyBroadcast(); this._renderLobbySummary(); };
+                const rng = (id, k, lbl, suf) => {
+                    document.getElementById(id).oninput = (e) => { cr[k] = Number(e.target.value); document.getElementById(lbl).textContent = cr[k] + suf; this._lobbyBroadcast(); };
+                };
+                rng('cg-gravity', 'gravityScale', 'cg-grv-lbl', 'x');
+                rng('cg-speed', 'speedScale', 'cg-spd-lbl', 'x');
+                rng('cg-jump', 'jumpScale', 'cg-jmp-lbl', 'x');
+                rng('cg-respawn', 'respawnDelay', 'cg-rsp-lbl', 's');
+                body.querySelectorAll('[data-cgk]').forEach((b) => {
+                    b.onclick = () => {
+                        BO.Sound.playUIClick();
+                        const k = b.dataset.cgk;
+                        cr[k] = !isOn(k);
+                        b.classList.toggle('active', isOn(k));
+                        this._lobbyBroadcast();
+                    };
                 });
+            } else if (sec === 'loadout') {
+                body.innerHTML = this._section('Starting weapons', 'What you spawn with each life. "Custom Class" uses the class selected on the right.', this._protocolHtml('mp'));
+                this._bindProtocol(body, 'mp');
             } else {
+                body.innerHTML = this._section('Modifiers', 'Multiplayer modifiers change you, not the bots. They stack.', this._modifiersHtml('mp'));
+                this._bindModifiers(body, 'mp');
+            }
+        }
+
+        _renderTdSection(body, sec) {
+            const tc = this.tdConfig;
+            const disabledCount = (tc.disabledEnemies || []).length;
+            if (sec === 'castle') {
                 const tdMaps = BO.MapsData.listByMode('td');
-                const tc = this.tdConfig;
-                const mods = tc.modifiers;
+                body.innerHTML = this._section('Choose a castle', 'Each castle has 2 sniper towers, a perk kiosk, Pack-a-Punch and an attachment bench.', `
+                    <div class="pick-grid">
+                        ${tdMaps.map((m) => `
+                            <button class="pick-card ${this.selectedTdMap === m.id ? 'active' : ''}" data-tdmap="${m.id}" style="--pick-col:#22c55e;">
+                                <span class="pick-name">${escAttr(m.name)}</span>
+                                <span class="pick-sub">${escAttr(m.subtitle || '')}</span>
+                                <span class="pick-desc">${escAttr(m.description || '')}</span>
+                            </button>`).join('')}
+                    </div>`);
+                body.querySelectorAll('[data-tdmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedTdMap = b.dataset.tdmap; this.renderLobby(); }; });
+            } else if (sec === 'difficulty') {
                 const tdModes = [
-                    { id: 'standard', name: 'STANDARD SIEGE', sub: 'Classic scaling waves with 20 rotating deployables.' },
-                    { id: 'all_bosses', name: '💀 ALL BOSSES', sub: 'Every single enemy spawned is a giant Boss!' },
-                    { id: 'boss_rush', name: '★ BOSS RUSH', sub: 'Guaranteed Bosses on Wave 1 and every wave!' },
-                    { id: 'gun_warfare', name: '🔫 GUN-TOTING HORDE', sub: '75%+ of zombies carry rifles & shoot back!' },
-                    { id: 'magic_siege', name: '✨ MAGICAL SIEGE', sub: 'Arcane zombies shoot purple magic bolts!' },
-                    { id: 'endless_swarm', name: '⚡ ENDLESS SWARM', sub: 'All 20 enemy types unlocked Wave 1 + Fast Horde!' }
+                    { id: 'standard', name: 'Standard Siege', sub: 'Classic scaling waves with rotating deployables.' },
+                    { id: 'all_bosses', name: 'All Bosses', sub: 'Every enemy is a boss.' },
+                    { id: 'boss_rush', name: 'Boss Rush', sub: 'A boss from wave 1 and every wave after.' },
+                    { id: 'gun_warfare', name: 'Gun-Toting Horde', sub: 'At least 75% of zombies carry rifles and shoot back.' },
+                    { id: 'magic_siege', name: 'Magical Siege', sub: 'Arcane zombies throw magic bolts.' },
+                    { id: 'endless_swarm', name: 'Endless Swarm', sub: 'Full roster from wave 1, fast horde, big waves.' }
                 ];
                 const tdDiffs = [
-                    { id: 'easy', name: 'EASY', col: '#22c55e' },
-                    { id: 'medium', name: 'MEDIUM', col: '#38bdf8' },
-                    { id: 'hard', name: 'HARD', col: '#f59e0b' },
-                    { id: 'hell', name: '🔥 HELL', col: '#ef4444' }
+                    { id: 'easy', name: 'Easy', col: '#22c55e', sub: 'Starts with 2 enemy types.' },
+                    { id: 'medium', name: 'Medium', col: '#38bdf8', sub: 'Starts with 2 enemy types, tougher.' },
+                    { id: 'hard', name: 'Hard', col: '#f59e0b', sub: 'Starts with 3 enemy types.' },
+                    { id: 'hell', name: 'Hell', col: '#ef4444', sub: 'Starts with 5 enemy types. Brutal.' }
                 ];
-                const MOD_DEFS = ALL_WAVE_MODIFIERS;
-
-                left.innerHTML = `
-                    <div class="panel-title" style="color:#22c55e;">1. SELECT CASTLE DEFENSE SETUP (3 MAPS • 2 MULTI-HEIGHT SNIPING TOWERS EACH)</div>
-                    <div class="card-grid">
-                        ${tdMaps.map((m) => `
-                            <button class="select-card ${this.selectedTdMap === m.id ? 'active' : ''}" data-tdmap="${m.id}"
-                                style="${this.selectedTdMap === m.id ? 'border-color:#22c55e;background:rgba(34,197,94,0.14);' : ''}">
-                                <div class="card-head" style="color:#4ade80;">${m.name}</div>
-                                <div class="card-sub">${m.subtitle}<br>Includes 2 Sniping Towers (4 Heights), 14 Perks (Max 8), Pack-a-Punch, Attachment Station &amp; War Gong!</div>
-                            </button>`).join('')}
-                    </div>
-
-                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">2. TOWER DEFENSE MODE &amp; DIFFICULTY</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-bottom:6px;">
+                body.innerHTML = this._section('Siege mode', '', `
+                    <div class="pick-grid pick-grid-sm">
                         ${tdModes.map((mm) => `
-                            <button class="select-card ${tc.tdMode === mm.id ? 'active' : ''}" data-tdmode="${mm.id}" style="padding:8px;">
-                                <div class="card-head" style="font-size:12px;">${mm.name}</div>
-                                <div class="card-sub" style="font-size:10.5px;">${mm.sub}</div>
+                            <button class="pick-card ${tc.tdMode === mm.id ? 'active' : ''}" data-tdmode="${mm.id}" style="--pick-col:#22c55e;">
+                                <span class="pick-name">${mm.name}</span><span class="pick-desc">${mm.sub}</span>
                             </button>`).join('')}
-                    </div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    </div>`) + this._section('Difficulty', '', `
+                    <div class="pick-grid pick-grid-sm">
                         ${tdDiffs.map((d) => `
-                            <button class="btn btn-sm ${tc.difficulty === d.id ? 'btn-primary' : ''}" data-tddiff="${d.id}"
-                                style="${tc.difficulty === d.id ? `border-color:${d.col};color:${d.col};` : ''}">${d.name}</button>
-                        `).join('')}
-                    </div>
-
-                    <div class="panel-title" style="color:#fde047;">3. CUSTOM BATTLEFIELD &amp; HORDE SETTINGS</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:6px;margin-bottom:8px;">
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Starting Zombies: <b id="td-sz-lbl" style="color:#fde047;">${tc.startingZombies}</b></span>
-                            <input type="range" id="td-startZ" min="3" max="60" step="1" value="${tc.startingZombies}" style="width:110px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Custom Map Size</span>
-                            <select id="td-mapSize" style="max-width:135px;">
-                                <option value="0.7" ${tc.mapSize === 0.7 ? 'selected' : ''}>COMPACT (0.7x)</option>
-                                <option value="1" ${tc.mapSize === 1.0 ? 'selected' : ''}>STANDARD (1.0x)</option>
-                                <option value="1.35" ${tc.mapSize === 1.35 ? 'selected' : ''}>LARGE (1.35x)</option>
-                                <option value="1.75" ${tc.mapSize === 1.75 ? 'selected' : ''}>MASSIVE (1.75x)</option>
+                            <button class="pick-card ${tc.difficulty === d.id ? 'active' : ''}" data-tddiff="${d.id}" style="--pick-col:${d.col};">
+                                <span class="pick-name">${d.name}</span><span class="pick-desc">${d.sub}</span>
+                            </button>`).join('')}
+                    </div>`);
+                body.querySelectorAll('[data-tdmode]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); tc.tdMode = b.dataset.tdmode; this.renderLobby(); }; });
+                body.querySelectorAll('[data-tddiff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); tc.difficulty = b.dataset.tddiff; this.renderLobby(); }; });
+            } else if (sec === 'battlefield') {
+                body.innerHTML = this._section('Battlefield', '', `
+                    <div class="value-grid">
+                        <label class="value-field"><span>Starting zombies: <b id="td-sz-lbl">${tc.startingZombies}</b></span><input type="range" id="td-startZ" min="3" max="60" step="1" value="${tc.startingZombies}"></label>
+                        <label class="value-field"><span>Map size</span>
+                            <select id="td-mapSize">
+                                <option value="0.7" ${tc.mapSize === 0.7 ? 'selected' : ''}>Compact (0.7x)</option>
+                                <option value="1" ${tc.mapSize === 1.0 ? 'selected' : ''}>Standard (1.0x)</option>
+                                <option value="1.35" ${tc.mapSize === 1.35 ? 'selected' : ''}>Large (1.35x)</option>
+                                <option value="1.75" ${tc.mapSize === 1.75 ? 'selected' : ''}>Massive (1.75x)</option>
                             </select>
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Wall Barrier HP: <b id="td-whp-lbl" style="color:#4ade80;">${tc.wallHp}</b></span>
-                            <input type="range" id="td-wallHp" min="50" max="2000" step="50" value="${tc.wallHp}" style="width:110px;">
-                        </div>
-                        <div class="setting-row" style="background:var(--glass-card);padding:8px 10px;border:1px solid var(--border-subtle);">
-                            <span>Zombies w/ Guns: <b id="td-gpct-lbl" style="color:#f59e0b;">${tc.gunZombiePct}%</b></span>
-                            <input type="range" id="td-gunPct" min="0" max="100" step="5" value="${tc.gunZombiePct}" style="width:110px;">
-                        </div>
-                    </div>
-
-                    <div class="panel-title" style="color:#38bdf8;margin-top:6px;">3B. 100% CUSTOM VALUE CONTROLS (EXACT NUMBERS!)</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:6px;margin-bottom:8px;">
-                        ${[
-                            { k: 'zombieHpMult', lbl: 'Zombie HP Mult', step: 0.1, min: 0.05, max: 20 },
-                            { k: 'zombieSpeedMult', lbl: 'Zombie Speed Mult', step: 0.1, min: 0.2, max: 5 },
-                            { k: 'zombieDamageMult', lbl: 'Zombie DMG Mult', step: 0.1, min: 0.1, max: 20 },
-                            { k: 'playerMaxHp', lbl: 'Player Max HP', step: 25, min: 1, max: 5000 },
-                            { k: 'startCurrency', lbl: 'Start Gold (0=Def)', step: 500, min: 0, max: 100000 },
-                            { k: 'bossSpawnPct', lbl: 'Base Boss Chance %', step: 0.5, min: 0, max: 100 },
-                            { k: 'maxAliveZombies', lbl: 'Max Alive On Field', step: 2, min: 5, max: 60 },
-                            { k: 'spawnDelaySec', lbl: 'Spawn Delay s (0=Auto)', step: 0.1, min: 0, max: 4 },
-                            { k: 'waveSizeMult', lbl: 'Wave Size Mult', step: 0.25, min: 0.25, max: 5 },
-                            { k: 'intermissionSec', lbl: 'Intermission Timer (s)', step: 5, min: 3, max: 120 },
-                            { k: 'priceMult', lbl: 'Shop Price Mult', step: 0.25, min: 0.1, max: 10 }
-                        ].map((f) => `
-                            <div class="setting-row" style="background:var(--glass-card);padding:6px 9px;border:1px solid var(--border-subtle);border-radius:8px;">
-                                <span style="font-size:11px;">${f.lbl}</span>
-                                <input type="number" class="js-td-cval" data-tdk="${f.k}" step="${f.step}" min="${f.min}" max="${f.max}" value="${(tc.customValues || {})[f.k] ?? 1}" style="width:74px;color:#fde047;font-family:var(--font-mono);font-weight:800;padding:4px 6px;">
-                            </div>
-                        `).join('')}
-                    </div>
-
-                    <div class="panel-title" style="color:#f87171;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-                        <span>4. ENEMY POOL (70 ENEMIES + 10 BOSSES • BOSS 2% + 0.5%/RD AFTER RD 10)</span>
-                        <button class="btn btn-sm btn-zombies" id="btn-td-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
-                    </div>
-                    <div class="panel-title" style="color:#c084fc;">5. CUSTOM MODIFIERS (${MOD_DEFS.length} MODIFIERS — MIX &amp; MATCH!)</div>
-                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
-                        ${MOD_DEFS.map((md) => `
-                            <label class="mod-row ${mods[md.k] ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11.5px;">
-                                <span>${md.lbl}</span>
-                                <input type="checkbox" class="js-td-mod" data-tdmod="${md.k}" ${mods[md.k] ? 'checked' : ''}>
-                            </label>
-                        `).join('')}
-                    </div>
-                `;
-                left.querySelectorAll('[data-tdmap]').forEach((b) => {
-                    b.onclick = () => { BO.Sound.playUIClick(); this.selectedTdMap = b.dataset.tdmap; this.renderLobby(); };
-                });
-                left.querySelectorAll('[data-tdmode]').forEach((b) => {
-                    b.onclick = () => { BO.Sound.playUIClick(); tc.tdMode = b.dataset.tdmode; this.renderLobby(); };
-                });
-                left.querySelectorAll('[data-tddiff]').forEach((b) => {
-                    b.onclick = () => { BO.Sound.playUIClick(); tc.difficulty = b.dataset.tddiff; this.renderLobby(); };
-                });
-                document.getElementById('td-startZ').oninput = (e) => {
-                    tc.startingZombies = Number(e.target.value);
-                    document.getElementById('td-sz-lbl').textContent = tc.startingZombies;
-                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
-                };
-                document.getElementById('td-mapSize').onchange = (e) => {
-                    tc.mapSize = Number(e.target.value);
-                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
-                };
-                document.getElementById('td-wallHp').oninput = (e) => {
-                    tc.wallHp = Number(e.target.value);
-                    document.getElementById('td-whp-lbl').textContent = tc.wallHp;
-                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
-                };
-                document.getElementById('td-gunPct').oninput = (e) => {
-                    tc.gunZombiePct = Number(e.target.value);
-                    document.getElementById('td-gpct-lbl').textContent = tc.gunZombiePct + '%';
-                    if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
-                };
-                const tdEpBtn = document.getElementById('btn-td-open-ep');
-                if (tdEpBtn) tdEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
-                left.querySelectorAll('.js-td-cval').forEach((inp) => {
+                        </label>
+                        <label class="value-field"><span>Wall health: <b id="td-whp-lbl">${tc.wallHp}</b></span><input type="range" id="td-wallHp" min="50" max="2000" step="50" value="${tc.wallHp}"></label>
+                        <label class="value-field"><span>Zombies with guns: <b id="td-gpct-lbl">${tc.gunZombiePct}%</b></span><input type="range" id="td-gunPct" min="0" max="100" step="5" value="${tc.gunZombiePct}"></label>
+                    </div>`) + this._section('Exact values', '', this._valueGrid([
+                    { k: 'zombieHpMult', lbl: 'Zombie health ×', step: 0.1, min: 0.05, max: 20 },
+                    { k: 'zombieSpeedMult', lbl: 'Zombie speed ×', step: 0.1, min: 0.2, max: 5 },
+                    { k: 'zombieDamageMult', lbl: 'Zombie damage ×', step: 0.1, min: 0.1, max: 20 },
+                    { k: 'playerMaxHp', lbl: 'Your max health', step: 25, min: 1, max: 5000 },
+                    { k: 'startCurrency', lbl: 'Start gold (0 = default)', step: 500, min: 0, max: 100000 },
+                    { k: 'bossSpawnPct', lbl: 'Base boss chance %', step: 0.5, min: 0, max: 100 },
+                    { k: 'maxAliveZombies', lbl: 'Max zombies alive', step: 2, min: 5, max: 60 },
+                    { k: 'spawnDelaySec', lbl: 'Spawn delay s (0 = auto)', step: 0.1, min: 0, max: 4 },
+                    { k: 'waveSizeMult', lbl: 'Wave size ×', step: 0.25, min: 0.25, max: 5 },
+                    { k: 'intermissionSec', lbl: 'Intermission (s)', step: 5, min: 3, max: 120 },
+                    { k: 'priceMult', lbl: 'Shop price ×', step: 0.25, min: 0.1, max: 10 }
+                ], tc.customValues || {}, 'js-td-cval', 'tdk'));
+                const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.oninput = el.onchange = (e) => { fn(e); this._lobbyBroadcast(); }; };
+                bind('td-startZ', (e) => { tc.startingZombies = Number(e.target.value); document.getElementById('td-sz-lbl').textContent = tc.startingZombies; });
+                bind('td-mapSize', (e) => { tc.mapSize = Number(e.target.value); });
+                bind('td-wallHp', (e) => { tc.wallHp = Number(e.target.value); document.getElementById('td-whp-lbl').textContent = tc.wallHp; });
+                bind('td-gunPct', (e) => { tc.gunZombiePct = Number(e.target.value); document.getElementById('td-gpct-lbl').textContent = tc.gunZombiePct + '%'; });
+                body.querySelectorAll('.js-td-cval').forEach((inp) => {
                     inp.onchange = (e) => {
                         if (!tc.customValues) tc.customValues = {};
                         tc.customValues[e.target.dataset.tdk] = Number(e.target.value);
-                        if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                        this._lobbyBroadcast();
                     };
                 });
-                left.querySelectorAll('.js-td-mod').forEach((cb) => {
-                    cb.onchange = (e) => {
-                        BO.Sound.playUIClick();
-                        mods[e.target.dataset.tdmod] = e.target.checked;
-                        this.renderLobby();
-                    };
-                });
+            } else if (sec === 'loadout') {
+                body.innerHTML = this._section('Starting weapons', 'What you spawn with. You can still buy more from the shopkeeper.', this._protocolHtml('td'));
+                this._bindProtocol(body, 'td');
+            } else if (sec === 'enemies') {
+                body.innerHTML = this._section('Enemy pool', 'Choose which enemies and bosses can attack. Hover any enemy for a full field report.', `
+                    <button class="big-action" id="btn-td-open-ep">
+                        <span class="big-action-ico">🧟</span>
+                        <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per wave after 10</small></span>
+                        <span class="big-action-go">OPEN →</span>
+                    </button>`);
+                document.getElementById('btn-td-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+            } else {
+                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover a card for details. They stack.', this._modifiersHtml('td'));
+                this._bindModifiers(body, 'td');
             }
+        }
 
-            if (BO.Net && BO.Net.active && BO.Net.isHost) {
-                BO.Net.broadcastLobbySettings();
+        _renderLobbySummary() {
+            const host = document.getElementById('lobby-summary');
+            if (!host) return;
+            const mode = this.lobbyMode;
+            const rows = [];
+            if (mode === 'zombies') {
+                const m = BO.MapsData.get ? BO.MapsData.get(this.selectedZMap) : null;
+                rows.push(['Map', m ? m.name : this.selectedZMap]);
+                rows.push(['Difficulty', String(this.selectedZDifficulty || 'normal').replace(/_/g, ' ')]);
+            } else if (mode === 'mp') {
+                const m = BO.MapsData.get ? BO.MapsData.get(this.selectedMpMap) : null;
+                rows.push(['Mode', String(this.selectedMpMode).replace(/_/g, ' ')]);
+                rows.push(['Map', m ? m.name : this.selectedMpMap]);
+                rows.push(['Bots', `${this.customRules.enemyCount} • ${this.selectedDifficulty}`]);
+            } else {
+                const m = BO.MapsData.get ? BO.MapsData.get(this.selectedTdMap) : null;
+                rows.push(['Castle', m ? m.name : this.selectedTdMap]);
+                rows.push(['Siege', `${String(this.tdConfig.tdMode).replace(/_/g, ' ')} • ${this.tdConfig.difficulty}`]);
             }
+            const proto = BO.Mods.getProtocol(this._lobbyProtocol(mode));
+            rows.push(['Start', `${proto.icon} ${proto.name}`]);
+            if (mode !== 'mp') rows.push(['Enemies', `${80 - (this.tdConfig.disabledEnemies || []).length} / 80 enabled`]);
+            const mods = this._lobbyMods(mode);
+            const activeDefs = BO.Mods.defsForMode(mode).filter((d) => mods[d.k]);
+            host.innerHTML = `
+                <div class="side-title">MATCH SUMMARY</div>
+                <dl class="summary-list">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${escAttr(v)}</dd>`).join('')}</dl>
+                <div class="side-title" style="margin-top:10px;">MODIFIERS <span class="side-count">${activeDefs.length}</span></div>
+                <div class="summary-chips">
+                    ${activeDefs.length ? activeDefs.slice(0, 10).map((d) => `<span class="summary-chip" data-tip-title="${escAttr(d.lbl)}" data-tip="${escAttr(d.desc)}">${escAttr(d.lbl)}</span>`).join('') + (activeDefs.length > 10 ? `<span class="summary-chip more">+${activeDefs.length - 10} more</span>` : '') : '<span class="summary-none">None — classic rules.</span>'}
+                </div>`;
+        }
 
+        _renderLobbyRight(mode, roundsUnlocked) {
+            const right = document.getElementById('lobby-right');
+            const isZ = mode === 'zombies';
+            const isMp = mode === 'mp';
             const classes = BO.Loadout.getClasses();
             const selIdx = BO.Loadout.getSelectedClassIndex();
             const activeCls = classes[selIdx];
             const ult = BO.AttachmentsData.ULTIMATE_POWERS[activeCls.ultimatePower || 'gravity_spikes'];
             const netActive = !!(BO.Net && BO.Net.active);
             const isClientInLobby = netActive && !BO.Net.isHost;
+            const pSpec = BO.WeaponsData.get(activeCls.primary.id);
+            const sSpec = BO.WeaponsData.get(activeCls.secondary.id);
 
             right.innerHTML = `
-                <div class="panel-title" style="color:#22c55e;">🌐 ONLINE SQUAD LOBBY (ALL 3 MODES)</div>
-                <div id="net-lobby-box" style="background:rgba(13,19,29,0.92);border:1px solid #22c55e;padding:10px;display:flex;flex-direction:column;gap:8px;"></div>
+                <div class="side-card side-card-net">
+                    <div class="side-title" style="color:#4ade80;">🌐 ONLINE SQUAD</div>
+                    <div id="net-lobby-box" class="net-lobby-box"></div>
+                </div>
+                <div class="side-card">
+                    <div class="side-title">YOUR CLASS</div>
+                    <select id="lobby-class-select" class="side-select" data-tip-title="Pick your class" data-tip="Choose which of your custom classes to take into this match.">
+                        ${classes.map((c, i) => `<option value="${i}" ${i === selIdx ? 'selected' : ''}>${i + 1}. ${escAttr(c.name)}</option>`).join('')}
+                    </select>
+                    <div class="class-mini">
+                        <div class="class-mini-row"><span>PRIMARY</span><b>${escAttr(pSpec.name)}</b></div>
+                        <div class="class-mini-row"><span>SECONDARY</span><b>${escAttr(sSpec.shortName || sSpec.name)}</b></div>
+                        <div class="class-mini-row"><span>GEAR</span><b>${escAttr(BO.AttachmentsData.LETHALS[activeCls.lethal]?.name || '—')} • ${escAttr(BO.AttachmentsData.TACTICALS[activeCls.tactical]?.name || '—')}</b></div>
+                        <div class="class-mini-row"><span>POWERS</span><b>${escAttr(BO.AttachmentsData.FIELD_UPGRADES[activeCls.fieldUpgrade]?.name || '—')} • ${escAttr(ult ? ult.name : '—')}</b></div>
+                    </div>
+                    <div class="side-btn-row">
+                        <button class="btn btn-sm" id="lobby-edit-class">EDIT CLASS</button>
+                        <button class="btn btn-sm" id="lobby-open-legend">LEGEND</button>
+                        ${BO.Cheats && BO.Cheats.isModMenuUnlocked() ? '<button class="btn btn-sm" id="lobby-open-modmenu" style="border-color:#fde047;color:#fde047;">★ MODS</button>' : ''}
+                    </div>
+                </div>
+                <div class="side-card" id="lobby-summary"></div>
+                <button class="btn deploy-btn ${isZ ? 'btn-zombies' : 'btn-primary'}" id="btn-deploy-match"
+                    data-tip-title="Start match" data-tip="Launches the match for everyone in your online lobby.">
+                    ${isClientInLobby ? 'DEPLOY NOW (OR WAIT FOR HOST)' : (netActive ? `DEPLOY SQUAD (${BO.Net.players.size})` : `DEPLOY${isZ && roundsUnlocked && this.selectedStartRound > 1 ? ` • ROUND ${this.selectedStartRound}` : ''}`)}
+                </button>`;
+            this._renderLobbySummary();
 
-                <div class="panel-title" style="margin-top:4px;">ACTIVE CLASS DEPLOYMENT</div>
-                <select id="lobby-class-select" data-tip-title="Pick Your Class" data-tip="Choose which of your 10 custom classes you want to take into this match." style="background:#0d131d;color:#f8fafc;border:1px solid var(--border-subtle);padding:10px;font-family:var(--font-ui);font-size:14px;">
-                    ${classes.map((c, i) => `<option value="${i}" ${i === selIdx ? 'selected' : ''}>${i + 1}. ${c.name}</option>`).join('')}
-                </select>
-                <div class="select-card" data-tip-title="Current Loadout Summary" data-tip="Everything inside your selected class—click OPEN 3D GUNSMITH below to change any piece.">
-                    <div class="card-head">${BO.WeaponsData.get(activeCls.primary.id).name}</div>
-                    <div class="card-sub">Side Weapon: ${BO.WeaponsData.get(activeCls.secondary.id).shortName} • Camo: ${BO.AttachmentsData.getCamo(activeCls.primary.camo).name}</div>
-                    <div class="card-sub">Grenade [G]: ${BO.AttachmentsData.LETHALS[activeCls.lethal]?.name} • Tactical [Q]: ${BO.AttachmentsData.TACTICALS[activeCls.tactical]?.name}</div>
-                    <div class="card-sub">Special [X]: ${BO.AttachmentsData.FIELD_UPGRADES[activeCls.fieldUpgrade]?.name} • Ultimate [U]: ${ult ? ult.name : ''}</div>
-                </div>
-                <div style="display:flex;gap:8px;">
-                    <button class="btn" id="lobby-edit-class" style="flex:1;" data-tip-title="3D Gunsmith" data-tip="Customize your primary gun, side weapon, attachments, perks, grenade, tactical, special power, and ultimate power.">3D GUNSMITH</button>
-                    <button class="btn" id="lobby-open-legend" style="flex:1;border-color:#38bdf8;color:#38bdf8;" data-tip-title="Master Legend" data-tip="Read stats for all 70 weapons, 20 zombies, 5 bosses, Mystery Box odds, and cheat codes.">LEGEND</button>
-                </div>
-                ${BO.Cheats && BO.Cheats.isModMenuUnlocked() ? `<button class="btn" id="lobby-open-modmenu" style="border-color:#fde047;color:#fde047;">★ OPEN ZOMBIES MOD MENU</button>` : ''}
-                <div style="flex:1"></div>
-                <button class="btn ${isZ ? 'btn-zombies' : 'btn-primary'}" id="btn-deploy-match" style="padding:14px;font-size:17px;"
-                    data-tip-title="Start Match!" data-tip="Launches the 3D battlefield for everyone in your online lobby!">
-                    ${isClientInLobby ? 'DEPLOY NOW (OR WAIT FOR HOST)' : (netActive ? `DEPLOY SQUAD (${BO.Net.players.size}) INTO COMBAT` : `DEPLOY INTO COMBAT ${isZ && roundsUnlocked && this.selectedStartRound > 1 ? `(ROUND ${this.selectedStartRound})` : ''}`)}
-                </button>
-            `;
             document.getElementById('lobby-class-select').onchange = (e) => {
                 BO.Loadout.setSelectedClassIndex(Number(e.target.value));
                 if (BO.Net && BO.Net.active) BO.Net.syncMyProfile();
-                this.renderLobby();
+                this._renderLobbyRight(mode, roundsUnlocked);
             };
             document.getElementById('lobby-edit-class').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('lobby-open-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
@@ -1065,33 +1179,34 @@
             if (lModBtn) lModBtn.onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
             document.getElementById('btn-deploy-match').onclick = () => {
                 BO.Sound.playUIClick();
-                if (this.onStartMatch) {
-                    if (isZ) {
-                        this.onStartMatch({
-                            mode: 'zombies',
-                            mapId: this.selectedZMap,
-                            difficulty: this.selectedZDifficulty || 'normal',
-                            useClassicStarter: this.classicStarter,
-                            startRound: roundsUnlocked ? this.selectedStartRound : 1,
-                            zModifiers: BO.Math.deepClone(this.zModifiers),
-                            zCustomValues: BO.Math.deepClone(this.zCustomValues),
-                            disabledEnemies: (this.tdConfig.disabledEnemies || []).slice()
-                        });
-                    } else if (isMp) {
-                        this.onStartMatch({
-                            mode: 'mp',
-                            modeType: this.selectedMpMode,
-                            mapId: this.selectedMpMap,
-                            difficulty: this.selectedDifficulty,
-                            customRules: BO.Math.deepClone(this.customRules)
-                        });
-                    } else {
-                        this.onStartMatch({
-                            mode: 'td',
-                            mapId: this.selectedTdMap,
-                            tdConfig: BO.Math.deepClone(this.tdConfig)
-                        });
-                    }
+                if (!this.onStartMatch) return;
+                if (isZ) {
+                    const proto = this._lobbyProtocol('zombies');
+                    this.onStartMatch({
+                        mode: 'zombies',
+                        mapId: this.selectedZMap,
+                        difficulty: this.selectedZDifficulty || 'normal',
+                        useClassicStarter: proto === 'classic',
+                        startProtocol: proto,
+                        startRound: roundsUnlocked ? this.selectedStartRound : 1,
+                        zModifiers: BO.Math.deepClone(this.zModifiers),
+                        zCustomValues: BO.Math.deepClone(this.zCustomValues),
+                        disabledEnemies: (this.tdConfig.disabledEnemies || []).slice()
+                    });
+                } else if (isMp) {
+                    this.onStartMatch({
+                        mode: 'mp',
+                        modeType: this.selectedMpMode,
+                        mapId: this.selectedMpMap,
+                        difficulty: this.selectedDifficulty,
+                        customRules: BO.Math.deepClone(this.customRules)
+                    });
+                } else {
+                    this.onStartMatch({
+                        mode: 'td',
+                        mapId: this.selectedTdMap,
+                        tdConfig: BO.Math.deepClone(this.tdConfig)
+                    });
                 }
             };
             this._refreshNetUI();
@@ -2749,9 +2864,24 @@
                         if (z.splitCount) tags.push(`Splits x${z.splitCount}`);
                         if (z.jumpChance) tags.push('Jumps');
                         if (z.isMagical) tags.push('Magic');
+                        const d = BO.ZombiesData.describe(z);
+                        const tipBody = [
+                            d.lines.join(' '),
+                            '',
+                            `Threat: ${'★'.repeat(d.threat)}${'☆'.repeat(5 - d.threat)} ${d.threatLabel}`,
+                            `HP ${z.hp} • Speed ${z.speed} • Attack ${z.attack} • Armor ${Math.round((z.defense || 0) * 100)}%`,
+                            d.traits.length ? `Traits: ${d.traits.join(', ')}` : '',
+                            d.weak.length ? `Weak to: ${d.weak.join(', ')}` : '',
+                            d.resists.length ? `Resists: ${d.resists.join(', ')}` : '',
+                            `${d.unlock}${d.points ? ` • Worth ${d.points} pts` : ''}`
+                        ].filter((l, i) => l !== '' || i === 1).join('\n');
                         return `
-                            <label class="mod-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" style="margin:0;padding:6px 9px;font-size:11px;border-color:${enabled ? g.color : 'rgba(148,163,184,0.2)'};">
-                                <span><b>${escAttr(z.name)}</b> <span style="color:#94a3b8;font-size:10px;">HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span></span>
+                            <label class="mod-row ep-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" style="--ep-col:${g.color};"
+                                data-tip-title="${escAttr(z.name)}" data-tip="${escAttr(tipBody)}" data-tip-sub="${escAttr('Tip: ' + d.tip)}">
+                                <span class="ep-row-main">
+                                    <b>${escAttr(z.name)}</b>
+                                    <span class="ep-row-meta">${'★'.repeat(d.threat)} • HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span>
+                                </span>
                                 <input type="checkbox" class="js-ep-cb" data-eid="${z.id}" ${enabled ? 'checked' : ''}>
                             </label>
                         `;
@@ -2844,6 +2974,21 @@
                         <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">DEF: <b style="color:#fde047;">${Math.round((spec.defense || 0) * 100)}%</b></div>
                     </div>
                     <div style="font-size:11.5px;color:#cbd5e1;">${escAttr(spec.simpleDesc || spec.weaknessText || 'Unique undead combatant.')}</div>
+                    ${(() => {
+                        const d = BO.ZombiesData.describe(spec);
+                        if (!d) return '';
+                        return `
+                            <div class="ep-report">
+                                <div><span>THREAT</span><b style="color:#fbbf24;">${'★'.repeat(d.threat)}${'☆'.repeat(5 - d.threat)} ${d.threatLabel}</b></div>
+                                <div><span>MOVES</span>${escAttr(d.movement)}</div>
+                                <div><span>ATTACKS</span>${escAttr(d.attack)}</div>
+                                ${d.traits.length ? `<div><span>TRAITS</span>${escAttr(d.traits.join(', '))}</div>` : ''}
+                                ${d.weak.length ? `<div><span>WEAK TO</span><b style="color:#4ade80;">${escAttr(d.weak.join(', '))}</b></div>` : ''}
+                                ${d.resists.length ? `<div><span>RESISTS</span><b style="color:#f87171;">${escAttr(d.resists.join(', '))}</b></div>` : ''}
+                                <div><span>APPEARS</span>${escAttr(d.unlock)}</div>
+                                <div class="ep-tip">💡 ${escAttr(d.tip)}</div>
+                            </div>`;
+                    })()}
                 `;
             }
         }

@@ -104,7 +104,16 @@
         }
 
         getDefaultCustomRules() {
-            return Object.assign({}, DEFAULT_CUSTOM_RULES);
+            return Object.assign({}, DEFAULT_CUSTOM_RULES, { mods: {}, startProtocol: 'custom' });
+        }
+
+        _applyModsAndProtocol() {
+            if (!BO.Mods) return;
+            const cr = this.customRules || {};
+            if (cr.startProtocol && cr.startProtocol !== 'custom' && (!cr.playerWeaponMode || cr.playerWeaponMode === 'custom')) {
+                BO.Mods.applyStartProtocol(cr.startProtocol, 'mp');
+            }
+            BO.Mods.applyPlayerStart(cr.mods || {}, 'mp');
         }
 
         start(opts) {
@@ -169,6 +178,7 @@
             const playerSpawn = spawnList[Math.floor(Math.random() * spawnList.length)] || map.team0Spawns[0];
             BO.Player.initForMatch('mp', playerSpawn, loadout, false);
             this._applyPlayerCustomRules();
+            this._applyModsAndProtocol();
 
             BO.Combat.reset(opts.camera);
             BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onPlayerHitBot(ent, dmg, hitbox, w, pt);
@@ -364,6 +374,10 @@
             if (this.customRules.headshotsOnly && !isHead) return false;
 
             let finalDmg = this.customRules.oneShotKills ? 9999 : dmg;
+            if (BO.Mods && this.customRules.mods) {
+                finalDmg = BO.Mods.outgoingDamage(this.customRules.mods, finalDmg, { hitbox, weaponInst, target: null });
+                if (finalDmg <= 0) return false;
+            }
             if (this.customRules.explosiveRounds && hitPt) {
                 BO.FX.spawnExplosion(hitPt, 2.8, 0xf97316);
                 BO.Sound.playExplosion(0.45);
@@ -411,6 +425,9 @@
         }
 
         _awardPlayerKill(bot, isHead, weaponLabel, weaponId) {
+            const kMods = (this.customRules && this.customRules.mods) || {};
+            if (BO.Mods) BO.Mods.onKill(kMods, null, {});
+            if (kMods.vampirePlayer && BO.Player.alive) BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
             this.playerKills++;
             this.currentStreak++;
             this.playerScore += isHead ? 125 : 100;
@@ -853,6 +870,7 @@
                             this.pendingClassIndex = null;
                             BO.Player.initForMatch('mp', sp, newLoadout, false);
                             this._applyPlayerCustomRules();
+                            this._applyModsAndProtocol();
                             BO.Events.emit('hud:toast', { text: `CLASS SWITCHED TO ${newLoadout.name}`, color: '#22c55e' });
                         } else {
                             BO.Player.pos.set(sp.x, sp.y || 0, sp.z);

@@ -518,6 +518,7 @@
                 selectedZMap: M.selectedZMap,
                 selectedZDifficulty: M.selectedZDifficulty,
                 classicStarter: M.classicStarter,
+                zStartProtocol: M.zStartProtocol || 'custom',
                 selectedStartRound: M.selectedStartRound,
                 selectedMpMode: M.selectedMpMode,
                 selectedMpMap: M.selectedMpMap,
@@ -733,6 +734,7 @@
             M.selectedZMap = s.selectedZMap || M.selectedZMap;
             M.selectedZDifficulty = s.selectedZDifficulty || M.selectedZDifficulty;
             M.classicStarter = !!s.classicStarter;
+            if (s.zStartProtocol) M.zStartProtocol = s.zStartProtocol;
             M.selectedStartRound = s.selectedStartRound || 1;
             M.selectedMpMode = s.selectedMpMode || M.selectedMpMode;
             M.selectedMpMap = s.selectedMpMap || M.selectedMpMap;
