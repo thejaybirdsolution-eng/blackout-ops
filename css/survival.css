@@ -54,3 +54,47 @@
 }
 .survival-map span.visited { color: #9daaa1; }
 .survival-map strong { z-index: 1; color: #15231b; background: #d3f0b1; }
+
+.survival-lobby {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    margin-top: 16px;
+}
+.survival-option { display: grid; gap: 6px; color: #dceae2; }
+.survival-option select {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #425a54;
+    border-radius: 4px;
+    padding: 7px 10px;
+    color: #e5f5ec;
+    background: #142220;
+    font: inherit;
+}
+.survival-toggles { display: grid; gap: 7px; }
+.survival-toggle { display: flex; align-items: center; gap: 8px; min-height: 24px; color: #dceae2; }
+.survival-toggle input { accent-color: #a6ddd0; }
+.survival-career { display: flex; gap: 5px 15px; flex-wrap: wrap; }
+.survival-career b { color: #a6ddd0; }
+.survival-career span { color: #d3ded4; }
+.survival-pool-detail { color: #aebdb5; }
+.survival-record { margin-top: 18px; }
+.survival-record summary { cursor: pointer; color: #b9d9c8; }
+.survival-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 9px; margin: 12px 0; }
+.survival-stats > div { padding: 9px; border: 1px solid #314b43; }
+.survival-stats dt { font-size: .85rem; color: #b9c6bc; }
+.survival-stats dd { margin: 3px 0 0; color: #e9f5eb; font-weight: 700; }
+.survival-unlocks { display: grid; gap: 5px; padding: 0; list-style: none; }
+.survival-unlocks li { display: flex; gap: 8px; }
+.survival-unlocks span { color: #aec3b6; }
+.survival-nav { flex-wrap: wrap; }
+.survival-map span { white-space: nowrap; font-size: .76rem; }
+@media (max-width: 600px) {
+    .survival-lobby { grid-template-columns: 1fr; }
+    .survival-map span { white-space: normal; max-width: 75px; text-align: center; font-size: .68rem; }
+}
+
+.survival-roster { grid-column: 1 / -1; }
+.survival-roster summary { cursor: pointer; color: #c4e1cf; }
+.survival-roster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 3px 12px; max-height: 225px; overflow: auto; }

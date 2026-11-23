@@ -164,7 +164,7 @@
             BO.State.paused = false;
 
             if (opts.mode === 'survival') {
-                BO.SurvivalMode.start(this.worldCamera, opts.difficulty);
+                BO.SurvivalMode.start(this.worldCamera, opts);
             } else if (opts.mode === 'zombies') {
                 BO.ZombiesMode.start({
                     mapId: opts.mapId,
@@ -406,6 +406,10 @@
                 if (code === 'Tab') {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
+                } else if (code === kb.fireMode && firstDown && BO.State.activeMode === 'survival' && !BO.Combat.c4Charges.length) {
+                    BO.SurvivalUI.show('build');
+                } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalUI.show('travel');
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'survival') {
                     BO.SurvivalUI.show('map');
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {

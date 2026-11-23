@@ -939,6 +939,7 @@
             if (BO.Mods) speed *= BO.Mods.speedMult();
             this.inSwampMud = BO.World.isInSlowZone(this.pos.x, this.pos.y, this.pos.z) && !this.sliding && this.onGround;
             if (this.inSwampMud && !this.mpPerks.includes('mudskipper')) speed *= 0.62;
+            if (BO.State.activeMode === 'survival') speed *= BO.SurvivalMode.campaign?.speed || 1;
             speed *= gunMoveMult;
 
             if (this.sliding) {

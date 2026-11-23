@@ -6,7 +6,7 @@
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
     <link rel="stylesheet" href="css/styles.css?v=20261124a">
     <link rel="stylesheet" href="css/expansion.css">
-    <link rel="stylesheet" href="css/survival.css">
+    <link rel="stylesheet" href="css/survival.css?v=campaign1">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -26,6 +26,7 @@
     <script defer src="src/data/ZombiesData.js?v=20261124a"></script>
     <script defer src="src/data/MapsData.js?v=20261124a"></script>
     <script defer src="src/data/SurvivalData.js"></script>
+    <script defer src="src/data/SurvivalCampaignData.js"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=20261124a"></script>
@@ -42,8 +43,8 @@
 
     <!-- Engine & Entities -->
     <script defer src="src/engine/WorldBuilder.js?v=survival1"></script>
-    <script defer src="src/engine/PlayerController.js?v=survival1"></script>
-    <script defer src="src/engine/CombatSystem.js?v=survival1"></script>
+    <script defer src="src/engine/PlayerController.js?v=campaign1"></script>
+    <script defer src="src/engine/CombatSystem.js?v=campaign1"></script>
     <script defer src="src/entities/ZombieEntity.js?v=expansion1"></script>
     <script defer src="src/entities/BotAI.js?v=expansion1"></script>
 
@@ -51,17 +52,19 @@
     <script defer src="src/modes/ZombiesMode.js?v=expansion1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=expansion1"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=20261124a"></script>
-    <script defer src="src/modes/SurvivalMode.js"></script>
+    <script defer src="src/systems/SurvivalCareer.js"></script>
+    <script defer src="src/systems/SurvivalCampaign.js"></script>
+    <script defer src="src/modes/SurvivalMode.js?v=campaign1"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/TooltipSystem.js?v=20261124a"></script>
     <script defer src="src/ui/HUDController.js?v=survival1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
-    <script defer src="src/ui/MenuController.js?v=survival1"></script>
+    <script defer src="src/ui/MenuController.js?v=campaign1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js"></script>
-    <script defer src="src/ui/SurvivalUI.js"></script>
-    <script defer src="src/main.js?v=survival1"></script>
+    <script defer src="src/ui/SurvivalUI.js?v=campaign1"></script>
+    <script defer src="src/main.js?v=campaign1"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
