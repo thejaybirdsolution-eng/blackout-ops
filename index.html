@@ -6,6 +6,7 @@
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
     <link rel="stylesheet" href="css/styles.css?v=20261124a">
     <link rel="stylesheet" href="css/expansion.css">
+    <link rel="stylesheet" href="css/survival.css">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -24,6 +25,7 @@
     <script defer src="src/data/ProgressionData.js?v=20261124a"></script>
     <script defer src="src/data/ZombiesData.js?v=20261124a"></script>
     <script defer src="src/data/MapsData.js?v=20261124a"></script>
+    <script defer src="src/data/SurvivalData.js"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=20261124a"></script>
@@ -39,9 +41,9 @@
     <script defer src="src/systems/ModifierSystem.js?v=20261124a"></script>
 
     <!-- Engine & Entities -->
-    <script defer src="src/engine/WorldBuilder.js?v=20261124a"></script>
-    <script defer src="src/engine/PlayerController.js?v=expansion1"></script>
-    <script defer src="src/engine/CombatSystem.js?v=expansion1"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=survival1"></script>
+    <script defer src="src/engine/PlayerController.js?v=survival1"></script>
+    <script defer src="src/engine/CombatSystem.js?v=survival1"></script>
     <script defer src="src/entities/ZombieEntity.js?v=expansion1"></script>
     <script defer src="src/entities/BotAI.js?v=expansion1"></script>
 
@@ -49,15 +51,17 @@
     <script defer src="src/modes/ZombiesMode.js?v=expansion1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=expansion1"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=20261124a"></script>
+    <script defer src="src/modes/SurvivalMode.js"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/TooltipSystem.js?v=20261124a"></script>
-    <script defer src="src/ui/HUDController.js?v=expansion1"></script>
+    <script defer src="src/ui/HUDController.js?v=survival1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
-    <script defer src="src/ui/MenuController.js?v=expansion1"></script>
+    <script defer src="src/ui/MenuController.js?v=survival1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js"></script>
-    <script defer src="src/main.js?v=expansion1"></script>
+    <script defer src="src/ui/SurvivalUI.js"></script>
+    <script defer src="src/main.js?v=survival1"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -93,6 +97,14 @@
                             <small>5 modes • 6 arenas • bots or friends • custom games &amp; killcam</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-survival" id="btn-menu-survival">
+                        <span class="mode-card-ico" aria-hidden="true">◈</span>
+                        <span class="mode-card-text">
+                            <b>SURVIVAL</b>
+                            <small>Solo extraction • scavenging, crafting and destructible cover</small>
+                        </span>
+                        <span class="mode-card-go">PLAY</span>
                     </button>
                     <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
                         <span class="mode-card-ico">🏰</span>
@@ -264,6 +276,7 @@
             <div class="banner-sub"></div>
         </div>
         <div id="hud-toast" class="hidden"></div>
+        <div id="hud-survival" hidden><strong></strong><span></span></div>
         <div id="hud-prompt" class="hidden"></div>
         <div id="td-dir-hints" style="position:fixed;inset:0;pointer-events:none;z-index:26;overflow:hidden;"></div>
         <div id="hud-buster-charge" class="buster-charge-wrap hidden">

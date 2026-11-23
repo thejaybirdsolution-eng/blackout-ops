@@ -418,7 +418,10 @@
                 }
                 if (this.elFireMode) this.elFireMode.textContent = (w.fireMode || 'auto').toUpperCase() + (w.stats.altFireMode ? ' [B]' : '');
                 if (this.elAmmoMag) {
-                    if (isMeleeW) {
+                    if (mode === 'survival' && !isMeleeW) {
+                        this.elAmmoMag.textContent = P.reloading ? 'RLD' : 'CHECK';
+                        this.elAmmoMag.style.color = '#a6ddd0';
+                    } else if (isMeleeW) {
                         this.elAmmoMag.textContent = 'BLADE';
                         this.elAmmoMag.style.color = '#f5a623';
                     } else if (infAmmo) {
@@ -430,7 +433,7 @@
                     }
                 }
                 if (this.elAmmoRes) {
-                    this.elAmmoRes.textContent = (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
+                    this.elAmmoRes.textContent = mode === 'survival' ? '' : (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
                 }
             }
             if (this.elLethalInfo) {
@@ -458,7 +461,11 @@
             if (this.elTdStatus) this.elTdStatus.classList.toggle('hidden', mode !== 'td');
             if (this.elTdDirHints && mode !== 'td') this.elTdDirHints.innerHTML = '';
             this._updateEnemyAndBossHUD(mode);
-            if (mode === 'zombies') {
+            if (mode === 'survival') {
+                if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
+                if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
+                if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+            } else if (mode === 'zombies') {
                 const zm = BO.ZombiesMode;
                 if (this.elZChalkRow) this.elZChalkRow.classList.remove('hidden');
                 if (this.elMpScore) this.elMpScore.classList.add('hidden');
@@ -624,7 +631,8 @@
                 }
             }
 
-            this._drawMinimap();
+            if (this.elMinimap) this.elMinimap.classList.toggle('hidden', mode === 'survival');
+            if (mode !== 'survival') this._drawMinimap();
             if (this.scoreboardOpen) this._renderScoreboard();
         }
 

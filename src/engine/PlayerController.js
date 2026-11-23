@@ -514,7 +514,8 @@
             const speedColaMult = (this.zombiePerks.has('speed_cola') ? 0.52 : 1) * (this.zombiePerks.has('rush_order') && BO.ZombiesMode.exfilActive ? 0.7 : 1);
             const activeMods = BO.Mods ? BO.Mods.active() : {};
             const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
-            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult;
+            const mealMult = BO.State.activeMode === 'survival' && BO.SurvivalMode.mealUntil > BO.SurvivalMode.clock ? 0.70 : 1;
+            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult * mealMult;
             this.reloadTimer = this.reloadDuration;
             this.reloadStage = 0;
             BO.Sound.playReload(w.stats.shellReload ? 'shell' : 'out');
@@ -720,7 +721,7 @@
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
                 const activeMods = BO.Mods ? BO.Mods.active() : {};
-                if (!activeMods.noRegen && !this.matchRules.noHealthRegen) {
+                if (BO.State.activeMode !== 'survival' && !activeMods.noRegen && !this.matchRules.noHealthRegen) {
                     const regenRate = (this.zombiePerks.has('quick_revive') ? 45 : 28) * (BO.Mods ? BO.Mods.regenMult() : 1);
                     this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
                 }

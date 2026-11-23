@@ -235,6 +235,14 @@
                 };
             }
             document.getElementById('btn-menu-zombies').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'zombies'; this.showScreen('play_lobby'); };
+            document.getElementById('btn-menu-survival').onclick = () => {
+                if (BO.Net?.active) {
+                    BO.Events.emit('hud:toast', { text: 'Survival is solo. Leave the online lobby to deploy.', color: '#a6ddd0' });
+                    return;
+                }
+                BO.Sound.playUIClick();
+                BO.SurvivalUI.show('briefing', this.onStartMatch);
+            };
             document.getElementById('btn-menu-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.showScreen('play_lobby'); };
             const tdBtn = document.getElementById('btn-menu-td');
             if (tdBtn) tdBtn.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.showScreen('play_lobby'); };
@@ -2606,7 +2614,14 @@
             title.style.color = report.victory ? '#22c55e' : (report.mode === 'zombies' ? '#dc2626' : '#ef4444');
             sub.textContent = `${report.mapName} • TIME ${report.time}`;
 
-            if (report.mode === 'zombies') {
+            if (report.mode === 'survival') {
+                statsEl.innerHTML = `
+                    <div class="select-card"><div class="card-head">${report.kills}</div><div class="card-sub">Hostiles eliminated</div></div>
+                    <div class="select-card"><div class="card-head">${report.salvaged}</div><div class="card-sub">Supplies scavenged</div></div>
+                    <div class="select-card"><div class="card-head">${report.breaches}</div><div class="card-sub">Structure sections destroyed</div></div>
+                    <div class="select-card"><div class="card-head">${report.recoveredCore ? 'SECURED' : 'MISSING'}</div><div class="card-sub">Research core</div></div>`;
+                sbWrap.innerHTML = '';
+            } else if (report.mode === 'zombies') {
                 statsEl.innerHTML = `
                     <div class="select-card"><div class="card-head">ROUND ${BO.Math.toRoman(report.round)}</div><div class="card-sub">Waves Survived</div></div>
                     <div class="select-card"><div class="card-head">${report.kills} KILLS</div><div class="card-sub">${report.headshots} Headshots</div></div>

@@ -103,7 +103,10 @@
             for (let i = 0; i < this.mapData.boxes.length; i++) {
                 const b = this.mapData.boxes[i];
                 const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
-                const mat = BO.Textures.getWorldMaterial(b.mat, Math.max(b.w, b.d), b.h);
+                const isSurvivalGround = this.mapData.mode === 'survival' && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
+                const mat = isSurvivalGround
+                    ? BO.Textures.getWorldMaterial(b.mat, b.w, b.d)
+                    : BO.Textures.getWorldMaterial(b.mat, Math.max(b.w, b.d), b.h);
                 const mesh = new THREE.Mesh(geo, mat);
                 mesh.position.set(b.x, b.y, b.z);
                 mesh.receiveShadow = true;

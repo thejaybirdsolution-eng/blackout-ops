@@ -189,6 +189,7 @@
                 return;
             }
 
+            if (BO.State.activeMode === 'survival' && !BO.SurvivalMode.beforeShot(w)) return;
             this.openingShot = w.mag === w.stats.magSize;
             const now = BO.ZombiesMode.elapsed;
             this.frozenTrigger = P.zombiePerks.has('trigger_freeze') && now - this.lastTriggerTime >= 3;
@@ -315,6 +316,7 @@
             this.raycaster.far = worldDist;
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
 
+            if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
             let endPoint = worldHit ? worldHit.point.clone() : origin.clone().addScaledVector(dir, 60);
             let pierceLeft = (w.stats.penetration || 0) + 1;
             const hitEntities = new Set();
@@ -426,6 +428,10 @@
 
             const aim = P.getAimRay(this.camera);
             const reach = w.stats.range || 3.0;
+            if (BO.State.activeMode === 'survival') {
+                const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
+                BO.SurvivalMode.impact(wall, w.stats.damage * 0.46, 'melee');
+            }
             const cleaveMax = w.stats.cleave || 1;
             const eff = w.stats.meleeEffect || 'slash';
 
@@ -532,6 +538,7 @@
                 P.startReload();
                 return;
             }
+            if (BO.State.activeMode === 'survival' && !BO.SurvivalMode.beforeShot(w)) return;
             this.openingShot = w.mag === w.stats.magSize;
             const now = BO.ZombiesMode.elapsed;
             this.frozenTrigger = P.zombiePerks.has('trigger_freeze') && now - this.lastTriggerTime >= 3;

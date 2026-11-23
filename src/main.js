@@ -147,12 +147,14 @@
             this._safePointerLock();
             this._clearInputState();
 
-            if (!opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+            if (opts.mode !== "survival" && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
                 BO.Net.broadcastMatchStart(opts);
             }
             if (BO.Net) BO.Net.clearRemoteAvatars();
 
             this.lastMatchOpts = BO.Math.deepClone(opts);
+            BO.SurvivalUI.close();
+            BO.SurvivalMode.stop();
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
@@ -161,7 +163,9 @@
             BO.State.activeMapId = opts.mapId;
             BO.State.paused = false;
 
-            if (opts.mode === 'zombies') {
+            if (opts.mode === 'survival') {
+                BO.SurvivalMode.start(this.worldCamera, opts.difficulty);
+            } else if (opts.mode === 'zombies') {
                 BO.ZombiesMode.start({
                     mapId: opts.mapId,
                     difficulty: opts.difficulty || 'normal',
@@ -234,6 +238,8 @@
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
+            BO.SurvivalUI.close();
+            BO.SurvivalMode.stop();
             BO.ExpansionShop.close();
             BO.Superpowers.reset();
             BO.State.activeMode = null;
@@ -374,7 +380,7 @@
                 if (BO.Menus && BO.Menus.isRebindingKey) return;
                 if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
                 if (BO.State.screen !== 'playing') return;
-                if (BO.ExpansionShop.open) return;
+                if (BO.ExpansionShop.open || BO.SurvivalUI.open) return;
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
 
@@ -400,6 +406,8 @@
                 if (code === 'Tab') {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
+                } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalUI.show('map');
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {
                     BO.Menus.openChangeClassModal();
                 } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'td') {
@@ -416,7 +424,7 @@
                 } else if ((code === kb.crouch || code === 'KeyC' || code === 'ControlLeft') && firstDown) {
                     P.tryCrouchOrSlide();
                 } else if (code === kb.reload && firstDown) {
-                    P.startReload();
+                    if (BO.State.activeMode !== 'survival' || !BO.SurvivalMode.clearJam()) P.startReload();
                 } else if (code === 'Digit1' && firstDown) {
                     P.switchWeapon(0);
                 } else if (code === 'Digit2' && firstDown) {
@@ -453,12 +461,14 @@
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
+                    else if (BO.State.activeMode === 'survival') BO.SurvivalMode.interact();
                 } else if (code === kb.exfil && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.startExfil();
                 } else if (code === kb.armor && firstDown) {
                     P.insertArmorPlate();
                 } else if (code === kb.inspect && firstDown) {
                     P.inspectTimer = 1.8;
+                    if (BO.State.activeMode === 'survival') BO.SurvivalMode.inspect();
                 } else if (code === 'Digit5' && firstDown && BO.State.activeMode === 'mp') {
                     BO.Combat.callKillstreak(0);
                 } else if (code === 'Digit6' && firstDown && BO.State.activeMode === 'mp') {
@@ -492,7 +502,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI.open && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -505,7 +515,8 @@
                         BO.World.updateAnimatedProps(dt, this.elapsed);
                         BO.FX.update(dt);
 
-                        if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
+                        if (BO.State.activeMode === 'survival') BO.SurvivalMode.update(dt);
+                        else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
                         else if (BO.State.activeMode === 'mp') BO.MPMode.update(dt);
                         else if (BO.State.activeMode === 'td') {
                             BO.TowerDefenseMode.update(dt);
@@ -524,6 +535,7 @@
 
                     BO.HUD.update(dt);
                     BO.ExpansionShop.updateHud();
+                    BO.SurvivalUI.updateHud();
                 }
 
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
