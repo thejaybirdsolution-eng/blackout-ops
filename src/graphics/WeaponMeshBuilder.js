@@ -47,22 +47,22 @@
 
             // Melee weapons & Wonder/Magic weapons have bespoke 3D silhouettes
             if (ms.isMelee) {
-                return this._buildMeleeWeapon(root, gun, spec, camoId, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildMeleeWeapon(root, gun, spec, camoId, isPaP, withArms), spec, isPaP);
             }
             if (ms.isMinigun) {
-                return this._buildMinigun(root, gun, spec, camoId, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildMinigun(root, gun, spec, camoId, isPaP, withArms), spec, isPaP);
             }
             if (ms.wonderType === 'megabuster') {
-                return this._buildMegaBuster(root, gun, spec, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildMegaBuster(root, gun, spec, isPaP, withArms), spec, isPaP);
             }
             if (ms.wonderType === 'raygun') {
-                return this._buildRayGun(root, gun, spec, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildRayGun(root, gun, spec, isPaP, withArms), spec, isPaP);
             }
             if (ms.wonderType === 'thundergun') {
-                return this._buildThundergun(root, gun, spec, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildThundergun(root, gun, spec, isPaP, withArms), spec, isPaP);
             }
             if (ms.wonderType) {
-                return this._buildMagicWeapon(root, gun, spec, isPaP, withArms);
+                return BO.ArsenalDetails.specialDetails(this._buildMagicWeapon(root, gun, spec, isPaP, withArms), spec, isPaP);
             }
 
             const recH = ms.receiverH;
@@ -434,6 +434,8 @@
             if (withArms) {
                 this._attachFirstPersonArms(root, ms.isPistol);
             }
+
+            BO.ArsenalDetails.firearmDetails(gun, spec, attachments, isPaP || (effectiveCamo && effectiveCamo !== 'default'));
 
             if (isDualWield) {
                 const leftGun = gun.clone();

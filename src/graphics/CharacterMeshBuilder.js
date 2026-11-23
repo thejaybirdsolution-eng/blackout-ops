@@ -41,7 +41,9 @@
             root.scale.set(sc[0], sc[1], sc[2]);
 
             if (bs.quadruped) {
-                return this._buildQuadrupedFromSpec(root, spec, entity);
+                const parts = this._buildQuadrupedFromSpec(root, spec, entity);
+                BO.ArsenalDetails.undeadDetails(parts, spec);
+                return parts;
             }
 
             const key = spec.id || 'default';
@@ -606,7 +608,9 @@
                 legR.visible = false;
             }
 
-            return { root, bodyPivot, headGroup, armL, armR, legL, legR, haloGroup };
+            const parts = { root, bodyPivot, headGroup, armL, armR, legL, legR, haloGroup };
+            BO.ArsenalDetails.undeadDetails(parts, spec, chestW, chestD);
+            return parts;
         }
 
         _buildQuadrupedFromSpec(root, spec, entity) {
