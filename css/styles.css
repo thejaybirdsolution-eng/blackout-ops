@@ -1484,3 +1484,245 @@ html, body {
     letter-spacing: 2px;
     color: #f8fafc;
 }
+
+
+/* ============================================================================
+   BLACKOUT OS v3.0 — COMPLETE AAA MENU, SUB-MENU & WINDOW REINVENTION
+   Deep Obsidian Glassmorphism • Chamfered Tactical Panels • Radiant Micro-Motion
+============================================================================ */
+:root {
+    --glass-panel: rgba(8, 13, 24, 0.86);
+    --glass-card: rgba(14, 22, 38, 0.78);
+    --border-subtle: rgba(148, 163, 184, 0.20);
+    --border-glow: rgba(245, 166, 35, 0.55);
+    --amber: #f5a623;
+    --cyan: #38bdf8;
+    --crimson: #ef4444;
+    --emerald: #22c55e;
+}
+
+/* Custom sleek neon scrollbars across EVERY menu & modal */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: rgba(5, 9, 17, 0.65); border-radius: 4px; }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(245, 166, 35, 0.65), rgba(56, 189, 248, 0.55));
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #fbbf24, #38bdf8); }
+
+/* Elevated Tactical Screens with subtle cyber-grid vignette */
+.ui-screen {
+    background:
+        radial-gradient(circle at 18% 12%, rgba(56, 189, 248, 0.10), transparent 42%),
+        radial-gradient(circle at 85% 88%, rgba(245, 166, 35, 0.10), transparent 44%),
+        linear-gradient(180deg, rgba(4, 7, 14, 0.62) 0%, rgba(5, 9, 18, 0.82) 100%) !important;
+}
+
+.top-bar {
+    background: linear-gradient(90deg, rgba(10, 16, 30, 0.94), rgba(15, 23, 42, 0.86)) !important;
+    border: 1px solid rgba(245, 166, 35, 0.28) !important;
+    border-left: 4px solid var(--amber) !important;
+    border-radius: 10px !important;
+    padding: 12px 20px !important;
+    backdrop-filter: blur(16px) saturate(140%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.brand-title {
+    background: linear-gradient(90deg, #ffffff 0%, #fde047 55%, #f59e0b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none !important;
+    filter: drop-shadow(0 2px 12px rgba(245, 166, 35, 0.32));
+}
+
+.brand-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    color: #7dd3fc !important;
+    font-size: 10px !important;
+    letter-spacing: 2px !important;
+}
+
+/* Main Menu Tactical Command Tiles */
+.menu-tile {
+    border-radius: 10px !important;
+    background: linear-gradient(115deg, rgba(13, 21, 36, 0.92), rgba(8, 13, 24, 0.86)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    border-left: 4px solid var(--amber) !important;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.16s, box-shadow 0.16s, background 0.16s !important;
+}
+.menu-tile:hover {
+    transform: translateX(6px) translateY(-1px) !important;
+    border-color: rgba(245, 166, 35, 0.72) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 20px rgba(245, 166, 35, 0.18) !important;
+}
+.menu-tile.zombies-tile {
+    border-left-color: #ef4444 !important;
+}
+.menu-tile.zombies-tile:hover {
+    border-color: rgba(239, 68, 68, 0.78) !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 22px rgba(239, 68, 68, 0.22) !important;
+}
+
+/* Panels & Sub-Panels */
+.panel {
+    background: linear-gradient(165deg, rgba(10, 16, 28, 0.92), rgba(6, 10, 19, 0.88)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(18px) saturate(135%);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.panel-title {
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 2px !important;
+    padding: 5px 10px !important;
+    border-radius: 6px;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.12), transparent);
+    border-left: 3px solid currentColor;
+    margin-bottom: 8px !important;
+}
+
+/* Reinvented Modals & Windows */
+.ui-modal {
+    background: rgba(3, 6, 14, 0.78) !important;
+    backdrop-filter: blur(12px) saturate(120%) !important;
+}
+
+.modal-box {
+    background: linear-gradient(160deg, rgba(12, 19, 34, 0.96) 0%, rgba(6, 10, 20, 0.97) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.34) !important;
+    border-top: 3px solid var(--amber) !important;
+    border-radius: 14px !important;
+    padding: 20px 22px !important;
+    box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.75),
+        0 0 36px rgba(56, 189, 248, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    animation: boModalPop 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes boModalPop {
+    from { opacity: 0; transform: translateY(10px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Reinvented Interactive Cards */
+.select-card {
+    border-radius: 10px !important;
+    background: linear-gradient(155deg, rgba(16, 25, 44, 0.88), rgba(9, 14, 26, 0.88)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.22) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease !important;
+}
+.select-card:hover {
+    transform: translateY(-2px) !important;
+    border-color: rgba(56, 189, 248, 0.65) !important;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.48), 0 0 16px rgba(56, 189, 248, 0.16) !important;
+}
+.select-card.active {
+    border-color: var(--amber) !important;
+    background: linear-gradient(155deg, rgba(245, 166, 35, 0.18), rgba(12, 19, 34, 0.92)) !important;
+    box-shadow: 0 0 22px rgba(245, 166, 35, 0.22), inset 0 1px 0 rgba(253, 224, 71, 0.25) !important;
+}
+.select-card.active-zombies {
+    border-color: #ef4444 !important;
+    background: linear-gradient(155deg, rgba(239, 68, 68, 0.20), rgba(16, 10, 18, 0.92)) !important;
+    box-shadow: 0 0 22px rgba(239, 68, 68, 0.26) !important;
+}
+
+/* Reinvented Buttons */
+.btn {
+    border-radius: 8px !important;
+    background: linear-gradient(180deg, rgba(24, 35, 56, 0.92), rgba(14, 21, 36, 0.94)) !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease !important;
+}
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.7) !important;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42), 0 0 14px rgba(56, 189, 248, 0.18);
+    filter: brightness(1.08);
+}
+.btn:active:not(:disabled) {
+    transform: translateY(0px) scale(0.985);
+}
+.btn-primary {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%) !important;
+    color: #0b0f17 !important;
+    border-color: #fde047 !important;
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+.btn-zombies {
+    background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%) !important;
+    color: #ffffff !important;
+    border-color: #f87171 !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Modifier & Enemy Toggle Chips */
+.mod-row {
+    border-radius: 8px !important;
+    background: rgba(13, 20, 35, 0.85) !important;
+    border: 1px solid rgba(148, 163, 184, 0.20) !important;
+    transition: border-color 0.14s, background 0.14s, transform 0.12s !important;
+    cursor: pointer;
+}
+.mod-row:hover {
+    background: rgba(24, 36, 62, 0.92) !important;
+    border-color: rgba(56, 189, 248, 0.55) !important;
+    transform: translateY(-1px);
+}
+.mod-row.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(15, 23, 42, 0.92)) !important;
+    border-color: rgba(56, 189, 248, 0.65) !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.14);
+}
+.mod-row input[type="checkbox"] {
+    accent-color: #38bdf8;
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+/* Inputs, Selects & Sliders */
+select, input[type="text"], input[type="number"] {
+    border-radius: 7px !important;
+    background: rgba(7, 12, 22, 0.92) !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+select:focus, input[type="text"]:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+}
+input[type="range"] {
+    accent-color: #f5a623;
+    cursor: pointer;
+}
+
+/* Rank Pill & Tooltips */
+.rank-pill {
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, rgba(245, 166, 35, 0.16), rgba(15, 23, 42, 0.90)) !important;
+    border: 1px solid rgba(245, 166, 35, 0.45) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+#bo-tooltip {
+    border-radius: 10px !important;
+    background: rgba(6, 10, 20, 0.96) !important;
+    border: 1px solid rgba(56, 189, 248, 0.48) !important;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65) !important;
+}

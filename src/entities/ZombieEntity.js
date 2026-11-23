@@ -67,6 +67,12 @@
             this.isSplitChild = !!opts.isSplitChild;
             this.jumpChance = opts.jumpChance ?? (this.spec.jumpChance || 0);
             this.jumpTimer = 1.5 + Math.random() * 2.5;
+            this._stuckCheckTimer = 0.45;
+            this._stuckAccum = 0;
+            this._lastCheckX = this.pos.x;
+            this._lastCheckZ = this.pos.z;
+            this._sidestepTimer = 0;
+            this._sidestepSign = Math.random() < 0.5 ? 1 : -1;
             this.gunCooldown = 1.6 + Math.random() * 2.2;
             this.magicCooldown = 2.5 + Math.random() * 2.5;
             this.healCooldown = 3.5 + Math.random() * 3.0;
@@ -365,7 +371,8 @@
 
                 // Special Ranged Attacks (Acid Spit, Fire Bolt, Frost Shard, Life Drain, Aether Bolt)
                 const isRanged = ['acid_spit', 'fire_bolt', 'frost_shard', 'life_drain', 'aether_bolt'].includes(this.attackType);
-                if (!chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < 22 && this.rangedCooldown <= 0) {
+                const allowProj = !(callbacks && callbacks.allowProjectiles === false);
+                if (allowProj && !chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < 22 && this.rangedCooldown <= 0) {
                     if (BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.3, this.pos.z, tx, ty + 1.2, tz)) {
                         this.rangedCooldown = this.isBoss ? 2.4 : 3.8;
                         this.attackSwing = 1.0;
@@ -461,6 +468,15 @@
                         goalZ += perpZ * side;
                     }
 
+                    // Anti-stuck navigation: sidestep & vault around boxes/crates so NO enemy/boss ever gets trapped!
+                    if (this._sidestepTimer > 0) {
+                        this._sidestepTimer -= dt;
+                        const sdx = goalX - this.pos.x, sdz = goalZ - this.pos.z;
+                        const sd = Math.max(0.1, Math.hypot(sdx, sdz));
+                        goalX += (-sdz / sd) * this._sidestepSign * 4.2;
+                        goalZ += (sdx / sd) * this._sidestepSign * 4.2;
+                    }
+
                     const chargeBoost = (this.movementHabit === 'charge_bull' && directLOS && distToTarget < 12) ? 1.35 : 1.0;
                     const slowMult = this.slowTimer > 0 ? 0.45 : 1.0;
                     const curSpeed = this.speed * chargeBoost * slowMult * (this.flinchTimer > 0 ? 0.58 : 1.0);
@@ -473,6 +489,32 @@
                     }
                     BO.World.resolveHorizontal(this.pos, this.radius, this.height, false);
                     moveSpeed = curSpeed;
+
+                    this._stuckCheckTimer -= dt;
+                    if (this._stuckCheckTimer <= 0) {
+                        this._stuckCheckTimer = 0.45;
+                        const moved = BO.Math.dist2D(this.pos.x, this.pos.z, this._lastCheckX, this._lastCheckZ);
+                        this._lastCheckX = this.pos.x;
+                        this._lastCheckZ = this.pos.z;
+                        if (moved < 0.30 && curSpeed > 0.5) {
+                            this._stuckAccum += 0.45;
+                            this._sidestepTimer = 0.90;
+                            if (this._stuckAccum >= 0.90) this._sidestepSign *= -1;
+                            if (this.pos.y <= floorY + 0.16) this.vel.y = 7.4; // Vault low crates/sandbags!
+                            if (this._stuckAccum >= 1.8) {
+                                // Unstick nudge around obstacle & recalculate path
+                                const ndx = tx - this.pos.x, ndz = tz - this.pos.z;
+                                const nd = Math.max(0.1, Math.hypot(ndx, ndz));
+                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.15 + (ndx / nd) * 0.45;
+                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.15 + (ndz / nd) * 0.45;
+                                this.pathTimer = 0;
+                                this.path = [];
+                                this._stuckAccum = 0.45;
+                            }
+                        } else {
+                            this._stuckAccum = 0;
+                        }
+                    }
                 }
             }
 

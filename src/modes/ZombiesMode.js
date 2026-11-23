@@ -36,6 +36,11 @@
             this.doublePointsTimer = 0;
             this.fireSaleTimer = 0;
             this.powerUps = [];
+            this.supplies = 0;
+            this.supplyDrops = [];
+            this.fortifications = [];
+            this.thrownTowerBalls = [];
+            this.sniperTowerBalls = 0;
 
             this.exfilAvailable = false;
             this.exfilActive = false;
@@ -112,6 +117,11 @@
             this.enemyProjectiles = [];
             this.activeBoss = null;
             this.powerUps = [];
+            this.supplies = this.modifiers.richStart ? 30000 : 0;
+            this.supplyDrops = [];
+            this.fortifications = [];
+            this.thrownTowerBalls = [];
+            this.sniperTowerBalls = 0;
             this.instaKillTimer = 0;
             this.doublePointsTimer = 0;
             this.fireSaleTimer = 0;
@@ -195,6 +205,19 @@
                 if (pu.mesh && BO.World.scene) BO.World.scene.remove(pu.mesh);
             }
             this.powerUps = [];
+            for (const sd of this.supplyDrops) {
+                if (sd.mesh && BO.World.scene) BO.World.scene.remove(sd.mesh);
+            }
+            this.supplyDrops = [];
+            for (const ft of this.fortifications) {
+                if (ft.mesh && BO.World.scene) BO.World.scene.remove(ft.mesh);
+                if (ft.colliders) ft.colliders.forEach((c) => { c.active = false; });
+            }
+            this.fortifications = [];
+            for (const tb of this.thrownTowerBalls) {
+                if (tb.mesh && BO.World.scene) BO.World.scene.remove(tb.mesh);
+            }
+            this.thrownTowerBalls = [];
             BO.Sound.stopMusic();
         }
 
@@ -448,13 +471,14 @@
         _spawnBoss(bossSpec) {
             const sp = this._pickSpawnPoint(false);
             const dm = this._getDifficultyMultipliers();
+            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
             const boss = new BO.ZombieEntity({
                 id: this.nextZombieId++,
                 spec: bossSpec,
                 round: this.round,
-                hp: Math.round(bossSpec.hp * dm.hp),
+                hp: Math.max(50, Math.round(bossSpec.hp * dm.hp * customHpMult)),
                 speed: bossSpec.speed * dm.spd,
-                damage: Math.round(bossSpec.attack * dm.atk),
+                damage: this.modifiers.oneHitMeleeZombies ? 99999 : Math.round(bossSpec.attack * dm.atk),
                 x: sp.x,
                 y: sp.y,
                 z: sp.z,
@@ -487,11 +511,12 @@
             const sizeHpMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.72 : 1.0);
             const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
             const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
+            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
             const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
             const roundHpMult = 1 + (this.round - 1) * 0.22 + (this.round > 10 ? Math.pow(this.round - 10, 1.25) * 0.14 : 0);
-            const hp = Math.max(15, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp));
+            const hp = Math.max(10, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp * customHpMult));
             const speed = Math.min(8.8, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult);
-            const dmg = Math.min(180, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg));
+            const dmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.min(180, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg));
 
             const z = new BO.ZombieEntity({
                 id: this.nextZombieId++,
@@ -634,6 +659,9 @@
             const wId = isMelee ? null : weaponInst.cfg.id;
             if (wId) BO.Progression.grantWeaponKill(wId, isHead, isHead ? 85 : 55);
             BO.Progression.grantPlayerXP(z.isBoss ? (z.spec.drops.xp || 800) : (isHead ? 90 : 60));
+
+            // 50% chance to drop Supplies worth 10% of the enemy's Max HP!
+            this._maybeDropSupplies(z);
 
             // Unique Zombie Drops & Boss Rewards
             if (z.isBoss) {
@@ -827,6 +855,17 @@
             const inter = this.activePrompt;
             if (!inter) return;
 
+            if (inter.type === 'z_sniper_tower_zip') {
+                P.rideState = {
+                    kind: 'arc',
+                    sx: P.pos.x, sy: P.pos.y, sz: P.pos.z,
+                    dx: inter.destX, dy: inter.destY, dz: inter.destZ,
+                    arcHeight: 2.2, duration: 0.55, t: 0
+                };
+                BO.Sound.playTrapZap();
+                BO.Events.emit('hud:toast', { text: '🗼 ZIPPED TO MINI SNIPER TOWER!', color: '#38bdf8' });
+                return;
+            }
             if (inter.type === 'door') {
                 const d = inter.data;
                 if (d.requiresPower && !BO.World.powerOn) {
@@ -1304,9 +1343,12 @@
             const inter = this.activePrompt;
             if (!inter) {
                 if (this.exfilAvailable && !this.exfilActive && this.state !== 'ended') {
-                    return { text: '[H] CALL HELICOPTER EXFIL (BONUS XP)', affordable: true };
+                    return { text: '[H] CALL HELICOPTER EXFIL (BONUS XP) • [B] BUILD FORTIFICATIONS', affordable: true };
                 }
                 return null;
+            }
+            if (inter.type === 'z_sniper_tower_zip') {
+                return { text: '[E] ZIP UP TO DEPLOYED MINI SNIPER TOWER', affordable: true };
             }
             const P = BO.Player;
             if (inter.type === 'door') {
@@ -1489,14 +1531,22 @@
             }
 
             // Update Zombies
+            const allowProj = !(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.round < 20));
             const hitMeshes = [];
             const zCallbacks = {
+                allowProjectiles: allowProj,
+                getTarget: (z) => this._getFortificationTarget(z),
+                onAttackCustomTarget: (z, tgt) => {
+                    if (tgt && tgt.fort && tgt.fort.alive) {
+                        this._damageFortification(tgt.fort, Math.max(12, Math.min(180, z.damage * 0.55)));
+                    }
+                },
                 onMeleePlayer: (attacker) => {
                     BO.Player.takeDamage(attacker.damage, attacker.pos, false);
                     BO.Sound.playZombieGroan(attacker.soundProfile, 0.9);
                 },
                 onRangedAttack: (attacker, tx, ty, tz) => {
-                    this._spawnEnemyProjectile(attacker, tx, ty, tz);
+                    if (allowProj) this._spawnEnemyProjectile(attacker, tx, ty, tz);
                 }
             };
             for (let i = this.zombies.length - 1; i >= 0; i--) {
@@ -1538,6 +1588,8 @@
                     this.enemyProjectiles.splice(i, 1);
                 }
             }
+
+            this._updateSuppliesAndFortifications(dt);
 
             // Power-Ups
             for (let i = this.powerUps.length - 1; i >= 0; i--) {
@@ -1724,8 +1776,258 @@
             }
         }
 
+        /* ====================================================================
+           ZOMBIES SUPPLIES (50% DROP, 10% OF ENEMY MAX HP) & FORTIFICATIONS:
+           - 2,000 Supplies = Mini Barricade (450 HP)
+           - 10,000 Supplies = Wide Barricade (1,600 HP)
+           - 25,000 Supplies = Sniper Tower Ball (throw to deploy 4,500 HP Sniper Tower!)
+        ==================================================================== */
+        _maybeDropSupplies(z) {
+            if (!z || !BO.World.scene || Math.random() >= 0.50) return;
+            const amount = Math.max(1, Math.round((z.maxHp || 100) * 0.10));
+            const g = new THREE.Group();
+            const crate = new THREE.Mesh(
+                new THREE.BoxGeometry(0.46, 0.36, 0.46),
+                new THREE.MeshStandardMaterial({ color: 0x0ea5e9, emissive: 0x0284c7, emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.6 })
+            );
+            const band = new THREE.Mesh(
+                new THREE.BoxGeometry(0.50, 0.08, 0.50),
+                new THREE.MeshBasicMaterial({ color: 0xfde047 })
+            );
+            g.add(crate, band);
+            g.position.set(z.pos.x, (z.pos.y || 0) + 0.45, z.pos.z);
+            BO.World.scene.add(g);
+            this.supplyDrops.push({ mesh: g, x: z.pos.x, y: (z.pos.y || 0) + 0.45, z: z.pos.z, amount, life: 40.0, phase: Math.random() * 6.28 });
+        }
+
+        buyFortification(kind) {
+            const P = BO.Player;
+            if (!this.active || !P || !P.alive || !BO.World.scene) return false;
+            const costs = { mini_barricade: 2000, wide_barricade: 10000, sniper_tower_ball: 25000 };
+            const cost = costs[kind];
+            if (!cost) return false;
+            if (this.supplies < cost) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: `NEED ${cost.toLocaleString()} SUPPLIES (YOU HAVE ${this.supplies.toLocaleString()})!`, color: '#ef4444' });
+                return false;
+            }
+            this.supplies -= cost;
+            BO.Sound.playShopBuy();
+
+            if (kind === 'sniper_tower_ball') {
+                this.sniperTowerBalls++;
+                this.throwSniperTowerBall();
+                return true;
+            }
+
+            const { forward } = P.getMoveDirectionVectors();
+            const dist = kind === 'wide_barricade' ? 3.2 : 2.5;
+            const bx = P.pos.x + forward.x * dist;
+            const bz = P.pos.z + forward.z * dist;
+            const by = BO.World.getGroundHeight(bx, bz, P.pos.y);
+            const width = kind === 'wide_barricade' ? 7.5 : 2.8;
+            const hp = kind === 'wide_barricade' ? 1600 : 450;
+            const alignX = Math.abs(forward.z) >= Math.abs(forward.x);
+            const w = alignX ? width : 0.75;
+            const d = alignX ? 0.75 : width;
+            const h = kind === 'wide_barricade' ? 1.85 : 1.35;
+
+            const mesh = new THREE.Mesh(
+                new THREE.BoxGeometry(w, h, d),
+                BO.Textures.getWorldMaterial(kind === 'wide_barricade' ? 'castle_battlement' : 'sandbag', Math.max(w, d), h)
+            );
+            mesh.position.set(bx, by + h * 0.5, bz);
+            const strip = new THREE.Mesh(
+                new THREE.BoxGeometry(w + 0.04, 0.10, d + 0.04),
+                new THREE.MeshBasicMaterial({ color: kind === 'wide_barricade' ? 0x38bdf8 : 0x22c55e })
+            );
+            strip.position.y = h * 0.5 + 0.05;
+            mesh.add(strip);
+            BO.World.scene.add(mesh);
+
+            const col = {
+                minX: bx - w * 0.5, maxX: bx + w * 0.5,
+                minY: by, maxY: by + h,
+                minZ: bz - d * 0.5, maxZ: bz + d * 0.5,
+                enemiesOnly: true,
+                active: true
+            };
+            BO.World.colliders.push(col);
+            this.fortifications.push({
+                kind, x: bx, y: by, z: bz, hp, maxHp: hp, alive: true, mesh, colliders: [col], interactives: []
+            });
+            BO.Events.emit('hud:toast', {
+                text: kind === 'wide_barricade' ? `🧱 WIDE BARRICADE DEPLOYED (${hp} HP)!` : `🧱 MINI BARRICADE DEPLOYED (${hp} HP)!`,
+                color: '#4ade80'
+            });
+            return true;
+        }
+
+        throwSniperTowerBall() {
+            const P = BO.Player;
+            if (!this.active || !P || !P.alive || !BO.World.scene) return false;
+            if (this.sniperTowerBalls <= 0) {
+                if (this.supplies >= 25000) {
+                    return this.buyFortification('sniper_tower_ball');
+                }
+                BO.Events.emit('hud:toast', { text: 'NO SNIPER TOWER BALLS! PRESS [B] TO BUY (25,000 SUPPLIES)', color: '#f59e0b' });
+                return false;
+            }
+            this.sniperTowerBalls--;
+            const cam = BO.App ? BO.App.worldCamera : null;
+            const aim = cam ? P.getAimRay(cam) : { origin: P.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), dir: P.getMoveDirectionVectors().forward };
+            const pos = aim.origin.clone().addScaledVector(aim.dir, 0.8);
+            const vel = aim.dir.clone().multiplyScalar(16.5);
+            vel.y += 4.2;
+
+            const ball = new THREE.Group();
+            const core = new THREE.Mesh(
+                new THREE.SphereGeometry(0.24, 14, 12),
+                new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.7, metalness: 0.8, roughness: 0.2 })
+            );
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.035, 8, 18), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            ball.add(core, ring);
+            ball.position.copy(pos);
+            BO.World.scene.add(ball);
+            this.thrownTowerBalls.push({ mesh: ball, pos, vel, life: 5.0 });
+            BO.Sound.playGrenadeThrow();
+            BO.Events.emit('hud:toast', { text: '🔵 SNIPER TOWER BALL THROWN!', color: '#38bdf8' });
+            return true;
+        }
+
+        _deployMiniSniperTower(tx, ty, tz) {
+            if (!BO.World.scene) return;
+            const g = new THREE.Group();
+            const cols = [];
+            const inters = [];
+            const addBox = (minX, minY, minZ, maxX, maxY, maxZ, matName) => {
+                const w = Math.abs(maxX - minX), h = Math.abs(maxY - minY), d = Math.abs(maxZ - minZ);
+                const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), BO.Textures.getWorldMaterial(matName, Math.max(w, d), h));
+                m.position.set((minX + maxX) * 0.5, (minY + maxY) * 0.5, (minZ + maxZ) * 0.5);
+                g.add(m);
+                const c = { minX, maxX, minY, maxY, minZ, maxZ, active: true };
+                BO.World.colliders.push(c);
+                cols.push(c);
+            };
+            const hw = 2.1, deckY = ty + 5.2;
+            // 4 corner legs + top sniper deck + low sandbag cover!
+            for (const [cx, cz] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) {
+                addBox(tx + cx - 0.25, ty, tz + cz - 0.25, tx + cx + 0.25, deckY, tz + cz + 0.25, 'castle_stone');
+            }
+            addBox(tx - hw, deckY - 0.3, tz - hw, tx + hw, deckY, tz + hw, 'diamond_plate');
+            addBox(tx - hw, deckY, tz - hw, tx + hw, deckY + 0.85, tz - hw + 0.28, 'sandbag');
+            addBox(tx - hw, deckY, tz + hw - 0.28, tx + hw, deckY + 0.85, tz + hw, 'sandbag');
+            addBox(tx - hw, deckY, tz - hw, tx - hw + 0.28, deckY + 0.85, tz + hw, 'sandbag');
+            addBox(tx + hw - 0.28, deckY, tz - hw, tx + hw, deckY + 0.85, tz + hw, 'sandbag');
+
+            // Glowing Quick-Zip Pad at base -> top sniper deck!
+            const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.75, 0.14, 14), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            pad.position.set(tx, ty + 0.08, tz + hw + 1.1);
+            g.add(pad);
+            const zipUp = {
+                type: 'z_sniper_tower_zip',
+                id: 'ztower_zip_' + Date.now(),
+                x: tx, y: ty + 0.8, z: tz + hw + 1.1,
+                destX: tx, destY: deckY + 0.1, destZ: tz,
+                radius: 2.2
+            };
+            BO.World.interactives.push(zipUp);
+            inters.push(zipUp);
+
+            BO.World.scene.add(g);
+            BO.FX.spawnExplosion(new THREE.Vector3(tx, ty + 1.2, tz), 4.5, 0x38bdf8);
+            BO.Sound.playPaPChime();
+            this.fortifications.push({
+                kind: 'sniper_tower', x: tx, y: ty, z: tz, hp: 4500, maxHp: 4500, alive: true, mesh: g, colliders: cols, interactives: inters
+            });
+            BO.Events.emit('hud:banner', {
+                title: '🗼 MINI SNIPER TOWER DEPLOYED!',
+                sub: '4,500 HP FORTIFIED DECK — PRESS [E] ON THE CYAN PAD TO ZIP UP!',
+                color: '#38bdf8'
+            });
+        }
+
+        _getFortificationTarget(z) {
+            if (!this.fortifications || this.fortifications.length === 0) return null;
+            for (const f of this.fortifications) {
+                if (!f.alive) continue;
+                const d = BO.Math.dist2D(z.pos.x, z.pos.z, f.x, f.z);
+                if (f.kind !== 'sniper_tower' && d < 4.5) {
+                    return { fort: f, x: f.x, y: f.y, z: f.z, attackRange: 2.0, forceDirect: true };
+                }
+                // Enemies sometimes target & attack deployed Sniper Towers!
+                if (f.kind === 'sniper_tower' && d < 9.5 && (z.id % 3 === 0)) {
+                    return { fort: f, x: f.x, y: f.y, z: f.z, attackRange: 2.6, forceDirect: true };
+                }
+            }
+            return null;
+        }
+
+        _damageFortification(f, dmg) {
+            if (!f || !f.alive) return;
+            f.hp = Math.max(0, f.hp - dmg);
+            BO.Sound.playWallHit();
+            if (f.hp <= 0) {
+                f.alive = false;
+                if (f.mesh && BO.World.scene) BO.World.scene.remove(f.mesh);
+                if (f.colliders) f.colliders.forEach((c) => { c.active = false; });
+                if (f.interactives) {
+                    for (const it of f.interactives) {
+                        const idx = BO.World.interactives.indexOf(it);
+                        if (idx !== -1) BO.World.interactives.splice(idx, 1);
+                    }
+                }
+                BO.FX.spawnExplosion(new THREE.Vector3(f.x, f.y + 1.2, f.z), 4.0, 0xf97316);
+                BO.Sound.playWallBreak();
+                BO.Events.emit('hud:toast', { text: `${f.kind.replace(/_/g, ' ').toUpperCase()} DESTROYED BY HORDE!`, color: '#ef4444' });
+            }
+        }
+
+        _updateSuppliesAndFortifications(dt) {
+            const P = BO.Player;
+            // Collect Supply Crates
+            for (let i = this.supplyDrops.length - 1; i >= 0; i--) {
+                const sd = this.supplyDrops[i];
+                sd.life -= dt;
+                sd.phase += dt * 3.2;
+                sd.mesh.rotation.y += dt * 2.2;
+                sd.mesh.position.y = sd.y + Math.sin(sd.phase) * 0.12;
+                const d = BO.Math.dist3D(P.pos.x, P.pos.y + 0.8, P.pos.z, sd.x, sd.y, sd.z);
+                if (P.alive && d < 3.2) {
+                    this.supplies += sd.amount;
+                    BO.Sound.playPowerUp();
+                    BO.Events.emit('hud:toast', { text: `📦 +${sd.amount.toLocaleString()} SUPPLIES (TOTAL: ${this.supplies.toLocaleString()})`, color: '#38bdf8' });
+                    if (BO.World.scene) BO.World.scene.remove(sd.mesh);
+                    this.supplyDrops.splice(i, 1);
+                    continue;
+                }
+                if (sd.life <= 0) {
+                    if (BO.World.scene) BO.World.scene.remove(sd.mesh);
+                    this.supplyDrops.splice(i, 1);
+                }
+            }
+
+            // Update Thrown Sniper Tower Balls
+            for (let i = this.thrownTowerBalls.length - 1; i >= 0; i--) {
+                const tb = this.thrownTowerBalls[i];
+                tb.life -= dt;
+                tb.vel.y -= 20.0 * dt;
+                tb.pos.addScaledVector(tb.vel, dt);
+                tb.mesh.position.copy(tb.pos);
+                tb.mesh.rotation.x += dt * 8;
+                tb.mesh.rotation.y += dt * 6;
+                const gY = BO.World.getGroundHeight(tb.pos.x, tb.pos.z, tb.pos.y + 0.5);
+                if (tb.pos.y <= gY + 0.25 || tb.life <= 0) {
+                    if (BO.World.scene) BO.World.scene.remove(tb.mesh);
+                    this._deployMiniSniperTower(tb.pos.x, gY, tb.pos.z);
+                    this.thrownTowerBalls.splice(i, 1);
+                }
+            }
+        }
+
         getMapStatusBadges() {
             const out = [];
+            out.push({ text: `📦 SUPPLIES: ${this.supplies.toLocaleString()} • [B] BUILD`, color: '#38bdf8' });
             const mq = this.mapQuest;
             if (this.mapId === 'shi_no_numa' && BO.Player.inSwampMud) {
                 out.push({ text: 'SWAMP MUD (-38% SPEED)', color: '#84cc16' });

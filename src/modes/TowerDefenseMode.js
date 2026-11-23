@@ -57,7 +57,12 @@
             explosiveHeadshots: false,
             richStart: false,
             noRegen: false,
-            nightmareDarkness: false
+            nightmareDarkness: false,
+            halfZombieHp: false,
+            quarterZombieHp: false,
+            oneHitMeleeZombies: false,
+            noProjectiles: false,
+            noProjectilesUntil20: false
         },
         disabledEnemies: []
     };
@@ -623,20 +628,23 @@
                 : Math.round(spec.hp * (0.85 + this.wave * 0.14));
             const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
             const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
+            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
             const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
+            const projBlocked = !!(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.wave < 20));
+            const finalDmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(5, Math.round(spec.attack * diff.dmg * glassDmg));
 
             return {
                 id: this.nextZombieId++,
                 spec,
                 round: this.wave,
-                hp: Math.max(15, Math.round(baseHp * diff.hp * sizeHpMult * glassHp * swarmHp)),
+                hp: Math.max(10, Math.round(baseHp * diff.hp * sizeHpMult * glassHp * swarmHp * customHpMult)),
                 speed: Math.min(9.0, spec.speed * (1 + Math.min(0.35, this.wave * 0.015)) * diff.spd * fastMult * sizeSpdMult),
-                damage: Math.max(5, Math.round(spec.attack * diff.dmg * glassDmg)),
+                damage: finalDmg,
                 x: sp.x + BO.Math.randRange(-1.4, 1.4),
                 y: sp.y || 0,
                 z: sp.z + BO.Math.randRange(-1.4, 1.4),
-                hasGun: Math.random() < gunChance,
-                isMagical: !!(this.modifiers.magicalZombies || spec.isMagical),
+                hasGun: !projBlocked && (Math.random() < gunChance),
+                isMagical: !projBlocked && !!(this.modifiers.magicalZombies || spec.isMagical),
                 explosiveDeath: !!this.modifiers.explosiveDeath,
                 splitCount: this.modifiers.megaSplitters ? Math.max(2, spec.splitCount || 0) : (spec.splitCount || 0),
                 jumpChance: this.modifiers.superJumpZombies ? Math.max(0.55, spec.jumpChance || 0) : (spec.jumpChance || 0),
@@ -1649,7 +1657,8 @@
                 }
 
                 // 2. Gun-Toting Zombies firing bullets at Player or Active Barrier!
-                if (z.hasGun && z.stunTimer <= 0 && z.frozenTimer <= 0) {
+                const allowProj = !(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.wave < 20));
+                if (allowProj && z.hasGun && z.stunTimer <= 0 && z.frozenTimer <= 0) {
                     z.gunCooldown -= dt;
                     if (z.gunCooldown <= 0) {
                         z.gunCooldown = 1.9 + Math.random() * 1.5;
@@ -1676,7 +1685,7 @@
                 }
 
                 // 3. Magical Zombies firing arcane orbs & blinking!
-                if (z.isMagical && z.stunTimer <= 0 && z.frozenTimer <= 0) {
+                if (allowProj && z.isMagical && z.stunTimer <= 0 && z.frozenTimer <= 0) {
                     z.magicCooldown -= dt;
                     if (z.magicCooldown <= 0) {
                         z.magicCooldown = 3.2 + Math.random() * 2.0;
@@ -1923,6 +1932,7 @@
             const anyWallAlive = !!this.getActiveBlockingLayer();
             const callbacks = {
                 preventBlink: anyWallAlive,
+                allowProjectiles: !(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.wave < 20)),
                 getTarget: (z) => this._getZombieTarget(z),
                 onAttackCustomTarget: (z, tgt) => {
                     if (tgt.kind === 'layer') {

@@ -399,6 +399,10 @@
                     BO.Menus.openChangeClassModal();
                 } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'td') {
                     BO.Menus.openTdShopModal();
+                } else if (code === 'KeyB' && firstDown && BO.State.activeMode === 'zombies') {
+                    if (BO.Menus && BO.Menus.openZBuildModal) BO.Menus.openZBuildModal();
+                } else if (code === 'KeyV' && firstDown && BO.State.activeMode === 'zombies') {
+                    BO.ZombiesMode.throwSniperTowerBall();
                 } else if (code === 'KeyN' && firstDown && BO.State.activeMode === 'td') {
                     BO.TowerDefenseMode.skipIntermission();
                 } else if ((code === kb.jump || code === 'Space') && firstDown) {

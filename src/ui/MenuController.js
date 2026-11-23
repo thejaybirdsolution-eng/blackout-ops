@@ -99,7 +99,12 @@
                     berserkerWave: false,
                     nightmareDarkness: false,
                     noRegen: false,
-                    shieldedBosses: false
+                    shieldedBosses: false,
+                    halfZombieHp: false,
+                    quarterZombieHp: false,
+                    oneHitMeleeZombies: false,
+                    noProjectiles: false,
+                    noProjectilesUntil20: false
                 }
             };
             this.zModifiers = Object.assign({}, this.tdConfig.modifiers);
@@ -147,6 +152,7 @@
             this.modalTdCustomClass = document.getElementById('modal-td-custom-class');
             this.modalTdPerks = document.getElementById('modal-td-perks');
             this.modalTdLift = document.getElementById('modal-td-lift');
+            this.modalZBuild = document.getElementById('modal-z-build');
             this.modalEnemyPool = document.getElementById('modal-enemy-pool');
 
             this._bindButtons();
@@ -300,6 +306,14 @@
                 btnTdLiftClose.onclick = () => {
                     BO.Sound.playUIClick();
                     if (this.modalTdLift) this.modalTdLift.classList.add('hidden');
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnZBuildClose = document.getElementById('btn-z-build-close');
+            if (btnZBuildClose) {
+                btnZBuildClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalZBuild) this.modalZBuild.classList.add('hidden');
                     if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
                 };
             }
@@ -534,7 +548,12 @@
                 { k: 'berserkerWave', lbl: '😡 Berserker Rage (<50% HP)' },
                 { k: 'nightmareDarkness', lbl: '🌑 Nightmare Darkness' },
                 { k: 'noRegen', lbl: '☠️ No Health Regen' },
-                { k: 'shieldedBosses', lbl: '🔰 Shielded Bosses (Regen)' }
+                { k: 'shieldedBosses', lbl: '🔰 Shielded Bosses (Regen)' },
+                { k: 'halfZombieHp', lbl: '💔 Zombies Have 1/2 Health' },
+                { k: 'quarterZombieHp', lbl: '🩸 Zombies Have 1/4 Health' },
+                { k: 'oneHitMeleeZombies', lbl: '💀 Zombies 99,999 Melee DMG' },
+                { k: 'noProjectiles', lbl: '🛡️ No Projectile Zombies' },
+                { k: 'noProjectilesUntil20', lbl: '⏳ No Projectiles Until Rd 20' }
             ];
             const disabledCount = (this.tdConfig.disabledEnemies || []).length;
 
@@ -2650,7 +2669,7 @@
                         if (z.jumpChance) tags.push('Jumps');
                         if (z.isMagical) tags.push('Magic');
                         return `
-                            <label class="mod-row ${enabled ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11px;border-color:${enabled ? g.color : 'rgba(148,163,184,0.2)'};">
+                            <label class="mod-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" style="margin:0;padding:6px 9px;font-size:11px;border-color:${enabled ? g.color : 'rgba(148,163,184,0.2)'};">
                                 <span><b>${escAttr(z.name)}</b> <span style="color:#94a3b8;font-size:10px;">HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span></span>
                                 <input type="checkbox" class="js-ep-cb" data-eid="${z.id}" ${enabled ? 'checked' : ''}>
                             </label>
@@ -2659,6 +2678,12 @@
                 </div>
             `).join('');
 
+            body.querySelectorAll('.js-ep-row').forEach((row) => {
+                row.onmouseenter = () => {
+                    const spec = BO.ZombiesData.get(row.dataset.eid);
+                    if (spec) this._showEnemyPreview(spec);
+                };
+            });
             body.querySelectorAll('.js-ep-cb').forEach((cb) => {
                 cb.onchange = (e) => {
                     BO.Sound.playUIClick();
@@ -2668,6 +2693,125 @@
                     else s.add(id);
                     this.tdConfig.disabledEnemies = Array.from(s);
                     this.renderEnemyPool();
+                };
+            });
+            // Show first enemy by default when opening the modal!
+            if (!this._epPreviewActiveSpec && BO.ZombiesData.ORDERED_PROGRESSION[0]) {
+                this._showEnemyPreview(BO.ZombiesData.ORDERED_PROGRESSION[0]);
+            }
+        }
+
+        _initEnemyPreviewRenderer() {
+            if (this._epRenderer) return;
+            const canvas = document.getElementById('enemy-preview-canvas');
+            if (!canvas || typeof THREE === 'undefined') return;
+            this._epRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+            this._epRenderer.setSize(264, 264, false);
+            this._epScene = new THREE.Scene();
+            this._epCam = new THREE.PerspectiveCamera(40, 1, 0.1, 40);
+            this._epCam.position.set(0, 1.35, 3.6);
+            this._epCam.lookAt(0, 0.95, 0);
+            const amb = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 1.1);
+            const key = new THREE.DirectionalLight(0xfff5e4, 1.6);
+            key.position.set(2.5, 4, 3);
+            const rim = new THREE.PointLight(0x38bdf8, 1.4, 12);
+            rim.position.set(-2.5, 2, -2);
+            this._epScene.add(amb, key, rim);
+            this._epPivot = new THREE.Group();
+            this._epScene.add(this._epPivot);
+
+            const tick = () => {
+                requestAnimationFrame(tick);
+                if (!this.modalEnemyPool || this.modalEnemyPool.classList.contains('hidden')) return;
+                if (this._epPivot) this._epPivot.rotation.y += 0.018;
+                if (this._epRenderer && this._epScene && this._epCam) {
+                    this._epRenderer.render(this._epScene, this._epCam);
+                }
+            };
+            requestAnimationFrame(tick);
+        }
+
+        _showEnemyPreview(spec) {
+            this._epPreviewActiveSpec = spec;
+            this._initEnemyPreviewRenderer();
+            if (this._epPivot) {
+                while (this._epPivot.children.length > 0) this._epPivot.remove(this._epPivot.children[0]);
+                try {
+                    const built = BO.CharacterMesh.buildZombie(spec, null);
+                    const sc = spec.bodySpec?.scale || [1, 1, 1];
+                    const maxDim = Math.max(sc[0] || 1, sc[1] || 1, sc[2] || 1);
+                    const norm = Math.min(1.25, 1.35 / Math.max(0.7, maxDim));
+                    built.root.scale.setScalar(norm);
+                    this._epPivot.add(built.root);
+                } catch (e) {}
+            }
+            const info = document.getElementById('enemy-preview-info');
+            if (info) {
+                const traits = [];
+                if (spec.isBoss) traits.push('<span style="color:#ef4444;font-weight:800;">☠ BOSS</span>');
+                if (spec.splitCount) traits.push(`<span style="color:#4ade80;font-weight:800;">🧬 SPLITS ×${spec.splitCount}</span>`);
+                if (spec.jumpChance) traits.push('<span style="color:#fde047;font-weight:800;">🦘 JUMPER</span>');
+                if (spec.isMagical) traits.push('<span style="color:#c084fc;font-weight:800;">✨ MAGICAL</span>');
+                const rarCol = spec.isBoss ? '#ef4444' : (spec.rarity === 'hard' ? '#f59e0b' : (spec.rarity === 'normal' ? '#38bdf8' : '#4ade80'));
+                info.innerHTML = `
+                    <div style="font-size:15px;font-weight:800;color:${rarCol};letter-spacing:1px;">${escAttr(spec.name)}</div>
+                    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">${(spec.isBoss ? 'BOSS TIER (10%)' : `${(spec.rarity || 'easy').toUpperCase()} TIER`)} ${traits.length ? '• ' + traits.join(' ') : ''}</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--font-mono);font-size:11px;margin-bottom:6px;">
+                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">HP: <b style="color:#4ade80;">${spec.hp}</b></div>
+                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">SPD: <b style="color:#38bdf8;">${spec.speed}</b></div>
+                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">ATK: <b style="color:#f87171;">${spec.attack}</b></div>
+                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">DEF: <b style="color:#fde047;">${Math.round((spec.defense || 0) * 100)}%</b></div>
+                    </div>
+                    <div style="font-size:11.5px;color:#cbd5e1;">${escAttr(spec.simpleDesc || spec.weaknessText || 'Unique undead combatant.')}</div>
+                `;
+            }
+        }
+
+        /* ====================================================================
+           ZOMBIES MODE TACTICAL FORTIFICATION BUILDER MODAL ([B])
+        ==================================================================== */
+        openZBuildModal() {
+            if (!this.modalZBuild || !BO.ZombiesMode || !BO.ZombiesMode.active) return;
+            if (!this.modalZBuild.classList.contains('hidden')) {
+                this.modalZBuild.classList.add('hidden');
+                if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                return;
+            }
+            if (document.pointerLockElement) document.exitPointerLock();
+            if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+            this.renderZBuild();
+            this.modalZBuild.classList.remove('hidden');
+        }
+
+        renderZBuild() {
+            const list = document.getElementById('z-build-list');
+            const sub = document.getElementById('z-build-sub');
+            const zm = BO.ZombiesMode;
+            if (!list || !zm) return;
+            if (sub) {
+                sub.textContent = `Your Supplies: ${zm.supplies.toLocaleString()} • Fallen enemies have a 50% chance to drop 10% of their HP in Supplies!`;
+            }
+            const items = [
+                { id: 'mini_barricade', name: '🧱 MINI BARRICADE', cost: 2000, col: '#4ade80', desc: 'Deploys a 2.8m tactical sandbag barricade (450 HP) directly in front of you. Blocks & absorbs zombie attacks!' },
+                { id: 'wide_barricade', name: '🛡 WIDE BARRICADE', cost: 10000, col: '#38bdf8', desc: 'Deploys a massive 7.5m reinforced fortress wall (1,600 HP) that seals off entire hallways & choke points!' },
+                { id: 'sniper_tower_ball', name: '🔵 SNIPER TOWER BALL', cost: 25000, col: '#fde047', desc: 'Throw a glowing Capsule Ball to deploy a durable 4,500 HP Mini Sniper Tower with a Quick-Zip Pad! Enemies sometimes attack it!' }
+            ];
+            list.innerHTML = items.map((it) => {
+                const ok = zm.supplies >= it.cost;
+                return `
+                    <button class="select-card js-z-build-buy" data-bid="${it.id}" style="border-color:${ok ? it.col : '#334155'};">
+                        <div class="card-head" style="color:${it.col};">${it.name}</div>
+                        <div class="card-sub">${it.desc}</div>
+                        <div style="margin-top:8px;font-family:var(--font-mono);font-weight:800;color:${ok ? '#fde047' : '#ef4444'};">${it.cost.toLocaleString()} SUPPLIES</div>
+                    </button>
+                `;
+            }).join('');
+            list.querySelectorAll('.js-z-build-buy').forEach((btn) => {
+                btn.onclick = () => {
+                    if (zm.buyFortification(btn.dataset.bid)) {
+                        this.modalZBuild.classList.add('hidden');
+                        if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                    }
                 };
             });
         }

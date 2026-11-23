@@ -4,54 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=20261123d">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
     <script defer src="vendor/peerjs.min.js"></script>
 
     <!-- Core -->
-    <script defer src="src/core/Namespace.js?v=20261123c"></script>
-    <script defer src="src/core/SaveSystem.js?v=20261123c"></script>
-    <script defer src="src/core/Settings.js?v=20261123c"></script>
-    <script defer src="src/net/NetworkManager.js?v=20261123c"></script>
+    <script defer src="src/core/Namespace.js?v=20261123d"></script>
+    <script defer src="src/core/SaveSystem.js?v=20261123d"></script>
+    <script defer src="src/core/Settings.js?v=20261123d"></script>
+    <script defer src="src/net/NetworkManager.js?v=20261123d"></script>
 
     <!-- Game Data -->
-    <script defer src="src/data/WeaponsData.js?v=20261123c"></script>
-    <script defer src="src/data/AttachmentsData.js?v=20261123c"></script>
-    <script defer src="src/data/ProgressionData.js?v=20261123c"></script>
-    <script defer src="src/data/ZombiesData.js?v=20261123c"></script>
-    <script defer src="src/data/MapsData.js?v=20261123c"></script>
+    <script defer src="src/data/WeaponsData.js?v=20261123d"></script>
+    <script defer src="src/data/AttachmentsData.js?v=20261123d"></script>
+    <script defer src="src/data/ProgressionData.js?v=20261123d"></script>
+    <script defer src="src/data/ZombiesData.js?v=20261123d"></script>
+    <script defer src="src/data/MapsData.js?v=20261123d"></script>
 
     <!-- Audio & 3D Graphics -->
-    <script defer src="src/audio/SoundEngine.js?v=20261123c"></script>
-    <script defer src="src/graphics/TextureFactory.js?v=20261123c"></script>
-    <script defer src="src/graphics/WeaponMeshBuilder.js?v=20261123c"></script>
-    <script defer src="src/graphics/CharacterMeshBuilder.js?v=20261123c"></script>
-    <script defer src="src/graphics/FXSystem.js?v=20261123c"></script>
+    <script defer src="src/audio/SoundEngine.js?v=20261123d"></script>
+    <script defer src="src/graphics/TextureFactory.js?v=20261123d"></script>
+    <script defer src="src/graphics/WeaponMeshBuilder.js?v=20261123d"></script>
+    <script defer src="src/graphics/CharacterMeshBuilder.js?v=20261123d"></script>
+    <script defer src="src/graphics/FXSystem.js?v=20261123d"></script>
 
     <!-- Progression & Loadouts -->
-    <script defer src="src/systems/ProgressionSystem.js?v=20261123c"></script>
-    <script defer src="src/systems/LoadoutSystem.js?v=20261123c"></script>
+    <script defer src="src/systems/ProgressionSystem.js?v=20261123d"></script>
+    <script defer src="src/systems/LoadoutSystem.js?v=20261123d"></script>
 
     <!-- Engine & Entities -->
-    <script defer src="src/engine/WorldBuilder.js?v=20261123c"></script>
-    <script defer src="src/engine/PlayerController.js?v=20261123c"></script>
-    <script defer src="src/engine/CombatSystem.js?v=20261123c"></script>
-    <script defer src="src/entities/ZombieEntity.js?v=20261123c"></script>
-    <script defer src="src/entities/BotAI.js?v=20261123c"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=20261123d"></script>
+    <script defer src="src/engine/PlayerController.js?v=20261123d"></script>
+    <script defer src="src/engine/CombatSystem.js?v=20261123d"></script>
+    <script defer src="src/entities/ZombieEntity.js?v=20261123d"></script>
+    <script defer src="src/entities/BotAI.js?v=20261123d"></script>
 
     <!-- Modes -->
-    <script defer src="src/modes/ZombiesMode.js?v=20261123c"></script>
-    <script defer src="src/modes/MultiplayerMode.js?v=20261123c"></script>
-    <script defer src="src/modes/TowerDefenseMode.js?v=20261123c"></script>
+    <script defer src="src/modes/ZombiesMode.js?v=20261123d"></script>
+    <script defer src="src/modes/MultiplayerMode.js?v=20261123d"></script>
+    <script defer src="src/modes/TowerDefenseMode.js?v=20261123d"></script>
 
     <!-- UI & Bootstrap -->
-    <script defer src="src/ui/TooltipSystem.js?v=20261123c"></script>
-    <script defer src="src/ui/HUDController.js?v=20261123c"></script>
-    <script defer src="src/ui/GunsmithUI.js?v=20261123c"></script>
-    <script defer src="src/ui/MenuController.js?v=20261123c"></script>
-    <script defer src="src/main.js?v=20261123c"></script>
+    <script defer src="src/ui/TooltipSystem.js?v=20261123d"></script>
+    <script defer src="src/ui/HUDController.js?v=20261123d"></script>
+    <script defer src="src/ui/GunsmithUI.js?v=20261123d"></script>
+    <script defer src="src/ui/MenuController.js?v=20261123d"></script>
+    <script defer src="src/main.js?v=20261123d"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -507,13 +507,27 @@
         </div>
     </div>
 
-    <!-- CUSTOMIZE ENEMY POOL MODAL (ENABLE / DISABLE ANY OF 70 ENEMIES + 10 BOSSES) -->
+    <!-- ZOMBIES MODE TACTICAL FORTIFICATION BUILDER MODAL ([B]) -->
+    <div id="modal-z-build" class="ui-modal hidden">
+        <div class="modal-box" style="width:min(760px,95vw);max-height:86vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:2px;color:#38bdf8;">🛠 TACTICAL FORTIFICATION BUILDER</h2>
+                    <div id="z-build-sub" style="font-size:12px;color:var(--text-dim);">Spend Supplies dropped by fallen enemies (50% drop rate, 10% of Enemy Max HP)!</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn-z-build-close">RESUME [B]</button>
+            </div>
+            <div id="z-build-list" class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;"></div>
+        </div>
+    </div>
+
+    <!-- CUSTOMIZE ENEMY POOL MODAL (ENABLE / DISABLE ANY OF 70 ENEMIES + 10 BOSSES + LIVE 3D HOVER PREVIEW!) -->
     <div id="modal-enemy-pool" class="ui-modal hidden">
-        <div class="modal-box" style="width:min(1040px,96vw);max-height:90vh;display:flex;flex-direction:column;">
+        <div class="modal-box" style="width:min(1220px,97vw);max-height:92vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
                 <div>
                     <h2 style="margin:0;letter-spacing:2px;color:#f87171;">🧟 CUSTOMIZE ENEMY POOL (70 ENEMIES + 10 BOSSES)</h2>
-                    <div style="font-size:12px;color:var(--text-dim);">Enable or disable any specific enemy or boss! Spawn rates: Easy 50% • Normal 25% • Hard 15% • Boss 10%.</div>
+                    <div style="font-size:12px;color:var(--text-dim);">Hover over any enemy to inspect its LIVE 3D MODEL! Spawn rates: Easy 50% • Normal 25% • Hard 15% • Boss 10%.</div>
                 </div>
                 <div style="display:flex;gap:6px;">
                     <button class="btn btn-sm" id="btn-ep-all-on" style="border-color:#22c55e;color:#4ade80;">ENABLE ALL</button>
@@ -521,7 +535,14 @@
                     <button class="btn btn-sm btn-primary" id="btn-ep-close">SAVE &amp; CLOSE</button>
                 </div>
             </div>
-            <div id="enemy-pool-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
+            <div style="display:flex;gap:14px;flex:1;min-height:0;overflow:hidden;">
+                <div id="enemy-pool-body" style="flex:1;overflow-y:auto;padding-right:6px;"></div>
+                <div id="enemy-preview-panel" style="width:290px;flex-shrink:0;display:flex;flex-direction:column;background:rgba(6,10,18,0.92);border:1px solid rgba(56,189,248,0.35);border-radius:10px;padding:12px;gap:10px;">
+                    <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#38bdf8;text-align:center;">LIVE 3D ENEMY PREVIEW</div>
+                    <canvas id="enemy-preview-canvas" width="264" height="264" style="width:264px;height:264px;border-radius:8px;background:radial-gradient(circle at 50% 45%,#1e293b,#060911);border:1px solid rgba(148,163,184,0.22);"></canvas>
+                    <div id="enemy-preview-info" style="font-size:12px;color:#cbd5e1;line-height:1.45;">Hover over any zombie or boss on the left to inspect its 3D model, stats &amp; abilities!</div>
+                </div>
+            </div>
         </div>
     </div>
 </body>
