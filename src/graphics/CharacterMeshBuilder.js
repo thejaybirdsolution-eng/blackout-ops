@@ -43,21 +43,36 @@
             }
 
             const key = spec.id;
-            const skinMat = this._mat('zskin_' + key, () => new THREE.MeshStandardMaterial({
-                color: bs.skinColor || 0x5c6958,
-                roughness: 0.84,
-                emissive: bs.glowingRibs ? bs.glowingRibs : 0x000000,
-                emissiveIntensity: bs.glowingRibs ? 0.22 : 0
-            }));
-            const shirtMat = this._mat('zshirt_' + key, () => new THREE.MeshStandardMaterial({
-                color: bs.shirtColor || 0x333935,
-                roughness: bs.torsoShape === 'armored' ? 0.36 : 0.88,
-                metalness: bs.torsoShape === 'armored' ? 0.72 : 0.08
-            }));
-            const pantsMat = this._mat('zpants_' + key, () => new THREE.MeshStandardMaterial({
-                color: bs.pantsColor || 0x24262a,
-                roughness: 0.92
-            }));
+            const skinMat = this._mat('zskin_' + key, () => {
+                const map = BO.Textures && BO.Textures.createZombieSkinTexture ? BO.Textures.createZombieSkinTexture(bs.skinColor || 0x5c6958) : null;
+                return new THREE.MeshStandardMaterial({
+                    color: map ? 0xffffff : (bs.skinColor || 0x5c6958),
+                    map,
+                    roughness: 0.82,
+                    emissive: bs.glowingRibs ? bs.glowingRibs : 0x000000,
+                    emissiveIntensity: bs.glowingRibs ? 0.22 : 0
+                });
+            });
+            const shirtMat = this._mat('zshirt_' + key, () => {
+                const isArm = bs.torsoShape === 'armored';
+                const map = BO.Textures && (isArm ? BO.Textures.createGunmetalTexture : BO.Textures.createZombieClothTexture)
+                    ? (isArm ? BO.Textures.createGunmetalTexture(bs.shirtColor || 0x333935) : BO.Textures.createZombieClothTexture(bs.shirtColor || 0x333935))
+                    : null;
+                return new THREE.MeshStandardMaterial({
+                    color: map ? 0xffffff : (bs.shirtColor || 0x333935),
+                    map,
+                    roughness: isArm ? 0.34 : 0.88,
+                    metalness: isArm ? 0.78 : 0.08
+                });
+            });
+            const pantsMat = this._mat('zpants_' + key, () => {
+                const map = BO.Textures && BO.Textures.createZombieClothTexture ? BO.Textures.createZombieClothTexture(bs.pantsColor || 0x24262a) : null;
+                return new THREE.MeshStandardMaterial({
+                    color: map ? 0xffffff : (bs.pantsColor || 0x24262a),
+                    map,
+                    roughness: 0.90
+                });
+            });
             const eyeMat = this._mat('zeye_' + key, () => new THREE.MeshBasicMaterial({
                 color: bs.eyeColor || 0xff3333
             }));
@@ -215,17 +230,25 @@
                         entity, 'head'
                     );
                     hg.add(hm);
-                    const eyeL = new THREE.Mesh(this._geo('eye', () => new THREE.BoxGeometry(0.055, 0.035, 0.03)), eyeMat);
-                    eyeL.position.set(-0.06, 0.03, 0.135);
+                    // Deep recessed dark eye sockets behind glowing undead eyes + exposed jaw fangs!
+                    const sockMat = this._mat('zsock_m', () => new THREE.MeshBasicMaterial({ color: 0x090507 }));
+                    const sockL = new THREE.Mesh(this._geo('zsock', () => new THREE.BoxGeometry(0.075, 0.055, 0.025)), sockMat);
+                    sockL.position.set(-0.06, 0.03, 0.130);
+                    const sockR = sockL.clone(); sockR.position.x = 0.06;
+                    const eyeL = new THREE.Mesh(this._geo('eye', () => new THREE.BoxGeometry(0.048, 0.030, 0.032)), eyeMat);
+                    eyeL.position.set(-0.06, 0.03, 0.136);
                     const eyeR = eyeL.clone();
                     eyeR.position.x = 0.06;
-                    // Sculpted brow ridge + snarling dark jaw!
+                    // Sculpted brow ridge + snarling dark jaw + exposed bone teeth!
                     const brow = new THREE.Mesh(this._geo('zbrow', () => new THREE.BoxGeometry(0.29, 0.04, 0.06)), skinMat);
                     brow.position.set(0, 0.075, 0.13);
-                    const mouth = new THREE.Mesh(this._geo('zmouth', () => new THREE.BoxGeometry(0.15, 0.055, 0.04)),
+                    const mouth = new THREE.Mesh(this._geo('zmouth', () => new THREE.BoxGeometry(0.15, 0.058, 0.04)),
                         this._mat('zmouth_m', () => new THREE.MeshBasicMaterial({ color: 0x2b0a0a })));
                     mouth.position.set(0, -0.075, 0.13);
-                    hg.add(eyeL, eyeR, brow, mouth);
+                    const teeth = new THREE.Mesh(this._geo('zteeth', () => new THREE.BoxGeometry(0.12, 0.016, 0.018)),
+                        this._mat('zteeth_m', () => new THREE.MeshStandardMaterial({ color: 0xe7e5d0, roughness: 0.5 })));
+                    teeth.position.set(0, -0.058, 0.146);
+                    hg.add(sockL, sockR, eyeL, eyeR, brow, mouth, teeth);
 
                     // Unique creature silhouettes (Witch Hat, Werewolf/Tiger/Bear Ears, ManBearPig Tusks!)
                     const idLow = String(spec.id || '').toLowerCase();

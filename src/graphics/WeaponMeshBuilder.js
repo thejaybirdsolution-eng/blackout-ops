@@ -9,12 +9,19 @@
     const BO = global.BO;
 
     class WeaponMeshBuilder {
-        _darkMat(hex = 0x16191f, rough = 0.55, metal = 0.65) {
-            return new THREE.MeshStandardMaterial({ color: hex, roughness: rough, metalness: metal });
+        _darkMat(hex = 0x16191f, rough = 0.50, metal = 0.72) {
+            const map = BO.Textures && BO.Textures.createGunmetalTexture ? BO.Textures.createGunmetalTexture(hex) : null;
+            return new THREE.MeshStandardMaterial({ color: map ? 0xffffff : hex, map, roughness: rough, metalness: metal });
         }
 
         _woodMat(hex = 0x6f4324) {
-            return new THREE.MeshStandardMaterial({ color: hex, roughness: 0.72, metalness: 0.08 });
+            const map = BO.Textures && BO.Textures.createWoodFurnitureTexture ? BO.Textures.createWoodFurnitureTexture() : null;
+            return new THREE.MeshStandardMaterial({ color: map ? 0xffffff : hex, map, roughness: 0.62, metalness: 0.08 });
+        }
+
+        _polymerMat() {
+            const map = BO.Textures && BO.Textures.createPolymerGripTexture ? BO.Textures.createPolymerGripTexture() : null;
+            return new THREE.MeshStandardMaterial({ color: map ? 0xffffff : 0x141820, map, roughness: 0.78, metalness: 0.18 });
         }
 
         buildWeapon(weaponId, attachments = {}, camoId = 'default', isPaP = false, withArms = false, isDualWield = false) {
@@ -25,10 +32,18 @@
             root.add(gun);
 
             const effectiveCamo = (spec.isGoldFinish && (!camoId || camoId === 'default')) ? 'gold' : camoId;
-            const bodyMat = BO.Textures.getCamoMaterial(effectiveCamo, ms.primaryColor, isPaP);
-            const darkMat = this._darkMat(0x14171c, 0.5, 0.75);
-            const accentMat = ms.wood ? this._woodMat(ms.accentColor) : this._darkMat(ms.accentColor, 0.48, 0.65);
-            const steelMat = this._darkMat(0x3a414d, 0.35, 0.88);
+            const bodyMat = (!isPaP && (!effectiveCamo || effectiveCamo === 'default') && BO.Textures.createGunmetalTexture)
+                ? new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    map: BO.Textures.createGunmetalTexture(ms.primaryColor || 0x262c36),
+                    roughness: 0.42,
+                    metalness: 0.76
+                })
+                : BO.Textures.getCamoMaterial(effectiveCamo, ms.primaryColor, isPaP);
+            const darkMat = this._darkMat(0x14171c, 0.46, 0.78);
+            const polyMat = this._polymerMat();
+            const accentMat = ms.wood ? this._woodMat(ms.accentColor) : polyMat;
+            const steelMat = this._darkMat(0x475262, 0.28, 0.90);
 
             // Melee weapons & Wonder/Magic weapons have bespoke 3D silhouettes
             if (ms.isMelee) {
@@ -119,6 +134,34 @@
             const barrel = new THREE.Mesh(barrelGeo, steelMat);
             barrel.position.set(0, topY * 0.22, barrelStartZ - barrelLen * 0.5);
             gun.add(barrel);
+
+            // Classic Military Silhouettes: Gas Tube & Front Sight Triangle (Rifles/SMGs), Folded Bipod (Snipers), Slide Serrations (Pistols)!
+            const catLow = String(spec.category || '').toLowerCase();
+            if (!ms.isPistol && hgLen > 0.05) {
+                // Upper gas tube + gas block
+                const gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, barrelLen * 0.55, 8), darkMat);
+                gasTube.rotation.x = Math.PI * 0.5;
+                gasTube.position.set(0, topY * 0.72, barrelStartZ - barrelLen * 0.28);
+                const gasBlock = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.028, 0.022), darkMat);
+                gasBlock.position.set(0, topY * 0.62, barrelStartZ - barrelLen * 0.56);
+                gun.add(gasTube, gasBlock);
+            }
+            if (catLow.includes('sniper') || catLow.includes('marksman') || catLow.includes('lmg')) {
+                // Folded tactical twin bipod legs under the front handguard
+                const bpL = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.14, 8), steelMat);
+                bpL.rotation.x = Math.PI * 0.5;
+                bpL.position.set(-0.024, -0.026, -recL * 0.5 - hgLen * 0.72);
+                const bpR = bpL.clone(); bpR.position.x = 0.024;
+                gun.add(bpL, bpR);
+            }
+            if (ms.isPistol) {
+                // Pistol slide rear serrations
+                for (let sr = 0; sr < 4; sr++) {
+                    const rib = new THREE.Mesh(new THREE.BoxGeometry(recW + 0.004, recH * 0.55, 0.004), darkMat);
+                    rib.position.set(0, topY * 0.15, recL * 0.22 + sr * 0.011);
+                    gun.add(rib);
+                }
+            }
 
             let muzzleZ = barrelStartZ - barrelLen;
             if (ms.tubeMag) {
@@ -772,14 +815,16 @@
         }
 
         _attachFirstPersonArms(root, isPistol) {
-            const sleeveMat = new THREE.MeshStandardMaterial({ color: 0x2c3429, roughness: 0.88, metalness: 0.08 });
-            const gloveMat = new THREE.MeshStandardMaterial({ color: 0x15181d, roughness: 0.70, metalness: 0.22 });
-            const accentMat = new THREE.MeshStandardMaterial({ color: 0x3f4754, roughness: 0.55, metalness: 0.35 });
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xb98b6c, roughness: 0.75, metalness: 0.04 });
+            const clothMap = BO.Textures && BO.Textures.createZombieClothTexture ? BO.Textures.createZombieClothTexture(0x283226) : null;
+            const gloveMap = BO.Textures && BO.Textures.createPolymerGripTexture ? BO.Textures.createPolymerGripTexture() : null;
+            const sleeveMat = new THREE.MeshStandardMaterial({ color: clothMap ? 0xffffff : 0x2c3429, map: clothMap, roughness: 0.88, metalness: 0.06 });
+            const gloveMat = new THREE.MeshStandardMaterial({ color: gloveMap ? 0xffffff : 0x15181d, map: gloveMap, roughness: 0.65, metalness: 0.24 });
+            const accentMat = new THREE.MeshStandardMaterial({ color: 0x3f4754, roughness: 0.45, metalness: 0.48 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xb98b6c, roughness: 0.72, metalness: 0.04 });
 
             // Right firing hand & tactical forearm
             const rArm = new THREE.Group();
-            const rForearm = new THREE.Mesh(new THREE.BoxGeometry(0.064, 0.064, 0.34), sleeveMat);
+            const rForearm = new THREE.Mesh(new THREE.BoxGeometry(0.066, 0.066, 0.34), sleeveMat);
             rForearm.position.set(0.055, -0.085, 0.24);
             rForearm.rotation.set(0.18, -0.18, 0);
             const rGlove = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.058, 0.082), gloveMat);
@@ -789,9 +834,9 @@
             rArm.add(rForearm, rGlove, rGuard);
             root.add(rArm);
 
-            // Left support hand & forearm gripping handguard
+            // Left support hand & forearm gripping handguard + glowing tactical wristwatch!
             const lArm = new THREE.Group();
-            const lForearm = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.062, 0.36), sleeveMat);
+            const lForearm = new THREE.Mesh(new THREE.BoxGeometry(0.064, 0.064, 0.36), sleeveMat);
             const targetZ = isPistol ? 0.05 : -0.14;
             const targetX = isPistol ? -0.038 : -0.045;
             lForearm.position.set(targetX - 0.08, -0.075, targetZ + 0.19);
@@ -800,9 +845,11 @@
             lGlove.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.050 : -0.024, targetZ);
             const knuckle = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.042), skinMat);
             knuckle.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.032 : -0.006, targetZ);
-            const lBrace = new THREE.Mesh(new THREE.BoxGeometry(0.054, 0.016, 0.036), accentMat);
-            lBrace.position.set(isPistol ? -0.018 : -0.018, isPistol ? -0.048 : -0.022, targetZ + 0.03);
-            lArm.add(lForearm, lGlove, knuckle, lBrace);
+            const lBrace = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.020, 0.034), accentMat);
+            lBrace.position.set(isPistol ? -0.018 : -0.018, isPistol ? -0.048 : -0.022, targetZ + 0.038);
+            const watchFace = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.006, 0.022), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            watchFace.position.set(isPistol ? -0.018 : -0.018, isPistol ? -0.037 : -0.011, targetZ + 0.038);
+            lArm.add(lForearm, lGlove, knuckle, lBrace, watchFace);
             root.add(lArm);
         }
     }

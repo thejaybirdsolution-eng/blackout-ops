@@ -2818,7 +2818,7 @@
             if (this._epPivot) {
                 while (this._epPivot.children.length > 0) this._epPivot.remove(this._epPivot.children[0]);
                 try {
-                    const built = BO.CharacterMesh.buildZombie(spec, null);
+                    const built = BO.CharacterMesh.buildZombieFromSpec(spec, null);
                     const sc = spec.bodySpec?.scale || [1, 1, 1];
                     const maxDim = Math.max(sc[0] || 1, sc[1] || 1, sc[2] || 1);
                     const norm = Math.min(1.25, 1.35 / Math.max(0.7, maxDim));
