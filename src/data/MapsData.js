@@ -2556,8 +2556,8 @@
             hemiSky: 0x64748b, hemiGround: 0x1c1917, hemiIntensity: 0.72, moon: true
         },
         playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
-        castleHeart: { x: 0, y: 5.4, z: 19.8 },
-        shopkeeperPos: { x: 9.2, y: 5.4, z: 11.5, rotY: -Math.PI * 0.5 },
+        castleHeart: { x: 0, y: 5.4, z: 20.6 },
+        shopkeeperPos: { x: 14.2, y: 5.4, z: 21.6, rotY: Math.PI },
         turretPads: [
             { x: -5.5, y: 5.4, z: 7.5 },
             { x: 5.5, y: 5.4, z: 7.5 },
@@ -2647,8 +2647,8 @@
             hemiSky: 0xf97316, hemiGround: 0x1c1412, hemiIntensity: 0.72, moon: true
         },
         playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
-        castleHeart: { x: 0, y: 5.4, z: 19.6 },
-        shopkeeperPos: { x: 7.4, y: 5.4, z: 10.2, rotY: -Math.PI * 0.45 },
+        castleHeart: { x: 0, y: 5.4, z: 20.8 },
+        shopkeeperPos: { x: 9.2, y: 5.4, z: 21.6, rotY: Math.PI },
         turretPads: [
             { x: -5.5, y: 5.4, z: 7.5 }, { x: 5.5, y: 5.4, z: 7.5 },
             { x: -16.0, y: 0, z: -18.0 }, { x: 16.0, y: 0, z: -18.0 },
@@ -2741,11 +2741,11 @@
             hemiSky: 0x991b1b, hemiGround: 0x181416, hemiIntensity: 0.72, moon: true
         },
         playerSpawn: { x: -2.4, y: 5.4, z: 2.8, yaw: 0 },
-        castleHeart: { x: 0, y: 5.4, z: -1.8 },
-        shopkeeperPos: { x: 4.8, y: 5.4, z: 2.8, rotY: -Math.PI * 0.5 },
+        castleHeart: { x: 0, y: 5.4, z: 0.0 },
+        shopkeeperPos: { x: 7.4, y: 5.4, z: 6.2, rotY: -Math.PI * 0.75 },
         turretPads: [
-            { x: -5.5, y: 5.4, z: -4.8 }, { x: 5.5, y: 5.4, z: -4.8 },
-            { x: -5.5, y: 5.4, z: 4.8 }, { x: 5.5, y: 5.4, z: 4.8 }
+            { x: -8.2, y: 5.4, z: -3.6 }, { x: 8.2, y: 5.4, z: -3.6 },
+            { x: -8.2, y: 5.4, z: 3.6 }, { x: 8.2, y: 5.4, z: 3.6 }
         ],
         defenseLayers: [
             { layer: 1, name: 'LAYER 1 — OUTER 360° BARRIER RING', maxHp: 250, segments: [
@@ -2773,16 +2773,16 @@
             { x: -128, y: 0, z: -30 }, { x: -128, y: 0, z: 30 },
             { x: 128, y: 0, z: -30 }, { x: 128, y: 0, z: 30 }
         ],
-        stairTopPoint: { x: 0, y: 5.4, z: 4.8 },
-        stairBottomPoint: { x: 0, y: 0, z: 16.5 },
+        stairTopPoint: { x: 0, y: 5.4, z: 6.4 },
+        stairBottomPoint: { x: 0, y: 0, z: 17.6 },
         stairs: [
-            { bot: { x: 0, y: 0, z: -16.5 }, top: { x: 0, y: 5.4, z: -4.8 }, axis: 'z', halfWidth: 2.6 },
-            { bot: { x: 0, y: 0, z: 16.5 }, top: { x: 0, y: 5.4, z: 4.8 }, axis: 'z', halfWidth: 2.6 }
+            { bot: { x: 0, y: 0, z: -17.6 }, top: { x: 0, y: 5.4, z: -6.4 }, axis: 'z', halfWidth: 2.6 },
+            { bot: { x: 0, y: 0, z: 17.6 }, top: { x: 0, y: 5.4, z: 6.4 }, axis: 'z', halfWidth: 2.6 }
         ],
         ramps: [
             // Wide gentle North & South Castle Staircases (5.4m wide, 10.6m run, ZERO vertical top lip!)
-            { x: 0, w: 5.4, z1: -5.2, z2: -15.8, y1: 5.4, y2: 0, axis: 'z', mat: 'castle_battlement' },
-            { x: 0, w: 5.4, z1: 5.2, z2: 15.8, y1: 5.4, y2: 0, axis: 'z', mat: 'castle_battlement' }
+            { x: 0, w: 5.4, z1: -6.7, z2: -17.3, y1: 5.4, y2: 0, axis: 'z', mat: 'castle_battlement' },
+            { x: 0, w: 5.4, z1: 6.7, z2: 17.3, y1: 5.4, y2: 0, axis: 'z', mat: 'castle_battlement' }
         ],
         boxes: [
             boxMM(-135, -0.6, -135, 135, 0, 135, 'concrete'),
@@ -2790,18 +2790,18 @@
             boxMM(-135, 0, -135, 135, 9.5, -134.0, 'castle_stone'),
             boxMM(-135, 0, -135, -134.0, 9.5, 135, 'castle_stone'),
             boxMM(134.0, 0, -135, 135, 9.5, 135, 'castle_stone'),
-            // Central Castle Keep Tower (x:-7.5..7.5, z:-6.5..6.5, y=5.4) notched around North & South stair landings!
-            boxMM(-7.5, 0, -6.5, -2.7, 5.4, 6.5, 'castle_stone'),
-            boxMM(2.7, 0, -6.5, 7.5, 5.4, 6.5, 'castle_stone'),
-            boxMM(-2.7, 0, -5.2, 2.7, 5.4, 5.2, 'castle_stone'),
-            boxMM(-7.5, 5.4, -6.5, -2.8, 6.45, -5.9, 'castle_battlement'),
-            boxMM(2.8, 5.4, -6.5, 7.5, 6.45, -5.9, 'castle_battlement'),
-            boxMM(-7.5, 5.4, 5.9, -2.8, 6.45, 6.5, 'castle_battlement'),
-            boxMM(2.8, 5.4, 5.9, 7.5, 6.45, 6.5, 'castle_battlement'),
-            boxMM(-7.5, 5.4, -6.5, -6.9, 6.45, -2.2, 'castle_battlement'),
-            boxMM(-7.5, 5.4, 2.2, -6.9, 6.45, 6.5, 'castle_battlement'),
-            boxMM(6.9, 5.4, -6.5, 7.5, 6.45, -2.2, 'castle_battlement'),
-            boxMM(6.9, 5.4, 2.2, 7.5, 6.45, 6.5, 'castle_battlement')
+            // Spacious Central Castle Keep Tower (x:-9.5..9.5, z:-8.0..8.0, y=5.4) notched around North & South stair landings!
+            boxMM(-9.5, 0, -8.0, -2.7, 5.4, 8.0, 'castle_stone'),
+            boxMM(2.7, 0, -8.0, 9.5, 5.4, 8.0, 'castle_stone'),
+            boxMM(-2.7, 0, -6.7, 2.7, 5.4, 6.7, 'castle_stone'),
+            boxMM(-9.5, 5.4, -8.0, -2.8, 6.45, -7.4, 'castle_battlement'),
+            boxMM(2.8, 5.4, -8.0, 9.5, 6.45, -7.4, 'castle_battlement'),
+            boxMM(-9.5, 5.4, 7.4, -2.8, 6.45, 8.0, 'castle_battlement'),
+            boxMM(2.8, 5.4, 7.4, 9.5, 6.45, 8.0, 'castle_battlement'),
+            boxMM(-9.5, 5.4, -8.0, -8.9, 6.45, -2.2, 'castle_battlement'),
+            boxMM(-9.5, 5.4, 2.2, -8.9, 6.45, 8.0, 'castle_battlement'),
+            boxMM(8.9, 5.4, -8.0, 9.5, 6.45, -2.2, 'castle_battlement'),
+            boxMM(8.9, 5.4, 2.2, 9.5, 6.45, 8.0, 'castle_battlement')
         ],
         lights: [
             { x: 0, y: 8.5, z: 0, color: 0xf43f5e, intensity: 2.1, distance: 40, alwaysOn: true },

@@ -784,11 +784,11 @@
 
             // 1. TWO FULLY ACCESSIBLE 6-TIER SNIPING TOWERS AT THE BASE (West & East Flanks!)
             if (isAll360) {
-                // Wide lit stone bridges from Central Keep (x: -7.5..7.5) directly to both Sniper Towers!
-                this._addTdBox(scene, -11.5, 5.0, -2.2, -7.5, 5.4, 2.2, 'castle_battlement');
-                this._addTdBox(scene, 7.5, 5.0, -2.2, 11.5, 5.4, 2.2, 'castle_battlement');
-                this._buildTdSnipingTower(scene, -14.8, 0, -1, 'WEST SNIPER TOWER');
-                this._buildTdSnipingTower(scene, 14.8, 0, 1, 'EAST SNIPER TOWER');
+                // Wide lit stone bridges from expanded Central Keep (x: -9.5..9.5) directly to both Sniper Towers!
+                this._addTdBox(scene, -13.2, 5.0, -2.2, -9.5, 5.4, 2.2, 'castle_battlement');
+                this._addTdBox(scene, 9.5, 5.0, -2.2, 13.2, 5.4, 2.2, 'castle_battlement');
+                this._buildTdSnipingTower(scene, -16.4, 0, -1, 'WEST SNIPER TOWER');
+                this._buildTdSnipingTower(scene, 16.4, 0, 1, 'EAST SNIPER TOWER');
             } else {
                 const towerX = isFront ? 19.2 : 14.8;
                 const towerZ = 14.0;
@@ -801,60 +801,47 @@
                 this._buildTdSnipingTower(scene, towerX, towerZ, 1, 'EAST SNIPER TOWER');
             }
 
-            // 1B. ARCHITECTURAL POLISH: Royal Carpet Runner, Front Parapet Braziers & Heart Shrine Dais!
+            // 1B. ULTRA-CLEAN ARCHITECTURAL LAYOUT:
+            //     Entire front & center combat deck (z: 6.2..19.2) is 100% WIDE OPEN with zero pillars or mid-floor clutter!
+            //     All stations sit neatly flush along the South Back-Wall Service Arcade (Castles 1 & 2) or 4 Outer Corner Bays (Castle 3).
             if (!isAll360) {
-                // Crimson royal carpet runner down the center command aisle (clear sightline!)
+                // Low-profile crimson royal carpet runner from stairs to open Castle Heart alcove
                 const carpet = new THREE.Mesh(
-                    new THREE.BoxGeometry(2.6, 0.03, 11.6),
+                    new THREE.BoxGeometry(2.6, 0.025, 11.4),
                     new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 })
                 );
-                carpet.position.set(0, keepY + 0.015, 13.6);
-                const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.035, 11.6), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
-                trimL.position.set(-1.28, keepY + 0.018, 13.6);
-                const trimR = trimL.clone(); trimR.position.x = 1.28;
+                carpet.position.set(0, keepY + 0.012, 13.8);
+                const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.03, 11.4), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+                trimL.position.set(-1.26, keepY + 0.015, 13.8);
+                const trimR = trimL.clone(); trimR.position.x = 1.26;
                 scene.add(carpet, trimL, trimR);
 
-                // Warm flickering torch braziers framing the front battlements & stairs
-                this._buildTdKeepBrazier(scene, -3.8, keepY, 7.2);
-                this._buildTdKeepBrazier(scene, 3.8, keepY, 7.2);
-                this._buildTdKeepBrazier(scene, isFront ? -12.5 : -9.5, keepY, 7.2);
-                this._buildTdKeepBrazier(scene, isFront ? 12.5 : 9.5, keepY, 7.2);
+                // Clean overhead back-wall arcade signs mounted high on the South wall (zero floor footprint!)
+                this._buildTdDistrictSign(scene, isFront ? -10.5 : -6.2, keepY + 3.6, 22.85, Math.PI, 'ARMORY BAY', '#38bdf8');
+                this._buildTdDistrictSign(scene, isFront ? 12.2 : 6.2, keepY + 3.6, 22.85, Math.PI, 'MERCHANT & PERKS', '#22c55e');
 
-                // Ceremonial Heart Shrine Corner Pillars around the Castle Heart
-                const hz = m.castleHeart ? m.castleHeart.z : 19.6;
-                for (const [px, pz] of [[-2.4, hz - 1.8], [2.4, hz - 1.8], [-2.4, hz + 1.8], [2.4, hz + 1.8]]) {
-                    const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 3.6, 10), BO.Textures.getWorldMaterial('castle_stone', 1, 2));
-                    pil.position.set(px, keepY + 1.8, pz);
-                    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-                    cap.position.set(px, keepY + 3.8, pz);
-                    scene.add(pil, cap);
-                }
-            } else {
-                // 360 Keep corner torch braziers
-                for (const [bx, bz] of [[-5.8, -5.2], [5.8, -5.2], [-5.8, 5.2], [5.8, 5.2]]) {
-                    this._buildTdKeepBrazier(scene, bx, keepY, bz);
-                }
+                // Minimalist corner parapet braziers tucked out of the way at the far outer edges
+                const bx = isFront ? 22.4 : 9.8;
+                this._buildTdKeepBrazier(scene, -bx, keepY, 7.5);
+                this._buildTdKeepBrazier(scene, bx, keepY, 7.5);
             }
 
             // ================================================================
-            // 2. WEST WING — "ARMORY & UPGRADE PLAZA"
+            // 2. WEST ARMORY BAY (Flush against South Back Wall on Castles 1 & 2; NW/SW Corners on Castle 3)
             //    Pack-a-Punch, Attachment Workbench, Custom Class Armory, Mystery Box
             // ================================================================
-            const wx = isAll360 ? -5.6 : (isFront ? -11.5 : -8.4);
-            if (!isAll360) {
-                this._buildTdDistrictSign(scene, wx, keepY + 3.4, 14.0, Math.PI * 0.5, 'ARMORY PLAZA', '#38bdf8');
-            }
+            const backZ = 21.85;
 
             // 2A. PACK-A-PUNCH FORGE
             const papPos = isAll360
-                ? { x: -5.2, y: keepY, z: -3.2, rotY: Math.PI * 0.5 }
-                : { x: wx, y: keepY, z: 10.0, rotY: Math.PI * 0.5 };
+                ? { x: -7.8, y: keepY, z: -6.4, rotY: Math.PI * 0.25 }
+                : { x: isFront ? -14.5 : -9.2, y: keepY, z: backZ, rotY: Math.PI };
             this._spawnPaPMachine(papPos);
 
             // 2B. GUNSMITH ATTACHMENT WORKBENCH STATION
             const attPos = isAll360
-                ? { x: -5.2, y: keepY, z: 3.2, rotY: Math.PI * 0.5 }
-                : { x: wx, y: keepY, z: 13.8, rotY: Math.PI * 0.5 };
+                ? { x: -4.8, y: keepY, z: -6.9, rotY: 0 }
+                : { x: isFront ? -10.5 : -6.2, y: keepY, z: backZ, rotY: Math.PI };
             const ag = new THREE.Group();
             ag.position.set(attPos.x, attPos.y, attPos.z);
             ag.rotation.y = attPos.rotY;
@@ -885,8 +872,8 @@
 
             // 2C. PAY-TO-USE CUSTOM CLASS ARMORY LOCKER
             const ccPos = isAll360
-                ? { x: 5.2, y: keepY, z: -3.2, rotY: -Math.PI * 0.5 }
-                : { x: wx, y: keepY, z: 17.6, rotY: Math.PI * 0.5 };
+                ? { x: -7.8, y: keepY, z: 6.4, rotY: Math.PI * 0.75 }
+                : { x: isFront ? -6.5 : -3.3, y: keepY, z: backZ, rotY: Math.PI };
             const ccG = new THREE.Group();
             ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
             ccG.rotation.y = ccPos.rotY;
@@ -912,10 +899,10 @@
                 radius: 2.6
             });
 
-            // 2D. MYSTERY BOX (West Front Wing)
+            // 2D. MYSTERY BOX (Cleanly aligned on the East-Center side of the Back Wall / SW Corner on Castle 3)
             const boxPos = isAll360
-                ? { x: -3.8, y: keepY, z: 5.2, rotY: Math.PI }
-                : { x: isFront ? -6.2 : -5.4, y: keepY, z: 18.8, rotY: Math.PI };
+                ? { x: -4.8, y: keepY, z: 6.9, rotY: Math.PI }
+                : { x: isFront ? 6.2 : 3.3, y: keepY, z: backZ, rotY: Math.PI };
             this.mapData.mysteryBoxPads = [boxPos];
             const boxGroup = new THREE.Group();
             boxGroup.position.set(boxPos.x, boxPos.y, boxPos.z);
@@ -961,18 +948,14 @@
             this.interactives.push(this.mysteryBoxObj);
 
             // ================================================================
-            // 3. EAST WING — "MERCHANT & PERK EMPORIUM"
-            //    Shopkeeper Pavilion, Master All-14 Perk Kiosk, Overdrive War Gong
+            // 3. EAST MERCHANT & PERK BAY (Flush against South Back Wall; NE/SE Corners on Castle 3)
+            //    Master All-14 Wunderfizz Perk Machine, Shopkeeper Pavilion, Overdrive War Gong
             // ================================================================
-            const ex = isAll360 ? 5.6 : (isFront ? 11.5 : 8.4);
-            if (!isAll360) {
-                this._buildTdDistrictSign(scene, ex, keepY + 3.4, 14.0, -Math.PI * 0.5, 'SHOP & PERKS', '#22c55e');
-            }
 
             // 3A. GRAND WUNDERFIZZ MASTER PERK MACHINE (THE ONE AND ONLY PERK MACHINE — ALL 14 PERKS, MAX 8!)
             const pkKioskPos = isAll360
-                ? { x: 5.2, y: keepY, z: 3.2, rotY: -Math.PI * 0.5 }
-                : { x: ex, y: keepY, z: 14.8, rotY: -Math.PI * 0.5 };
+                ? { x: 7.8, y: keepY, z: -6.4, rotY: -Math.PI * 0.25 }
+                : { x: isFront ? 10.2 : 6.2, y: keepY, z: backZ, rotY: Math.PI };
             const pkG = new THREE.Group();
             pkG.position.set(pkKioskPos.x, pkKioskPos.y, pkKioskPos.z);
             pkG.rotation.y = pkKioskPos.rotY;
@@ -1024,12 +1007,15 @@
                 radius: 3.0
             });
 
-            // 3B. CASTLE OVERDRIVE WAR GONG (East Flank Ceremonial Arch — clear of center sightline!)
+            // 3B. CASTLE OVERDRIVE WAR GONG (Neatly aligned on far East back wall / Castle 2 front-east corner / Castle 3 NE bay!)
             const gongPos = isAll360
-                ? { x: 3.8, y: keepY, z: 5.2 }
-                : { x: isFront ? 6.2 : 5.4, y: keepY, z: 18.8 };
+                ? { x: 4.8, y: keepY, z: -6.9, rotY: 0 }
+                : (isFront
+                    ? { x: 18.0, y: keepY, z: backZ, rotY: Math.PI }
+                    : { x: 9.0, y: keepY, z: 8.2, rotY: -Math.PI * 0.25 });
             const gongG = new THREE.Group();
             gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
+            gongG.rotation.y = gongPos.rotY || 0;
             const disc = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.75, 0.75, 0.12, 18),
                 new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.85, roughness: 0.22 })

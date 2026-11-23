@@ -161,6 +161,42 @@
                     rib.position.set(0, topY * 0.15, recL * 0.22 + sr * 0.011);
                     gun.add(rib);
                 }
+                // Exposed hammer + beavertail
+                const hammer = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.38, 0.016, 0.010), steelMat);
+                hammer.position.set(0, topY * 0.55, recL * 0.5 + 0.004);
+                hammer.rotation.x = -0.35;
+                const beaver = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.70, 0.008, 0.020), accentMat);
+                beaver.position.set(0, -recH * 0.5 - 0.004, recL * 0.40);
+                gun.add(hammer, beaver);
+            } else {
+                // Magwell flare, forward assist, dust cover & receiver pins
+                const magwell = new THREE.Mesh(new THREE.BoxGeometry(recW * 1.06, 0.020, (ms.magL || 0.04) * 1.35), bodyMat);
+                magwell.position.set(0, -recH * 0.5 - 0.008, -0.02);
+                const fwdAssist = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.012, 8), steelMat);
+                fwdAssist.rotation.z = Math.PI * 0.5;
+                fwdAssist.position.set(recW * 0.52 + 0.004, topY * 0.30, recL * 0.18);
+                const dustCover = new THREE.Mesh(new THREE.BoxGeometry(0.003, recH * 0.36, recL * 0.30), darkMat);
+                dustCover.position.set(recW * 0.505, topY * 0.05, -recL * 0.05);
+                gun.add(magwell, fwdAssist, dustCover);
+                for (const pz of [recL * 0.30, -recL * 0.32]) {
+                    const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, recW + 0.004, 6), steelMat);
+                    pin.rotation.z = Math.PI * 0.5;
+                    pin.position.set(0, -recH * 0.28, pz);
+                    gun.add(pin);
+                }
+                // Handguard cooling vents (non-wood furniture only)
+                if (hgLen > 0.06 && !ms.wood) {
+                    const ventCount = Math.min(6, Math.max(2, Math.floor(hgLen / 0.035)));
+                    const ventMat = new THREE.MeshStandardMaterial({ color: 0x07090d, roughness: 0.9 });
+                    for (let v = 0; v < ventCount; v++) {
+                        const vz = -recL * 0.5 - (v + 0.7) * (hgLen / (ventCount + 0.4));
+                        for (const side of [-1, 1]) {
+                            const vent = new THREE.Mesh(new THREE.BoxGeometry(0.002, ms.handguardH * 0.38, 0.012), ventMat);
+                            vent.position.set(side * (ms.handguardW * 0.5 + 0.0012), 0.004, vz);
+                            gun.add(vent);
+                        }
+                    }
+                }
             }
 
             let muzzleZ = barrelStartZ - barrelLen;
@@ -232,7 +268,16 @@
                 } else {
                     const sBody = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.068, sLen), stockMat);
                     sBody.position.set(0, -0.012, recL * 0.5 + sLen * 0.5);
-                    gun.add(sBody);
+                    // Cheek riser, rubber buttpad & sling swivel
+                    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.014, sLen * 0.55), stockMat);
+                    cheek.position.set(0, 0.028, recL * 0.5 + sLen * 0.62);
+                    const buttPad = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.074, 0.012),
+                        new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.95, metalness: 0.0 }));
+                    buttPad.position.set(0, -0.012, recL * 0.5 + sLen + 0.006);
+                    const swivel = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.002, 6, 10), steelMat);
+                    swivel.rotation.y = Math.PI * 0.5;
+                    swivel.position.set(0, -0.050, recL * 0.5 + sLen * 0.80);
+                    gun.add(sBody, cheek, buttPad, swivel);
                 }
             }
 
@@ -261,6 +306,18 @@
                 mMesh.position.set(0, -recH * 0.5 - (ms.magH * magScaleH) * 0.44, ms.isPistol ? recL * 0.24 : -0.02);
                 mMesh.rotation.x = ms.isPistol ? 0.28 : -(ms.magCurve || 0.05) * 3.2;
                 magGroup.add(mMesh);
+                // Baseplate + stamped side ribs (children of the mag so they follow reload animation)
+                const magHalf = (ms.magH * magScaleH) * 0.5;
+                const basePlate = new THREE.Mesh(new THREE.BoxGeometry(ms.magW * 1.14, 0.008, ms.magL * 1.10), steelMat);
+                basePlate.position.set(0, -magHalf - 0.003, 0);
+                mMesh.add(basePlate);
+                if (!ms.isPistol) {
+                    for (const side of [-1, 1]) {
+                        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.002, ms.magH * magScaleH * 0.70, ms.magL * 0.30), steelMat);
+                        rib.position.set(side * (ms.magW * 0.5 + 0.001), -magHalf * 0.10, 0);
+                        mMesh.add(rib);
+                    }
+                }
 
                 if (magChoice === 'fast_mags') {
                     const pullTab = new THREE.Mesh(new THREE.BoxGeometry(ms.magW * 1.15, 0.016, ms.magL * 1.05),
