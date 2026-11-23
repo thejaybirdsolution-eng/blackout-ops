@@ -1890,7 +1890,7 @@
             ball.position.copy(pos);
             BO.World.scene.add(ball);
             this.thrownTowerBalls.push({ mesh: ball, pos, vel, life: 5.0 });
-            BO.Sound.playGrenadeThrow();
+            BO.Sound.playUIClick();
             BO.Events.emit('hud:toast', { text: '🔵 SNIPER TOWER BALL THROWN!', color: '#38bdf8' });
             return true;
         }
