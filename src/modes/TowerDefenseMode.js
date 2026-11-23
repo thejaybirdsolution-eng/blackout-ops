@@ -64,6 +64,19 @@
             noProjectiles: false,
             noProjectilesUntil20: false
         },
+        customValues: {
+            zombieHpMult: 1.0,
+            zombieSpeedMult: 1.0,
+            zombieDamageMult: 1.0,
+            playerMaxHp: 100,
+            startCurrency: 0,
+            bossSpawnPct: 2.0,
+            maxAliveZombies: 28,
+            spawnDelaySec: 0,
+            waveSizeMult: 1.0,
+            intermissionSec: 30,
+            priceMult: 1.0
+        },
         disabledEnemies: []
     };
 
@@ -196,7 +209,9 @@
         }
 
         getCost(baseCost) {
-            return (this.modifiers && this.modifiers.cost4x) ? baseCost * 4 : baseCost;
+            const pm = (this.config && this.config.customValues && Number(this.config.customValues.priceMult)) || 1.0;
+            const m4 = (this.modifiers && this.modifiers.cost4x) ? 4 : 1;
+            return Math.max(0, Math.round(baseCost * m4 * pm));
         }
 
         getShopItems() {
@@ -250,6 +265,7 @@
             this.mapId = opts.mapId || 'td_castle_1';
             const merged = Object.assign({}, DEFAULT_TD_CONFIG, opts.tdConfig || {});
             merged.modifiers = Object.assign({}, DEFAULT_TD_CONFIG.modifiers, (opts.tdConfig && opts.tdConfig.modifiers) || {});
+            merged.customValues = Object.assign({}, DEFAULT_TD_CONFIG.customValues, (opts.tdConfig && opts.tdConfig.customValues) || {});
             // Apply mode presets automatically on top of modifiers
             if (merged.tdMode === 'all_bosses') merged.modifiers.allBosses = true;
             if (merged.tdMode === 'gun_warfare') merged.gunZombiePct = Math.max(merged.gunZombiePct || 0, 75);
@@ -265,7 +281,11 @@
 
             this.wave = 1;
             const diffInfo = DIFFICULTY_SCALES[this.config.difficulty] || DIFFICULTY_SCALES.medium;
-            const baseGold = this.modifiers.richStart ? 10000 : ((this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush') ? 2400 : 850);
+            const cv = this.config.customValues || DEFAULT_TD_CONFIG.customValues;
+            const customStartGold = Number(cv.startCurrency) || 0;
+            const baseGold = customStartGold > 0
+                ? customStartGold
+                : (this.modifiers.richStart ? 10000 : ((this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush') ? 2400 : 850));
             this.gold = Math.round(baseGold * (this.modifiers.doubleGold ? 2 : 1));
             this.kills = 0;
 
@@ -316,9 +336,14 @@
             const loadout = BO.Loadout.getActiveClass();
 
             BO.Player.initForMatch('td', map.playerSpawn, loadout, false);
+            const pMaxHp = BO.Math.clamp(Number((this.config.customValues || {}).playerMaxHp) || 100, 1, 5000);
+            if (pMaxHp !== 100) {
+                BO.Player.maxHp = pMaxHp;
+                BO.Player.hp = pMaxHp;
+            }
             if (this.modifiers.glassCannon) {
-                BO.Player.maxHp = 50;
-                BO.Player.hp = 50;
+                BO.Player.maxHp = Math.min(BO.Player.maxHp, 50);
+                BO.Player.hp = Math.min(BO.Player.hp, 50);
             }
             BO.Combat.reset(opts.camera);
             BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onBulletHit(ent, dmg, hitbox, w, pt);
@@ -566,9 +591,9 @@
             }
             this.firstWaveStarted = true;
 
-            const startBase = BO.Math.clamp(Number(this.config.startingZombies) || 10, 3, 60);
-            const swarmMult = this.modifiers.chaosSwarm ? 2.0 : 1.0;
-            this.waveTotal = Math.round((startBase + (this.wave - 1) * 4.2) * swarmMult);
+            const startBase = BO.Math.clamp(Number(this.config.startingZombies) || 10, 3, 200);
+            const swarmMult = (this.modifiers.chaosSwarm ? 2.0 : 1.0) * (Number((this.config.customValues || {}).waveSizeMult) || 1.0);
+            this.waveTotal = Math.max(1, Math.round((startBase + (this.wave - 1) * 4.2) * swarmMult));
             if (this.modifiers.allBosses) {
                 this.waveTotal = Math.max(2, Math.round(startBase * 0.35 + (this.wave - 1) * 1.4));
             }
@@ -597,13 +622,10 @@
                 }
             }
 
-            // Boss Spawns
-            if (this.config.tdMode === 'boss_rush' || this.wave >= 10) {
-                const bossChance = (this.config.tdMode === 'boss_rush' || this.wave === 10) ? 1.0 : BO.Math.clamp(0.32 + (this.wave - 10) * 0.04, 0.32, 0.90);
-                if (!this.modifiers.allBosses && Math.random() < bossChance) {
-                    const count = this.wave >= 28 ? 2 : 1;
-                    for (let c = 0; c < count; c++) this._spawnBossZombie();
-                }
+            // Guaranteed Boss Spawns only in Boss Rush mode (otherwise governed by 2% + 0.5%/round after Wave 10!)
+            if (this.config.tdMode === 'boss_rush' && !this.modifiers.allBosses) {
+                const count = this.wave >= 20 ? 2 : 1;
+                for (let c = 0; c < count; c++) this._spawnBossZombie();
             }
 
             const newUnlock = !this.modifiers.allEnemiesUnlocked ? BO.ZombiesData.getNewlyUnlockedForRound(this.wave) : null;
@@ -626,19 +648,22 @@
             const baseHp = isBoss
                 ? Math.round(spec.hp * (0.55 + this.wave * 0.06))
                 : Math.round(spec.hp * (0.85 + this.wave * 0.14));
+            const cv = this.config.customValues || DEFAULT_TD_CONFIG.customValues;
             const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
             const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
-            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
+            const customHpMult = (this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0)) * (Number(cv.zombieHpMult) || 1.0);
+            const customSpdMult = Number(cv.zombieSpeedMult) || 1.0;
+            const customDmgMult = Number(cv.zombieDamageMult) || 1.0;
             const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
             const projBlocked = !!(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.wave < 20));
-            const finalDmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(5, Math.round(spec.attack * diff.dmg * glassDmg));
+            const finalDmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(1, Math.round(spec.attack * diff.dmg * glassDmg * customDmgMult));
 
             return {
                 id: this.nextZombieId++,
                 spec,
                 round: this.wave,
-                hp: Math.max(10, Math.round(baseHp * diff.hp * sizeHpMult * glassHp * swarmHp * customHpMult)),
-                speed: Math.min(9.0, spec.speed * (1 + Math.min(0.35, this.wave * 0.015)) * diff.spd * fastMult * sizeSpdMult),
+                hp: Math.max(5, Math.round(baseHp * diff.hp * sizeHpMult * glassHp * swarmHp * customHpMult)),
+                speed: Math.min(12.0, spec.speed * (1 + Math.min(0.35, this.wave * 0.015)) * diff.spd * fastMult * sizeSpdMult * customSpdMult),
                 damage: finalDmg,
                 x: sp.x + BO.Math.randRange(-1.4, 1.4),
                 y: sp.y || 0,
@@ -682,7 +707,9 @@
             }
             const unlockedEnemies = BO.ZombiesData.ORDERED_PROGRESSION.slice(0, Math.max(1, this.unlockedPoolCount));
             const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
-            const spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet);
+            const baseBossPct = Number((this.config.customValues || {}).bossSpawnPct ?? 2.0);
+            const effBossPct = baseBossPct + (this.wave > 10 ? (this.wave - 10) * 0.5 : 0);
+            const spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
             const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, !!spec.isBoss));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
             this.zombies.push(ent);
@@ -1770,11 +1797,14 @@
                 }
             } else if (!isOnlineClient && this.state === 'spawning') {
                 this.spawnCooldown -= dt;
+                const cv = this.config.customValues || DEFAULT_TD_CONFIG.customValues;
+                const maxAlive = BO.Math.clamp(Number(cv.maxAliveZombies) || 28, 5, 60);
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
-                if (this.remainingToSpawn > 0 && this.spawnCooldown <= 0 && aliveCount < 28) {
+                if (this.remainingToSpawn > 0 && this.spawnCooldown <= 0 && aliveCount < maxAlive) {
                     this._spawnWaveZombie();
                     this.remainingToSpawn--;
-                    this.spawnCooldown = Math.max(0.28, 1.10 - this.wave * 0.03);
+                    const customDelay = Number(cv.spawnDelaySec) || 0;
+                    this.spawnCooldown = customDelay > 0 ? BO.Math.clamp(customDelay, 0.12, 4.0) : Math.max(0.28, 1.10 - this.wave * 0.03);
                 }
                 if (this.remainingToSpawn <= 0) this.state = 'fighting';
             } else if (!isOnlineClient && this.state === 'fighting') {
@@ -1784,7 +1814,7 @@
                     BO.Sound.playRoundEnd();
                     this.rollShopCycle();
                     this.state = 'intermission';
-                    this.intermissionTimer = 30.0;
+                    this.intermissionTimer = BO.Math.clamp(Number((this.config.customValues || {}).intermissionSec) || 30, 3, 120);
                     BO.Events.emit('hud:banner', {
                         title: `WAVE ${this.wave} CLEARED!`,
                         sub: '30s INTERMISSION — 6 NEW SUPPORT DEPLOYABLES & 5 WEAPONS ROLLED ([T] SHOP • [N] SKIP)',

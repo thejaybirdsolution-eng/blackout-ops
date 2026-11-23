@@ -293,30 +293,56 @@
             g.position.set(p.x, p.y, p.z);
             g.rotation.y = p.rotY || 0;
 
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1e26, roughness: 0.4, metalness: 0.65 });
-            const body = new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.25, 0.78), bodyMat);
-            body.position.y = 1.125;
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x161b26, roughness: 0.35, metalness: 0.72 });
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.90 });
+            const colHex = new THREE.Color(p.color || '#38bdf8').getHex();
+            const neonMat = new THREE.MeshBasicMaterial({ color: colHex });
+
+            // Base plinth + main armored vending cabinet + beveled crown
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.16, 0.90), chromeMat);
+            plinth.position.y = 0.08;
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.08, 2.25, 0.80), bodyMat);
+            body.position.y = 1.20;
             body.castShadow = true;
-            g.add(body);
+            const crown = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.18, 0.88), bodyMat);
+            crown.position.y = 2.38;
+
+            // Side neon rails
+            const railL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.15, 0.06), neonMat);
+            railL.position.set(-0.55, 1.22, 0.39);
+            const railR = railL.clone(); railR.position.x = 0.55;
+
+            // Illuminated glass bottle display showcase + 3 glowing perk bottles inside!
+            const glass = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.84, 0.62),
+                new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 0.18 })
+            );
+            glass.position.set(0, 1.02, 0.415);
+            for (let b = -1; b <= 1; b++) {
+                const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.26, 8), neonMat);
+                bottle.position.set(b * 0.22, 0.95, 0.39);
+                const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 0.10, 8), chromeMat);
+                neck.position.set(b * 0.22, 1.12, 0.39);
+                g.add(bottle, neck);
+            }
+
+            // Dispensing tray chute + chrome coin slot
+            const chute = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.28, 0.12), new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.7 }));
+            chute.position.set(0, 0.44, 0.38);
 
             const signTex = BO.Textures.createPerkSignTexture(p.name, p.color);
             const sign = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.92, 0.65),
+                new THREE.PlaneGeometry(0.94, 0.58),
                 new THREE.MeshBasicMaterial({ map: signTex })
             );
-            sign.position.set(0, 1.72, 0.40);
-            g.add(sign);
+            sign.position.set(0, 1.88, 0.415);
 
-            const neon = new THREE.Mesh(
-                new THREE.BoxGeometry(0.96, 0.14, 0.82),
-                new THREE.MeshBasicMaterial({ color: p.color })
-            );
-            neon.position.y = 2.26;
-            g.add(neon);
+            const neon = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.12, 0.84), neonMat);
+            neon.position.y = 2.50;
 
-            const perkLight = new THREE.PointLight(p.color, 1.1, 6.5);
-            perkLight.position.set(0, 1.8, 0.8);
-            g.add(perkLight);
+            const perkLight = new THREE.PointLight(p.color, 1.25, 7.0);
+            perkLight.position.set(0, 1.8, 0.85);
+            g.add(plinth, body, crown, railL, railR, glass, chute, sign, neon, perkLight);
 
             scene.add(g);
             this.worldMeshes.push(body);
@@ -943,32 +969,59 @@
                 this._buildTdDistrictSign(scene, ex, keepY + 3.4, 14.0, -Math.PI * 0.5, 'SHOP & PERKS', '#22c55e');
             }
 
-            // 3A. WUNDERFIZZ MASTER PERK KIOSK (One-Stop Vending Kiosk for ALL 14 Perks — Max 8 Equipped!)
+            // 3A. GRAND WUNDERFIZZ MASTER PERK MACHINE (THE ONE AND ONLY PERK MACHINE — ALL 14 PERKS, MAX 8!)
             const pkKioskPos = isAll360
                 ? { x: 5.2, y: keepY, z: 3.2, rotY: -Math.PI * 0.5 }
                 : { x: ex, y: keepY, z: 14.8, rotY: -Math.PI * 0.5 };
             const pkG = new THREE.Group();
             pkG.position.set(pkKioskPos.x, pkKioskPos.y, pkKioskPos.z);
             pkG.rotation.y = pkKioskPos.rotY;
-            const pkBody = new THREE.Mesh(
-                new THREE.BoxGeometry(1.75, 2.5, 0.95),
-                new THREE.MeshStandardMaterial({ color: 0x1e1b4b, metalness: 0.72, roughness: 0.25 })
-            );
-            pkBody.position.y = 1.25;
+            const pkChrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.18 });
+            const pkCabMat = new THREE.MeshStandardMaterial({ color: 0x161233, metalness: 0.78, roughness: 0.24 });
+            const pkPlinth = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.20, 1.18), pkChrome);
+            pkPlinth.position.y = 0.10;
+            const pkBody = new THREE.Mesh(new THREE.BoxGeometry(1.88, 2.65, 1.02), pkCabMat);
+            pkBody.position.y = 1.48;
+            const pkCrown = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.22, 1.14), pkCabMat);
+            pkCrown.position.y = 2.88;
+            const pkTrim = new THREE.Mesh(new THREE.BoxGeometry(1.96, 0.12, 1.08), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
+            pkTrim.position.y = 3.04;
+            const pkRailL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.60, 0.08), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            pkRailL.position.set(-0.96, 1.50, 0.50);
+            const pkRailR = pkRailL.clone(); pkRailR.position.x = 0.96;
             const pkScreen = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.45, 0.95),
-                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ALL 14 PERKS', '#c084fc') })
+                new THREE.PlaneGeometry(1.62, 0.72),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('WUNDERFIZZ • ALL 14 PERKS', '#c084fc') })
             );
-            pkScreen.position.set(0, 1.85, 0.49);
-            const pkTrim = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.12, 1.0), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
-            pkTrim.position.y = 2.55;
-            pkG.add(pkBody, pkScreen, pkTrim);
+            pkScreen.position.set(0, 2.34, 0.53);
+            // Illuminated double-row glass showcase with 8 multicolored glowing perk bottles!
+            const pkGlass = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.56, 0.92),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.15 })
+            );
+            pkGlass.position.set(0, 1.38, 0.525);
+            const bottleColors = [0xef4444, 0x22c55e, 0xf59e0b, 0x38bdf8, 0xa855f7, 0xec4899, 0x10b981, 0xfde047];
+            for (let bi = 0; bi < 8; bi++) {
+                const bx = -0.54 + (bi % 4) * 0.36;
+                const by = bi < 4 ? 1.55 : 1.15;
+                const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.24, 8), new THREE.MeshBasicMaterial({ color: bottleColors[bi] }));
+                bMesh.position.set(bx, by, 0.50);
+                pkG.add(bMesh);
+            }
+            const pkChute = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.32, 0.14), new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.75 }));
+            pkChute.position.set(0, 0.52, 0.49);
+            const pkHalo = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.05, 8, 24), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
+            pkHalo.rotation.x = Math.PI * 0.5;
+            pkHalo.position.y = 0.04;
+            const pkLight = new THREE.PointLight(0xc084fc, 1.6, 9.0);
+            pkLight.position.set(0, 2.2, 1.0);
+            pkG.add(pkPlinth, pkBody, pkCrown, pkTrim, pkRailL, pkRailR, pkScreen, pkGlass, pkChute, pkHalo, pkLight);
             scene.add(pkG);
             this.interactives.push({
                 type: 'td_perk_kiosk',
                 id: 'td_perk_kiosk',
                 x: pkKioskPos.x, y: pkKioskPos.y + 1.2, z: pkKioskPos.z,
-                radius: 2.8
+                radius: 3.0
             });
 
             // 3B. CASTLE OVERDRIVE WAR GONG (East Flank Ceremonial Arch — clear of center sightline!)
@@ -1020,15 +1073,7 @@
                 { id: 'eagle_eye', name: 'Eagle Eye Brew', cost: 1700, color: '#60a5fa', desc: '+35% Long-Range/Sniper DMG & +25% Jump' }
             ];
             this.tdAllPerks = ALL_14_PERKS;
-
-            // Place the 6 iconic OG physical perk machines spaciously along the rear colonnade (all 14 are also in the Master Perk Kiosk!)
-            if (!isAll360) {
-                const rearXs = isFront ? [-14.0, -10.5, -7.0, 7.0, 10.5, 14.0] : [-9.5, -7.2, -4.9, 4.9, 7.2, 9.5];
-                for (let i = 0; i < 6; i++) {
-                    const pk = ALL_14_PERKS[i];
-                    this._spawnPerkMachine(Object.assign({}, pk, { x: rearXs[i], y: keepY, z: 22.0, rotY: Math.PI, requiresPower: false }));
-                }
-            }
+            // All 14 Perks are sold cleanly from the single upgraded Master Wunderfizz Perk Machine!
         }
 
         _buildZombiesProps(scene) {

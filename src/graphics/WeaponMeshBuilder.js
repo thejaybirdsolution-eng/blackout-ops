@@ -82,15 +82,35 @@
             boltGroup.add(boltMesh);
             gun.add(boltGroup);
 
-            // Handguard / Forend (for rifles, SMGs, shotguns, LMGs)
+            // Upgraded Tactical Weapon Details: Top Picatinny Rail, Ejection Port, Trigger Guard & Trigger!
+            const railStrip = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.58, 0.008, recL * 0.88), darkMat);
+            railStrip.position.set(0, topY + 0.004, 0);
+            gun.add(railStrip);
+            const ejPort = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.018, 0.044), new THREE.MeshStandardMaterial({ color: 0x090c12, roughness: 0.7 }));
+            ejPort.position.set(recW * 0.505, topY * 0.25, -0.02);
+            gun.add(ejPort);
+            const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.005, 0.048), darkMat);
+            trigGuard.position.set(0, -ms.receiverH * 0.5 - 0.026, recL * 0.24);
+            const trigBlade = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.022, 0.008), steelMat);
+            trigBlade.position.set(0, -ms.receiverH * 0.5 - 0.012, recL * 0.24);
+            trigBlade.rotation.x = 0.28;
+            gun.add(trigGuard, trigBlade);
+
+            // Handguard / Forend (for rifles, SMGs, shotguns, LMGs) + Tactical Vent Ribs!
             const hgLen = ms.handguardLen || 0;
             if (hgLen > 0) {
+                const hgZ = -recL * 0.5 - hgLen * 0.5 + 0.01;
                 const hg = new THREE.Mesh(
                     new THREE.BoxGeometry(ms.handguardW, ms.handguardH, hgLen),
                     ms.wood ? accentMat : bodyMat
                 );
-                hg.position.set(0, 0.004, -recL * 0.5 - hgLen * 0.5 + 0.01);
-                gun.add(hg);
+                hg.position.set(0, 0.004, hgZ);
+                const hgRail = new THREE.Mesh(new THREE.BoxGeometry(ms.handguardW * 0.55, 0.007, hgLen * 0.92), darkMat);
+                hgRail.position.set(0, ms.handguardH * 0.5 + 0.006, hgZ);
+                const sideRailL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.010, hgLen * 0.75), steelMat);
+                sideRailL.position.set(-ms.handguardW * 0.51, 0.004, hgZ);
+                const sideRailR = sideRailL.clone(); sideRailR.position.x = ms.handguardW * 0.51;
+                gun.add(hg, hgRail, sideRailL, sideRailR);
             }
 
             // Barrel (affected by heavy_barrel / short_barrel attachment)
@@ -115,25 +135,37 @@
                 gun.add(tube);
             }
 
-            // Muzzle Attachments
+            // Muzzle Attachments (including late-level Titanium Brake, Aether Suppressor & Overpressure Warhead Muzzle!)
             const muz = attachments.muzzle || 'none';
-            if (muz === 'suppressor') {
-                const supGeo = new THREE.CylinderGeometry(0.019, 0.019, 0.145, 14);
+            if (muz === 'suppressor' || muz === 'aether_suppressor') {
+                const isAether = muz === 'aether_suppressor';
+                const supGeo = new THREE.CylinderGeometry(0.020, 0.020, isAether ? 0.165 : 0.145, 14);
                 supGeo.rotateX(Math.PI * 0.5);
                 const sup = new THREE.Mesh(supGeo, darkMat);
-                sup.position.set(0, topY * 0.22, muzzleZ - 0.070);
+                sup.position.set(0, topY * 0.22, muzzleZ - (isAether ? 0.080 : 0.070));
                 gun.add(sup);
-                muzzleZ -= 0.142;
-            } else if (muz === 'compensator') {
-                const comp = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.026, 0.052), steelMat);
-                comp.position.set(0, topY * 0.22, muzzleZ - 0.024);
+                if (isAether) {
+                    const glowRing = new THREE.Mesh(new THREE.TorusGeometry(0.021, 0.003, 6, 14), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                    glowRing.position.set(0, topY * 0.22, muzzleZ - 0.12);
+                    gun.add(glowRing);
+                }
+                muzzleZ -= isAether ? 0.162 : 0.142;
+            } else if (muz === 'compensator' || muz === 'overpressure_comp') {
+                const isOp = muz === 'overpressure_comp';
+                const comp = new THREE.Mesh(new THREE.BoxGeometry(isOp ? 0.032 : 0.026, isOp ? 0.030 : 0.026, isOp ? 0.064 : 0.052), steelMat);
+                comp.position.set(0, topY * 0.22, muzzleZ - 0.028);
                 gun.add(comp);
-                muzzleZ -= 0.05;
-            } else if (muz === 'muzzle_brake') {
-                const mb = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.024, 0.046), steelMat);
-                mb.position.set(0, topY * 0.22, muzzleZ - 0.022);
+                if (isOp) {
+                    const opBand = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.008, 0.018), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+                    opBand.position.set(0, topY * 0.22, muzzleZ - 0.032);
+                    gun.add(opBand);
+                }
+                muzzleZ -= isOp ? 0.062 : 0.05;
+            } else if (muz === 'muzzle_brake' || muz === 'titanium_brake') {
+                const mb = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.024, 0.052), steelMat);
+                mb.position.set(0, topY * 0.22, muzzleZ - 0.024);
                 gun.add(mb);
-                muzzleZ -= 0.045;
+                muzzleZ -= 0.050;
             } else {
                 const fh = new THREE.Mesh(new THREE.CylinderGeometry(ms.barrelR * 1.25, ms.barrelR * 1.15, 0.028, 10), darkMat);
                 fh.rotation.x = Math.PI * 0.5;

@@ -675,15 +675,21 @@
                     this.elMultiBoss.innerHTML = '';
                 } else {
                     this.elMultiBoss.classList.remove('hidden');
-                    this.elMultiBoss.innerHTML = bosses.slice(0, 5).map((b) => {
+                    // Side-by-side half-width bars whenever 2+ bosses are active!
+                    const isMulti = bosses.length >= 2;
+                    this.elMultiBoss.style.display = 'grid';
+                    this.elMultiBoss.style.gridTemplateColumns = isMulti ? 'repeat(2, minmax(0, 1fr))' : '1fr';
+                    this.elMultiBoss.style.gap = '6px';
+                    this.elMultiBoss.style.width = isMulti ? 'min(640px, 90vw)' : 'min(540px, 84vw)';
+                    this.elMultiBoss.innerHTML = bosses.slice(0, 6).map((b) => {
                         const pct = BO.Math.clamp((b.hp / Math.max(1, b.maxHp)) * 100, 0, 100);
                         return `
-                            <div style="background:rgba(15,5,10,0.86);border:1px solid #ef4444;border-radius:5px;padding:5px 9px;box-shadow:0 0 14px rgba(239,68,68,0.28)">
-                                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:0.8px;margin-bottom:3px">
-                                    <span style="color:#fca5a5">☠ ${b.spec.name}${b.spec.title ? ' — ' + b.spec.title.toUpperCase() : ''}</span>
-                                    <span style="color:#fef08a">${Math.ceil(b.hp)} / ${b.maxHp} HP</span>
+                            <div style="background:rgba(15,5,10,0.88);border:1px solid #ef4444;border-radius:6px;padding:${isMulti ? '4px 7px' : '5px 9px'};box-shadow:0 0 14px rgba(239,68,68,0.28);min-width:0;">
+                                <div style="display:flex;justify-content:space-between;gap:6px;font-size:${isMulti ? '10px' : '11px'};font-weight:800;letter-spacing:0.6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;">
+                                    <span style="color:#fca5a5;overflow:hidden;text-overflow:ellipsis;">☠ ${b.spec.name}${!isMulti && b.spec.title ? ' — ' + b.spec.title.toUpperCase() : ''}</span>
+                                    <span style="color:#fef08a;flex-shrink:0;">${Math.ceil(b.hp)}/${b.maxHp}</span>
                                 </div>
-                                <div style="height:8px;background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
+                                <div style="height:${isMulti ? '7px' : '8px'};background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
                                     <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#dc2626,#f97316);transition:width 0.1s"></div>
                                 </div>
                             </div>

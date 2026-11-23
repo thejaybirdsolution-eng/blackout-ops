@@ -105,9 +105,34 @@
                     oneHitMeleeZombies: false,
                     noProjectiles: false,
                     noProjectilesUntil20: false
+                },
+                customValues: {
+                    zombieHpMult: 1.0,
+                    zombieSpeedMult: 1.0,
+                    zombieDamageMult: 1.0,
+                    playerMaxHp: 100,
+                    startCurrency: 0,
+                    bossSpawnPct: 2.0,
+                    maxAliveZombies: 28,
+                    spawnDelaySec: 0,
+                    waveSizeMult: 1.0,
+                    intermissionSec: 30,
+                    priceMult: 1.0
                 }
             };
             this.zModifiers = Object.assign({}, this.tdConfig.modifiers);
+            this.zCustomValues = {
+                zombieHpMult: 1.0,
+                zombieSpeedMult: 1.0,
+                zombieDamageMult: 1.0,
+                playerMaxHp: 100,
+                startCurrency: 0,
+                bossSpawnPct: 2.0,
+                maxAliveZombies: 24,
+                spawnDelaySec: 0,
+                waveSizeMult: 1.0,
+                supplyDropPct: 50
+            };
             this.customRules = {
                 enemyCount: 6, teamSizeLimit: 6, enemyWeaponMode: 'all', playerWeaponMode: 'custom',
                 scoreLimit: 0, timeLimit: 0, enemyHp: 100, playerHp: 100, respawnDelay: 2.4,
@@ -616,8 +641,28 @@
                         </div>
                     ` : ''}
                     <div class="panel-title" style="color:#f87171;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-                        <span>★ ENEMY POOL (70 ENEMIES + 10 BOSSES • EASY 50% / NORMAL 25% / HARD 15% / BOSS 10%)</span>
+                        <span>★ ENEMY POOL (70 ENEMIES + 10 BOSSES • BOSS 2% + 0.5%/RD AFTER RD 10)</span>
                         <button class="btn btn-sm btn-zombies" id="btn-z-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
+                    </div>
+                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">★ 100% CUSTOM VALUE CONTROLS (EXACT NUMBERS!)</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:6px;margin-bottom:8px;">
+                        ${[
+                            { k: 'zombieHpMult', lbl: 'Zombie HP Mult', step: 0.1, min: 0.05, max: 20 },
+                            { k: 'zombieSpeedMult', lbl: 'Zombie Speed Mult', step: 0.1, min: 0.2, max: 5 },
+                            { k: 'zombieDamageMult', lbl: 'Zombie DMG Mult', step: 0.1, min: 0.1, max: 20 },
+                            { k: 'playerMaxHp', lbl: 'Player Max HP', step: 25, min: 1, max: 5000 },
+                            { k: 'startCurrency', lbl: 'Start Points (0=Def)', step: 500, min: 0, max: 100000 },
+                            { k: 'bossSpawnPct', lbl: 'Base Boss Chance %', step: 0.5, min: 0, max: 100 },
+                            { k: 'maxAliveZombies', lbl: 'Max Alive On Field', step: 2, min: 5, max: 60 },
+                            { k: 'spawnDelaySec', lbl: 'Spawn Delay s (0=Auto)', step: 0.1, min: 0, max: 4 },
+                            { k: 'waveSizeMult', lbl: 'Round Size Mult', step: 0.25, min: 0.25, max: 5 },
+                            { k: 'supplyDropPct', lbl: 'Supply Drop Rate %', step: 5, min: 0, max: 100 }
+                        ].map((f) => `
+                            <div class="setting-row" style="background:var(--glass-card);padding:6px 9px;border:1px solid var(--border-subtle);border-radius:8px;">
+                                <span style="font-size:11px;">${f.lbl}</span>
+                                <input type="number" class="js-z-cval" data-zk="${f.k}" step="${f.step}" min="${f.min}" max="${f.max}" value="${this.zCustomValues[f.k]}" style="width:74px;color:#38bdf8;font-family:var(--font-mono);font-weight:800;padding:4px 6px;">
+                            </div>
+                        `).join('')}
                     </div>
                     <div class="panel-title" style="color:#c084fc;margin-top:8px;">★ ZOMBIES CUSTOM MODIFIERS (${ALL_WAVE_MODIFIERS.length} MODIFIERS!)</div>
                     <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
@@ -635,6 +680,12 @@
                 document.getElementById('z-start-classic').onclick = () => { BO.Sound.playUIClick(); this.classicStarter = true; this.renderLobby(); };
                 const zEpBtn = document.getElementById('btn-z-open-ep');
                 if (zEpBtn) zEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                left.querySelectorAll('.js-z-cval').forEach((inp) => {
+                    inp.onchange = (e) => {
+                        this.zCustomValues[e.target.dataset.zk] = Number(e.target.value);
+                        if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                    };
+                });
                 left.querySelectorAll('.js-z-mod').forEach((cb) => {
                     cb.onchange = (e) => {
                         BO.Sound.playUIClick();
@@ -885,8 +936,30 @@
                         </div>
                     </div>
 
+                    <div class="panel-title" style="color:#38bdf8;margin-top:6px;">3B. 100% CUSTOM VALUE CONTROLS (EXACT NUMBERS!)</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:6px;margin-bottom:8px;">
+                        ${[
+                            { k: 'zombieHpMult', lbl: 'Zombie HP Mult', step: 0.1, min: 0.05, max: 20 },
+                            { k: 'zombieSpeedMult', lbl: 'Zombie Speed Mult', step: 0.1, min: 0.2, max: 5 },
+                            { k: 'zombieDamageMult', lbl: 'Zombie DMG Mult', step: 0.1, min: 0.1, max: 20 },
+                            { k: 'playerMaxHp', lbl: 'Player Max HP', step: 25, min: 1, max: 5000 },
+                            { k: 'startCurrency', lbl: 'Start Gold (0=Def)', step: 500, min: 0, max: 100000 },
+                            { k: 'bossSpawnPct', lbl: 'Base Boss Chance %', step: 0.5, min: 0, max: 100 },
+                            { k: 'maxAliveZombies', lbl: 'Max Alive On Field', step: 2, min: 5, max: 60 },
+                            { k: 'spawnDelaySec', lbl: 'Spawn Delay s (0=Auto)', step: 0.1, min: 0, max: 4 },
+                            { k: 'waveSizeMult', lbl: 'Wave Size Mult', step: 0.25, min: 0.25, max: 5 },
+                            { k: 'intermissionSec', lbl: 'Intermission Timer (s)', step: 5, min: 3, max: 120 },
+                            { k: 'priceMult', lbl: 'Shop Price Mult', step: 0.25, min: 0.1, max: 10 }
+                        ].map((f) => `
+                            <div class="setting-row" style="background:var(--glass-card);padding:6px 9px;border:1px solid var(--border-subtle);border-radius:8px;">
+                                <span style="font-size:11px;">${f.lbl}</span>
+                                <input type="number" class="js-td-cval" data-tdk="${f.k}" step="${f.step}" min="${f.min}" max="${f.max}" value="${(tc.customValues || {})[f.k] ?? 1}" style="width:74px;color:#fde047;font-family:var(--font-mono);font-weight:800;padding:4px 6px;">
+                            </div>
+                        `).join('')}
+                    </div>
+
                     <div class="panel-title" style="color:#f87171;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-                        <span>4. ENEMY POOL (70 ENEMIES + 10 BOSSES • EASY 50% / NORMAL 25% / HARD 15% / BOSS 10%)</span>
+                        <span>4. ENEMY POOL (70 ENEMIES + 10 BOSSES • BOSS 2% + 0.5%/RD AFTER RD 10)</span>
                         <button class="btn btn-sm btn-zombies" id="btn-td-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
                     </div>
                     <div class="panel-title" style="color:#c084fc;">5. CUSTOM MODIFIERS (${MOD_DEFS.length} MODIFIERS — MIX &amp; MATCH!)</div>
@@ -929,6 +1002,13 @@
                 };
                 const tdEpBtn = document.getElementById('btn-td-open-ep');
                 if (tdEpBtn) tdEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                left.querySelectorAll('.js-td-cval').forEach((inp) => {
+                    inp.onchange = (e) => {
+                        if (!tc.customValues) tc.customValues = {};
+                        tc.customValues[e.target.dataset.tdk] = Number(e.target.value);
+                        if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
+                    };
+                });
                 left.querySelectorAll('.js-td-mod').forEach((cb) => {
                     cb.onchange = (e) => {
                         BO.Sound.playUIClick();
@@ -994,6 +1074,7 @@
                             useClassicStarter: this.classicStarter,
                             startRound: roundsUnlocked ? this.selectedStartRound : 1,
                             zModifiers: BO.Math.deepClone(this.zModifiers),
+                            zCustomValues: BO.Math.deepClone(this.zCustomValues),
                             disabledEnemies: (this.tdConfig.disabledEnemies || []).slice()
                         });
                     } else if (isMp) {

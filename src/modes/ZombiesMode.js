@@ -84,6 +84,18 @@
             this.difficulty = opts.difficulty || 'normal'; // 'normal' | 'hard' | 'very_hard' | 'insanely_hard' | 'boss_rush'
             this.useClassicStarter = opts.useClassicStarter !== undefined ? opts.useClassicStarter : false;
             this.modifiers = Object.assign({}, opts.zModifiers || {});
+            this.customValues = Object.assign({
+                zombieHpMult: 1.0,
+                zombieSpeedMult: 1.0,
+                zombieDamageMult: 1.0,
+                playerMaxHp: 100,
+                startCurrency: 0,
+                bossSpawnPct: 2.0,
+                maxAliveZombies: 24,
+                spawnDelaySec: 0,
+                waveSizeMult: 1.0,
+                supplyDropPct: 50
+            }, opts.zCustomValues || {});
             this.disabledEnemySet = new Set(Array.isArray(opts.disabledEnemies) ? opts.disabledEnemies : []);
 
             const scene = BO.World.build(this.mapId);
@@ -97,6 +109,11 @@
             const loadout = BO.Loadout.getActiveClass();
 
             BO.Player.initForMatch('zombies', map.playerSpawn, loadout, this.useClassicStarter);
+            const pMaxHp = BO.Math.clamp(Number(this.customValues.playerMaxHp) || 100, 1, 5000);
+            if (pMaxHp !== 100) {
+                BO.Player.maxHp = pMaxHp;
+                BO.Player.hp = pMaxHp;
+            }
             BO.Combat.reset(opts.camera);
 
             if (this.modifiers.allEnemiesUnlocked) {
@@ -109,7 +126,10 @@
 
             const cc = (BO.Cheats && BO.Cheats.isActive('choose', true)) ? BO.Save.data.chooseConfig : null;
             this.round = Math.max(1, parseInt(opts.startRound || (cc && cc.startRound), 10) || 1);
-            const basePts = this.modifiers.richStart ? 10000 : (this.difficulty === 'boss_rush' ? 10000 : ((cc && cc.startPoints) ? cc.startPoints : 500));
+            const customPts = Number(this.customValues.startCurrency) || 0;
+            const basePts = customPts > 0
+                ? customPts
+                : (this.modifiers.richStart ? 10000 : (this.difficulty === 'boss_rush' ? 10000 : ((cc && cc.startPoints) ? cc.startPoints : 500)));
             this.points = (BO.Cheats && BO.Cheats.isActive('infmoney')) ? 99999 : basePts;
             this.kills = 0;
             this.headshots = 0;
@@ -320,9 +340,10 @@
                 BO.Events.emit('hud:toast', { text: `🎲 RANDOM LOADOUT ROUND: ${BO.WeaponsData.get(randW).name}!`, color: '#c084fc' });
             }
 
+            const wMult = Number(this.customValues.waveSizeMult) || 1.0;
             if (bossSpec) {
                 // Boss Round (Round 5, 10, 15, 20, 25, 30, 35, 40, 45, 50)
-                this.remainingToSpawn = Math.min(24, Math.round((4 + Math.floor(r * 0.35)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0)));
+                this.remainingToSpawn = Math.max(1, Math.min(200, Math.round((4 + Math.floor(r * 0.35)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0) * wMult)));
                 BO.Sound.playBossIntro();
                 BO.Events.emit('hud:banner', {
                     title: `BOSS ROUND ${r}: ${bossSpec.name}`,
@@ -331,7 +352,7 @@
                 });
                 this._spawnBoss(bossSpec);
             } else {
-                this.remainingToSpawn = Math.min(120, Math.round((5 + r * 3.2 + (r > 10 ? (r - 10) * 1.4 : 0)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0)));
+                this.remainingToSpawn = Math.max(1, Math.min(300, Math.round((5 + r * 3.2 + (r > 10 ? (r - 10) * 1.4 : 0)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0) * wMult)));
                 BO.Events.emit('hud:banner', {
                     title: 'ROUND ' + BO.Math.toRoman(r),
                     sub: this.exfilAvailable
@@ -491,9 +512,11 @@
         _spawnZombie() {
             const unlockedEnemies = BO.ZombiesData.ORDERED_PROGRESSION.slice(0, Math.max(1, this.unlockedPoolCount));
             const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
+            const baseBossPct = Number(this.customValues.bossSpawnPct ?? 2.0);
+            const effBossPct = baseBossPct + (this.round > 10 ? (this.round - 10) * 0.5 : 0);
             let spec = this.modifiers.allBosses
                 ? BO.Math.pick(BO.ZombiesData.ORDERED_BOSSES.filter((b) => !this.disabledEnemySet.has(b.id))) || BO.ZombiesData.ORDERED_BOSSES[0]
-                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet);
+                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
             if (cc && Array.isArray(cc.customZombiePool) && cc.customZombiePool.length > 0) {
                 const customSpecs = cc.customZombiePool.map((id) => BO.ZombiesData.get(id)).filter(Boolean);
@@ -511,12 +534,14 @@
             const sizeHpMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.72 : 1.0);
             const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
             const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
-            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
+            const customHpMult = (this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0)) * (Number(this.customValues.zombieHpMult) || 1.0);
+            const customSpdMult = Number(this.customValues.zombieSpeedMult) || 1.0;
+            const customDmgMult = Number(this.customValues.zombieDamageMult) || 1.0;
             const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
             const roundHpMult = 1 + (this.round - 1) * 0.22 + (this.round > 10 ? Math.pow(this.round - 10, 1.25) * 0.14 : 0);
-            const hp = Math.max(10, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp * customHpMult));
-            const speed = Math.min(8.8, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult);
-            const dmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.min(180, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg));
+            const hp = Math.max(5, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp * customHpMult));
+            const speed = Math.min(12.0, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult * customSpdMult);
+            const dmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(1, Math.min(500, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg * customDmgMult)));
 
             const z = new BO.ZombieEntity({
                 id: this.nextZombieId++,
@@ -1497,13 +1522,15 @@
                     }
                 }
             } else if (!isOnlineClient && (this.state === 'fighting' || this.state === 'exfil')) {
+                const maxAlive = BO.Math.clamp(Number(this.customValues.maxAliveZombies) || 24, 5, 60);
                 const aliveCount = this.zombies.filter((z) => z.alive).length;
-                if (this.remainingToSpawn > 0 && aliveCount < 24) {
+                if (this.remainingToSpawn > 0 && aliveCount < maxAlive) {
                     this.spawnCooldown -= dt;
                     if (this.spawnCooldown <= 0) {
                         this._spawnZombie();
                         this.remainingToSpawn--;
-                        this.spawnCooldown = Math.max(0.32, 1.35 - this.round * 0.05);
+                        const customDelay = Number(this.customValues.spawnDelaySec) || 0;
+                        this.spawnCooldown = customDelay > 0 ? BO.Math.clamp(customDelay, 0.12, 4.0) : Math.max(0.32, 1.35 - this.round * 0.05);
                     }
                 }
                 if (this.state === 'fighting' && this.remainingToSpawn === 0 && aliveCount === 0) {
@@ -1783,7 +1810,8 @@
            - 25,000 Supplies = Sniper Tower Ball (throw to deploy 4,500 HP Sniper Tower!)
         ==================================================================== */
         _maybeDropSupplies(z) {
-            if (!z || !BO.World.scene || Math.random() >= 0.50) return;
+            const dropRate = BO.Math.clamp(Number(this.customValues.supplyDropPct ?? 50), 0, 100) / 100;
+            if (!z || !BO.World.scene || Math.random() >= dropRate) return;
             const amount = Math.max(1, Math.round((z.maxHp || 100) * 0.10));
             const g = new THREE.Group();
             const crate = new THREE.Mesh(

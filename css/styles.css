@@ -1726,3 +1726,26 @@ input[type="range"] {
     backdrop-filter: blur(14px);
     box-shadow: 0 14px 36px rgba(0, 0, 0, 0.65) !important;
 }
+
+/* Extra Window, Header & Numeric Setting Row Polish */
+.modal-box h2 {
+    font-size: 19px !important;
+    font-weight: 900 !important;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+}
+.setting-row {
+    border-radius: 8px !important;
+    transition: border-color 0.14s, background 0.14s;
+}
+.setting-row:hover {
+    border-color: rgba(56, 189, 248, 0.50) !important;
+    background: rgba(18, 28, 48, 0.90) !important;
+}
+.card-head {
+    font-weight: 800 !important;
+    letter-spacing: 0.8px !important;
+}
+.card-sub {
+    color: #cbd5e1 !important;
+    line-height: 1.4 !important;
+}

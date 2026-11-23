@@ -754,23 +754,31 @@
             return BOSSES_BY_ROUND[round] || null;
         },
         /**
-         * Picks an enemy using exact requested tier spawn rates:
-         * Easy 50%, Normal 25%, Hard 15%, Boss 10% (re-normalized across currently unlocked/enabled tiers).
+         * Picks an enemy using exact tier spawn rates:
+         * Boss starts at 2% (+0.5% per round after Round 10, or custom bossChancePct).
+         * Non-boss tiers scale proportionally at Easy 50 : Normal 25 : Hard 15.
          */
-        pickFromTieredPool(unlockedEnemyList, unlockedBossList, disabledSet) {
+        pickFromTieredPool(unlockedEnemyList, unlockedBossList, disabledSet, bossChancePct = 2.0) {
             const isOk = (e) => !disabledSet || !disabledSet.has(e.id);
             const easy = (unlockedEnemyList || []).filter((e) => e.rarity === 'easy' && isOk(e));
             const normal = (unlockedEnemyList || []).filter((e) => e.rarity === 'normal' && isOk(e));
             const hard = (unlockedEnemyList || []).filter((e) => e.rarity === 'hard' && isOk(e));
             const boss = (unlockedBossList || []).filter((b) => isOk(b));
 
+            const clampedBoss = Math.max(0, Math.min(100, Number(bossChancePct)));
+            if (boss.length > 0 && clampedBoss > 0 && Math.random() * 100 < clampedBoss) {
+                return BO.Math.pick(boss);
+            }
+
             const buckets = [];
             if (easy.length > 0) buckets.push({ list: easy, w: 50 });
             if (normal.length > 0) buckets.push({ list: normal, w: 25 });
             if (hard.length > 0) buckets.push({ list: hard, w: 15 });
-            if (boss.length > 0) buckets.push({ list: boss, w: 10 });
 
-            if (buckets.length === 0) return ZOMBIE_TYPES[0];
+            if (buckets.length === 0) {
+                if (boss.length > 0) return BO.Math.pick(boss);
+                return ZOMBIE_TYPES[0];
+            }
             const totalW = buckets.reduce((a, b) => a + b.w, 0);
             let roll = Math.random() * totalW;
             for (const b of buckets) {

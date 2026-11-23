@@ -90,6 +90,30 @@
             torsoMesh.position.y = 0.28;
             bodyPivot.add(torsoMesh);
 
+            // Upgraded Silhouette Details: Shoulder Pauldrons & Chest Harness / Tactical Belt!
+            const trimMat = this._mat('ztrim_' + key, () => new THREE.MeshStandardMaterial({
+                color: bs.pantsColor || 0x1e293b, roughness: 0.65, metalness: bs.torsoShape === 'armored' ? 0.72 : 0.25
+            }));
+            const pauldronGeo = this._geo('pauldron', () => new THREE.BoxGeometry(0.18, 0.12, 0.22));
+            const pL = new THREE.Mesh(pauldronGeo, trimMat);
+            pL.position.set(-0.30, 0.54, 0);
+            const pR = pL.clone(); pR.position.x = 0.30;
+            const belt = new THREE.Mesh(this._geo('zbelt', () => new THREE.BoxGeometry(0.48, 0.08, 0.29)), trimMat);
+            belt.position.set(0, 0.02, 0);
+            bodyPivot.add(pL, pR, belt);
+
+            // Magical / Boss Subtle Emissive Ground Aura Ring
+            if (spec.isBoss || spec.isMagical) {
+                const auraCol = spec.isBoss ? 0xef4444 : 0xc084fc;
+                const aura = new THREE.Mesh(
+                    this._geo('zaura', () => new THREE.TorusGeometry(0.48, 0.03, 6, 20)),
+                    this._mat('zaura_m_' + auraCol, () => new THREE.MeshBasicMaterial({ color: auraCol, transparent: true, opacity: 0.65 }))
+                );
+                aura.rotation.x = Math.PI * 0.5;
+                aura.position.y = 0.06;
+                root.add(aura);
+            }
+
             // Glowing Ribcage / Core
             if (bs.glowingRibs) {
                 const ribMat = this._mat('zrib_' + key, () => new THREE.MeshBasicMaterial({ color: bs.glowingRibs }));
@@ -195,7 +219,39 @@
                     eyeL.position.set(-0.06, 0.03, 0.135);
                     const eyeR = eyeL.clone();
                     eyeR.position.x = 0.06;
-                    hg.add(eyeL, eyeR);
+                    // Sculpted brow ridge + snarling dark jaw!
+                    const brow = new THREE.Mesh(this._geo('zbrow', () => new THREE.BoxGeometry(0.29, 0.04, 0.06)), skinMat);
+                    brow.position.set(0, 0.075, 0.13);
+                    const mouth = new THREE.Mesh(this._geo('zmouth', () => new THREE.BoxGeometry(0.15, 0.055, 0.04)),
+                        this._mat('zmouth_m', () => new THREE.MeshBasicMaterial({ color: 0x2b0a0a })));
+                    mouth.position.set(0, -0.075, 0.13);
+                    hg.add(eyeL, eyeR, brow, mouth);
+
+                    // Unique creature silhouettes (Witch Hat, Werewolf/Tiger/Bear Ears, ManBearPig Tusks!)
+                    const idLow = String(spec.id || '').toLowerCase();
+                    if (idLow.includes('witch')) {
+                        const hatMat = this._mat('witch_hat', () => new THREE.MeshStandardMaterial({ color: 0x1e1038, roughness: 0.7 }));
+                        const brim = new THREE.Mesh(this._geo('what_brim', () => new THREE.CylinderGeometry(0.28, 0.28, 0.03, 12)), hatMat);
+                        brim.position.y = 0.15;
+                        const cone = new THREE.Mesh(this._geo('what_cone', () => new THREE.ConeGeometry(0.15, 0.42, 10)), hatMat);
+                        cone.position.y = 0.36;
+                        hg.add(brim, cone);
+                    }
+                    if (idLow.includes('wolf') || idLow.includes('lycan') || idLow.includes('tiger') || idLow.includes('bear')) {
+                        const earGeo = this._geo('beast_ear', () => new THREE.ConeGeometry(0.055, 0.14, 6));
+                        const eL = new THREE.Mesh(earGeo, skinMat); eL.position.set(-0.11, 0.19, 0.02); eL.rotation.z = 0.28;
+                        const eR = new THREE.Mesh(earGeo, skinMat); eR.position.set(0.11, 0.19, 0.02); eR.rotation.z = -0.28;
+                        const snout = new THREE.Mesh(this._geo('beast_snout', () => new THREE.BoxGeometry(0.13, 0.10, 0.12)), skinMat);
+                        snout.position.set(0, -0.04, 0.17);
+                        hg.add(eL, eR, snout);
+                    }
+                    if (idLow.includes('pig') || idLow.includes('ogre') || idLow.includes('boar')) {
+                        const tuskMat = this._mat('tusk_m', () => new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.4 }));
+                        const tGeo = this._geo('tusk', () => new THREE.ConeGeometry(0.024, 0.12, 6));
+                        const tL = new THREE.Mesh(tGeo, tuskMat); tL.position.set(-0.075, -0.05, 0.18); tL.rotation.x = 0.45;
+                        const tR = tL.clone(); tR.position.x = 0.075;
+                        hg.add(tL, tR);
+                    }
 
                     if (bs.helmet) {
                         const helm = this._tagHitbox(

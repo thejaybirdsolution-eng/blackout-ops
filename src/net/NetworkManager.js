@@ -525,6 +525,7 @@
                 selectedTdMap: M.selectedTdMap,
                 tdConfig: M.tdConfig ? BO.Math.deepClone(M.tdConfig) : null,
                 zModifiers: M.zModifiers ? BO.Math.deepClone(M.zModifiers) : null,
+                zCustomValues: M.zCustomValues ? BO.Math.deepClone(M.zCustomValues) : null,
                 customRules: BO.Math.deepClone(M.customRules)
             };
         }
@@ -742,6 +743,7 @@
                 if (s.tdConfig.modifiers) Object.assign(M.tdConfig.modifiers, s.tdConfig.modifiers);
             }
             if (s.zModifiers && M.zModifiers) Object.assign(M.zModifiers, s.zModifiers);
+            if (s.zCustomValues && M.zCustomValues) Object.assign(M.zCustomValues, s.zCustomValues);
             if (s.customRules) Object.assign(M.customRules, s.customRules);
             if (BO.State.screen === 'play_lobby') {
                 M.renderLobby();

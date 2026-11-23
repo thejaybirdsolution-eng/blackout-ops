@@ -168,6 +168,7 @@
                     useClassicStarter: opts.useClassicStarter,
                     startRound: opts.startRound || 1,
                     zModifiers: opts.zModifiers || {},
+                    zCustomValues: opts.zCustomValues || {},
                     disabledEnemies: opts.disabledEnemies || [],
                     camera: this.worldCamera
                 });
