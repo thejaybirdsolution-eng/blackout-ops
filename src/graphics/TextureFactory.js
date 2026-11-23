@@ -812,6 +812,109 @@
         /* ====================================================================
            PROCEDURAL TACTICAL WEAPON & ZOMBIE PBR TEXTURES (CACHED)
         ==================================================================== */
+        createBumpTexture(kind = 'metal') {
+            const key = `bump_${kind}`;
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 256);
+            const ctx = c.getContext('2d');
+            const rng = seededNoise(kind.length * 4099 + kind.charCodeAt(0) * 131);
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(0, 0, 256, 256);
+
+            if (kind === 'metal') {
+                for (let y = 0; y < 256; y += 2) {
+                    const shade = 116 + Math.floor(Math.sin(y * 1.9) * 14 + rng() * 14);
+                    ctx.fillStyle = `rgb(${shade},${shade},${shade})`;
+                    ctx.fillRect(0, y, 256, 2);
+                }
+                ctx.strokeStyle = '#383838';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(8, 8, 240, 240);
+                for (let s = 0; s < 30; s++) {
+                    const sx = rng() * 240 + 8;
+                    const sy = rng() * 240 + 8;
+                    ctx.strokeStyle = s % 2 ? '#b8b8b8' : '#4a4a4a';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy);
+                    ctx.lineTo(sx + (rng() - 0.5) * 28, sy + (rng() - 0.5) * 12);
+                    ctx.stroke();
+                }
+            } else if (kind === 'wood') {
+                for (let y = 0; y < 256; y += 2) {
+                    const wave = Math.sin(y * 0.14) * 12;
+                    const shade = 105 + Math.floor(Math.sin(y * 0.35) * 24 + rng() * 14);
+                    ctx.strokeStyle = `rgb(${shade},${shade},${shade})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.bezierCurveTo(85, y + wave, 170, y - wave, 256, y);
+                    ctx.stroke();
+                }
+            } else if (kind === 'polymer') {
+                for (let y = 0; y < 256; y += 8) {
+                    for (let x = 0; x < 256; x += 8) {
+                        const ox = (y % 16 === 0) ? 0 : 4;
+                        ctx.fillStyle = '#cfcfcf';
+                        ctx.fillRect((x + ox) % 256, y, 3, 3);
+                        ctx.fillStyle = '#3c3c3c';
+                        ctx.fillRect((x + ox + 3) % 256, y + 3, 3, 3);
+                    }
+                }
+            } else if (kind === 'perforated') {
+                ctx.fillStyle = '#c8c8c8';
+                ctx.fillRect(0, 0, 256, 256);
+                ctx.fillStyle = '#181818';
+                for (let row = 0; row < 8; row++) {
+                    const ox = (row % 2) * 16;
+                    for (let col = 0; col < 8; col++) {
+                        ctx.beginPath();
+                        ctx.arc(col * 32 + ox + 16, row * 32 + 16, 9, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (kind === 'cloth') {
+                for (let y = 0; y < 256; y += 4) {
+                    ctx.fillStyle = y % 8 === 0 ? '#a4a4a4' : '#585858';
+                    ctx.fillRect(0, y, 256, 2);
+                }
+                for (let x = 0; x < 256; x += 4) {
+                    ctx.fillStyle = 'rgba(40,40,40,0.45)';
+                    ctx.fillRect(x, 0, 2, 256);
+                }
+                for (let i = 0; i < 18; i++) {
+                    ctx.fillStyle = i % 2 ? '#b8b8b8' : '#3a3a3a';
+                    ctx.fillRect(rng() * 230, rng() * 230, 8 + rng() * 22, 6 + rng() * 14);
+                }
+            } else {
+                // 'skin': mottled pockmarks, veins, sinew ridges
+                for (let i = 0; i < 90; i++) {
+                    const r = 4 + rng() * 14;
+                    const shade = i % 3 === 0 ? 70 : 165;
+                    ctx.fillStyle = `rgba(${shade},${shade},${shade},0.35)`;
+                    ctx.beginPath();
+                    ctx.arc(rng() * 256, rng() * 256, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.strokeStyle = '#3a3a3a';
+                ctx.lineWidth = 2;
+                for (let v = 0; v < 20; v++) {
+                    const vx = rng() * 220 + 18;
+                    const vy = rng() * 220 + 18;
+                    ctx.beginPath();
+                    ctx.moveTo(vx, vy);
+                    ctx.lineTo(vx + (rng() - 0.5) * 32, vy + 24);
+                    ctx.lineTo(vx + (rng() - 0.5) * 28, vy + 46);
+                    ctx.stroke();
+                }
+            }
+
+            const tex = new THREE.CanvasTexture(c);
+            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+            this.textures[key] = tex;
+            return tex;
+        }
+
         createGunmetalTexture(baseHex = 0x262c36) {
             const key = `gunmetal_${baseHex}`;
             if (this.textures[key]) return this.textures[key];
@@ -822,68 +925,204 @@
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.fillRect(0, 0, 256, 256);
 
-            // Fine horizontal brushed parkerized metal grain
+            // Fine horizontal brushed parkerized metal grain + specular oil sheen
             for (let y = 0; y < 256; y += 2) {
-                const v = (Math.sin(y * 1.7) * 10 + ((y * 37) % 13) - 6);
-                ctx.fillStyle = v > 0 ? `rgba(255,255,255,${(v * 0.0045).toFixed(3)})` : `rgba(0,0,0,${(-v * 0.006).toFixed(3)})`;
+                const v = (Math.sin(y * 1.7) * 14 + ((y * 37) % 15) - 7);
+                ctx.fillStyle = v > 0 ? `rgba(255,255,255,${(v * 0.0055).toFixed(3)})` : `rgba(0,0,0,${(-v * 0.007).toFixed(3)})`;
                 ctx.fillRect(0, y, 256, 2);
             }
-            // Subtle machined panel seam + edge wear scratches
-            ctx.strokeStyle = 'rgba(0,0,0,0.34)';
+            // Machined receiver bevel seam + edge wear scratches
+            ctx.strokeStyle = 'rgba(0,0,0,0.44)';
             ctx.lineWidth = 2;
             ctx.strokeRect(6, 6, 244, 244);
-            ctx.strokeStyle = 'rgba(226,232,240,0.16)';
+            ctx.strokeStyle = 'rgba(226,232,240,0.24)';
             ctx.lineWidth = 1;
             ctx.strokeRect(8, 8, 240, 240);
-            // Machined rivets
+            ctx.fillStyle = 'rgba(0,0,0,0.20)';
+            ctx.fillRect(0, 124, 256, 4);
+            // Machined rivets & pin housings
             for (const [rx, ry] of [[22, 22], [234, 22], [22, 234], [234, 234], [128, 22], [128, 234]]) {
-                ctx.fillStyle = 'rgba(0,0,0,0.45)';
-                ctx.beginPath(); ctx.arc(rx, ry, 4, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = 'rgba(255,255,255,0.22)';
-                ctx.beginPath(); ctx.arc(rx - 1, ry - 1, 2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.beginPath(); ctx.arc(rx, ry, 4.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                ctx.beginPath(); ctx.arc(rx - 1, ry - 1, 2.2, 0, Math.PI * 2); ctx.fill();
             }
-            // Battle-worn metallic micro-scratches
-            ctx.strokeStyle = 'rgba(203,213,225,0.13)';
-            for (let s = 0; s < 26; s++) {
+            // Battle-worn silver metallic edge scratches
+            ctx.strokeStyle = 'rgba(226,232,240,0.20)';
+            for (let s = 0; s < 32; s++) {
                 const sx = (s * 73) % 240 + 8;
                 const sy = (s * 41) % 240 + 8;
                 ctx.beginPath();
                 ctx.moveTo(sx, sy);
-                ctx.lineTo(sx + ((s % 5) - 2) * 9, sy + ((s % 3) - 1) * 5);
+                ctx.lineTo(sx + ((s % 5) - 2) * 11, sy + ((s % 3) - 1) * 5);
                 ctx.stroke();
             }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-            this.textures[key] = tex;
-            return tex;
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
         }
 
-        createWoodFurnitureTexture() {
-            const key = 'gun_wood_furniture';
+        createWalnutWoodTexture(baseHex = 0x6e3f1d) {
+            const key = `gun_walnut_${baseHex}`;
             if (this.textures[key]) return this.textures[key];
             const c = this._makeCanvas(256, 256);
             const ctx = c.getContext('2d');
+            const col = new THREE.Color(baseHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
             const grad = ctx.createLinearGradient(0, 0, 256, 256);
-            grad.addColorStop(0, '#6e3f1d');
-            grad.addColorStop(0.5, '#552e13');
-            grad.addColorStop(1, '#44230e');
+            grad.addColorStop(0, `rgb(${Math.min(255, r + 18)},${Math.min(255, g + 12)},${Math.min(255, b + 8)})`);
+            grad.addColorStop(0.5, `rgb(${r},${g},${b})`);
+            grad.addColorStop(1, `rgb(${Math.max(0, r - 28)},${Math.max(0, g - 20)},${Math.max(0, b - 14)})`);
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, 256, 256);
             for (let y = 0; y < 256; y += 3) {
-                const wave = Math.sin(y * 0.14) * 14;
-                ctx.strokeStyle = y % 6 === 0 ? 'rgba(25,10,2,0.30)' : 'rgba(180,115,58,0.16)';
-                ctx.lineWidth = 2;
+                const wave = Math.sin(y * 0.13 + (baseHex & 7)) * 16;
+                ctx.strokeStyle = y % 6 === 0 ? 'rgba(22,9,2,0.34)' : 'rgba(225,160,96,0.18)';
+                ctx.lineWidth = y % 9 === 0 ? 2.6 : 1.5;
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.bezierCurveTo(85, y + wave, 170, y - wave, 256, y);
                 ctx.stroke();
             }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-            this.textures[key] = tex;
-            return tex;
+            // Wood knot
+            ctx.strokeStyle = 'rgba(25,10,2,0.32)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(140, 118, 26, 10, 0.25, 0, Math.PI * 2);
+            ctx.stroke();
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        createWoodFurnitureTexture() {
+            return this.createWalnutWoodTexture(0x6e3f1d);
+        }
+
+        createBakeliteTexture(baseHex = 0x9b3b1e) {
+            const key = `gun_bakelite_${baseHex}`;
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 256);
+            const ctx = c.getContext('2d');
+            const col = new THREE.Color(baseHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(0, 0, 256, 256);
+            // Marbled Soviet AG-4S resin swirls + molded grip ribs
+            const rng = seededNoise(baseHex + 911);
+            for (let i = 0; i < 42; i++) {
+                ctx.fillStyle = i % 2 ? 'rgba(235,120,55,0.18)' : 'rgba(42,12,6,0.22)';
+                ctx.beginPath();
+                ctx.ellipse(rng() * 256, rng() * 256, 14 + rng() * 34, 4 + rng() * 10, rng() * 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            for (let y = 16; y < 256; y += 24) {
+                ctx.fillStyle = 'rgba(0,0,0,0.28)';
+                ctx.fillRect(0, y, 256, 4);
+                ctx.fillStyle = 'rgba(255,190,140,0.12)';
+                ctx.fillRect(0, y + 4, 256, 2);
+            }
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        createBrushedSteelTexture(baseHex = 0xcbd5e1) {
+            const key = `gun_brushed_${baseHex}`;
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 256);
+            const ctx = c.getContext('2d');
+            const col = new THREE.Color(baseHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+            const grad = ctx.createLinearGradient(0, 0, 256, 256);
+            grad.addColorStop(0, `rgb(${Math.min(255, r + 24)},${Math.min(255, g + 24)},${Math.min(255, b + 24)})`);
+            grad.addColorStop(0.5, `rgb(${r},${g},${b})`);
+            grad.addColorStop(1, `rgb(${Math.max(0, r - 35)},${Math.max(0, g - 35)},${Math.max(0, b - 35)})`);
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 256, 256);
+            for (let y = 0; y < 256; y += 2) {
+                ctx.fillStyle = y % 4 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
+                ctx.fillRect(0, y, 256, 1);
+            }
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(4, 4, 248, 248);
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        createCerakoteTexture(baseHex = 0x8c7a5b) {
+            const key = `gun_cerakote_${baseHex}`;
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 256);
+            const ctx = c.getContext('2d');
+            const col = new THREE.Color(baseHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(0, 0, 256, 256);
+            const rng = seededNoise(baseHex + 313);
+            for (let i = 0; i < 420; i++) {
+                ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
+                ctx.fillRect(rng() * 256, rng() * 256, 2, 2);
+            }
+            // CNC machined panel joints + Allen bolts
+            ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(10, 10, 236, 236);
+            ctx.beginPath(); ctx.moveTo(10, 128); ctx.lineTo(246, 128); ctx.stroke();
+            for (const [bx, by] of [[24, 24], [232, 24], [24, 232], [232, 232]]) {
+                ctx.fillStyle = 'rgba(15,18,24,0.65)';
+                ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2); ctx.fill();
+            }
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        createPerforatedMetalTexture(baseHex = 0x22262e) {
+            const key = `gun_perf_${baseHex}`;
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 256);
+            const ctx = c.getContext('2d');
+            const col = new THREE.Color(baseHex);
+            const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(0, 0, 256, 256);
+            for (let row = 0; row < 8; row++) {
+                const ox = (row % 2) * 16;
+                for (let colI = 0; colI < 8; colI++) {
+                    const cx = colI * 32 + ox + 16;
+                    const cy = row * 32 + 16;
+                    ctx.fillStyle = '#07090d';
+                    ctx.beginPath(); ctx.arc(cx, cy, 8.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = 'rgba(203,213,225,0.22)';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.arc(cx, cy, 9.2, 0.2, Math.PI * 1.1); ctx.stroke();
+                }
+            }
+            return (this.textures[key] = this._toTex(c, 2, 1, true));
+        }
+
+        createBrassBeltTexture() {
+            const key = 'gun_brass_belt';
+            if (this.textures[key]) return this.textures[key];
+            const c = this._makeCanvas(256, 128);
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#181a1f';
+            ctx.fillRect(0, 0, 256, 128);
+            for (let x = 4; x < 256; x += 22) {
+                // Brass cartridge casing
+                const grad = ctx.createLinearGradient(x, 0, x + 16, 0);
+                grad.addColorStop(0, '#926c15');
+                grad.addColorStop(0.5, '#facc15');
+                grad.addColorStop(1, '#854d0e');
+                ctx.fillStyle = grad;
+                ctx.fillRect(x, 30, 15, 84);
+                // Copper bullet projectile tip
+                ctx.fillStyle = '#b45309';
+                ctx.beginPath();
+                ctx.moveTo(x + 2, 30);
+                ctx.lineTo(x + 7.5, 6);
+                ctx.lineTo(x + 13, 30);
+                ctx.closePath();
+                ctx.fill();
+                // Steel disintegrating belt link
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(x - 3, 56, 21, 14);
+                ctx.fillRect(x - 3, 86, 21, 10);
+            }
+            return (this.textures[key] = this._toTex(c, 2, 1, true));
         }
 
         createPolymerGripTexture() {
@@ -893,20 +1132,16 @@
             const ctx = c.getContext('2d');
             ctx.fillStyle = '#141820';
             ctx.fillRect(0, 0, 128, 128);
-            // Diamond tactical stippling pattern
             for (let y = 0; y < 128; y += 8) {
                 for (let x = 0; x < 128; x += 8) {
                     const ox = (y % 16 === 0) ? 0 : 4;
-                    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                    ctx.fillStyle = 'rgba(255,255,255,0.09)';
                     ctx.fillRect((x + ox) % 128, y, 3, 3);
-                    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                    ctx.fillStyle = 'rgba(0,0,0,0.48)';
                     ctx.fillRect((x + ox + 2) % 128, y + 2, 3, 3);
                 }
             }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(3, 3);
-            if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+            const tex = this._toTex(c, 3, 3, true);
             this.textures[key] = tex;
             return tex;
         }
@@ -920,18 +1155,16 @@
             const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.fillRect(0, 0, 128, 128);
-            // Mottled decay blotches
-            for (let i = 0; i < 42; i++) {
+            for (let i = 0; i < 48; i++) {
                 const px = (i * 53) % 120 + 4;
                 const py = (i * 31) % 120 + 4;
                 const rad = 5 + (i % 9);
-                ctx.fillStyle = i % 3 === 0 ? 'rgba(20,12,12,0.22)' : 'rgba(195,215,180,0.12)';
+                ctx.fillStyle = i % 3 === 0 ? 'rgba(18,10,12,0.28)' : 'rgba(205,220,188,0.16)';
                 ctx.beginPath(); ctx.arc(px, py, rad, 0, Math.PI * 2); ctx.fill();
             }
-            // Dark undead veins
-            ctx.strokeStyle = 'rgba(32,14,24,0.42)';
-            ctx.lineWidth = 1.4;
-            for (let v = 0; v < 12; v++) {
+            ctx.strokeStyle = 'rgba(38,12,24,0.52)';
+            ctx.lineWidth = 1.6;
+            for (let v = 0; v < 14; v++) {
                 const vx = (v * 37) % 110 + 9;
                 const vy = (v * 23) % 110 + 9;
                 ctx.beginPath();
@@ -940,22 +1173,17 @@
                 ctx.lineTo(vx + ((v % 5) - 2) * 10, vy + 24);
                 ctx.stroke();
             }
-            // Dried blood & grime scars
-            ctx.fillStyle = 'rgba(110,12,16,0.48)';
-            for (let bl = 0; bl < 8; bl++) {
+            ctx.fillStyle = 'rgba(125,14,18,0.55)';
+            for (let bl = 0; bl < 9; bl++) {
                 ctx.beginPath();
                 ctx.arc((bl * 43 + 17) % 114 + 7, (bl * 29 + 11) % 114 + 7, 3 + (bl % 4), 0, Math.PI * 2);
                 ctx.fill();
             }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-            this.textures[key] = tex;
-            return tex;
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
         }
 
-        createZombieClothTexture(clothHex = 0x2c343f) {
-            const key = `zcloth_${clothHex}`;
+        createMilitaryFatigueTexture(style = 'bdu', clothHex = 0x2c343f) {
+            const key = `zmil_${style}_${clothHex}`;
             if (this.textures[key]) return this.textures[key];
             const c = this._makeCanvas(128, 128);
             const ctx = c.getContext('2d');
@@ -963,34 +1191,79 @@
             const r = Math.round(col.r * 255), g = Math.round(col.g * 255), b = Math.round(col.b * 255);
             ctx.fillStyle = `rgb(${r},${g},${b})`;
             ctx.fillRect(0, 0, 128, 128);
-            // Tactical cloth weave
+            const rng = seededNoise(style.length * 1031 + clothHex);
+
+            if (style === 'bdu') {
+                const patches = ['rgba(28,36,20,0.45)', 'rgba(84,68,42,0.38)', 'rgba(14,16,12,0.42)'];
+                for (let i = 0; i < 22; i++) {
+                    ctx.fillStyle = patches[i % patches.length];
+                    ctx.beginPath();
+                    ctx.ellipse(rng() * 128, rng() * 128, 10 + rng() * 20, 6 + rng() * 12, rng() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(18, 22, 34, 38);
+                ctx.strokeRect(76, 22, 34, 38);
+            } else if (style === 'soviet') {
+                for (let y = 0; y < 128; y += 3) {
+                    ctx.fillStyle = y % 6 === 0 ? 'rgba(255,240,200,0.06)' : 'rgba(10,10,8,0.16)';
+                    ctx.fillRect(0, y, 128, 2);
+                }
+                ctx.fillStyle = '#ca8a04';
+                for (const by of [28, 60, 92]) {
+                    ctx.beginPath(); ctx.arc(64, by, 3.5, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (style === 'hazmat') {
+                ctx.fillStyle = 'rgba(250,204,21,0.22)';
+                ctx.fillRect(0, 56, 128, 12);
+                ctx.fillStyle = 'rgba(15,15,15,0.45)';
+                ctx.fillRect(0, 68, 128, 4);
+                for (let i = 0; i < 12; i++) {
+                    ctx.fillStyle = 'rgba(74,222,128,0.26)';
+                    ctx.beginPath(); ctx.arc(rng() * 128, rng() * 128, 4 + rng() * 8, 0, Math.PI * 2); ctx.fill();
+                }
+            } else if (style === 'swat') {
+                for (let y = 0; y < 128; y += 8) {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                    ctx.strokeRect(0, y, 128, 8);
+                }
+                for (let x = 0; x < 128; x += 8) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+                    ctx.fillRect(x, 0, 2, 128);
+                }
+            } else if (style === 'lab') {
+                ctx.fillStyle = 'rgba(226,232,240,0.40)';
+                ctx.fillRect(0, 0, 128, 128);
+                ctx.fillStyle = 'rgba(136,19,24,0.58)';
+                for (let i = 0; i < 10; i++) {
+                    ctx.beginPath(); ctx.arc(rng() * 128, rng() * 128, 5 + rng() * 10, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            // Common weave, fabric slashes & bloodstains
             for (let y = 0; y < 128; y += 4) {
-                ctx.fillStyle = y % 8 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.14)';
-                ctx.fillRect(0, y, 128, 2);
+                ctx.fillStyle = y % 8 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.14)';
+                ctx.fillRect(0, y, 128, 1.5);
             }
-            for (let x = 0; x < 128; x += 4) {
-                ctx.fillStyle = 'rgba(0,0,0,0.08)';
-                ctx.fillRect(x, 0, 1, 128);
-            }
-            // Torn fabric slashes & dried bloodstains
             ctx.strokeStyle = 'rgba(10,10,12,0.55)';
             ctx.lineWidth = 2;
-            for (let t = 0; t < 6; t++) {
-                const tx = (t * 29 + 12) % 100;
-                const ty = (t * 47 + 15) % 100;
+            for (let t = 0; t < 5; t++) {
+                const tx = (t * 29 + 12) % 98;
+                const ty = (t * 47 + 15) % 98;
                 ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + 18, ty + 6); ctx.stroke();
             }
-            ctx.fillStyle = 'rgba(105,14,18,0.52)';
-            for (let d = 0; d < 7; d++) {
+            ctx.fillStyle = 'rgba(105,14,18,0.48)';
+            for (let d = 0; d < 6; d++) {
                 ctx.beginPath();
-                ctx.arc((d * 39 + 19) % 112 + 8, (d * 51 + 13) % 112 + 8, 5 + (d % 5), 0, Math.PI * 2);
+                ctx.arc((d * 39 + 19) % 112 + 8, (d * 51 + 13) % 112 + 8, 4 + (d % 4), 0, Math.PI * 2);
                 ctx.fill();
             }
-            const tex = new THREE.CanvasTexture(c);
-            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-            if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-            this.textures[key] = tex;
-            return tex;
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        createZombieClothTexture(clothHex = 0x2c343f) {
+            return this.createMilitaryFatigueTexture('tattered', clothHex);
         }
     }
 

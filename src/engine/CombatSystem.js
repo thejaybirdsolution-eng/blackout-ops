@@ -22,6 +22,8 @@
             this.busterCharging = false;
             this.busterChargeTime = 0;
             this.busterSoundAccum = 0;
+            this.fistCharging = false;
+            this.fistChargeTime = 0;
         }
 
         reset(camera) {
@@ -33,6 +35,8 @@
             this.busterCharging = false;
             this.busterChargeTime = 0;
             this.busterSoundAccum = 0;
+            this.fistCharging = false;
+            this.fistChargeTime = 0;
             for (const p of this.projectiles) {
                 if (p.mesh && BO.World.scene) BO.World.scene.remove(p.mesh);
             }
@@ -58,6 +62,8 @@
             this.busterCharging = false;
             this.busterChargeTime = 0;
             this.busterSoundAccum = 0;
+            this.fistCharging = false;
+            this.fistChargeTime = 0;
         }
 
         handleFireInput(pressed, justPressed) {
@@ -66,6 +72,15 @@
             P.triggerHeld = pressed;
 
             if (P.swapTimer > 0 || P.meleeTimer > 0) return;
+
+            if (P.usingBareHands) {
+                if (pressed && justPressed) {
+                    this.fistCharging = true;
+                    this.fistChargeTime = 0;
+                    this._survivalPunch(false);
+                }
+                return;
+            }
 
             const w = P.activeWeapon;
             if (!w) return;
@@ -115,6 +130,16 @@
         }
 
         releaseFireInput() {
+            if (this.fistCharging) {
+                const held = this.fistChargeTime;
+                this.fistCharging = false;
+                this.fistChargeTime = 0;
+                if (held >= 0.45 && BO.Player.usingBareHands) {
+                    BO.Player.fireCooldown = 0;
+                    this._survivalPunch(true);
+                }
+                return;
+            }
             if (!this.busterCharging) return;
             const chargeSec = this.busterChargeTime;
             this.busterCharging = false;
@@ -128,6 +153,14 @@
 
         updateBurstAndProjectiles(dt, worldCamera) {
             const P = BO.Player;
+            if (this.fistCharging) {
+                if (!P.alive || !P.usingBareHands || !P.triggerHeld) {
+                    this.fistCharging = false;
+                    this.fistChargeTime = 0;
+                } else {
+                    this.fistChargeTime = Math.min(1.5, this.fistChargeTime + dt);
+                }
+            }
             if (this.busterCharging) {
                 const w = P.activeWeapon;
                 if (!P.alive || !w || w.stats.magicType !== 'megaman_plasma' || P.reloading || P.swapTimer > 0) {
@@ -1470,9 +1503,78 @@
             }
         }
 
+        _survivalPunch(isHeavy = false) {
+            const P = BO.Player;
+            if (!P.usingBareHands || !P.alive || P.swapTimer > 0 || P.meleeTimer > 0 ||
+                P.fireCooldown > 0 || !this.camera) return;
+
+            P.bareComboStep = isHeavy ? 2 : ((P.bareComboStep + 1) % 3);
+            P.bareComboWindow = 1.05;
+            const isFinisher = isHeavy || P.bareComboStep === 2;
+            P.fireCooldown = isHeavy ? 0.56 : 0.36;
+            P.meleeTimer = isHeavy ? 0.30 : 0.25;
+            P.punchSide *= -1;
+            BO.Sound.playMelee();
+
+            const aim = P.getAimRay(this.camera);
+            const reach = isFinisher ? 2.30 : 2.05;
+            const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
+            this.raycaster.set(aim.origin, aim.dir);
+            this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
+            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hit = hits.find((result) => result.object.userData.entity?.alive);
+            if (!hit || !this.onHitEnemy) {
+                // Punching near hand-gatherable natural deposits harvests them!
+                const m = BO.SurvivalMode;
+                if (m?.active && m.near?.id?.startsWith('node:')) {
+                    const node = m.campaign?.pack?.resources?.get(m.near.id);
+                    if (node && !node.spec.tool) m.campaign.pack.interact(m.near);
+                }
+                return;
+            }
+
+            const ent = hit.object.userData.entity;
+            const deep = BO.SurvivalMode?.campaign?.deep;
+            let dmg = isHeavy ? 96 : (P.bareComboStep === 2 ? 72 : P.bareComboStep === 1 ? 52 : 44);
+            if (deep) {
+                dmg *= (1 + (deep.attributes.strength || 0) * 0.18);
+                if (deep.hasTalisman('claw_talisman')) dmg *= 1.35;
+            }
+            let critHit = false;
+            if (ent.parriedUntil && ent.parriedUntil > performance.now() / 1000) {
+                dmg *= 2.8;
+                ent.parriedUntil = 0;
+                critHit = true;
+                BO.Events.emit('hud:toast', { text: 'RIPOSTE!', color: '#facc15' });
+            } else if (P.crouching && deep && deep.stealthFactor < 0.7 && ent.pos) {
+                const toPlayer = new THREE.Vector3(P.pos.x - ent.pos.x, 0, P.pos.z - ent.pos.z).normalize();
+                const entFwd = new THREE.Vector3(Math.sin(ent.yaw || 0), 0, Math.cos(ent.yaw || 0));
+                if (toPlayer.dot(entFwd) < -0.25) {
+                    dmg *= 3.5;
+                    critHit = true;
+                    BO.Events.emit('hud:toast', { text: 'STEALTH TAKEDOWN (3.5x)!', color: '#38bdf8' });
+                }
+            }
+            if (isFinisher && ent && !ent.isBoss) {
+                ent.stunTimer = Math.max(ent.stunTimer || 0, isHeavy ? 0.9 : 0.45);
+            }
+
+            if (BO.Settings.get('bloodLevel') !== 'off') {
+                BO.FX.spawnParticles(hit.point, critHit ? 10 : 4, critHit ? 0xfacc15 : 0x991b1b, 2.8, 9, 0.25, 0.7);
+            }
+            const descriptor = { id: 'survival_fists', stats: { kind: 'melee' } };
+            const killed = this.onHitEnemy(ent, Math.round(dmg), critHit ? 'head' : 'torso', hit.distance, descriptor, hit.point, aim.dir);
+            BO.Sound.playHitmarker(critHit, killed);
+            BO.Events.emit('hud:hitmarker', { isHeadshot: critHit, isKill: killed });
+        }
+
         meleeAttack() {
             const P = BO.Player;
             if (!P.alive || P.meleeTimer > 0 || !this.camera) return;
+            if (P.usingBareHands) {
+                this._survivalPunch();
+                return;
+            }
             if (BO.Superpowers.use(this.camera) || P.matchRules.noMelee) return;
             P.meleeTimer = P.zombiePerks.has('bare_knuckle') ? 0.19 : 0.28;
             P.reloading = false;

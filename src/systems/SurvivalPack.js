@@ -29,7 +29,18 @@
             this.nextRenewalCheck = 0;
         }
 
-        get limits() { return data.packs[this.level]; }
+        get limits() {
+            const base = data.packs[this.level] || data.packs[0];
+            const endBonus = (this.campaign.deep?.attributes?.endurance || 0) * 3;
+            const techBonus = this.campaign.deep?.hasTech?.('t1_scavenge') ? 8 : 0;
+            const mult = this.campaign.has?.('megaStack') ? 2 : 1;
+            const slotBonus = this.campaign.has?.('megaStack') ? 10 : 0;
+            return {
+                name: base.name,
+                weight: base.weight * mult + endBonus + techBonus,
+                slots: base.slots + slotBonus
+            };
+        }
         get inventory() { return this.mode.points; }
 
         weight(items = this.inventory) {
@@ -161,6 +172,10 @@
                 return true;
             }
             if (node.kind === 'deep' && !this.campaign.metrics.geodeBoss) {
+                if (!m.hostilesReleased) {
+                    m.toast('The deep seam stays sealed during the safe minute.');
+                    return true;
+                }
                 if (!this.geodeAwakened) {
                     this.geodeAwakened = true;
                     m.spawnInfected(-6.6, -5, -46.5, 'geodeBoss');
@@ -171,7 +186,9 @@
             this.nextToolUse = m.clock + (tool ? 0.42 : 0.19);
             if (tool) {
                 this.equipped = tool;
-                this.tools[tool]--;
+                let wearStep = this.campaign.has('steadyTools') ? 0.5 : 1;
+                if (this.campaign.deep?.hasInfusion('unbreaking')) wearStep *= 0.4;
+                this.tools[tool] = Math.max(0, this.tools[tool] - wearStep);
                 BO.Player.meleeTimer = Math.max(BO.Player.meleeTimer, 0.25);
                 BO.Sound.playMelee();
                 m.noise = Math.max(m.noise, tool === 'miningDrill' ? 7 : 2.8);
@@ -182,7 +199,10 @@
             if (!node.hp) {
                 this.deplete(node);
                 if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? 480 : 170);
-                m.grant(spec.gain);
+                const extraLoot = this.campaign.has('richLoot') || this.campaign.deep?.hasInfusion('fortune');
+                const gain = extraLoot ? Object.fromEntries(Object.entries(spec.gain).map(([id, count]) =>
+                    [id, id === 'relic' ? count : count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5))])) : spec.gain;
+                m.grant(gain);
                 this.campaign.mark('gatheredNodes', 1, tool ? 10 : 3);
                 this.campaign.mark('harvest_' + node.kind, 1, 0);
                 if (spec.tool === 'pick') this.campaign.mark('oreHarvests', 1, 0);
@@ -247,6 +267,7 @@
             }
             source[id] -= n;
             target[id] = (target[id] || 0) + n;
+            if (deposit) this.campaign.mark('storedItems', n, 0);
             return true;
         }
 
@@ -285,6 +306,7 @@
             if (recipe.gain) this.receive(recipe.gain, false);
             this.campaign.mark('crafted', 1, 14);
             this.campaign.mark('crafted_' + id, 1, 0);
+            if (recipe.station === 'kiln') this.campaign.mark('kilnJobs', 1, 0);
             this.mode.toast(recipe.name + ' ready.');
             return true;
         }
@@ -293,13 +315,52 @@
             if (!this.inventory[id]) return false;
             const p = BO.Player;
             const m = this.mode;
-            if (id === 'bandage' && p.hp < p.maxHp) {
-                const hp = Math.min(27, p.maxHp - p.hp);
+            const deep = this.campaign.deep;
+            if (id === 'freshWater' && this.campaign.activities) {
+                return this.campaign.activities.useItem('freshWater');
+            } else if (id === 'bandage' && p.hp < p.maxHp) {
+                const hp = Math.min(this.campaign.has('fieldMedic') ? 40 : 27, p.maxHp - p.hp);
                 p.hp += hp;
+                if (deep) deep.bleeding = 0;
                 this.campaign.mark('healed', Math.ceil(hp), 0);
             } else if (id === 'tea') {
                 m.composure = Math.min(100, m.composure + 36);
                 m.radiation = Math.max(0, m.radiation - 19);
+                if (deep) deep.hydration = Math.min(100, deep.hydration + 25);
+            } else if (id === 'stew') {
+                m.hunger = Math.min(100, m.hunger + 65);
+                p.hp = Math.min(p.maxHp, p.hp + 25);
+                if (deep) { deep.hydration = Math.min(100, deep.hydration + 35); deep.temp = Math.max(22, deep.temp + 10); deep.comfortUntil = m.clock + 180; }
+                m.toast('Ate Hearty Stew (+65 hunger, +35 water, +25 HP, Warmed).');
+            } else if (id === 'espresso') {
+                m.composure = Math.min(100, m.composure + 25);
+                p.tacStamina = 1.0;
+                if (deep) { deep.hydration = Math.min(100, deep.hydration + 20); deep.activeTonics.espresso = m.clock + 25; }
+                m.toast('Drank Field Espresso (stamina & focus boost!).');
+            } else if (id === 'antibiotic') {
+                m.radiation = Math.max(0, m.radiation - 30);
+                if (deep) { deep.bleeding = 0; deep.infection = 0; }
+                m.toast('Antibiotic Elixir cleared bleeding & bio-infection.');
+            } else if (id === 'broth') {
+                if (deep) { deep.temp = Math.min(35, deep.temp + 18); deep.hydration = Math.min(100, deep.hydration + 20); deep.comfortUntil = m.clock + 150; }
+                m.toast('Thermal Spiced Broth warmed you against the cold.');
+            } else if (id === 'aetherStim') {
+                p.hp = Math.min(p.maxHp, p.hp + 45);
+                p.tacStamina = 1.0;
+                if (deep) deep.activeTonics.aetherStim = m.clock + 20;
+                m.toast('Aether Stim injected (+45 HP & speed surge!).');
+            } else if (id === 'orbitalFlare') {
+                if (this.campaign.activities) {
+                    this.campaign.activities.nextDrop = m.clock;
+                    m.toast('Orbital Supply Flare launched! Weather-balloon cache inbound.');
+                }
+            } else if (['jugBrew', 'speedTonic', 'staminElixir', 'deadshotTinc'].includes(id)) {
+                if (deep) {
+                    deep.activeTonics[id] = m.clock + 180;
+                    deep.recomputePlayerStats();
+                }
+                BO.Sound?.playPerkBuy?.();
+                m.toast(nameOf(id) + ' active for 3 minutes!');
             } else if (id === 'filter') {
                 this.filterUntil = Math.max(m.clock, this.filterUntil) + 120;
             } else if (id === 'repair' && this.equipped && this.tools[this.equipped] < data.tools[this.equipped].wear) {

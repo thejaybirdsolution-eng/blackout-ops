@@ -110,6 +110,16 @@
             this.vmCamera.add(this.vmAnchor);
             this.vmScene.add(this.vmCamera);
             this.vmBuild = null;
+            this.fistRig = null;
+            this.punchSide = 1;
+            this.guardStartTime = -99;
+            this._wasGuarding = false;
+            this.parryFeedbackTimer = 0;
+            this.invulnTimer = 0;
+            this.dodgeCooldown = 0;
+            this.dodgeRollTimer = 0;
+            this.bareComboStep = 0;
+            this.bareComboWindow = 0;
             this.muzzleFlashMesh = null;
             this.muzzleFlashTimer = 0;
             this._setupVMLights();
@@ -306,7 +316,17 @@
             this.ultimateCharge = BO.Math.clamp(this.ultimateCharge + pctPoints / 100, 0, 1);
         }
 
+        get usingBareHands() {
+            return BO.State.activeMode === 'survival' && this.activeSlot === -1;
+        }
+
+        get guardingWithHands() {
+            return this.usingBareHands && this.adsHeld && this.meleeTimer <= 0 &&
+                this.swapTimer <= 0 && this.tacStamina >= 0.22 && !this.sliding;
+        }
+
         get activeWeapon() {
+            if (this.usingBareHands) return undefined;
             return this.weapons[this.activeSlot] || this.weapons[0];
         }
 
@@ -353,6 +373,7 @@
                 this.weapons.push(inst);
                 this.activeSlot = this.weapons.length - 1;
             } else {
+                if (this.usingBareHands) this.activeSlot = 0;
                 this.weapons[this.activeSlot] = inst;
             }
             this.reloading = false;
@@ -395,6 +416,15 @@
         rebuildViewmodel() {
             while (this.vmAnchor.children.length > 0) {
                 this.vmAnchor.remove(this.vmAnchor.children[0]);
+            }
+            this.vmBuild = null;
+            this.muzzleFlashMesh = null;
+            this.muzzleFlashTimer = 0;
+            if (this.usingBareHands) {
+                this.fistRig ??= this._buildFistRig();
+                this.vmAnchor.add(this.fistRig.root);
+                this._updateFistPose();
+                return;
             }
             const w = this.activeWeapon;
             if (!w) return;
@@ -488,15 +518,59 @@
         }
 
         switchWeapon(targetSlot = null) {
-            if (this.weapons.length < 2 || this.swapTimer > 0) return;
-            const next = targetSlot !== null ? targetSlot : ((this.activeSlot + 1) % this.weapons.length);
-            if (next === this.activeSlot || !this.weapons[next]) return;
+            if (this.swapTimer > 0) return;
+            const isSurvival = BO.State.activeMode === 'survival';
+            if (targetSlot === null && !isSurvival && this.weapons.length < 2) return;
+            let next = targetSlot;
+            if (next === null) {
+                if (isSurvival) {
+                    if (this.activeSlot === -1) next = 0;
+                    else if (this.activeSlot + 1 < this.weapons.length) next = this.activeSlot + 1;
+                    else next = -1;
+                } else {
+                    next = (this.activeSlot + 1) % this.weapons.length;
+                }
+            }
+            const stowing = next === -1 && isSurvival;
+            if (next === this.activeSlot || (!stowing && !this.weapons[next])) return;
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.activeSlot = next;
             this.reloading = false;
             this.burstRemaining = 0;
-            this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.30;
+            this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.28;
+            if (stowing) {
+                this.adsAlpha = 0;
+                this.inspectTimer = 0;
+                this.meleeTimer = 0;
+                this._wasGuarding = false;
+            }
             this.rebuildViewmodel();
+        }
+
+        tryDodgeRoll() {
+            if (!this.alive || this.inLastStand || this.dodgeCooldown > 0 || this.tacStamina < 0.25) return false;
+            const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
+            const endRed = Math.max(0.55, 1 - (deep?.attributes?.endurance || 0) * 0.05);
+            this.tacStamina = Math.max(0, this.tacStamina - 0.26 * endRed);
+            this.invulnTimer = 0.34;
+            this.dodgeCooldown = 0.58;
+            this.dodgeRollTimer = 0.30;
+            const { forward, right } = this.getMoveDirectionVectors();
+            const kb = BO.Settings.getKeybinds();
+            let ix = 0, iz = 0;
+            if (this.keys[kb.forward] || this.keys['KeyW']) iz += 1;
+            if (this.keys[kb.back] || this.keys['KeyS']) iz -= 1;
+            if (this.keys[kb.right] || this.keys['KeyD']) ix += 1;
+            if (this.keys[kb.left] || this.keys['KeyA']) ix -= 1;
+            const dashDir = new THREE.Vector3();
+            if (iz !== 0) dashDir.addScaledVector(forward, iz);
+            if (ix !== 0) dashDir.addScaledVector(right, ix);
+            if (dashDir.lengthSq() === 0) dashDir.copy(forward).multiplyScalar(-1);
+            dashDir.normalize();
+            this.vel.x = dashDir.x * 11.5;
+            this.vel.z = dashDir.z * 11.5;
+            BO.Sound.playSlide();
+            return true;
         }
 
         startReload() {
@@ -541,9 +615,45 @@
             BO.Sound.playReload('in');
         }
 
-        takeDamage(amount, attackerPos = null, isExplosive = false) {
+        takeDamage(amount, attackerPos = null, isExplosive = false, attackerEntity = null) {
             if (!this.alive || this.inLastStand || this.reviveGraceTimer > 0) return;
             if (BO.Cheats && BO.Cheats.isActive('infhealth')) return;
+            if (this.invulnTimer > 0) {
+                BO.Events.emit('hud:toast', { text: 'EVADED!', color: '#a6ddd0' });
+                return;
+            }
+            const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
+            if (this.guardingWithHands && attackerPos && !isExplosive) {
+                const dx = attackerPos.x - this.pos.x;
+                const dz = attackerPos.z - this.pos.z;
+                const distance = Math.hypot(dx, dz);
+                const facing = -(dx * Math.sin(this.yaw) + dz * Math.cos(this.yaw));
+                if (distance > 0.01 && distance <= 3.4 && facing > distance * 0.45) {
+                    const nowSec = performance.now() / 1000;
+                    const parryWin = deep?.hasTalisman('claw_talisman') ? 0.38 : 0.28;
+                    if (nowSec - this.guardStartTime <= parryWin) {
+                        this.parryFeedbackTimer = 1.0;
+                        this.tacStamina = Math.min(1.0, this.tacStamina + 0.25);
+                        BO.Sound.playHitmarker(true, false);
+                        BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 14, 0xfacc15, 4.5, 4, 0.35);
+                        BO.Events.emit('hud:toast', { text: 'PERFECT PARRY! Counter-punch for 2.8x Riposte!', color: '#facc15' });
+                        if (attackerEntity) {
+                            attackerEntity.stunTimer = Math.max(attackerEntity.stunTimer || 0, 2.4);
+                            attackerEntity.parriedUntil = nowSec + 2.8;
+                        }
+                        return;
+                    }
+                    this.tacStamina = Math.max(0, this.tacStamina - 0.18);
+                    amount *= 0.32;
+                }
+            }
+            if (deep) {
+                if (deep.activeTonics?.jugBrew > BO.SurvivalMode.clock) amount *= 0.75;
+                if (deep.hasTalisman('ironheart_crest') && this.hp < this.maxHp * 0.45) amount *= 0.75;
+                if (deep.hasInfusion('thorns') && attackerEntity && !isExplosive) {
+                    BO.SurvivalMode.hit(attackerEntity, Math.max(8, Math.round(amount * 0.35)), 'torso', null, 'melee');
+                }
+            }
             if (isExplosive && this.zombiePerks.has('phd_flopper')) return;
             if (isExplosive && this.mpPerks.includes('flak_jacket')) amount *= 0.5;
             if (this.zombiePerks.has('widows_wine') && (!this._widowCd || this._widowCd <= 0)) {
@@ -645,6 +755,19 @@
             if (this.swapTimer > 0) this.swapTimer -= dt;
             if (this.meleeTimer > 0) this.meleeTimer -= dt;
             if (this.inspectTimer > 0) this.inspectTimer -= dt;
+            if (this.parryFeedbackTimer > 0) this.parryFeedbackTimer = Math.max(0, this.parryFeedbackTimer - dt);
+            if (this.invulnTimer > 0) this.invulnTimer = Math.max(0, this.invulnTimer - dt);
+            if (this.dodgeCooldown > 0) this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
+            if (this.dodgeRollTimer > 0) this.dodgeRollTimer = Math.max(0, this.dodgeRollTimer - dt);
+            if (this.bareComboWindow > 0) {
+                this.bareComboWindow = Math.max(0, this.bareComboWindow - dt);
+                if (this.bareComboWindow === 0) this.bareComboStep = 0;
+            }
+            const guardingNow = this.guardingWithHands;
+            if (guardingNow && !this._wasGuarding) {
+                this.guardStartTime = performance.now() / 1000;
+            }
+            this._wasGuarding = guardingNow;
             if (this.flashBlindTimer > 0) this.flashBlindTimer = Math.max(0, this.flashBlindTimer - dt);
             if (this.cameraShake > 0) this.cameraShake = Math.max(0, this.cameraShake - dt * 0.14);
 
@@ -751,7 +874,7 @@
 
             // ADS & Camera FOV
             const w = this.activeWeapon;
-            const canAds = !this.matchRules.noAds && this.adsHeld && !this.reloading && !this.tacSprinting && this.swapTimer <= 0 && !this.inLastStand;
+            const canAds = !this.usingBareHands && !this.matchRules.noAds && this.adsHeld && !this.reloading && !this.tacSprinting && this.swapTimer <= 0 && !this.inLastStand;
             const adsRate = w ? (1 / Math.max(0.06, w.stats.adsTime)) : 6.0;
             this.adsAlpha = BO.Math.clamp(this.adsAlpha + (canAds ? 1 : -1) * adsRate * dt, 0, 1);
             this.holdBreath = canAds && (this.keys['ShiftLeft'] || this.keys['ShiftRight']) && w && w.stats.useScopeOverlay;
@@ -786,7 +909,7 @@
             const finalEuler = new THREE.Euler(
                 BO.Math.clamp(this.pitch + this.recoilPitch + this.flinchPitch + breathY, -1.5, 1.5),
                 this.yaw + this.recoilYaw + breathX,
-                this.sliding ? -0.07 : 0,
+                this.dodgeRollTimer > 0 ? Math.sin(this.dodgeRollTimer / 0.30 * Math.PI) * 0.24 : (this.sliding ? -0.07 : 0),
                 'YXZ'
             );
             worldCamera.quaternion.setFromEuler(finalEuler);
@@ -900,7 +1023,11 @@
             } else {
                 this.sprinting = false;
                 this.tacSprinting = false;
-                this.tacStamina = Math.min(1.0, this.tacStamina + (this.mpPerks.includes('sprinter_recovery') ? 0.50 : 0.25) * dt);
+                if (!(this.usingBareHands && this.adsHeld)) {
+                    const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
+                    const recMult = (deep?.hasTalisman('turtle_emblem') ? 1.40 : 1) * (deep?.comfortUntil > BO.SurvivalMode?.clock ? 1.18 : 1) * (deep?.activeTonics?.espresso > BO.SurvivalMode?.clock ? 1.35 : 1);
+                    this.tacStamina = Math.min(1.0, this.tacStamina + (this.mpPerks.includes('sprinter_recovery') ? 0.50 : 0.25) * recMult * dt);
+                }
             }
 
             if (this.sliding) {
@@ -922,6 +1049,7 @@
             if (this.adsAlpha > 0.3 && !this.sliding) {
                 speed *= stalker ? 0.85 : 0.62;
             }
+            if (this.guardingWithHands) speed *= 0.78;
             if (this.mpPerks.includes('stride') && !this.sprinting && !this.crouching && !this.sliding && this.adsAlpha <= 0.3) speed *= 1.12;
             if (this.mpPerks.includes('reverse_gear') && iz < 0) speed *= 1.2;
             if (staminUp) speed *= 1.16;
@@ -1065,7 +1193,69 @@
             }
         }
 
+        _buildFistRig() {
+            const root = new THREE.Group();
+            root.name = 'Survival bare hands';
+            const sleeve = new THREE.MeshStandardMaterial({ color: 0x3b4432, roughness: 0.90 });
+            const cuff = new THREE.MeshStandardMaterial({ color: 0x1c1e1a, roughness: 0.85 });
+            const wrapMat = new THREE.MeshStandardMaterial({ color: 0xdfd8c5, roughness: 0.92 });
+            const skin = new THREE.MeshStandardMaterial({ color: 0xac795a, roughness: 0.72 });
+            const palmShape = new THREE.SphereGeometry(1, 14, 10);
+            const armShape = new THREE.CylinderGeometry(0.044, 0.061, 0.29, 10);
+            const cuffShape = new THREE.CylinderGeometry(0.051, 0.056, 0.065, 12);
+            const hands = [-1, 1].map((side) => {
+                const hand = new THREE.Group();
+                const forearm = new THREE.Mesh(armShape, sleeve);
+                forearm.rotation.x = -Math.PI / 2; forearm.position.z = 0.16;
+                const wrist = new THREE.Mesh(cuffShape, cuff);
+                wrist.rotation.x = -Math.PI / 2; wrist.position.z = 0.04;
+                const wrap = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.048, 0.065, 10), wrapMat);
+                wrap.rotation.x = -Math.PI / 2; wrap.position.z = -0.005;
+                const palm = new THREE.Mesh(palmShape, wrapMat);
+                palm.scale.set(0.063, 0.05, 0.064); palm.position.z = -0.027;
+                hand.add(forearm, wrist, wrap, palm);
+                for (let i = 0; i < 4; i++) {
+                    const knuckle = new THREE.Mesh(palmShape, skin);
+                    const width = 0.016 - i * 0.0005;
+                    knuckle.scale.set(width, 0.021 - i * 0.001, 0.027);
+                    knuckle.position.set((i - 1.5) * side * 0.024, 0.018 - i * 0.003, -0.068 + i * 0.004);
+                    hand.add(knuckle);
+                }
+                const thumb = new THREE.Mesh(palmShape, skin);
+                thumb.scale.set(0.026, 0.023, 0.036);
+                thumb.position.set(-side * 0.045, -0.012, -0.054);
+                hand.add(thumb);
+                root.add(hand);
+                return hand;
+            });
+            return { root, hands };
+        }
+
+        _updateFistPose() {
+            this.vmAnchor.visible = true;
+            this.vmAnchor.position.set(this.swayX, this.swayY, 0);
+            this.vmAnchor.rotation.set(0, 0, this.sliding ? 0.16 : 0);
+            const movement = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / 6.5);
+            const guard = this.guardingWithHands ? 1 : 0;
+            const charging = BO.Combat?.fistCharging ? Math.min(1, (BO.Combat.fistChargeTime || 0) / 0.45) : 0;
+            const punch = this.meleeTimer > 0 ? Math.sin(Math.PI * BO.Math.clamp(1 - this.meleeTimer / 0.28, 0, 1)) : 0;
+            this.fistRig.hands.forEach((hand, index) => {
+                const side = index === 0 ? -1 : 1;
+                const extension = this.punchSide === side ? punch : 0;
+                const pullback = this.punchSide * -1 === side ? charging * 0.09 : 0;
+                const bob = Math.sin(this.bobPhase + index * Math.PI) * 0.013 * movement;
+                hand.position.set(side * (0.17 - guard * 0.038 - extension * 0.095),
+                    -0.16 + guard * 0.095 + extension * (this.bareComboStep === 2 ? 0.11 : 0.065) + bob - Math.max(0, this.swapTimer) * 0.5,
+                    -0.36 - guard * 0.04 - extension * 0.26 + pullback);
+                hand.rotation.set(0.23 - guard * 0.24 - extension * (this.bareComboStep === 2 ? 0.45 : 0.27), side * (0.18 - extension * 0.18), side * (0.10 + guard * 0.15));
+            });
+        }
+
         _updateViewmodel(dt) {
+            if (this.usingBareHands && this.fistRig) {
+                this._updateFistPose();
+                return;
+            }
             const w = this.activeWeapon;
             if (!w || !this.vmBuild) return;
 

@@ -121,3 +121,24 @@
 .frontier-guide { padding: 10px; margin: 12px 0; border-left: 2px solid #6aa792; color: #d9e7dc; }
 .frontier-guide summary { cursor: pointer; color: #a9d8c7; }
 .frontier-guide p { margin: 8px 0; line-height: 1.45; }
+
+/* Mega Survival UI additions */
+#hud-survival { width: min(94vw, 760px); border: 1px solid #3c6158; border-radius: 6px; }
+#hud-survival.is-safe-prep { border-color: #4ade80; background: rgba(12, 34, 24, 0.90); }
+#hud-survival.is-safe-prep strong { color: #86efac; }
+#hud-survival.is-blood-moon { border-color: #ef4444; background: rgba(48, 12, 16, 0.92); }
+#hud-survival.is-blood-moon strong { color: #fca5a5; }
+.survival-presets-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+.survival-mod-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-top: 8px; }
+.survival-mod-group { padding: 8px 10px; border: 1px solid #2b443e; border-radius: 4px; background: rgba(14, 26, 24, 0.65); }
+.survival-mod-group h4 { margin: 0 0 6px; color: #a6ddd0; font-size: .86rem; text-transform: uppercase; letter-spacing: 1px; }
+.survival-mod-group .survival-toggle { align-items: flex-start; font-size: .82rem; margin: 4px 0; }
+.survival-mode-detail, .survival-diff-detail { margin: 4px 0; font-size: .88rem; color: #cfe8de; }
+.survival-safe-pill { padding: 7px 12px; border: 1px solid #4ade80; border-radius: 4px; background: rgba(20, 83, 45, 0.38); color: #bbf7d0; font-weight: 700; }
+.survival-legend-filters { margin-bottom: 12px; }
+.survival-legend-filters input { width: 100%; min-height: 40px; border: 1px solid #425a54; border-radius: 4px; padding: 7px 10px; color: #e5f5ec; background: #142220; font: inherit; }
+.survival-legend-group { margin: 14px 0; }
+.survival-legend-group h3 { margin: 0 0 8px; color: #a6ddd0; border-bottom: 1px solid #2b4640; padding-bottom: 4px; }
+.survival-legend-count { color: #94c3a1; font-size: .88rem; margin: 6px 0; }
+.survival-map span.map-shrine { background: #2c2410ee; color: #fde047; border: 1px solid #ca8a04; font-size: .72rem; }
+.survival-map span.map-meteor { background: #2e1065ee; color: #e879f9; border: 1px solid #a855f7; }

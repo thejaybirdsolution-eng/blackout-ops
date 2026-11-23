@@ -380,7 +380,13 @@
                 if (BO.Menus && BO.Menus.isRebindingKey) return;
                 if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
                 if (BO.State.screen !== 'playing') return;
-                if (BO.ExpansionShop.open || BO.SurvivalUI.open) return;
+                if (BO.ExpansionShop.open) return;
+                if (BO.SurvivalUI.open) {
+                    if (e.code === 'KeyL' || e.code === 'KeyK' || e.code === 'KeyO' || e.code === 'KeyM' || e.code === 'KeyT' || e.code === 'KeyJ') {
+                        BO.SurvivalUI.resume();
+                    }
+                    return;
+                }
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
 
@@ -412,6 +418,17 @@
                     BO.SurvivalUI.show('travel');
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'survival') {
                     BO.SurvivalUI.show('map');
+                } else if (code === 'KeyL' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalUI.show('legend');
+                } else if (code === 'KeyK' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalUI.show('tech');
+                } else if (code === 'KeyO' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalUI.show('objectives');
+                } else if (code === 'KeyX' && firstDown && BO.State.activeMode === 'survival') {
+                    BO.SurvivalMode.campaign?.deep?.useFlask();
+                } else if (code === 'AltLeft' && firstDown && BO.State.activeMode === 'survival') {
+                    e.preventDefault();
+                    P.tryDodgeRoll();
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {
                     BO.Menus.openChangeClassModal();
                 } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'td') {
@@ -434,7 +451,8 @@
                 } else if (code === 'Digit2' && firstDown) {
                     P.switchWeapon(1);
                 } else if (code === 'Digit3' && firstDown) {
-                    P.switchWeapon(2);
+                    if (BO.State.activeMode === 'survival') P.switchWeapon(-1);
+                    else P.switchWeapon(2);
                 } else if ((code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') && firstDown) {
                     P.adjustScopeZoom(1);
                 } else if ((code === 'Minus' || code === 'NumpadSubtract' || code === 'BracketLeft') && firstDown) {

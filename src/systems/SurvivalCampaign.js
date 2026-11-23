@@ -11,6 +11,9 @@
             this.mode = mode;
             this.pack = new BO.SurvivalPack(this);
             this.options = BO.SurvivalCampaignOptions(options);
+            this.objectives = new BO.SurvivalObjectives(this);
+            this.activities = BO.SurvivalActivities ? new BO.SurvivalActivities(this) : null;
+            this.deep = BO.SurvivalDeepSystems ? new BO.SurvivalDeepSystems(this) : null;
             this.run = options.resume?.run || Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
             this.metrics = {};
             this.claims = {};
@@ -30,6 +33,8 @@
             this.selectedEnemies = this.getPool('relay');
         }
 
+        has(modifier) { return this.options.modifiers.includes(modifier); }
+
         get hour() {
             return ((this.options.startHour + this.mode.clock / this.options.dayLength * 24 + this.restHours) % 24 + 24) % 24;
         }
@@ -44,7 +49,7 @@
 
         get darkness() {
             const sun = Math.cos((this.hour - 12) * Math.PI / 12);
-            return 1 - BO.Math.clamp((sun + 0.32) * 1.05, 0, 1);
+            return this.has('blackout') ? 1 : 1 - BO.Math.clamp((sun + (this.has('longDusk') ? 0.05 : 0.32)) * 1.05, 0, 1);
         }
 
         getPool(area) {
@@ -65,6 +70,11 @@
             this.addBiomes();
             for (const npc of data.contacts) this.addNPC(npc);
             this.pack.setup();
+            if (!checkpoint && this.has('fullBags')) this.pack.level = 2;
+            if (!checkpoint && this.has('loaded')) this.pack.receive({ scrap: 4, cloth: 2, rations: 2, freshWater: 2, torch: 1 });
+            this.objectives.setup(checkpoint?.objectives);
+            this.activities?.setup();
+            this.deep?.setup();
             this.mark('runs', 1, 0);
             if (checkpoint) this.restore(checkpoint);
             this.updateLocation();
@@ -72,6 +82,8 @@
 
         stop() {
             this.pack.stop();
+            this.activities?.stop();
+            this.deep?.stop();
             for (const npc of this.npcs) npc.avatar.root.removeFromParent();
             for (const vehicle of this.vehicleModels.values()) vehicle.removeFromParent();
             this.npcs.length = 0;
@@ -167,12 +179,15 @@
         update(dt) {
             this.updateLocation();
             this.pack.update();
+            this.activities?.update(dt);
+            this.deep?.update(dt);
             const m = this.mode;
             if (this.options.autosave && m.clock >= this.nextSave && this.canSave()) {
                 this.nextSave = m.clock + 45;
                 this.save(true);
             }
-            if (this.options.pool === 'patrols' && m.clock >= this.nextPatrol) {
+            this.objectives.update();
+            if (this.options.pool === 'patrols' && m.hostilesReleased && !this.has('noPatrols') && m.clock >= this.nextPatrol) {
                 this.nextPatrol = m.clock + 38;
                 if (m.bots.filter((unit) => unit.alive && unit.team === 1).length < 8 && BO.Player.pos.y > -1) {
                     const pos = BO.Player.pos;
@@ -203,7 +218,7 @@
         }
 
         activate(marker) {
-            if (this.pack.interact(marker)) return true;
+            if (this.activities?.activate(marker) || this.deep?.activate(marker) || this.objectives.activate(marker) || this.pack.interact(marker)) return true;
             const prefix = marker.id.split(':')[0];
             const id = marker.id.split(':')[1];
             if (prefix === 'npc') {
@@ -225,6 +240,7 @@
                     if (!this.canSave()) this.mode.toast('Clear nearby enemies before resting.');
                     else {
                         this.restHours += 3;
+                        this.mark('fieldRests', 1, 5);
                         this.mode.composure = 100;
                         this.mode.hunger = Math.max(1, this.mode.hunger - 10);
                         this.save();
@@ -285,6 +301,10 @@
             const spec = data.build.find((part) => part.id === type);
             const m = this.mode;
             if (!target || !spec || !this.canBuild) return this.mode.toast('Stand on stable ground to build.');
+            if (spec.tech && this.deep && !this.deep.hasTech(spec.tech)) {
+                const techNode = BO.SurvivalDeepData?.techTree.find((t) => t.id === spec.tech);
+                return m.toast(`Research “${techNode?.name || spec.tech}” in Tech Tree [K] first.`);
+            }
             const { x, y, z, size } = target;
             if (this.placed.length >= 80) return m.toast('Structure limit reached for this expedition.');
             if (y < -1 || Math.abs(x) > 51 || z < -50 || z > 40 ||
@@ -329,10 +349,11 @@
             } else {
                 mesh = m.mesh(new THREE.BoxGeometry(w, h, d), spec.color, piece.x, midY, piece.z,
                     piece.type === 'campfire' ? { emissive: 0xd76218, emissiveIntensity: 0.64 } : {});
-                if (['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor'].includes(piece.type)) {
-                    const stone = piece.type.startsWith('stone');
+                piece.mesh = mesh;
+                if (['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'platform'].includes(piece.type)) {
+                    const stone = piece.type.startsWith('stone') || piece.type === 'door';
                     const part = m.addStructure(mesh, w, h, d, stone ? 'brick' : 'wood');
-                    if (stone) part.hp = 265;
+                    if (stone) part.hp = piece.type === 'door' ? 320 : 265;
                     part.buildPiece = piece;
                     if (Number.isFinite(piece.hp)) part.hp = piece.hp;
                     piece.part = part;
@@ -345,7 +366,29 @@
                     label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire', chest: 'Open storage chest', kiln: 'Use stone kiln' }[piece.type] });
                 if (piece.type === 'ladder') m.markers.push({ ...piece, y: piece.y + 2.86, id: 'build:' + piece.id, name: spec.name, label: 'Climb down' });
             }
+            this.deep?.registerBuild(piece);
             this.placed.push(piece);
+        }
+
+        sleepUntilDawn() {
+            if (!this.canSave()) {
+                this.mode.toast('Clear nearby enemies before sleeping.');
+                return false;
+            }
+            const hrs = this.hour >= 18 ? (24 - this.hour + 6) : this.hour < 6 ? (6 - this.hour) : 4;
+            this.restHours += hrs;
+            this.mark('fieldRests', 1, 5);
+            BO.Player.hp = BO.Player.maxHp;
+            this.mode.composure = 100;
+            this.mode.hunger = Math.max(1, this.mode.hunger - 12);
+            if (this.deep) {
+                this.deep.flaskCharges = this.deep.flaskMax;
+                this.deep.comfortUntil = this.mode.clock + 240;
+                this.deep.bloodMoonActive = false;
+            }
+            this.save();
+            this.mode.toast('Slept until morning. Vitals, Flask, and Rested Comfort refreshed!');
+            return true;
         }
 
         contact(id) {
@@ -389,6 +432,10 @@
             const npc = this.contact(id);
             const m = this.mode;
             if (!npc?.special || m.near?.id !== 'npc:' + id || this.claims[id + ':special']) return false;
+            if (npc.special !== 'helper' && !m.hostilesReleased) {
+                m.toast('Boss challenges open after the safe minute.');
+                return false;
+            }
             this.claims[id + ':special'] = true;
             if (npc.special === 'helper') {
                 const scout = m.spawnBot(npc.x - 2, npc.y, npc.z, 'mp5', 145, 0);
@@ -413,7 +460,7 @@
                 this.gliding = false;
                 return true;
             }
-            if (!this.hasVehicle(id) || this.mode.rider || p.pos.y < -1 || this.mode.exfil) return false;
+            if (this.has('footOnly') || !this.hasVehicle(id) || this.mode.rider || p.pos.y < -1 || this.mode.exfil) return false;
             if (id === 'glider' && p.pos.y < 2.25) {
                 this.mode.toast('Climb to a roof or the Relay launch deck to unfold the glider.');
                 return false;
@@ -484,22 +531,30 @@
         get speed() {
             const vehicle = data.vehicles.find((item) => item.id === this.vehicle);
             const p = BO.Player;
+            const deep = this.deep;
+            let mult = 1;
+            if (deep) {
+                if (deep.hasInfusion('swiftness')) mult *= 1.14;
+                if (deep.activeTonics.aetherStim > this.mode.clock) mult *= 1.30;
+                if (deep.activeTonics.staminElixir > this.mode.clock) mult *= 1.22;
+                if (this.mode.hunger >= 75 && deep.hydration >= 75) mult *= 1.08;
+            }
             if (!vehicle) {
-                if (this.mode.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6) return 0.75;
-                return 1;
+                if (this.mode.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6) return 0.75 * mult;
+                return mult;
             }
             const road = Math.abs(p.pos.x) < 4.1 && p.pos.z > -1;
-            return road ? vehicle.speed : vehicle.offroad;
+            return (road ? vehicle.speed : vehicle.offroad) * mult;
         }
 
         canSave() {
             const p = BO.Player;
-            return this.mode.active && p.alive && !this.mode.rider && !this.mode.exfil &&
+            return this.mode.active && p.alive && !this.mode.rider && !this.mode.exfil && !this.has('ironRun') && !this.objectives.unsafeToSave &&
                 ![...this.mode.zombies, ...this.mode.bots].some((enemy) => enemy.alive && enemy.team !== 0 && near(enemy.pos, p.pos, 9));
         }
 
         travel(id) {
-            if (!this.canSave() || !this.visited.has(id) || id === 'trench' || this.area?.id === id) return false;
+            if (this.has('footOnly') || !this.canSave() || !this.visited.has(id) || id === 'trench' || this.area?.id === id) return false;
             const area = data.areas.find((zone) => zone.id === id);
             if (!area || area.y < 0 || this.gates.get(id)?.collider.active || !this.mode.spend({ fuel: 1 })) return false;
             BO.Player.pos.set(area.x, area.y, area.z);
@@ -522,11 +577,13 @@
             career.tick(this.run, 'seconds', this.metrics.seconds, 0);
             const checkpoint = {
                 version: 1, run: this.run, at: Date.now(), options: this.options, pack: this.pack.snapshot(),
+                objectives: this.objectives.snapshot(), activities: this.activities?.snapshot(), deep: this.deep?.snapshot(),
+                hostilesReleased: m.hostilesReleased,
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,
                 points: m.points, hp: p.hp, armor: p.armor, plates: p.armorReservePlates, lethal: p.lethalCount,
                 tactical: p.tacticalCount, slot: p.activeSlot,
-                weapons: p.weapons.map((w) => ({ cfg: w.cfg, mag: w.mag, reserve: w.reserve, coil: !!w.survivalCoil, wear: w.wear || 0 })),
+                weapons: p.weapons.map((w) => ({ cfg: w.cfg, mag: w.mag, reserve: w.reserve, coil: !!w.survivalCoil, wear: w.wear || 0, mk: w.survivalMk || 1 })),
                 core: m.core, flooded: m.flooded, kills: m.kills, salvaged: m.salvaged, breaches: m.breaches,
                 hunger: m.hunger, radiation: m.radiation, composure: m.composure, mealUntil: m.mealUntil, ember: m.ember,
                 completed: [...m.completed], structures: this.staticParts.map((part) => part.hp),
@@ -556,6 +613,8 @@
             this.restHours = save.restHours;
             this.vehicle = save.transport || null;
             m.clock = save.clock;
+            const openSec = BO.SurvivalRules.openingSecondsFor ? BO.SurvivalRules.openingSecondsFor(this.options) : BO.SurvivalRules.openingSeconds;
+            m.hostilesReleased = m.clock >= openSec && (save.hostilesReleased ?? true);
             this.nextSave = m.clock + 35;
             this.nextPatrol = m.clock + 35;
             m.nextSpawn = m.clock + 15;
@@ -577,12 +636,19 @@
             p.weapons = save.weapons.map((entry) => {
                 const w = p._createWeaponInstance(entry.cfg);
                 if (entry.coil) m.configureCoil(w);
+                if (entry.mk && entry.mk > 1) {
+                    w.survivalMk = entry.mk;
+                    const mult = entry.mk === 2 ? 1.24 : 1.48;
+                    const magM = entry.mk === 2 ? 1.20 : 1.40;
+                    w.stats.damage = Math.round(w.stats.damage * mult);
+                    w.stats.magSize = Math.ceil(w.stats.magSize * magM);
+                }
                 w.mag = entry.mag;
                 w.reserve = entry.reserve;
                 w.wear = entry.wear;
                 return w;
             });
-            p.activeSlot = Math.min(save.slot, p.weapons.length - 1);
+            p.activeSlot = save.slot === -1 ? -1 : Math.min(save.slot, p.weapons.length - 1);
             p.rebuildViewmodel();
             for (const id of save.completed) {
                 if (id.startsWith('gate:')) this.openGate(id.slice(5), true);
@@ -601,11 +667,15 @@
             m.breaches = save.breaches;
             for (const piece of save.placed) this.place(piece);
             if (save.pack) this.pack.restore(save.pack);
+            if (save.activities && this.activities?.restore) this.activities.restore(save.activities);
+            if (save.deep && this.deep?.restore) this.deep.restore(save.deep);
             for (const z of save.enemies) {
-                m.spawnInfected(...z.pos, z.type, z.spec).hp = z.hp;
+                const enemy = m.spawnInfected(...z.pos, z.type, z.spec, true);
+                if (enemy) enemy.hp = z.hp;
             }
             for (const info of save.patrols) {
-                const bot = m.spawnBot(...info.pos, info.weapon, info.maxHp, info.team);
+                const bot = m.spawnBot(...info.pos, info.weapon, info.maxHp, info.team, true);
+                if (!bot) continue;
                 bot.hp = info.hp;
                 bot.name = info.name;
                 if (info.commander) m.commander = bot;

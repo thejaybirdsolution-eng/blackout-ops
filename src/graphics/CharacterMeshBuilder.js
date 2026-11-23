@@ -53,39 +53,49 @@
             const isGhost = idLow.includes('ghost') || idLow.includes('wraith') || idLow.includes('phantom') || idLow.includes('specter') || !!bs.floating;
             const isSkeleton = idLow.includes('skeleton') || idLow.includes('bone') || idLow.includes('lich');
 
-            const skinMat = this._mat('zskin_' + key, () => {
-                const map = (!isSlime && !isGhost && BO.Textures && BO.Textures.createZombieSkinTexture)
+            const skinMat = this._mat('zskin2_' + key, () => {
+                const map = (!isSlime && !isGhost && BO.Textures?.createZombieSkinTexture)
                     ? BO.Textures.createZombieSkinTexture(bs.skinColor || 0x5c6958)
                     : null;
+                const bumpMap = (!isSlime && !isGhost && BO.Textures?.createBumpTexture) ? BO.Textures.createBumpTexture('skin') : null;
                 return new THREE.MeshStandardMaterial({
                     color: map ? 0xffffff : (bs.skinColor || 0x5c6958),
                     map,
-                    roughness: isSlime ? 0.18 : 0.80,
+                    bumpMap,
+                    bumpScale: 0.032,
+                    roughness: isSlime ? 0.18 : 0.78,
                     metalness: isSlime ? 0.12 : 0.04,
                     transparent: isSlime || isGhost,
                     opacity: isSlime ? 0.78 : (isGhost ? 0.82 : 1.0),
                     emissive: bs.glowingRibs ? bs.glowingRibs : (isGhost ? (bs.eyeColor || 0x38bdf8) : 0x000000),
-                    emissiveIntensity: bs.glowingRibs ? 0.26 : (isGhost ? 0.18 : 0)
+                    emissiveIntensity: bs.glowingRibs ? 0.28 : (isGhost ? 0.20 : 0)
                 });
             });
-            const shirtMat = this._mat('zshirt_' + key, () => {
-                const map = BO.Textures && (isArmored ? BO.Textures.createGunmetalTexture : BO.Textures.createZombieClothTexture)
-                    ? (isArmored ? BO.Textures.createGunmetalTexture(bs.shirtColor || 0x333935) : BO.Textures.createZombieClothTexture(bs.shirtColor || 0x333935))
-                    : null;
+            const outfitStyle = isArmored ? 'swat' : /acid|spitter|toxic|nova|plague/.test(idLow) ? 'hazmat' : /doctor|scientist|lab|aether|crawler/.test(idLow) ? 'lab' : /soviet|officer|commissar|trench/.test(idLow) ? 'soviet' : /soldier|heavy|commando|marine|sprinter/.test(idLow) ? 'bdu' : 'tattered';
+            const shirtMat = this._mat('zshirt2_' + key, () => {
+                const T = BO.Textures;
+                const map = T ? (isArmored ? T.createGunmetalTexture(bs.shirtColor || 0x333935) : (T.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture(outfitStyle, bs.shirtColor || 0x333935) : T.createZombieClothTexture(bs.shirtColor || 0x333935))) : null;
+                const bumpMap = T?.createBumpTexture ? T.createBumpTexture(isArmored ? 'metal' : 'cloth') : null;
                 return new THREE.MeshStandardMaterial({
                     color: map ? 0xffffff : (bs.shirtColor || 0x333935),
                     map,
+                    bumpMap,
+                    bumpScale: isArmored ? 0.015 : 0.035,
                     roughness: isArmored ? 0.30 : 0.86,
-                    metalness: isArmored ? 0.82 : 0.08,
+                    metalness: isArmored ? 0.84 : 0.08,
                     transparent: isGhost,
                     opacity: isGhost ? 0.80 : 1.0
                 });
             });
-            const pantsMat = this._mat('zpants_' + key, () => {
-                const map = BO.Textures && BO.Textures.createZombieClothTexture ? BO.Textures.createZombieClothTexture(bs.pantsColor || 0x24262a) : null;
+            const pantsMat = this._mat('zpants2_' + key, () => {
+                const T = BO.Textures;
+                const map = T?.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture(outfitStyle === 'lab' ? 'tattered' : outfitStyle, bs.pantsColor || 0x24262a) : null;
+                const bumpMap = T?.createBumpTexture ? T.createBumpTexture('cloth') : null;
                 return new THREE.MeshStandardMaterial({
                     color: map ? 0xffffff : (bs.pantsColor || 0x24262a),
                     map,
+                    bumpMap,
+                    bumpScale: 0.030,
                     roughness: 0.90
                 });
             });
@@ -709,24 +719,38 @@
             return this.buildZombieFromSpec(spec, entity);
         }
 
-        buildSoldier(team, entity) {
+        buildSoldier(team, entity, role = null) {
             const root = new THREE.Group();
             const isAlly = team === 0;
             const armorHex = isAlly ? 0x2e4c6d : 0x5c2626;
-            const bduHex = isAlly ? 0x26313d : 0x292524;
+            const bduHex = isAlly ? 0x283529 : 0x2b2523;
             const visorHex = isAlly ? 0x38bdf8 : 0xf43f5e;
+            const T = BO.Textures;
 
-            const armorMat = this._mat('sol_armor_' + team, () => new THREE.MeshStandardMaterial({ color: armorHex, roughness: 0.48, metalness: 0.42 }));
-            const bduMat = this._mat('sol_bdu_' + team, () => new THREE.MeshStandardMaterial({ color: bduHex, roughness: 0.85 }));
+            const armorMat = this._mat('sol2_armor_' + team, () => new THREE.MeshStandardMaterial({
+                color: T?.createCerakoteTexture ? 0xffffff : armorHex,
+                map: T?.createCerakoteTexture ? T.createCerakoteTexture(armorHex) : null,
+                bumpMap: T?.createBumpTexture ? T.createBumpTexture('metal') : null,
+                bumpScale: 0.014,
+                roughness: 0.45, metalness: 0.46
+            }));
+            const bduMat = this._mat('sol2_bdu_' + team, () => new THREE.MeshStandardMaterial({
+                color: T?.createMilitaryFatigueTexture ? 0xffffff : bduHex,
+                map: T?.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture('bdu', bduHex) : null,
+                bumpMap: T?.createBumpTexture ? T.createBumpTexture('cloth') : null,
+                bumpScale: 0.025,
+                roughness: 0.84
+            }));
             const bootMat = this._mat('zboot', () => new THREE.MeshStandardMaterial({ color: 0x15171a, roughness: 0.72, metalness: 0.25 }));
             const visorMat = this._mat('sol_visor_' + team, () => new THREE.MeshBasicMaterial({ color: visorHex }));
+            const steelMat = this._mat('zsteel', () => new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.30, metalness: 0.88 }));
 
             const bodyPivot = new THREE.Group();
             bodyPivot.position.y = 0.84;
             bodyPivot.userData.baseY = 0.84;
             root.add(bodyPivot);
 
-            // Tactical Plate Carrier + Chest Mag Pouches + Shoulder Pads
+            // Tactical Plate Carrier + Triple Rifle Mag Pouches + Shoulder Pads + Radio Pack
             const torso = this._tagHitbox(
                 new THREE.Mesh(this._geo('torso_std', () => new THREE.BoxGeometry(0.46, 0.56, 0.26)), bduMat),
                 entity, 'torso'
@@ -734,22 +758,38 @@
             torso.position.y = 0.28;
             const plate = new THREE.Mesh(this._geo('sol_plate', () => new THREE.BoxGeometry(0.42, 0.38, 0.31)), armorMat);
             plate.position.y = 0.34;
-            const magRow = new THREE.Mesh(this._geo('sol_mags', () => new THREE.BoxGeometry(0.32, 0.14, 0.06)), bduMat);
-            magRow.position.set(0, 0.22, 0.17);
-            bodyPivot.add(torso, plate, magRow);
+            bodyPivot.add(torso, plate);
+            for (const mx of [-0.11, 0, 0.11]) {
+                const pouch = new THREE.Mesh(this._geo('sol_pouch', () => new THREE.BoxGeometry(0.085, 0.14, 0.065)), armorMat);
+                pouch.position.set(mx, 0.22, 0.175);
+                bodyPivot.add(pouch);
+            }
+            const radio = new THREE.Mesh(this._geo('sol_radio', () => new THREE.BoxGeometry(0.18, 0.24, 0.10)), armorMat);
+            radio.position.set(0, 0.35, -0.18);
+            const whip = new THREE.Mesh(this._geo('sol_whip', () => new THREE.CylinderGeometry(0.008, 0.010, 0.42, 5)), steelMat);
+            whip.position.set(0.06, 0.58, -0.20);
+            bodyPivot.add(radio, whip);
 
-            // Tactical Helmet + NVG Mount + Illuminated Visor
+            for (const sx of [-0.28, 0.28]) {
+                const pad = new THREE.Mesh(this._geo('sol_shpad', () => new THREE.BoxGeometry(0.12, 0.14, 0.18)), armorMat);
+                pad.position.set(sx, 0.52, 0);
+                bodyPivot.add(pad);
+            }
+
+            // Tactical MICH Helmet + NVG Shroud + Illuminated Goggles
             const headGroup = new THREE.Group();
             headGroup.position.set(0, 0.74, 0);
             const helmet = this._tagHitbox(
-                new THREE.Mesh(this._geo('sol_head', () => new THREE.BoxGeometry(0.26, 0.28, 0.26)), bduMat),
+                new THREE.Mesh(this._geo('sol_head_s', () => new THREE.SphereGeometry(0.145, 10, 8)), bduMat),
                 entity, 'head'
             );
             const dome = new THREE.Mesh(this._geo('zhelm_dome', () => new THREE.SphereGeometry(0.172, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.58)), armorMat);
-            dome.position.y = 0.05;
-            const visor = new THREE.Mesh(this._geo('sol_visor', () => new THREE.BoxGeometry(0.23, 0.075, 0.045)), visorMat);
-            visor.position.set(0, 0.025, 0.132);
-            headGroup.add(helmet, dome, visor);
+            dome.position.y = 0.04;
+            const nvgMount = new THREE.Mesh(this._geo('sol_nvg', () => new THREE.BoxGeometry(0.055, 0.045, 0.045)), steelMat);
+            nvgMount.position.set(0, 0.11, 0.145);
+            const visor = new THREE.Mesh(this._geo('sol_visor', () => new THREE.BoxGeometry(0.22, 0.068, 0.048)), visorMat);
+            visor.position.set(0, 0.025, 0.125);
+            headGroup.add(helmet, dome, nvgMount, visor);
             bodyPivot.add(headGroup);
 
             const armGeo = this._geo('arm', () => new THREE.CylinderGeometry(0.068, 0.054, 0.52, 8));
@@ -767,12 +807,21 @@
             armRMesh.position.y = -0.22;
             armR.add(armRMesh);
 
-            const gunBody = new THREE.Mesh(
-                this._geo('bot_gun', () => new THREE.BoxGeometry(0.06, 0.09, 0.56)),
-                this._mat('bot_gun_mat', () => new THREE.MeshStandardMaterial({ color: 0x171a20, roughness: 0.36, metalness: 0.84 }))
-            );
+            // Multi-part 3D Tactical Carbine Silhouette in Hands
+            const gunMat = this._mat('bot_gun_mat', () => new THREE.MeshStandardMaterial({ color: 0x171a20, roughness: 0.36, metalness: 0.84 }));
+            const gunBody = new THREE.Group();
             gunBody.position.set(-0.08, -0.35, 0.22);
             gunBody.rotation.x = 0.95;
+            const gRec = new THREE.Mesh(this._geo('bot_grec', () => new THREE.BoxGeometry(0.055, 0.080, 0.34)), gunMat);
+            const gBar = new THREE.Mesh(this._geo('bot_gbar', () => new THREE.CylinderGeometry(0.015, 0.017, 0.28, 8)), steelMat);
+            gBar.rotation.x = Math.PI * 0.5; gBar.position.set(0, 0.012, -0.29);
+            const gMag = new THREE.Mesh(this._geo('bot_gmag', () => new THREE.BoxGeometry(0.032, 0.14, 0.062)), gunMat);
+            gMag.position.set(0, -0.09, -0.04); gMag.rotation.x = -0.20;
+            const gOptic = new THREE.Mesh(this._geo('bot_gopt', () => new THREE.BoxGeometry(0.038, 0.042, 0.075)), gunMat);
+            gOptic.position.set(0, 0.058, 0);
+            const gStock = new THREE.Mesh(this._geo('bot_gstk', () => new THREE.BoxGeometry(0.042, 0.085, 0.18)), gunMat);
+            gStock.position.set(0, -0.01, 0.25);
+            gunBody.add(gRec, gBar, gMag, gOptic, gStock);
             armR.add(gunBody);
             bodyPivot.add(armL, armR);
 
@@ -781,9 +830,11 @@
                 lg.position.set(xPos, 0.78, 0);
                 const lm = this._tagHitbox(new THREE.Mesh(this._geo('sol_leg', () => new THREE.CylinderGeometry(0.085, 0.065, 0.66, 8)), bduMat), entity, 'limb');
                 lm.position.y = -0.33;
+                const knee = new THREE.Mesh(this._geo('sol_knee', () => new THREE.BoxGeometry(0.115, 0.105, 0.115)), armorMat);
+                knee.position.set(0, -0.36, 0.025);
                 const bt = new THREE.Mesh(this._geo('zboot_g', () => new THREE.BoxGeometry(0.132, 0.12, 0.23)), bootMat);
                 bt.position.set(0, -0.70, 0.04);
-                lg.add(lm, bt);
+                lg.add(lm, knee, bt);
                 return lg;
             };
             const legL = buildSolLeg(-0.125);

@@ -28,7 +28,9 @@
             this.scene = BO.World.build(data.map.id);
             this.camera = camera;
             this.active = true;
-            this.difficulty = campaignOptions.difficulty === 'hard' ? 'hard' : 'standard';
+            this.difficulty = BO.SurvivalCampaignOptions(campaignOptions).difficulty;
+            this.difficultyRules = BO.SurvivalRules.difficulties[this.difficulty];
+            this.hostilesReleased = false;
             this.clock = 0;
             this.weather = 'Overcast';
             this.wind = new THREE.Vector3(1, 0, 0.32).normalize();
@@ -50,8 +52,10 @@
             this.points = { scrap: 1, cloth: 0, fuel: 0, rations: 1, medkits: 1, coil: 0 };
             this.completed = new Set();
             this.nextEnemy = 100;
-            this.nextSpawn = 24;
-            this.nextMimic = 75;
+            const openSec = BO.SurvivalRules.openingSecondsFor ? BO.SurvivalRules.openingSecondsFor(campaignOptions) : BO.SurvivalRules.openingSeconds;
+            this.openingSeconds = openSec;
+            this.nextSpawn = openSec + 10;
+            this.nextMimic = Math.max(75, openSec + 15);
             this.fireClock = 0;
             this.hazardClock = 0;
             this.exfil = null;
@@ -80,28 +84,39 @@
             BO.Player.activeWeapon.reserve = 32;
             BO.Combat.reset(camera);
             BO.Combat.onHitEnemy = (entity, dmg, hitbox, dist, weapon, point, dir) =>
-                this.hit(entity, dmg, hitbox, dir, weapon?.stats?.papEffect === 'incendiary' ? 'fire' : 'bullet');
+                this.hit(entity, dmg, hitbox, dir, weapon?.stats?.kind === 'melee' || weapon?.id === 'knife' ? 'melee' : weapon?.stats?.papEffect === 'incendiary' ? 'fire' : 'bullet');
             BO.Combat.onExplodeAt = (pos, radius, damage, owner, flash, stun, kind) => this.explode(pos, radius, damage, flash, stun, kind);
             BO.Combat.onActivateKillstreak = null;
 
             this.createZone();
             this.campaign = new BO.SurvivalCampaign(this, campaignOptions);
             this.campaign.staticParts = [...this.structures.values()];
-            this.spawnBot(27, 0, 0, 'mp5');
-            this.spawnBot(33, 0, -9, 'm1911');
-            this.commander = this.spawnBot(37, 0, -20, 'ak47', 225);
-            this.commander.name = 'Commander Sable';
+            this.commander = null;
             this.commanderRetreated = false;
             this.commanderReturnAt = Infinity;
-            this.spawnInfected(-20, 0, 17);
-            this.spawnInfected(-32, 0, -7);
-            this.spawnInfected(11, 0, 11);
-            this.spawnInfected(13, 0, -28);
-            this.spawnInfected(-6, -5, -50, 'apex');
-            this.spawnInfected(7, -5, -47);
+            const p = BO.Player;
+            if (this.campaign.has('glass')) p.hp = p.maxHp = 70;
+            if (this.campaign.has('armored')) {
+                p.armor = 100;
+                p.armorReservePlates = 3;
+            }
+            if (this.campaign.has('loaded')) {
+                p.activeWeapon.reserve += 16;
+            }
+            if (this.campaign.has('noFirearms')) {
+                p.weapons[0] = p._createWeaponInstance({ id: 'combat_knife', camo: 'default', attachments: {} }, false);
+                p.switchWeapon(-1);
+            } else if (this.campaign.has('fists') || campaignOptions.gameType === 'scavenger') {
+                p.activeWeapon.mag = p.activeWeapon.reserve = 0;
+                p.switchWeapon(-1);
+            }
             this.campaign.setup(checkpoint);
+            if (!checkpoint && campaignOptions.gameType === 'scavenger') {
+                this.grant({ timber: 3, stone: 3, fiber: 3, scrap: 2 });
+            }
             this.refreshTargets();
-            this.toast('Find salvage at the hospital and freight siding. The research core is below the central ramp.');
+            const safeMsg = this.openingSeconds === 120 ? 'No enemies for the first 2 minutes.' : 'No enemies for the first minute.';
+            this.toast(this.hostilesReleased ? 'Expedition restored.' : `${safeMsg} Press [L] for Survival Legend, [3] for Bare Hands.`);
             return this.scene;
         }
 
@@ -298,6 +313,11 @@
         beforeShot(weapon) {
             this.shotEmber = false;
             this.shotCoil = false;
+            if (this.campaign?.has('noFirearms')) {
+                BO.Player.fireCooldown = 0.4;
+                this.toast('Firearms sealed by Melee & Bare-Hands Honor.');
+                return false;
+            }
             if (this.jammed === weapon) {
                 BO.Player.fireCooldown = 0.4;
                 return false;
@@ -307,9 +327,9 @@
                 this.toast('The coil is cooling.');
                 return false;
             }
-            // The condition score ticks only during real shots and is reset by clearing the action.
-            weapon.wear = (weapon.wear || 0) + 1;
-            if (weapon.wear >= 80 && this.weather === 'Ash rain' && Math.random() < 0.05) {
+            const unbreaking = this.campaign?.deep?.hasInfusion('unbreaking');
+            weapon.wear = (weapon.wear || 0) + (unbreaking ? 0.4 : 1);
+            if (weapon.wear >= 80 && this.weather === 'Ash rain' && Math.random() < (unbreaking ? 0.02 : 0.05)) {
                 this.jammed = weapon;
                 BO.Player.fireCooldown = 0.35;
                 this.toast('Stoppage. Press reload to clear it.');
@@ -333,40 +353,86 @@
             return true;
         }
 
-        spawnInfected(x, y, z, type = 'normal', savedSpec = null) {
+        releaseHostiles() {
+            const openSec = this.openingSeconds || BO.SurvivalRules.openingSeconds;
+            if (this.hostilesReleased || this.clock < openSec) return;
+            this.hostilesReleased = true;
+            this.toast('The opening grace period is over — hostiles are active!');
+            const p = BO.Player.pos;
+            for (const [x, y, z, weapon] of [[27, 0, 0, 'mp5'], [33, 0, -9, 'm1911']]) {
+                if (distance(p, { x, y, z }) > 10) this.spawnBot(x, y, z, weapon);
+            }
+            if (!this.campaign.has('noPatrols') || this.campaign.options.gameType === 'bounty') {
+                this.commander = this.spawnBot(37, 0, -20, 'ak47', 225, 1, true);
+                this.commander.name = 'Commander Sable';
+            }
+            const type = this.campaign.options.gameType;
+            for (const [x, y, z] of [[-20, 0, 17], [-32, 0, -7], [11, 0, 11], [13, 0, -28], [7, -5, -47]]) {
+                if (distance(p, { x, y, z }) > 9) this.spawnInfected(x, y, z);
+            }
+            if (type === 'expedition' && !this.core && !this.campaign.metrics.apex) this.spawnInfected(-6, -5, -50, 'apex');
+            this.refreshTargets();
+        }
+
+        spawnInfected(x, y, z, type = 'normal', savedSpec = null, required = false) {
+            const openSec = this.openingSeconds || BO.SurvivalRules.openingSeconds;
+            if (this.clock < openSec) return null;
+            if (!required && (type === 'normal' || type === 'mimic') && this.campaign.has('noRoamers')) return null;
             const candidates = this.campaign?.selectedEnemies || BO.ZombiesData.ORDERED_PROGRESSION;
-            const boss = ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss'].includes(type);
+            const boss = ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss', 'siegeBoss'].includes(type);
             const bosses = BO.ZombiesData.ORDERED_BOSSES;
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) :
-                boss ? bosses[({ frostBoss: 1, geodeBoss: 2, cinderBoss: 3 })[type] || 0] :
+                boss ? bosses[({ frostBoss: 1, geodeBoss: 2, cinderBoss: 3, siegeBoss: 1 })[type] || 0] :
                 type === 'mimic' ? candidates.find((item) => /wraith|phantom/.test(item.id)) || candidates[0] :
                 candidates[(this.nextEnemy + this.pressure) % Math.min(6 + this.pressure * 2, candidates.length)];
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y, z, round: 1,
-                hp: boss ? (type === 'frostBoss' ? 720 : type === 'cinderBoss' ? 980 : type === 'geodeBoss' ? 820 : 580) : Math.min(230, spec.hp * 0.75 + this.pressure * 5),
+                hp: Math.round(this.difficultyRules.hp * (boss ? (({ frostBoss: 720, cinderBoss: 980, geodeBoss: 820, siegeBoss: 690 })[type] || 580) : Math.min(230, spec.hp * 0.75 + this.pressure * 5))),
                 speed: type === 'mimic' ? 5.4 : boss ? 2.5 : Math.min(4.9, spec.speed),
-                damage: boss ? 32 : this.difficulty === 'hard' ? 19 : 13 });
+                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage) });
             entity.survivalType = type;
             if (type === 'apex') entity.bossLabel = 'Apex Guardian';
             if (type === 'frostBoss') entity.bossLabel = 'Pale Maul';
             if (type === 'cinderBoss') entity.bossLabel = 'Cinder Regent';
             if (type === 'geodeBoss') entity.bossLabel = 'Resonant Sentinel';
+            if (type === 'siegeBoss') entity.bossLabel = 'Ridge Breaker';
             if (type === 'mimic' && !savedSpec) {
                 const voice = ['Extraction here.', 'This way. I found a cache.', 'Shelter is clear.'][this.nextEnemy % 3];
                 this.toast('Unknown radio transmission: “' + voice + '”');
             }
             this.zombies.push(entity);
+            if (boss && !savedSpec && this.campaign?.has('doubleBosses')) {
+                const lt = this.spawnInfected(x + 2.4, y, z + 1.8, 'mimic', null, true);
+                if (lt) lt.bossLabel = (entity.bossLabel || 'Boss') + ' Guard';
+            }
             return entity;
         }
 
-        spawnBot(x, y, z, weaponId, hp = 90, team = 1) {
+        spawnBot(x, y, z, weaponId, hp = 90, team = 1, required = false) {
+            const openSec = this.openingSeconds || BO.SurvivalRules.openingSeconds;
+            if (team !== 0 && (this.clock < openSec || (!required && this.campaign.has('noPatrols')))) return null;
             const entity = new BO.BotAI({ id: this.nextEnemy++, team, x, y, z, weaponId, maxHp: hp,
-                difficulty: this.difficulty === 'hard' ? 'hardened' : 'recruit', speedScale: 0.69, respawnDelay: 0 });
+                difficulty: ({ hard: 'regular', veteran: 'hardened', nightmare: 'veteran' })[this.difficulty] || 'recruit', speedScale: 0.69, respawnDelay: 0 });
             this.bots.push(entity);
             return entity;
         }
 
         hit(entity, amount, hitbox, dir, damageKind, agent = null) {
             if (!entity.alive || entity.team === 0 && !agent) return false;
+            const deep = this.campaign?.deep;
+            if (!agent) {
+                if (this.campaign?.has('headshotsOnly') && damageKind === 'bullet') {
+                    amount *= (hitbox === 'head' ? 2.2 : 0.35);
+                }
+                if (deep) {
+                    if (damageKind === 'bullet') amount *= (1 + (deep.attributes.dexterity || 0) * 0.10);
+                    if (deep.hasInfusion('overclock')) amount *= 1.25;
+                    if (hitbox === 'head') {
+                        if (deep.hasTalisman('marksman_lens')) amount *= 1.25;
+                        if (deep.activeTonics.deadshotTinc > this.clock) amount *= 1.45;
+                    }
+                    if (deep.hasInfusion('fire_aspect')) entity.burnTimer = Math.max(entity.burnTimer || 0, 3.0);
+                }
+            }
             const killed = entity.survivalType ? entity.takeDamage(amount, hitbox, hitbox === 'head', dir, damageKind)
                 : entity.takeDamage(amount, agent || 'player');
             if (!killed && entity === this.commander && !this.commanderRetreated && entity.hp < 70) {
@@ -376,11 +442,13 @@
                 entity.parts.root.visible = false;
                 this.toast('Sable retreated. Expect a reinforced patrol.');
             }
-            if (killed && entity.survivalType && ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss'].includes(entity.survivalType)) {
+            if (killed && entity.survivalType && ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss', 'siegeBoss'].includes(entity.survivalType)) {
                 this.campaign?.mark(entity.survivalType, 1, entity.survivalType === 'apex' ? 130 : 200);
                 this.campaign?.mark('bosses', 1, 0);
             }
+            if (killed && entity === this.commander) this.campaign.mark('sable', 1, 150);
             if (killed && !agent) {
+                if (entity.survivalType && this.campaign.isNight) this.campaign.mark('nightKills', 1, 0);
                 this.kills++;
                 this.campaign?.mark('kills', 1, 16);
                 this.campaign?.mark(entity.survivalType ? 'infected' : 'pmc', 1, entity.survivalType ? 0 : 12);
@@ -388,6 +456,7 @@
                 if (entity.survivalType === 'apex') this.toast('Apex down. The research core is accessible.');
                 if (entity === this.commander) this.toast('Commander Sable eliminated.');
                 if (this.kills % 3 === 0) this.campaign.pack.receive({ scrap: 1 });
+                this.campaign?.deep?.onKill(entity, damageKind);
             }
             return killed;
         }
@@ -407,10 +476,21 @@
                 allowProjectiles: false,
                 getTarget: (z) => {
                     const bot = closest(candidates, z.pos, Math.min(11, p.pos.distanceTo(z.pos)));
-                    return bot ? { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true } : null;
+                    if (bot) return { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true };
+                    const stealth = this.campaign?.deep?.stealthFactor ?? 1;
+                    if (stealth < 0.65 && z.pos.distanceTo(p.pos) > 10 && !z.bossLabel) {
+                        return { x: z.pos.x + Math.sin(z.id + this.clock * 0.4) * 1.8, y: z.pos.y, z: z.pos.z + Math.cos(z.id + this.clock * 0.4) * 1.8, attackRange: -1, forceDirect: false };
+                    }
+                    return null;
                 },
-                onAttackCustomTarget: (z, { target }) => this.hit(target, z.damage, 'torso', null, 'melee', z),
-                onMeleePlayer: (z) => p.takeDamage(z.damage, z.pos, false)
+                onAttackCustomTarget: (z, ct) => ct?.target && this.hit(ct.target, z.damage, 'torso', null, 'melee', z),
+                onMeleePlayer: (z) => {
+                    p.takeDamage(z.damage, z.pos, false, z);
+                    if (this.campaign?.has('infectBite') && this.campaign.deep && p.alive && !p.guardingWithHands) {
+                        if (Math.random() < 0.35) this.campaign.deep.bleeding = Math.max(this.campaign.deep.bleeding, 8);
+                        this.campaign.deep.infection = Math.min(100, this.campaign.deep.infection + 12);
+                    }
+                }
             };
             for (let i = this.zombies.length - 1; i >= 0; i--) {
                 const z = this.zombies[i];
@@ -438,9 +518,10 @@
         }
 
         update(dt) {
-            if (!this.active) return;
+            if (!this.active || this.campaign?.deep?.pendingRespawn) return;
             const p = BO.Player;
             this.clock += dt;
+            this.releaseHostiles();
             const phase = this.clock % 180;
             const darkness = this.campaign?.darkness ?? 0;
             this.weather = !this.campaign?.options.weather ? 'Clear' :
@@ -458,7 +539,10 @@
             this.updateSpawns();
             this.updatePrompt();
             this.campaign?.update(dt);
-            if (!p.alive) this.finish(false);
+            if (!p.alive) {
+                if (this.campaign?.deep?.tryRespawnIntercept()) return;
+                this.finish(false);
+            }
             else if (this.exfil && this.clock >= this.exfil.readyAt && distance(p.pos, this.exfil.site) < 4) this.finish(true);
         }
 
@@ -466,8 +550,10 @@
             const p = BO.Player;
             const deluge = this.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6;
             const survivalNeeds = this.campaign?.options.survivalNeeds !== false;
-            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * 0.22);
-            const shielding = this.campaign.pack.filtered ? 0.18 : 1;
+            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * (this.campaign.has('hungry') ? 0.44 : 0.22));
+            const deep = this.campaign?.deep;
+            const arcMit = Math.max(0.4, 1 - (deep?.attributes?.arcane || 0) * 0.08) * (deep?.hasTalisman('rad_charm') ? 0.6 : 1);
+            const shielding = (this.campaign.pack.filtered ? 0.18 : 1) * (survivalNeeds && this.campaign.has('irradiated') ? 1.8 : 1) * arcMit;
             this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 2.4 * shielding : deluge ? 1.3 * shielding : -0.7), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;
@@ -513,17 +599,18 @@
         }
 
         updateSpawns() {
+            if (!this.hostilesReleased) return;
             const p = BO.Player;
             this.pressure = Math.min(11, Math.floor(this.clock / 35) + (this.exfil ? 3 : 0));
             if (this.clock >= this.nextSpawn) {
                 const campaign = this.campaign;
                 campaign.selectedEnemies = campaign.getPool(campaign.area?.id || 'relay');
-                const frequency = campaign.options.encounterRate * (campaign.options.pool === 'horde' ? 1.3 : 1) *
-                    (campaign.isNight ? 1.33 : 1);
+                const frequency = campaign.options.encounterRate * this.difficultyRules.rate * (campaign.options.pool === 'horde' ? 1.3 : 1) *
+                    (campaign.isNight || campaign.has('blackout') ? (campaign.has('brutalNights') ? 2.66 : 1.33) : 1);
                 this.nextSpawn = this.clock + Math.max(4, (21 - this.pressure - this.noise) / frequency);
                 const points = [[-45, 0, 18], [43, 0, 18], [-42, 0, -39], [43, 0, -38], [12, 0, -32]];
                 const candidates = points.filter(([x, y, z]) => distance(p.pos, { x, y, z }) > 18);
-                if (candidates.length && this.zombies.filter((z) => z.alive).length < 20) {
+                if (candidates.length && this.zombies.filter((z) => z.alive).length < this.difficultyRules.enemyCap) {
                     this.spawnInfected(...BO.Math.pick(candidates));
                     if (this.pressure >= 4 && this.noise > 0) this.spawnInfected(...BO.Math.pick(candidates));
                 }
@@ -534,7 +621,7 @@
             }
             if (this.clock >= this.commanderReturnAt) {
                 this.commanderReturnAt = Infinity;
-                this.commander = this.spawnBot(-41, 0, -15, 'm249', 290);
+                this.commander = this.spawnBot(-41, 0, -15, 'm249', 290, 1, true);
                 this.commander.name = 'Commander Sable • Reinforced';
                 this.spawnBot(-45, 0, -13, 'mp5');
                 this.toast('Sable is back with reinforcements.');
@@ -586,8 +673,7 @@
             if (this.exfil) return this.clock < this.exfil.readyAt
                 ? 'Hold Evac Ridge for ' + Math.ceil(this.exfil.readyAt - this.clock) + 's'
                 : 'Extraction ready. Return to Evac Ridge.';
-            if (this.core) return 'Bring the research core to Evac Ridge.';
-            return 'Recover the research core below the central ramp.';
+            return this.campaign.objectives.objective;
         }
 
         get prompt() {
@@ -613,6 +699,7 @@
                 return;
             }
             if (site.id === 'train') {
+                if (this.campaign.has('footOnly')) return this.toast('Rail travel is disabled for this expedition.');
                 if (!this.train.running) {
                     if (!this.spend({ scrap: 5, fuel: 2 })) {
                         this.toast('Locomotive needs 5 salvage and 2 fuel.');
@@ -626,9 +713,9 @@
                 return;
             }
             if (site.id === 'lookout') {
-                if (!this.core) return this.toast('Recover the research core first.');
+                if (!this.campaign.objectives.routeEvac()) return;
                 if (!this.exfil) {
-                    this.exfil = { site, readyAt: this.clock + 38 };
+                    this.exfil = { site, readyAt: this.clock + (this.campaign.has('quickEvac') ? 19 : 38) };
                     this.spawnInfected(-37, 0, -17);
                     this.spawnInfected(-44, 0, -32);
                 }
@@ -636,6 +723,7 @@
                 return this.toast(this.objective);
             }
             if (site.id === 'bunker') {
+                if (!this.hostilesReleased) return this.toast('Core access is sealed for the safe minute.');
                 if (this.zombies.some((z) => z.alive && z.survivalType === 'apex')) return this.toast('Defeat the Apex guardian first.');
                 this.core = true;
                 this.campaign?.mark('core', 1, 100);
@@ -645,12 +733,17 @@
             } else if (site.id === 'depot') {
                 this.grant({ scrap: 4, fuel: 2, rations: 1 });
                 const p = BO.Player;
-                p.weapons[0] = p._createWeaponInstance({ id: 'mp5', camo: 'default', attachments: {} }, false);
-                p.weapons[0].reserve = 60;
-                p.reloading = false;
-                if (p.activeSlot === 0) p.rebuildViewmodel();
+                if (!this.campaign?.has('noFirearms')) {
+                    p.weapons[0] = p._createWeaponInstance({ id: 'mp5', camo: 'default', attachments: {} }, false);
+                    p.weapons[0].reserve = 60;
+                    p.reloading = false;
+                    if (p.activeSlot === 0) p.rebuildViewmodel();
+                    this.toast('Recovered a carbine and ammunition.');
+                } else {
+                    this.grant({ ingot: 2, cloth: 2 });
+                    this.toast('Recovered freight supplies (firearms sealed).');
+                }
                 p.lethalCount++;
-                this.toast('Recovered a carbine and ammunition.');
             } else if (site.id === 'dam') {
                 this.flooded = true;
                 this.campaign?.mark('flood', 1, 42);
@@ -734,7 +827,7 @@
             const p = BO.Player;
             if (id === 'medkits' && p.hp < p.maxHp && this.points.medkits > 0) {
                 this.points.medkits--;
-                const restored = Math.min(p.maxHp - p.hp, 55);
+                const restored = Math.min(p.maxHp - p.hp, this.campaign.has('fieldMedic') ? 75 : 55);
                 p.hp += restored;
                 this.campaign?.mark('healed', Math.ceil(restored), 0);
             } else if (id === 'rations' && this.hunger < 100 && this.points.rations > 0) {

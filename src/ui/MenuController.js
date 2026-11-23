@@ -392,7 +392,15 @@
                 };
             }
             document.getElementById('btn-pause-modmenu').onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
-            document.getElementById('btn-pause-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
+            document.getElementById('btn-pause-legend').onclick = () => {
+                BO.Sound.playUIClick();
+                if (BO.State.activeMode === 'survival' && BO.SurvivalUI) {
+                    this.setPauseOpen(false);
+                    BO.SurvivalUI.show('legend');
+                } else {
+                    this.openLegend('howto');
+                }
+            };
             document.getElementById('btn-pause-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
             document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
             document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };

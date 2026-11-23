@@ -410,10 +410,22 @@
 
             // Weapon & Gear
             const infAmmo = BO.Cheats && BO.Cheats.isActive('infammo');
-            if (w) {
+            if (P.usingBareHands) {
+                if (this.elWeaponName) {
+                    this.elWeaponName.textContent = 'BARE HANDS [3]';
+                    this.elWeaponName.style.color = '#facc15';
+                }
+                if (this.elFireMode) this.elFireMode.textContent = 'GUARD/PARRY [RMB] · DODGE [ALT]';
+                if (this.elAmmoMag) {
+                    this.elAmmoMag.textContent = P.parryFeedbackTimer > 0 ? 'PARRY!' : P.guardingWithHands ? 'GUARD' : (P.bareComboWindow > 0 ? `HIT ${P.bareComboStep + 1}` : 'FISTS');
+                    this.elAmmoMag.style.color = P.parryFeedbackTimer > 0 ? '#facc15' : '#a6ddd0';
+                }
+                if (this.elAmmoRes) this.elAmmoRes.textContent = 'PUNCH [LMB]';
+            } else if (w) {
                 const isMeleeW = w.stats.kind === 'melee';
                 if (this.elWeaponName) {
-                    this.elWeaponName.textContent = w.stats.shortName + (w.isPaP ? ' [PaP]' : '');
+                    const mkTag = w.survivalMk > 1 ? ` Mk${w.survivalMk}` : '';
+                    this.elWeaponName.textContent = w.stats.shortName + mkTag + (w.isPaP ? ' [PaP]' : '');
                     this.elWeaponName.style.color = w.isPaP ? '#c084fc' : (w.stats.kind === 'magic' ? '#38bdf8' : '#f8fafc');
                 }
                 if (this.elFireMode) this.elFireMode.textContent = (w.fireMode || 'auto').toUpperCase() + (w.stats.altFireMode ? ' [B]' : '');
