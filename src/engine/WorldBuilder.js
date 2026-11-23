@@ -733,7 +733,7 @@
             flame.position.y = 1.48;
             g.add(stand, bowl, flame);
             scene.add(g);
-            this.fireFlames.push(flame);
+            this.fireFlames.push({ flame, light: null, baseInt: 0 });
         }
 
         _buildTdDistrictSign(scene, x, y, z, rotY, text, hexStr) {
@@ -2552,8 +2552,8 @@
             for (let i = 0; i < this.fireFlames.length; i++) {
                 const ff = this.fireFlames[i];
                 const flicker = 0.85 + Math.sin(elapsed * 14 + i) * 0.15 + Math.random() * 0.1;
-                ff.flame.scale.set(0.9 + Math.sin(elapsed * 9) * 0.1, flicker, 0.9);
-                ff.light.intensity = ff.baseInt * flicker;
+                if (ff.flame) ff.flame.scale.set(0.9 + Math.sin(elapsed * 9) * 0.1, flicker, 0.9);
+                if (ff.light) ff.light.intensity = ff.baseInt * flicker;
             }
             for (let i = 0; i < this.teleporterRings.length; i++) {
                 this.teleporterRings[i].rotation.z += dt * 1.4;
