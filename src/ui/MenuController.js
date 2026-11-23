@@ -642,101 +642,29 @@
         }
 
         _modifiersHtml(mode) {
-            const mods = this._lobbyMods(mode);
-            const defs = BO.Mods.defsForMode(mode);
-            const f = this.modFilter;
-            const cats = BO.Mods.CATEGORIES.filter((c) => defs.some((d) => d.cat === c.id));
-            const active = defs.filter((d) => mods[d.k]).length;
-            return `
-                <div class="mod-toolbar">
-                    <input type="search" id="mod-search" placeholder="Search ${defs.length} modifiers…" value="${escAttr(f.q)}">
-                    <label class="mod-only-active"><input type="checkbox" id="mod-only-active" ${f.onlyActive ? 'checked' : ''}> Only active</label>
-                    <button class="btn btn-sm" id="mod-random">🎲 RANDOM 3</button>
-                    <button class="btn btn-sm" id="mod-clear">CLEAR ALL</button>
-                </div>
-                <div class="mod-cats">
-                    <button class="mod-cat ${f.cat === 'all' ? 'active' : ''}" data-mcat="all">All <span>${defs.length}</span></button>
-                    ${cats.map((c) => {
-                        const n = defs.filter((d) => d.cat === c.id).length;
-                        const on = defs.filter((d) => d.cat === c.id && mods[d.k]).length;
-                        return `<button class="mod-cat ${f.cat === c.id ? 'active' : ''}" data-mcat="${c.id}" style="--cat-col:${c.col};">${c.icon} ${c.name} <span>${on ? on + '/' : ''}${n}</span></button>`;
-                    }).join('')}
-                </div>
-                <div class="mod-count-line"><b id="mod-active-count">${active}</b> active</div>
-                <div class="mod-grid" id="mod-grid">
-                    ${defs.map((d) => {
-                        const cat = BO.Mods.CATEGORIES.find((c) => c.id === d.cat) || {};
-                        return `
-                            <button class="mod-card ${mods[d.k] ? 'active' : ''}" data-mod="${d.k}" data-mcat-of="${d.cat}" data-search="${escAttr((d.lbl + ' ' + d.desc + ' ' + (cat.name || '')).toLowerCase())}" style="--cat-col:${cat.col || '#38bdf8'};">
-                                <span class="mod-card-top"><span class="mod-card-ico">${cat.icon || '•'}</span><b>${escAttr(d.lbl)}</b><span class="mod-switch"></span></span>
-                                <span class="mod-card-desc">${escAttr(d.desc)}</span>
-                            </button>`;
-                    }).join('')}
-                </div>
-                <div class="mod-empty hidden" id="mod-empty">No modifiers match your search.</div>`;
+            if (BO.ModifierMenuUI) {
+                return BO.ModifierMenuUI.renderHtml({ mode, active: this._lobbyMods(mode) });
+            }
+            return '';
         }
 
         _bindModifiers(body, mode) {
-            const mods = this._lobbyMods(mode);
-            const grid = body.querySelector('#mod-grid');
-            const applyFilter = () => {
-                const f = this.modFilter;
-                const q = f.q.trim().toLowerCase();
-                let shown = 0;
-                grid.querySelectorAll('.mod-card').forEach((c) => {
-                    const ok = (f.cat === 'all' || c.dataset.mcatOf === f.cat)
-                        && (!q || c.dataset.search.includes(q))
-                        && (!f.onlyActive || c.classList.contains('active'));
-                    c.classList.toggle('hidden', !ok);
-                    if (ok) shown++;
-                });
-                body.querySelector('#mod-empty').classList.toggle('hidden', shown > 0);
-            };
-            const refreshCounts = () => {
-                const n = BO.Mods.countActive(mods, mode);
-                const c = body.querySelector('#mod-active-count');
-                if (c) c.textContent = n;
-                const badge = document.getElementById('lobby-mod-badge');
-                if (badge) { badge.textContent = n; badge.classList.toggle('hidden', n === 0); }
-                this._renderLobbySummary();
-                this._lobbyBroadcast();
-            };
-            grid.querySelectorAll('.mod-card').forEach((c) => {
-                c.onclick = () => {
+            if (!BO.ModifierMenuUI) return;
+            BO.ModifierMenuUI.bindContainer(body, {
+                mode,
+                getActive: () => this._lobbyMods(mode),
+                onChange: (nextObj) => {
                     BO.Sound.playUIClick();
-                    const k = c.dataset.mod;
-                    mods[k] = !mods[k];
-                    c.classList.toggle('active', !!mods[k]);
-                    refreshCounts();
-                    if (this.modFilter.onlyActive) applyFilter();
-                };
-            });
-            body.querySelectorAll('[data-mcat]').forEach((b) => {
-                b.onclick = () => {
-                    BO.Sound.playUIClick();
-                    this.modFilter.cat = b.dataset.mcat;
-                    body.querySelectorAll('[data-mcat]').forEach((x) => x.classList.toggle('active', x === b));
-                    applyFilter();
-                };
-            });
-            const search = body.querySelector('#mod-search');
-            search.oninput = () => { this.modFilter.q = search.value; applyFilter(); };
-            body.querySelector('#mod-only-active').onchange = (e) => { this.modFilter.onlyActive = e.target.checked; applyFilter(); };
-            body.querySelector('#mod-clear').onclick = () => {
-                BO.Sound.playUIClick();
-                BO.Mods.defsForMode(mode).forEach((d) => { mods[d.k] = false; });
-                this.renderLobby();
-            };
-            body.querySelector('#mod-random').onclick = () => {
-                BO.Sound.playUIClick();
-                const off = BO.Mods.defsForMode(mode).filter((d) => !mods[d.k]);
-                for (let i = 0; i < 3 && off.length; i++) {
-                    const d = off.splice(Math.floor(Math.random() * off.length), 1)[0];
-                    mods[d.k] = true;
+                    const mods = this._lobbyMods(mode);
+                    Object.keys(mods).forEach((k) => delete mods[k]);
+                    Object.assign(mods, nextObj);
+                    const n = BO.Mods.countActive(mods, mode);
+                    const badge = document.getElementById('lobby-mod-badge');
+                    if (badge) { badge.textContent = n; badge.classList.toggle('hidden', n === 0); }
+                    this._renderLobbySummary();
+                    this._lobbyBroadcast();
                 }
-                this.renderLobby();
-            };
-            applyFilter();
+            });
         }
 
         renderLobby() {
@@ -1836,7 +1764,7 @@
                         <div class="select-card"><div class="card-head">HELICOPTER EXFIL (ROUND 10+)</div><div class="card-sub">From Round 10 onward, press <b>[${formatKeyCode(kb.exfil)}]</b> anytime to call an evacuation helicopter. Clear the LZ within 75 seconds for +1,200 Bonus XP!</div></div>
                     </div>
 
-                    <div class="panel-title" style="color:#fde047;">ALL 13 ZOMBIES CHEAT CODES (ENTER IN SETTINGS → CHEAT CODES)</div>
+                    <div class="panel-title" style="color:#fde047;">ALL ${defs.length} ZOMBIES CHEAT CODES (ENTER IN SETTINGS → CHEAT CODES)</div>
                     <table class="legend-table">
                         <thead>
                             <tr><th>CHEAT CODE</th><th>NAME</th><th>STATUS</th><th>WHAT IT DOES (ZOMBIES MODE ONLY)</th></tr>
@@ -1921,7 +1849,7 @@
             document.getElementById('btn-mod-all-on').onclick = () => {
                 BO.Sound.playPowerUp();
                 defs.forEach((d) => {
-                    if (d.code !== 'tiny') BO.Cheats.setCheat(d.code, true);
+                    if (d.code !== 'tiny' && d.code !== 'lock' && d.code !== 'resetlevel') BO.Cheats.setCheat(d.code, true);
                 });
                 this.renderModMenu();
                 this.updateCheatMenuVisibility();
@@ -2480,15 +2408,16 @@
                 body.innerHTML = `
                     <div class="panel-title" style="color:#fde047;">ZOMBIES CHEAT CODE TERMINAL (ZOMBIES MODE ONLY)</div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-                        <input type="text" id="cheat-code-input" placeholder="Type cheat code (e.g. cheats, infammo, infmoney, bighead)..."
+                        <input type="text" id="cheat-code-input" placeholder="Type cheat code (e.g. cheats, megaman, infammo, infmoney, bighead)..."
                             style="flex:1;min-width:240px;background:#0d131d;color:#fde047;border:1px solid var(--amber);padding:10px 14px;font-family:var(--font-mono);font-size:15px;font-weight:800;">
-                        <button class="btn btn-primary" id="btn-apply-cheat" data-tip-title="Submit Cheat Code" data-tip="Activate or toggle the cheat code typed in the box.">ACTIVATE CHEAT</button>
+                        <button class="btn btn-primary" id="btn-apply-cheat" data-tip-title="Toggle Cheat Code" data-tip="Enable or disable the cheat code typed in the box.">TOGGLE CHEAT</button>
+                        <button class="btn btn-sm" id="btn-cheats-disable-all" style="border-color:#ef4444;color:#f87171;">DISABLE ALL CHEATS</button>
                         ${modUnlocked ? `<button class="btn" id="btn-settings-open-modmenu" style="border-color:#fde047;color:#fde047;">★ OPEN MOD MENU</button>` : ''}
                     </div>
                     <div id="cheat-feedback-msg" style="min-height:22px;font-size:13px;font-weight:800;color:#22c55e;margin-bottom:10px;"></div>
                     <table class="legend-table">
                         <thead>
-                            <tr><th>CODE</th><th>NAME</th><th>STATUS</th><th>DESCRIPTION (CLICK ROW TO QUICK-ENTER)</th></tr>
+                            <tr><th>CODE</th><th>NAME</th><th>TOGGLE</th><th>DESCRIPTION (CLICK ROW OR BUTTON TO ENABLE / DISABLE)</th></tr>
                         </thead>
                         <tbody>
                             ${defs.map((d) => {
@@ -2498,7 +2427,7 @@
                                         data-tip-title="Click to Toggle: ${d.code}" data-tip="${escAttr(d.desc)}">
                                         <td style="font-family:var(--font-mono);color:#fde047;font-weight:800;">${d.code}</td>
                                         <td><b>${d.name}</b></td>
-                                        <td><span class="tier-pill" style="color:${on ? '#22c55e' : '#94a3b8'}">${on ? 'ACTIVE' : 'OFF'}</span></td>
+                                        <td><button type="button" class="btn btn-sm" style="min-width:84px;border-color:${on ? '#22c55e' : '#64748b'};color:${on ? '#4ade80' : '#94a3b8'};background:${on ? 'rgba(34,197,94,0.14)' : 'rgba(15,23,42,0.75)'};">${on ? 'ON · TURN OFF' : 'OFF · TURN ON'}</button></td>
                                         <td>${d.desc}</td>
                                     </tr>
                                 `;
@@ -2511,13 +2440,14 @@
                 const submitCheat = (raw) => {
                     const res = BO.Cheats.enterCode(raw);
                     if (res.ok) {
-                        BO.Sound.playPowerUp();
+                        if (res.enabled) BO.Sound.playPowerUp();
+                        else BO.Sound.playUIClick();
                         this.updateCheatMenuVisibility();
                         this.renderSettings();
                         const newMsg = document.getElementById('cheat-feedback-msg');
                         if (newMsg) {
-                            newMsg.style.color = '#22c55e';
-                            newMsg.textContent = '✓ ' + res.msg;
+                            newMsg.style.color = res.enabled ? '#22c55e' : '#facc15';
+                            newMsg.textContent = (res.enabled ? '✓ ' : '○ ') + res.msg;
                         }
                     } else if (msgEl) {
                         BO.Sound.playEmptyClick();
@@ -2526,6 +2456,20 @@
                     }
                 };
                 document.getElementById('btn-apply-cheat').onclick = () => submitCheat(inputEl.value);
+                const btnDisableAll = document.getElementById('btn-cheats-disable-all');
+                if (btnDisableAll) {
+                    btnDisableAll.onclick = () => {
+                        BO.Sound.playUIClick();
+                        BO.Cheats.disableAll();
+                        this.updateCheatMenuVisibility();
+                        this.renderSettings();
+                        const newMsg = document.getElementById('cheat-feedback-msg');
+                        if (newMsg) {
+                            newMsg.style.color = '#facc15';
+                            newMsg.textContent = '○ All Zombies cheats disabled.';
+                        }
+                    };
+                }
                 inputEl.onkeydown = (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();

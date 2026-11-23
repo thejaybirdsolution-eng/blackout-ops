@@ -160,6 +160,25 @@
             }
         }
 
+        captureSnapshot() {
+            return {
+                unlockAll: !!BO.Settings.get('unlockAll'),
+                unlockables: BO.Math.deepClone(BO.Save.data.unlockables || {}),
+                player: BO.Math.deepClone(BO.Save.data.player || {}),
+                weapons: BO.Math.deepClone(BO.Save.data.weapons || {})
+            };
+        }
+
+        restoreSnapshot(snap) {
+            if (!snap || typeof snap !== 'object') return;
+            if (snap.unlockAll !== undefined) BO.Save.data.settings.unlockAll = !!snap.unlockAll;
+            if (snap.unlockables) BO.Save.data.unlockables = BO.Math.deepClone(snap.unlockables);
+            if (snap.player) BO.Save.data.player = BO.Math.deepClone(snap.player);
+            if (snap.weapons) BO.Save.data.weapons = BO.Math.deepClone(snap.weapons);
+            BO.Save.save();
+            BO.Events.emit('settings:changed', { key: 'unlockAll', value: BO.Save.data.settings.unlockAll, settings: BO.Save.data.settings });
+        }
+
         unlockEverything() {
             BO.Settings.set('unlockAll', true);
             if (!BO.Save.data.unlockables) BO.Save.data.unlockables = {};

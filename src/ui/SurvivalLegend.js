@@ -109,11 +109,20 @@
     }
 
     function addDynamicData(add, rules, deep, frontier, campaign, base, cost) {
-        add('rules', 'Briefing Presets, Modes & Rules', 'Choose from 12 one-click Presets, 10 Game Modes, 7 Difficulties, and 30 Modifiers before deploying.');
+        const modCount = Object.keys(rules.modifiers || {}).length;
+        const catCount = Array.isArray(rules.categories) ? rules.categories.length : Object.keys(rules.categories || {}).length;
+        const findCat = (gid) => Array.isArray(rules.categories)
+            ? rules.categories.find((c) => c.id === gid)
+            : rules.categories?.[gid];
+        add('rules', 'Briefing Presets, Modes & Rules', `Choose from ${Object.keys(rules.presets || {}).length} one-click Presets, ${Object.keys(rules.modes || {}).length} Game Modes, ${Object.keys(rules.difficulties || {}).length} Difficulties, and ${modCount} categorized Modifiers across ${catCount} categories before deploying.`);
         for (const [id, m] of Object.entries(rules.modes || {})) add('rules', `Mode: ${m.name}`, m.description, id);
         for (const [id, p] of Object.entries(rules.presets || {})) add('rules', `Preset: ${p.name}`, p.description, id);
         for (const [id, d] of Object.entries(rules.difficulties || {})) add('rules', `Difficulty: ${d.name}`, `${d.hp}x enemy HP, ${d.damage}x damage, ${d.rate}x encounter rate, cap ${d.enemyCap}.`, id);
-        for (const [id, mod] of Object.entries(rules.modifiers || {})) add('rules', `Modifier (${mod.group || 'rule'}): ${mod.name}`, mod.description, id);
+        for (const [id, mod] of Object.entries(rules.modifiers || {})) {
+            const catObj = findCat(mod.group);
+            const catLabel = catObj?.name || mod.group || 'Rule';
+            add('rules', `Modifier (${catLabel}): ${mod.name}`, mod.description, `${id} ${mod.group || ''} ${catLabel} ${mod.tier || ''} ${mod.exclusive ? 'special exclusive' : ''}`);
+        }
         for (const [id, pool] of Object.entries(campaign.pools || {})) add('rules', `Pool: ${pool.name}`, pool.extra, id);
 
         for (const s of deep.shrines || []) add('shrines', s.name, `Site of Grace in ${s.area}. ${coords(s)} Kindle for +1 Tech Point, heal & set respawn.`, s.id);

@@ -63,11 +63,56 @@
             this.stealthFactor = 1.0;
             this._lastAmbientTick = 0;
             this._trapTick = 0;
+            this.modFx = {};
+            this._computeModFx();
+        }
+
+        _computeModFx() {
+            const mods = this.campaign?.options?.modifiers || [];
+            const reg = BO.SurvivalRules?.modifiers || {};
+            const out = {};
+            const MULT_FX = new Set([
+                'attrCostMult', 'bleedDecayMult', 'bleedTakenMult', 'bossHpMult', 'botHpMult',
+                'comfortDurMult', 'dodgeCostMult', 'dropIntervalMult', 'enemyDmgMult', 'fistsDmgMult',
+                'flatDmgMult', 'gatherMult', 'gatherSpeedMult', 'gatherYieldMult', 'headshotMult',
+                'healItemMult', 'hungerDrainMult', 'hydDrainMult', 'hydroSpeedMult', 'longRangeDmgMult',
+                'mealDurMult', 'meteorIntervalMult', 'mimicFreqMult', 'nightEnemySpdMult', 'noiseMult',
+                'pumpSpeedMult', 'radGainMult', 'recoilMult', 'regenMult', 'runeMult',
+                'schematicLuckMult', 'smelterSpeedMult', 'staminaRegenMult', 'stealthFactorMult',
+                'structureHpMult', 'surveyXpMult', 'tonicDurMult', 'trapDmgMult', 'turretDmgMult',
+                'upgradeCostMult', 'vehicleSpeedMult', 'weaponDmgMult', 'weatherRadMult', 'xpMult'
+            ]);
+            for (const id of mods) {
+                const fx = reg[id]?.fx;
+                if (!fx) continue;
+                for (const [k, v] of Object.entries(fx)) {
+                    if (typeof v === 'boolean') out[k] = out[k] || v;
+                    else if (typeof v === 'number') {
+                        if (MULT_FX.has(k)) out[k] = (out[k] !== undefined ? out[k] : 1) * v;
+                        else out[k] = (out[k] || 0) + v;
+                    }
+                }
+            }
+            this.modFx = out;
+            return out;
         }
 
         setup(snapshot) {
             const data = D();
             const m = this.mode;
+            const mfx = this._computeModFx();
+            if (!snapshot) {
+                if (mfx.bonusFlasks) { this.flaskMax += mfx.bonusFlasks; this.flaskCharges = this.flaskMax; }
+                if (mfx.bonusTechPts) this.techPoints += mfx.bonusTechPts;
+                if (mfx.startRunes) this.runes += mfx.startRunes;
+                if (mfx.startAttrArcane) this.attributes.arcane = (this.attributes.arcane || 0) + mfx.startAttrArcane;
+                if (mfx.startKindledRelay) this.kindledShrines.add('relay_grace');
+                if (mfx.startScarab) { this.foundTalismans.add('scavenger_scarab'); this.equippedTalismans.push('scavenger_scarab'); }
+                if (mfx.startT1Fort) this.unlockedTech.add('t1_fortifications');
+                if (mfx.startFortune) this.infusions.push('fortune');
+                if (mfx.extraBuildKit) this.campaign.pack?.receive({ timber: 6, scrap: 8, ingot: 4, wire: 3 }, false);
+                if (mfx.startFuelBonus) this.campaign.pack?.receive({ fuel: mfx.startFuelBonus }, false);
+            }
             for (const shrine of data.shrines) {
                 const pedestal = this._mesh(new THREE.CylinderGeometry(0.45, 0.62, 0.55, 8), 0x454e4b, shrine.x, shrine.y + 0.275, shrine.z);
                 const flame = this._mesh(new THREE.OctahedronGeometry(0.22), 0x4b5563, shrine.x, shrine.y + 0.95, shrine.z,
@@ -136,7 +181,7 @@
 
         attributeCost() {
             const sum = Object.values(this.attributes).reduce((a, b) => a + b, 0);
-            return 80 + sum * 55;
+            return Math.max(25, Math.round((80 + sum * 55) * (this.modFx?.attrCostMult || 1)));
         }
 
         upgradeAttribute(attrId) {
@@ -156,9 +201,12 @@
         }
 
         awardRunes(baseAmount) {
+            const mfx = this.modFx || {};
             const mult = (1 + (this.attributes.arcane || 0) * 0.15) *
                 (this.hasTalisman('scavenger_scarab') ? 1.35 : 1) *
-                (this.campaign.has('abundantTech') ? 1.5 : 1);
+                (this.campaign.has('abundantTech') ? 1.5 : 1) *
+                (mfx.runeMult || 1) *
+                (this.campaign.isNight && mfx.nightRuneBonus ? (1 + mfx.nightRuneBonus) : 1);
             const gained = Math.max(1, Math.round(baseAmount * mult));
             this.runes += gained;
             return gained;
@@ -172,15 +220,20 @@
         unlockTech(techId) {
             const node = D().techTree.find((t) => t.id === techId);
             if (!node || this.unlockedTech.has(techId)) return false;
+            if (this.modFx?.disableAutoTech && ['t2_automation', 't3_turrets', 't3_power'].includes(techId)) {
+                this.mode.toast('Automated stations are disabled by Off-Grid Pioneer modifier.');
+                return false;
+            }
             if (node.req && !this.unlockedTech.has(node.req)) {
                 this.mode.toast('Requires prerequisite technology first.');
                 return false;
             }
-            if (this.techPoints < node.cost) {
-                this.mode.toast(`Need ${node.cost} Tech Point(s).`);
+            const cost = this.modFx?.maxTechCostOne ? 1 : node.cost;
+            if (this.techPoints < cost) {
+                this.mode.toast(`Need ${cost} Tech Point(s).`);
                 return false;
             }
-            this.techPoints -= node.cost;
+            this.techPoints -= cost;
             this.unlockedTech.add(techId);
             if (techId === 't2_armory') ['mp5', 'r870', 'kar98k_irons', 'deagle'].forEach((s) => this.unlockedSchematics.add(s));
             if (techId === 't3_heavy_arms') ['m4a1', 'ak47', 'spas12_tac', 'katana_carbon'].forEach((s) => this.unlockedSchematics.add(s));
@@ -200,7 +253,8 @@
                 this.recomputePlayerStats();
                 return true;
             }
-            if (this.equippedTalismans.length >= 3) {
+            const maxTal = this.modFx?.maxTalismans || 3;
+            if (this.equippedTalismans.length >= maxTal) {
                 this.equippedTalismans.shift();
             }
             this.equippedTalismans.push(id);
@@ -216,12 +270,14 @@
                 this.mode.toast(`${spec.name} is already active.`);
                 return false;
             }
-            if (!this.mode.spend({ quartz: 2, aetherShard: 1 }) || this.runes < 120) {
-                this.mode.toast('Requires 2 Luminous Quartz, 1 Aether Shard, and 120 Runes.');
+            const runeCost = this.modFx?.freeInfusionRunes ? 0 : 120;
+            if (this.runes < runeCost || !this.mode.spend({ quartz: 2, aetherShard: 1 })) {
+                this.mode.toast(`Requires 2 Luminous Quartz, 1 Aether Shard${runeCost ? `, and ${runeCost} Runes` : ''}.`);
                 return false;
             }
-            this.runes -= 120;
-            if (this.infusions.length >= 2) this.infusions.shift();
+            this.runes -= runeCost;
+            const maxInf = this.modFx?.maxInfusions || 2;
+            if (this.infusions.length >= maxInf) this.infusions.shift();
             this.infusions.push(id);
             this.campaign.mark('infused', 1, 45);
             this.recomputePlayerStats();
@@ -273,7 +329,9 @@
                 this.mode.toast(`${w.stats.shortName} is already Mk III!`);
                 return false;
             }
-            const cost = tier === 1 ? { ingot: 2, scrap: 3 } : { ingot: 3, aetherShard: 1, wire: 2 };
+            const baseCost = tier === 1 ? { ingot: 2, scrap: 3 } : { ingot: 3, aetherShard: 1, wire: 2 };
+            const uMult = this.modFx?.upgradeCostMult || 1;
+            const cost = uMult < 1 ? Object.fromEntries(Object.entries(baseCost).map(([k, v]) => [k, Math.max(1, Math.round(v * uMult))])) : baseCost;
             if (!this.mode.spend(cost)) {
                 this.mode.toast('Required: ' + BO.SurvivalItemAmounts(cost));
                 return false;
@@ -294,6 +352,10 @@
         useFlask() {
             const p = BO.Player;
             if (!this.mode.active || !p.alive) return false;
+            if (this.modFx?.disableFlask) {
+                this.mode.toast('Aether Flask is disabled by Hollow Chalice Vow.');
+                return false;
+            }
             if (this.flaskCharges <= 0) {
                 this.mode.toast('Aether Flask empty! Rest at a Site of Grace to refill.');
                 return false;
@@ -303,7 +365,7 @@
                 return false;
             }
             this.flaskCharges--;
-            const healAmt = 50 + (this.attributes.arcane || 0) * 5 + (this.hasTalisman('crimson_medallion') ? 10 : 0);
+            const healAmt = 50 + (this.attributes.arcane || 0) * 5 + (this.hasTalisman('crimson_medallion') ? 10 : 0) + (this.modFx?.flaskHealAdd || 0);
             const actual = Math.min(p.maxHp - p.hp, healAmt);
             p.hp += actual;
             this.bleeding = 0;
@@ -318,14 +380,16 @@
         recomputePlayerStats() {
             const p = BO.Player;
             if (!p) return;
+            const mfx = this.modFx || {};
             const jugBonus = this.activeTonics.jugBrew > this.mode.clock ? 75 : 0;
-            const baseHp = this.campaign.has('glass') ? 70 : 100;
+            const baseHp = (this.campaign.has('glass') ? 70 : 100) + (mfx.maxHpDelta || 0);
             const targetMax = baseHp + (this.attributes.vigor || 0) * 15 +
                 (this.hasTalisman('crimson_medallion') ? 25 : 0) + jugBonus;
             const diff = targetMax - p.maxHp;
             p.maxHp = Math.max(40, targetMax);
             p.hp = BO.Math.clamp(p.hp + Math.max(0, diff), 1, p.maxHp);
-            p.maxArmor = 150 + (this.hasTech('t4_mastery') ? 50 : 0);
+            p.maxArmor = mfx.disableArmor ? 0 : (150 + (this.hasTech('t4_mastery') ? 50 : 0));
+            if (mfx.disableArmor) { p.armor = 0; p.armorReservePlates = 0; }
         }
 
         registerBuild(piece) {
@@ -519,8 +583,10 @@
                     mk.alive = false;
                 }
             }
-            this.mode.grant({ scrap: 2, timber: 1 });
-            this.mode.toast('Structure dismantled (+2 Salvage, +1 Timber).');
+            const fullRefund = (this.modFx?.dismantleRefundPct || 0) >= 1;
+            const refund = fullRefund ? { scrap: 3, timber: 2, ingot: 1 } : { scrap: 2, timber: 1 };
+            this.mode.grant(refund);
+            this.mode.toast(fullRefund ? 'Zero-Waste Dismantle (+3 Salvage, +2 Timber, +1 Iron Ingot).' : 'Structure dismantled (+2 Salvage, +1 Timber).');
             return true;
         }
 
@@ -549,15 +615,21 @@
         onKill(entity, damageKind) {
             const isBoss = !!entity.bossLabel || entity.isBoss;
             const isPmc = !entity.survivalType;
+            const mfx = this.modFx || {};
             const baseRunes = isBoss ? 320 : isPmc ? 55 : 28;
             this.awardRunes(baseRunes);
+            if (damageKind === 'melee') {
+                if (mfx.meleeKillHeal) BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + mfx.meleeKillHeal);
+                if (mfx.meleeSiphonHyd) this.hydration = Math.min(100, this.hydration + mfx.meleeSiphonHyd);
+            }
             if (isBoss) {
-                this.grantTechPoints(1);
-                this._spawnLootPouch(entity.pos, { aetherShard: 2, scrap: 4, medkits: 1 }, 120, true);
+                this.grantTechPoints(1 + (mfx.bossBonusTech || 0));
+                if (mfx.bossBonusRunes) this.awardRunes(mfx.bossBonusRunes);
+                this._spawnLootPouch(entity.pos, { aetherShard: 2 + (mfx.bossExtraShard || 0), scrap: 4, medkits: 1 }, 120, true);
                 if (entity.survivalType === 'frostBoss') this.foundTalismans.add('scavenger_scarab');
                 if (entity.survivalType === 'cinderBoss' || entity.survivalType === 'apex') this.foundTalismans.add('ironheart_crest');
-            } else if (Math.random() < 0.24) {
-                this._spawnLootPouch(entity.pos, Math.random() < 0.5 ? { scrap: 1, cloth: 1 } : { herbs: 1, fiber: 1 }, 12, false);
+            } else if (Math.random() < 0.24 * (mfx.schematicLuckMult || 1)) {
+                this._spawnLootPouch(entity.pos, Math.random() < 0.5 ? { scrap: 1, cloth: 1 } : { herbs: 1, fiber: 1 }, 12, Math.random() < 0.15 * (mfx.schematicLuckMult || 1));
             }
             if (this.hasInfusion('vampiric')) {
                 BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 8);
@@ -590,7 +662,7 @@
 
             const p = BO.Player;
             this._clearLostEcho();
-            if (this.runes > 0) {
+            if (this.runes > 0 && !this.modFx?.safeRunes) {
                 const echoMesh = this._mesh(new THREE.OctahedronGeometry(0.32), 0xfde047, p.pos.x, p.pos.y + 0.85, p.pos.z,
                     { emissive: 0xf59e0b, emissiveIntensity: 0.9 });
                 const marker = this._marker('soul-echo', 'Lost Aether Echo', p.pos.x, p.pos.y, p.pos.z, `Reclaim ${this.runes} Aether Runes`, 0xfde047);
@@ -638,49 +710,53 @@
             const m = this.mode;
             const p = BO.Player;
             const clock = m.clock;
+            const mfx = this.modFx || {};
 
             // Stealth rating (crouching & quiet cuts enemy detection range dramatically!)
             const movingFast = Math.hypot(p.vel.x, p.vel.z) > 4.2;
             const cloakTech = this.hasTech('t3_tactical') ? 0.78 : 1.0;
-            this.stealthFactor = (p.crouching && m.noise < 1.2 ? 0.42 : movingFast ? 1.15 : 0.85) * cloakTech;
+            this.stealthFactor = (p.crouching && m.noise < 1.2 ? 0.42 : movingFast ? 1.15 : 0.85) * cloakTech *
+                (p.crouching && mfx.stealthFactorMult ? mfx.stealthFactorMult : 1) * (1 - (mfx.fogStealthBonus || 0));
 
             // Ambient Temperature, Warmth, Hydration & Status Effects
             const areaId = this.campaign.area?.id || 'relay';
-            let targetTemp = areaId === 'frost' ? -4 : areaId === 'cinder' ? 36 : (areaId === 'cavern' || areaId === 'trench') ? 10 : 21;
+            let targetTemp = (areaId === 'frost' ? -4 : areaId === 'cinder' ? 36 : (areaId === 'cavern' || areaId === 'trench') ? 10 : 21) + (mfx.tempOffset || 0);
             if (this.campaign.isNight) targetTemp -= this.campaign.has('freezingNights') ? 19 : 9;
             const nearFire = this.campaign.placed.some((item) => item.alive && ['campfire', 'kiln', 'wallTorch', 'beacon'].includes(item.type) && dist2(item, p.pos) < 5.5) ||
                 D().shrines.some((s) => this.kindledShrines.has(s.id) && dist3(s, p.pos) < 5.5);
             if (nearFire) {
                 targetTemp += 15;
-                this.comfortUntil = Math.max(this.comfortUntil, clock + 12);
+                this.comfortUntil = Math.max(this.comfortUntil, clock + 12 * (mfx.comfortDurMult || 1));
             }
             this.temp = BO.Math.damp(this.temp, targetTemp, 0.35, dt);
 
             const needs = this.campaign.options.survivalNeeds !== false;
             if (needs) {
-                const hydDrain = (this.campaign.has('hungry') ? 0.36 : 0.16) * (this.temp > 31 ? 1.5 : 1);
+                const hydDrain = (this.campaign.has('hungry') ? 0.36 : 0.16) * (this.temp > 31 ? 1.5 : 1) * (mfx.hydDrainMult || 1);
                 this.hydration = Math.max(0, this.hydration - dt * hydDrain);
             }
-            if (this.bleeding > 0) this.bleeding = Math.max(0, this.bleeding - dt);
+            if (this.bleeding > 0) this.bleeding = Math.max(0, this.bleeding - dt * (mfx.bleedDecayMult || 1));
 
             if (clock >= this._lastAmbientTick + 1.0) {
                 this._lastAmbientTick = clock;
                 if (needs && this.hydration <= 0) p.takeDamage(2);
                 if (this.bleeding > 0) p.takeDamage(2);
                 if (this.infection >= 70) p.takeDamage(2);
-                if (needs && this.temp < 2 && !this.hasTalisman('rad_charm')) {
+                if (needs && this.temp < 2 && !this.hasTalisman('rad_charm') && !mfx.coldImmune) {
                     p.tacStamina = Math.max(0, p.tacStamina - 0.08);
                     if (this.temp < -3) p.takeDamage(2);
                 }
-                if (m.hunger >= 75 && this.hydration >= 75 && p.hp > 0 && p.hp < p.maxHp && this.bleeding <= 0) {
-                    p.hp = Math.min(p.maxHp, p.hp + 1.2);
+                if (((m.hunger >= 75 && this.hydration >= 75) || mfx.regenMult) && p.hp > 0 && p.hp < p.maxHp && this.bleeding <= 0) {
+                    p.hp = Math.min(p.maxHp, p.hp + 1.2 * (mfx.regenMult || 1));
                 }
             }
 
             // Update Automated Base Machines (Turrets, Smelters, Hydro, Spikes, Wire)
             const hasGenerator = this.machines.some((e) => e.piece.alive && e.kind === 'generator');
             const turretBoost = (hasGenerator ? 0.76 : 1) * (this.campaign.has('turretMaster') ? 0.65 : 1);
-            const smelterSpeed = hasGenerator ? 2 : 1;
+            const smelterSpeed = (hasGenerator ? 2 : 1) * (mfx.smelterSpeedMult || 1) * (hasGenerator && mfx.powerBoostMult ? mfx.powerBoostMult : 1);
+            const hydroSpeed = mfx.hydroSpeedMult || 1;
+            const turretDmg = Math.round((this.hasTech('t4_orbital') ? 32 : 22) * (mfx.turretDmgMult || 1));
 
             for (const entry of this.machines) {
                 if (!entry.piece.alive) continue;
@@ -688,7 +764,7 @@
                     entry.readyAt = clock + 30 / smelterSpeed;
                     entry.buffer = Math.min(8, entry.buffer + 1);
                 } else if (entry.kind === 'hydro' && clock >= entry.readyAt) {
-                    entry.readyAt = clock + 45;
+                    entry.readyAt = clock + 45 / hydroSpeed;
                     entry.buffer = Math.min(6, entry.buffer + 1);
                 } else if (entry.kind === 'turret' && m.hostilesReleased && clock >= entry.fireAt) {
                     const target = [...m.zombies, ...m.bots].find((u) => u.alive && u.team !== 0 && dist3(u.pos, entry.piece) <= 18);
@@ -700,7 +776,7 @@
                         if (BO.World.hasLineOfSight(origin.x, origin.y, origin.z, aimPt.x, aimPt.y, aimPt.z)) {
                             BO.FX?.spawnTracer?.(origin, aimPt, 0x4ade80);
                             BO.Sound?.playShot?.('smg', true);
-                            m.hit(target, this.hasTech('t4_orbital') ? 32 : 22, 'torso', null, 'bullet');
+                            m.hit(target, turretDmg, 'torso', null, 'bullet');
                         }
                     }
                 }
@@ -709,7 +785,7 @@
             // Perimeter Spikes & Barbed Wire Damage/Slow
             if (clock >= this._trapTick + 0.5) {
                 this._trapTick = clock;
-                const trapMult = this.campaign.has('turretMaster') ? 2 : 1;
+                const trapMult = (this.campaign.has('turretMaster') ? 2 : 1) * (mfx.trapDmgMult || 1);
                 for (const entry of this.machines) {
                     if (!entry.piece.alive || (entry.kind !== 'spikes' && entry.kind !== 'wire')) continue;
                     for (const u of [...m.zombies, ...m.bots]) {
@@ -723,9 +799,10 @@
             // World Events — STRICTLY gated behind hostilesReleased (Never in first 60s!)
             if (!m.hostilesReleased) return;
 
-            // Boss Enrage at <= 50% HP
+            // Boss Enrage at <= 50% (or bossPhase2Pct) HP
+            const phase2Pct = mfx.bossPhase2Pct || 0.5;
             for (const z of m.zombies) {
-                if (z.alive && (z.bossLabel || z.isBoss) && !z.enragedPhase2 && z.hp <= z.maxHp * 0.5) {
+                if (z.alive && (z.bossLabel || z.isBoss) && !z.enragedPhase2 && z.hp <= z.maxHp * phase2Pct) {
                     z.enragedPhase2 = true;
                     z.speed *= 1.25;
                     z.damage = Math.round(z.damage * 1.25);
@@ -761,9 +838,10 @@
                     if (m.scene?.fog) m.scene.fog.color.setHex(0x8e978b);
                     if (m.weatherLight) m.weatherLight.color.setHex(0xffe2b6);
                     this.awardRunes(250);
-                    m.grant({ aetherShard: 2, scrap: 4, medkits: 1 });
+                    m.grant({ aetherShard: mfx.bloodMoonDoubleRewards ? 4 : 2, scrap: 4, medkits: 1 });
+                    if (mfx.bloodMoonDoubleRewards) this.grantTechPoints(2);
                     this.campaign.mark('bloodMoons', 1, 140);
-                    m.toast('Blood Moon survived! +250 Runes & +2 Aether Shards.');
+                    m.toast('Blood Moon survived! +250 Runes & +Aether Shards.');
                 }
             }
 
@@ -809,6 +887,7 @@
 
         restore(state) {
             if (!state) return;
+            this._computeModFx();
             this.runes = Number(state.runes) || 0;
             this.attributes = { ...this.attributes, ...(state.attributes || {}) };
             this.kindledShrines = new Set(state.kindledShrines || []);

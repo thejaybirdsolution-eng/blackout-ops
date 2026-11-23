@@ -80,6 +80,9 @@
             if (!BO.Save.data.cheats || typeof BO.Save.data.cheats !== 'object') {
                 BO.Save.data.cheats = { unlockedModMenu: false };
             }
+            if (!BO.Save.data.cheatSnapshots || typeof BO.Save.data.cheatSnapshots !== 'object') {
+                BO.Save.data.cheatSnapshots = {};
+            }
             for (const c of Object.keys(CHEAT_DEFS)) {
                 if (BO.Save.data.cheats[c] === undefined) BO.Save.data.cheats[c] = false;
             }
@@ -158,6 +161,12 @@
     }
 
     class CheatManager {
+        constructor() {
+            this._prevWeaponBeforeMegaman = null;
+            this._prevPointsBeforeInfMoney = null;
+            this._prevPerksBeforeCheat = null;
+        }
+
         get defs() {
             return CHEAT_DEFS;
         }
@@ -174,11 +183,16 @@
             ]);
         }
 
-        disableAll() {
+        disableAll(includeModMenu = false) {
             BO.Settings._ensureDefaults();
             for (const c of Object.keys(CHEAT_DEFS)) {
-                BO.Save.data.cheats[c] = false;
-                this._applyImmediateEffects(c, false);
+                if (BO.Save.data.cheats[c]) {
+                    BO.Save.data.cheats[c] = false;
+                    this._applyImmediateEffects(c, false);
+                }
+            }
+            if (includeModMenu && BO.Save.data.cheats.unlockedModMenu) {
+                BO.Save.data.cheats.unlockedModMenu = false;
             }
             BO.Save.save();
             BO.Events.emit('cheats:changed', { code: 'all', enabled: false, state: BO.Save.data.cheats });
@@ -199,6 +213,7 @@
          */
         isActive(code, checkRaw = false) {
             BO.Settings._ensureDefaults();
+            if (code === 'cheats') return !!BO.Save.data.cheats.unlockedModMenu;
             const val = !!BO.Save.data.cheats[code];
             if (checkRaw) return val;
             return val && this.isZombiesActive();
@@ -211,102 +226,68 @@
 
         setCheat(code, enabled) {
             BO.Settings._ensureDefaults();
+            const next = !!enabled;
             if (code === 'cheats') {
-                BO.Save.data.cheats.unlockedModMenu = !!enabled;
+                BO.Save.data.cheats.unlockedModMenu = next;
             } else if (CHEAT_DEFS[code]) {
-                BO.Save.data.cheats[code] = !!enabled;
+                const prev = !!BO.Save.data.cheats[code];
+                if (next && code === 'unlock' && BO.Save.data.cheats.lock) {
+                    BO.Save.data.cheats.lock = false;
+                    delete BO.Save.data.cheatSnapshots.lock;
+                } else if (next && code === 'lock' && BO.Save.data.cheats.unlock) {
+                    BO.Save.data.cheats.unlock = false;
+                    delete BO.Save.data.cheatSnapshots.unlock;
+                } else if (next && code === 'maxlevel' && BO.Save.data.cheats.resetlevel) {
+                    BO.Save.data.cheats.resetlevel = false;
+                    delete BO.Save.data.cheatSnapshots.resetlevel;
+                } else if (next && code === 'resetlevel' && BO.Save.data.cheats.maxlevel) {
+                    BO.Save.data.cheats.maxlevel = false;
+                    delete BO.Save.data.cheatSnapshots.maxlevel;
+                }
+                if (prev !== next) {
+                    this._applyImmediateEffects(code, next);
+                    BO.Save.data.cheats[code] = next;
+                } else {
+                    BO.Save.data.cheats[code] = next;
+                    if (next) this._applyImmediateEffects(code, true);
+                }
             }
             BO.Save.save();
-            this._applyImmediateEffects(code, !!enabled);
-            BO.Events.emit('cheats:changed', { code, enabled: !!enabled, state: BO.Save.data.cheats });
+            BO.Events.emit('cheats:changed', { code, enabled: next, state: BO.Save.data.cheats });
         }
 
         /**
          * Processes a typed cheat code string from the user.
-         * Returns { ok, title, desc, enabled }
+         * Every cheat (including megaman, choose, unlock, lock, maxlevel, resetlevel, cheats)
+         * cleanly toggles ON and OFF when entered again or toggled from Settings / Mod Menu.
          */
         enterCode(rawInput) {
             const clean = String(rawInput || '').trim().toLowerCase().replace(/\s+/g, '');
             if (!clean) return { ok: false, msg: 'Enter a valid cheat code.' };
 
             if (clean === 'cheats') {
-                this.setCheat('cheats', true);
-                BO.Sound.playRankUp();
+                const next = !this.isModMenuUnlocked();
+                this.setCheat('cheats', next);
+                if (next) BO.Sound.playRankUp();
+                else BO.Sound.playUIClick();
                 return {
                     ok: true,
                     code: 'cheats',
-                    enabled: true,
-                    title: 'MOD MENU UNLOCKED!',
-                    desc: 'The "MOD MENU" button is now unlocked in the Start Menu and Pause Menu!',
-                    msg: 'MOD MENU UNLOCKED! Check the Start Menu or Pause Menu for ★ MOD MENU (CHEATS).'
-                };
-            }
-
-            if (clean === 'unlock') {
-                if (BO.Progression) BO.Progression.unlockEverything();
-                this.setCheat('unlock', true);
-                this.setCheat('lock', false);
-                BO.Sound.playRankUp();
-                return {
-                    ok: true,
-                    code: 'unlock',
-                    enabled: true,
-                    title: 'EVERYTHING UNLOCKED!',
-                    desc: CHEAT_DEFS.unlock.desc,
-                    msg: 'EVERYTHING UNLOCKED! All weapons, Gold Camo, Top Hat, Hard/Very Hard/Insanely Hard modes & Boss Rush are now unlocked!'
-                };
-            }
-
-            if (clean === 'lock') {
-                if (BO.Progression) BO.Progression.lockEverything();
-                this.setCheat('lock', true);
-                this.setCheat('unlock', false);
-                BO.Sound.playUIClick();
-                return {
-                    ok: true,
-                    code: 'lock',
-                    enabled: true,
-                    title: 'EVERYTHING LOCKED!',
-                    desc: CHEAT_DEFS.lock.desc,
-                    msg: 'EVERYTHING LOCKED! Items, camos, Top Hat, and difficulty modes reset to locked progression.'
-                };
-            }
-
-            if (clean === 'maxlevel') {
-                if (BO.Progression) BO.Progression.setMaxLevel();
-                this.setCheat('maxlevel', true);
-                this.setCheat('resetlevel', false);
-                BO.Sound.playRankUp();
-                return {
-                    ok: true,
-                    code: 'maxlevel',
-                    enabled: true,
-                    title: 'MAX LEVEL 55 (PRESTIGE 10)!',
-                    desc: CHEAT_DEFS.maxlevel.desc,
-                    msg: 'MAX LEVEL REACHED! You are now Rank 55 Commander (Prestige 10) with all weapons at Level 20!'
-                };
-            }
-
-            if (clean === 'resetlevel') {
-                if (BO.Progression) BO.Progression.resetAllLevels();
-                this.setCheat('resetlevel', true);
-                this.setCheat('maxlevel', false);
-                BO.Sound.playUIClick();
-                return {
-                    ok: true,
-                    code: 'resetlevel',
-                    enabled: true,
-                    title: 'LEVEL & XP RESET!',
-                    desc: CHEAT_DEFS.resetlevel.desc,
-                    msg: 'LEVEL & XP RESET! Rank, Prestige, and weapon XP have been reset to Level 1 (0 XP).'
+                    enabled: next,
+                    title: next ? 'MOD MENU UNLOCKED!' : 'MOD MENU LOCKED!',
+                    desc: 'Unlocks the "Mod Menu" option in the Start & Pause menus to turn any cheat ON or OFF anytime with checkboxes!',
+                    msg: next
+                        ? 'MOD MENU [cheats] ENABLED! Check the Start Menu or Pause Menu for ★ MOD MENU (CHEATS).'
+                        : 'MOD MENU [cheats] DISABLED!'
                 };
             }
 
             if (CHEAT_DEFS[clean]) {
-                const next = (clean === 'choose' || clean === 'megaman') ? true : !this.isActive(clean, true);
+                const next = !this.isActive(clean, true);
                 this.setCheat(clean, next);
-                BO.Sound.playPerkBuy();
-                if (clean === 'choose' && BO.Menus && BO.Menus.openChooseModal) {
+                if (next) BO.Sound.playPerkBuy();
+                else BO.Sound.playUIClick();
+                if (clean === 'choose' && next && BO.Menus && BO.Menus.openChooseModal) {
                     setTimeout(() => BO.Menus.openChooseModal(), 60);
                 }
                 return {
@@ -327,35 +308,110 @@
         }
 
         _applyImmediateEffects(code, enabled) {
-            if (code === 'unlock' && enabled && BO.Progression) BO.Progression.unlockEverything();
-            if (code === 'lock' && enabled && BO.Progression) BO.Progression.lockEverything();
-            if (code === 'maxlevel' && enabled && BO.Progression) BO.Progression.setMaxLevel();
-            if (code === 'resetlevel' && enabled && BO.Progression) BO.Progression.resetAllLevels();
+            const P = BO.Progression;
+            if (P && (code === 'unlock' || code === 'lock' || code === 'maxlevel' || code === 'resetlevel')) {
+                const snaps = BO.Save.data.cheatSnapshots;
+                if (enabled) {
+                    if (!snaps[code]) snaps[code] = P.captureSnapshot();
+                    if (code === 'unlock') P.unlockEverything();
+                    else if (code === 'lock') P.lockEverything();
+                    else if (code === 'maxlevel') P.setMaxLevel();
+                    else if (code === 'resetlevel') P.resetAllLevels();
+                } else {
+                    if (snaps[code]) {
+                        P.restoreSnapshot(snaps[code]);
+                        delete snaps[code];
+                    } else if (code === 'unlock') {
+                        P.lockEverything();
+                    } else if (code === 'maxlevel') {
+                        P.resetAllLevels();
+                    } else if (code === 'lock') {
+                        P.unlockEverything();
+                    }
+                }
+            }
 
             if (!this.isZombiesActive()) return;
-            const P = BO.Player;
+            const Pl = BO.Player;
             const ZM = BO.ZombiesMode;
-            if (code === 'infmoney' && enabled && ZM) {
-                ZM.points = Math.max(ZM.points, 99999);
+            if (code === 'infmoney' && ZM) {
+                if (enabled) {
+                    if (this._prevPointsBeforeInfMoney === null && ZM.points < 99999) {
+                        this._prevPointsBeforeInfMoney = ZM.points;
+                    }
+                    ZM.points = Math.max(ZM.points, 99999);
+                } else {
+                    const fallbackPts = this._prevPointsBeforeInfMoney !== null ? this._prevPointsBeforeInfMoney : 500;
+                    if (ZM.points >= 99999) ZM.points = fallbackPts;
+                    this._prevPointsBeforeInfMoney = null;
+                }
             }
-            if (code === 'perks' && enabled && P) {
-                ['quick_revive', 'juggernog', 'speed_cola', 'double_tap', 'stamin_up', 'deadshot'].forEach((pk) => P.zombiePerks.add(pk));
-                P.applyPerkStats();
+            if (code === 'perks' && Pl) {
+                if (enabled) {
+                    if (this._prevPerksBeforeCheat === null) {
+                        this._prevPerksBeforeCheat = Array.from(Pl.zombiePerks || []);
+                    }
+                    ['quick_revive', 'juggernog', 'speed_cola', 'double_tap', 'stamin_up', 'deadshot'].forEach((pk) => Pl.zombiePerks.add(pk));
+                    Pl.applyPerkStats();
+                } else {
+                    Pl.zombiePerks = new Set(this._prevPerksBeforeCheat || []);
+                    this._prevPerksBeforeCheat = null;
+                    Pl.applyPerkStats();
+                    Pl.hp = Math.min(Pl.hp, Pl.maxHp);
+                }
             }
-            if (code === 'infammo' && enabled && P) {
-                P.refillAllAmmo();
-                P.reloading = false;
+            if (code === 'infammo' && enabled && Pl) {
+                Pl.refillAllAmmo();
+                Pl.reloading = false;
             }
-            if (code === 'megaman' && enabled && P) {
-                P.giveWeapon('megaman_buster', false, false);
-                BO.Events.emit('hud:banner', {
-                    title: 'MEGA BUSTER MK-X EQUIPPED!',
-                    sub: 'SOLAR PLASMA ARM-CANNON ONLINE',
-                    color: '#38bdf8'
-                });
+            if (code === 'megaman' && Pl) {
+                if (enabled) {
+                    const curW = Pl.weapons && Pl.weapons[Pl.activeSlot];
+                    if (curW && curW.cfg && curW.cfg.id !== 'megaman_buster') {
+                        this._prevWeaponBeforeMegaman = BO.Math.deepClone(curW.cfg);
+                    }
+                    Pl.giveWeapon('megaman_buster', false, false);
+                    BO.Events.emit('hud:banner', {
+                        title: 'MEGA BUSTER MK-X EQUIPPED!',
+                        sub: 'SOLAR PLASMA ARM-CANNON ONLINE',
+                        color: '#38bdf8'
+                    });
+                } else {
+                    if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
+                    const prevListLen = Array.isArray(Pl.weapons) ? Pl.weapons.length : 0;
+                    const hadBuster = Array.isArray(Pl.weapons) && Pl.weapons.some((w) => w && w.cfg && w.cfg.id === 'megaman_buster');
+                    if (Array.isArray(Pl.weapons)) {
+                        Pl.weapons = Pl.weapons.filter((w) => w && w.cfg && w.cfg.id !== 'megaman_buster');
+                    } else {
+                        Pl.weapons = [];
+                    }
+                    const fallbackCfg = this._prevWeaponBeforeMegaman
+                        || BO.Loadout?.getClasses?.()?.[BO.Loadout.getSelectedClassIndex()]?.primary
+                        || { id: 'm1911', camo: 'default', attachments: { optic: 'iron', muzzle: 'none', underbarrel: 'none', magazine: 'std_mag', stock: 'std_stock' } };
+                    if (Pl.weapons.length === 0 || (hadBuster && Pl.weapons.length < prevListLen && !Pl.weapons.some((w) => w.cfg && w.cfg.id === fallbackCfg.id))) {
+                        Pl.weapons.push(Pl._createWeaponInstance(BO.Math.deepClone(fallbackCfg), false));
+                    }
+                    this._prevWeaponBeforeMegaman = null;
+                    Pl.activeSlot = Math.max(0, Math.min(Pl.activeSlot || 0, Pl.weapons.length - 1));
+                    Pl.reloading = false;
+                    Pl.swapTimer = 0;
+                    Pl.rebuildViewmodel();
+                    BO.Events.emit('hud:toast', { text: 'MEGA BUSTER MK-X DISABLED', color: '#94a3b8' });
+                }
             }
-            if (code === 'dance' && enabled && ZM && ZM.triggerZombieDance) {
-                ZM.triggerZombieDance();
+            if (code === 'dance' && ZM) {
+                if (enabled && ZM.triggerZombieDance) {
+                    ZM.triggerZombieDance();
+                } else if (!enabled) {
+                    for (const z of ZM.zombies) {
+                        if (z) z.danceTimer = 0;
+                    }
+                }
+            }
+            if ((code === 'fly' || code === 'noclip') && !enabled && Pl) {
+                if (!this.isActive('fly', true) && !this.isActive('noclip', true)) {
+                    Pl.vel.y = Math.min(0, Pl.vel.y);
+                }
             }
             if (code === 'bighead' && ZM) {
                 for (const z of ZM.zombies) {

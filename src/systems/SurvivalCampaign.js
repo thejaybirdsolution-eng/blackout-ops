@@ -356,6 +356,7 @@
                     if (stone) part.hp = piece.type === 'door' ? 320 : 265;
                     part.buildPiece = piece;
                     if (Number.isFinite(piece.hp)) part.hp = piece.hp;
+                    else part.hp = Math.round((part.hp || 120) * (this.deep?.modFx?.structureHpMult || 1));
                     piece.part = part;
                 }
             }
@@ -532,7 +533,8 @@
             const vehicle = data.vehicles.find((item) => item.id === this.vehicle);
             const p = BO.Player;
             const deep = this.deep;
-            let mult = 1;
+            const mfx = deep?.modFx || {};
+            let mult = 1 + (mfx.speedBonus || 0);
             if (deep) {
                 if (deep.hasInfusion('swiftness')) mult *= 1.14;
                 if (deep.activeTonics.aetherStim > this.mode.clock) mult *= 1.30;
@@ -544,7 +546,7 @@
                 return mult;
             }
             const road = Math.abs(p.pos.x) < 4.1 && p.pos.z > -1;
-            return (road ? vehicle.speed : vehicle.offroad) * mult;
+            return (road ? vehicle.speed : vehicle.offroad) * mult * (mfx.vehicleSpeedMult || 1);
         }
 
         canSave() {
@@ -556,7 +558,8 @@
         travel(id) {
             if (this.has('footOnly') || !this.canSave() || !this.visited.has(id) || id === 'trench' || this.area?.id === id) return false;
             const area = data.areas.find((zone) => zone.id === id);
-            if (!area || area.y < 0 || this.gates.get(id)?.collider.active || !this.mode.spend({ fuel: 1 })) return false;
+            const needFuel = !this.deep?.modFx?.freeTravel;
+            if (!area || area.y < 0 || this.gates.get(id)?.collider.active || (needFuel && !this.mode.spend({ fuel: 1 }))) return false;
             BO.Player.pos.set(area.x, area.y, area.z);
             BO.Player.vel.set(0, 0, 0);
             this.restHours += 1;

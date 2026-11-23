@@ -227,13 +227,17 @@
             const now = BO.ZombiesMode.elapsed;
             this.frozenTrigger = P.zombiePerks.has('trigger_freeze') && now - this.lastTriggerTime >= 3;
             this.lastTriggerTime = now;
+            const infReserve = BO.Mods?.fxActive?.().infiniteReserve;
             if (!P.overdriveActive && !infAmmo) w.mag--;
             else if (infAmmo) w.mag = w.stats.magSize;
+            if (infReserve && w.stats.reserveMax) w.reserve = w.stats.reserveMax;
+            if (BO.Mods && BO.Mods.onWeaponShot) BO.Mods.onWeaponShot(w);
             BO.Progression.recordStat('shotsFired', 1);
 
             const hasDoubleTap = P.zombiePerks.has('double_tap');
             const tdGongBoost = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.overdriveTimer > 0) ? 1.85 : 1.0;
-            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost;
+            const modRof = BO.Mods ? BO.Mods.fireRateMult() : 1.0;
+            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost * modRof;
             P.fireCooldown = 60 / Math.max(30, rpm);
 
             P.triggerMuzzleFlash();
@@ -266,8 +270,9 @@
 
             // Recoil kick
             const adsMult = P.adsAlpha > 0.5 ? 0.80 : 1.0;
-            P.recoilPitch += w.stats.recoilPitch * adsMult;
-            P.recoilYaw += (Math.random() - 0.5) * 2 * w.stats.recoilYaw * adsMult;
+            const modRec = (BO.Mods ? BO.Mods.recoilMult() : 1.0) * (BO.State.activeMode === 'survival' ? (BO.SurvivalMode?.campaign?.deep?.modFx?.recoilMult || 1.0) : 1.0);
+            P.recoilPitch += w.stats.recoilPitch * adsMult * modRec;
+            P.recoilYaw += (Math.random() - 0.5) * 2 * w.stats.recoilYaw * adsMult * modRec;
             P.recoilZ += 0.032;
             P.cameraShake = Math.max(P.cameraShake, 0.010);
 
@@ -288,6 +293,7 @@
                 let spread = BO.Math.lerp(w.stats.hipSpread, w.stats.adsSpread, P.adsAlpha);
                 if (P.zombiePerks.has('deadshot')) spread *= 0.65;
                 if (Math.hypot(P.vel.x, P.vel.z) > 1.5 && P.adsAlpha < 0.5) spread *= 1.35;
+                if (BO.Mods) spread *= BO.Mods.spreadMult();
 
                 let anyHit = false;
                 let anyKill = false;
@@ -1535,10 +1541,12 @@
 
             const ent = hit.object.userData.entity;
             const deep = BO.SurvivalMode?.campaign?.deep;
+            const mfx = deep?.modFx || {};
             let dmg = isHeavy ? 96 : (P.bareComboStep === 2 ? 72 : P.bareComboStep === 1 ? 52 : 44);
             if (deep) {
-                dmg *= (1 + (deep.attributes.strength || 0) * 0.18);
+                dmg *= (1 + (deep.attributes.strength || 0) * 0.18) * (mfx.fistsDmgMult || 1);
                 if (deep.hasTalisman('claw_talisman')) dmg *= 1.35;
+                if (mfx.lowStamFury && (P.tacStamina < 0.35 || P.hp < P.maxHp * 0.4)) dmg *= 1.25;
             }
             let critHit = false;
             if (ent.parriedUntil && ent.parriedUntil > performance.now() / 1000) {
@@ -1550,13 +1558,18 @@
                 const toPlayer = new THREE.Vector3(P.pos.x - ent.pos.x, 0, P.pos.z - ent.pos.z).normalize();
                 const entFwd = new THREE.Vector3(Math.sin(ent.yaw || 0), 0, Math.cos(ent.yaw || 0));
                 if (toPlayer.dot(entFwd) < -0.25) {
-                    dmg *= 3.5;
+                    const bsMult = mfx.backstabMult || 3.5;
+                    dmg *= bsMult;
                     critHit = true;
-                    BO.Events.emit('hud:toast', { text: 'STEALTH TAKEDOWN (3.5x)!', color: '#38bdf8' });
+                    BO.Events.emit('hud:toast', { text: `STEALTH TAKEDOWN (${bsMult.toFixed(1)}x)!`, color: '#38bdf8' });
                 }
             }
+            if (isHeavy && mfx.heavyIgnites && ent) {
+                ent.burnTimer = Math.max(ent.burnTimer || 0, 3.0);
+                dmg *= 1.25;
+            }
             if (isFinisher && ent && !ent.isBoss) {
-                ent.stunTimer = Math.max(ent.stunTimer || 0, isHeavy ? 0.9 : 0.45);
+                ent.stunTimer = Math.max(ent.stunTimer || 0, (isHeavy ? 0.9 : 0.45) * (mfx.staggerBonus || 1));
             }
 
             if (BO.Settings.get('bloodLevel') !== 'off') {

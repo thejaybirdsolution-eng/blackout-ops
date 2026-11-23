@@ -385,10 +385,11 @@
                 boss ? bosses[({ frostBoss: 1, geodeBoss: 2, cinderBoss: 3, siegeBoss: 1 })[type] || 0] :
                 type === 'mimic' ? candidates.find((item) => /wraith|phantom/.test(item.id)) || candidates[0] :
                 candidates[(this.nextEnemy + this.pressure) % Math.min(6 + this.pressure * 2, candidates.length)];
+            const mfx = this.campaign?.deep?.modFx || {};
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y, z, round: 1,
-                hp: Math.round(this.difficultyRules.hp * (boss ? (({ frostBoss: 720, cinderBoss: 980, geodeBoss: 820, siegeBoss: 690 })[type] || 580) : Math.min(230, spec.hp * 0.75 + this.pressure * 5))),
-                speed: type === 'mimic' ? 5.4 : boss ? 2.5 : Math.min(4.9, spec.speed),
-                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage) });
+                hp: Math.round(this.difficultyRules.hp * (boss ? (({ frostBoss: 720, cinderBoss: 980, geodeBoss: 820, siegeBoss: 690 })[type] || 580) * (mfx.bossHpMult || 1) : Math.min(230, spec.hp * 0.75 + this.pressure * 5))),
+                speed: (type === 'mimic' ? 5.4 : boss ? 2.5 : Math.min(4.9, spec.speed)) * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
+                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage * (mfx.enemyDmgMult || 1)) });
             entity.survivalType = type;
             if (type === 'apex') entity.bossLabel = 'Apex Guardian';
             if (type === 'frostBoss') entity.bossLabel = 'Pale Maul';
@@ -410,7 +411,8 @@
         spawnBot(x, y, z, weaponId, hp = 90, team = 1, required = false) {
             const openSec = this.openingSeconds || BO.SurvivalRules.openingSeconds;
             if (team !== 0 && (this.clock < openSec || (!required && this.campaign.has('noPatrols')))) return null;
-            const entity = new BO.BotAI({ id: this.nextEnemy++, team, x, y, z, weaponId, maxHp: hp,
+            const botHp = team !== 0 ? Math.round(hp * (this.campaign?.deep?.modFx?.botHpMult || 1)) : hp;
+            const entity = new BO.BotAI({ id: this.nextEnemy++, team, x, y, z, weaponId, maxHp: botHp,
                 difficulty: ({ hard: 'regular', veteran: 'hardened', nightmare: 'veteran' })[this.difficulty] || 'recruit', speedScale: 0.69, respawnDelay: 0 });
             this.bots.push(entity);
             return entity;
@@ -420,15 +422,20 @@
             if (!entity.alive || entity.team === 0 && !agent) return false;
             const deep = this.campaign?.deep;
             if (!agent) {
+                const mfx = deep?.modFx || {};
                 if (this.campaign?.has('headshotsOnly') && damageKind === 'bullet') {
                     amount *= (hitbox === 'head' ? 2.2 : 0.35);
                 }
+                if (mfx.weaponDmgMult && damageKind !== 'melee') amount *= mfx.weaponDmgMult;
+                if (mfx.flatDmgMult) amount *= mfx.flatDmgMult;
+                if (mfx.longRangeDmgMult && entity.pos && BO.Player.pos.distanceTo(entity.pos) > 25) amount *= mfx.longRangeDmgMult;
                 if (deep) {
                     if (damageKind === 'bullet') amount *= (1 + (deep.attributes.dexterity || 0) * 0.10);
                     if (deep.hasInfusion('overclock')) amount *= 1.25;
                     if (hitbox === 'head') {
                         if (deep.hasTalisman('marksman_lens')) amount *= 1.25;
                         if (deep.activeTonics.deadshotTinc > this.clock) amount *= 1.45;
+                        if (mfx.headshotMult) amount *= mfx.headshotMult;
                     }
                     if (deep.hasInfusion('fire_aspect')) entity.burnTimer = Math.max(entity.burnTimer || 0, 3.0);
                 }
@@ -456,6 +463,10 @@
                 if (entity.survivalType === 'apex') this.toast('Apex down. The research core is accessible.');
                 if (entity === this.commander) this.toast('Commander Sable eliminated.');
                 if (this.kills % 3 === 0) this.campaign.pack.receive({ scrap: 1 });
+                if (deep?.modFx?.killAmmoChance && Math.random() < deep.modFx.killAmmoChance && BO.Player.activeWeapon?.stats?.kind === 'gun') {
+                    const aw = BO.Player.activeWeapon;
+                    aw.reserve = Math.min(aw.stats.reserveMax, aw.reserve + Math.ceil(aw.stats.magSize * 0.4));
+                }
                 this.campaign?.deep?.onKill(entity, damageKind);
             }
             return killed;
@@ -550,10 +561,12 @@
             const p = BO.Player;
             const deluge = this.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6;
             const survivalNeeds = this.campaign?.options.survivalNeeds !== false;
-            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * (this.campaign.has('hungry') ? 0.44 : 0.22));
             const deep = this.campaign?.deep;
+            const fx = deep?.modFx;
+            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * (this.campaign.has('hungry') ? 0.44 : 0.22) * (fx?.hungerDrainMult || 1));
             const arcMit = Math.max(0.4, 1 - (deep?.attributes?.arcane || 0) * 0.08) * (deep?.hasTalisman('rad_charm') ? 0.6 : 1);
-            const shielding = (this.campaign.pack.filtered ? 0.18 : 1) * (survivalNeeds && this.campaign.has('irradiated') ? 1.8 : 1) * arcMit;
+            const weatherRad = (this.weather && this.weather !== 'Clear') ? (fx?.weatherRadMult || 1) : 1;
+            const shielding = (this.campaign.pack.filtered ? 0.18 : 1) * (survivalNeeds && this.campaign.has('irradiated') ? 1.8 : 1) * arcMit * (fx?.radGainMult || 1) * weatherRad;
             this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 2.4 * shielding : deluge ? 1.3 * shielding : -0.7), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;

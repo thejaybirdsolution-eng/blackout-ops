@@ -33,11 +33,12 @@
             const base = data.packs[this.level] || data.packs[0];
             const endBonus = (this.campaign.deep?.attributes?.endurance || 0) * 3;
             const techBonus = this.campaign.deep?.hasTech?.('t1_scavenge') ? 8 : 0;
+            const extraKg = this.campaign.deep?.modFx?.bonusCarryKg || 0;
             const mult = this.campaign.has?.('megaStack') ? 2 : 1;
             const slotBonus = this.campaign.has?.('megaStack') ? 10 : 0;
             return {
                 name: base.name,
-                weight: base.weight * mult + endBonus + techBonus,
+                weight: base.weight * mult + endBonus + techBonus + extraKg,
                 slots: base.slots + slotBonus
             };
         }
@@ -183,7 +184,8 @@
                 }
                 return true;
             }
-            this.nextToolUse = m.clock + (tool ? 0.42 : 0.19);
+            const gSpd = this.campaign.deep?.modFx?.gatherSpeedMult || 1;
+            this.nextToolUse = m.clock + (tool ? 0.42 : 0.19) / gSpd;
             if (tool) {
                 this.equipped = tool;
                 let wearStep = this.campaign.has('steadyTools') ? 0.5 : 1;
@@ -199,9 +201,17 @@
             if (!node.hp) {
                 this.deplete(node);
                 if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? 480 : 170);
+                const mfx = this.campaign.deep?.modFx || {};
                 const extraLoot = this.campaign.has('richLoot') || this.campaign.deep?.hasInfusion('fortune');
-                const gain = extraLoot ? Object.fromEntries(Object.entries(spec.gain).map(([id, count]) =>
-                    [id, id === 'relic' ? count : count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5))])) : spec.gain;
+                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1);
+                const gain = Object.fromEntries(Object.entries(spec.gain).map(([id, count]) => {
+                    if (id === 'relic') return [id, count];
+                    let amt = extraLoot ? count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5)) : count;
+                    return [id, Math.max(1, Math.round(amt * yMult))];
+                }));
+                if (mfx.gemDropChance && spec.tool === 'pick' && Math.random() < mfx.gemDropChance) {
+                    gain.quartz = (gain.quartz || 0) + 1;
+                }
                 m.grant(gain);
                 this.campaign.mark('gatheredNodes', 1, tool ? 10 : 3);
                 this.campaign.mark('harvest_' + node.kind, 1, 0);
@@ -319,7 +329,7 @@
             if (id === 'freshWater' && this.campaign.activities) {
                 return this.campaign.activities.useItem('freshWater');
             } else if (id === 'bandage' && p.hp < p.maxHp) {
-                const hp = Math.min(this.campaign.has('fieldMedic') ? 40 : 27, p.maxHp - p.hp);
+                const hp = Math.min((this.campaign.has('fieldMedic') ? 40 : 27) * (deep?.modFx?.healItemMult || 1), p.maxHp - p.hp);
                 p.hp += hp;
                 if (deep) deep.bleeding = 0;
                 this.campaign.mark('healed', Math.ceil(hp), 0);
@@ -356,7 +366,7 @@
                 }
             } else if (['jugBrew', 'speedTonic', 'staminElixir', 'deadshotTinc'].includes(id)) {
                 if (deep) {
-                    deep.activeTonics[id] = m.clock + 180;
+                    deep.activeTonics[id] = m.clock + 180 * (deep.modFx?.tonicDurMult || 1);
                     deep.recomputePlayerStats();
                 }
                 BO.Sound?.playPerkBuy?.();

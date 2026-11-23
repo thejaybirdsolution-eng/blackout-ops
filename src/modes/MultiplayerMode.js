@@ -247,16 +247,19 @@
 
         _spawnBots(map) {
             const r = this.customRules;
+            const mfx = BO.Mods ? BO.Mods.fx(r.mods || {}, 'mp') : {};
             const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
             const requested = Number.parseInt(r.enemyCount, 10);
-            const enemyCount = BO.Math.clamp(Number.isFinite(requested) ? requested : (isFFA ? 7 : 6), 0, 100);
+            const baseCount = Number.isFinite(requested) ? requested : (isFFA ? 7 : 6);
+            const enemyCount = BO.Math.clamp(Math.round(baseCount * (mfx.botCountMult || 1)) + (mfx.extraBots || 0), 0, 100);
             const teamCap = BO.Math.clamp(parseInt(r.teamSizeLimit, 10) || 6, 1, 100);
             const allyCount = isFFA || r.noAllies ? 0 : Math.min(teamCap - 1, enemyCount, 100 - enemyCount);
-            const healthScale = (r.fragileBots ? 0.5 : 1) * (r.toughBots ? 2 : 1);
-            const botSpeed = (r.speedScale || 1) * (r.slowBots ? 0.5 : 1) * (r.quickBots ? 1.5 : 1);
+            const healthScale = (r.fragileBots ? 0.5 : 1) * (r.toughBots ? 2 : 1) * (mfx.botHpMult || 1);
+            const botSpeed = (r.speedScale || 1) * (r.slowBots ? 0.5 : 1) * (r.quickBots ? 1.5 : 1) * (mfx.botSpeedMult || 1);
             const ePool = WEAPON_POOLS[r.enemyWeaponMode] || WEAPON_POOLS.all;
             const enemyUnarmed = r.enemyWeaponMode === 'unarmed';
             const eHp = Math.max(1, Math.min(1000, Number(r.enemyHp) || 100));
+            const respDelay = Math.max(0.15, (r.respawnDelay ?? 2.4) * (mfx.respawnDelayMult || 1) + (mfx.respawnDelayAdd || 0));
 
             let botId = 0;
             for (let a = 0; a < allyCount; a++) {
@@ -270,8 +273,8 @@
                     unarmed: !!r.passiveBots,
                     maxHp: Math.max(1, Math.round((r.playerHp || 100) * healthScale)),
                     speedScale: botSpeed,
-                    bigHeads: !!r.bigHeads,
-                    respawnDelay: r.respawnDelay ?? 2.4,
+                    bigHeads: !!r.bigHeads || !!mfx.botBigHead,
+                    respawnDelay: respDelay,
                     oneShotKills: !!r.oneShotKills,
                     x: sp.x, y: sp.y || 0, z: sp.z, yaw: sp.yaw || 0
                 });
@@ -290,8 +293,8 @@
                     unarmed: enemyUnarmed || !!r.passiveBots,
                     maxHp: Math.max(1, Math.round(eHp * healthScale)),
                     speedScale: botSpeed,
-                    bigHeads: !!r.bigHeads,
-                    respawnDelay: r.respawnDelay ?? 2.4,
+                    bigHeads: !!r.bigHeads || !!mfx.botBigHead,
+                    respawnDelay: respDelay,
                     oneShotKills: !!r.oneShotKills,
                     x: sp.x, y: sp.y || 0, z: sp.z, yaw: sp.yaw || 0
                 });
@@ -434,8 +437,18 @@
 
         _awardPlayerKill(bot, isHead, weaponLabel, weaponId) {
             const kMods = (this.customRules && this.customRules.mods) || {};
+            const mfx = BO.Mods ? BO.Mods.fx(kMods, 'mp') : {};
             if (BO.Mods) BO.Mods.onKill(kMods, null, {});
             if (kMods.vampirePlayer && BO.Player.alive) BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
+            if (mfx.botMartyrdom && bot && bot.pos) {
+                const mPos = bot.pos.clone().add(new THREE.Vector3(0, 0.4, 0));
+                setTimeout(() => {
+                    if (this.active && !this.ended && BO.Combat?.onExplodeAt) {
+                        BO.FX?.spawnExplosion?.(mPos, 3.5, 0xf97316);
+                        BO.Combat.onExplodeAt(mPos, 3.8, 55, 'enemy', false, 0, 'martyrdom');
+                    }
+                }, 1100);
+            }
             this.playerKills++;
             this.armoryCredits += 100;
             if (this.customRules.regenOnElim && BO.Player.alive) BO.Player.hp = BO.Player.maxHp;
@@ -443,7 +456,7 @@
                 BO.Player.armor = Math.min(BO.Player.maxArmor, BO.Player.armor + 15);
             }
             this.currentStreak++;
-            this.playerScore += isHead ? 125 : 100;
+            this.playerScore += (isHead ? 125 : 100) + ((mfx.bonusMatchScore || 0) * 50);
 
             if (!this.killcamPendingEnd) {
                 this.lastKillMeta = {
@@ -464,9 +477,10 @@
             }
             BO.Progression.recordStat('mpKills', 1);
             BO.Progression.recordStat('mpScore', 100);
-            if (weaponId) BO.Progression.grantWeaponKill(weaponId, isHead, 120);
-            BO.Progression.grantPlayerXP(isHead ? 150 : 110);
-            BO.Player.addUltimateCharge(22);
+            const xpMult = (mfx.xpMult || 1) * (isHead ? (mfx.hsXpMult || 1) : 1);
+            if (weaponId) BO.Progression.grantWeaponKill(weaponId, isHead, Math.round(120 * xpMult));
+            BO.Progression.grantPlayerXP(Math.round((isHead ? 150 : 110) * xpMult));
+            BO.Player.addUltimateCharge(22 * (mfx.ultKillMult || 1));
 
             if (BO.Player.mpPerks.includes('quick_fix')) BO.Player.regenDelayTimer = 0;
             if (BO.Player.mpPerks.includes('scavenger')) {
@@ -843,6 +857,14 @@
                 if (this.multikillTimer <= 0) this.multikillCount = 0;
             }
             if (this.uavTimer > 0) this.uavTimer = Math.max(0, this.uavTimer - dt);
+            const mfx = BO.Mods ? BO.Mods.fx(this.customRules.mods || {}, 'mp') : {};
+            if (mfx.permUav) this.uavTimer = Math.max(this.uavTimer, 1.0);
+            if (BO.Mods) {
+                BO.Mods.tickMode('mp', dt, {
+                    bots: this.bots,
+                    damageBot: (b, d) => { if (b && b.alive && b.takeDamage) b.takeDamage(d, 'torso', false); }
+                });
+            }
 
             if (this.nukeTimer > 0) {
                 this.nukeTimer -= dt;
@@ -1029,8 +1051,9 @@
                         if (b.team === 0) allyCap++; else enemyCap++;
                     }
                 }
+                const objMult = BO.Mods ? BO.Mods.objRateMult() : 1;
                 if (allyCap > enemyCap && f.owner !== 0) {
-                    f.progress += dt * 0.45;
+                    f.progress += dt * 0.45 * objMult;
                     if (f.progress >= 1) {
                         f.owner = 0; f.progress = 0;
                         this.playerScore += 150;

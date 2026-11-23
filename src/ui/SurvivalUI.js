@@ -85,6 +85,7 @@
                 this._refreshBriefingHints(options);
             };
             this.content.onclick = (event) => {
+                if (event.target.closest('.mm-shell')) return;
                 const button = event.target.closest('button');
                 if (!button) return;
                 this.dispatch(button.dataset);
@@ -252,12 +253,11 @@
                         ${checkbox('Dynamic weather', 'weather', options.weather)}
                         ${checkbox('Autosave when safe', 'autosave', options.autosave)}
                     </div>
-                    <details class="survival-roster"><summary>Custom Modifiers (<span class="survival-mod-count">${options.modifiers.length} active</span>)</summary>
-                        <div class="survival-mod-groups">${Object.entries(groups).map(([gId, gLabel]) => {
-                            const items = Object.entries(r.modifiers || {}).filter(([, mod]) => (mod.group || 'world') === gId);
-                            return `<div class="survival-mod-group"><h4>${gLabel}</h4>${items.map(([id, mod]) =>
-                                `<label class="survival-toggle" title="${mod.description}"><input type="checkbox" data-mod value="${id}" ${options.modifiers.includes(id) ? 'checked' : ''}><span><b>${mod.name}</b> — ${mod.description}</span></label>`).join('')}</div>`;
-                        }).join('')}</div>
+                    <details class="survival-roster survival-mods-details" open><summary>Modifiers Command Deck (<span class="survival-mod-count">${options.modifiers.length} active</span> / ${Object.keys(r.modifiers || {}).length} total)</summary>
+                        <div id="survival-mod-menu-host">${BO.ModifierMenuUI
+                            ? BO.ModifierMenuUI.renderHtml({ mode: 'survival', active: options.modifiers })
+                            : `<div class="survival-mod-groups">${Object.entries(r.modifiers || {}).map(([id, mod]) =>
+                                `<label class="survival-toggle" title="${mod.description}"><input type="checkbox" data-mod value="${id}" ${options.modifiers.includes(id) ? 'checked' : ''}><span><b>${mod.name}</b> — ${mod.description}</span></label>`).join('')}</div>`}</div>
                     </details>
                     <details class="survival-roster"><summary>Customize the infected roster</summary>
                         <div class="survival-roster-list">${BO.ZombiesData.ORDERED_PROGRESSION.map((enemy) =>
@@ -299,6 +299,18 @@
             this.closeButton.textContent = this.section === 'briefing' ? 'BACK' : (this.section === 'legend' && this.returnSection === 'briefing' ? 'BACK TO BRIEFING' : 'RESUME');
             if (this.section === 'briefing') {
                 this.content.innerHTML = this.renderBriefing();
+                const modHost = this.content.querySelector('#survival-mod-menu-host');
+                if (modHost && BO.ModifierMenuUI) {
+                    BO.ModifierMenuUI.bindContainer(modHost, {
+                        mode: 'survival',
+                        getActive: () => career.profile.options.modifiers || [],
+                        onChange: (nextArr) => {
+                            const updated = { ...career.profile.options, modifiers: nextArr };
+                            career.remember(updated);
+                            this._refreshBriefingHints(updated);
+                        }
+                    });
+                }
                 return;
             }
             if (this.section === 'legend') {

@@ -545,14 +545,16 @@
                 this._wasGuarding = false;
             }
             this.rebuildViewmodel();
+            if (BO.Mods && BO.Mods.onSwapWeapon) BO.Mods.onSwapWeapon();
         }
 
         tryDodgeRoll() {
             if (!this.alive || this.inLastStand || this.dodgeCooldown > 0 || this.tacStamina < 0.25) return false;
             const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
-            const endRed = Math.max(0.55, 1 - (deep?.attributes?.endurance || 0) * 0.05);
+            const mfx = deep?.modFx || {};
+            const endRed = Math.max(0.45, (1 - (deep?.attributes?.endurance || 0) * 0.05) * (mfx.dodgeCostMult || 1));
             this.tacStamina = Math.max(0, this.tacStamina - 0.26 * endRed);
-            this.invulnTimer = 0.34;
+            this.invulnTimer = 0.34 + (mfx.dodgeIframesAdd || 0);
             this.dodgeCooldown = 0.58;
             this.dodgeRollTimer = 0.30;
             const { forward, right } = this.getMoveDirectionVectors();
@@ -588,8 +590,9 @@
             const speedColaMult = (this.zombiePerks.has('speed_cola') ? 0.52 : 1) * (this.zombiePerks.has('rush_order') && BO.ZombiesMode.exfilActive ? 0.7 : 1);
             const activeMods = BO.Mods ? BO.Mods.active() : {};
             const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
+            const modRldMult = BO.Mods ? BO.Mods.reloadMult() : 1.0;
             const mealMult = BO.State.activeMode === 'survival' && BO.SurvivalMode.mealUntil > BO.SurvivalMode.clock ? 0.70 : 1;
-            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult * mealMult;
+            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult * modRldMult * mealMult;
             this.reloadTimer = this.reloadDuration;
             this.reloadStage = 0;
             BO.Sound.playReload(w.stats.shellReload ? 'shell' : 'out');
@@ -630,10 +633,14 @@
                 const facing = -(dx * Math.sin(this.yaw) + dz * Math.cos(this.yaw));
                 if (distance > 0.01 && distance <= 3.4 && facing > distance * 0.45) {
                     const nowSec = performance.now() / 1000;
-                    const parryWin = deep?.hasTalisman('claw_talisman') ? 0.38 : 0.28;
+                    const parryWin = (deep?.hasTalisman('claw_talisman') ? 0.38 : 0.28) + (deep?.modFx?.parryWindowAdd || 0);
                     if (nowSec - this.guardStartTime <= parryWin) {
                         this.parryFeedbackTimer = 1.0;
                         this.tacStamina = Math.min(1.0, this.tacStamina + 0.25);
+                        if (deep?.modFx?.parryHeal) {
+                            this.hp = Math.min(this.maxHp, this.hp + deep.modFx.parryHeal);
+                            this.tacStamina = 1.0;
+                        }
                         BO.Sound.playHitmarker(true, false);
                         BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 14, 0xfacc15, 4.5, 4, 0.35);
                         BO.Events.emit('hud:toast', { text: 'PERFECT PARRY! Counter-punch for 2.8x Riposte!', color: '#facc15' });
@@ -654,7 +661,7 @@
                     BO.SurvivalMode.hit(attackerEntity, Math.max(8, Math.round(amount * 0.35)), 'torso', null, 'melee');
                 }
             }
-            if (isExplosive && this.zombiePerks.has('phd_flopper')) return;
+            if (isExplosive && (this.zombiePerks.has('phd_flopper') || BO.Mods?.fxActive?.().noSelfExplode)) return;
             if (isExplosive && this.mpPerks.includes('flak_jacket')) amount *= 0.5;
             if (this.zombiePerks.has('widows_wine') && (!this._widowCd || this._widowCd <= 0)) {
                 this._widowCd = 8.0;
@@ -688,6 +695,7 @@
             }
             amount = BO.Superpowers.absorb(amount);
             if (amount <= 0) return;
+            if (BO.Mods && BO.Mods.onTakeDamage) BO.Mods.onTakeDamage(amount, attackerEntity);
 
             // Directional indicator angle relative to player facing
             if (attackerPos) {
@@ -951,6 +959,7 @@
                     w.reserve -= take;
                     this.reloading = false;
                     BO.Sound.playReload('bolt');
+                    if (BO.Mods && BO.Mods.onReload) BO.Mods.onReload(w);
                 }
             }
         }
@@ -1013,9 +1022,9 @@
             const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight']) && iz > 0 && !this.adsHeld && !this.inLastStand;
             if (wantsSprint && !this.crouching && !this.sliding) {
                 this.sprinting = true;
-                if (this.tacStamina > 0.12) {
+                if (this.tacStamina > 0.12 || BO.Mods?.fxActive?.().endlessStamina) {
                     this.tacSprinting = true;
-                    const drain = staminUp ? 0.0 : (doubleTime ? 0.16 : 0.34);
+                    const drain = (staminUp || BO.Mods?.fxActive?.().endlessStamina) ? 0.0 : (doubleTime ? 0.16 : 0.34);
                     this.tacStamina = Math.max(0, this.tacStamina - drain * dt);
                 } else {
                     this.tacSprinting = false;
@@ -1025,7 +1034,7 @@
                 this.tacSprinting = false;
                 if (!(this.usingBareHands && this.adsHeld)) {
                     const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
-                    const recMult = (deep?.hasTalisman('turtle_emblem') ? 1.40 : 1) * (deep?.comfortUntil > BO.SurvivalMode?.clock ? 1.18 : 1) * (deep?.activeTonics?.espresso > BO.SurvivalMode?.clock ? 1.35 : 1);
+                    const recMult = (deep?.hasTalisman('turtle_emblem') ? 1.40 : 1) * (deep?.comfortUntil > BO.SurvivalMode?.clock ? 1.18 : 1) * (deep?.activeTonics?.espresso > BO.SurvivalMode?.clock ? 1.35 : 1) * (deep?.modFx?.staminaRegenMult || 1);
                     this.tacStamina = Math.min(1.0, this.tacStamina + (this.mpPerks.includes('sprinter_recovery') ? 0.50 : 0.25) * recMult * dt);
                 }
             }
@@ -1100,7 +1109,8 @@
             } else {
                 const mpGravMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.gravityScale || 1.0) : 1.0;
                 const tdGravMult = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.modifiers?.lowGravity) ? 0.48 : 1.0;
-                const grav = (lowGrav ? 9.5 : 24.0) * mpGravMult * tdGravMult;
+                const modGravMult = BO.Mods ? BO.Mods.gravityMult() : 1.0;
+                const grav = (lowGrav ? 9.5 : 24.0) * mpGravMult * tdGravMult * modGravMult;
                 this.vel.y -= grav * dt;
             }
 
@@ -1161,8 +1171,9 @@
             }
             const mpJumpMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.jumpScale || 1.0) : 1.0;
             const eagleJump = this.zombiePerks.has('eagle_eye') ? 1.25 : 1.0;
-            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump * (this.mpPerks.includes('rebound') ? 1.18 : 1);
-            const canDoubleJump = BO.Cheats && BO.Cheats.isActive('2jump');
+            const modJump = BO.Mods ? BO.Mods.jumpMult() : 1.0;
+            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump * (this.mpPerks.includes('rebound') ? 1.18 : 1) * modJump;
+            const canDoubleJump = (BO.Cheats && BO.Cheats.isActive('2jump')) || !!BO.Mods?.fxActive?.().allowDoubleJump;
             if (this.onGround || this.coyoteTimer > 0) {
                 this.vel.y = 7.6 * jumpMult;
                 this.onGround = false;
@@ -1180,9 +1191,10 @@
             if (!this.alive || this.inLastStand) return;
             if (!this.matchRules.noSlide && this.sprinting && this.onGround && !this.sliding && Math.hypot(this.vel.x, this.vel.z) > 5.0) {
                 this.sliding = true;
-                this.slideTimer = this.mpPerks.includes('slider') ? 0.7425 : 0.55;
+                this.slideTimer = (this.mpPerks.includes('slider') ? 0.7425 : 0.55) * (BO.Mods?.fxActive?.().slideSpeedMult ? 1.25 : 1.0);
                 this.slideDir.set(this.vel.x, 0, this.vel.z).normalize();
                 BO.Sound.playSlide();
+                if (BO.Mods && BO.Mods.onSlide) BO.Mods.onSlide();
                 if (this.zombiePerks.has('phd_flopper') && BO.Combat && BO.Combat.onExplodeAt) {
                     BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 0.6, 0)), 4.6, 0xa855f7);
                     BO.Sound.playExplosion(0.55);

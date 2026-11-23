@@ -208,18 +208,19 @@
             return BO.Math.deepClone(DEFAULT_TD_CONFIG);
         }
 
-        getCost(baseCost) {
+        getCost(baseCost, kind = 'td_shop') {
             const pm = (this.config && this.config.customValues && Number(this.config.customValues.priceMult)) || 1.0;
             const m4 = (this.modifiers && this.modifiers.cost4x) ? 4 : 1;
-            return Math.max(0, Math.round(baseCost * m4 * pm));
+            const modMult = BO.Mods ? BO.Mods.priceMult(this.modifiers, kind) : 1.0;
+            return Math.max(0, Math.round(baseCost * m4 * pm * modMult));
         }
 
         getShopItems() {
-            return CORE_SHOP_ITEMS.map((it) => Object.assign({}, it, { cost: this.getCost(it.cost) }));
+            return CORE_SHOP_ITEMS.map((it) => Object.assign({}, it, { cost: this.getCost(it.cost, it.id === 'barrier' ? 'td_repair' : 'td_shop') }));
         }
 
         getCycleDeployables() {
-            return this.cycleDeployables.map((it) => Object.assign({}, it, { cost: this.getCost(it.cost) }));
+            return this.cycleDeployables.map((it) => Object.assign({}, it, { cost: this.getCost(it.cost, 'td_dep') }));
         }
 
         rollShopCycle() {
@@ -306,8 +307,9 @@
             this.activeBallistas = [];
             this.towerTurretMap = {};
 
-            this.heartMaxHp = 100;
-            this.heartHp = 100;
+            const tdFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            this.heartMaxHp = Math.max(25, Math.round(100 * (tdFx.heartHpMult || 1)));
+            this.heartHp = this.heartMaxHp;
 
             this.zombies = [];
             this.turrets = [];
@@ -356,6 +358,18 @@
 
             this._buildCastleStructures(scene, map);
             this.rollShopCycle();
+
+            const tdStartFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            if (tdStartFx.freeStarterTurret) {
+                const pads = (BO.World.mapData && BO.World.mapData.turretPads) || [];
+                if (pads.length && this.turrets.length < pads.length) {
+                    const pad = pads[this.turrets.length];
+                    const tm = BO.CharacterMesh.buildSentryTurret();
+                    tm.root.position.set(pad.x, pad.y, pad.z);
+                    scene.add(tm.root);
+                    this.turrets.push({ x: pad.x, y: pad.y, z: pad.z, mesh: tm.root, headGroup: tm.headGroup, damage: 45, interval: 0.24, cooldown: 0 });
+                }
+            }
 
             this.state = 'intermission';
             this.intermissionTimer = 12.0;
@@ -426,6 +440,8 @@
             const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.72, roughness: 0.35 });
             const defs = map.defenseLayers || [];
             this.layers = defs.map((dl) => {
+                const wallMult = (BO.Mods ? BO.Mods.wallHpMult(this.modifiers) : 1) * (BO.Mods?.fx(this.modifiers, 'td').innerKeepBias ? (dl.layer >= 3 ? 4.0 : 0.45) : 1);
+                const layerMaxHp = Math.max(20, Math.round(customWallHp * wallMult));
                 const baseHex = LAYER_COLORS[dl.layer] || 0x38bdf8;
                 const segObjs = [];
                 for (const s of dl.segments) {
@@ -482,7 +498,7 @@
                 }
                 return {
                     layer: dl.layer, name: dl.name,
-                    hp: customWallHp, maxHp: customWallHp,
+                    hp: layerMaxHp, maxHp: layerMaxHp,
                     active: true, segments: segObjs
                 };
             });
@@ -516,16 +532,27 @@
 
         damageDefenseLayer(layerObj, dmg) {
             if (!layerObj || !layerObj.active || layerObj.hp <= 0) return;
-            layerObj.hp = Math.max(0, layerObj.hp - dmg);
+            const tdFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            const finalDmg = Math.max(0, dmg * (BO.Mods ? BO.Mods.wallDamageMult(this.modifiers) : 1));
+            layerObj.hp = Math.max(0, layerObj.hp - finalDmg);
             BO.Sound.playWallHit();
+            if (tdFx.wallThorns && layerObj.segments[0]) {
+                const s0 = layerObj.segments[0];
+                for (const z of this.zombies) {
+                    if (z.alive && BO.Math.dist2D(z.pos.x, z.pos.z, s0.x, s0.z) < 4.5) z.takeDamage(tdFx.wallThorns, 'torso', false, null, 'melee');
+                }
+            }
             if (layerObj.hp <= 0) {
                 this._syncLayerVisual(layerObj);
                 BO.Sound.playWallBreak();
                 const first = layerObj.segments[0];
                 if (first) BO.FX.spawnExplosion(new THREE.Vector3(first.x, first.y + 1.8, first.z), 4.5, 0xf97316);
+                if (tdFx.wallBreakBlast && first) {
+                    BO.Combat?.onExplodeAt?.(new THREE.Vector3(first.x, first.y + 1.5, first.z), 8.0, tdFx.wallBreakBlast, 'player', false, 0, 'wall_blast');
+                }
                 BO.Events.emit('hud:banner', {
                     title: `${layerObj.name} BREACHED!`,
-                    sub: layerObj.layer < 3 ? `ENEMIES ADVANCING TO LAYER ${layerObj.layer + 1}!` : 'STAIRS EXPOSED! DEFEND THE 100 HP CASTLE HEART!',
+                    sub: layerObj.layer < 3 ? `ENEMIES ADVANCING TO LAYER ${layerObj.layer + 1}!` : `STAIRS EXPOSED! DEFEND THE ${this.heartMaxHp} HP CASTLE HEART!`,
                     color: '#ef4444'
                 });
             } else {
@@ -535,8 +562,17 @@
 
         damageHeart(dmg) {
             if (this.ended) return;
-            this.heartHp = Math.max(0, this.heartHp - dmg);
+            const tdFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            const finalDmg = dmg * (1 - (tdFx.heartResist || 0));
+            this.heartHp = Math.max(0, this.heartHp - finalDmg);
             BO.Sound.playWallHit();
+            if (tdFx.heartThorns && this.heartObj) {
+                for (const z of this.zombies) {
+                    if (z.alive && z.pos.distanceTo(new THREE.Vector3(this.heartObj.x, this.heartObj.y, this.heartObj.z)) < 5.5) {
+                        z.takeDamage(tdFx.heartThorns, 'torso', false, null, 'arc');
+                    }
+                }
+            }
             if (this.heartObj) {
                 BO.FX.spawnParticles(new THREE.Vector3(this.heartObj.x, this.heartObj.y + 1.5, this.heartObj.z), 8, 0xef4444, 4, 2, 0.4, 1.2);
             }
@@ -596,7 +632,8 @@
             this.firstWaveStarted = true;
 
             const startBase = BO.Math.clamp(Number(this.config.startingZombies) || 10, 3, 200);
-            const swarmMult = (this.modifiers.chaosSwarm ? 2.0 : 1.0) * (Number((this.config.customValues || {}).waveSizeMult) || 1.0);
+            const tdFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            const swarmMult = (this.modifiers.chaosSwarm ? 2.0 : 1.0) * (tdFx.waveScale || 1.0) * (Number((this.config.customValues || {}).waveSizeMult) || 1.0);
             this.waveTotal = Math.max(1, Math.round((startBase + (this.wave - 1) * 4.2) * swarmMult));
             if (this.modifiers.allBosses) {
                 this.waveTotal = Math.max(2, Math.round(startBase * 0.35 + (this.wave - 1) * 1.4));
@@ -627,7 +664,8 @@
             }
 
             // Guaranteed Boss Spawns only in Boss Rush mode (otherwise governed by 2% + 0.5%/round after Wave 10!)
-            if (this.config.tdMode === 'boss_rush' && !this.modifiers.allBosses) {
+            const tdFxWave = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            if ((this.config.tdMode === 'boss_rush' || (tdFxWave.tdBossEveryWave && this.wave >= 2)) && !this.modifiers.allBosses) {
                 const count = this.wave >= 20 ? 2 : 1;
                 for (let c = 0; c < count; c++) this._spawnBossZombie();
             }
@@ -647,7 +685,9 @@
             const sizeMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.62 : 1.0);
             const sizeHpMult = this.modifiers.giantZombies ? 1.75 : (this.modifiers.tinyZombies ? 0.72 : 1.0);
             const sizeSpdMult = this.modifiers.tinyZombies ? 1.40 : (this.modifiers.giantZombies ? 0.85 : 1.0);
-            const gunChance = BO.Math.clamp(Number(this.config.gunZombiePct) || 0, 0, 100) / 100;
+            const tdFxZ = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            const rawGunPct = tdFxZ.gunZombiePctOverride !== undefined ? tdFxZ.gunZombiePctOverride : ((Number(this.config.gunZombiePct) || 0) * (tdFxZ.gunZombiePctMult || 1));
+            const gunChance = BO.Math.clamp(rawGunPct, 0, 100) / 100;
 
             const baseHp = isBoss
                 ? Math.round(spec.hp * (0.55 + this.wave * 0.06))
@@ -776,9 +816,13 @@
                 BO.Events.emit('hud:toast', { text: 'SHOP IS ONLY OPEN BETWEEN WAVES!', color: '#ef4444' });
                 return false;
             }
+            if (BO.Mods?.fx(this.modifiers, 'td').disableDeployables) {
+                BO.Events.emit('hud:toast', { text: 'DEPLOYABLES DISABLED BY SOLO KNIGHT MODIFIER!', color: '#ef4444' });
+                return false;
+            }
             const def = this.cycleDeployables.find((d) => d.id === depId) || ROTATING_DEPLOYABLES.find((d) => d.id === depId);
             if (!def) return false;
-            const cost = this.getCost(def.cost);
+            const cost = this.getCost(def.cost, 'td_dep');
             if (this.gold < cost) {
                 BO.Sound.playEmptyClick();
                 BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD FOR ${def.name}!`, color: '#ef4444' });
@@ -914,7 +958,12 @@
             }
             const item = CORE_SHOP_ITEMS.find((x) => x.id === itemId);
             if (!item) return false;
-            const cost = this.getCost(item.cost);
+            if (itemId === 'barrier' && BO.Mods?.fxActive?.().disableRepair) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: 'UNREPAIRED WALLS VOW: BARRIER REPAIR LOCKED!', color: '#ef4444' });
+                return false;
+            }
+            const cost = this.getCost(item.cost, itemId === 'barrier' ? 'td_repair' : 'td_shop');
             if (this.gold < cost) {
                 BO.Sound.playEmptyClick();
                 BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD FOR ${item.name}!`, color: '#ef4444' });
@@ -922,6 +971,11 @@
             }
 
             if (itemId === 'barrier') {
+                if (BO.Mods?.fxActive?.().disableRepair) {
+                    BO.Sound.playEmptyClick();
+                    BO.Events.emit('hud:toast', { text: 'UNREPAIRED WALLS VOW: BARRIER REPAIR LOCKED!', color: '#ef4444' });
+                    return false;
+                }
                 let targetLayer = null;
                 for (let i = this.layers.length - 1; i >= 0; i--) {
                     if (this.layers[i].hp < this.layers[i].maxHp) {
@@ -1315,7 +1369,7 @@
                         return;
                     }
                     const pk = inter.data;
-                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost);
+                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost, 'perk');
                     if (P.zombiePerks.has(pk.id)) {
                         BO.Sound.playEmptyClick();
                         BO.Events.emit('hud:toast', { text: `${pk.name.toUpperCase()} ALREADY EQUIPPED!`, color: '#f59e0b' });
@@ -1345,8 +1399,12 @@
                         BO.Sound.playEmptyClick();
                         return;
                     }
+                    if (BO.Mods?.fx(this.modifiers, 'td').disablePap) {
+                        BO.Events.emit('hud:toast', { text: 'PACK-A-PUNCH DISABLED BY ANCIENT STEEL OATH!', color: '#ef4444' });
+                        return;
+                    }
                     const basePap = curTier === 0 ? 3000 : (curTier === 1 ? 6000 : 10000);
-                    const cost = this.getCost(basePap);
+                    const cost = this.getCost(basePap, 'pap');
                     if (this.gold < cost) {
                         BO.Sound.playEmptyClick();
                         BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD FOR PACK-A-PUNCH TIER ${curTier + 1}!`, color: '#ef4444' });
@@ -1823,12 +1881,25 @@
                 if (this.remainingToSpawn <= 0) this.state = 'fighting';
             } else if (!isOnlineClient && this.state === 'fighting') {
                 if (!this.zombies.some((z) => z.alive)) {
-                    const bonus = 250 + this.wave * 60;
-                    this._addGold(bonus);
+                    const tdFx = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+                    const bonus = Math.round((250 + this.wave * 60) * (tdFx.waveGoldMult !== undefined ? tdFx.waveGoldMult : 1));
+                    if (bonus > 0) this._addGold(bonus);
+                    if (tdFx.waveInterestPct) this.gold += Math.round(this.gold * tdFx.waveInterestPct);
+                    if (tdFx.waveClearWallHeal) {
+                        for (const l of this.layers) {
+                            if (l.hp > 0) { l.hp = Math.min(l.maxHp, l.hp + Math.round(l.maxHp * tdFx.waveClearWallHeal)); this._syncLayerVisual(l); }
+                        }
+                    }
+                    if (tdFx.waveClearRestore && BO.Player.alive) {
+                        BO.Player.hp = BO.Player.maxHp;
+                        BO.Player.armor = BO.Player.maxArmor;
+                        BO.Player.lethalCount = Math.min(4, BO.Player.lethalCount + 1);
+                    }
                     BO.Sound.playRoundEnd();
                     this.rollShopCycle();
                     this.state = 'intermission';
-                    this.intermissionTimer = BO.Math.clamp(Number((this.config.customValues || {}).intermissionSec) || 30, 3, 120);
+                    const baseInter = tdFx.tdIntermissionSec || (Number((this.config.customValues || {}).intermissionSec) || 30);
+                    this.intermissionTimer = BO.Math.clamp(baseInter + (tdFx.tdIntermissionAdd || 0), 3, 120);
                     BO.Events.emit('hud:banner', {
                         title: `WAVE ${this.wave} CLEARED!`,
                         sub: '30s INTERMISSION — 6 NEW SUPPORT DEPLOYABLES & 5 WEAPONS ROLLED ([T] SHOP • [N] SKIP)',
@@ -1881,9 +1952,10 @@
                 }
                 if (b.timer <= 0) this.activeBallistas.splice(i, 1);
             }
+            const tStats = BO.Mods ? BO.Mods.turretStatMult(this.modifiers) : { fireRate: 1, dmg: 1, range: 1, cryo: false, burn: 0, chain: 0, killHealsWall: 0 };
             for (const t of this.turrets) {
-                if (t.cooldown > 0) t.cooldown -= dt * turretBoost;
-                let nearest = null, bestD = 92;
+                if (t.cooldown > 0) t.cooldown -= dt * turretBoost * tStats.fireRate;
+                let nearest = null, bestD = 92 * tStats.range;
                 for (const z of livingZ) {
                     const d = BO.Math.dist3D(t.x, t.y + 1, t.z, z.pos.x, z.pos.y + 1, z.pos.z);
                     if (d < bestD && BO.World.hasLineOfSight(t.x, t.y + 1.15, t.z, z.pos.x, z.pos.y + 1.0, z.pos.z)) {
@@ -1896,10 +1968,26 @@
                         t.cooldown = t.interval;
                         BO.Sound.playTurretFire();
                         BO.FX.spawnTracer(new THREE.Vector3(t.x, t.y + 1.1, t.z), nearest.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 0x38bdf8, 0.03, 0.09);
-                        if (nearest.takeDamage(t.damage, 'torso', false, null, 'bullet')) {
+                        const hitDmg = Math.round(t.damage * tStats.dmg * (nearest._tdMarked ? 1.35 : 1));
+                        if (tStats.cryo) nearest.frozenTimer = Math.max(nearest.frozenTimer || 0, 2.0);
+                        if (tStats.burn) nearest.burnTimer = Math.max(nearest.burnTimer || 0, 3.0);
+                        if (nearest.takeDamage(hitDmg, 'torso', false, null, 'bullet')) {
                             this.kills++;
                             this._addGold(35);
+                            if (tStats.killHealsWall) {
+                                for (const l of this.layers) {
+                                    if (l.active && l.hp < l.maxHp) { l.hp = Math.min(l.maxHp, l.hp + tStats.killHealsWall); this._syncLayerVisual(l); break; }
+                                }
+                            }
                         }
+                    }
+                }
+            }
+            const tdFxLoop = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            if (tdFxLoop.wallRegen) {
+                for (const l of this.layers) {
+                    if (l.active && l.hp > 0 && l.hp < l.maxHp) {
+                        l.hp = Math.min(l.maxHp, l.hp + tdFxLoop.wallRegen * dt);
                     }
                 }
             }
@@ -1999,6 +2087,7 @@
 
             const hitMeshes = [];
             BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
+            BO.Mods.tickMode('td', dt, { zombies: this.zombies });
             for (let i = this.zombies.length - 1; i >= 0; i--) {
                 const z = this.zombies[i];
                 const keep = z.update(dt, this.zombies, callbacks);
@@ -2065,7 +2154,7 @@
                 if (inter.type === 'perk') {
                     if (this.modifiers.noPerks) return { text: `PERK MACHINES DISABLED (NO PERKS MODIFIER)`, affordable: false };
                     const pk = inter.data;
-                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost);
+                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost, 'perk');
                     if (P.zombiePerks.has(pk.id)) return { text: `${pk.name.toUpperCase()} ALREADY EQUIPPED (${P.zombiePerks.size}/8)`, affordable: false };
                     if (P.zombiePerks.size >= 8) return { text: `MAX 8/8 PERKS EQUIPPED`, affordable: false };
                     return { text: `[E] DRINK ${pk.name.toUpperCase()} (${cost} GOLD) — ${pk.desc}`, affordable: this.gold >= cost };
@@ -2074,8 +2163,12 @@
                     const w = P.activeWeapon;
                     const curTier = w ? (w.papTier || 0) : 3;
                     if (curTier >= 3) return { text: `${w.stats.name.toUpperCase()} MAXED (TIER III)`, affordable: false };
+                    if (BO.Mods?.fx(this.modifiers, 'td').disablePap) {
+                        BO.Events.emit('hud:toast', { text: 'PACK-A-PUNCH DISABLED BY ANCIENT STEEL OATH!', color: '#ef4444' });
+                        return;
+                    }
                     const basePap = curTier === 0 ? 3000 : (curTier === 1 ? 6000 : 10000);
-                    const cost = this.getCost(basePap);
+                    const cost = this.getCost(basePap, 'pap');
                     return { text: `[E] PACK-A-PUNCH TIER ${curTier + 1} (${cost} GOLD) — ${w.stats.shortName}`, affordable: this.gold >= cost };
                 }
                 if (inter.type === 'mystery_box') {

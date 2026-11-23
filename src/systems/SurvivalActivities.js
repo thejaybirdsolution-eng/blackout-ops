@@ -311,7 +311,9 @@
                 plot.stage = 'empty';
                 plot.growth = 0;
                 this.campaign.mark('cropsHarvested', 1, 16);
-                m.grant(plot.loot);
+                const cMult = this.campaign.deep?.modFx?.cropYieldMult || 1;
+                const loot = cMult > 1 ? Object.fromEntries(Object.entries(plot.loot).map(([k, v]) => [k, v * cMult])) : plot.loot;
+                m.grant(loot);
             } else m.toast(this.plotLabel(plot) + '.');
             plot.marker.label = this.plotLabel(plot);
         }
@@ -322,7 +324,8 @@
             const clock = this.mode.clock;
             if (clock < pump.readyAt) return this.mode.toast(pump.name + ' is refilling.');
             if (this.campaign.pack.room('freshWater', 1) < 1) return this.mode.toast('Leave room for filtered water in your pack.');
-            pump.readyAt = clock + 24;
+            const pSpd = this.campaign.deep?.modFx?.pumpSpeedMult || 1;
+            pump.readyAt = clock + 24 / pSpd;
             this.mode.grant({ freshWater: 1 });
             this.campaign.mark('waterDrawn', 1, 2);
         }
@@ -340,7 +343,9 @@
                 this.cast = null;
                 site.float.visible = false;
                 site.readyAt = clock + 33;
-                m.grant(site.loot[site.hauled % site.loot.length]);
+                const fMult = this.campaign.deep?.modFx?.fishBonus || 1;
+                const haul = site.loot[site.hauled % site.loot.length];
+                m.grant(fMult > 1 ? Object.fromEntries(Object.entries(haul).map(([k, v]) => [k, v * fMult])) : haul);
                 site.hauled++;
                 this.campaign.mark('salvageHauls', 1, 21);
                 if (id === 'west') this.checkIn('west');
@@ -350,7 +355,7 @@
             if (clock < site.readyAt) return m.toast(site.name + ' needs time to settle.');
             if (!m.points.salvageLine) return m.toast('Craft a weighted salvage line in your backpack.');
             if (this.cast) return m.toast('Reel in your line at the other station first.');
-            const waitMult = this.campaign.has('fastGrow') ? 0.5 : 1;
+            const waitMult = (this.campaign.has('fastGrow') ? 0.5 : 1) / (this.campaign.deep?.modFx?.fishSpeedMult || 1);
             this.cast = { id, bite: clock + (5.5 + (site.hauled % 3) * 1.25) * waitMult };
             m.toast('Line cast. Interact when the float dips.');
         }

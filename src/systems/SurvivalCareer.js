@@ -75,8 +75,9 @@
             const old = this.level;
             const count = total - previous;
             counters[key] = total;
-            const xpMult = (BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.has?.('abundantTech')) ? 2 : 1;
-            this.profile.xp += xp * count * xpMult;
+            const modXp = (BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.deep?.modFx?.xpMult) ? BO.SurvivalMode.campaign.deep.modFx.xpMult : 1;
+            const xpMult = ((BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.has?.('abundantTech')) ? 2 : 1) * modXp;
+            this.profile.xp += Math.round(xp * count * xpMult);
             this.profile.stats[key] = (this.profile.stats[key] || 0) + count;
             write(careerKey, this.profile);
             if (this.level > old) {

@@ -24,47 +24,52 @@
         apocalypse: { name: 'Apocalypse', hp: 2.15, damage: 2.00, rate: 1.85, enemyCap: 34 }
     };
 
-    const modifiers = {
+    const coreModifiers = {
         // World & Time
-        noPatrols: { name: 'No roaming PMC patrols', group: 'world', description: 'Ordinary surface PMC patrols are disabled. Commander Sable still appears during Rival Bounty.' },
-        noRoamers: { name: 'No roaming infected', group: 'world', description: 'Ordinary infected and Mimics are disabled. Bosses, Blood Moons, and Ridge Siege waves still spawn.' },
-        blackout: { name: 'Permanent blackout', group: 'world', description: 'Darkness remains at midnight levels even during daytime.' },
-        longDusk: { name: 'Short daylight', group: 'world', description: 'Darkness arrives earlier in the evening and lingers longer after sunrise.' },
-        brutalNights: { name: 'Relentless nights', group: 'world', description: 'Doubles the nighttime hostile spawn rate multiplier.' },
-        bloodMoonEveryNight: { name: 'Crimson Blood Moons', group: 'world', description: 'Every night after the safe minute triggers a Crimson Blood Moon surge with bonus Aether Shard rewards.' },
-        graceExtended: { name: 'Extended safe start (120s)', group: 'world', description: 'Doubles the enemy-free opening grace period from 60 seconds to 120 seconds.' },
+        noPatrols: { name: 'No roaming PMC patrols', group: 'world', tier: 'tactical', ico: '🪖', description: 'Ordinary surface PMC patrols are disabled. Commander Sable still appears during Rival Bounty.' },
+        noRoamers: { name: 'No roaming infected', group: 'world', tier: 'buff', ico: '🕊', description: 'Ordinary infected and Mimics are disabled. Bosses, Blood Moons, and Ridge Siege waves still spawn.' },
+        blackout: { name: 'Permanent blackout', group: 'world', tier: 'challenge', ico: '🌑', description: 'Darkness remains at midnight levels even during daytime.' },
+        longDusk: { name: 'Short daylight', group: 'world', tier: 'challenge', ico: '🌆', description: 'Darkness arrives earlier in the evening and lingers longer after sunrise.' },
+        brutalNights: { name: 'Relentless nights', group: 'world', tier: 'challenge', ico: '🐺', description: 'Doubles the nighttime hostile spawn rate multiplier.' },
+        bloodMoonEveryNight: { name: 'Crimson Blood Moons', group: 'hardcore', tier: 'chaos', ico: '🩸', description: 'Every night after the safe minute triggers a Crimson Blood Moon surge with bonus Aether Shard rewards.' },
+        graceExtended: { name: 'Extended safe start (120s)', group: 'grace', tier: 'buff', ico: '🛡', description: 'Doubles the enemy-free opening grace period from 60 seconds to 120 seconds.' },
 
         // Combat & Enemies
-        fists: { name: 'Bare-hands insertion', group: 'combat', description: 'Start with bare hands selected and zero pistol ammunition until you craft or loot some.' },
-        noFirearms: { name: 'Melee & bare-hands honor', group: 'combat', description: 'Firearms are sealed; fight exclusively with bare-hand combos, parries, melee blades, turrets, and throwables.' },
-        headshotsOnly: { name: 'Precision headshots', group: 'combat', description: 'Firearm body shots deal 35% damage while headshots and melee/parry strikes deal 220% damage.' },
-        doubleBosses: { name: 'Twin boss threat', group: 'combat', description: 'Spawning any Zone Boss also calls an elite infected lieutenant nearby.' },
-        turretMaster: { name: 'Overclocked defenses', group: 'combat', description: 'Placed sentry turrets fire 35% faster and Spike/Barbed Wire barricades deal double damage.' },
-        soulsDrop: { name: 'Aether Soul Echo', group: 'combat', description: 'Falling near a kindled Shrine or Field Bed lets you respawn there while dropping your carried Runes at a recoverable Soul Echo.' },
+        fists: { name: 'Bare-hands insertion', group: 'combat', tier: 'challenge', ico: '✊', description: 'Start with bare hands selected and zero pistol ammunition until you craft or loot some.' },
+        noFirearms: { name: 'Melee & bare-hands honor', group: 'combat', tier: 'challenge', ico: '🥋', description: 'Firearms are sealed; fight exclusively with bare-hand combos, parries, melee blades, turrets, and throwables.' },
+        headshotsOnly: { name: 'Precision headshots', group: 'combat', tier: 'tactical', ico: '🎯', description: 'Firearm body shots deal 35% damage while headshots and melee/parry strikes deal 220% damage.' },
+        doubleBosses: { name: 'Twin boss threat', group: 'hardcore', tier: 'challenge', ico: '👯', description: 'Spawning any Zone Boss also calls an elite infected lieutenant nearby.' },
+        turretMaster: { name: 'Overclocked defenses', group: 'tech', tier: 'buff', ico: '🔩', description: 'Placed sentry turrets fire 35% faster and Spike/Barbed Wire barricades deal double damage.' },
+        soulsDrop: { name: 'Aether Soul Echo', group: 'grace', tier: 'tactical', ico: '💠', description: 'Falling near a kindled Shrine or Field Bed lets you respawn there while dropping your carried Runes at a recoverable Soul Echo.' },
 
         // Survival & Status
-        glass: { name: 'Fragile operator', group: 'survival', description: 'Start with a maximum of 70 base health.' },
-        armored: { name: 'Armored insertion', group: 'survival', description: 'Start with 100 armor and three spare armor plates.' },
-        hungry: { name: 'Fast metabolism', group: 'survival', description: 'Hunger and hydration drain twice as quickly when survival needs are active.' },
-        irradiated: { name: 'Hot exclusion zone', group: 'survival', description: 'Radiation buildup increases by 80% in contaminated zones.' },
-        freezingNights: { name: 'Sub-zero nights', group: 'survival', description: 'Nighttime temperature plunges sharply; stay near fires, wear warmth, or drink Thermal Broth.' },
-        infectBite: { name: 'Bio-toxic hits', group: 'survival', description: 'Infected melee hits can inflict Bleeding or Bio-Infection; cure with dressings, Aether Flask, or Antibiotics.' },
-        fieldMedic: { name: 'Field medic', group: 'survival', description: 'Trauma kits restore up to 75 health and herbal dressings restore up to 40 and cure bleeding.' },
+        glass: { name: 'Fragile operator', group: 'vitals', tier: 'challenge', ico: '💔', description: 'Start with a maximum of 70 base health.' },
+        armored: { name: 'Armored insertion', group: 'combat', tier: 'buff', ico: '🦺', description: 'Start with 100 armor and three spare armor plates.' },
+        hungry: { name: 'Fast metabolism', group: 'vitals', tier: 'challenge', ico: '🍖', description: 'Hunger and hydration drain twice as quickly when survival needs are active.' },
+        irradiated: { name: 'Hot exclusion zone', group: 'vitals', tier: 'challenge', ico: '☢️', description: 'Radiation buildup increases by 80% in contaminated zones.' },
+        freezingNights: { name: 'Sub-zero nights', group: 'vitals', tier: 'challenge', ico: '🥶', description: 'Nighttime temperature plunges sharply; stay near fires, wear warmth, or drink Thermal Broth.' },
+        infectBite: { name: 'Bio-toxic hits', group: 'vitals', tier: 'challenge', ico: '🦠', description: 'Infected melee hits can inflict Bleeding or Bio-Infection; cure with dressings, Aether Flask, or Antibiotics.' },
+        fieldMedic: { name: 'Field medic', group: 'vitals', tier: 'buff', ico: '✚', description: 'Trauma kits restore up to 75 health and herbal dressings restore up to 40 and cure bleeding.' },
 
         // Economy & Base Tech
-        loaded: { name: 'Supply crate start', group: 'economy', description: 'Start with extra materials, rations, water, a torch, and spare pistol ammunition.' },
-        richLoot: { name: 'Rich natural deposits', group: 'economy', description: 'Gathering yields ~50% more ordinary resources. Unique Resonant Core is unaffected.' },
-        steadyTools: { name: 'Long-lasting tools', group: 'economy', description: 'Reduces tool durability wear from gathering and mining by half.' },
-        fullBags: { name: 'Expedition rucksack', group: 'economy', description: 'Start immediately with a 51 kg rucksack (23 inventory stacks).' },
-        megaStack: { name: 'Deep pack capacity', group: 'economy', description: 'Doubles backpack carry weight limit and adds +10 extra inventory stack slots.' },
-        fastGrow: { name: 'Rapid hydroponics', group: 'economy', description: 'Garden crops grow 2.5x faster and salvage line catches bite twice as fast.' },
-        abundantTech: { name: 'Research surge', group: 'economy', description: 'Start with +3 Tech Points and gain double Tech Points and Rune drops from all sources.' },
+        loaded: { name: 'Supply crate start', group: 'crafting', tier: 'buff', ico: '📦', description: 'Start with extra materials, rations, water, a torch, and spare pistol ammunition.' },
+        richLoot: { name: 'Rich natural deposits', group: 'crafting', tier: 'buff', ico: '⛏️', description: 'Gathering yields ~50% more ordinary resources. Unique Resonant Core is unaffected.' },
+        steadyTools: { name: 'Long-lasting tools', group: 'crafting', tier: 'buff', ico: '🛠', description: 'Reduces tool durability wear from gathering and mining by half.' },
+        fullBags: { name: 'Expedition rucksack', group: 'crafting', tier: 'buff', ico: '🎒', description: 'Start immediately with a 51 kg rucksack (23 inventory stacks).' },
+        megaStack: { name: 'Deep pack capacity', group: 'crafting', tier: 'buff', ico: '🧳', description: 'Doubles backpack carry weight limit and adds +10 extra inventory stack slots.' },
+        fastGrow: { name: 'Rapid hydroponics', group: 'crafting', tier: 'buff', ico: '🌿', description: 'Garden crops grow 2.5x faster and salvage line catches bite twice as fast.' },
+        abundantTech: { name: 'Research surge', group: 'tech', tier: 'buff', ico: '🧠', description: 'Start with +3 Tech Points and gain double Tech Points and Rune drops from all sources.' },
 
         // Challenge & Extraction
-        ironRun: { name: 'Iron expedition', group: 'challenge', description: 'Manual/auto checkpoints and Shrine respawn are disabled. One life only.' },
-        footOnly: { name: 'On foot only', group: 'challenge', description: 'Personal vehicles, the locomotive, and map fast travel are disabled.' },
-        quickEvac: { name: 'Fast evacuation', group: 'challenge', description: 'Cuts the final Evac Ridge hold from 38 seconds to 19 seconds.' }
+        ironRun: { name: 'Iron expedition', group: 'hardcore', tier: 'challenge', ico: '☠️', description: 'Manual/auto checkpoints and Shrine respawn are disabled. One life only.' },
+        footOnly: { name: 'On foot only', group: 'stealth', tier: 'challenge', ico: '🥾', description: 'Personal vehicles, the locomotive, and map fast travel are disabled.' },
+        quickEvac: { name: 'Fast evacuation', group: 'stealth', tier: 'buff', ico: '🚁', description: 'Cuts the final Evac Ridge hold from 38 seconds to 19 seconds.' }
     };
+
+    const extra = BO.SurvivalModifiersCatalog || { CATEGORIES: [], MODIFIERS: {}, BUNDLES: [] };
+    const modifiers = Object.assign({}, coreModifiers, extra.MODIFIERS);
+    const categories = extra.CATEGORIES;
+    const bundles = extra.BUNDLES;
 
     const presets = {
         standard: { name: 'Balanced Expedition', description: 'The standard Exclusion Zone core recovery run.', settings: { gameType: 'expedition', difficulty: 'standard', modifiers: ['soulsDrop'] } },
@@ -87,5 +92,5 @@
         return mods.includes('graceExtended') ? 120 : openingSeconds;
     }
 
-    BO.SurvivalRules = { modes, difficulties, modifiers, presets, openingSeconds, openingSecondsFor };
+    BO.SurvivalRules = { modes, difficulties, modifiers, categories, bundles, presets, openingSeconds, openingSecondsFor };
 })(window.BO);
