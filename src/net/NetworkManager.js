@@ -524,6 +524,7 @@
                 selectedDifficulty: M.selectedDifficulty,
                 selectedTdMap: M.selectedTdMap,
                 tdConfig: M.tdConfig ? BO.Math.deepClone(M.tdConfig) : null,
+                zModifiers: M.zModifiers ? BO.Math.deepClone(M.zModifiers) : null,
                 customRules: BO.Math.deepClone(M.customRules)
             };
         }
@@ -740,6 +741,7 @@
                 Object.assign(M.tdConfig, s.tdConfig);
                 if (s.tdConfig.modifiers) Object.assign(M.tdConfig.modifiers, s.tdConfig.modifiers);
             }
+            if (s.zModifiers && M.zModifiers) Object.assign(M.zModifiers, s.zModifiers);
             if (s.customRules) Object.assign(M.customRules, s.customRules);
             if (BO.State.screen === 'play_lobby') {
                 M.renderLobby();
@@ -1227,7 +1229,6 @@
             if (msg.type === 'z_revive_player') {
                 if (msg.targetPeerId === this.myPeerId) {
                     BO.Player.inLastStand = false;
-                    BO.Player.coopNeedsRevive = false;
                     BO.Player.alive = true;
                     BO.Player.hp = BO.Player.maxHp;
                     BO.Player.reviveGraceTimer = 2.5;
@@ -1370,6 +1371,7 @@
                         }
                     }
                 }
+                // Ensure client visual turrets match host count
                 const pads = BO.World.mapData.turretPads || [];
                 while (td.turrets.length < (snap.turretCount || 0) && td.turrets.length < pads.length) {
                     const pad = pads[td.turrets.length];
@@ -1545,6 +1547,7 @@
                     const attPos = st ? new THREE.Vector3(st.x, st.y, st.z) : null;
                     BO.Player.takeDamage(msg.dmg || 30, attPos, false);
                     if (prevAlive && !BO.Player.alive) {
+                        // Notify the killer that they eliminated us!
                         this.broadcast({
                             type: 'mp_player_killed',
                             killerPeerId: sender,

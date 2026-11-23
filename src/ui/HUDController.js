@@ -97,6 +97,8 @@
             this.elBusterFill = document.getElementById('buster-charge-fill');
             this.elTdStatus = document.getElementById('hud-td-status');
             this.elTdDirHints = document.getElementById('td-dir-hints');
+            this.elEnemyTracker = document.getElementById('hud-enemy-tracker');
+            this.elMultiBoss = document.getElementById('hud-multi-boss');
             this.elKillcam = document.getElementById('killcam-overlay');
             this.elKillcamTimer = document.getElementById('killcam-timer');
             this.elKillcamCard = document.getElementById('killcam-card');
@@ -353,7 +355,18 @@
             const playerKillcam = isKillcam && BO.MPMode && BO.MPMode.killcamData && BO.MPMode.killcamData.meta && BO.MPMode.killcamData.meta.killerKind === 'player';
             const allowFpvHud = !isKillcam || playerKillcam;
             const useScope = allowFpvHud && w && w.stats.useScopeOverlay && P.adsAlpha > 0.80;
-            if (this.elScope) this.elScope.classList.toggle('hidden', !useScope);
+            if (this.elScope) {
+                this.elScope.classList.toggle('hidden', !useScope);
+                const zRead = document.getElementById('scope-zoom-readout');
+                if (zRead) {
+                    if (useScope && w.stats.variableZoom) {
+                        zRead.style.display = 'block';
+                        zRead.textContent = `ZOOM: ${(P.scopeZoom || 4).toFixed(1)}x  •  [SCROLL / +/- : 1.0x – 20.0x]`;
+                    } else {
+                        zRead.style.display = 'none';
+                    }
+                }
+            }
             if (this.elCh) {
                 const showCh = allowFpvHud && P.adsAlpha < 0.55 && !useScope && BO.Settings.get('crosshairStyle') !== 'off';
                 this.elCh.classList.toggle('hidden', !showCh);
@@ -444,6 +457,7 @@
             // Mode-specific HUD
             if (this.elTdStatus) this.elTdStatus.classList.toggle('hidden', mode !== 'td');
             if (this.elTdDirHints && mode !== 'td') this.elTdDirHints.innerHTML = '';
+            this._updateEnemyAndBossHUD(mode);
             if (mode === 'zombies') {
                 const zm = BO.ZombiesMode;
                 if (this.elZChalkRow) this.elZChalkRow.classList.remove('hidden');
@@ -453,19 +467,8 @@
                 if (this.elRoundChalk) this.elRoundChalk.textContent = BO.Math.toRoman(zm.round);
                 if (this.elPointsVal) this.elPointsVal.textContent = zm.points.toLocaleString('en-US');
 
-                // Live Boss Health Bar
-                if (this.elBossWrap) {
-                    const boss = zm.activeBoss;
-                    if (boss && boss.alive) {
-                        this.elBossWrap.classList.remove('hidden');
-                        this.elBossName.textContent = `${boss.spec.name} — ${boss.spec.title.toUpperCase()}`;
-                        this.elBossHp.textContent = `${Math.ceil(boss.hp)} / ${boss.maxHp} HP`;
-                        this.elBossFill.style.width = BO.Math.clamp((boss.hp / Math.max(1, boss.maxHp)) * 100, 0, 100) + '%';
-                        this.elBossWeak.textContent = boss.spec.weaknessText || '';
-                    } else {
-                        this.elBossWrap.classList.add('hidden');
-                    }
-                }
+                // Live Boss Health Bar (handled by multi-boss HUD)
+                if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
 
                 if (this.elZPowerUps) {
                     const badges = [];
@@ -633,6 +636,72 @@
 
             this._drawMinimap();
             if (this.scoreboardOpen) this._renderScoreboard();
+        }
+
+        _updateEnemyAndBossHUD(mode) {
+            const isWaveMode = (mode === 'td' || mode === 'zombies');
+            if (!isWaveMode) {
+                if (this.elEnemyTracker) this.elEnemyTracker.classList.add('hidden');
+                if (this.elMultiBoss) this.elMultiBoss.classList.add('hidden');
+                return;
+            }
+            const src = mode === 'td' ? BO.TowerDefenseMode : BO.ZombiesMode;
+            const list = (src && src.zombies) ? src.zombies : [];
+            const living = [];
+            const bosses = [];
+            const counts = new Map();
+            for (let i = 0; i < list.length; i++) {
+                const z = list[i];
+                if (!z || !z.alive) continue;
+                living.push(z);
+                if (z.isBoss) bosses.push(z);
+                const key = z.spec ? z.spec.name : 'Hostile';
+                counts.set(key, (counts.get(key) || 0) + 1);
+            }
+            const rem = Math.max(0, src ? (src.remainingToSpawn || 0) : 0);
+            const totalLeft = living.length + rem;
+
+            if (this.elEnemyTracker) {
+                this.elEnemyTracker.classList.remove('hidden');
+                const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+                const top = entries.slice(0, 10).map(([name, c]) =>
+                    `<span style="display:inline-block;margin:1px 3px 1px 0;padding:1px 5px;border-radius:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:10px"><b>${c}x</b> ${name}</span>`
+                );
+                if (entries.length > 10) {
+                    top.push(`<span style="color:#94a3b8;font-size:10px">+${entries.length - 10} more</span>`);
+                }
+                const listHtml = top.length > 0 ? top.join('') : '<span style="color:#64748b;font-size:10px">No active hostiles on field</span>';
+                this.elEnemyTracker.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                        <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
+                        <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:2px">${listHtml}</div>
+                `;
+            }
+
+            if (this.elMultiBoss) {
+                if (bosses.length === 0) {
+                    this.elMultiBoss.classList.add('hidden');
+                    this.elMultiBoss.innerHTML = '';
+                } else {
+                    this.elMultiBoss.classList.remove('hidden');
+                    this.elMultiBoss.innerHTML = bosses.slice(0, 5).map((b) => {
+                        const pct = BO.Math.clamp((b.hp / Math.max(1, b.maxHp)) * 100, 0, 100);
+                        return `
+                            <div style="background:rgba(15,5,10,0.86);border:1px solid #ef4444;border-radius:5px;padding:5px 9px;box-shadow:0 0 14px rgba(239,68,68,0.28)">
+                                <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:0.8px;margin-bottom:3px">
+                                    <span style="color:#fca5a5">☠ ${b.spec.name}${b.spec.title ? ' — ' + b.spec.title.toUpperCase() : ''}</span>
+                                    <span style="color:#fef08a">${Math.ceil(b.hp)} / ${b.maxHp} HP</span>
+                                </div>
+                                <div style="height:8px;background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
+                                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#dc2626,#f97316);transition:width 0.1s"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
         }
 
         _drawMinimap() {

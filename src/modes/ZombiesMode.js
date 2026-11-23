@@ -44,6 +44,15 @@
             this.mapQuest = this._makeEmptyMapQuest();
             this.activePrompt = null;
             this.elapsed = 0;
+            this.modifiers = {};
+            this.disabledEnemySet = new Set();
+            this.unlockedPoolCount = 2;
+            this.unlockedBossCount = 0;
+
+            BO.Events.on('zombie:split', (info) => {
+                if (!this.active || !info || !info.parent || !info.count) return;
+                this._spawnSplitChildren(info.parent, info.count);
+            });
 
             BO.Events.on('player:revived', (playerPos) => {
                 if (!this.active) return;
@@ -69,17 +78,33 @@
             this.mapId = opts.mapId || 'der_bunker';
             this.difficulty = opts.difficulty || 'normal'; // 'normal' | 'hard' | 'very_hard' | 'insanely_hard' | 'boss_rush'
             this.useClassicStarter = opts.useClassicStarter !== undefined ? opts.useClassicStarter : false;
+            this.modifiers = Object.assign({}, opts.zModifiers || {});
+            this.disabledEnemySet = new Set(Array.isArray(opts.disabledEnemies) ? opts.disabledEnemies : []);
 
             const scene = BO.World.build(this.mapId);
             const map = BO.World.mapData;
+            if (this.modifiers.lowGravity) map.gravityScale = 0.45;
+            if (this.modifiers.nightmareDarkness && scene.fog) {
+                scene.fog.color.setHex(0x020308);
+                scene.fog.near = 4;
+                scene.fog.far = 36;
+            }
             const loadout = BO.Loadout.getActiveClass();
 
             BO.Player.initForMatch('zombies', map.playerSpawn, loadout, this.useClassicStarter);
             BO.Combat.reset(opts.camera);
 
+            if (this.modifiers.allEnemiesUnlocked) {
+                this.unlockedPoolCount = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                this.unlockedBossCount = BO.ZombiesData.ORDERED_BOSSES.length;
+            } else {
+                this.unlockedPoolCount = (this.difficulty === 'insanely_hard' || this.difficulty === 'very_hard') ? 5 : (this.difficulty === 'hard' ? 3 : 2);
+                this.unlockedBossCount = this.difficulty === 'boss_rush' ? BO.ZombiesData.ORDERED_BOSSES.length : 0;
+            }
+
             const cc = (BO.Cheats && BO.Cheats.isActive('choose', true)) ? BO.Save.data.chooseConfig : null;
             this.round = Math.max(1, parseInt(opts.startRound || (cc && cc.startRound), 10) || 1);
-            const basePts = this.difficulty === 'boss_rush' ? 10000 : ((cc && cc.startPoints) ? cc.startPoints : 500);
+            const basePts = this.modifiers.richStart ? 10000 : (this.difficulty === 'boss_rush' ? 10000 : ((cc && cc.startPoints) ? cc.startPoints : 500));
             this.points = (BO.Cheats && BO.Cheats.isActive('infmoney')) ? 99999 : basePts;
             this.kills = 0;
             this.headshots = 0;
@@ -176,11 +201,36 @@
         addPoints(amount, reason = '') {
             if (amount <= 0) return;
             const choose2x = BO.Cheats && BO.Cheats.isActive('choose') && BO.Save.data.chooseConfig?.advDoublePoints;
-            const mult = (this.doublePointsTimer > 0 || choose2x) ? 2 : 1;
+            const mult = ((this.doublePointsTimer > 0 || choose2x) ? 2 : 1) * (this.modifiers.doubleGold ? 2 : 1);
             const finalAmt = Math.round(amount * mult);
             this.points += finalAmt;
             if (BO.Cheats && BO.Cheats.isActive('infmoney')) this.points = Math.max(this.points, 99999);
             BO.Events.emit('hud:points_popup', { amount: finalAmt, reason });
+        }
+
+        _spawnSplitChildren(parent, count) {
+            const total = Math.min(4, Math.max(2, count || 2));
+            for (let i = 0; i < total; i++) {
+                const ang = (i / total) * Math.PI * 2;
+                const child = new BO.ZombieEntity({
+                    id: this.nextZombieId++,
+                    spec: parent.spec,
+                    round: this.round,
+                    hp: Math.max(20, Math.round(parent.maxHp * (total >= 4 ? 0.30 : 0.45))),
+                    speed: Math.min(9.0, parent.speed * 1.15),
+                    damage: Math.max(5, Math.round(parent.damage * 0.65)),
+                    x: parent.pos.x + Math.cos(ang) * 0.9,
+                    y: parent.pos.y,
+                    z: parent.pos.z + Math.sin(ang) * 0.9,
+                    sizeMult: (parent.sizeMult || 1) * 0.68,
+                    isSplitChild: true,
+                    splitCount: 0,
+                    jumpChance: parent.jumpChance || 0,
+                    windowInteractive: null
+                });
+                this.zombies.push(child);
+            }
+            BO.FX.spawnParticles(parent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 12, 0x22c55e, 4.5, 4, 0.45, 1.3);
         }
 
         triggerZombieDance() {
@@ -220,18 +270,36 @@
             this.activeBoss = null;
             this.state = 'fighting';
 
-            // Notify player whenever every-3-rounds milestone adds a new zombie to the pool!
-            const newlyUnlocked = BO.ZombiesData.getNewlyUnlockedForRound(r);
-            if (newlyUnlocked) {
-                BO.Events.emit('hud:toast', {
-                    text: `NEW ZOMBIE ADDED TO POOL: ${newlyUnlocked.name.toUpperCase()} (TIER ${newlyUnlocked.tier}/20)`,
-                    color: '#f5a623'
-                });
+            // Progressive Pool: 50% chance to add 1 new enemy per completed round, and +1 Boss every 5 rounds!
+            if (r > 1 && !this.modifiers.allEnemiesUnlocked) {
+                if (this.unlockedPoolCount < BO.ZombiesData.ORDERED_PROGRESSION.length && Math.random() < 0.50) {
+                    const added = BO.ZombiesData.ORDERED_PROGRESSION[this.unlockedPoolCount++];
+                    if (added) {
+                        BO.Events.emit('hud:toast', {
+                            text: `🔓 50% ROLL HIT! NEW ENEMY ENTERED POOL: ${added.name.toUpperCase()} (${added.rarity.toUpperCase()})!`,
+                            color: '#f5a623'
+                        });
+                    }
+                }
+                if (r % 5 === 0 && this.unlockedBossCount < BO.ZombiesData.ORDERED_BOSSES.length) {
+                    const addedBoss = BO.ZombiesData.ORDERED_BOSSES[this.unlockedBossCount++];
+                    if (addedBoss) {
+                        BO.Events.emit('hud:toast', {
+                            text: `⚠ BOSS ENTERED POOL (ROUND ${r}): ${addedBoss.name}!`,
+                            color: '#ef4444'
+                        });
+                    }
+                }
+            }
+            if (this.modifiers.randomLoadoutWave && r > 1) {
+                const randW = BO.Math.pick(BO.WeaponsData.ORDER);
+                BO.Player.giveWeapon(randW, false, false);
+                BO.Events.emit('hud:toast', { text: `🎲 RANDOM LOADOUT ROUND: ${BO.WeaponsData.get(randW).name}!`, color: '#c084fc' });
             }
 
             if (bossSpec) {
-                // Boss Round (Round 5, 10, 20, 25, 50)
-                this.remainingToSpawn = Math.min(18, 4 + Math.floor(r * 0.35));
+                // Boss Round (Round 5, 10, 15, 20, 25, 30, 35, 40, 45, 50)
+                this.remainingToSpawn = Math.min(24, Math.round((4 + Math.floor(r * 0.35)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0)));
                 BO.Sound.playBossIntro();
                 BO.Events.emit('hud:banner', {
                     title: `BOSS ROUND ${r}: ${bossSpec.name}`,
@@ -240,13 +308,12 @@
                 });
                 this._spawnBoss(bossSpec);
             } else {
-                this.remainingToSpawn = Math.min(85, Math.round(5 + r * 3.2 + (r > 10 ? (r - 10) * 1.4 : 0)));
-                const poolSize = BO.ZombiesData.getUnlockedPool(r).length;
+                this.remainingToSpawn = Math.min(120, Math.round((5 + r * 3.2 + (r > 10 ? (r - 10) * 1.4 : 0)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0)));
                 BO.Events.emit('hud:banner', {
                     title: 'ROUND ' + BO.Math.toRoman(r),
                     sub: this.exfilAvailable
-                        ? `POOL: ${poolSize}/20 ZOMBIES • PRESS [H] TO CALL EXFIL`
-                        : `ACTIVE HORDE POOL: ${poolSize}/20 ZOMBIE TYPES`,
+                        ? `POOL: ${this.unlockedPoolCount}/70 ENEMIES • PRESS [H] TO CALL EXFIL`
+                        : `ACTIVE HORDE POOL: ${this.unlockedPoolCount}/70 ENEMIES (${this.unlockedBossCount} BOSSES)`,
                     color: '#dc2626'
                 });
                 BO.Sound.playRoundStart(r, false);
@@ -398,7 +465,11 @@
         }
 
         _spawnZombie() {
-            let spec = BO.ZombiesData.pickWeightedZombie(this.round);
+            const unlockedEnemies = BO.ZombiesData.ORDERED_PROGRESSION.slice(0, Math.max(1, this.unlockedPoolCount));
+            const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
+            let spec = this.modifiers.allBosses
+                ? BO.Math.pick(BO.ZombiesData.ORDERED_BOSSES.filter((b) => !this.disabledEnemySet.has(b.id))) || BO.ZombiesData.ORDERED_BOSSES[0]
+                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet);
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
             if (cc && Array.isArray(cc.customZombiePool) && cc.customZombiePool.length > 0) {
                 const customSpecs = cc.customZombiePool.map((id) => BO.ZombiesData.get(id)).filter(Boolean);
@@ -406,16 +477,21 @@
                     spec = BO.Math.pick(customSpecs);
                 }
             }
-            const allowWindow = !spec.bodySpec?.quadruped && !spec.bodySpec?.floating && (spec.bodySpec?.scale?.[0] || 1) < 1.3;
+            const allowWindow = !spec.isBoss && !spec.bodySpec?.quadruped && !spec.bodySpec?.floating && (spec.bodySpec?.scale?.[0] || 1) < 1.3;
             const sp = this._pickSpawnPoint(allowWindow);
 
             // Round & Difficulty scaling layered onto each zombie's unique base stats
             const dm = this._getDifficultyMultipliers();
-            const turboMult = (cc && cc.disTurboZombies) ? 1.45 : 1.0;
+            const turboMult = ((cc && cc.disTurboZombies) ? 1.45 : 1.0) * (this.modifiers.fastZombies ? 1.55 : 1.0);
+            const sizeMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.62 : 1.0);
+            const sizeHpMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.72 : 1.0);
+            const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
+            const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
+            const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
             const roundHpMult = 1 + (this.round - 1) * 0.22 + (this.round > 10 ? Math.pow(this.round - 10, 1.25) * 0.14 : 0);
-            const hp = Math.round(spec.hp * roundHpMult * dm.hp);
-            const speed = Math.min(7.5, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult);
-            const dmg = Math.min(120, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk));
+            const hp = Math.max(15, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp));
+            const speed = Math.min(8.8, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult);
+            const dmg = Math.min(180, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg));
 
             const z = new BO.ZombieEntity({
                 id: this.nextZombieId++,
@@ -427,8 +503,14 @@
                 x: sp.x,
                 y: sp.y,
                 z: sp.z,
+                isMagical: !!(this.modifiers.magicalZombies || spec.isMagical),
+                explosiveDeath: !!this.modifiers.explosiveDeath,
+                splitCount: this.modifiers.megaSplitters ? Math.max(2, spec.splitCount || 0) : (spec.splitCount || 0),
+                jumpChance: this.modifiers.superJumpZombies ? Math.max(0.55, spec.jumpChance || 0) : (spec.jumpChance || 0),
+                sizeMult,
                 windowInteractive: sp.winInter
             });
+            if (this.modifiers.armoredHorde) z.defense = Math.min(0.70, (z.defense || 0) + 0.35);
             this.zombies.push(z);
         }
 
@@ -468,7 +550,7 @@
         _onBulletHit(z, dmg, hitbox, weaponInst, impactPos, dir) {
             if (!z || !z.alive) return false;
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
-            if (cc && cc.disHeadshotsOnly && hitbox !== 'head' && !z.spec.bodySpec?.headless) {
+            if (((cc && cc.disHeadshotsOnly) || this.modifiers.headshotsOnly) && hitbox !== 'head' && !z.spec.bodySpec?.headless) {
                 return false;
             }
             let modDmg = dmg;
@@ -477,6 +559,12 @@
                 if (cc.disHalfDamage) modDmg *= 0.5;
             }
             const isMelee = weaponInst && (weaponInst.id === 'knife' || weaponInst.stats?.kind === 'melee');
+            if (this.modifiers.sniperHeaven && weaponInst?.stats && (weaponInst.stats.category === 'sniper' || weaponInst.stats.category === 'marksman')) {
+                modDmg *= 2.5;
+            }
+            if (this.modifiers.meleeMayhem && isMelee) {
+                modDmg *= 4.0;
+            }
             const isPaP = !!(weaponInst && weaponInst.isPaP);
             const isInsta = this.instaKillTimer > 0 || (cc && cc.advInstaKill);
             // Insta-kill does not one-shot Bosses (deals big 4x chunk instead!)
@@ -510,6 +598,18 @@
 
             this.kills++;
             const isHead = hitbox === 'head' && !z.spec.bodySpec?.headless;
+            if (this.modifiers.vampirePlayer && BO.Player.alive) {
+                BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
+            }
+            if (this.modifiers.meleeMayhem && isMelee && BO.Player.alive) {
+                BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 20);
+            }
+            if (this.modifiers.explosiveHeadshots && isHead) {
+                const pt = z.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
+                BO.FX.spawnExplosion(pt, 5.2, 0xf97316);
+                BO.Sound.playExplosion(0.55);
+                this._onExplode(pt, 5.8, 180, false, 0, 'explosive_hs');
+            }
             if (isHead) {
                 this.headshots++;
                 BO.Progression.recordStat('zombiesHeadshots', 1);

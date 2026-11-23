@@ -69,6 +69,7 @@
             this.inspectTimer = 0;
             this.platingTimer = 0;
             this.holdBreath = false;
+            this.scopeZoom = 4.0; // Stepless 1.0x .. 20.0x variable sniper scope zoom!
 
             // Equipment & Perks
             this.lethalId = 'frag';
@@ -252,10 +253,30 @@
             this.inspectTimer = 0;
             this.platingTimer = 0;
             this.holdBreath = false;
+            this.scopeZoom = 4.0; // Stepless 1.0x .. 20.0x variable sniper scope zoom!
             this.keys = Object.create(null);
             this.rideState = null;
             this.inSwampMud = false;
             this.centrifugeCooldown = 0;
+            this.rebuildViewmodel();
+        }
+
+        applyCustomLoadoutLive(cls) {
+            if (!cls) return;
+            this.mpPerks = cls.perks ? cls.perks.slice() : [];
+            this.lethalId = cls.lethal || 'frag';
+            this.lethalCount = BO.AttachmentsData.LETHALS[this.lethalId]?.count || 2;
+            this.tacticalId = cls.tactical || 'flashbang';
+            this.tacticalCount = BO.AttachmentsData.TACTICALS[this.tacticalId]?.count || 2;
+            this.fieldUpgradeId = cls.fieldUpgrade || 'munitions_box';
+            this.ultimateId = cls.ultimatePower || 'gravity_spikes';
+            this.weapons = [];
+            if (cls.primary) this.weapons.push(this._createWeaponInstance(BO.Math.deepClone(cls.primary), 0));
+            if (cls.secondary) this.weapons.push(this._createWeaponInstance(BO.Math.deepClone(cls.secondary), 0));
+            this.activeWeaponIndex = 0;
+            this.reloading = false;
+            this.reloadTimer = 0;
+            this.scopeZoom = 4.0;
             this.rebuildViewmodel();
         }
 
@@ -434,11 +455,25 @@
             return { origin, dir };
         }
 
+        adjustScopeZoom(direction) {
+            const w = this.activeWeapon;
+            if (!w || !w.stats || !w.stats.variableZoom) return false;
+            const minZ = w.stats.minZoom || 1.0;
+            const maxZ = w.stats.maxZoom || 20.0;
+            const step = this.scopeZoom < 3.0 ? 0.5 : (this.scopeZoom < 8.0 ? 1.0 : 2.0);
+            this.scopeZoom = BO.Math.clamp(Number((this.scopeZoom + direction * step).toFixed(1)), minZ, maxZ);
+            return true;
+        }
+
         onMouseMove(dx, dy) {
             if (!this.alive) return;
             const sens = BO.Settings.get('sensitivity') || 1.0;
             const adsSens = BO.Settings.get('adsSensitivity') || 0.65;
-            const fovFactor = this.adsAlpha > 0.2 ? BO.Math.lerp(1.0, adsSens, this.adsAlpha) : 1.0;
+            const w = this.activeWeapon;
+            const varZoomDamp = (w && w.stats && w.stats.variableZoom && this.adsAlpha > 0.35)
+                ? (1 / Math.sqrt(Math.max(1, this.scopeZoom)))
+                : 1.0;
+            const fovFactor = this.adsAlpha > 0.2 ? BO.Math.lerp(1.0, adsSens * varZoomDamp, this.adsAlpha) : 1.0;
             const scale = 0.0021 * sens * fovFactor;
             const inv = BO.Settings.get('invertY') ? -1 : 1;
 
@@ -473,7 +508,9 @@
             this.reloading = true;
             this.adsHeld = false;
             const speedColaMult = this.zombiePerks.has('speed_cola') ? 0.52 : 1.0;
-            this.reloadDuration = w.stats.reloadTime * speedColaMult;
+            const activeMods = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+            const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
+            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult;
             this.reloadTimer = this.reloadDuration;
             this.reloadStage = 0;
             BO.Sound.playReload(w.stats.shellReload ? 'shell' : 'out');
@@ -660,8 +697,11 @@
             if (this.regenDelayTimer > 0) {
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
-                const regenRate = this.zombiePerks.has('quick_revive') ? 45 : 28;
-                this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
+                const activeMods = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+                if (!activeMods.noRegen) {
+                    const regenRate = this.zombiePerks.has('quick_revive') ? 45 : 28;
+                    this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
+                }
             }
 
             // Muzzle flash mesh hide
@@ -695,8 +735,11 @@
 
             const baseFov = BO.Settings.get('fov') || 90;
             const sprintFovBonus = this.tacSprinting ? 7 : (this.sprinting ? 3.5 : 0);
+            const effAdsFov = (w && w.stats.variableZoom)
+                ? BO.Math.clamp(baseFov / Math.max(1.0, this.scopeZoom), 4.2, baseFov)
+                : (w ? w.stats.adsFov : baseFov);
             const targetFov = w
-                ? BO.Math.lerp(baseFov + sprintFovBonus, w.stats.adsFov, this.adsAlpha)
+                ? BO.Math.lerp(baseFov + sprintFovBonus, effAdsFov, this.adsAlpha)
                 : baseFov;
             if (Math.abs(worldCamera.fov - targetFov) > 0.05) {
                 worldCamera.fov = BO.Math.damp(worldCamera.fov, targetFov, 16, dt);
@@ -864,6 +907,8 @@
             if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) {
                 speed *= (BO.MPMode.customRules.speedScale || 1.0);
             }
+            const activeModsSpd = (BO.State.activeMode === 'td' && BO.TowerDefenseMode?.modifiers) || (BO.State.activeMode === 'zombies' && BO.ZombiesMode?.modifiers) || {};
+            if (activeModsSpd.hyperSpeedPlayer) speed *= 1.60;
             this.inSwampMud = BO.World.isInSlowZone(this.pos.x, this.pos.y, this.pos.z) && !this.sliding && this.onGround;
             if (this.inSwampMud) speed *= 0.62;
             speed *= gunMoveMult;

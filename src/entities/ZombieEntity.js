@@ -60,9 +60,13 @@
 
             // TD Modifiers & Special Attributes
             this.hasGun = !!opts.hasGun;
-            this.isMagical = !!opts.isMagical;
+            this.isMagical = !!(opts.isMagical || this.spec.isMagical);
             this.explosiveDeath = !!opts.explosiveDeath;
             this.sizeMult = opts.sizeMult || 1.0;
+            this.splitCount = opts.isSplitChild ? 0 : (opts.splitCount ?? (this.spec.splitCount || 0));
+            this.isSplitChild = !!opts.isSplitChild;
+            this.jumpChance = opts.jumpChance ?? (this.spec.jumpChance || 0);
+            this.jumpTimer = 1.5 + Math.random() * 2.5;
             this.gunCooldown = 1.6 + Math.random() * 2.2;
             this.magicCooldown = 2.5 + Math.random() * 2.5;
             this.healCooldown = 3.5 + Math.random() * 3.0;
@@ -178,6 +182,9 @@
                         BO.Player.takeDamage(this.damage * 0.75, this.pos, true);
                     }
                 }
+                if (this.splitCount > 0 && !this.isSplitChild && (!BO.Net || !BO.Net.active || BO.Net.isHost)) {
+                    BO.Events.emit('zombie:split', { parent: this, count: this.splitCount });
+                }
                 return true;
             }
             return false;
@@ -256,6 +263,17 @@
             if (this.pos.y < floorY) {
                 this.pos.y = floorY;
                 this.vel.y = 0;
+            }
+
+            // Periodic jumping for jumping enemy types (or superJumpZombies modifier!)
+            if (this.jumpChance > 0 && this.pos.y <= floorY + 0.08 && this.stunTimer <= 0 && this.frozenTimer <= 0) {
+                this.jumpTimer -= dt;
+                if (this.jumpTimer <= 0) {
+                    this.jumpTimer = 1.8 + Math.random() * 2.4;
+                    if (Math.random() < this.jumpChance) {
+                        this.vel.y = 8.2 + Math.random() * 2.6;
+                    }
+                }
             }
 
             if (this.danceTimer > 0) {

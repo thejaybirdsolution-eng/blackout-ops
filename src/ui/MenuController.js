@@ -64,6 +64,7 @@
                 mapSize: 1.0,
                 wallHp: 250,
                 gunZombiePct: 0,
+                disabledEnemies: [],
                 modifiers: {
                     allBosses: false,
                     fastZombies: false,
@@ -80,9 +81,28 @@
                     doubleGold: false,
                     headshotsOnly: false,
                     infiniteAmmo: false,
-                    randomLoadoutWave: false
+                    randomLoadoutWave: false,
+                    glassCannon: false,
+                    megaSplitters: false,
+                    superJumpZombies: false,
+                    vampirePlayer: false,
+                    sniperHeaven: false,
+                    meleeMayhem: false,
+                    explosiveHeadshots: false,
+                    fastReload: false,
+                    hyperSpeedPlayer: false,
+                    armoredHorde: false,
+                    chaosSwarm: false,
+                    noPerks: false,
+                    freePerks: false,
+                    richStart: false,
+                    berserkerWave: false,
+                    nightmareDarkness: false,
+                    noRegen: false,
+                    shieldedBosses: false
                 }
             };
+            this.zModifiers = Object.assign({}, this.tdConfig.modifiers);
             this.customRules = {
                 enemyCount: 6, teamSizeLimit: 6, enemyWeaponMode: 'all', playerWeaponMode: 'custom',
                 scoreLimit: 0, timeLimit: 0, enemyHp: 100, playerHp: 100, respawnDelay: 2.4,
@@ -124,6 +144,8 @@
             this.modalMpClass = document.getElementById('modal-mp-class');
             this.modalTdShop = document.getElementById('modal-td-shop');
             this.modalTdAttachments = document.getElementById('modal-td-attachments');
+            this.modalTdCustomClass = document.getElementById('modal-td-custom-class');
+            this.modalEnemyPool = document.getElementById('modal-enemy-pool');
 
             this._bindButtons();
             this.updateAllRankBadges();
@@ -253,6 +275,41 @@
                     BO.Sound.playUIClick();
                     if (this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
                     if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnTdCcClose = document.getElementById('btn-td-cc-close');
+            if (btnTdCcClose) {
+                btnTdCcClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalTdCustomClass) this.modalTdCustomClass.classList.add('hidden');
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnEpAllOn = document.getElementById('btn-ep-all-on');
+            if (btnEpAllOn) {
+                btnEpAllOn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    this.tdConfig.disabledEnemies = [];
+                    this.renderEnemyPool();
+                };
+            }
+            const btnEpAllOff = document.getElementById('btn-ep-all-off');
+            if (btnEpAllOff) {
+                btnEpAllOff.onclick = () => {
+                    BO.Sound.playUIClick();
+                    const allIds = BO.ZombiesData.ORDERED_PROGRESSION.map((z) => z.id)
+                        .concat(BO.ZombiesData.ORDERED_BOSSES.map((b) => b.id));
+                    // Keep at least 1 enemy enabled so spawns never stall
+                    this.tdConfig.disabledEnemies = allIds.slice(1);
+                    this.renderEnemyPool();
+                };
+            }
+            const btnEpClose = document.getElementById('btn-ep-close');
+            if (btnEpClose) {
+                btnEpClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalEnemyPool) this.modalEnemyPool.classList.add('hidden');
+                    this.renderLobby();
                 };
             }
             const btnTdSkip = document.getElementById('btn-td-skip-wait');
@@ -425,6 +482,44 @@
             document.getElementById('tab-lobby-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.renderLobby(); };
             document.getElementById('tab-lobby-td').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.renderLobby(); };
 
+            const ALL_WAVE_MODIFIERS = [
+                { k: 'allBosses', lbl: '💀 All Bosses' },
+                { k: 'fastZombies', lbl: '⚡ Fast Zombies (1.65x)' },
+                { k: 'allEnemiesUnlocked', lbl: '🔓 All 70+10 Unlocked Wave 1' },
+                { k: 'cost4x', lbl: '💸 Everything Costs 4x' },
+                { k: 'zombiesHeal', lbl: '💚 Zombies Heal Each Other' },
+                { k: 'magicalZombies', lbl: '✨ Magical Zombies' },
+                { k: 'explosiveDeath', lbl: '💥 Explosive Zombie Deaths' },
+                { k: 'giantZombies', lbl: '🦖 Giant Zombies (1.65x)' },
+                { k: 'tinyZombies', lbl: '🐜 Tiny Speedsters (0.6x)' },
+                { k: 'vampiric', lbl: '🧛 Vampiric Zombies' },
+                { k: 'bloodMoon', lbl: '🩸 Blood Moon Fog' },
+                { k: 'lowGravity', lbl: '🌙 Low Gravity Jumps' },
+                { k: 'doubleGold', lbl: '🪙 Double Gold / 2x Points' },
+                { k: 'headshotsOnly', lbl: '🎯 Headshots Only' },
+                { k: 'infiniteAmmo', lbl: '∞ Infinite Ammo' },
+                { k: 'randomLoadoutWave', lbl: '🎲 Random Gun Each Wave' },
+                { k: 'glassCannon', lbl: '🔥 Glass Cannon (3x Dmg / 0.5x HP)' },
+                { k: 'megaSplitters', lbl: '🧬 Mega Splitters (All Split!)' },
+                { k: 'superJumpZombies', lbl: '🦘 Super Jumping Horde' },
+                { k: 'vampirePlayer', lbl: '❤️ Vampire Player (+15 HP/Kill)' },
+                { k: 'sniperHeaven', lbl: '🔭 Sniper Heaven (2.5x Sniper Dmg)' },
+                { k: 'meleeMayhem', lbl: '⚔️ Melee Mayhem (4x + Heal)' },
+                { k: 'explosiveHeadshots', lbl: '💣 Explosive Headshots' },
+                { k: 'fastReload', lbl: '⚡ Hyper Reload (2.5x Speed)' },
+                { k: 'hyperSpeedPlayer', lbl: '🏃 Hyper Speed Player (1.45x)' },
+                { k: 'armoredHorde', lbl: '🛡️ Armored Horde (+35% Def)' },
+                { k: 'chaosSwarm', lbl: '🌊 Chaos Swarm (2x Count)' },
+                { k: 'noPerks', lbl: '🚫 No Perk Machines' },
+                { k: 'freePerks', lbl: '🎁 Free Perk Machines (0g)' },
+                { k: 'richStart', lbl: '💰 Rich Start (10,000 Gold/Pts)' },
+                { k: 'berserkerWave', lbl: '😡 Berserker Rage (<50% HP)' },
+                { k: 'nightmareDarkness', lbl: '🌑 Nightmare Darkness' },
+                { k: 'noRegen', lbl: '☠️ No Health Regen' },
+                { k: 'shieldedBosses', lbl: '🔰 Shielded Bosses (Regen)' }
+            ];
+            const disabledCount = (this.tdConfig.disabledEnemies || []).length;
+
             if (isZ) {
                 const maps = BO.MapsData.listByMode('zombies');
                 const u = BO.Save.data.unlockables || {};
@@ -483,11 +578,33 @@
                             </div>
                         </div>
                     ` : ''}
+                    <div class="panel-title" style="color:#f87171;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+                        <span>★ ENEMY POOL (70 ENEMIES + 10 BOSSES • EASY 50% / NORMAL 25% / HARD 15% / BOSS 10%)</span>
+                        <button class="btn btn-sm btn-zombies" id="btn-z-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
+                    </div>
+                    <div class="panel-title" style="color:#c084fc;margin-top:8px;">★ ZOMBIES CUSTOM MODIFIERS (${ALL_WAVE_MODIFIERS.length} MODIFIERS!)</div>
+                    <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
+                        ${ALL_WAVE_MODIFIERS.map((md) => `
+                            <label class="mod-row ${this.zModifiers[md.k] ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11.5px;">
+                                <span>${md.lbl}</span>
+                                <input type="checkbox" class="js-z-mod" data-zmod="${md.k}" ${this.zModifiers[md.k] ? 'checked' : ''}>
+                            </label>
+                        `).join('')}
+                    </div>
                 `;
                 left.querySelectorAll('[data-zmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZMap = b.dataset.zmap; this.renderLobby(); }; });
                 left.querySelectorAll('[data-zdiff]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedZDifficulty = b.dataset.zdiff; this.renderLobby(); }; });
                 document.getElementById('z-start-custom').onclick = () => { BO.Sound.playUIClick(); this.classicStarter = false; this.renderLobby(); };
                 document.getElementById('z-start-classic').onclick = () => { BO.Sound.playUIClick(); this.classicStarter = true; this.renderLobby(); };
+                const zEpBtn = document.getElementById('btn-z-open-ep');
+                if (zEpBtn) zEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                left.querySelectorAll('.js-z-mod').forEach((cb) => {
+                    cb.onchange = (e) => {
+                        BO.Sound.playUIClick();
+                        this.zModifiers[e.target.dataset.zmod] = e.target.checked;
+                        this.renderLobby();
+                    };
+                });
                 const lri = document.getElementById('lobby-round-input');
                 if (lri) {
                     lri.oninput = (e) => {
@@ -678,24 +795,7 @@
                     { id: 'hard', name: 'HARD', col: '#f59e0b' },
                     { id: 'hell', name: '🔥 HELL', col: '#ef4444' }
                 ];
-                const MOD_DEFS = [
-                    { k: 'allBosses', lbl: '💀 All Bosses' },
-                    { k: 'fastZombies', lbl: '⚡ Fast Zombies (1.65x)' },
-                    { k: 'allEnemiesUnlocked', lbl: '🔓 All Enemy Types Wave 1' },
-                    { k: 'cost4x', lbl: '💸 Everything Costs 4x' },
-                    { k: 'zombiesHeal', lbl: '💚 Zombies Heal Each Other' },
-                    { k: 'magicalZombies', lbl: '✨ Magical Zombies' },
-                    { k: 'explosiveDeath', lbl: '💥 Explosive Zombie Deaths' },
-                    { k: 'giantZombies', lbl: '🦖 Giant Zombies (1.65x)' },
-                    { k: 'tinyZombies', lbl: '🐜 Tiny Speedsters (0.6x)' },
-                    { k: 'vampiric', lbl: '🧛 Vampiric Zombies' },
-                    { k: 'bloodMoon', lbl: '🩸 Blood Moon Fog' },
-                    { k: 'lowGravity', lbl: '🌙 Low Gravity Jumps' },
-                    { k: 'doubleGold', lbl: '🪙 Double Gold (2x)' },
-                    { k: 'headshotsOnly', lbl: '🎯 Headshots Only' },
-                    { k: 'infiniteAmmo', lbl: '∞ Infinite Ammo' },
-                    { k: 'randomLoadoutWave', lbl: '🎲 Random Gun Each Wave' }
-                ];
+                const MOD_DEFS = ALL_WAVE_MODIFIERS;
 
                 left.innerHTML = `
                     <div class="panel-title" style="color:#22c55e;">1. SELECT CASTLE DEFENSE SETUP (3 MAPS • 2 MULTI-HEIGHT SNIPING TOWERS EACH)</div>
@@ -748,7 +848,11 @@
                         </div>
                     </div>
 
-                    <div class="panel-title" style="color:#c084fc;">4. CUSTOM MODIFIERS (MIX &amp; MATCH ANY COMBINATION!)</div>
+                    <div class="panel-title" style="color:#f87171;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
+                        <span>4. ENEMY POOL (70 ENEMIES + 10 BOSSES • EASY 50% / NORMAL 25% / HARD 15% / BOSS 10%)</span>
+                        <button class="btn btn-sm btn-zombies" id="btn-td-open-ep">🧟 ENABLE / DISABLE ENEMIES (${80 - disabledCount}/80 ON)</button>
+                    </div>
+                    <div class="panel-title" style="color:#c084fc;">5. CUSTOM MODIFIERS (${MOD_DEFS.length} MODIFIERS — MIX &amp; MATCH!)</div>
                     <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:6px;">
                         ${MOD_DEFS.map((md) => `
                             <label class="mod-row ${mods[md.k] ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11.5px;">
@@ -786,6 +890,8 @@
                     document.getElementById('td-gpct-lbl').textContent = tc.gunZombiePct + '%';
                     if (BO.Net && BO.Net.active && BO.Net.isHost) BO.Net.broadcastLobbySettings();
                 };
+                const tdEpBtn = document.getElementById('btn-td-open-ep');
+                if (tdEpBtn) tdEpBtn.onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
                 left.querySelectorAll('.js-td-mod').forEach((cb) => {
                     cb.onchange = (e) => {
                         BO.Sound.playUIClick();
@@ -849,7 +955,9 @@
                             mapId: this.selectedZMap,
                             difficulty: this.selectedZDifficulty || 'normal',
                             useClassicStarter: this.classicStarter,
-                            startRound: roundsUnlocked ? this.selectedStartRound : 1
+                            startRound: roundsUnlocked ? this.selectedStartRound : 1,
+                            zModifiers: BO.Math.deepClone(this.zModifiers),
+                            disabledEnemies: (this.tdConfig.disabledEnemies || []).slice()
                         });
                     } else if (isMp) {
                         this.onStartMatch({
@@ -2448,6 +2556,99 @@
                     BO.Sound.playUIClick();
                     BO.Player.updateActiveWeaponAttachments(btn.dataset.slot, btn.dataset.val);
                     this.renderTdAttachments();
+                };
+            });
+        }
+
+        /* ====================================================================
+           PAY-TO-USE CUSTOM CLASS ARMORY MODAL (TOWER DEFENSE)
+        ==================================================================== */
+        openTdCustomClassModal() {
+            if (!this.modalTdCustomClass || !BO.TowerDefenseMode) return;
+            if (document.pointerLockElement) document.exitPointerLock();
+            if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+            this.renderTdCustomClass();
+            this.modalTdCustomClass.classList.remove('hidden');
+        }
+
+        renderTdCustomClass() {
+            const list = document.getElementById('td-cc-list');
+            const sub = document.getElementById('td-cc-sub');
+            const td = BO.TowerDefenseMode;
+            if (!list || !td) return;
+            const cost = td.getCost(1000);
+            if (sub) sub.textContent = `Your Gold: ${td.gold} • Equip any of your 10 Custom Classes for ${cost} GOLD!`;
+            const classes = BO.Loadout.getClasses();
+            list.innerHTML = classes.map((c, idx) => {
+                const pName = BO.WeaponsData.get(c.primary.id)?.name || c.primary.id;
+                const sName = BO.WeaponsData.get(c.secondary.id)?.name || c.secondary.id;
+                const canAfford = td.gold >= cost;
+                return `
+                    <button class="select-card js-td-buy-cc" data-cidx="${idx}" style="border-color:${canAfford ? '#fde047' : '#475569'};">
+                        <div class="card-head" style="color:#fde047;">${escAttr(c.name)}</div>
+                        <div class="card-sub">Primary: <b>${escAttr(pName)}</b><br>Secondary: ${escAttr(sName)}</div>
+                        <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:${canAfford ? '#4ade80' : '#ef4444'};">EQUIP FOR ${cost} GOLD</div>
+                    </button>
+                `;
+            }).join('');
+            list.querySelectorAll('.js-td-buy-cc').forEach((btn) => {
+                btn.onclick = () => {
+                    if (td.buyCustomClass(Number(btn.dataset.cidx))) {
+                        this.modalTdCustomClass.classList.add('hidden');
+                        if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                    }
+                };
+            });
+        }
+
+        /* ====================================================================
+           CUSTOMIZE ENEMY POOL MODAL (ENABLE / DISABLE 70 ENEMIES + 10 BOSSES)
+        ==================================================================== */
+        openEnemyPoolModal() {
+            if (!this.modalEnemyPool) return;
+            this.renderEnemyPool();
+            this.modalEnemyPool.classList.remove('hidden');
+        }
+
+        renderEnemyPool() {
+            const body = document.getElementById('enemy-pool-body');
+            if (!body) return;
+            const disSet = new Set(this.tdConfig.disabledEnemies || []);
+            const groups = [
+                { title: 'EASY ENEMIES (50% SPAWN RATE)', color: '#4ade80', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'easy') },
+                { title: 'NORMAL ENEMIES (25% SPAWN RATE)', color: '#38bdf8', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'normal') },
+                { title: 'HARD / ROUGHEST ENEMIES (15% SPAWN RATE — LATE ROUNDS)', color: '#f59e0b', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'hard') },
+                { title: 'BOSS ENEMIES (10% SPAWN RATE — +1 BOSS EVERY 5 WAVES)', color: '#ef4444', list: BO.ZombiesData.ORDERED_BOSSES }
+            ];
+
+            body.innerHTML = groups.map((g) => `
+                <div class="panel-title" style="color:${g.color};margin-top:10px;">${g.title} (${g.list.length})</div>
+                <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:6px;">
+                    ${g.list.map((z) => {
+                        const enabled = !disSet.has(z.id);
+                        const tags = [];
+                        if (z.splitCount) tags.push(`Splits x${z.splitCount}`);
+                        if (z.jumpChance) tags.push('Jumps');
+                        if (z.isMagical) tags.push('Magic');
+                        return `
+                            <label class="mod-row ${enabled ? 'active' : ''}" style="margin:0;padding:6px 9px;font-size:11px;border-color:${enabled ? g.color : 'rgba(148,163,184,0.2)'};">
+                                <span><b>${escAttr(z.name)}</b> <span style="color:#94a3b8;font-size:10px;">HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span></span>
+                                <input type="checkbox" class="js-ep-cb" data-eid="${z.id}" ${enabled ? 'checked' : ''}>
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
+            `).join('');
+
+            body.querySelectorAll('.js-ep-cb').forEach((cb) => {
+                cb.onchange = (e) => {
+                    BO.Sound.playUIClick();
+                    const id = e.target.dataset.eid;
+                    const s = new Set(this.tdConfig.disabledEnemies || []);
+                    if (e.target.checked) s.delete(id);
+                    else s.add(id);
+                    this.tdConfig.disabledEnemies = Array.from(s);
+                    this.renderEnemyPool();
                 };
             });
         }

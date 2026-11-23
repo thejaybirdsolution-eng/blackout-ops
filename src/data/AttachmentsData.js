@@ -42,6 +42,27 @@
                 unlockWeaponLevel: 12,
                 desc: 'High-magnification optical scope with hold-breath stabilization.',
                 mods: { adsTime: 1.24, adsFovOffset: -28, range: 1.28, adsSpread: 0.45, useScopeOverlay: true }
+            },
+            {
+                id: 'thermal_holo',
+                name: 'Thermal Recon Optic',
+                unlockWeaponLevel: 16,
+                desc: 'Late-level thermal target-acquisition optic with extended range & crisp ads.',
+                mods: { adsTime: 1.12, adsFovOffset: -18, range: 1.24, adsSpread: 0.65, recoil: 0.90 }
+            },
+            {
+                id: 'apex_hybrid',
+                name: 'Apex 4.0x Marksman Sight',
+                unlockWeaponLevel: 20,
+                desc: 'Elite hybrid optic granting +6% damage, +32% range, and razor-tight stability.',
+                mods: { adsTime: 1.10, adsFovOffset: -22, range: 1.32, recoil: 0.85, adsSpread: 0.60, damage: 1.06 }
+            },
+            {
+                id: 'var_zoom_20x',
+                name: 'Variable 1x–20x Sniper Scope',
+                unlockWeaponLevel: 25,
+                desc: 'Master-tier stepless 1x to 20x zoom sniper scope! Scroll Mouse Wheel or press +/- while aiming to zoom seamlessly from 1x to 20x!',
+                mods: { adsTime: 1.16, range: 1.65, adsSpread: 0.25, damage: 1.08, useScopeOverlay: true, variableZoom: true, minZoom: 1.0, maxZoom: 20.0 }
             }
         ],
 
@@ -73,6 +94,27 @@
                 unlockWeaponLevel: 11,
                 desc: 'Tightens horizontal spread and boosts projectile velocity.',
                 mods: { recoil: 0.86, adsSpread: 0.85, damage: 1.04 }
+            },
+            {
+                id: 'titanium_brake',
+                name: 'Titanium Recoil Eliminator',
+                unlockWeaponLevel: 16,
+                desc: 'Late-level ported titanium brake cutting recoil by 32%.',
+                mods: { recoil: 0.68, adsSpread: 0.78, adsTime: 1.02 }
+            },
+            {
+                id: 'aether_suppressor',
+                name: 'Aether Stealth Suppressor',
+                unlockWeaponLevel: 20,
+                desc: 'Advanced silent baffle boosting damage +8% and range +25%.',
+                mods: { suppressed: true, damage: 1.08, range: 1.25, recoil: 0.82 }
+            },
+            {
+                id: 'overpressure_comp',
+                name: 'Overpressure Warhead Muzzle',
+                unlockWeaponLevel: 25,
+                desc: 'Master-tier high-velocity chamber adding +16% damage & +20% range.',
+                mods: { damage: 1.16, range: 1.20, recoil: 0.76 }
             }
         ],
 
@@ -111,6 +153,27 @@
                 unlockWeaponLevel: 14,
                 desc: 'Lightens front end for snappy ADS and faster movement.',
                 mods: { adsTime: 0.86, moveMult: 1.04, range: 0.88 }
+            },
+            {
+                id: 'carbon_bipod',
+                name: 'Carbon-Fiber Precision Bipod',
+                unlockWeaponLevel: 16,
+                desc: 'Late-level sniper & LMG stabilizer cutting recoil 34% and spread 38%.',
+                mods: { recoil: 0.66, adsSpread: 0.62, range: 1.15 }
+            },
+            {
+                id: 'railgun_barrel',
+                name: 'Magnetic Accelerator Barrel',
+                unlockWeaponLevel: 20,
+                desc: 'Electromagnetic rail coils boosting bullet damage +18% and range +38%.',
+                mods: { damage: 1.18, range: 1.38, adsSpread: 0.70 }
+            },
+            {
+                id: 'nano_angled',
+                name: 'Nano-Composite Combat Grip',
+                unlockWeaponLevel: 25,
+                desc: 'Master-tier ultra-fast ADS, laser-tight hipfire, and +8% movement speed.',
+                mods: { adsTime: 0.76, hipSpread: 0.55, recoil: 0.74, moveMult: 1.08, showLaser: true }
             }
         ],
 
@@ -142,6 +205,27 @@
                 unlockWeaponLevel: 15,
                 desc: '+80% capacity for relentless sustained fire.',
                 mods: { magMult: 1.8, reloadMult: 1.18, moveMult: 0.95, adsTime: 1.08 }
+            },
+            {
+                id: 'hollow_point_mag',
+                name: 'Hollow-Point Heavy Mag',
+                unlockWeaponLevel: 16,
+                desc: 'Late-level stopping-power rounds adding +15% damage and +25% capacity.',
+                mods: { damage: 1.15, magMult: 1.25, reloadMult: 0.92 }
+            },
+            {
+                id: 'beta_c_drum',
+                name: 'Twin-Saddle 100-Rd Drum',
+                unlockWeaponLevel: 20,
+                desc: 'Massive +135% magazine capacity for endless horde shredding.',
+                mods: { magMult: 2.35, reloadMult: 1.08 }
+            },
+            {
+                id: 'quantum_autoloader',
+                name: 'Quantum Autoloader Mag',
+                unlockWeaponLevel: 25,
+                desc: 'Master-tier 2x magazine capacity with 45% faster lightning reload!',
+                mods: { magMult: 2.0, reloadMult: 0.55, adsTime: 0.94 }
             }
         ],
 
@@ -173,6 +257,27 @@
                 unlockWeaponLevel: 13,
                 desc: 'Stabilizes aim sway and reduces kick.',
                 mods: { recoil: 0.84, adsSpread: 0.80, adsTime: 1.06 }
+            },
+            {
+                id: 'exo_stabilizer',
+                name: 'Exo-Frame Gyro Stock',
+                unlockWeaponLevel: 16,
+                desc: 'Late-level gyroscopic stock cutting recoil 30% while boosting mobility.',
+                mods: { recoil: 0.70, adsSpread: 0.65, moveMult: 1.04 }
+            },
+            {
+                id: 'ultralight_skel',
+                name: 'Ultralight Titanium Frame',
+                unlockWeaponLevel: 20,
+                desc: 'Featherweight skeletonized frame for +12% sprint speed & 26% faster ADS.',
+                mods: { adsTime: 0.74, moveMult: 1.12, hipSpread: 0.75 }
+            },
+            {
+                id: 'cyber_cheekrest',
+                name: 'Cybernetic Zero-Kick Stock',
+                unlockWeaponLevel: 25,
+                desc: 'Master-tier recoil-canceling stock (-42% recoil, -45% ADS spread, +6% speed).',
+                mods: { recoil: 0.58, adsTime: 0.82, adsSpread: 0.55, moveMult: 1.06 }
             }
         ]
     };

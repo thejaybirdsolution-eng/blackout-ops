@@ -167,6 +167,8 @@
                     difficulty: opts.difficulty || 'normal',
                     useClassicStarter: opts.useClassicStarter,
                     startRound: opts.startRound || 1,
+                    zModifiers: opts.zModifiers || {},
+                    disabledEnemies: opts.disabledEnemies || [],
                     camera: this.worldCamera
                 });
             } else if (opts.mode === 'td') {
@@ -354,7 +356,14 @@
 
             window.addEventListener('wheel', (e) => {
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
-                if (Math.abs(e.deltaY) > 4) P.switchWeapon();
+                if (Math.abs(e.deltaY) > 4) {
+                    const w = P.activeWeapon;
+                    if (w && w.stats && w.stats.variableZoom && (P.adsHeld || P.adsAlpha > 0.35)) {
+                        P.adjustScopeZoom(e.deltaY < 0 ? 1 : -1);
+                        return;
+                    }
+                    P.switchWeapon();
+                }
             }, { passive: true });
 
             window.addEventListener('keydown', (e) => {
@@ -405,6 +414,10 @@
                     P.switchWeapon(1);
                 } else if (code === 'Digit3' && firstDown) {
                     P.switchWeapon(2);
+                } else if ((code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') && firstDown) {
+                    P.adjustScopeZoom(1);
+                } else if ((code === 'Minus' || code === 'NumpadSubtract' || code === 'BracketLeft') && firstDown) {
+                    P.adjustScopeZoom(-1);
                 } else if (code === kb.fireMode && firstDown) {
                     if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
                     else P.toggleFireMode();

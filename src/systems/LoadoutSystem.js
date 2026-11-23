@@ -133,7 +133,10 @@
             let moveMult = base.moveMult;
             let suppressed = false;
             let showLaser = false;
-            let useScopeOverlay = (opticId === 'sniper_scope');
+            let useScopeOverlay = (opticId === 'sniper_scope' || opticId === 'var_zoom_20x');
+            let variableZoom = (opticId === 'var_zoom_20x');
+            let minZoom = 1.0;
+            let maxZoom = 20.0;
 
             const resolvedAtts = Object.assign({}, atts, { optic: opticId });
 
@@ -155,6 +158,9 @@
                 if (m.showLaser) showLaser = true;
                 if (slot === 'optic') {
                     useScopeOverlay = !!m.useScopeOverlay;
+                    variableZoom = !!m.variableZoom;
+                    if (m.minZoom) minZoom = m.minZoom;
+                    if (m.maxZoom) maxZoom = m.maxZoom;
                 } else if (m.useScopeOverlay) {
                     useScopeOverlay = true;
                 }
@@ -220,6 +226,9 @@
                 adsTime,
                 adsFov,
                 useScopeOverlay,
+                variableZoom,
+                minZoom,
+                maxZoom,
                 opticId,
                 chargeMaxTime: base.chargeMaxTime || 0,
                 chargeMaxScale: base.chargeMaxScale || 1,

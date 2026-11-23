@@ -17,12 +17,12 @@
     const BO = global.BO;
 
     const DEFAULT_TD_CONFIG = {
-        tdMode: 'standard',
-        difficulty: 'medium',
-        startingZombies: 10,
-        mapSize: 1.0,
-        wallHp: 250,
-        gunZombiePct: 0,
+        tdMode: 'standard',        // 'standard' | 'all_bosses' | 'boss_rush' | 'gun_warfare' | 'magic_siege' | 'endless_swarm'
+        difficulty: 'medium',      // 'easy' | 'medium' | 'hard' | 'hell'
+        startingZombies: 10,       // 3..60
+        mapSize: 1.0,              // 0.70 | 1.0 | 1.35 | 1.75
+        wallHp: 250,               // 50..2000
+        gunZombiePct: 0,           // 0..100
         modifiers: {
             allBosses: false,
             fastZombies: false,
@@ -39,8 +39,27 @@
             doubleGold: false,
             headshotsOnly: false,
             infiniteAmmo: false,
-            randomLoadoutWave: false
-        }
+            randomLoadoutWave: false,
+            megaSplitters: false,
+            superJumpZombies: false,
+            armoredHorde: false,
+            glassCannon: false,
+            berserkerWave: false,
+            shieldedBosses: false,
+            chaosSwarm: false,
+            sniperHeaven: false,
+            meleeMayhem: false,
+            vampirePlayer: false,
+            noPerks: false,
+            freePerks: false,
+            fastReload: false,
+            hyperSpeedPlayer: false,
+            explosiveHeadshots: false,
+            richStart: false,
+            noRegen: false,
+            nightmareDarkness: false
+        },
+        disabledEnemies: []
     };
 
     const DIFFICULTY_SCALES = {
@@ -61,6 +80,7 @@
         { id: 'minigun', name: 'M134 DEATH MACHINE (MINIGUN)', cost: 1450, desc: 'Equips the 6-barrel 1,400 RPM rotary Minigun with 200-round drum!' }
     ];
 
+    // 20 BRAND-NEW UNIQUE SUPPORT DEPLOYABLES (6 appear each intermission cycle!)
     const ROTATING_DEPLOYABLES = [
         { id: 'tesla_coil', name: '⚡ TESLA ARC TOWER', cost: 1100, color: '#22d3ee', desc: 'Zaps up to 3 zombies at once with high-voltage chain lightning arcs!' },
         { id: 'flame_turret', name: '🔥 INFERNO FLAME TURRET', cost: 950, color: '#f97316', desc: 'Blasts searing fire cones that ignite and burn approaching hordes over time!' },
@@ -114,7 +134,7 @@
             this.shopkeeperObj = null;
 
             this.shopWeapons = [];
-            this.cycleDeployables = [];
+            this.cycleDeployables = []; // 6 rotating unique deployables rolled each cycle!
             this.state = 'intermission';
             this.intermissionTimer = 30.0;
             this.waveTotal = 0;
@@ -123,13 +143,47 @@
             this.firstWaveStarted = false;
             this.ended = false;
 
+            // Every 60s Quick Zombie Head Direction Hint
             this.dirHintCooldown = 60.0;
             this.dirHintActiveTimer = 0;
 
+            // Castle Overdrive War Gong
             this.overdriveTimer = 0;
             this.overdriveCooldown = 0;
 
             this.activePrompt = null;
+            this.unlockedPoolCount = 2;
+            this.unlockedBossCount = 0;
+            this.disabledEnemySet = new Set();
+
+            BO.Events.on('zombie:split', (ev) => {
+                if (!this.active || !ev || !ev.parent) return;
+                this._spawnSplitChildren(ev.parent, ev.count || 2);
+            });
+        }
+
+        _spawnSplitChildren(parent, count) {
+            if (!BO.World.scene) return;
+            BO.FX.spawnParticles(parent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 14, 0x22c55e, 5.0, 4, 0.5, 1.3);
+            for (let i = 0; i < count; i++) {
+                const ang = (i / count) * Math.PI * 2;
+                const child = new BO.ZombieEntity({
+                    id: this.nextZombieId++,
+                    spec: parent.spec,
+                    round: this.wave,
+                    hp: Math.max(20, Math.round(parent.maxHp * 0.40)),
+                    speed: Math.min(8.8, parent.speed * 1.24),
+                    damage: Math.max(8, Math.round(parent.damage * 0.65)),
+                    x: parent.pos.x + Math.cos(ang) * 0.9,
+                    y: parent.pos.y,
+                    z: parent.pos.z + Math.sin(ang) * 0.9,
+                    sizeMult: Math.max(0.42, (parent.sizeMult || 1.0) * 0.64),
+                    isSplitChild: true,
+                    hasGun: parent.hasGun,
+                    isMagical: parent.isMagical
+                });
+                this.zombies.push(child);
+            }
         }
 
         getDefaultConfig() {
@@ -150,6 +204,7 @@
 
         rollShopCycle() {
             this.rollFiveShopWeapons();
+            // Pick 6 unique deployables from the 20-item pool for this intermission cycle!
             const pool = ROTATING_DEPLOYABLES.slice();
             for (let i = pool.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -190,6 +245,7 @@
             this.mapId = opts.mapId || 'td_castle_1';
             const merged = Object.assign({}, DEFAULT_TD_CONFIG, opts.tdConfig || {});
             merged.modifiers = Object.assign({}, DEFAULT_TD_CONFIG.modifiers, (opts.tdConfig && opts.tdConfig.modifiers) || {});
+            // Apply mode presets automatically on top of modifiers
             if (merged.tdMode === 'all_bosses') merged.modifiers.allBosses = true;
             if (merged.tdMode === 'gun_warfare') merged.gunZombiePct = Math.max(merged.gunZombiePct || 0, 75);
             if (merged.tdMode === 'magic_siege') merged.modifiers.magicalZombies = true;
@@ -204,12 +260,26 @@
 
             this.wave = 1;
             const diffInfo = DIFFICULTY_SCALES[this.config.difficulty] || DIFFICULTY_SCALES.medium;
-            this.gold = Math.round((this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush' ? 2400 : 850) * (this.modifiers.doubleGold ? 2 : 1));
+            const baseGold = this.modifiers.richStart ? 10000 : ((this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush') ? 2400 : 850);
+            this.gold = Math.round(baseGold * (this.modifiers.doubleGold ? 2 : 1));
             this.kills = 0;
+
+            // Progressive Enemy Pool Initialization:
+            // Easy/Normal starts with 2, Hard starts with 3, Hell starts with 5 (or ALL 70 + 10 Bosses if unlocked from start!)
+            this.disabledEnemySet = new Set(Array.isArray(this.config.disabledEnemies) ? this.config.disabledEnemies : []);
+            if (this.modifiers.allEnemiesUnlocked) {
+                this.unlockedPoolCount = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                this.unlockedBossCount = BO.ZombiesData.ORDERED_BOSSES.length;
+            } else {
+                this.unlockedPoolCount = this.config.difficulty === 'hell' ? 5 : (this.config.difficulty === 'hard' ? 3 : 2);
+                this.unlockedBossCount = (this.config.tdMode === 'all_bosses' || this.config.tdMode === 'boss_rush') ? 1 : 0;
+            }
             this.headshots = 0;
             this.elapsed = 0;
             this.ended = false;
             this.firstWaveStarted = false;
+            this.activeBallistas = [];
+            this.towerTurretMap = {};
 
             this.heartMaxHp = 100;
             this.heartHp = 100;
@@ -233,10 +303,18 @@
                 mapSize: this.config.mapSize || 1.0,
                 bloodMoon: !!this.modifiers.bloodMoon
             });
+            if (this.modifiers.nightmareDarkness && scene) {
+                scene.fog = new THREE.FogExp2(0x020308, 0.032);
+                scene.background = new THREE.Color(0x020308);
+            }
             const map = BO.World.mapData;
             const loadout = BO.Loadout.getActiveClass();
 
             BO.Player.initForMatch('td', map.playerSpawn, loadout, false);
+            if (this.modifiers.glassCannon) {
+                BO.Player.maxHp = 50;
+                BO.Player.hp = 50;
+            }
             BO.Combat.reset(opts.camera);
             BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onBulletHit(ent, dmg, hitbox, w, pt);
             BO.Combat.onExplodeAt = (pos, rad, dmg, owner, isFlash, stunDur, wid) => this._onExplode(pos, rad, dmg, isFlash, stunDur, wid);
@@ -276,6 +354,7 @@
         }
 
         _buildCastleStructures(scene, map) {
+            // 1. Glowing 100 HP Castle Heart Crystal
             const ch = map.castleHeart || { x: 0, y: 5.4, z: 16 };
             const hg = new THREE.Group();
             hg.position.set(ch.x, ch.y, ch.z);
@@ -299,6 +378,7 @@
             scene.add(hg);
             this.heartObj = { group: hg, crystal, halo, x: ch.x, y: ch.y, z: ch.z };
 
+            // 2. 3D Shopkeeper NPC & Stall on Castle Top
             const sk = map.shopkeeperPos || { x: 5.5, y: 5.4, z: 12.5, rotY: -Math.PI * 0.4 };
             const shopBuilt = BO.CharacterMesh.buildShopkeeper();
             shopBuilt.root.position.set(sk.x, sk.y, sk.z);
@@ -306,6 +386,7 @@
             scene.add(shopBuilt.root);
             this.shopkeeperObj = { x: sk.x, y: sk.y, z: sk.z, mesh: shopBuilt.root };
 
+            // 3. Three Sequential SEE-THROUGH & SHOOT-THROUGH Defense Wall Layers (Custom Wall HP!)
             const customWallHp = BO.Math.clamp(Number(this.config.wallHp) || 250, 50, 2000);
             const LAYER_COLORS = { 1: 0x22c55e, 2: 0x38bdf8, 3: 0xf59e0b };
             const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.72, roughness: 0.35 });
@@ -451,11 +532,38 @@
         }
 
         _beginNextWave() {
-            if (this.firstWaveStarted) this.wave++;
+            if (this.firstWaveStarted) {
+                this.wave++;
+                // Each wave completed has a 50% chance to add 1 new enemy type to the pool!
+                if (!this.modifiers.allEnemiesUnlocked && this.unlockedPoolCount < BO.ZombiesData.ORDERED_PROGRESSION.length) {
+                    if (Math.random() < 0.50) {
+                        const added = BO.ZombiesData.ORDERED_PROGRESSION[this.unlockedPoolCount];
+                        this.unlockedPoolCount++;
+                        if (added) {
+                            BO.Events.emit('hud:toast', {
+                                text: `🔓 50% ROLL HIT! NEW ENEMY ENTERED POOL: ${added.name.toUpperCase()} (${added.rarity.toUpperCase()})!`,
+                                color: '#f5a623'
+                            });
+                        }
+                    }
+                }
+                // 1 Boss enemy enters the enemy pool every 5 waves!
+                if (!this.modifiers.allEnemiesUnlocked && this.wave % 5 === 0 && this.unlockedBossCount < BO.ZombiesData.ORDERED_BOSSES.length) {
+                    const addedBoss = BO.ZombiesData.ORDERED_BOSSES[this.unlockedBossCount];
+                    this.unlockedBossCount++;
+                    if (addedBoss) {
+                        BO.Events.emit('hud:toast', {
+                            text: `⚠ BOSS ENTERED ENEMY POOL (WAVE ${this.wave}): ${addedBoss.name}!`,
+                            color: '#ef4444'
+                        });
+                    }
+                }
+            }
             this.firstWaveStarted = true;
 
             const startBase = BO.Math.clamp(Number(this.config.startingZombies) || 10, 3, 60);
-            this.waveTotal = Math.round(startBase + (this.wave - 1) * 4.2);
+            const swarmMult = this.modifiers.chaosSwarm ? 2.0 : 1.0;
+            this.waveTotal = Math.round((startBase + (this.wave - 1) * 4.2) * swarmMult);
             if (this.modifiers.allBosses) {
                 this.waveTotal = Math.max(2, Math.round(startBase * 0.35 + (this.wave - 1) * 1.4));
             }
@@ -463,16 +571,19 @@
             this.spawnCooldown = 0.55;
             this.state = 'spawning';
 
+            // Random Loadout modifier: swap weapon every wave for chaos!
             if (this.modifiers.randomLoadoutWave && this.wave > 1) {
                 const randW = BO.Math.pick(BO.WeaponsData.ORDER);
                 BO.Player.giveWeapon(randW, false, false);
                 BO.Events.emit('hud:toast', { text: `🎲 RANDOM LOADOUT WAVE: ${BO.WeaponsData.get(randW).name}!`, color: '#c084fc' });
             }
 
+            // Parachute Supply Drop every 3 waves!
             if (this.wave > 1 && this.wave % 3 === 0) {
                 this._spawnSupplyDrop();
             }
 
+            // Decay Temporary Teammates
             for (let i = this.allies.length - 1; i >= 0; i--) {
                 this.allies[i].wavesLeft--;
                 if (this.allies[i].wavesLeft <= 0) {
@@ -481,6 +592,7 @@
                 }
             }
 
+            // Boss Spawns
             if (this.config.tdMode === 'boss_rush' || this.wave >= 10) {
                 const bossChance = (this.config.tdMode === 'boss_rush' || this.wave === 10) ? 1.0 : BO.Math.clamp(0.32 + (this.wave - 10) * 0.04, 0.32, 0.90);
                 if (!this.modifiers.allBosses && Math.random() < bossChance) {
@@ -509,20 +621,25 @@
             const baseHp = isBoss
                 ? Math.round(spec.hp * (0.55 + this.wave * 0.06))
                 : Math.round(spec.hp * (0.85 + this.wave * 0.14));
+            const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
+            const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
+            const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
 
             return {
                 id: this.nextZombieId++,
                 spec,
                 round: this.wave,
-                hp: Math.max(15, Math.round(baseHp * diff.hp * sizeHpMult)),
-                speed: Math.min(8.5, spec.speed * (1 + Math.min(0.35, this.wave * 0.015)) * diff.spd * fastMult * sizeSpdMult),
-                damage: Math.max(5, Math.round(spec.attack * diff.dmg)),
+                hp: Math.max(15, Math.round(baseHp * diff.hp * sizeHpMult * glassHp * swarmHp)),
+                speed: Math.min(9.0, spec.speed * (1 + Math.min(0.35, this.wave * 0.015)) * diff.spd * fastMult * sizeSpdMult),
+                damage: Math.max(5, Math.round(spec.attack * diff.dmg * glassDmg)),
                 x: sp.x + BO.Math.randRange(-1.4, 1.4),
                 y: sp.y || 0,
                 z: sp.z + BO.Math.randRange(-1.4, 1.4),
                 hasGun: Math.random() < gunChance,
-                isMagical: !!this.modifiers.magicalZombies,
+                isMagical: !!(this.modifiers.magicalZombies || spec.isMagical),
                 explosiveDeath: !!this.modifiers.explosiveDeath,
+                splitCount: this.modifiers.megaSplitters ? Math.max(2, spec.splitCount || 0) : (spec.splitCount || 0),
+                jumpChance: this.modifiers.superJumpZombies ? Math.max(0.55, spec.jumpChance || 0) : (spec.jumpChance || 0),
                 sizeMult
             };
         }
@@ -530,9 +647,12 @@
         _spawnBossZombie() {
             const spawners = BO.World.mapData.spawners || [{ x: 0, y: 0, z: -26 }];
             const sp = BO.Math.pick(spawners);
-            const bossSpec = this._pickBossForWave(this.wave);
+            const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount));
+            const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
+            const bossSpec = BO.Math.pick(enabledB.length > 0 ? enabledB : unlockedB);
             if (!bossSpec) return;
             const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
+            if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
             this.zombies.push(ent);
             BO.Sound.playBossIntro();
             BO.Events.emit('hud:toast', { text: `⚠ BOSS DEPLOYED: ${bossSpec.name}!`, color: '#f87171' });
@@ -542,16 +662,21 @@
             const spawners = BO.World.mapData.spawners || [{ x: 0, y: 0, z: -26 }];
             const sp = BO.Math.pick(spawners);
             if (this.modifiers.allBosses) {
-                const bossSpec = this._pickBossForWave(this.wave);
+                const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount || BO.ZombiesData.ORDERED_BOSSES.length));
+                const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
+                const bossSpec = BO.Math.pick(enabledB.length > 0 ? enabledB : unlockedB);
                 if (bossSpec) {
                     const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
+                    if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
                     this.zombies.push(ent);
                     return;
                 }
             }
-            const effectiveRound = this.modifiers.allEnemiesUnlocked ? 99 : this.wave;
-            const spec = BO.ZombiesData.pickWeightedZombie(effectiveRound);
-            const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, false));
+            const unlockedEnemies = BO.ZombiesData.ORDERED_PROGRESSION.slice(0, Math.max(1, this.unlockedPoolCount));
+            const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
+            const spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet);
+            const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, !!spec.isBoss));
+            if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
             this.zombies.push(ent);
         }
 
@@ -634,6 +759,7 @@
             const keepY = 5.4;
             const idx = this.deployables.length;
 
+            // Immediate Airstrike Flare!
             if (depId === 'airstrike_beacon') {
                 BO.Sound.playNukeSiren();
                 BO.Events.emit('hud:banner', { title: '✈ A-10 CARPET BOMB INBOUND!', sub: '6 TACTICAL WARHEADS STRIKING ZOMBIE LANES!', color: '#fb923c' });
@@ -651,6 +777,7 @@
                 return;
             }
 
+            // Pick smart 3D placement based on deployable category
             let px = 0, py = 0, pz = -18;
             if (depId === 'healing_fountain' || depId === 'ammo_fabricator' || depId === 'shield_gen' || depId === 'gold_miner') {
                 px = isAll360 ? ((idx % 2 === 0 ? -1 : 1) * 3.5) : (-8 + (idx % 5) * 4);
@@ -717,6 +844,7 @@
                 const legR = legL.clone(); legR.position.x = 0.45;
                 g.add(torso, visor, legL, legR);
             } else {
+                // Tower / Emitter / Beacon / Mortar / Tesla / Cryo / Flame / Acid / EMP / Gravity / Medic / Shield / Gold / Sniper
                 const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 1.5, 10), baseMat);
                 ped.position.y = 0.75;
                 const head = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 0), glowMat);
@@ -865,20 +993,61 @@
             return false;
         }
 
+        buyCustomClass(classIndex) {
+            const cost = this.getCost(1000);
+            if (this.gold < cost) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD TO EQUIP CUSTOM CLASS!`, color: '#ef4444' });
+                return false;
+            }
+            const cls = BO.Loadout.getClass(classIndex);
+            if (!cls) return false;
+            this.gold -= cost;
+            BO.Loadout.setSelectedClassIndex(classIndex);
+            BO.Player.applyCustomLoadoutLive(cls);
+            BO.Sound.playShopBuy();
+            BO.Events.emit('hud:banner', {
+                title: `CUSTOM CLASS EQUIPPED!`,
+                sub: `${cls.name.toUpperCase()} — ${BO.WeaponsData.get(cls.primary.id).shortName} + ${BO.WeaponsData.get(cls.secondary.id).shortName}`,
+                color: '#38bdf8'
+            });
+            return true;
+        }
+
         _onBulletHit(zombie, dmg, hitbox, weaponInst) {
             if (!zombie || !zombie.alive) return false;
             if (this.modifiers.headshotsOnly && hitbox !== 'head' && !zombie.spec.bodySpec?.headless) {
                 return false;
             }
-            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
-                BO.Net.sendToHost({ type: 'td_hit', zid: zombie.id, dmg, hitbox, isHead: hitbox === 'head' });
+            let finalDmg = dmg;
+            if (this.modifiers.sniperHeaven && weaponInst && weaponInst.stats && (weaponInst.stats.category === 'sniper' || weaponInst.stats.category === 'marksman')) {
+                finalDmg = Math.round(finalDmg * 2.5);
             }
-            const killed = zombie.takeDamage(dmg, hitbox, hitbox === 'head', null, 'bullet');
+            const isMelee = weaponInst && weaponInst.stats && weaponInst.stats.kind === 'melee';
+            if (this.modifiers.meleeMayhem && isMelee) {
+                finalDmg = Math.round(finalDmg * 4.0);
+            }
+            if (BO.Net && BO.Net.active && !BO.Net.isHost) {
+                BO.Net.sendToHost({ type: 'td_hit', zid: zombie.id, dmg: finalDmg, hitbox, isHead: hitbox === 'head' });
+            }
+            const killed = zombie.takeDamage(finalDmg, hitbox, hitbox === 'head', null, isMelee ? 'melee' : 'bullet');
             this._addGold(killed ? (zombie.isBoss ? 250 : 45) : 10);
             if (killed) {
                 this.kills++;
                 if (hitbox === 'head') this.headshots++;
                 BO.Progression.grantPlayerXP(zombie.isBoss ? 300 : 55);
+                if (this.modifiers.vampirePlayer && BO.Player.alive) {
+                    BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
+                }
+                if (this.modifiers.meleeMayhem && isMelee && BO.Player.alive) {
+                    BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 20);
+                }
+                if (this.modifiers.explosiveHeadshots && hitbox === 'head') {
+                    const pt = zombie.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
+                    BO.FX.spawnExplosion(pt, 5.2, 0xf97316);
+                    BO.Sound.playExplosion(0.55);
+                    this._onExplode(pt, 5.8, 180, false, 0, 'explosive_hs');
+                }
                 if (BO.Player.zombiePerks.has('vulture_aid') && Math.random() < 0.22 && BO.Player.activeWeapon) {
                     const aw = BO.Player.activeWeapon;
                     aw.reserve = Math.min(aw.stats.reserveMax, aw.reserve + Math.ceil(aw.stats.magSize * 0.4));
@@ -913,6 +1082,11 @@
             if (kills > 0) BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: true });
         }
 
+        /* ====================================================================
+           INTERACTIONS ON CASTLE KEEP:
+           Perks (14 total, max 8), Pack-a-Punch, Attachment Station,
+           Mystery Box, Sniper Tower Jump Pads, War Gong, Shopkeeper, Revive!
+        ==================================================================== */
         tryInteract() {
             const P = BO.Player;
             if (!this.active || !P.alive) return;
@@ -945,6 +1119,68 @@
                     }
                     return;
                 }
+                if (inter.type === 'td_custom_class_station') {
+                    if (BO.Menus && BO.Menus.openTdCustomClassModal) {
+                        BO.Sound.playUIClick();
+                        BO.Menus.openTdCustomClassModal();
+                    }
+                    return;
+                }
+                if (inter.type === 'td_tower_arrow_gun') {
+                    const cost = this.getCost(400);
+                    if (this.gold < cost) {
+                        BO.Sound.playEmptyClick();
+                        BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD TO FIRE TOWER ARROW BALLISTA!`, color: '#ef4444' });
+                        return;
+                    }
+                    this.gold -= cost;
+                    BO.Sound.playShopBuy();
+                    // Fire immediate 15-arrow piercing barrage at living zombies + activate 30s auto-ballista!
+                    const origin = new THREE.Vector3(inter.x, inter.y + 0.6, inter.z);
+                    const living = this.zombies.filter((z) => z.alive);
+                    for (let a = 0; a < 15; a++) {
+                        if (living.length === 0) break;
+                        const tgt = living[a % living.length];
+                        if (!tgt.alive) continue;
+                        BO.FX.spawnTracer(origin, tgt.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 0xfacc15, 0.055, 0.24);
+                        if (tgt.takeDamage(280, 'head', true, null, 'bullet')) {
+                            this.kills++;
+                            this.headshots++;
+                            this._addGold(45);
+                        }
+                    }
+                    this.activeBallistas.push({ x: inter.x, y: inter.y + 0.6, z: inter.z, timer: 30.0, fireCd: 0.4 });
+                    BO.Events.emit('hud:toast', { text: `🏹 ${inter.label}: 15-ARROW BARRAGE + 30s AUTO-BALLISTA ACTIVATED!`, color: '#facc15' });
+                    return;
+                }
+                if (inter.type === 'td_tower_turret') {
+                    const cost = this.getCost(600);
+                    if (this.gold < cost) {
+                        BO.Sound.playEmptyClick();
+                        BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD FOR TOWER SKY TURRET!`, color: '#ef4444' });
+                        return;
+                    }
+                    this.gold -= cost;
+                    const key = `${inter.x.toFixed(1)}_${inter.z.toFixed(1)}`;
+                    const existing = this.towerTurretMap[key];
+                    if (existing) {
+                        existing.damage = Math.round(existing.damage * 1.40);
+                        existing.interval = Math.max(0.08, existing.interval * 0.80);
+                        existing.level = (existing.level || 1) + 1;
+                        BO.Sound.playShopBuy();
+                        BO.Events.emit('hud:toast', { text: `🔫 ${inter.label} UPGRADED TO LVL ${existing.level} (${existing.damage} DMG)!`, color: '#38bdf8' });
+                    } else {
+                        const tm = BO.CharacterMesh.buildSentryTurret();
+                        tm.root.position.set(inter.x, inter.y - 0.6, inter.z);
+                        BO.World.scene.add(tm.root);
+                        const tObj = { x: inter.x, y: inter.y - 0.6, z: inter.z, mesh: tm.root, headGroup: tm.headGroup, damage: 72, interval: 0.16, cooldown: 0, level: 1 };
+                        this.turrets.push(tObj);
+                        this.towerTurretMap[key] = tObj;
+                        BO.Sound.playShopBuy();
+                        BO.Events.emit('hud:toast', { text: `🔫 ${inter.label} ACTIVATED! AUTO-FIRING AT ALL ZOMBIES!`, color: '#38bdf8' });
+                    }
+                    return;
+                }
                 if (inter.type === 'td_overdrive_gong') {
                     if (this.overdriveCooldown > 0) {
                         BO.Sound.playEmptyClick();
@@ -958,8 +1194,13 @@
                     return;
                 }
                 if (inter.type === 'perk') {
+                    if (this.modifiers.noPerks) {
+                        BO.Sound.playEmptyClick();
+                        BO.Events.emit('hud:toast', { text: 'PERK MACHINES DISABLED BY NO-PERKS MODIFIER!', color: '#ef4444' });
+                        return;
+                    }
                     const pk = inter.data;
-                    const cost = this.getCost(pk.cost);
+                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost);
                     if (P.zombiePerks.has(pk.id)) {
                         BO.Sound.playEmptyClick();
                         BO.Events.emit('hud:toast', { text: `${pk.name.toUpperCase()} ALREADY EQUIPPED!`, color: '#f59e0b' });
@@ -1022,6 +1263,7 @@
                 }
             }
 
+            // Fallback: open Shopkeeper if near Stall or during intermission
             if (BO.Menus && BO.Menus.openTdShopModal) {
                 BO.Menus.openTdShopModal();
             }
@@ -1081,6 +1323,7 @@
         }
 
         _getZombieTarget(z) {
+            // Engage Holographic Decoys first!
             for (const dep of this.deployables) {
                 if (dep.id === 'decoy_holo' && dep.alive && dep.hp > 0 && BO.Math.dist2D(dep.x, dep.z, z.pos.x, z.pos.z) < 26) {
                     return { kind: 'decoy', dep, x: dep.x, y: dep.y, z: dep.z, attackRange: 1.6, forceDirect: true };
@@ -1312,6 +1555,16 @@
         _updateZombieSpecialModifiers(dt, livingZ) {
             const P = BO.Player;
             for (const z of livingZ) {
+                // 0. Berserker Wave & Shielded Bosses
+                if (this.modifiers.berserkerWave && !z._berserkApplied && z.hp < z.maxHp * 0.5) {
+                    z._berserkApplied = true;
+                    z.speed = Math.min(11.0, z.speed * 1.5);
+                }
+                if (this.modifiers.shieldedBosses && z.isBoss && z.hp < z.maxHp) {
+                    z.hp = Math.min(z.maxHp, z.hp + z.maxHp * 0.03 * dt);
+                }
+
+                // 1. Zombies Heal Each Other modifier
                 if (this.modifiers.zombiesHeal) {
                     z.healCooldown -= dt;
                     if (z.healCooldown <= 0) {
@@ -1329,6 +1582,7 @@
                     }
                 }
 
+                // 2. Gun-Toting Zombies firing bullets at Player or Active Barrier!
                 if (z.hasGun && z.stunTimer <= 0 && z.frozenTimer <= 0) {
                     z.gunCooldown -= dt;
                     if (z.gunCooldown <= 0) {
@@ -1355,6 +1609,7 @@
                     }
                 }
 
+                // 3. Magical Zombies firing arcane orbs & blinking!
                 if (z.isMagical && z.stunTimer <= 0 && z.frozenTimer <= 0) {
                     z.magicCooldown -= dt;
                     if (z.magicCooldown <= 0) {
@@ -1379,6 +1634,7 @@
             if (this.overdriveTimer > 0) this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
             if (this.overdriveCooldown > 0) this.overdriveCooldown = Math.max(0, this.overdriveCooldown - dt);
 
+            // Every 60 Seconds: Quick Zombie Head Direction Hint Pulse!
             if (this.dirHintActiveTimer > 0) {
                 this.dirHintActiveTimer = Math.max(0, this.dirHintActiveTimer - dt);
             }
@@ -1392,6 +1648,7 @@
                 }
             }
 
+            // Animate Castle Heart Crystal
             if (this.heartObj) {
                 this.heartObj.crystal.rotation.y += dt * 1.8;
                 this.heartObj.halo.rotation.z += dt * 1.4;
@@ -1399,6 +1656,7 @@
                 this.heartObj.crystal.material.color.setHex(hpFrac < 0.35 ? 0xef4444 : (hpFrac < 0.65 ? 0xf59e0b : 0x38bdf8));
             }
 
+            // Parachute Supply Drops
             for (let i = this.supplyDrops.length - 1; i >= 0; i--) {
                 const sd = this.supplyDrops[i];
                 sd.life -= dt;
@@ -1462,9 +1720,11 @@
 
             const livingZ = this.zombies.filter((z) => z.alive);
 
+            // Update 20 Unique Support Deployables + Zombie Special Modifiers
             this._updateDeployables(dt, livingZ);
             this._updateZombieSpecialModifiers(dt, livingZ);
 
+            // Update Enemy Magic Projectiles
             const P = BO.Player;
             for (let i = this.enemyProjectiles.length - 1; i >= 0; i--) {
                 const ep = this.enemyProjectiles[i];
@@ -1484,7 +1744,24 @@
                 }
             }
 
+            // Update Sentry Turrets & Active Tower Arrow Ballistas
             const turretBoost = this.overdriveTimer > 0 ? 1.85 : 1.0;
+            for (let i = this.activeBallistas.length - 1; i >= 0; i--) {
+                const b = this.activeBallistas[i];
+                b.timer -= dt;
+                b.fireCd -= dt * turretBoost;
+                if (b.fireCd <= 0 && livingZ.length > 0) {
+                    b.fireCd = 0.42;
+                    const tgt = BO.Math.pick(livingZ);
+                    BO.FX.spawnTracer(new THREE.Vector3(b.x, b.y, b.z), tgt.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 0xfacc15, 0.05, 0.18);
+                    if (tgt.takeDamage(210, 'head', true, null, 'bullet')) {
+                        this.kills++;
+                        this.headshots++;
+                        this._addGold(40);
+                    }
+                }
+                if (b.timer <= 0) this.activeBallistas.splice(i, 1);
+            }
             for (const t of this.turrets) {
                 if (t.cooldown > 0) t.cooldown -= dt * turretBoost;
                 let nearest = null, bestD = 92;
@@ -1508,6 +1785,7 @@
                 }
             }
 
+            // Update Armored Guard Dogs
             for (let i = this.dogs.length - 1; i >= 0; i--) {
                 const d = this.dogs[i];
                 if (d.attackCd > 0) d.attackCd -= dt;
@@ -1550,6 +1828,7 @@
                 }
             }
 
+            // Update Temporary Allied Soldiers
             for (const a of this.allies) {
                 if (a.cooldown > 0) a.cooldown -= dt;
                 let nearest = null, bestD = 68;
@@ -1574,6 +1853,7 @@
                 }
             }
 
+            // Update Zombies & Populate Hit Pool
             const anyWallAlive = !!this.getActiveBlockingLayer();
             const callbacks = {
                 preventBlink: anyWallAlive,
@@ -1630,14 +1910,34 @@
                 if (inter.type === 'td_attachment_station') {
                     return { text: `[E] OPEN GUNSMITH ATTACHMENT WORKBENCH`, affordable: true };
                 }
+                if (inter.type === 'td_custom_class_station') {
+                    const cost = this.getCost(1000);
+                    return { text: `[E] CUSTOM CLASS ARMORY — PAY ${cost} GOLD TO EQUIP ANY CUSTOM CLASS`, affordable: this.gold >= cost };
+                }
+                if (inter.type === 'td_tower_arrow_gun') {
+                    const cost = this.getCost(400);
+                    return { text: `[E] FIRE ${inter.label} (${cost} GOLD — 15-ARROW BARRAGE + 30s AUTO-BALLISTA)`, affordable: this.gold >= cost };
+                }
+                if (inter.type === 'td_tower_turret') {
+                    const cost = this.getCost(600);
+                    const key = `${inter.x.toFixed(1)}_${inter.z.toFixed(1)}`;
+                    const ex = this.towerTurretMap && this.towerTurretMap[key];
+                    return {
+                        text: ex
+                            ? `[E] UPGRADE ${inter.label} TO LVL ${(ex.level || 1) + 1} (${cost} GOLD)`
+                            : `[E] ACTIVATE ${inter.label} (${cost} GOLD — AUTO-FIRE SKY TURRET)`,
+                        affordable: this.gold >= cost
+                    };
+                }
                 if (inter.type === 'td_overdrive_gong') {
                     return this.overdriveCooldown > 0
                         ? { text: `CASTLE WAR GONG RECHARGING (${Math.ceil(this.overdriveCooldown)}s)`, affordable: false }
                         : { text: `[E] RING CASTLE OVERDRIVE WAR GONG (15s 2X FIRE RATE + 2X TURRETS!)`, affordable: true };
                 }
                 if (inter.type === 'perk') {
+                    if (this.modifiers.noPerks) return { text: `PERK MACHINES DISABLED (NO PERKS MODIFIER)`, affordable: false };
                     const pk = inter.data;
-                    const cost = this.getCost(pk.cost);
+                    const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost);
                     if (P.zombiePerks.has(pk.id)) return { text: `${pk.name.toUpperCase()} ALREADY EQUIPPED (${P.zombiePerks.size}/8)`, affordable: false };
                     if (P.zombiePerks.size >= 8) return { text: `MAX 8/8 PERKS EQUIPPED`, affordable: false };
                     return { text: `[E] DRINK ${pk.name.toUpperCase()} (${cost} GOLD) — ${pk.desc}`, affordable: this.gold >= cost };

@@ -438,9 +438,11 @@
             const isAll360 = m.castleSetup === 'all';
             const scaleCoord = (v, keepSafe) => (Math.abs(v) <= keepSafe ? v : v * s);
 
+            // Scale ground floor & outer perimeter walls (first 5 boxes) + battlefield cover
             if (Array.isArray(m.boxes)) {
                 for (let i = 0; i < m.boxes.length; i++) {
                     const b = m.boxes[i];
+                    // Ground slab
                     if (b.y < 0 && b.w > 30) {
                         const minX = b.x - b.w * 0.5, maxX = b.x + b.w * 0.5;
                         const minZ = b.z - b.d * 0.5, maxZ = b.z + b.d * 0.5;
@@ -451,6 +453,7 @@
                         b.x = (nMinX + nMaxX) * 0.5;
                         b.z = (nMinZ + nMaxZ) * 0.5;
                     } else if (i >= 1 && i <= 4) {
+                        // Outer perimeter canyon walls
                         if (b.w > b.d) {
                             b.w *= s;
                             if (b.z < -25 || (isAll360 && b.z > 25)) b.z *= s;
@@ -466,6 +469,7 @@
                 }
             }
 
+            // Scale defense layers (keep Layer 3 safe near stairs, scale Layer 1 & 2 outward)
             if (Array.isArray(m.defenseLayers)) {
                 for (const dl of m.defenseLayers) {
                     const ls = dl.layer === 3 ? (0.5 + 0.5 * s) : s;
@@ -473,6 +477,7 @@
                         if (dl.layer === 3 && !isAll360 && m.castleSetup === 'front') {
                             seg.w *= s;
                         } else if (dl.layer === 3 && m.castleSetup === 'front_sides') {
+                            // Keep Layer 3 snug around Castle 2 Keep
                         } else {
                             seg.x *= ls;
                             seg.z *= ls;
@@ -483,17 +488,27 @@
                 }
             }
 
+            // Scale spawners & outer turret pads
             if (Array.isArray(m.spawners)) {
-                for (const sp of m.spawners) { sp.x *= s; sp.z *= s; }
+                for (const sp of m.spawners) {
+                    sp.x *= s;
+                    sp.z *= s;
+                }
             }
             if (Array.isArray(m.turretPads)) {
                 for (const tp of m.turretPads) {
-                    if (tp.y < 1.0) { tp.x = scaleCoord(tp.x, 8); tp.z = scaleCoord(tp.z, 15); }
+                    if (tp.y < 1.0) {
+                        tp.x = scaleCoord(tp.x, 8);
+                        tp.z = scaleCoord(tp.z, 15);
+                    }
                 }
             }
             if (Array.isArray(m.waypoints)) {
                 for (const wp of m.waypoints) {
-                    if (wp.y < 1.0 && Math.hypot(wp.x, wp.z) > 22) { wp.x *= s; wp.z *= s; }
+                    if (wp.y < 1.0 && Math.hypot(wp.x, wp.z) > 22) {
+                        wp.x *= s;
+                        wp.z *= s;
+                    }
                 }
             }
             return m;
@@ -520,18 +535,35 @@
         }
 
         _buildTdSnipingTower(scene, tx, tz, sideSign, label) {
-            const levels = [5.4, 9.4, 13.4, 17.4];
-            const hw = 3.2;
+            // 6 Multi-Height Sniper Decks (up to 25.4m Apex Sky Spire!):
+            //   Level 1 (Keep Deck): 5.4m
+            //   Level 2 (Lower Balcony): 9.4m
+            //   Level 3 (Mid Watch + Overhang Balcony): 13.4m
+            //   Level 4 (High Perch + PAY-TO-USE ARROW BALLISTA GUN): 17.4m
+            //   Level 5 (Sky Overlook + PAY-TO-USE MOUNTED TOWER TURRET): 21.4m
+            //   Level 6 (Apex Crow's Nest Spire): 25.4m
+            const levels = [5.4, 9.4, 13.4, 17.4, 21.4, 25.4];
+            const hw = 3.4;
+
+            // 4 massive armored corner pillars from ground y=0 up to y=27.2 + glowing neon trim strips!
             const pOff = hw - 0.38;
             const corners = [[-pOff, -pOff], [pOff, -pOff], [-pOff, pOff], [pOff, pOff]];
+            const neonMat = new THREE.MeshBasicMaterial({ color: sideSign < 0 ? 0x38bdf8 : 0xf59e0b });
             for (const [cx, cz] of corners) {
-                this._addTdBox(scene, tx + cx - 0.35, 0, tz + cz - 0.35, tx + cx + 0.35, 18.8, tz + cz + 0.35, 'castle_stone');
+                this._addTdBox(scene, tx + cx - 0.36, 0, tz + cz - 0.36, tx + cx + 0.36, 27.2, tz + cz + 0.36, 'castle_stone');
+                const strip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 22.0, 0.14), neonMat);
+                strip.position.set(tx + cx + (cx > 0 ? 0.38 : -0.38), 16.0, tz + cz + (cz > 0 ? 0.38 : -0.38));
+                scene.add(strip);
             }
+
+            // Solid base pedestal under Level 1
             this._addTdBox(scene, tx - hw, 0, tz - hw, tx + hw, 5.4, tz + hw, 'castle_stone');
 
+            // Build all 5 elevated Sniper Decks (9.4m, 13.4m, 17.4m, 21.4m, 25.4m!)
             for (let li = 1; li < levels.length; li++) {
                 const y = levels[li];
                 this._addTdBox(scene, tx - hw, y - 0.35, tz - hw, tx + hw, y, tz + hw, 'diamond_plate');
+                // Low sniper cover crenellations on North, South, Outer sides
                 this._addTdBox(scene, tx - hw, y, tz - hw, tx + hw, y + 1.0, tz - hw + 0.32, 'castle_battlement');
                 this._addTdBox(scene, tx - hw, y, tz + hw - 0.32, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
                 if (sideSign < 0) {
@@ -539,16 +571,69 @@
                 } else {
                     this._addTdBox(scene, tx + hw - 0.32, y, tz - hw, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
                 }
-                this._addTdBox(scene, tx - 1.1, y, tz - hw + 0.4, tx + 1.1, y + 0.65, tz - hw + 1.0, 'sandbag');
+                // Sniper sandbag perches on each deck
+                this._addTdBox(scene, tx - 1.2, y, tz - hw + 0.4, tx + 1.2, y + 0.68, tz - hw + 1.0, 'sandbag');
+
+                // Overhanging Side Sniper Balconies on Level 3 (13.4m) & Level 5 (21.4m) for extra sniper spots!
+                if (li === 2 || li === 4) {
+                    const bx1 = sideSign < 0 ? (tx - hw - 2.6) : (tx + hw);
+                    const bx2 = sideSign < 0 ? (tx - hw) : (tx + hw + 2.6);
+                    this._addTdBox(scene, bx1, y - 0.30, tz - 2.2, bx2, y, tz + 2.2, 'diamond_plate');
+                    this._addTdBox(scene, bx1, y, tz - 2.2, bx2, y + 0.95, tz - 1.9, 'sandbag');
+                }
             }
 
-            const beacon = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.42, 0),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            // Apex Spire Glowing Crown & Beacon at y = 27.8m
+            const spire = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.68, 0),
+                new THREE.MeshBasicMaterial({ color: sideSign < 0 ? 0x38bdf8 : 0xfde047 })
             );
-            beacon.position.set(tx, 19.6, tz);
-            scene.add(beacon);
+            spire.position.set(tx, 28.0, tz);
+            scene.add(spire);
+            const ringTop = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.08, 8, 24), neonMat);
+            ringTop.rotation.x = Math.PI * 0.5;
+            ringTop.position.set(tx, 27.2, tz);
+            scene.add(ringTop);
 
+            // PAY-TO-USE MOUNTED ARROW BALLISTA GUN on Level 4 (y = 17.4m)!
+            const arrowG = new THREE.Group();
+            arrowG.position.set(tx, 17.4, tz - hw + 1.25);
+            const aPed = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.1, 10), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7 }));
+            aPed.position.y = 0.55;
+            const aBow = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.16, 0.24), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.8 }));
+            aBow.position.set(0, 1.25, -0.35);
+            const aRail = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 1.65), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 }));
+            aRail.position.set(0, 1.25, 0);
+            const aBolt = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            aBolt.rotation.x = Math.PI * 0.5;
+            aBolt.position.set(0, 1.42, -0.2);
+            arrowG.add(aPed, aBow, aRail, aBolt);
+            scene.add(arrowG);
+            this.interactives.push({
+                type: 'td_tower_arrow_gun',
+                id: `arrow_gun_${label}`,
+                label: `${label} ARROW BALLISTA`,
+                x: tx, y: 18.4, z: tz - hw + 1.25,
+                radius: 2.5,
+                activeTimer: 0
+            });
+
+            // PAY-TO-USE MOUNTED TOWER HEAVY TURRET on Level 5 (y = 21.4m)!
+            const turBuilt = BO.CharacterMesh.buildSentryTurret();
+            turBuilt.root.position.set(tx, 21.4, tz - hw + 1.25);
+            turBuilt.root.scale.setScalar(1.25);
+            scene.add(turBuilt.root);
+            this.interactives.push({
+                type: 'td_tower_turret',
+                id: `tower_turret_${label}`,
+                label: `${label} SKY TURRET`,
+                x: tx, y: 22.4, z: tz - hw + 1.25,
+                turretObj: { x: tx, y: 21.4, z: tz - hw + 1.25, mesh: turBuilt.root, headGroup: turBuilt.headGroup, damage: 75, interval: 0.16, cooldown: 0 },
+                activated: false,
+                radius: 2.6
+            });
+
+            // Walkable ramps connecting Levels 1 -> 2 -> 3 -> 4 -> 5 -> 6
             const rampZ1 = tz + hw + 1.1;
             const r1 = { x1: tx - hw, x2: tx + hw, z: rampZ1, w: 2.0, y1: 5.4, y2: 9.4, axis: 'x', mat: 'wood_plank' };
             const r2 = { x1: tx + hw, x2: tx - hw, z: rampZ1 + 2.1, w: 2.0, y1: 9.4, y2: 13.4, axis: 'x', mat: 'wood_plank' };
@@ -561,20 +646,23 @@
                 this._buildRampMesh(scene, rr);
             }
 
+            // 5 Fast-Zip Cyan Jump Pads at Keep Deck (5.4m) -> 9.4m, 13.4m, 17.4m (Arrow Gun), 21.4m (Tower Turret), 25.4m (Apex Spire!)
             const padDefs = [
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 1.8, destY: 9.45, tag: `${label} — MID PERCH (9m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 0.0, destY: 13.45, tag: `${label} — HIGH DECK (13m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 1.8, destY: 17.45, tag: `${label} — CROW'S NEST (17m)` }
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 2.4, destY: 9.45, tag: `${label} — DECK 2 (9m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 1.2, destY: 13.45, tag: `${label} — BALCONY (13m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 0.0, destY: 17.45, tag: `${label} — ARROW GUN (17m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 1.2, destY: 21.45, tag: `${label} — SKY TURRET (21m)` },
+                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 2.4, destY: 25.45, tag: `${label} — APEX SPIRE (25m)` }
             ];
             for (const pd of padDefs) {
                 const padMesh = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.62, 0.72, 0.14, 14),
-                    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+                    new THREE.CylinderGeometry(0.48, 0.56, 0.14, 14),
+                    new THREE.MeshBasicMaterial({ color: pd.destY > 24 ? 0xfde047 : 0x38bdf8 })
                 );
                 padMesh.position.set(pd.px, pd.py + 0.08, pd.pz);
                 scene.add(padMesh);
                 const ring = new THREE.Mesh(
-                    new THREE.TorusGeometry(0.76, 0.05, 6, 18),
+                    new THREE.TorusGeometry(0.58, 0.04, 6, 18),
                     new THREE.MeshBasicMaterial({ color: 0xfde047 })
                 );
                 ring.rotation.x = Math.PI * 0.5;
@@ -586,7 +674,7 @@
                     label: pd.tag,
                     x: pd.px, y: pd.py + 0.6, z: pd.pz,
                     destX: tx, destY: pd.destY, destZ: tz,
-                    radius: 1.8
+                    radius: 1.45
                 });
             }
         }
@@ -596,7 +684,9 @@
             const isAll360 = m.castleSetup === 'all';
             const keepY = 5.4;
 
+            // 1. TWO MULTI-HEIGHT SNIPING TOWERS AT THE BASE (Left & Right Flanks!)
             if (isAll360) {
+                // Bridge walkways from Central Keep (x: -7.5..7.5) out to West & East Sniping Towers
                 this._addTdBox(scene, -11.5, 5.0, -2.0, -7.5, 5.4, 2.0, 'castle_battlement');
                 this._addTdBox(scene, 7.5, 5.0, -2.0, 11.5, 5.4, 2.0, 'castle_battlement');
                 this._buildTdSnipingTower(scene, -14.5, 0, -1, 'WEST SNIPER TOWER');
@@ -605,6 +695,7 @@
                 const towerX = m.castleSetup === 'front' ? 19.5 : 14.2;
                 const towerZ = 14.0;
                 if (m.castleSetup === 'front_sides') {
+                    // Connect Keep (x:-11..11) to both Sniping Towers seamlessly
                     this._addTdBox(scene, -14.2, 5.0, 10.5, -10.8, 5.4, 17.5, 'castle_battlement');
                     this._addTdBox(scene, 10.8, 5.0, 10.5, 14.2, 5.4, 17.5, 'castle_battlement');
                 }
@@ -612,11 +703,13 @@
                 this._buildTdSnipingTower(scene, towerX, towerZ, 1, 'EAST SNIPER TOWER');
             }
 
+            // 2. PACK-A-PUNCH MACHINE ON CASTLE KEEP
             const papPos = isAll360
                 ? { x: -4.8, y: keepY, z: 2.8, rotY: Math.PI * 0.5 }
                 : { x: -5.5, y: keepY, z: 12.5, rotY: Math.PI * 0.4 };
             this._spawnPaPMachine(papPos);
 
+            // 3. GUNSMITH ATTACHMENT WORKBENCH STATION ON CASTLE KEEP
             const attPos = isAll360
                 ? { x: 4.8, y: keepY, z: -2.8, rotY: -Math.PI * 0.5 }
                 : { x: -5.5, y: keepY, z: 17.8, rotY: Math.PI * 0.25 };
@@ -648,6 +741,7 @@
                 radius: 2.6
             });
 
+            // 4. MYSTERY BOX ON CASTLE KEEP
             const boxPos = isAll360
                 ? { x: -4.8, y: keepY, z: -2.8, rotY: Math.PI * 0.5 }
                 : { x: 5.5, y: keepY, z: 17.8, rotY: -Math.PI * 0.25 };
@@ -678,13 +772,27 @@
             boxGroup.add(chestBase, lidPivot, beacon, previewAnchor);
             scene.add(boxGroup);
             this.mysteryBoxObj = {
-                type: 'mystery_box', id: 'td_mystery_box', group: boxGroup, lidPivot, beacon, previewAnchor,
-                x: boxPos.x, y: boxPos.y + 0.7, z: boxPos.z, radius: 2.6, padIndex: 0,
-                state: 'idle', rollTimer: 0, readyTimer: 0, rolledWeaponId: null, previewMesh: null
+                type: 'mystery_box',
+                id: 'td_mystery_box',
+                group: boxGroup,
+                lidPivot,
+                beacon,
+                previewAnchor,
+                x: boxPos.x, y: boxPos.y + 0.7, z: boxPos.z,
+                radius: 2.6,
+                padIndex: 0,
+                state: 'idle',
+                rollTimer: 0,
+                readyTimer: 0,
+                rolledWeaponId: null,
+                previewMesh: null
             };
             this.interactives.push(this.mysteryBoxObj);
 
-            const gongPos = isAll360 ? { x: 0, y: keepY, z: 3.8 } : { x: 0, y: keepY, z: 10.2 };
+            // 5. CASTLE OVERDRIVE WAR GONG (Fun Interactive Extra!)
+            const gongPos = isAll360
+                ? { x: 0, y: keepY, z: 3.8 }
+                : { x: 0, y: keepY, z: 10.2 };
             const gongG = new THREE.Group();
             gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
             const disc = new THREE.Mesh(
@@ -695,23 +803,58 @@
             disc.position.y = 1.35;
             const pL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
             pL.position.set(-0.9, 1.1, 0);
-            const pR = pL.clone(); pR.position.set(0.9, 1.1, 0);
+            const pR = pL.clone();
+            pR.position.set(0.9, 1.1, 0);
             const bar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, 0.14), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
             bar.position.set(0, 2.15, 0);
             gongG.add(disc, pL, pR, bar);
             scene.add(gongG);
             this.interactives.push({
-                type: 'td_overdrive_gong', id: 'td_overdrive_gong',
-                x: gongPos.x, y: gongPos.y + 1.2, z: gongPos.z, radius: 2.3
+                type: 'td_overdrive_gong',
+                id: 'td_overdrive_gong',
+                x: gongPos.x, y: gongPos.y + 1.2, z: gongPos.z,
+                radius: 2.3
             });
 
+            // 5B. PAY-TO-USE CUSTOM CLASS ARMORY STATION ON CASTLE KEEP!
+            const ccPos = isAll360
+                ? { x: 0, y: keepY, z: -4.2, rotY: 0 }
+                : { x: 0, y: keepY, z: 15.2, rotY: Math.PI };
+            const ccG = new THREE.Group();
+            ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
+            ccG.rotation.y = ccPos.rotY;
+            const locker = new THREE.Mesh(
+                new THREE.BoxGeometry(2.1, 2.2, 0.85),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.3 })
+            );
+            locker.position.y = 1.1;
+            const ccSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.85, 0.6),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('CUSTOM CLASS', '#fde047') })
+            );
+            ccSign.position.set(0, 1.8, 0.44);
+            const ccGlow = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.88), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            ccGlow.position.y = 2.22;
+            ccG.add(locker, ccSign, ccGlow);
+            scene.add(ccG);
+            this.worldMeshes.push(locker);
+            this.interactives.push({
+                type: 'td_custom_class_station',
+                id: 'td_custom_class_station',
+                x: ccPos.x, y: ccPos.y + 1.1, z: ccPos.z,
+                radius: 2.6
+            });
+
+            // 6. ALL 14 PERK MACHINES (6 OG + 8 BRAND-NEW PERKS • MAX 8 EQUIPPED AT ONCE)
             const ALL_14_PERKS = [
+                // 6 OG Perks
                 { id: 'juggernog', name: 'Juggernog', cost: 2000, color: '#ef4444', desc: '250 Max HP (+150 HP)' },
                 { id: 'speed_cola', name: 'Speed Cola', cost: 2200, color: '#22c55e', desc: '2x Reload Speed' },
                 { id: 'double_tap', name: 'Double Tap 2.0', cost: 2000, color: '#f59e0b', desc: '+25% Fire Rate & 2x Bullets' },
                 { id: 'quick_revive', name: 'Quick Revive', cost: 1200, color: '#38bdf8', desc: 'Fast HP Regen + 1 Self-Revive' },
                 { id: 'stamin_up', name: 'Stamin-Up', cost: 1500, color: '#eab308', desc: '+18% Move Speed & Infinite Tac Sprint' },
                 { id: 'phd_flopper', name: 'PhD Flopper', cost: 1800, color: '#a855f7', desc: 'Explosive Immunity & Slide Blast!' },
+                // 8 Brand-New Perks
                 { id: 'deadshot', name: 'Deadshot Daiquiri', cost: 1600, color: '#ec4899', desc: '+45% Headshot Damage & Tighter Aim' },
                 { id: 'mule_kick', name: 'Mule Kick', cost: 2500, color: '#10b981', desc: 'Carry 3 Weapons at Once (Keys 1/2/3)!' },
                 { id: 'electric_cherry', name: 'Electric Cherry', cost: 1900, color: '#06b6d4', desc: 'Reloading Shocks & Stuns Nearby Zombies' },
@@ -722,13 +865,23 @@
                 { id: 'eagle_eye', name: 'Eagle Eye Brew', cost: 1700, color: '#60a5fa', desc: '+35% Long-Range/Sniper DMG & +25% Jump' }
             ];
 
+            // Place all 14 perk machines cleanly along the Castle Keep perimeter & wings!
             for (let i = 0; i < ALL_14_PERKS.length; i++) {
                 const pk = ALL_14_PERKS[i];
                 let px, py = keepY, pz, rotY = 0;
                 if (isAll360) {
-                    if (i < 7) { px = -6.4; pz = -4.5 + i * 1.5; rotY = Math.PI * 0.5; }
-                    else { px = 6.4; pz = -4.5 + (i - 7) * 1.5; rotY = -Math.PI * 0.5; }
+                    // Place 7 along West Tower Deck & 7 along East Tower Deck / Keep perimeter
+                    if (i < 7) {
+                        px = -6.4;
+                        pz = -4.5 + i * 1.5;
+                        rotY = Math.PI * 0.5;
+                    } else {
+                        px = 6.4;
+                        pz = -4.5 + (i - 7) * 1.5;
+                        rotY = -Math.PI * 0.5;
+                    }
                 } else {
+                    // Back Wall Perk Gallery (x: -10.5..+10.5 along z=22.0) — all 14 easily walkable!
                     const spacing = m.castleSetup === 'front' ? 2.6 : 1.5;
                     const startX = -((ALL_14_PERKS.length - 1) * spacing) * 0.5;
                     px = startX + i * spacing;
