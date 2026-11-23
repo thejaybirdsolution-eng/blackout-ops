@@ -179,8 +179,8 @@
 
             const tex = new THREE.CanvasTexture(c);
             const sky = new THREE.Mesh(
-                new THREE.SphereGeometry(540, 24, 16),
-                new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false })
+                new THREE.SphereGeometry(720, 32, 20),
+                new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false })
             );
             scene.add(sky);
 

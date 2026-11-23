@@ -40,7 +40,7 @@
             this.renderer.toneMappingExposure = 1.08;
             this._applyRendererQuality();
 
-            this.worldCamera = new THREE.PerspectiveCamera(BO.Settings.get('fov') || 90, window.innerWidth / window.innerHeight, 0.08, 450);
+            this.worldCamera = new THREE.PerspectiveCamera(BO.Settings.get('fov') || 90, window.innerWidth / window.innerHeight, 0.08, 1200);
 
             this._buildShowcaseScene();
             BO.Tooltips.init();

@@ -661,7 +661,7 @@
                 }
                 const listHtml = top.length > 0 ? top.join('') : '<span style="color:#64748b;font-size:10px">No active hostiles on field</span>';
                 this.elEnemyTracker.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:4px">
                         <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
                         <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
                     </div>
