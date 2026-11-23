@@ -9,6 +9,7 @@
     class SurvivalCampaign {
         constructor(mode, options) {
             this.mode = mode;
+            this.pack = new BO.SurvivalPack(this);
             this.options = BO.SurvivalCampaignOptions(options);
             this.run = options.resume?.run || Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
             this.metrics = {};
@@ -63,12 +64,14 @@
         setup(checkpoint) {
             this.addBiomes();
             for (const npc of data.contacts) this.addNPC(npc);
+            this.pack.setup();
             this.mark('runs', 1, 0);
             if (checkpoint) this.restore(checkpoint);
             this.updateLocation();
         }
 
         stop() {
+            this.pack.stop();
             for (const npc of this.npcs) npc.avatar.root.removeFromParent();
             for (const vehicle of this.vehicleModels.values()) vehicle.removeFromParent();
             this.npcs.length = 0;
@@ -128,7 +131,7 @@
         addNPC(npc) {
             const m = this.mode;
             const ground = BO.World.getGroundHeight(npc.x, npc.z, npc.y + 0.25);
-            const marker = { ...npc, y: npc.area === 'trench' ? ground : npc.y };
+            const marker = { ...npc, y: npc.y < 0 ? ground : npc.y };
             const avatar = BO.CharacterMesh.buildSoldier(0, null);
             avatar.root.position.set(marker.x, marker.y, marker.z);
             avatar.root.rotation.y = (npc.x > 0 ? -1 : 1) * 1.18;
@@ -143,12 +146,13 @@
 
         updateLocation() {
             const pos = BO.Player.pos;
-            let area = pos.y < -1.7 ? data.areas.find((zone) => zone.id === 'trench') : null;
+            let area = pos.y < -1.7 ? data.areas.find((zone) => zone.id === (pos.x < -4.6 && pos.z < -43 ? 'cavern' : 'trench')) : null;
+            if (!area && pos.y > 2.6 && pos.x < -37 && pos.z > 28) area = data.areas.find((zone) => zone.id === 'ridge');
             if (!area) {
                 area = data.areas.find((zone) => zone.bounds &&
                     pos.x >= zone.bounds[0] && pos.x <= zone.bounds[1] && pos.z >= zone.bounds[2] && pos.z <= zone.bounds[3]);
             }
-            if (!area) area = data.areas.filter((zone) => !zone.bounds && zone.id !== 'trench')
+            if (!area) area = data.areas.filter((zone) => !zone.bounds && zone.y === 0)
                 .reduce((best, zone) => Math.hypot(pos.x - zone.x, pos.z - zone.z) < Math.hypot(pos.x - best.x, pos.z - best.z) ? zone : best);
             if (area.id === this.area?.id) return;
             this.area = area;
@@ -162,6 +166,7 @@
 
         update(dt) {
             this.updateLocation();
+            this.pack.update();
             const m = this.mode;
             if (this.options.autosave && m.clock >= this.nextSave && this.canSave()) {
                 this.nextSave = m.clock + 45;
@@ -198,6 +203,7 @@
         }
 
         activate(marker) {
+            if (this.pack.interact(marker)) return true;
             const prefix = marker.id.split(':')[0];
             const id = marker.id.split(':')[1];
             if (prefix === 'npc') {
@@ -213,7 +219,8 @@
             if (prefix === 'build') {
                 const piece = this.placed.find((entry) => entry.id === id && entry.alive);
                 if (!piece) return true;
-                if (piece.type === 'bench' || piece.type === 'campfire') BO.SurvivalUI.show('workshop');
+                if (piece.type === 'chest') BO.SurvivalUI.show('chest', null, piece.id);
+                else if (['bench', 'campfire', 'kiln'].includes(piece.type)) BO.SurvivalUI.show('workshop');
                 else if (piece.type === 'bed') {
                     if (!this.canSave()) this.mode.toast('Clear nearby enemies before resting.');
                     else {
@@ -284,7 +291,7 @@
                 data.areas.some((zone) => zone.bounds && x >= zone.bounds[0] && x <= zone.bounds[1] && z >= zone.bounds[2] && z <= zone.bounds[3])) {
                 return m.toast('Build on the open surface outside restricted biomes.');
             }
-            if (type === 'roof' && !this.placed.some((part) => part.alive && part.type === 'wall' && near(part, target, 3.1))) {
+            if (type === 'roof' && !this.placed.some((part) => part.alive && ['wall', 'stoneWall'].includes(part.type) && near(part, target, 3.1))) {
                 return m.toast('A roof needs a nearby wall.');
             }
             const bottom = y + (type === 'roof' ? 2.72 : 0);
@@ -294,9 +301,10 @@
                 return m.toast('The placement area is blocked.');
             }
             const point = { x, y, z };
-            const protectedSite = m.markers.some((site) => !site.id.startsWith('build:') && near(site, point, 1.2));
+            const protectedSite = m.markers.some((site) => site.alive !== false && !site.id.startsWith('build:') && near(site, point, 1.2));
             if (protectedSite) return m.toast('Keep access to contacts and mission sites clear.');
-            if (!m.spend({ scrap: spec.cost })) return m.toast('More salvage required.');
+            const cost = typeof spec.cost === 'number' ? { scrap: spec.cost } : spec.cost;
+            if (!m.spend(cost)) return m.toast('Required: ' + BO.SurvivalItemAmounts(cost));
             this.place({ ...target, id: String(this.placed.length), alive: true });
             this.mark('built', 1, 19);
             return true;
@@ -321,16 +329,20 @@
             } else {
                 mesh = m.mesh(new THREE.BoxGeometry(w, h, d), spec.color, piece.x, midY, piece.z,
                     piece.type === 'campfire' ? { emissive: 0xd76218, emissiveIntensity: 0.64 } : {});
-                if (['wall', 'floor', 'roof'].includes(piece.type)) {
-                    const part = m.addStructure(mesh, w, h, d, 'wood');
+                if (['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor'].includes(piece.type)) {
+                    const stone = piece.type.startsWith('stone');
+                    const part = m.addStructure(mesh, w, h, d, stone ? 'brick' : 'wood');
+                    if (stone) part.hp = 265;
                     part.buildPiece = piece;
                     if (Number.isFinite(piece.hp)) part.hp = piece.hp;
                     piece.part = part;
                 }
             }
-            if (['bed', 'bench', 'ladder', 'campfire'].includes(piece.type)) {
+            if (piece.type === 'wallTorch') this.pack.addLight(piece.id, piece);
+            if (piece.type === 'chest' && !this.pack.chests.has(piece.id)) this.pack.chests.set(piece.id, {});
+            if (['bed', 'bench', 'ladder', 'campfire', 'chest', 'kiln'].includes(piece.type)) {
                 m.markers.push({ ...piece, id: 'build:' + piece.id, name: spec.name,
-                    label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire' }[piece.type] });
+                    label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire', chest: 'Open storage chest', kiln: 'Use stone kiln' }[piece.type] });
                 if (piece.type === 'ladder') m.markers.push({ ...piece, y: piece.y + 2.86, id: 'build:' + piece.id, name: spec.name, label: 'Climb down' });
             }
             this.placed.push(piece);
@@ -489,7 +501,7 @@
         travel(id) {
             if (!this.canSave() || !this.visited.has(id) || id === 'trench' || this.area?.id === id) return false;
             const area = data.areas.find((zone) => zone.id === id);
-            if (!area || this.gates.get(id)?.collider.active || !this.mode.spend({ fuel: 1 })) return false;
+            if (!area || area.y < 0 || this.gates.get(id)?.collider.active || !this.mode.spend({ fuel: 1 })) return false;
             BO.Player.pos.set(area.x, area.y, area.z);
             BO.Player.vel.set(0, 0, 0);
             this.restHours += 1;
@@ -509,7 +521,7 @@
             this.metrics.seconds = Math.max(this.metrics.seconds || 0, Math.floor(m.clock));
             career.tick(this.run, 'seconds', this.metrics.seconds, 0);
             const checkpoint = {
-                version: 1, run: this.run, at: Date.now(), options: this.options,
+                version: 1, run: this.run, at: Date.now(), options: this.options, pack: this.pack.snapshot(),
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,
                 points: m.points, hp: p.hp, armor: p.armor, plates: p.armorReservePlates, lethal: p.lethalCount,
@@ -588,6 +600,7 @@
             });
             m.breaches = save.breaches;
             for (const piece of save.placed) this.place(piece);
+            if (save.pack) this.pack.restore(save.pack);
             for (const z of save.enemies) {
                 m.spawnInfected(...z.pos, z.type, z.spec).hp = z.hp;
             }

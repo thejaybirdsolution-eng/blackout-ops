@@ -461,13 +461,15 @@
                 } else if ((code === kb.ultimate || code === 'KeyZ') && firstDown) {
                     BO.Combat.activateUltimate();
                 } else if (code === kb.armory && firstDown) {
-                    BO.ExpansionShop.show();
+                    if (BO.State.activeMode === 'survival') BO.SurvivalUI.show('pack');
+                    else BO.ExpansionShop.show();
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
                     else if (BO.State.activeMode === 'survival') BO.SurvivalMode.interact();
                 } else if (code === kb.exfil && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.startExfil();
+                    else if (BO.State.activeMode === 'survival') BO.SurvivalMode.campaign.pack.shortcut();
                 } else if (code === kb.armor && firstDown) {
                     P.insertArmorPlate();
                 } else if (code === kb.inspect && firstDown) {

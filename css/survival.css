@@ -98,3 +98,26 @@
 .survival-roster { grid-column: 1 / -1; }
 .survival-roster summary { cursor: pointer; color: #c4e1cf; }
 .survival-roster-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 3px 12px; max-height: 225px; overflow: auto; }
+
+.frontier-pack-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 15px;
+    border: 1px solid #44645a;
+    background: #1b3029;
+    padding: 10px;
+    color: #d3f0de;
+}
+.frontier-pack-bar meter { flex: 1 1 100px; height: 13px; }
+.frontier-categories { margin-bottom: 10px; }
+.survival-panel .expansion-shop-card .chip-row { align-items: flex-start; margin: 4px 0 0; }
+.survival-panel .expansion-shop-items { margin-bottom: 14px; }
+.frontier-chest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.frontier-chest > section { min-width: 0; padding: 10px; border: 1px solid #365649; }
+.frontier-chest .expansion-shop-items { grid-template-columns: 1fr; }
+@media (max-width: 650px) { .frontier-chest { grid-template-columns: 1fr; } }
+
+.frontier-guide { padding: 10px; margin: 12px 0; border-left: 2px solid #6aa792; color: #d9e7dc; }
+.frontier-guide summary { cursor: pointer; color: #a9d8c7; }
+.frontier-guide p { margin: 8px 0; line-height: 1.45; }

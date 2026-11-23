@@ -6,7 +6,6 @@
     const data = BO.SurvivalData;
     const distance = (a, b) => BO.Math.dist3D(a.x, a.y, a.z, b.x, b.y, b.z);
     const vector = (p) => new THREE.Vector3(p.x, p.y, p.z);
-    const cacheNames = { scrap: 'salvage', cloth: 'cloth', rations: 'rations', fuel: 'fuel', coil: 'MRI coil', medkits: 'trauma kit' };
     const trainRoute = [[19, -12], [43, -12], [43, -36], [-35, -36], [-35, 32], [19, 32]];
     const lootTable = [
         { scrap: 3, cloth: 2 }, { scrap: 2, fuel: 1, rations: 1 }, { scrap: 3, fuel: 1 },
@@ -122,6 +121,15 @@
             if (this.scene) this.scene = null;
         }
 
+        disposeOwned(mesh) {
+            const index = this.owned.indexOf(mesh);
+            if (index < 0) return;
+            this.owned.splice(index, 1);
+            mesh.removeFromParent();
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+        }
+
         mesh(geo, color, x, y, z, options = {}) {
             const node = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...options }));
             node.position.set(x, y, z);
@@ -228,7 +236,10 @@
                 part.mesh.rotation.z = Math.PI / 2;
                 part.mesh.position.set(p.x - Math.sign(p.x) * p.y, 0.35, p.z);
                 part.crown.visible = false;
-                this.crush(part.mesh.position, p.y);
+                if (kind !== 'restore') {
+                    this.crush(part.mesh.position, p.y);
+                    this.campaign.pack.dropBag({ timber: 3, resin: 1 }, part.mesh.position);
+                }
             } else {
                 part.mesh.visible = false;
                 if (part.kind === 'support' && !this.tower.collapsed && this.tower.supports.filter((support) => support.hp <= 0).length >= 2) {
@@ -324,20 +335,21 @@
 
         spawnInfected(x, y, z, type = 'normal', savedSpec = null) {
             const candidates = this.campaign?.selectedEnemies || BO.ZombiesData.ORDERED_PROGRESSION;
-            const boss = ['apex', 'frostBoss', 'cinderBoss'].includes(type);
+            const boss = ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss'].includes(type);
             const bosses = BO.ZombiesData.ORDERED_BOSSES;
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) :
-                boss ? bosses[type === 'frostBoss' ? 1 : type === 'cinderBoss' ? 3 : 0] :
+                boss ? bosses[({ frostBoss: 1, geodeBoss: 2, cinderBoss: 3 })[type] || 0] :
                 type === 'mimic' ? candidates.find((item) => /wraith|phantom/.test(item.id)) || candidates[0] :
                 candidates[(this.nextEnemy + this.pressure) % Math.min(6 + this.pressure * 2, candidates.length)];
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y, z, round: 1,
-                hp: boss ? (type === 'frostBoss' ? 720 : type === 'cinderBoss' ? 980 : 580) : Math.min(230, spec.hp * 0.75 + this.pressure * 5),
+                hp: boss ? (type === 'frostBoss' ? 720 : type === 'cinderBoss' ? 980 : type === 'geodeBoss' ? 820 : 580) : Math.min(230, spec.hp * 0.75 + this.pressure * 5),
                 speed: type === 'mimic' ? 5.4 : boss ? 2.5 : Math.min(4.9, spec.speed),
                 damage: boss ? 32 : this.difficulty === 'hard' ? 19 : 13 });
             entity.survivalType = type;
             if (type === 'apex') entity.bossLabel = 'Apex Guardian';
             if (type === 'frostBoss') entity.bossLabel = 'Pale Maul';
             if (type === 'cinderBoss') entity.bossLabel = 'Cinder Regent';
+            if (type === 'geodeBoss') entity.bossLabel = 'Resonant Sentinel';
             if (type === 'mimic' && !savedSpec) {
                 const voice = ['Extraction here.', 'This way. I found a cache.', 'Shelter is clear.'][this.nextEnemy % 3];
                 this.toast('Unknown radio transmission: “' + voice + '”');
@@ -364,7 +376,7 @@
                 entity.parts.root.visible = false;
                 this.toast('Sable retreated. Expect a reinforced patrol.');
             }
-            if (killed && entity.survivalType && ['apex', 'frostBoss', 'cinderBoss'].includes(entity.survivalType)) {
+            if (killed && entity.survivalType && ['apex', 'frostBoss', 'cinderBoss', 'geodeBoss'].includes(entity.survivalType)) {
                 this.campaign?.mark(entity.survivalType, 1, entity.survivalType === 'apex' ? 130 : 200);
                 this.campaign?.mark('bosses', 1, 0);
             }
@@ -375,7 +387,7 @@
                 if (entity.bossLabel) this.toast(entity.bossLabel + ' defeated. Claim your reward from the contact.');
                 if (entity.survivalType === 'apex') this.toast('Apex down. The research core is accessible.');
                 if (entity === this.commander) this.toast('Commander Sable eliminated.');
-                if (this.kills % 3 === 0) this.points.scrap++;
+                if (this.kills % 3 === 0) this.campaign.pack.receive({ scrap: 1 });
             }
             return killed;
         }
@@ -455,7 +467,8 @@
             const deluge = this.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6;
             const survivalNeeds = this.campaign?.options.survivalNeeds !== false;
             if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * 0.22);
-            this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 2.4 : deluge ? 1.3 : -0.7), 0, 100);
+            const shielding = this.campaign.pack.filtered ? 0.18 : 1;
+            this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 2.4 * shielding : deluge ? 1.3 * shielding : -0.7), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;
             this.hazardClock -= dt;
@@ -562,6 +575,7 @@
         updatePrompt() {
             const p = BO.Player.pos;
             this.near = this.markers.reduce((best, marker) => {
+                if (marker.alive === false) return best;
                 if (this.completed.has(marker.id) && !['lookout', 'train', 'shelter'].includes(marker.id)) return best;
                 const d = distance(p, marker);
                 return d <= 3.05 && (!best || d < distance(p, best)) ? marker : best;
@@ -580,7 +594,7 @@
             if (this.rider) return 'Dismount the locomotive';
             if (this.near?.id === 'train' && this.train.running) return 'Board the locomotive';
             if (this.near?.id === 'lookout' && this.exfil) return this.clock >= this.exfil.readyAt ? 'Board extraction' : 'Hold this position';
-            return this.near?.label || '';
+            return (this.near && this.campaign.pack.prompt(this.near.id)) || this.near?.label || '';
         }
 
         interact() {
@@ -660,14 +674,14 @@
         }
 
         grant(items) {
-            const messages = [];
-            for (const [key, count] of Object.entries(items)) {
-                this.points[key] += count;
-                this.salvaged += count;
-                this.campaign?.mark('salvaged', count, 4);
-                messages.push(count + ' ' + cacheNames[key]);
-            }
-            this.toast('Recovered ' + messages.join(' / '));
+            const { accepted, remainder } = this.campaign.pack.receive(items);
+            const count = Object.entries(items).reduce((total, [id, value]) => total + (BO.SurvivalFrontierData.items[id] ? value : 0), 0);
+            this.salvaged += count;
+            this.campaign.mark('salvaged', count, 4);
+            const found = BO.SurvivalItemAmounts(accepted);
+            const overflow = BO.SurvivalItemAmounts(remainder);
+            if (overflow) this.toast((found ? 'Packed ' + found + '. ' : '') + 'Pack full, dropped ' + overflow);
+            else if (found) this.toast('Recovered ' + found);
         }
 
         canAfford(cost) {

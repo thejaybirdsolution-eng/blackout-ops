@@ -3,6 +3,7 @@
 
     const data = BO.SurvivalCampaignData;
     const career = BO.SurvivalCareer;
+    const frontier = BO.SurvivalFrontierData;
     const price = (cost) => Object.entries(cost).map(([key, count]) =>
         count + ' ' + ({ scrap: 'salvage', rations: 'ration', coil: 'MRI coil' }[key] || key)).join(' + ');
 
@@ -76,7 +77,8 @@
             return career.remember(value);
         }
 
-        dispatch({ deploy, craft, use, panel, build, rotate, ride, travel, reward, trade, special, save }) {
+        dispatch({ deploy, craft, use, panel, build, rotate, ride, travel, reward, trade, special, save,
+            packFilter, handcraft, itemUse, equipTool, drop, transfer }) {
             const mode = BO.SurvivalMode;
             const campaign = mode.campaign;
             if (panel) {
@@ -94,7 +96,17 @@
                 return;
             }
             if (!mode.active || !campaign) return;
-            if (craft) mode.craft(craft);
+            if (packFilter) this.packFilter = packFilter;
+            else if (handcraft) campaign.pack.craft(handcraft);
+            else if (itemUse) campaign.pack.use(itemUse);
+            else if (equipTool && campaign.pack.tools[equipTool] > 0) campaign.pack.equipped = equipTool;
+            else if (drop) {
+                const [id, amount] = drop.split(':');
+                campaign.pack.drop(id, amount);
+            } else if (transfer) {
+                const [direction, id, amount] = transfer.split(':');
+                campaign.pack.transfer(this.subject, id, amount, direction === 'store');
+            } else if (craft) mode.craft(craft);
             else if (use) mode.useItem(use);
             else if (rotate) campaign.buildRotation = 1 - campaign.buildRotation;
             else if (build && campaign.build(build)) return this.resume();
@@ -135,6 +147,7 @@
             this.title.textContent = 'Survival deployment';
             return `${this.careerLine}
                 <p>Exclusion Zone · solo expedition. Find the research core and reach Evac Ridge.</p>
+                <p class="survival-frontier-guide"><kbd>J</kbd> Backpack · <kbd>E</kbd> Gather or mine · <kbd>H</kbd> Carry light · <kbd>B</kbd> Build</p>
                 <form class="survival-lobby" aria-label="Survival deployment options">
                     ${select('Difficulty', 'difficulty', [['standard', 'Standard'], ['hard', 'Hard']], options.difficulty)}
                     ${select('Enemy pool', 'pool', Object.entries(data.pools).map(([key, pool]) => [key, pool.name]), options.pool)}
@@ -168,7 +181,8 @@
             const numbers = [
                 ['Expeditions', stats.runs], ['Extractions', stats.extracts], ['Eliminations', stats.kills],
                 ['Bosses defeated', stats.bosses], ['Contracts claimed', stats.quests], ['Items crafted', stats.crafted],
-                ['Structures built', stats.built], ['Salvage collected', stats.salvaged], ['Trades', stats.trades]
+                ['Structures built', stats.built], ['Salvage collected', stats.salvaged], ['Trades', stats.trades],
+                ['Resource nodes gathered', stats.gatheredNodes], ['Ore deposits mined', stats.oreHarvests], ['Backpacks upgraded', stats.packUpgrades]
             ];
             const unlocks = [...data.vehicles, ...data.areas.filter((area) => area.level > 1)];
             return `<dl class="survival-stats">${numbers.map(([label, count]) => `<div><dt>${label}</dt><dd>${count || 0}</dd></div>`).join('')}
@@ -197,25 +211,37 @@
                 ${action('SAVE CHECKPOINT', 'save', 'yes', !campaign.canSave())}
                 ${career.checkpoint ? action('LOAD CHECKPOINT', 'deploy', 'resume') : ''}
             </div>`;
-            const nav = `<div class="chip-row survival-nav">${[['map', 'FIELD MAP'], ['record', 'CAREER'], ['build', 'BUILD'], ['travel', 'TRAVEL']].map(([name, label]) => action(label, 'panel', name, this.section === name)).join('')}</div>`;
+            const nav = `<div class="chip-row survival-nav">${[['map', 'FIELD MAP'], ['pack', 'BACKPACK'], ['record', 'CAREER'], ['build', 'BUILD'], ['travel', 'TRAVEL']].map(([name, label]) => action(label, 'panel', name, this.section === name)).join('')}</div>`;
             let html = '';
-            if (this.section === 'workshop') {
-                this.title.textContent = campaign.station === 'campfire' ? 'Campfire cooking' : 'Survival workshop';
-                html = this.cards(BO.SurvivalData.recipes.filter((recipe) => campaign.station !== 'campfire' || recipe.id === 'cook').map((recipe) =>
-                    card(recipe.name, recipe.detail, action(price(recipe.cost), 'craft', recipe.id, !mode.canAfford(recipe.cost)))));
+            if (this.section === 'pack') {
+                this.title.textContent = 'Field backpack';
+                html = this.pack(campaign);
+            } else if (this.section === 'chest') {
+                this.title.textContent = 'Storage chest';
+                html = this.chest(campaign);
+            } else if (this.section === 'workshop') {
+                const station = campaign.station;
+                this.title.textContent = { campfire: 'Campfire cooking', kiln: 'Stone kiln' }[station] || 'Survival workshop';
+                const oldRecipes = BO.SurvivalData.recipes.filter((recipe) => station === 'bench' || (station === 'campfire' && recipe.id === 'cook'));
+                html = this.cards(oldRecipes.map((recipe) =>
+                    card(recipe.name, recipe.detail, action(price(recipe.cost), 'craft', recipe.id, !mode.canAfford(recipe.cost))))) +
+                    this.frontierRecipes(campaign, station);
             } else if (this.section === 'build') {
                 this.title.textContent = 'Field construction';
                 const target = campaign.buildTarget('wall');
                 html = `<p>Places a piece in front of you at grid ${target.x}, ${target.z}. Rotate swaps the placement axis. Roofs need a nearby wall.</p>
                     ${action('ROTATE PLACEMENT', 'rotate', 'yes')}
-                    ${this.cards(data.build.map((item) => card(item.name, item.detail,
-                        action('PLACE · ' + item.cost + ' SALVAGE', 'build', item.id, supplies.scrap < item.cost || !campaign.canBuild))))}`;
+                    ${this.cards(data.build.map((item) => {
+                        const cost = typeof item.cost === 'number' ? { scrap: item.cost } : item.cost;
+                        return card(item.name, item.detail,
+                            action('PLACE · ' + BO.SurvivalItemAmounts(cost), 'build', item.id, !mode.canAfford(cost) || !campaign.canBuild));
+                    }))}`;
             } else if (this.section === 'travel') {
                 this.title.textContent = 'Transport and routes';
                 html = this.cards(data.vehicles.map((item) => card(item.name, item.detail, campaign.vehicle === item.id
                     ? action('DISMOUNT', 'ride', 'off')
                     : action(campaign.hasVehicle(item.id) ? 'EQUIP' : 'LEVEL ' + item.level, 'ride', item.id, !campaign.hasVehicle(item.id)))));
-                html += `<h3>Fast travel</h3><p>Costs one fuel per trip. Clear nearby hostiles before traveling.</p><div class="chip-row">${data.areas.filter((area) => area.id !== 'trench' && campaign.visited.has(area.id)).map((area) =>
+                html += `<h3>Fast travel</h3><p>Costs one fuel per trip. Clear nearby hostiles before traveling.</p><div class="chip-row">${data.areas.filter((area) => area.y >= 0 && campaign.visited.has(area.id)).map((area) =>
                     action(area.name, 'travel', area.id, !supplies.fuel || area.id === campaign.area?.id || !campaign.canSave())).join('')}</div>`;
             } else if (this.section === 'record') {
                 this.title.textContent = 'Survival career';
@@ -224,9 +250,70 @@
                 html = this.npc(campaign, mode);
             } else {
                 this.title.textContent = 'Field map';
-                html = `<p>${mode.objective}</p>${this.map(mode, p)}<p><kbd>B</kbd> Build · <kbd>T</kbd> Travel · <kbd>I</kbd> Inspect magazine</p>`;
+                html = `<p>${mode.objective}</p>${this.map(mode, p)}<p><kbd>J</kbd> Backpack · <kbd>B</kbd> Build · <kbd>T</kbd> Travel · <kbd>H</kbd> Light</p>`;
             }
             this.content.innerHTML = this.careerLine + nav + stats + inventory + html + actions + feedback;
+        }
+
+        pack(campaign) {
+            const pack = campaign.pack;
+            const filter = this.packFilter || 'All';
+            const categories = ['All', 'Raw materials', 'Components', 'Consumables', 'Lighting', 'Keys'];
+            const open = Object.entries(pack.inventory).filter(([id, count]) => count > 0 && frontier.items[id] &&
+                (filter === 'All' || filter === frontier.items[id][1]));
+            const toolRows = Object.entries(pack.tools).map(([id, durability]) => {
+                const tool = frontier.tools[id];
+                return card(tool.name, (durability ? durability + ' / ' + tool.wear + ' durability' : 'Worn out') + ' · Tier ' + tool.level,
+                    action(pack.equipped === id ? 'EQUIPPED' : 'EQUIP', 'equip-tool', id, pack.equipped === id || durability <= 0));
+            });
+            const filterBar = categories.map((category) => action(category, 'pack-filter', category, category === filter)).join('');
+            const usable = new Set(['torch', 'lantern', 'tea', 'bandage', 'repair', 'filter']);
+            return `<div class="frontier-pack-bar">
+                    <strong>${pack.limits.name}</strong>
+                    <span>${pack.weight().toFixed(1)} / ${pack.limits.weight} kg</span>
+                    <span>${pack.slots()} / ${pack.limits.slots} stacks</span>
+                    <meter min="0" max="${pack.limits.weight}" value="${pack.weight()}" aria-label="Pack weight"></meter>
+                </div>
+                <div class="chip-row frontier-categories">${filterBar}</div>
+                ${open.length ? this.cards(open.map(([id, count]) => {
+                    const [name, category, kg] = frontier.items[id];
+                    return card(name + ' ×' + count, category + ' · ' + (kg * count).toFixed(2) + ' kg',
+                        (usable.has(id) ? action('USE', 'item-use', id) : '') +
+                        action('DROP ONE', 'drop', id + ':one') + (count > 1 ? action('DROP STACK', 'drop', id + ':all') : ''));
+                })) : '<p>No items in this category.</p>'}
+                <h3>Tools</h3>
+                ${toolRows.length ? this.cards(toolRows) : '<p>Gather fallen branches, loose stones, and fiber roots by hand. Braid cord to make your first tools.</p>'}
+                <details class="frontier-guide"><summary>Gathering and mining guide</summary>
+                    <p>Start with fallen branches, loose stones, and fiber roots. Braid fiber into cord, then craft a pickaxe, hatchet, or shovel. Interact with a deposit to work it with the best suitable tool you carry.</p>
+                    <p>Slateback Ridge has a switchback on its east face. Follow the research trench into Echo Cavern for rarer minerals. Pack a torch and a respirator filter before going below.</p>
+                    <p>Build a kiln for iron and brick, then use a crafting table for better tools and larger packs. Natural deposits replenish away from your position. The resonant geode is unique to each expedition.</p>
+                </details>
+                <h3>Hand crafting</h3>${this.frontierRecipes(campaign, 'hand')}
+                <p>Use a crafting table for advanced tools and backpack upgrades. Store extra stacks in a chest.</p>`;
+        }
+
+        frontierRecipes(campaign, station) {
+            const pack = campaign.pack;
+            const toolRecipes = Object.keys(frontier.tools).map((id) => pack.recipe(id));
+            const available = [...frontier.recipes, ...toolRecipes].filter((entry) => entry.station === station);
+            return this.cards(available.map((entry) => {
+                const description = entry.tool ? 'Tier ' + entry.tool.level + ' · ' + entry.tool.wear + ' durability' : entry.desc;
+                return card(entry.name, description, action(BO.SurvivalItemAmounts(entry.cost), 'handcraft', entry.id, !pack.canCraft(entry)));
+            }));
+        }
+
+        chest(campaign) {
+            const pack = campaign.pack;
+            const stored = pack.chests.get(this.subject) || {};
+            const inventory = (items, direction) => Object.entries(items).filter(([id, count]) => frontier.items[id] && count > 0)
+                .map(([id, count]) => card(frontier.items[id][0] + ' ×' + count, (frontier.items[id][2] * count).toFixed(2) + ' kg',
+                    action(direction === 'store' ? 'STORE ONE' : 'TAKE ONE', 'transfer', direction + ':' + id + ':one') +
+                    (count > 1 ? action(direction === 'store' ? 'STORE STACK' : 'TAKE STACK', 'transfer', direction + ':' + id + ':all') : '')));
+            return `<div class="frontier-chest">
+                <section><h3>Backpack · ${pack.weight().toFixed(1)} kg</h3>${this.cards(inventory(pack.inventory, 'store'))}</section>
+                <section><h3>Chest · ${pack.weight(stored).toFixed(1)} / 54 kg · ${pack.slots(stored)} / 18 stacks</h3>
+                    ${pack.slots(stored) ? this.cards(inventory(stored, 'take')) : '<p>The chest is empty.</p>'}</section>
+                </div>`;
         }
 
         cards(items) {
@@ -270,7 +357,7 @@
             const boss = mode.zombies.find((unit) => unit.alive && unit.bossLabel && unit.pos.distanceTo(BO.Player.pos) < 24);
             const detail = campaign.area?.name + ' · ' + campaign.clockFace + ' · ' + mode.weather + ' · RAD ' + Math.floor(mode.radiation) + '%';
             hud.querySelector('strong').textContent = boss ? boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP' : mode.objective;
-            hud.querySelector('span').textContent = detail + ' · LV ' + career.level + (vehicle ? ' · ' + vehicle.name : '');
+            hud.querySelector('span').textContent = detail + ' · LV ' + career.level + (vehicle ? ' · ' + vehicle.name : '') + ' · ' + campaign.pack.weight().toFixed(1) + ' kg';
             const prompt = BO.HUD.elPrompt;
             const key = BO.Settings.getKeybinds().interact.replace(/^(Key|Digit)/, '');
             if (prompt) {
