@@ -82,19 +82,13 @@
             boltGroup.add(boltMesh);
             gun.add(boltGroup);
 
-            // Upgraded Tactical Weapon Details: Top Picatinny Rail, Ejection Port, Trigger Guard & Trigger!
-            const railStrip = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.58, 0.008, recL * 0.88), darkMat);
-            railStrip.position.set(0, topY + 0.004, 0);
-            gun.add(railStrip);
+            // Upgraded Tactical Weapon Details: Ejection Port & Curved Trigger Blade!
             const ejPort = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.018, 0.044), new THREE.MeshStandardMaterial({ color: 0x090c12, roughness: 0.7 }));
             ejPort.position.set(recW * 0.505, topY * 0.25, -0.02);
-            gun.add(ejPort);
-            const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.005, 0.048), darkMat);
-            trigGuard.position.set(0, -ms.receiverH * 0.5 - 0.026, recL * 0.24);
             const trigBlade = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.022, 0.008), steelMat);
-            trigBlade.position.set(0, -ms.receiverH * 0.5 - 0.012, recL * 0.24);
+            trigBlade.position.set(0, -ms.receiverH * 0.5 - 0.012, ms.isPistol ? recL * 0.05 : recL * 0.12);
             trigBlade.rotation.x = 0.28;
-            gun.add(trigGuard, trigBlade);
+            gun.add(ejPort, trigBlade);
 
             // Handguard / Forend (for rifles, SMGs, shotguns, LMGs) + Tactical Vent Ribs!
             const hgLen = ms.handguardLen || 0;
