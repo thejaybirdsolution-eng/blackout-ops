@@ -178,11 +178,7 @@
             ctx.fillRect(0, 0, 16, 128);
 
             const tex = new THREE.CanvasTexture(c);
-            const sky = new THREE.Mesh(
-                new THREE.SphereGeometry(720, 32, 20),
-                new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false })
-            );
-            scene.add(sky);
+            scene.background = tex;
 
             if (atm.moon) {
                 const moon = new THREE.Mesh(
