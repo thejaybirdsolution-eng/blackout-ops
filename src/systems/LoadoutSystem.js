@@ -168,6 +168,14 @@
 
             if (perks.includes('steady_aim')) hipSpread *= 0.70;
             if (perks.includes('sleight_of_hand')) reloadMult *= 0.72;
+            const weaponPerks = perks.map((id) => BO.AttachmentsData.PERKS[id]?.weaponMods).filter(Boolean);
+            for (const mod of weaponPerks) {
+                range *= mod.range || 1;
+                recoilMult *= mod.recoil || 1;
+                adsSpread *= mod.adsSpread || 1;
+                adsTime *= mod.adsTime || 1;
+                headMult *= mod.headMult || 1;
+            }
 
             let fireMode = base.fireMode;
             let rpm = base.rpm;
@@ -189,8 +197,24 @@
                 if (base.papExplosiveRadius) explosiveRadius = base.papExplosiveRadius + (papTier - 1) * 0.5;
             }
 
+            if (base.kind !== 'melee' && (base.kind || 'gun') === 'gun') {
+                for (const mod of weaponPerks) {
+                    rpm = Math.round(rpm * (mod.rpm || 1));
+                    explosiveRadius *= mod.radius || 1;
+                    penetration += mod.penetration || 0;
+                    magSize = Math.round(magSize * (mod.mag || 1));
+                    reserveMax = Math.round(reserveMax * (mod.reserve || 1));
+                }
+            }
+            const matchRules = BO.State.activeMode === 'mp' ? BO.MPMode.customRules : {};
+            if ((base.kind || 'gun') === 'gun') {
+                if (matchRules.oneInChamber) magSize = 1;
+                if (matchRules.slowFire) rpm *= 0.5;
+                if (matchRules.fastFire) rpm *= 2;
+                if (matchRules.slowReload) reloadMult *= 2;
+            }
             const tierRoman = papTier === 1 ? ' I' : (papTier === 2 ? ' II' : (papTier >= 3 ? ' III' : ''));
-            const finalMagSize = dual ? magSize * 2 : magSize;
+            const finalMagSize = dual && !matchRules.oneInChamber ? magSize * 2 : magSize;
             const finalPellets = dual ? (base.pellets || 1) * 2 : (base.pellets || 1);
             const finalRpm = dual ? Math.round(rpm * 1.45) : rpm;
             const dispName = isPaP ? (base.papName + tierRoman) : (dual ? ('AKIMBO ' + base.name) : base.name);

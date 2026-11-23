@@ -16,6 +16,7 @@
         crouch: 'KeyC',
         reload: 'KeyR',
         interact: 'KeyE',
+        armory: 'KeyJ',
         melee: 'KeyV',
         lethal: 'KeyG',
         tactical: 'KeyQ',

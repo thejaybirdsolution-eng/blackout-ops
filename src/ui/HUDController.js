@@ -487,8 +487,9 @@
                 if (this.elPerkTray) {
                     const icons = [];
                     P.zombiePerks.forEach((pk) => {
-                        const info = PERK_SHORT[pk] || [pk.slice(0, 2).toUpperCase(), '#f5a623'];
-                        icons.push(`<div class="perk-icon" style="color:${info[1]}">${info[0]}</div>`);
+                        const soda = BO.ExpansionData.sodas.find((item) => item.id === pk);
+                        const info = soda ? [soda.badge, soda.color] : (PERK_SHORT[pk] || [pk.slice(0, 2).toUpperCase(), '#f5a623']);
+                        icons.push(`<div class="perk-icon" title="${soda?.name || info[0]}" style="color:${info[1]}">${info[0]}</div>`);
                     });
                     this.elPerkTray.innerHTML = icons.join('');
                 }

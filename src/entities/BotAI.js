@@ -153,6 +153,7 @@
                 return;
             }
 
+            if (this.powerCarried) return;
             if (this.stunTimer > 0) {
                 this.stunTimer -= dt;
                 return;
@@ -167,10 +168,26 @@
             if (this.fireTimer > 0) this.fireTimer -= dt;
 
             // Find nearest visible hostile (Player or opposing Bot)
-            const target = this._acquireTarget(context);
+            const scanInterval = context.bots.length >= 40 ? 0.12 : 0;
+            this.targetScan = (this.targetScan ?? (this.id % 12) * 0.01) - dt;
+            if (!scanInterval || this.targetScan <= 0 || this.powerAlly !== this.scannedAsAlly) {
+                this.targetScan = scanInterval;
+                this.scannedAsAlly = this.powerAlly;
+                const retained = scanInterval && this.cachedTarget && this.canKeepTarget(this.cachedTarget, context);
+                if (!retained) this.cachedTarget = this._acquireTarget(context);
+            }
+            const target = this.cachedTarget;
+            if (target?.kind === 'player') {
+                if (!context.playerAlive || BO.Player.aetherActive || this.powerAlly) this.cachedTarget = null;
+                else Object.assign(target, { x: context.playerPos.x, y: context.playerPos.y + 1.25, z: context.playerPos.z });
+            } else if (target?.bot) {
+                if (!target.bot.alive || !this.isHostile(target.bot, context.modeType)) this.cachedTarget = null;
+                else Object.assign(target, { x: target.bot.pos.x, y: target.bot.pos.y + 1.25, z: target.bot.pos.z });
+            }
 
             let moveSpeed = 0;
-            if (target) {
+            if (target && this.cachedTarget) {
+                const moveScale = this.powerMoveScale || 1;
                 const tKey = target.kind === 'player' ? 'player' : ('bot_' + target.bot.id);
                 if (tKey !== this.spottedTargetKey || this.sightLostTimer > 0.55) {
                     this.spottedTargetKey = tKey;
@@ -190,14 +207,14 @@
                     this.strafeTimer = 0.8 + Math.random() * 1.1;
                     this.strafeDir = -this.strafeDir;
                 }
-                const strafeSpeed = 2.5 * this.difficulty.speedMult * this.speedScale;
+                const strafeSpeed = 2.5 * this.difficulty.speedMult * this.speedScale * moveScale;
                 const rx = Math.cos(this.yaw) * this.strafeDir;
                 const rz = -Math.sin(this.yaw) * this.strafeDir;
                 this.pos.x += rx * strafeSpeed * dt;
                 this.pos.z += rz * strafeSpeed * dt;
                 if (dist > 14) {
-                    this.pos.x += (dx / dist) * 2.6 * this.speedScale * dt;
-                    this.pos.z += (dz / dist) * 2.6 * this.speedScale * dt;
+                    this.pos.x += (dx / dist) * 2.6 * this.speedScale * moveScale * dt;
+                    this.pos.z += (dz / dist) * 2.6 * this.speedScale * moveScale * dt;
                 }
                 moveSpeed = strafeSpeed;
 
@@ -235,7 +252,7 @@
                     const dz = wp.z - this.pos.z;
                     const d = Math.hypot(dx, dz);
                     if (d > 0.25) {
-                        const spd = 4.5 * this.difficulty.speedMult * this.speedScale;
+                        const spd = 4.5 * this.difficulty.speedMult * this.speedScale * (this.powerMoveScale || 1);
                         this.pos.x += (dx / d) * spd * dt;
                         this.pos.z += (dz / d) * spd * dt;
                         this.yaw += BO.Math.angleDiff(this.yaw, Math.atan2(dx, dz)) * Math.min(1, dt * 8);
@@ -253,6 +270,23 @@
             BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, 0, 0);
         }
 
+        isHostile(other, modeType) {
+            const isFFA = modeType === 'ffa' || modeType === 'gun_game';
+            const ownTeam = this.powerAlly ? 0 : this.team;
+            const otherTeam = other.powerAlly ? 0 : other.team;
+            return isFFA ? !(ownTeam === 0 && otherTeam === 0) : ownTeam !== otherTeam;
+        }
+
+        canKeepTarget(target, context) {
+            const playerTarget = target.kind === 'player';
+            if (playerTarget && (!context.playerAlive || BO.Player.aetherActive || this.powerAlly)) return false;
+            if (!playerTarget && (!target.bot?.alive || !this.isHostile(target.bot, context.modeType))) return false;
+            const pos = playerTarget ? context.playerPos : target.bot.pos;
+            const range = playerTarget && BO.Player.mpPerks.includes('ghost') ? 26 : 42;
+            return this.pos.distanceTo(pos) < range &&
+                BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.5, this.pos.z, pos.x, pos.y + 1.35, pos.z);
+        }
+
         _acquireTarget(context) {
             let best = null;
             let bestDist = 42;
@@ -262,7 +296,7 @@
 
             // Check player
             if (context.playerAlive && !BO.Player.aetherActive) {
-                const hostileToPlayer = isFFA || (this.team !== context.playerTeam);
+                const hostileToPlayer = !this.powerAlly && (isFFA || this.team !== context.playerTeam);
                 if (hostileToPlayer) {
                     const p = context.playerPos;
                     const d = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, p.x, p.y, p.z);
@@ -293,7 +327,7 @@
             for (let i = 0; i < context.bots.length; i++) {
                 const o = context.bots[i];
                 if (o === this || !o.alive) continue;
-                const hostile = isFFA || (o.team !== this.team);
+                const hostile = this.isHostile(o, context.modeType);
                 if (!hostile) continue;
                 const d = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, o.pos.x, o.pos.y, o.pos.z);
                 if (d < bestDist && BO.World.hasLineOfSight(this.pos.x, myEyeY, this.pos.z, o.pos.x, o.pos.y + 1.35, o.pos.z)) {

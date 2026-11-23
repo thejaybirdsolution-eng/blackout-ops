@@ -128,6 +128,10 @@
             this.vmScene.add(amb, key, rim);
         }
 
+        get matchRules() {
+            return BO.State.activeMode === 'mp' ? BO.MPMode.customRules : {};
+        }
+
         initForMatch(mode, spawn, loadoutCfg, useClassicStarter = false) {
             this.pos.set(spawn.x, spawn.y, spawn.z);
             this.vel.set(0, 0, 0);
@@ -152,7 +156,7 @@
             this.isJuggernaut = false;
             this.juggernautTimer = 0;
 
-            this.mpPerks = loadoutCfg.perks ? loadoutCfg.perks.slice() : [];
+            this.mpPerks = !this.matchRules.noClassPerks && loadoutCfg.perks ? loadoutCfg.perks.slice() : [];
             this.zombiePerks.clear();
             if (mode === 'zombies' && BO.Cheats && BO.Cheats.isActive('perks', true)) {
                 ['quick_revive', 'juggernog', 'speed_cola', 'double_tap', 'stamin_up', 'deadshot'].forEach((pk) => this.zombiePerks.add(pk));
@@ -263,7 +267,7 @@
 
         applyCustomLoadoutLive(cls) {
             if (!cls) return;
-            this.mpPerks = cls.perks ? cls.perks.slice() : [];
+            this.mpPerks = !this.matchRules.noClassPerks && cls.perks ? cls.perks.slice() : [];
             this.lethalId = cls.lethal || 'frag';
             this.lethalCount = BO.AttachmentsData.LETHALS[this.lethalId]?.count || 2;
             this.tacticalId = cls.tactical || 'flashbang';
@@ -507,7 +511,7 @@
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.reloading = true;
             this.adsHeld = false;
-            const speedColaMult = this.zombiePerks.has('speed_cola') ? 0.52 : 1.0;
+            const speedColaMult = (this.zombiePerks.has('speed_cola') ? 0.52 : 1) * (this.zombiePerks.has('rush_order') && BO.ZombiesMode.exfilActive ? 0.7 : 1);
             const activeMods = BO.Mods ? BO.Mods.active() : {};
             const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
             this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult;
@@ -532,7 +536,7 @@
         insertArmorPlate() {
             if (this.armor >= this.maxArmor || this.armorReservePlates <= 0 || this.platingTimer > 0) return;
             this.armorReservePlates--;
-            this.platingTimer = 0.85;
+            this.platingTimer = this.mpPerks.includes('runner_plates') ? 0.55 : 0.85;
             BO.Sound.playReload('in');
         }
 
@@ -557,6 +561,22 @@
                 amount *= 0.48;
             }
             if (BO.Mods) amount *= BO.Mods.incomingDamageMult();
+            if (this.mpPerks.includes('bulwark') && this.crouching && Math.hypot(this.vel.x, this.vel.z) < 0.3) amount *= 0.78;
+            if (BO.State.activeMode === 'zombies' && amount > 0) {
+                const mode = BO.ZombiesMode;
+                mode.roundDamageTaken = true;
+                if (this.zombiePerks.has('night_guard') && !BO.World.powerOn) amount *= 0.8;
+                if (this.zombiePerks.has('rear_guard') && attackerPos) {
+                    const source = Math.atan2(attackerPos.x - this.pos.x, attackerPos.z - this.pos.z);
+                    if (Math.cos(source - this.yaw) > 0) amount *= 0.75;
+                }
+                if (this.zombiePerks.has('surge_guard') && mode.surgeUsedRound !== mode.round) {
+                    mode.surgeUsedRound = mode.round;
+                    amount *= 0.4;
+                }
+            }
+            amount = BO.Superpowers.absorb(amount);
+            if (amount <= 0) return;
 
             // Directional indicator angle relative to player facing
             if (attackerPos) {
@@ -700,7 +720,7 @@
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
                 const activeMods = BO.Mods ? BO.Mods.active() : {};
-                if (!activeMods.noRegen) {
+                if (!activeMods.noRegen && !this.matchRules.noHealthRegen) {
                     const regenRate = (this.zombiePerks.has('quick_revive') ? 45 : 28) * (BO.Mods ? BO.Mods.regenMult() : 1);
                     this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
                 }
@@ -730,7 +750,7 @@
 
             // ADS & Camera FOV
             const w = this.activeWeapon;
-            const canAds = this.adsHeld && !this.reloading && !this.tacSprinting && this.swapTimer <= 0 && !this.inLastStand;
+            const canAds = !this.matchRules.noAds && this.adsHeld && !this.reloading && !this.tacSprinting && this.swapTimer <= 0 && !this.inLastStand;
             const adsRate = w ? (1 / Math.max(0.06, w.stats.adsTime)) : 6.0;
             this.adsAlpha = BO.Math.clamp(this.adsAlpha + (canAds ? 1 : -1) * adsRate * dt, 0, 1);
             this.holdBreath = canAds && (this.keys['ShiftLeft'] || this.keys['ShiftRight']) && w && w.stats.useScopeOverlay;
@@ -792,7 +812,7 @@
                         w.reserve--;
                     }
                     if (w.mag < w.stats.magSize && w.reserve > 0) {
-                        const speedColaMult = this.zombiePerks.has('speed_cola') ? 0.52 : 1.0;
+                        const speedColaMult = (this.zombiePerks.has('speed_cola') ? 0.52 : 1) * (this.zombiePerks.has('rush_order') && BO.ZombiesMode.exfilActive ? 0.7 : 1);
                         this.reloadDuration = w.stats.reloadTime * speedColaMult;
                         this.reloadTimer = this.reloadDuration;
                         BO.Sound.playReload('shell');
@@ -858,13 +878,15 @@
             if (moveInput.lengthSq() > 0) moveInput.normalize();
 
             const w = this.activeWeapon;
-            const gunMoveMult = w ? w.stats.moveMult : 1.0;
+            let gunMoveMult = w ? w.stats.moveMult : 1.0;
+            if (this.mpPerks.includes('light_mount') && gunMoveMult < 1) gunMoveMult = (gunMoveMult + 1) / 2;
             const staminUp = this.zombiePerks.has('stamin_up') || (BO.Cheats && BO.Cheats.isActive('perks'));
             const doubleTime = this.mpPerks.includes('double_time');
             const deadSilence = this.mpPerks.includes('dead_silence');
             const stalker = this.mpPerks.includes('stalker');
 
-            const wantsSprint = (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight']) && iz > 0 && !this.adsHeld && !this.inLastStand;
+            if (this.matchRules.lowProfile) this.crouching = true;
+            const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight']) && iz > 0 && !this.adsHeld && !this.inLastStand;
             if (wantsSprint && !this.crouching && !this.sliding) {
                 this.sprinting = true;
                 if (this.tacStamina > 0.12) {
@@ -877,7 +899,7 @@
             } else {
                 this.sprinting = false;
                 this.tacSprinting = false;
-                this.tacStamina = Math.min(1.0, this.tacStamina + 0.25 * dt);
+                this.tacStamina = Math.min(1.0, this.tacStamina + (this.mpPerks.includes('sprinter_recovery') ? 0.50 : 0.25) * dt);
             }
 
             if (this.sliding) {
@@ -891,7 +913,7 @@
             // Target speed calculation
             let speed = 5.4;
             if (this.inLastStand) speed = 2.0;
-            else if (this.sliding) speed = 10.6 * (this.slideTimer / 0.55 + 0.35);
+            else if (this.sliding) speed = 10.6 * (this.slideTimer / (this.mpPerks.includes('slider') ? 0.7425 : 0.55) + 0.35);
             else if (this.crouching) speed = doubleTime ? 3.9 : 3.1;
             else if (this.tacSprinting) speed = 8.4;
             else if (this.sprinting) speed = 7.1;
@@ -899,6 +921,8 @@
             if (this.adsAlpha > 0.3 && !this.sliding) {
                 speed *= stalker ? 0.85 : 0.62;
             }
+            if (this.mpPerks.includes('stride') && !this.sprinting && !this.crouching && !this.sliding && this.adsAlpha <= 0.3) speed *= 1.12;
+            if (this.mpPerks.includes('reverse_gear') && iz < 0) speed *= 1.2;
             if (staminUp) speed *= 1.16;
             if (deadSilence) speed *= 1.06;
             if (this.aetherActive) speed *= 1.20;
@@ -913,14 +937,15 @@
             if (activeModsSpd.hyperSpeedPlayer) speed *= 1.60;
             if (BO.Mods) speed *= BO.Mods.speedMult();
             this.inSwampMud = BO.World.isInSlowZone(this.pos.x, this.pos.y, this.pos.z) && !this.sliding && this.onGround;
-            if (this.inSwampMud) speed *= 0.62;
+            if (this.inSwampMud && !this.mpPerks.includes('mudskipper')) speed *= 0.62;
             speed *= gunMoveMult;
 
             if (this.sliding) {
                 this.vel.x = this.slideDir.x * speed;
                 this.vel.z = this.slideDir.z * speed;
             } else {
-                const accel = this.onGround ? 15.0 : 5.5;
+                const accel = this.onGround ? (this.matchRules.stickyFloor ? 4.5 : 15)
+                    : (this.mpPerks.includes('airfoil') ? 16.5 : 5.5);
                 this.vel.x = BO.Math.damp(this.vel.x, moveInput.x * speed, accel, dt);
                 this.vel.z = BO.Math.damp(this.vel.z, moveInput.z * speed, accel, dt);
             }
@@ -970,7 +995,7 @@
                 if (!isFly || this.vel.y < 0) this.vel.y = 0;
                 this.onGround = !isFly;
                 this.jumpsUsed = 0;
-                this.coyoteTimer = 0.14;
+                this.coyoteTimer = this.mpPerks.includes('high_step') ? 0.32 : 0.14;
             } else {
                 this.onGround = false;
                 this.coyoteTimer = Math.max(0, this.coyoteTimer - dt);
@@ -996,7 +1021,7 @@
         }
 
         tryJumpOrMantle() {
-            if (!this.alive || this.inLastStand) return;
+            if (!this.alive || this.inLastStand || this.matchRules.noJump) return;
             if (this.sliding) {
                 this.sliding = false;
                 this.crouching = false;
@@ -1006,7 +1031,7 @@
             }
             const mpJumpMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.jumpScale || 1.0) : 1.0;
             const eagleJump = this.zombiePerks.has('eagle_eye') ? 1.25 : 1.0;
-            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump;
+            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump * (this.mpPerks.includes('rebound') ? 1.18 : 1);
             const canDoubleJump = BO.Cheats && BO.Cheats.isActive('2jump');
             if (this.onGround || this.coyoteTimer > 0) {
                 this.vel.y = 7.6 * jumpMult;
@@ -1023,9 +1048,9 @@
 
         tryCrouchOrSlide() {
             if (!this.alive || this.inLastStand) return;
-            if (this.sprinting && this.onGround && !this.sliding && Math.hypot(this.vel.x, this.vel.z) > 5.0) {
+            if (!this.matchRules.noSlide && this.sprinting && this.onGround && !this.sliding && Math.hypot(this.vel.x, this.vel.z) > 5.0) {
                 this.sliding = true;
-                this.slideTimer = 0.55;
+                this.slideTimer = this.mpPerks.includes('slider') ? 0.7425 : 0.55;
                 this.slideDir.set(this.vel.x, 0, this.vel.z).normalize();
                 BO.Sound.playSlide();
                 if (this.zombiePerks.has('phd_flopper') && BO.Combat && BO.Combat.onExplodeAt) {

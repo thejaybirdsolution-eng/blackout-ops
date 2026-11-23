@@ -100,6 +100,11 @@
 
             const scene = BO.World.build(this.mapId);
             const map = BO.World.mapData;
+            this.roundDamageTaken = false;
+            this.surgeUsedRound = -1;
+            this.lastSodaTarget = null;
+            this.lastSodaHit = -Infinity;
+            this._addSodaMachine(map.playerSpawn);
             if (this.modifiers.lowGravity) map.gravityScale = 0.45;
             if (this.modifiers.nightmareDarkness && scene.fog) {
                 scene.fog.color.setHex(0x020308);
@@ -163,7 +168,7 @@
             this.stateTimer = 1.6;
             this.firstRoundStarted = false;
 
-            BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onBulletHit(ent, dmg, hitbox, w, pt, dir);
+            BO.Combat.onHitEnemy = (ent, dmg, hitbox, dist, w, pt, dir) => this._onBulletHit(ent, dmg, hitbox, w, pt, dir, dist);
             BO.Combat.onExplodeAt = (pos, rad, dmg, owner, isFlash, stunDur, wid) => this._onExplode(pos, rad, dmg, isFlash, stunDur, wid);
             BO.Combat.onActivateKillstreak = null;
 
@@ -314,6 +319,7 @@
                 const allBosses = Object.values(BO.ZombiesData.BOSSES_BY_ROUND);
                 bossSpec = allBosses[(r - 1) % allBosses.length];
             }
+            this.roundDamageTaken = false;
             this.isBossRound = !!bossSpec;
             this.activeBoss = null;
             this.state = 'fighting';
@@ -447,7 +453,7 @@
                 id: this.nextZombieId++,
                 spec: thiefSpec,
                 round: r,
-                hp: thiefSpec.hp,
+                hp: Math.max(5, Math.round(thiefSpec.hp * this._zombieHealthScale(false))),
                 speed: thiefSpec.speed,
                 damage: thiefSpec.attack,
                 x: sp.x, y: sp.y, z: sp.z,
@@ -487,6 +493,39 @@
             return { x: BO.World.mapData.playerSpawn.x, y: BO.World.mapData.playerSpawn.y || 0, z: (BO.World.mapData.playerSpawn.z || 0) + 6, winInter: null };
         }
 
+        _addSodaMachine(spawn) {
+            const world = BO.World;
+            const y = spawn.y || 0;
+            for (const radius of [3.1, 5.1, 7.1]) {
+                for (let i = 0; i < 12; i++) {
+                    const angle = (spawn.yaw || 0) + (i + 2) * Math.PI / 6;
+                    const x = spawn.x + Math.sin(angle) * radius;
+                    const z = spawn.z + Math.cos(angle) * radius;
+                    if (Math.abs(world.getGroundHeight(x, z, y + 0.4) - y) > 0.3) continue;
+                    if (world.colliders.some((c) => c.active !== false && c.maxY > y + 0.12 && c.minY < y + 2.6 &&
+                        c.minX < x + 0.85 && c.maxX > x - 0.85 && c.minZ < z + 0.85 && c.maxZ > z - 0.85)) continue;
+                    if (world.interactives.some((inter) => Math.hypot(inter.x - x, inter.z - z) < 2.4 && Math.abs(inter.y - y) < 2)) continue;
+                    if (!world.hasLineOfSight(spawn.x, y + 1.2, spawn.z, x, y + 1.2, z)) continue;
+                    const inter = world._spawnPerkMachine({
+                        id: 'soda_catalog', name: 'PERK SODA', color: '#5eead4', x, y, z,
+                        rotY: Math.atan2(spawn.x - x, spawn.z - z)
+                    });
+                    inter.type = 'soda_catalog';
+                    return;
+                }
+            }
+        }
+
+        _zombieHealthScale(isBoss) {
+            const custom = BO.Math.clamp(Number(this.customValues.zombieHpMult) || 1, 0.05, 20);
+            const reduction = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1);
+            return custom * reduction * (isBoss ? 0.85 : 0.78);
+        }
+
+        _enemyAttackDamage(enemy) {
+            return enemy.damage * (enemy.sodaWeakenedUntil > this.elapsed ? 0.65 : 1);
+        }
+
         _getDifficultyMultipliers() {
             if (this.difficulty === 'hard') return { hp: 1.5, spd: 1.18, atk: 1.35 };
             if (this.difficulty === 'very_hard') return { hp: 2.25, spd: 1.32, atk: 1.70 };
@@ -497,7 +536,7 @@
         _spawnBoss(bossSpec) {
             const sp = this._pickSpawnPoint(false);
             const dm = this._getDifficultyMultipliers();
-            const customHpMult = this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0);
+            const customHpMult = this._zombieHealthScale(true);
             const boss = new BO.ZombieEntity(BO.Mods.tweakSpawnOpts(this.modifiers, {
                 id: this.nextZombieId++,
                 spec: bossSpec,
@@ -540,11 +579,11 @@
             const sizeHpMult = this.modifiers.giantZombies ? 1.65 : (this.modifiers.tinyZombies ? 0.72 : 1.0);
             const glassHp = this.modifiers.glassCannon ? 0.5 : 1.0;
             const swarmHp = this.modifiers.chaosSwarm ? 0.55 : 1.0;
-            const customHpMult = (this.modifiers.quarterZombieHp ? 0.25 : (this.modifiers.halfZombieHp ? 0.5 : 1.0)) * (Number(this.customValues.zombieHpMult) || 1.0);
+            const customHpMult = this._zombieHealthScale(spec.isBoss);
             const customSpdMult = Number(this.customValues.zombieSpeedMult) || 1.0;
             const customDmgMult = Number(this.customValues.zombieDamageMult) || 1.0;
             const glassDmg = this.modifiers.glassCannon ? 3.0 : 1.0;
-            const roundHpMult = 1 + (this.round - 1) * 0.22 + (this.round > 10 ? Math.pow(this.round - 10, 1.25) * 0.14 : 0);
+            const roundHpMult = 1 + (this.round - 1) * 0.16 + Math.max(0, this.round - 12) * 0.09;
             const hp = Math.max(5, Math.round(spec.hp * roundHpMult * dm.hp * sizeHpMult * glassHp * swarmHp * customHpMult));
             const speed = Math.min(12.0, spec.speed * (1 + Math.min(0.45, (this.round - 1) * 0.015)) * dm.spd * turboMult * customSpdMult);
             const dmg = this.modifiers.oneHitMeleeZombies ? 99999 : Math.max(1, Math.min(500, Math.round(spec.attack * (1 + (this.round - 1) * 0.025) * dm.atk * glassDmg * customDmgMult)));
@@ -605,13 +644,28 @@
             BO.Sound.playZombieGroan(zombie.soundProfile, 0.75);
         }
 
-        _onBulletHit(z, dmg, hitbox, weaponInst, impactPos, dir) {
+        _onBulletHit(z, dmg, hitbox, weaponInst, impactPos, dir, dist) {
             if (!z || !z.alive) return false;
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
             if (((cc && cc.disHeadshotsOnly) || this.modifiers.headshotsOnly) && hitbox !== 'head' && !z.spec.bodySpec?.headless) {
                 return false;
             }
+            if (z.powerAlly) return false;
             let modDmg = dmg;
+            const sodas = BO.Player.zombiePerks;
+            if (sodas.has('opening_bell') && !z.isBoss && z.hp === z.maxHp) modDmg *= 1.45;
+            if (sodas.has('giant_slayer') && z.isBoss && dist > 15) modDmg *= 1.2;
+            if (sodas.has('crossfire') && z.lastSodaZone && z.lastSodaZone !== hitbox) modDmg *= 1.35;
+            if (sodas.has('relay') && this.lastSodaTarget && this.lastSodaTarget !== z && this.elapsed - this.lastSodaHit <= 2) modDmg *= 1.25;
+            if (sodas.has('ground_level') && Math.abs(z.vel.y) > 0.65) modDmg *= 1.3;
+            if (sodas.has('vault_breaker') && z.state === 'vault_window') modDmg *= 1.75;
+            z.lastSodaZone = hitbox;
+            this.lastSodaTarget = z;
+            this.lastSodaHit = this.elapsed;
+            if (sodas.has('countdown')) {
+                z.sodaHits = (z.sodaHits || 0) + 1;
+                if (z.sodaHits % 5 === 0) z.sodaWeakenedUntil = this.elapsed + 5;
+            }
             if (cc) {
                 if (cc.advDoubleDamage) modDmg *= 2.0;
                 if (cc.disHalfDamage) modDmg *= 0.5;
@@ -696,7 +750,15 @@
             const pts = Math.round((isMelee ? basePts + 70 : (isHead ? basePts + 40 : basePts)) * topHatBonus);
             this.addPoints(pts, z.isBoss ? 'BOSS SLAIN' : (isHead ? 'HEADSHOT' : 'KILL'));
 
-            const wId = isMelee ? null : weaponInst.cfg.id;
+            if (sodas.has('hush_money') && weaponInst?.stats?.suppressed) this.addPoints(30, 'HUSH MONEY');
+            if (sodas.has('audit') && this.kills % 10 === 0) this.addPoints(200, 'COMMISSION');
+            const activeWeapon = BO.Player.activeWeapon;
+            if (sodas.has('knife_change') && isMelee && activeWeapon?.stats.kind === 'gun') {
+                const rounds = Math.max(0, Math.min(3, activeWeapon.reserve, activeWeapon.stats.magSize - activeWeapon.mag));
+                activeWeapon.reserve -= rounds;
+                activeWeapon.mag += rounds;
+            }
+            const wId = isMelee ? null : weaponInst?.cfg?.id;
             if (wId) BO.Progression.grantWeaponKill(wId, isHead, isHead ? 85 : 55);
             BO.Progression.grantPlayerXP(z.isBoss ? (z.spec.drops.xp || 800) : (isHead ? 90 : 60));
 
@@ -828,7 +890,7 @@
                 color: spec.color,
                 mesh,
                 pos: new THREE.Vector3(x, y + 0.85, z),
-                life: 16.0
+                life: BO.Player.zombiePerks.has('long_life') ? 28.0 : 16.0
             });
         }
 
@@ -895,6 +957,10 @@
             const inter = this.activePrompt;
             if (!inter) return;
 
+            if (inter.type === 'soda_catalog') {
+                BO.ExpansionShop.show();
+                return;
+            }
             if (inter.type === 'z_sniper_tower_zip') {
                 P.rideState = {
                     kind: 'arc',
@@ -915,6 +981,7 @@
                 }
                 if (this.points < d.cost) { BO.Sound.playEmptyClick(); return; }
                 this.points -= d.cost;
+                if (P.zombiePerks.has('gate_share')) this.points += Math.floor(d.cost * 0.2);
                 BO.World.openDoor(inter);
                 BO.Events.emit('hud:toast', { text: `${d.label} UNLOCKED`, color: '#f5a623' });
                 if (BO.Net && BO.Net.active) {
@@ -924,11 +991,12 @@
                     });
                 }
             } else if (inter.type === 'window') {
-                if (inter.planksRemaining < inter.maxPlanks) {
+                const planks = P.zombiePerks.has('quick_board') ? 2 : 1;
+                for (let i = 0; i < planks && inter.planksRemaining < inter.maxPlanks; i++) {
                     const pm = inter.plankMeshes[inter.planksRemaining];
                     if (pm) pm.visible = true;
                     inter.planksRemaining++;
-                    this.addPoints(10, 'REPAIR');
+                    this.addPoints(P.zombiePerks.has('repair_rate') ? 25 : 10, 'REPAIR');
                     BO.Sound.playReload('in');
                 }
             } else if (inter.type === 'power_switch') {
@@ -988,6 +1056,7 @@
                 if (inter.state === 'idle') {
                     if (this.points < cost) { BO.Sound.playEmptyClick(); return; }
                     this.points -= cost;
+                    if (P.zombiePerks.has('box_credit')) this.points += Math.min(150, cost);
                     this.boxSpins++;
                     BO.Progression.recordStat('zombiesBoxSpins', 1);
                     inter.state = 'rolling';
@@ -1046,6 +1115,7 @@
                 if (tr.activeTimer > 0 || tr.cooldownTimer > 0) { BO.Sound.playEmptyClick(); return; }
                 if (this.points < tr.cost) { BO.Sound.playEmptyClick(); return; }
                 this.points -= tr.cost;
+                if (P.zombiePerks.has('trap_manager')) this.points += Math.floor(tr.cost * 0.2);
                 if (tr.kind === 'zipline') {
                     tr.cooldownTimer = tr.cooldownDuration;
                     tr.lamp.material.color.setHex(0xef4444);
@@ -1066,6 +1136,7 @@
                 const el = inter.elevator;
                 if (el.moving || this.points < inter.cost) { BO.Sound.playEmptyClick(); return; }
                 this.points -= inter.cost;
+                if (P.zombiePerks.has('rail_pass')) this.points += Math.floor(inter.cost * 0.3);
                 const atBottom = Math.abs(el.cabY - el.bottomY) < 1.2;
                 el.targetY = atBottom ? el.topY : el.bottomY;
                 el.moving = true;
@@ -1198,6 +1269,7 @@
                 const papCost = (this.mapQuest.fiveBonfireTimer > 0 && curTier === 0) ? 1000 : basePap;
                 if (!w || curTier >= 3 || this.points < papCost) { BO.Sound.playEmptyClick(); return; }
                 this.points -= papCost;
+                if (P.zombiePerks.has('forge_credit')) this.points += Math.floor(papCost * 0.1);
                 P.packAPunchActiveWeapon();
                 BO.Progression.recordStat('zombiesPaPUsed', 1);
                 BO.Progression.awardMedal('pap_upgrade');
@@ -1263,6 +1335,7 @@
 
             if (this.points < inter.cost) { BO.Sound.playEmptyClick(); return; }
             this.points -= inter.cost;
+            if (P.zombiePerks.has('rail_pass')) this.points += Math.floor(inter.cost * 0.3);
             P.pos.set(d.destX, d.destY || 0, d.destZ);
             P.vel.set(0, 0, 0);
             if (d.zoneRequired) BO.World.unlockedZones.add(d.zoneRequired);
@@ -1391,6 +1464,8 @@
                 return { text: '[E] ZIP UP TO DEPLOYED MINI SNIPER TOWER', affordable: true };
             }
             const P = BO.Player;
+            const armoryKey = BO.Settings.getKeybinds().armory.replace(/^(Key|Digit)/, '');
+            if (inter.type === 'soda_catalog') return { text: '[' + armoryKey + '] BROWSE PERK SODAS' + (BO.Superpowers.enabled ? ' & SUPERPOWERS' : ''), affordable: true };
             if (inter.type === 'door') {
                 if (inter.data.requiresPower && !BO.World.powerOn) return { text: `${inter.data.label} — TURN ON POWER FIRST`, affordable: false };
                 return { text: `[E] OPEN ${inter.data.label} (${inter.data.cost} PTS)`, affordable: this.points >= inter.data.cost };
@@ -1409,7 +1484,7 @@
                 const pk = inter.data;
                 if (pk.requiresPower && !BO.World.powerOn) return { text: `${pk.name.toUpperCase()} — TURN ON POWER FIRST`, affordable: false };
                 if (P.zombiePerks.has(pk.id)) return { text: `${pk.name.toUpperCase()} ALREADY ACTIVE`, affordable: false };
-                return { text: `[E] DRINK ${pk.name.toUpperCase()} (${pk.cost} PTS) — ${pk.desc}`, affordable: this.points >= pk.cost };
+                return { text: `[E] DRINK ${pk.name.toUpperCase()} (${pk.cost} PTS) — ${pk.desc} • [${armoryKey}] CATALOG`, affordable: this.points >= pk.cost };
             }
             if (inter.type === 'mystery_box') {
                 if (BO.Cheats && BO.Cheats.isActive('wondernomore')) {
@@ -1552,6 +1627,7 @@
                     this.state = 'intermission';
                     this.stateTimer = 4.2;
                     BO.Sound.playRoundEnd();
+                    if (!this.roundDamageTaken && BO.Player.zombiePerks.has('clean_break')) this.addPoints(100, 'CLEAN ROUND');
                     BO.Progression.awardMedal('round_clear');
                     BO.Progression.checkRound50DifficultyUnlocks(this.round, this.difficulty);
                     if (this.round >= 10 && !this.exfilAvailable) {
@@ -1578,14 +1654,18 @@
             const hitMeshes = [];
             const zCallbacks = {
                 allowProjectiles: allowProj,
-                getTarget: (z) => this._getFortificationTarget(z),
+                getTarget: (z) => {
+                    const ally = this.zombies.find((entity) => entity.alive && entity.powerAlly && entity.pos.distanceTo(z.pos) < 7);
+                    return ally ? { x: ally.pos.x, y: ally.pos.y, z: ally.pos.z, ally, attackRange: 1.65 } : this._getFortificationTarget(z);
+                },
                 onAttackCustomTarget: (z, tgt) => {
+                    if (tgt?.ally?.alive) tgt.ally.takeDamage(z.damage, 'torso', false, null, 'melee');
                     if (tgt && tgt.fort && tgt.fort.alive) {
                         this._damageFortification(tgt.fort, Math.max(12, Math.min(180, z.damage * 0.55)));
                     }
                 },
                 onMeleePlayer: (attacker) => {
-                    BO.Player.takeDamage(attacker.damage, attacker.pos, false);
+                    BO.Player.takeDamage(this._enemyAttackDamage(attacker), attacker.pos, false);
                     BO.Sound.playZombieGroan(attacker.soundProfile, 0.9);
                 },
                 onRangedAttack: (attacker, tx, ty, tz) => {
@@ -1599,7 +1679,7 @@
                     if (z === this.activeBoss) this.activeBoss = null;
                     z.destroy();
                     this.zombies.splice(i, 1);
-                } else if (z.alive) {
+                } else if (z.alive && !z.powerAlly) {
                     const meshes = z.getHitboxMeshes();
                     for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
                 }
@@ -1641,7 +1721,8 @@
                 pu.mesh.rotation.y += dt * 2.4;
                 pu.mesh.position.y = pu.pos.y + Math.sin(this.elapsed * 4) * 0.14;
                 if (pu.life < 4.0) pu.mesh.visible = Math.floor(pu.life * 8) % 2 === 0;
-                if (BO.Math.dist2D(P.pos.x, P.pos.z, pu.pos.x, pu.pos.z) < 1.55) {
+                const extendedPickup = P.zombiePerks.has('long_reach') && Math.abs(P.pos.y + 0.85 - pu.pos.y) < 1.15;
+                if (BO.Math.dist2D(P.pos.x, P.pos.z, pu.pos.x, pu.pos.z) < (extendedPickup ? 3 : 1.55)) {
                     this._collectPowerUp(pu);
                     BO.World.scene.remove(pu.mesh);
                     this.powerUps.splice(i, 1);
@@ -1828,7 +1909,7 @@
         _maybeDropSupplies(z) {
             const dropRate = BO.Math.clamp(Number(this.customValues.supplyDropPct ?? 50), 0, 100) / 100;
             if (!z || !BO.World.scene || Math.random() >= dropRate) return;
-            const amount = Math.max(1, Math.round((z.maxHp || 100) * 0.10));
+            const amount = Math.max(1, Math.round((z.maxHp || 100) * (BO.Player.zombiePerks.has('scrap_stamp') ? 0.135 : 0.10)));
             const g = new THREE.Group();
             const crate = new THREE.Mesh(
                 new THREE.BoxGeometry(0.46, 0.36, 0.46),
@@ -1841,7 +1922,7 @@
             g.add(crate, band);
             g.position.set(z.pos.x, (z.pos.y || 0) + 0.45, z.pos.z);
             BO.World.scene.add(g);
-            this.supplyDrops.push({ mesh: g, x: z.pos.x, y: (z.pos.y || 0) + 0.45, z: z.pos.z, amount, life: 40.0, phase: Math.random() * 6.28 });
+            this.supplyDrops.push({ mesh: g, x: z.pos.x, y: (z.pos.y || 0) + 0.45, z: z.pos.z, amount, life: BO.Player.zombiePerks.has('crate_keeper') ? 65.0 : 40.0, phase: Math.random() * 6.28 });
         }
 
         buyFortification(kind) {
@@ -1856,6 +1937,7 @@
                 return false;
             }
             this.supplies -= cost;
+            if (P.zombiePerks.has('builder_bond')) this.supplies += Math.floor(cost * 0.15);
             BO.Sound.playShopBuy();
 
             if (kind === 'sniper_tower_ball') {
@@ -2037,7 +2119,8 @@
                 sd.mesh.rotation.y += dt * 2.2;
                 sd.mesh.position.y = sd.y + Math.sin(sd.phase) * 0.12;
                 const d = BO.Math.dist3D(P.pos.x, P.pos.y + 0.8, P.pos.z, sd.x, sd.y, sd.z);
-                if (P.alive && d < 3.2) {
+                const extended = P.zombiePerks.has('cargo_net') && Math.abs(P.pos.y + 0.8 - sd.y) < 1.15;
+                if (P.alive && d < (extended ? 4 : 3.2)) {
                     this.supplies += sd.amount;
                     BO.Sound.playPowerUp();
                     BO.Events.emit('hud:toast', { text: `📦 +${sd.amount.toLocaleString()} SUPPLIES (TOTAL: ${this.supplies.toLocaleString()})`, color: '#38bdf8' });

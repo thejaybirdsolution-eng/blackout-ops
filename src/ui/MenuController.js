@@ -33,6 +33,7 @@
         { action: 'jump', label: 'Jump / Mantle / Double Jump', tip: 'Jump over obstacles, climb ledges, or double-jump with 2jump cheat.' },
         { action: 'crouch', label: 'Crouch / Tactical Slide', tip: 'Press while standing to crouch, or press while sprinting to slide!' },
         { action: 'reload', label: 'Reload Weapon', tip: 'Put a fresh magazine into your gun.' },
+        { action: 'armory', label: 'Soda Catalog / Superpower Armory', tip: 'Browse beside a Zombies soda machine or open the armory in an offline bot match.' },
         { action: 'interact', label: 'Interact / Buy / Repair', tip: 'Buy doors, grab wall guns, drink Perks, spin Mystery Box, or Pack-a-Punch.' },
         { action: 'melee', label: 'Quick Melee / Swing Blade', tip: 'Slash nearby enemies with your melee weapon.' },
         { action: 'lethal', label: 'Throw Grenade / Lethal', tip: 'Throw Frag, Semtex, C4, or Molotov.' },
@@ -905,10 +906,10 @@
                                 <span class="pick-name">${d.id.charAt(0).toUpperCase() + d.id.slice(1)}</span>
                                 <span class="pick-desc">${d.tip}</span>
                             </button>`).join('')}
-                    </div>`) + this._section('Bot setup', '', `
+                    </div>`) + this._section('Bot setup', 'Up to 100 bots total. Enemy slots take priority over allied slots.', `
                     <div class="value-grid">
-                        <label class="value-field"><span>Enemy bots: <b id="cg-ec-lbl">${cr.enemyCount}</b></span><input type="range" id="cg-enemyCount" min="1" max="18" step="1" value="${cr.enemyCount}"></label>
-                        <label class="value-field"><span>Team size: <b id="cg-ts-lbl">${cr.teamSizeLimit}</b></span><input type="range" id="cg-teamSize" min="1" max="12" step="1" value="${cr.teamSizeLimit}"></label>
+                        <label class="value-field"><span>Enemy bots: <b id="cg-ec-lbl">${cr.enemyCount}</b></span><input type="range" id="cg-enemyCount" min="0" max="100" step="1" value="${cr.enemyCount}"></label>
+                        <label class="value-field"><span>Team size: <b id="cg-ts-lbl">${cr.teamSizeLimit}</b></span><input type="range" id="cg-teamSize" min="1" max="100" step="1" value="${cr.teamSizeLimit}"></label>
                         <label class="value-field"><span>Bot health (1–1000)</span><input type="number" id="cg-enemyHp" min="1" max="1000" value="${cr.enemyHp}"></label>
                         <label class="value-field"><span>Bot weapons</span>
                             <select id="cg-enemyWeapons">${weaponOpts.map(([v, l]) => `<option value="${v}" ${cr.enemyWeaponMode === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
@@ -930,6 +931,9 @@
                     ['killstreaksEnabled', 'Killstreaks'], ['killcamEnabled', 'Winner killcam']
                 ];
                 const isOn = (k) => (k === 'killstreaksEnabled' || k === 'killcamEnabled') ? cr[k] !== false : !!cr[k];
+                const renderSwitches = (entries) => `<div class="switch-grid">${entries.map(([k, label]) =>
+                    `<button class="switch-card ${isOn(k) ? 'active' : ''}" aria-pressed="${isOn(k)}" data-cgk="${k}"><span>${label}</span><span class="mod-switch"></span></button>`
+                ).join('')}</div>`;
                 const playerOpts = [['custom', 'My custom class'], ['snipers', 'Force snipers'], ['pistols', 'Force pistols'], ['shotguns', 'Force shotguns'], ['rpg', 'Force RPG-7'], ['raygun', 'Force Ray Gun']];
                 body.innerHTML = this._section('Quick presets', 'Start from a preset, then tweak anything below.', `
                     <div class="chip-row">${presets.map(([id, l]) => `<button class="chip js-cg-preset" data-preset="${id}">${l}</button>`).join('')}</div>`)
@@ -945,7 +949,9 @@
                         <label class="value-field"><span>Respawn delay: <b id="cg-rsp-lbl">${cr.respawnDelay}s</b></span><input type="range" id="cg-respawn" min="0.5" max="8" step="0.5" value="${cr.respawnDelay}"></label>
                     </div>`)
                     + this._section('Match switches', '', `
-                    <div class="switch-grid">${toggles.map(([k, l]) => `<button class="switch-card ${isOn(k) ? 'active' : ''}" data-cgk="${k}"><span>${l}</span><span class="mod-switch"></span></button>`).join('')}</div>`);
+                    ${renderSwitches(toggles)}`)
+                    + BO.ExpansionData.matchSwitches.map(([group, entries]) =>
+                        this._section(group, '', renderSwitches(entries))).join('');
                 body.querySelectorAll('.js-cg-preset').forEach((pb) => {
                     pb.onclick = () => {
                         BO.Sound.playUIClick();
@@ -959,6 +965,7 @@
                         else if (p === 'snipers') { this.customRules.enemyWeaponMode = 'snipers'; this.customRules.playerWeaponMode = 'snipers'; this.customRules.oneShotKills = true; }
                         else if (p === 'chaos') { Object.assign(this.customRules, { gravityScale: 0.5, speedScale: 1.6, jumpScale: 1.6, bigHeads: true, explosiveRounds: true, unlimitedAmmo: true }); }
                         else if (p === 'quickcam') { Object.assign(this.customRules, { scoreLimit: 5, enemyHp: 40, killcamEnabled: true }); }
+                        this._lobbyBroadcast();
                         this.renderLobby();
                     };
                 });
@@ -979,7 +986,20 @@
                         BO.Sound.playUIClick();
                         const k = b.dataset.cgk;
                         cr[k] = !isOn(k);
-                        b.classList.toggle('active', isOn(k));
+                        if (cr[k] && cr.slowFire && cr.fastFire && ['slowFire', 'fastFire'].includes(k)) {
+                            cr[k === 'slowFire' ? 'fastFire' : 'slowFire'] = false;
+                        }
+                        if (cr[k] && cr.slowBots && cr.quickBots && ['slowBots', 'quickBots'].includes(k)) {
+                            cr[k === 'slowBots' ? 'quickBots' : 'slowBots'] = false;
+                        }
+                        if (cr[k] && cr.fragileBots && cr.toughBots && ['fragileBots', 'toughBots'].includes(k)) {
+                            cr[k === 'fragileBots' ? 'toughBots' : 'fragileBots'] = false;
+                        }
+                        body.querySelectorAll('[data-cgk]').forEach((button) => {
+                            const active = isOn(button.dataset.cgk);
+                            button.classList.toggle('active', active);
+                            button.setAttribute('aria-pressed', String(active));
+                        });
                         this._lobbyBroadcast();
                     };
                 });

@@ -197,6 +197,7 @@
         }
 
         update(dt, allZombies, callbacks) {
+            if (this.alive && (this.powerAlly || this.powerCarried)) return true;
             // callbacks: { onMeleePlayer, onRangedAttack }
             if (!this.alive) {
                 this.deathTimer -= dt;
@@ -305,7 +306,7 @@
                 const w = this.windowInteractive.data;
                 const tx = w.outside[0], tz = w.outside[2];
                 if (BO.Math.dist2D(this.pos.x, this.pos.z, tx, tz) > 0.55) {
-                    this._steerToward(tx, tz, this.speed, dt, []);
+                    this._steerToward(tx, tz, this.speed * (this.powerMoveScale || 1), dt, []);
                     moveSpeed = this.speed;
                 } else {
                     this.state = this.windowInteractive.planksRemaining > 0 ? 'tearing_plank' : 'vault_window';
@@ -478,7 +479,7 @@
                     }
 
                     const chargeBoost = (this.movementHabit === 'charge_bull' && directLOS && distToTarget < 12) ? 1.35 : 1.0;
-                    const slowMult = this.slowTimer > 0 ? 0.45 : 1.0;
+                    const slowMult = (this.slowTimer > 0 ? 0.45 : 1) * (this.powerMoveScale || 1);
                     const curSpeed = this.speed * chargeBoost * slowMult * (this.flinchTimer > 0 ? 0.58 : 1.0);
                     this._steerToward(goalX, goalZ, curSpeed, dt, allZombies);
                     // Snap onto rising stairs/ramps BEFORE horizontal wall resolution so zombies climb cleanly!

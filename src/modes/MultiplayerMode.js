@@ -122,6 +122,7 @@
             this.mapId = opts.mapId || 'killhouse';
             this.difficulty = opts.difficulty || 'regular';
             this.customRules = Object.assign({}, DEFAULT_CUSTOM_RULES, opts.customRules || {});
+            this.armoryCredits = 350;
             this.camera = opts.camera || null;
 
             const scene = BO.World.build(this.mapId);
@@ -190,6 +191,10 @@
 
             BO.Progression.recordStat('mpMatches', 1);
             BO.Events.emit('mp:started', { modeType: this.modeType, mapName: map.name });
+            if (BO.Superpowers.enabled) {
+                const key = BO.Settings.getKeybinds().armory.replace(/^(Key|Digit)/, '');
+                BO.Events.emit('hud:toast', { text: `[${key}] SUPERPOWER ARMORY • Earn 100 credits per elimination`, color: '#c4b5fd' });
+            }
             return scene;
         }
 
@@ -243,9 +248,12 @@
         _spawnBots(map) {
             const r = this.customRules;
             const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
-            const enemyCount = BO.Math.clamp(parseInt(r.enemyCount, 10) || (isFFA ? 7 : 6), 1, 18);
-            const teamCap = BO.Math.clamp(parseInt(r.teamSizeLimit, 10) || 6, 1, 12);
-            const allyCount = isFFA ? 0 : Math.max(0, Math.min(teamCap - 1, Math.min(enemyCount, 11)));
+            const requested = Number.parseInt(r.enemyCount, 10);
+            const enemyCount = BO.Math.clamp(Number.isFinite(requested) ? requested : (isFFA ? 7 : 6), 0, 100);
+            const teamCap = BO.Math.clamp(parseInt(r.teamSizeLimit, 10) || 6, 1, 100);
+            const allyCount = isFFA || r.noAllies ? 0 : Math.min(teamCap - 1, enemyCount, 100 - enemyCount);
+            const healthScale = (r.fragileBots ? 0.5 : 1) * (r.toughBots ? 2 : 1);
+            const botSpeed = (r.speedScale || 1) * (r.slowBots ? 0.5 : 1) * (r.quickBots ? 1.5 : 1);
             const ePool = WEAPON_POOLS[r.enemyWeaponMode] || WEAPON_POOLS.all;
             const enemyUnarmed = r.enemyWeaponMode === 'unarmed';
             const eHp = Math.max(1, Math.min(1000, Number(r.enemyHp) || 100));
@@ -259,9 +267,9 @@
                     team: 0,
                     difficulty: this.difficulty,
                     weaponId: wId,
-                    unarmed: false,
-                    maxHp: r.playerHp || 100,
-                    speedScale: r.speedScale || 1.0,
+                    unarmed: !!r.passiveBots,
+                    maxHp: Math.max(1, Math.round((r.playerHp || 100) * healthScale)),
+                    speedScale: botSpeed,
                     bigHeads: !!r.bigHeads,
                     respawnDelay: r.respawnDelay ?? 2.4,
                     oneShotKills: !!r.oneShotKills,
@@ -279,9 +287,9 @@
                     team,
                     difficulty: this.difficulty,
                     weaponId: wId,
-                    unarmed: enemyUnarmed,
-                    maxHp: eHp,
-                    speedScale: r.speedScale || 1.0,
+                    unarmed: enemyUnarmed || !!r.passiveBots,
+                    maxHp: Math.max(1, Math.round(eHp * healthScale)),
+                    speedScale: botSpeed,
                     bigHeads: !!r.bigHeads,
                     respawnDelay: r.respawnDelay ?? 2.4,
                     oneShotKills: !!r.oneShotKills,
@@ -367,7 +375,7 @@
         }
 
         _onPlayerHitBot(bot, dmg, hitbox, weaponInst, hitPt) {
-            if (!bot || !bot.alive) return false;
+            if (!bot || !bot.alive || bot.powerAlly) return false;
             const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
             const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
             const isHead = hitbox === 'head';
@@ -378,7 +386,7 @@
                 finalDmg = BO.Mods.outgoingDamage(this.customRules.mods, finalDmg, { hitbox, weaponInst, target: null });
                 if (finalDmg <= 0) return false;
             }
-            if (this.customRules.explosiveRounds && hitPt) {
+            if (this.customRules.explosiveRounds && !this.customRules.noExplosiveDamage && hitPt) {
                 BO.FX.spawnExplosion(hitPt, 2.8, 0xf97316);
                 BO.Sound.playExplosion(0.45);
                 finalDmg *= 1.5;
@@ -429,6 +437,11 @@
             if (BO.Mods) BO.Mods.onKill(kMods, null, {});
             if (kMods.vampirePlayer && BO.Player.alive) BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 15);
             this.playerKills++;
+            this.armoryCredits += 100;
+            if (this.customRules.regenOnElim && BO.Player.alive) BO.Player.hp = BO.Player.maxHp;
+            if (BO.Player.mpPerks.includes('hot_plate') && BO.Player.pos.distanceTo(bot.pos) < 6) {
+                BO.Player.armor = Math.min(BO.Player.maxArmor, BO.Player.armor + 15);
+            }
             this.currentStreak++;
             this.playerScore += isHead ? 125 : 100;
 
@@ -502,7 +515,7 @@
                 }
             }
 
-            if (this.modeType === 'tdm') this.teamScores[0]++;
+            if (this.modeType === 'tdm') this.teamScores[0] += this.customRules.headshotScore && isHead ? 2 : 1;
             if (this.modeType === 'gun_game') {
                 this.playerGunTier++;
                 if (this.playerGunTier < GUN_GAME_LADDER.length) {
@@ -815,13 +828,16 @@
             }
 
             this.elapsed += dt;
-            this.timeRemaining = Math.max(0, this.timeRemaining - dt);
+            if (!this.customRules.endlessTime) this.timeRemaining = Math.max(0, this.timeRemaining - dt);
 
             if (this.customRules.unlimitedAmmo && BO.Player.activeWeapon) {
                 const aw = BO.Player.activeWeapon;
                 if (aw.stats.kind === 'gun') aw.mag = aw.stats.magSize;
             }
 
+            if (this.customRules.reserveRefill && BO.Player.activeWeapon) {
+                BO.Player.activeWeapon.reserve = BO.Player.activeWeapon.stats.reserveMax;
+            }
             if (this.multikillTimer > 0) {
                 this.multikillTimer -= dt;
                 if (this.multikillTimer <= 0) this.multikillCount = 0;
@@ -927,7 +943,7 @@
                     killer.kills++;
                     killer.score += 100;
                     if (this.modeType === 'tdm') {
-                        if (killer.team === 0) this.teamScores[0]++;
+                        if (killer.team === 0 || killer.powerAlly) this.teamScores[0]++;
                         else this.teamScores[1]++;
                     }
                     const wShort = BO.WeaponsData.get(killer.weaponId).shortName;
@@ -954,6 +970,7 @@
             const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
             for (const b of this.bots) {
                 if (!b.alive) {
+                    if (this.customRules.attrition) continue;
                     if (b.respawnTimer <= 0) {
                         b.spawnAt(this._pickBestSpawn(b.team === 0 ? 0 : 1));
                     } else {
@@ -962,7 +979,7 @@
                     continue;
                 }
                 b.update(dt, context);
-                if (this.modeType === 'ffa' || this.modeType === 'gun_game' || b.team !== myTeam) {
+                if (!b.powerAlly && (this.modeType === 'ffa' || this.modeType === 'gun_game' || b.team !== myTeam)) {
                     const ms = b.getHitboxMeshes();
                     for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
                 }
@@ -984,15 +1001,15 @@
                 return;
             }
 
-            if (this.modeType === 'tdm' || this.modeType === 'dom' || this.modeType === 'hardpoint') {
+            if (!this.customRules.noScoreLimit && ['tdm', 'dom', 'hardpoint'].includes(this.modeType)) {
                 if (this.teamScores[0] >= this.scoreLimit) this._queueWinnerKillcam(true);
                 else if (this.teamScores[1] >= this.scoreLimit) this._queueWinnerKillcam(false);
-            } else if (this.modeType === 'ffa') {
+            } else if (this.modeType === 'ffa' && !this.customRules.noScoreLimit) {
                 if (this.playerKills >= this.scoreLimit) this._queueWinnerKillcam(true);
                 else if (this.bots.some((b) => b.kills >= this.scoreLimit)) this._queueWinnerKillcam(false);
             }
 
-            if (this.timeRemaining <= 0 && !this.ended && !this.killcamActive && !this.killcamPendingEnd) {
+            if (!this.customRules.endlessTime && this.timeRemaining <= 0 && !this.ended && !this.killcamActive && !this.killcamPendingEnd) {
                 const win = this.modeType === 'ffa'
                     ? this.playerKills >= Math.max(0, ...this.bots.map((b) => b.kills))
                     : this.teamScores[0] >= this.teamScores[1];

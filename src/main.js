@@ -234,6 +234,8 @@
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
+            BO.ExpansionShop.close();
+            BO.Superpowers.reset();
             BO.State.activeMode = null;
             BO.State.paused = false;
             if (document.pointerLockElement) document.exitPointerLock();
@@ -372,6 +374,7 @@
                 if (BO.Menus && BO.Menus.isRebindingKey) return;
                 if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
                 if (BO.State.screen !== 'playing') return;
+                if (BO.ExpansionShop.open) return;
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
 
@@ -445,6 +448,8 @@
                     BO.Combat.activateFieldUpgrade();
                 } else if ((code === kb.ultimate || code === 'KeyZ') && firstDown) {
                     BO.Combat.activateUltimate();
+                } else if (code === kb.armory && firstDown) {
+                    BO.ExpansionShop.show();
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
@@ -464,6 +469,7 @@
             });
 
             window.addEventListener('keyup', (e) => {
+                if (BO.ExpansionShop.open) return;
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
                 P.keys[code] = false;
@@ -485,7 +491,8 @@
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
 
             if (BO.State.screen === 'playing') {
-                if (!BO.State.paused) {
+                if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
+                if (!BO.State.paused && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -494,6 +501,7 @@
                         if (this.mouseDown) BO.Combat.handleFireInput(true, false);
                         BO.Player.update(dt, this.worldCamera);
                         BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
+                        BO.Superpowers.tick(dt);
                         BO.World.updateAnimatedProps(dt, this.elapsed);
                         BO.FX.update(dt);
 
@@ -515,6 +523,7 @@
                     }
 
                     BO.HUD.update(dt);
+                    BO.ExpansionShop.updateHud();
                 }
 
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);

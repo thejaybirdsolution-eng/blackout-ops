@@ -25,6 +25,10 @@
         }
 
         reset(camera) {
+            BO.Superpowers.reset();
+            this.lastTriggerTime = -Infinity;
+            this.frozenTrigger = false;
+            this.openingShot = false;
             this.camera = camera;
             this.busterCharging = false;
             this.busterChargeTime = 0;
@@ -185,6 +189,10 @@
                 return;
             }
 
+            this.openingShot = w.mag === w.stats.magSize;
+            const now = BO.ZombiesMode.elapsed;
+            this.frozenTrigger = P.zombiePerks.has('trigger_freeze') && now - this.lastTriggerTime >= 3;
+            this.lastTriggerTime = now;
             if (!P.overdriveActive && !infAmmo) w.mag--;
             else if (infAmmo) w.mag = w.stats.magSize;
             BO.Progression.recordStat('shotsFired', 1);
@@ -335,6 +343,15 @@
                 }
 
                 let dmg = w.stats.damage * falloff;
+                const perks = P.mpPerks;
+                if (perks.includes('duelist') && h.distance <= 6) dmg *= 1.25;
+                if (perks.includes('skyline') && !P.onGround) dmg *= 1.3;
+                if (perks.includes('ambusher') && P.crouching && h.distance >= 12) dmg *= 1.2;
+                if (perks.includes('finishing_school') && hitbox !== 'head' && ent.hp < ent.maxHp * 0.3) dmg *= 1.25;
+                if (perks.includes('round_one') && this.openingShot) dmg *= 1.35;
+                if (perks.includes('last_cartridge') && w.mag === 0) dmg *= 1.4;
+                if (perks.includes('sidearm_specialist') && /pistol/i.test(w.stats.category)) dmg *= 1.22;
+                if (this.frozenTrigger) ent.stunTimer = Math.max(ent.stunTimer || 0, 0.85);
                 if (isHead) {
                     let hm = w.stats.headMult;
                     if (P.zombiePerks.has('deadshot')) hm *= 1.45;
@@ -401,6 +418,7 @@
         }
 
         _executeMeleeWeaponSwing(w) {
+            if (BO.Player.matchRules.noMelee) return;
             const P = BO.Player;
             P.fireCooldown = 60 / Math.max(40, w.stats.rpm);
             P.meleeTimer = Math.min(0.28, P.fireCooldown * 0.85);
@@ -514,6 +532,10 @@
                 P.startReload();
                 return;
             }
+            this.openingShot = w.mag === w.stats.magSize;
+            const now = BO.ZombiesMode.elapsed;
+            this.frozenTrigger = P.zombiePerks.has('trigger_freeze') && now - this.lastTriggerTime >= 3;
+            this.lastTriggerTime = now;
             if (!P.overdriveActive && !infAmmo) w.mag--;
             else if (infAmmo) w.mag = w.stats.magSize;
             BO.Progression.recordStat('shotsFired', 1);
@@ -844,6 +866,7 @@
         }
 
         throwLethal(startCook = false, release = false) {
+            if (BO.Player.matchRules.noLethals) return;
             const P = BO.Player;
             if (!P.alive || P.inLastStand) return;
 
@@ -876,6 +899,7 @@
         }
 
         detonateC4() {
+            if (BO.Player.matchRules.noLethals) return;
             if (this.c4Charges.length === 0) return;
             const list = this.c4Charges.splice(0, this.c4Charges.length);
             for (const c4 of list) {
@@ -888,6 +912,7 @@
         }
 
         throwTactical() {
+            if (BO.Player.matchRules.noTacticals) return;
             const P = BO.Player;
             const infAmmo = BO.Cheats && BO.Cheats.isActive('infammo');
             if (!P.alive || P.inLastStand || (P.tacticalCount <= 0 && !infAmmo)) return;
@@ -1413,6 +1438,7 @@
         }
 
         _detonateExplosion(pos, radius, damage, owner, isFlash = false, stunDur = 0, weaponId = 'frag', color = 0xff7722) {
+            if (!isFlash && owner === 'player' && BO.Player.matchRules.noExplosiveDamage) return;
             const distToPlayer = pos.distanceTo(BO.Player.pos);
             const distScale = BO.Math.clamp(1 - distToPlayer / 48, 0.15, 1.0);
 
@@ -1440,13 +1466,14 @@
         meleeAttack() {
             const P = BO.Player;
             if (!P.alive || P.meleeTimer > 0 || !this.camera) return;
-            P.meleeTimer = 0.28;
+            if (BO.Superpowers.use(this.camera) || P.matchRules.noMelee) return;
+            P.meleeTimer = P.zombiePerks.has('bare_knuckle') ? 0.19 : 0.28;
             P.reloading = false;
             BO.Sound.playMelee();
 
             const aim = P.getAimRay(this.camera);
             this.raycaster.set(aim.origin, aim.dir);
-            this.raycaster.far = 2.55;
+            this.raycaster.far = P.mpPerks.includes('bayonet_drill') ? 3.55 : 2.55;
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
             for (const h of hits) {
                 const ent = h.object.userData.entity;
@@ -1461,6 +1488,7 @@
         }
 
         activateFieldUpgrade() {
+            if (BO.Player.matchRules.noField) return;
             const P = BO.Player;
             if (!P.alive || P.fieldCharge < 1.0) return;
             P.fieldCharge = 0;
@@ -1487,6 +1515,7 @@
         }
 
         activateUltimate() {
+            if (BO.Player.matchRules.noUltimates) return;
             const P = BO.Player;
             if (!P.alive || P.ultimateCharge < 1.0 || !this.camera) return;
             P.ultimateCharge = 0;
