@@ -145,6 +145,8 @@
             this.modalTdShop = document.getElementById('modal-td-shop');
             this.modalTdAttachments = document.getElementById('modal-td-attachments');
             this.modalTdCustomClass = document.getElementById('modal-td-custom-class');
+            this.modalTdPerks = document.getElementById('modal-td-perks');
+            this.modalTdLift = document.getElementById('modal-td-lift');
             this.modalEnemyPool = document.getElementById('modal-enemy-pool');
 
             this._bindButtons();
@@ -282,6 +284,22 @@
                 btnTdCcClose.onclick = () => {
                     BO.Sound.playUIClick();
                     if (this.modalTdCustomClass) this.modalTdCustomClass.classList.add('hidden');
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnTdPerksClose = document.getElementById('btn-td-perks-close');
+            if (btnTdPerksClose) {
+                btnTdPerksClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalTdPerks) this.modalTdPerks.classList.add('hidden');
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            }
+            const btnTdLiftClose = document.getElementById('btn-td-lift-close');
+            if (btnTdLiftClose) {
+                btnTdLiftClose.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (this.modalTdLift) this.modalTdLift.classList.add('hidden');
                     if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
                 };
             }
@@ -2652,6 +2670,86 @@
                     this.renderEnemyPool();
                 };
             });
+        }
+
+        /* ====================================================================
+           WUNDERFIZZ MASTER PERK KIOSK MODAL (ALL 14 PERKS — MAX 8 EQUIPPED)
+        ==================================================================== */
+        openTdPerkKioskModal() {
+            if (!this.modalTdPerks || !BO.TowerDefenseMode) return;
+            if (document.pointerLockElement) document.exitPointerLock();
+            if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+            this.renderTdPerkKiosk();
+            this.modalTdPerks.classList.remove('hidden');
+        }
+
+        renderTdPerkKiosk() {
+            const list = document.getElementById('td-perks-list');
+            const sub = document.getElementById('td-perks-sub');
+            const td = BO.TowerDefenseMode;
+            const P = BO.Player;
+            if (!list || !td || !P) return;
+            const perks = (BO.World && BO.World.tdAllPerks) || [];
+            if (sub) {
+                sub.textContent = `Your Gold: ${td.gold} • Equipped: ${P.zombiePerks.size}/8 Perks • Click any Perk to drink it immediately!`;
+            }
+            list.innerHTML = perks.map((pk, idx) => {
+                const owned = P.zombiePerks.has(pk.id);
+                const cost = td.modifiers.freePerks ? 0 : td.getCost(pk.cost);
+                const canAfford = !owned && P.zombiePerks.size < 8 && td.gold >= cost && !td.modifiers.noPerks;
+                const tag = idx < 6 ? 'OG CLASSIC' : 'NEW PERK';
+                return `
+                    <button class="select-card js-td-buy-pk" data-pkid="${pk.id}" style="border-color:${owned ? '#22c55e' : (canAfford ? pk.color : '#334155')};opacity:${owned ? '0.78' : '1'};">
+                        <div class="card-head" style="color:${pk.color};">${escAttr(pk.name)} <span style="font-size:10px;color:#94a3b8;">[${tag}]</span></div>
+                        <div class="card-sub">${escAttr(pk.desc)}</div>
+                        <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:${owned ? '#4ade80' : (canAfford ? '#fde047' : '#ef4444')};">
+                            ${owned ? '✓ EQUIPPED' : (cost === 0 ? 'FREE (0 GOLD)' : `${cost} GOLD`)}
+                        </div>
+                    </button>
+                `;
+            }).join('');
+            list.querySelectorAll('.js-td-buy-pk').forEach((btn) => {
+                btn.onclick = () => {
+                    const pk = perks.find((x) => x.id === btn.dataset.pkid);
+                    if (pk) {
+                        td.buyPerkByDef(pk);
+                        this.renderTdPerkKiosk();
+                    }
+                };
+            });
+        }
+
+        /* ====================================================================
+           SNIPER TOWER SKY-LIFT FLOOR SELECTOR MODAL (6 HEIGHTS!)
+        ==================================================================== */
+        openTdLiftModal(liftInter) {
+            if (!this.modalTdLift || !liftInter || !BO.TowerDefenseMode) return;
+            if (document.pointerLockElement) document.exitPointerLock();
+            if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+            const title = document.getElementById('td-lift-title');
+            if (title) title.textContent = `🚀 ${liftInter.towerLabel} — SKY-LIFT`;
+            const list = document.getElementById('td-lift-list');
+            if (!list) return;
+            list.innerHTML = (liftInter.floors || []).map((fl) => {
+                const isHere = fl.floorIndex === liftInter.currentFloor;
+                const col = fl.floorIndex === 5 ? '#fde047' : (fl.floorIndex === 4 ? '#38bdf8' : (fl.floorIndex === 3 ? '#f59e0b' : '#cbd5e1'));
+                return `
+                    <button class="btn ${isHere ? '' : 'btn-primary'} js-td-lift-go" data-fidx="${fl.floorIndex}"
+                        style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-color:${col};color:${isHere ? '#94a3b8' : '#f8fafc'};">
+                        <span style="font-weight:800;letter-spacing:1px;">${escAttr(fl.name)}</span>
+                        <span style="font-family:var(--font-mono);font-size:12px;color:${col};">${isHere ? 'CURRENT FLOOR' : 'ZIP LAUNCH →'}</span>
+                    </button>
+                `;
+            }).join('');
+            list.querySelectorAll('.js-td-lift-go').forEach((btn) => {
+                btn.onclick = () => {
+                    const fl = liftInter.floors[Number(btn.dataset.fidx)];
+                    this.modalTdLift.classList.add('hidden');
+                    if (fl) BO.TowerDefenseMode.launchToTowerFloor(fl, liftInter.towerLabel);
+                    if (BO.State.screen === 'playing' && !BO.State.paused && BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+                };
+            });
+            this.modalTdLift.classList.remove('hidden');
         }
     }
 

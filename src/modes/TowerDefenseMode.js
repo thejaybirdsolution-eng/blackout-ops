@@ -1014,6 +1014,53 @@
             return true;
         }
 
+        buyPerkByDef(pk) {
+            const P = BO.Player;
+            if (!pk || !P) return false;
+            if (this.modifiers.noPerks) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: 'PERK MACHINES DISABLED BY NO-PERKS MODIFIER!', color: '#ef4444' });
+                return false;
+            }
+            const cost = this.modifiers.freePerks ? 0 : this.getCost(pk.cost);
+            if (P.zombiePerks.has(pk.id)) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: `${pk.name.toUpperCase()} ALREADY EQUIPPED!`, color: '#f59e0b' });
+                return false;
+            }
+            if (P.zombiePerks.size >= 8) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: 'PERK LIMIT REACHED (MAX 8 PERKS AT A TIME)!', color: '#ef4444' });
+                return false;
+            }
+            if (this.gold < cost) {
+                BO.Sound.playEmptyClick();
+                BO.Events.emit('hud:toast', { text: `NEED ${cost} GOLD FOR ${pk.name.toUpperCase()}!`, color: '#ef4444' });
+                return false;
+            }
+            this.gold -= cost;
+            P.zombiePerks.add(pk.id);
+            P.applyPerkStats();
+            BO.Sound.playPerkBuy();
+            BO.Events.emit('hud:toast', { text: `${pk.name.toUpperCase()} EQUIPPED (${P.zombiePerks.size}/8)!`, color: pk.color });
+            return true;
+        }
+
+        launchToTowerFloor(floorObj, towerLabel) {
+            const P = BO.Player;
+            if (!P || !floorObj) return;
+            P.rideState = {
+                kind: 'arc',
+                sx: P.pos.x, sy: P.pos.y, sz: P.pos.z,
+                dx: floorObj.destX, dy: floorObj.destY, dz: floorObj.destZ,
+                arcHeight: Math.max(2.2, Math.abs(floorObj.destY - P.pos.y) * 0.25),
+                duration: 0.68,
+                t: 0
+            };
+            BO.Sound.playTrapZap();
+            BO.Events.emit('hud:toast', { text: `🚀 LAUNCHED TO ${towerLabel} — ${floorObj.name}!`, color: '#38bdf8' });
+        }
+
         _onBulletHit(zombie, dmg, hitbox, weaponInst) {
             if (!zombie || !zombie.alive) return false;
             if (this.modifiers.headshotsOnly && hitbox !== 'head' && !zombie.spec.bodySpec?.headless) {
@@ -1102,6 +1149,20 @@
 
             const inter = this.activePrompt;
             if (inter) {
+                if (inter.type === 'td_tower_lift') {
+                    if (BO.Menus && BO.Menus.openTdLiftModal) {
+                        BO.Sound.playUIClick();
+                        BO.Menus.openTdLiftModal(inter);
+                    }
+                    return;
+                }
+                if (inter.type === 'td_perk_kiosk') {
+                    if (BO.Menus && BO.Menus.openTdPerkKioskModal) {
+                        BO.Sound.playUIClick();
+                        BO.Menus.openTdPerkKioskModal();
+                    }
+                    return;
+                }
                 if (inter.type === 'td_jump_pad') {
                     P.rideState = {
                         kind: 'arc',
@@ -1909,6 +1970,13 @@
 
             const inter = this.activePrompt;
             if (inter) {
+                if (inter.type === 'td_tower_lift') {
+                    return { text: `[E] ${inter.towerLabel} SKY-LIFT — SELECT ANY OF 6 HEIGHTS (5m TO 25m)!`, affordable: true };
+                }
+                if (inter.type === 'td_perk_kiosk') {
+                    if (this.modifiers.noPerks) return { text: `PERK KIOSK DISABLED (NO PERKS MODIFIER)`, affordable: false };
+                    return { text: `[E] OPEN WUNDERFIZZ MASTER PERK KIOSK (ALL 14 PERKS • ${P.zombiePerks.size}/8 EQUIPPED)`, affordable: true };
+                }
                 if (inter.type === 'td_jump_pad') {
                     return { text: `[E] ZIP LAUNCH → ${inter.label}`, affordable: true };
                 }

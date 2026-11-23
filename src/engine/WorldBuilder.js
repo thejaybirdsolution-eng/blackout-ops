@@ -532,51 +532,76 @@
 
         _buildTdSnipingTower(scene, tx, tz, sideSign, label) {
             // 6 Multi-Height Sniper Decks (up to 25.4m Apex Sky Spire!):
-            //   Level 1 (Keep Deck): 5.4m
-            //   Level 2 (Lower Balcony): 9.4m
-            //   Level 3 (Mid Watch + Overhang Balcony): 13.4m
+            //   Level 1 (Keep Deck Entry): 5.4m
+            //   Level 2 (Lower Watch): 9.4m
+            //   Level 3 (Mid Watch + Walkable Overhang Balcony): 13.4m
             //   Level 4 (High Perch + PAY-TO-USE ARROW BALLISTA GUN): 17.4m
-            //   Level 5 (Sky Overlook + PAY-TO-USE MOUNTED TOWER TURRET): 21.4m
+            //   Level 5 (Sky Overlook + Walkable Overhang Balcony + PAY-TO-USE SKY TURRET): 21.4m
             //   Level 6 (Apex Crow's Nest Spire): 25.4m
             const levels = [5.4, 9.4, 13.4, 17.4, 21.4, 25.4];
-            const hw = 3.4;
+            const levelNames = [
+                'LEVEL 1 — KEEP ENTRY (5m)',
+                'LEVEL 2 — LOWER WATCH (9m)',
+                'LEVEL 3 — SIDE BALCONY (13m)',
+                'LEVEL 4 — ARROW BALLISTA (17m)',
+                'LEVEL 5 — SKY TURRET & BALCONY (21m)',
+                'LEVEL 6 — APEX SKY SPIRE (25m)'
+            ];
+            const hw = 3.5;
 
-            // 4 massive armored corner pillars from ground y=0 up to y=27.2 + glowing neon trim strips!
-            const pOff = hw - 0.38;
+            // 4 armored corner pillars from ground y=0 up to y=27.2 + glowing neon energy trim!
+            const pOff = hw - 0.36;
             const corners = [[-pOff, -pOff], [pOff, -pOff], [-pOff, pOff], [pOff, pOff]];
-            const neonMat = new THREE.MeshBasicMaterial({ color: sideSign < 0 ? 0x38bdf8 : 0xf59e0b });
+            const accentHex = sideSign < 0 ? 0x38bdf8 : 0xf59e0b;
+            const neonMat = new THREE.MeshBasicMaterial({ color: accentHex });
             for (const [cx, cz] of corners) {
-                this._addTdBox(scene, tx + cx - 0.36, 0, tz + cz - 0.36, tx + cx + 0.36, 27.2, tz + cz + 0.36, 'castle_stone');
+                this._addTdBox(scene, tx + cx - 0.34, 0, tz + cz - 0.34, tx + cx + 0.34, 27.2, tz + cz + 0.34, 'castle_stone');
                 const strip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 22.0, 0.14), neonMat);
-                strip.position.set(tx + cx + (cx > 0 ? 0.38 : -0.38), 16.0, tz + cz + (cz > 0 ? 0.38 : -0.38));
+                strip.position.set(tx + cx + (cx > 0 ? 0.36 : -0.36), 16.0, tz + cz + (cz > 0 ? 0.36 : -0.36));
                 scene.add(strip);
             }
 
-            // Solid base pedestal under Level 1
+            // Solid base pedestal under Level 1 (flush with Keep deck at y = 5.4m!)
             this._addTdBox(scene, tx - hw, 0, tz - hw, tx + hw, 5.4, tz + hw, 'castle_stone');
+
+            // Glowing overhead entrance arch sign facing the Keep!
+            const entryX = tx - sideSign * hw;
+            const signBoard = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.4, 0.85),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture(label, sideSign < 0 ? '#38bdf8' : '#f59e0b'), side: THREE.DoubleSide })
+            );
+            signBoard.position.set(entryX, 8.2, tz);
+            signBoard.rotation.y = sideSign < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+            scene.add(signBoard);
 
             // Build all 5 elevated Sniper Decks (9.4m, 13.4m, 17.4m, 21.4m, 25.4m!)
             for (let li = 1; li < levels.length; li++) {
                 const y = levels[li];
+                // Main floor deck
                 this._addTdBox(scene, tx - hw, y - 0.35, tz - hw, tx + hw, y, tz + hw, 'diamond_plate');
-                // Low sniper cover crenellations on North, South, Outer sides
-                this._addTdBox(scene, tx - hw, y, tz - hw, tx + hw, y + 1.0, tz - hw + 0.32, 'castle_battlement');
-                this._addTdBox(scene, tx - hw, y, tz + hw - 0.32, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
-                if (sideSign < 0) {
-                    this._addTdBox(scene, tx - hw, y, tz - hw, tx - hw + 0.32, y + 1.0, tz + hw, 'castle_battlement');
-                } else {
-                    this._addTdBox(scene, tx + hw - 0.32, y, tz - hw, tx + hw, y + 1.0, tz + hw, 'castle_battlement');
-                }
-                // Sniper sandbag perches on each deck
-                this._addTdBox(scene, tx - 1.2, y, tz - hw + 0.4, tx + 1.2, y + 0.68, tz - hw + 1.0, 'sandbag');
 
-                // Overhanging Side Sniper Balconies on Level 3 (13.4m) & Level 5 (21.4m) for extra sniper spots!
+                // North & South low sniper cover crenellations (leave North-Inner clear for stairs/ramps!)
+                this._addTdBox(scene, tx - hw + 0.3, y, tz - hw, tx + hw - 0.3, y + 0.95, tz - hw + 0.32, 'castle_battlement');
+                this._addTdBox(scene, tx - hw + 0.3, y, tz + hw - 0.32, tx + hw - 0.3, y + 0.95, tz + hw, 'castle_battlement');
+
+                // Outer parapet: leave a wide 2.8m OPEN DOORWAY on Levels 3 (li=2) & 5 (li=4) for the Side Balconies!
+                const outerMinX = sideSign < 0 ? (tx - hw) : (tx + hw - 0.32);
+                const outerMaxX = sideSign < 0 ? (tx - hw + 0.32) : (tx + hw);
                 if (li === 2 || li === 4) {
-                    const bx1 = sideSign < 0 ? (tx - hw - 2.6) : (tx + hw);
-                    const bx2 = sideSign < 0 ? (tx - hw) : (tx + hw + 2.6);
-                    this._addTdBox(scene, bx1, y - 0.30, tz - 2.2, bx2, y, tz + 2.2, 'diamond_plate');
-                    this._addTdBox(scene, bx1, y, tz - 2.2, bx2, y + 0.95, tz - 1.9, 'sandbag');
+                    this._addTdBox(scene, outerMinX, y, tz - hw, outerMaxX, y + 0.95, tz - 1.4, 'castle_battlement');
+                    this._addTdBox(scene, outerMinX, y, tz + 1.4, outerMaxX, y + 0.95, tz + hw, 'castle_battlement');
+                    // Overhanging Side Sniper Balcony (100% walkable through the open doorway!)
+                    const bx1 = sideSign < 0 ? (tx - hw - 3.0) : (tx + hw);
+                    const bx2 = sideSign < 0 ? (tx - hw) : (tx + hw + 3.0);
+                    this._addTdBox(scene, bx1, y - 0.32, tz - 2.4, bx2, y, tz + 2.4, 'diamond_plate');
+                    this._addTdBox(scene, bx1, y, tz - 2.4, bx2, y + 0.92, tz - 2.1, 'sandbag');
+                    this._addTdBox(scene, bx1, y, tz + 2.1, bx2, y + 0.92, tz + 2.4, 'castle_battlement');
+                } else {
+                    this._addTdBox(scene, outerMinX, y, tz - hw, outerMaxX, y + 0.95, tz + hw, 'castle_battlement');
                 }
+
+                // Front sniper sandbag perch (low enough to shoot cleanly over while standing or crouched!)
+                this._addTdBox(scene, tx - 1.2, y, tz - hw + 0.38, tx + 1.2, y + 0.65, tz - hw + 0.95, 'sandbag');
             }
 
             // Apex Spire Glowing Crown & Beacon at y = 27.8m
@@ -593,7 +618,7 @@
 
             // PAY-TO-USE MOUNTED ARROW BALLISTA GUN on Level 4 (y = 17.4m)!
             const arrowG = new THREE.Group();
-            arrowG.position.set(tx, 17.4, tz - hw + 1.25);
+            arrowG.position.set(tx, 17.4, tz - hw + 1.35);
             const aPed = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.1, 10), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7 }));
             aPed.position.y = 0.55;
             const aBow = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.16, 0.24), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.8 }));
@@ -609,121 +634,216 @@
                 type: 'td_tower_arrow_gun',
                 id: `arrow_gun_${label}`,
                 label: `${label} ARROW BALLISTA`,
-                x: tx, y: 18.4, z: tz - hw + 1.25,
-                radius: 2.5,
+                x: tx, y: 18.4, z: tz - hw + 1.35,
+                radius: 2.8,
                 activeTimer: 0
             });
 
             // PAY-TO-USE MOUNTED TOWER HEAVY TURRET on Level 5 (y = 21.4m)!
             const turBuilt = BO.CharacterMesh.buildSentryTurret();
-            turBuilt.root.position.set(tx, 21.4, tz - hw + 1.25);
+            turBuilt.root.position.set(tx, 21.4, tz - hw + 1.35);
             turBuilt.root.scale.setScalar(1.25);
             scene.add(turBuilt.root);
             this.interactives.push({
                 type: 'td_tower_turret',
                 id: `tower_turret_${label}`,
                 label: `${label} SKY TURRET`,
-                x: tx, y: 22.4, z: tz - hw + 1.25,
-                turretObj: { x: tx, y: 21.4, z: tz - hw + 1.25, mesh: turBuilt.root, headGroup: turBuilt.headGroup, damage: 75, interval: 0.16, cooldown: 0 },
+                x: tx, y: 22.4, z: tz - hw + 1.35,
+                turretObj: { x: tx, y: 21.4, z: tz - hw + 1.35, mesh: turBuilt.root, headGroup: turBuilt.headGroup, damage: 75, interval: 0.16, cooldown: 0 },
                 activated: false,
-                radius: 2.6
+                radius: 2.8
             });
 
-            // Walkable ramps connecting Levels 1 -> 2 -> 3 -> 4 -> 5 -> 6
-            const rampZ1 = tz + hw + 1.1;
-            const r1 = { x1: tx - hw, x2: tx + hw, z: rampZ1, w: 2.0, y1: 5.4, y2: 9.4, axis: 'x', mat: 'wood_plank' };
-            const r2 = { x1: tx + hw, x2: tx - hw, z: rampZ1 + 2.1, w: 2.0, y1: 9.4, y2: 13.4, axis: 'x', mat: 'wood_plank' };
-            const r3 = { x1: tx - hw, x2: tx + hw, z: rampZ1 + 4.2, w: 2.0, y1: 13.4, y2: 17.4, axis: 'x', mat: 'wood_plank' };
-            this._addTdBox(scene, tx + hw - 1.2, 9.0, rampZ1 - 1.1, tx + hw + 1.4, 9.4, rampZ1 + 3.2, 'wood_plank');
-            this._addTdBox(scene, tx - hw - 1.4, 13.0, rampZ1 + 1.0, tx - hw + 1.2, 13.4, rampZ1 + 5.3, 'wood_plank');
-            this._addTdBox(scene, tx + hw - 1.2, 17.0, tz - 1.5, tx + hw + 1.4, 17.4, rampZ1 + 5.3, 'wood_plank');
-            for (const rr of [r1, r2, r3]) {
+            // 1. WALKABLE SWITCHBACK STAIRCASE ON NORTH SIDE (clear of South back wall!) connecting Level 1 -> Level 2 -> Level 3!
+            const rampZ1 = tz - hw - 1.15;
+            const r1 = { x1: tx - sideSign * (hw - 0.4), x2: tx + sideSign * (hw - 0.4), z: rampZ1, w: 2.1, y1: 5.4, y2: 9.4, axis: 'x', mat: 'wood_plank' };
+            const r2 = { x1: tx + sideSign * (hw - 0.4), x2: tx - sideSign * (hw - 0.4), z: rampZ1 - 2.1, w: 2.1, y1: 9.4, y2: 13.4, axis: 'x', mat: 'wood_plank' };
+            // Connecting landings flush with Level 1 (entry), Level 2 (9.4m), and Level 3 (13.4m)
+            const innerX = tx - sideSign * hw;
+            const outerX = tx + sideSign * hw;
+            this._addTdBox(scene, Math.min(innerX, innerX - sideSign * 2.2), 5.0, rampZ1 - 1.2, Math.max(innerX, innerX - sideSign * 2.2), 5.4, tz + 1.0, 'wood_plank');
+            this._addTdBox(scene, Math.min(outerX - 1.4, outerX + 1.4), 9.0, rampZ1 - 3.2, Math.max(outerX - 1.4, outerX + 1.4), 9.4, tz - hw + 0.5, 'wood_plank');
+            this._addTdBox(scene, Math.min(innerX - 1.4, innerX + 1.4), 13.0, rampZ1 - 3.2, Math.max(innerX - 1.4, innerX + 1.4), 13.4, tz - hw + 0.5, 'wood_plank');
+            for (const rr of [r1, r2]) {
                 this.ramps.push(rr);
                 this._buildRampMesh(scene, rr);
             }
 
-            // 5 Fast-Zip Cyan Jump Pads at Keep Deck (5.4m) -> 9.4m, 13.4m, 17.4m (Arrow Gun), 21.4m (Tower Turret), 25.4m (Apex Spire!)
-            const padDefs = [
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 2.4, destY: 9.45, tag: `${label} — DECK 2 (9m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz - 1.2, destY: 13.45, tag: `${label} — BALCONY (13m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 0.0, destY: 17.45, tag: `${label} — ARROW GUN (17m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 1.2, destY: 21.45, tag: `${label} — SKY TURRET (21m)` },
-                { px: tx - sideSign * 1.4, py: 5.4, pz: tz + 2.4, destY: 25.45, tag: `${label} — APEX SPIRE (25m)` }
-            ];
-            for (const pd of padDefs) {
-                const padMesh = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.48, 0.56, 0.14, 14),
-                    new THREE.MeshBasicMaterial({ color: pd.destY > 24 ? 0xfde047 : 0x38bdf8 })
+            // 2. GLOWING SKY-LIFT ELEVATOR CONSOLE ON EVERY SINGLE FLOOR (5.4m, 9.4m, 13.4m, 17.4m, 21.4m, 25.4m)!
+            //    Standing at ANY Sky-Lift Pad and pressing [E] lets you pick ANY floor (1-6) with a smooth zip-launch!
+            const liftFloors = levels.map((ly, idx) => ({
+                floorIndex: idx,
+                name: levelNames[idx],
+                destX: tx,
+                destY: ly + 0.08,
+                destZ: tz + 0.6
+            }));
+
+            for (let li = 0; li < levels.length; li++) {
+                const y = levels[li];
+                // Level 1 lift pad sits RIGHT OUTSIDE the tower entrance on the Keep Deck so it's impossible to miss!
+                const padX = li === 0 ? (tx - sideSign * (hw + 0.9)) : (tx - sideSign * (hw - 1.1));
+                const padZ = li === 0 ? tz : (tz + 1.4);
+
+                const padBase = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.95, 1.1, 0.16, 18),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 })
                 );
-                padMesh.position.set(pd.px, pd.py + 0.08, pd.pz);
-                scene.add(padMesh);
-                const ring = new THREE.Mesh(
-                    new THREE.TorusGeometry(0.58, 0.04, 6, 18),
-                    new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                padBase.position.set(padX, y + 0.08, padZ);
+                scene.add(padBase);
+
+                const padRing = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.92, 0.07, 8, 24),
+                    new THREE.MeshBasicMaterial({ color: li === 0 ? 0x38bdf8 : 0xfde047 })
                 );
-                ring.rotation.x = Math.PI * 0.5;
-                ring.position.set(pd.px, pd.py + 0.22, pd.pz);
-                scene.add(ring);
+                padRing.rotation.x = Math.PI * 0.5;
+                padRing.position.set(padX, y + 0.22, padZ);
+                scene.add(padRing);
+
+                // Vertical light beam guide on Level 1 pad so players immediately spot the Sniper Tower Lift!
+                if (li === 0) {
+                    const beam = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.18, 0.55, 5.2, 12, 1, true),
+                        new THREE.MeshBasicMaterial({ color: accentHex, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+                    );
+                    beam.position.set(padX, y + 2.7, padZ);
+                    scene.add(beam);
+                }
+
                 this.interactives.push({
-                    type: 'td_jump_pad',
-                    id: `jp_${pd.tag}`,
-                    label: pd.tag,
-                    x: pd.px, y: pd.py + 0.6, z: pd.pz,
-                    destX: tx, destY: pd.destY, destZ: tz,
-                    radius: 1.45
+                    type: 'td_tower_lift',
+                    id: `lift_${label}_f${li}`,
+                    towerLabel: label,
+                    currentFloor: li,
+                    floors: liftFloors,
+                    x: padX, y: y + 0.9, z: padZ,
+                    radius: 2.6
                 });
             }
+        }
+
+        _buildTdKeepBrazier(scene, x, y, z) {
+            const g = new THREE.Group();
+            g.position.set(x, y, z);
+            const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 1.05, 8), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.4 }));
+            stand.position.y = 0.525;
+            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.22, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85 }));
+            bowl.position.y = 1.12;
+            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.58, 7), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+            flame.position.y = 1.48;
+            g.add(stand, bowl, flame);
+            scene.add(g);
+            this.fireFlames.push(flame);
+        }
+
+        _buildTdDistrictSign(scene, x, y, z, rotY, text, hexStr) {
+            const g = new THREE.Group();
+            g.position.set(x, y, z);
+            g.rotation.y = rotY;
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.82, 0.12), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 }));
+            const face = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.2, 0.68),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture(text, hexStr), side: THREE.DoubleSide })
+            );
+            face.position.z = 0.07;
+            g.add(frame, face);
+            scene.add(g);
         }
 
         _buildTdProps(scene) {
             const m = this.mapData;
             const isAll360 = m.castleSetup === 'all';
+            const isFront = m.castleSetup === 'front';
             const keepY = 5.4;
 
-            // 1. TWO MULTI-HEIGHT SNIPING TOWERS AT THE BASE (Left & Right Flanks!)
+            // 1. TWO FULLY ACCESSIBLE 6-TIER SNIPING TOWERS AT THE BASE (West & East Flanks!)
             if (isAll360) {
-                // Bridge walkways from Central Keep (x: -7.5..7.5) out to West & East Sniping Towers
-                this._addTdBox(scene, -11.5, 5.0, -2.0, -7.5, 5.4, 2.0, 'castle_battlement');
-                this._addTdBox(scene, 7.5, 5.0, -2.0, 11.5, 5.4, 2.0, 'castle_battlement');
-                this._buildTdSnipingTower(scene, -14.5, 0, -1, 'WEST SNIPER TOWER');
-                this._buildTdSnipingTower(scene, 14.5, 0, 1, 'EAST SNIPER TOWER');
+                // Wide lit stone bridges from Central Keep (x: -7.5..7.5) directly to both Sniper Towers!
+                this._addTdBox(scene, -11.5, 5.0, -2.2, -7.5, 5.4, 2.2, 'castle_battlement');
+                this._addTdBox(scene, 7.5, 5.0, -2.2, 11.5, 5.4, 2.2, 'castle_battlement');
+                this._buildTdSnipingTower(scene, -14.8, 0, -1, 'WEST SNIPER TOWER');
+                this._buildTdSnipingTower(scene, 14.8, 0, 1, 'EAST SNIPER TOWER');
             } else {
-                const towerX = m.castleSetup === 'front' ? 19.5 : 14.2;
+                const towerX = isFront ? 19.2 : 14.8;
                 const towerZ = 14.0;
                 if (m.castleSetup === 'front_sides') {
-                    // Connect Keep (x:-11..11) to both Sniping Towers seamlessly
-                    this._addTdBox(scene, -14.2, 5.0, 10.5, -10.8, 5.4, 17.5, 'castle_battlement');
-                    this._addTdBox(scene, 10.8, 5.0, 10.5, 14.2, 5.4, 17.5, 'castle_battlement');
+                    // Wide seamless stone bridges from Castle 2 Keep (x: -11..11) to both Sniper Towers!
+                    this._addTdBox(scene, -14.8, 5.0, 10.4, -10.8, 5.4, 17.6, 'castle_battlement');
+                    this._addTdBox(scene, 10.8, 5.0, 10.4, 14.8, 5.4, 17.6, 'castle_battlement');
                 }
                 this._buildTdSnipingTower(scene, -towerX, towerZ, -1, 'WEST SNIPER TOWER');
                 this._buildTdSnipingTower(scene, towerX, towerZ, 1, 'EAST SNIPER TOWER');
             }
 
-            // 2. PACK-A-PUNCH MACHINE ON CASTLE KEEP
+            // 1B. ARCHITECTURAL POLISH: Royal Carpet Runner, Front Parapet Braziers & Heart Shrine Dais!
+            if (!isAll360) {
+                // Crimson royal carpet runner down the center command aisle (clear sightline!)
+                const carpet = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.6, 0.03, 11.6),
+                    new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 })
+                );
+                carpet.position.set(0, keepY + 0.015, 13.6);
+                const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.035, 11.6), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+                trimL.position.set(-1.28, keepY + 0.018, 13.6);
+                const trimR = trimL.clone(); trimR.position.x = 1.28;
+                scene.add(carpet, trimL, trimR);
+
+                // Warm flickering torch braziers framing the front battlements & stairs
+                this._buildTdKeepBrazier(scene, -3.8, keepY, 7.2);
+                this._buildTdKeepBrazier(scene, 3.8, keepY, 7.2);
+                this._buildTdKeepBrazier(scene, isFront ? -12.5 : -9.5, keepY, 7.2);
+                this._buildTdKeepBrazier(scene, isFront ? 12.5 : 9.5, keepY, 7.2);
+
+                // Ceremonial Heart Shrine Corner Pillars around the Castle Heart
+                const hz = m.castleHeart ? m.castleHeart.z : 19.6;
+                for (const [px, pz] of [[-2.4, hz - 1.8], [2.4, hz - 1.8], [-2.4, hz + 1.8], [2.4, hz + 1.8]]) {
+                    const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 3.6, 10), BO.Textures.getWorldMaterial('castle_stone', 1, 2));
+                    pil.position.set(px, keepY + 1.8, pz);
+                    const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                    cap.position.set(px, keepY + 3.8, pz);
+                    scene.add(pil, cap);
+                }
+            } else {
+                // 360 Keep corner torch braziers
+                for (const [bx, bz] of [[-5.8, -5.2], [5.8, -5.2], [-5.8, 5.2], [5.8, 5.2]]) {
+                    this._buildTdKeepBrazier(scene, bx, keepY, bz);
+                }
+            }
+
+            // ================================================================
+            // 2. WEST WING — "ARMORY & UPGRADE PLAZA"
+            //    Pack-a-Punch, Attachment Workbench, Custom Class Armory, Mystery Box
+            // ================================================================
+            const wx = isAll360 ? -5.6 : (isFront ? -11.5 : -8.4);
+            if (!isAll360) {
+                this._buildTdDistrictSign(scene, wx, keepY + 3.4, 14.0, Math.PI * 0.5, 'ARMORY PLAZA', '#38bdf8');
+            }
+
+            // 2A. PACK-A-PUNCH FORGE
             const papPos = isAll360
-                ? { x: -4.8, y: keepY, z: 2.8, rotY: Math.PI * 0.5 }
-                : { x: -5.5, y: keepY, z: 12.5, rotY: Math.PI * 0.4 };
+                ? { x: -5.2, y: keepY, z: -3.2, rotY: Math.PI * 0.5 }
+                : { x: wx, y: keepY, z: 10.0, rotY: Math.PI * 0.5 };
             this._spawnPaPMachine(papPos);
 
-            // 3. GUNSMITH ATTACHMENT WORKBENCH STATION ON CASTLE KEEP
+            // 2B. GUNSMITH ATTACHMENT WORKBENCH STATION
             const attPos = isAll360
-                ? { x: 4.8, y: keepY, z: -2.8, rotY: -Math.PI * 0.5 }
-                : { x: -5.5, y: keepY, z: 17.8, rotY: Math.PI * 0.25 };
+                ? { x: -5.2, y: keepY, z: 3.2, rotY: Math.PI * 0.5 }
+                : { x: wx, y: keepY, z: 13.8, rotY: Math.PI * 0.5 };
             const ag = new THREE.Group();
             ag.position.set(attPos.x, attPos.y, attPos.z);
             ag.rotation.y = attPos.rotY;
             const bench = new THREE.Mesh(
-                new THREE.BoxGeometry(1.9, 1.05, 0.95),
+                new THREE.BoxGeometry(2.0, 1.05, 0.95),
                 new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.75 })
             );
             bench.position.y = 0.525;
             const holo = new THREE.Mesh(
-                new THREE.BoxGeometry(1.6, 0.55, 0.08),
+                new THREE.BoxGeometry(1.7, 0.55, 0.08),
                 new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ATTACHMENTS', '#38bdf8') })
             );
             holo.position.set(0, 1.55, -0.25);
             const strip = new THREE.Mesh(
-                new THREE.BoxGeometry(1.8, 0.08, 0.85),
+                new THREE.BoxGeometry(1.9, 0.08, 0.85),
                 new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
             );
             strip.position.y = 1.08;
@@ -737,10 +857,39 @@
                 radius: 2.6
             });
 
-            // 4. MYSTERY BOX ON CASTLE KEEP
+            // 2C. PAY-TO-USE CUSTOM CLASS ARMORY LOCKER
+            const ccPos = isAll360
+                ? { x: 5.2, y: keepY, z: -3.2, rotY: -Math.PI * 0.5 }
+                : { x: wx, y: keepY, z: 17.6, rotY: Math.PI * 0.5 };
+            const ccG = new THREE.Group();
+            ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
+            ccG.rotation.y = ccPos.rotY;
+            const locker = new THREE.Mesh(
+                new THREE.BoxGeometry(2.1, 2.2, 0.85),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.3 })
+            );
+            locker.position.y = 1.1;
+            const ccSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.85, 0.6),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('CUSTOM CLASS', '#fde047') })
+            );
+            ccSign.position.set(0, 1.8, 0.44);
+            const ccGlow = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.88), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            ccGlow.position.y = 2.22;
+            ccG.add(locker, ccSign, ccGlow);
+            scene.add(ccG);
+            this.worldMeshes.push(locker);
+            this.interactives.push({
+                type: 'td_custom_class_station',
+                id: 'td_custom_class_station',
+                x: ccPos.x, y: ccPos.y + 1.1, z: ccPos.z,
+                radius: 2.6
+            });
+
+            // 2D. MYSTERY BOX (West Front Wing)
             const boxPos = isAll360
-                ? { x: -4.8, y: keepY, z: -2.8, rotY: Math.PI * 0.5 }
-                : { x: 5.5, y: keepY, z: 17.8, rotY: -Math.PI * 0.25 };
+                ? { x: -3.8, y: keepY, z: 5.2, rotY: Math.PI }
+                : { x: isFront ? -6.2 : -5.4, y: keepY, z: 18.8, rotY: Math.PI };
             this.mapData.mysteryBoxPads = [boxPos];
             const boxGroup = new THREE.Group();
             boxGroup.position.set(boxPos.x, boxPos.y, boxPos.z);
@@ -785,10 +934,47 @@
             };
             this.interactives.push(this.mysteryBoxObj);
 
-            // 5. CASTLE OVERDRIVE WAR GONG (Placed off center sightline so spawn aim is 100% clear!)
+            // ================================================================
+            // 3. EAST WING — "MERCHANT & PERK EMPORIUM"
+            //    Shopkeeper Pavilion, Master All-14 Perk Kiosk, Overdrive War Gong
+            // ================================================================
+            const ex = isAll360 ? 5.6 : (isFront ? 11.5 : 8.4);
+            if (!isAll360) {
+                this._buildTdDistrictSign(scene, ex, keepY + 3.4, 14.0, -Math.PI * 0.5, 'SHOP & PERKS', '#22c55e');
+            }
+
+            // 3A. WUNDERFIZZ MASTER PERK KIOSK (One-Stop Vending Kiosk for ALL 14 Perks — Max 8 Equipped!)
+            const pkKioskPos = isAll360
+                ? { x: 5.2, y: keepY, z: 3.2, rotY: -Math.PI * 0.5 }
+                : { x: ex, y: keepY, z: 14.8, rotY: -Math.PI * 0.5 };
+            const pkG = new THREE.Group();
+            pkG.position.set(pkKioskPos.x, pkKioskPos.y, pkKioskPos.z);
+            pkG.rotation.y = pkKioskPos.rotY;
+            const pkBody = new THREE.Mesh(
+                new THREE.BoxGeometry(1.75, 2.5, 0.95),
+                new THREE.MeshStandardMaterial({ color: 0x1e1b4b, metalness: 0.72, roughness: 0.25 })
+            );
+            pkBody.position.y = 1.25;
+            const pkScreen = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.45, 0.95),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ALL 14 PERKS', '#c084fc') })
+            );
+            pkScreen.position.set(0, 1.85, 0.49);
+            const pkTrim = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.12, 1.0), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
+            pkTrim.position.y = 2.55;
+            pkG.add(pkBody, pkScreen, pkTrim);
+            scene.add(pkG);
+            this.interactives.push({
+                type: 'td_perk_kiosk',
+                id: 'td_perk_kiosk',
+                x: pkKioskPos.x, y: pkKioskPos.y + 1.2, z: pkKioskPos.z,
+                radius: 2.8
+            });
+
+            // 3B. CASTLE OVERDRIVE WAR GONG (East Flank Ceremonial Arch — clear of center sightline!)
             const gongPos = isAll360
-                ? { x: 4.8, y: keepY, z: 0.0 }
-                : { x: -8.5, y: keepY, z: 10.2 };
+                ? { x: 3.8, y: keepY, z: 5.2 }
+                : { x: isFront ? 6.2 : 5.4, y: keepY, z: 18.8 };
             const gongG = new THREE.Group();
             gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
             const disc = new THREE.Mesh(
@@ -809,45 +995,12 @@
                 type: 'td_overdrive_gong',
                 id: 'td_overdrive_gong',
                 x: gongPos.x, y: gongPos.y + 1.2, z: gongPos.z,
-                radius: 2.3
+                radius: 2.5
             });
 
-            // 5B. PAY-TO-USE CUSTOM CLASS ARMORY STATION ON CASTLE KEEP (Placed on East Flank, clear of spawn!)
-            const ccPos = isAll360
-                ? { x: -4.8, y: keepY, z: 0.0, rotY: Math.PI * 0.5 }
-                : { x: 8.5, y: keepY, z: 15.5, rotY: -Math.PI * 0.5 };
-            const ccG = new THREE.Group();
-            ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
-            ccG.rotation.y = ccPos.rotY;
-            const locker = new THREE.Mesh(
-                new THREE.BoxGeometry(2.1, 2.2, 0.85),
-                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.3 })
-            );
-            locker.position.y = 1.1;
-            const ccSign = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.85, 0.6),
-                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('CUSTOM CLASS', '#fde047') })
-            );
-            ccSign.position.set(0, 1.8, 0.44);
-            const ccGlow = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.88), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
-            ccGlow.position.y = 2.22;
-            ccG.add(locker, ccSign, ccGlow);
-            scene.add(ccG);
-            this.worldMeshes.push(locker);
-            this.colliders.push({
-                minX: ccPos.x - 0.6, maxX: ccPos.x + 0.6,
-                minY: ccPos.y, maxY: ccPos.y + 2.3,
-                minZ: ccPos.z - 1.05, maxZ: ccPos.z + 1.05,
-                active: true
-            });
-            this.interactives.push({
-                type: 'td_custom_class_station',
-                id: 'td_custom_class_station',
-                x: ccPos.x, y: ccPos.y + 1.1, z: ccPos.z,
-                radius: 2.6
-            });
-
-            // 6. ALL 14 PERK MACHINES (6 OG + 8 BRAND-NEW PERKS • MAX 8 EQUIPPED AT ONCE)
+            // ================================================================
+            // 4. HALL OF PERKS COLONNADE (6 Iconic Physical OG Perk Machines + All 14 available at Master Perk Kiosk!)
+            // ================================================================
             const ALL_14_PERKS = [
                 // 6 OG Perks
                 { id: 'juggernog', name: 'Juggernog', cost: 2000, color: '#ef4444', desc: '250 Max HP (+150 HP)' },
@@ -866,31 +1019,15 @@
                 { id: 'golden_armor', name: 'Aegis Brew', cost: 2200, color: '#fde047', desc: '+100 Max Armor & Auto Armor Regen' },
                 { id: 'eagle_eye', name: 'Eagle Eye Brew', cost: 1700, color: '#60a5fa', desc: '+35% Long-Range/Sniper DMG & +25% Jump' }
             ];
+            this.tdAllPerks = ALL_14_PERKS;
 
-            // Place all 14 perk machines cleanly along the Castle Keep perimeter & wings!
-            for (let i = 0; i < ALL_14_PERKS.length; i++) {
-                const pk = ALL_14_PERKS[i];
-                let px, py = keepY, pz, rotY = 0;
-                if (isAll360) {
-                    // Place 7 along West Tower Deck & 7 along East Tower Deck / Keep perimeter
-                    if (i < 7) {
-                        px = -6.4;
-                        pz = -4.5 + i * 1.5;
-                        rotY = Math.PI * 0.5;
-                    } else {
-                        px = 6.4;
-                        pz = -4.5 + (i - 7) * 1.5;
-                        rotY = -Math.PI * 0.5;
-                    }
-                } else {
-                    // Back Wall Perk Gallery (x: -10.5..+10.5 along z=22.0) — all 14 easily walkable!
-                    const spacing = m.castleSetup === 'front' ? 2.6 : 1.5;
-                    const startX = -((ALL_14_PERKS.length - 1) * spacing) * 0.5;
-                    px = startX + i * spacing;
-                    pz = 21.8;
-                    rotY = Math.PI;
+            // Place the 6 iconic OG physical perk machines spaciously along the rear colonnade (all 14 are also in the Master Perk Kiosk!)
+            if (!isAll360) {
+                const rearXs = isFront ? [-14.0, -10.5, -7.0, 7.0, 10.5, 14.0] : [-9.5, -7.2, -4.9, 4.9, 7.2, 9.5];
+                for (let i = 0; i < 6; i++) {
+                    const pk = ALL_14_PERKS[i];
+                    this._spawnPerkMachine(Object.assign({}, pk, { x: rearXs[i], y: keepY, z: 22.0, rotY: Math.PI, requiresPower: false }));
                 }
-                this._spawnPerkMachine(Object.assign({}, pk, { x: px, y: py, z: pz, rotY, requiresPower: false }));
             }
         }
 

@@ -2555,9 +2555,9 @@
             sunColor: 0xfca5a5, sunIntensity: 1.25, sunPos: [25, 60, -70],
             hemiSky: 0x64748b, hemiGround: 0x1c1917, hemiIntensity: 0.72, moon: true
         },
-        playerSpawn: { x: 0, y: 5.4, z: 13.5, yaw: 0 },
-        castleHeart: { x: 0, y: 5.4, z: 19.0 },
-        shopkeeperPos: { x: 5.5, y: 5.4, z: 12.5, rotY: -Math.PI * 0.4 },
+        playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
+        castleHeart: { x: 0, y: 5.4, z: 19.8 },
+        shopkeeperPos: { x: 9.2, y: 5.4, z: 11.5, rotY: -Math.PI * 0.5 },
         turretPads: [
             { x: -5.5, y: 5.4, z: 7.5 },
             { x: 5.5, y: 5.4, z: 7.5 },
@@ -2646,9 +2646,9 @@
             sunColor: 0xfb923c, sunIntensity: 1.35, sunPos: [-40, 62, -60],
             hemiSky: 0xf97316, hemiGround: 0x1c1412, hemiIntensity: 0.72, moon: true
         },
-        playerSpawn: { x: 0, y: 5.4, z: 13.0, yaw: 0 },
-        castleHeart: { x: 0, y: 5.4, z: 18.5 },
-        shopkeeperPos: { x: 5.5, y: 5.4, z: 12.0, rotY: -Math.PI * 0.4 },
+        playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
+        castleHeart: { x: 0, y: 5.4, z: 19.6 },
+        shopkeeperPos: { x: 7.4, y: 5.4, z: 10.2, rotY: -Math.PI * 0.45 },
         turretPads: [
             { x: -5.5, y: 5.4, z: 7.5 }, { x: 5.5, y: 5.4, z: 7.5 },
             { x: -16.0, y: 0, z: -18.0 }, { x: 16.0, y: 0, z: -18.0 },
@@ -2697,8 +2697,10 @@
             boxMM(-3.2, 0, 7.6, 3.2, 5.4, 23.0, 'castle_stone'),
             boxMM(-11.0, 5.4, 6.2, -3.3, 6.45, 6.8, 'castle_battlement'),
             boxMM(3.3, 5.4, 6.2, 11.0, 6.45, 6.8, 'castle_battlement'),
-            boxMM(-11.0, 5.4, 6.2, -10.4, 6.45, 23.0, 'castle_battlement'),
-            boxMM(10.4, 5.4, 6.2, 11.0, 6.45, 23.0, 'castle_battlement'),
+            boxMM(-11.0, 5.4, 6.2, -10.4, 6.45, 10.4, 'castle_battlement'),
+            boxMM(-11.0, 5.4, 17.6, -10.4, 6.45, 23.0, 'castle_battlement'),
+            boxMM(10.4, 5.4, 6.2, 11.0, 6.45, 10.4, 'castle_battlement'),
+            boxMM(10.4, 5.4, 17.6, 11.0, 6.45, 23.0, 'castle_battlement'),
             // Courtyard cover
             boxMM(-28, 0, -24, -24, 1.35, -21, 'wood_crate'),
             boxMM(24, 0, -24, 28, 1.35, -21, 'wood_crate'),
@@ -2796,8 +2798,10 @@
             boxMM(2.8, 5.4, -6.5, 7.5, 6.45, -5.9, 'castle_battlement'),
             boxMM(-7.5, 5.4, 5.9, -2.8, 6.45, 6.5, 'castle_battlement'),
             boxMM(2.8, 5.4, 5.9, 7.5, 6.45, 6.5, 'castle_battlement'),
-            boxMM(-7.5, 5.4, -6.5, -6.9, 6.45, 6.5, 'castle_battlement'),
-            boxMM(6.9, 5.4, -6.5, 7.5, 6.45, 6.5, 'castle_battlement')
+            boxMM(-7.5, 5.4, -6.5, -6.9, 6.45, -2.2, 'castle_battlement'),
+            boxMM(-7.5, 5.4, 2.2, -6.9, 6.45, 6.5, 'castle_battlement'),
+            boxMM(6.9, 5.4, -6.5, 7.5, 6.45, -2.2, 'castle_battlement'),
+            boxMM(6.9, 5.4, 2.2, 7.5, 6.45, 6.5, 'castle_battlement')
         ],
         lights: [
             { x: 0, y: 8.5, z: 0, color: 0xf43f5e, intensity: 2.1, distance: 40, alwaysOn: true },
