@@ -2738,7 +2738,7 @@
             sunColor: 0xf87171, sunIntensity: 1.30, sunPos: [45, 68, -45],
             hemiSky: 0x991b1b, hemiGround: 0x181416, hemiIntensity: 0.72, moon: true
         },
-        playerSpawn: { x: 0, y: 5.4, z: 2.8, yaw: 0 },
+        playerSpawn: { x: -2.4, y: 5.4, z: 2.8, yaw: 0 },
         castleHeart: { x: 0, y: 5.4, z: -1.8 },
         shopkeeperPos: { x: 4.8, y: 5.4, z: 2.8, rotY: -Math.PI * 0.5 },
         turretPads: [

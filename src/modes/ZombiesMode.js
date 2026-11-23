@@ -559,7 +559,8 @@
                 if (cc.disHalfDamage) modDmg *= 0.5;
             }
             const isMelee = weaponInst && (weaponInst.id === 'knife' || weaponInst.stats?.kind === 'melee');
-            if (this.modifiers.sniperHeaven && weaponInst?.stats && (weaponInst.stats.category === 'sniper' || weaponInst.stats.category === 'marksman')) {
+            const wCatZ = (weaponInst?.stats?.category ? String(weaponInst.stats.category).toLowerCase() : '');
+            if (this.modifiers.sniperHeaven && (wCatZ.includes('sniper') || wCatZ.includes('marksman'))) {
                 modDmg *= 2.5;
             }
             if (this.modifiers.meleeMayhem && isMelee) {

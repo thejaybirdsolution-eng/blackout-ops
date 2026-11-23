@@ -2527,13 +2527,14 @@
             if (!body || !w) return;
             if (sub) sub.textContent = `Active Weapon: ${w.stats.name} — Click any attachment below to equip or unequip immediately!`;
 
+            const atts = BO.AttachmentsData.ATTACHMENTS || {};
             const slots = [
-                { key: 'optic', label: 'OPTIC / SIGHT', list: Object.values(BO.AttachmentsData.OPTICS || {}) },
-                { key: 'muzzle', label: 'MUZZLE', list: Object.values(BO.AttachmentsData.MUZZLES || {}) },
-                { key: 'underbarrel', label: 'UNDERBARREL', list: Object.values(BO.AttachmentsData.UNDERBARRELS || {}) },
-                { key: 'magazine', label: 'MAGAZINE', list: Object.values(BO.AttachmentsData.MAGAZINES || {}) },
-                { key: 'stock', label: 'STOCK / GRIP', list: Object.values(BO.AttachmentsData.STOCKS || {}) },
-                { key: 'camo', label: 'WEAPON CAMO', list: Object.values(BO.AttachmentsData.CAMOS || {}) }
+                { key: 'optic', label: 'OPTIC / SIGHT', list: atts.optic || [] },
+                { key: 'muzzle', label: 'MUZZLE', list: atts.muzzle || [] },
+                { key: 'underbarrel', label: 'UNDERBARREL', list: atts.underbarrel || [] },
+                { key: 'magazine', label: 'MAGAZINE', list: atts.magazine || [] },
+                { key: 'stock', label: 'STOCK / GRIP', list: atts.stock || [] },
+                { key: 'camo', label: 'WEAPON CAMO', list: Array.isArray(BO.AttachmentsData.CAMOS) ? BO.AttachmentsData.CAMOS : Object.values(BO.AttachmentsData.CAMOS || {}) }
             ];
 
             body.innerHTML = slots.map((sl) => {

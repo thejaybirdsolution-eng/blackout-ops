@@ -278,8 +278,8 @@
                 dot.position.set(0, topY + 0.031, -0.02);
                 gun.add(base, hood, sideL, sideR, ring, dot);
                 sightY = topY + 0.031;
-            } else if (optic === 'acog' || optic === 'sniper_scope') {
-                const isSniper = optic === 'sniper_scope';
+            } else if (optic === 'acog' || optic === 'sniper_scope' || optic === 'var_zoom_20x' || optic === 'thermal_holo' || optic === 'apex_hybrid') {
+                const isSniper = (optic === 'sniper_scope' || optic === 'var_zoom_20x');
                 const len = isSniper ? 0.22 : 0.115;
                 const rad = isSniper ? 0.022 : 0.019;
                 const scopeMat = new THREE.MeshStandardMaterial({

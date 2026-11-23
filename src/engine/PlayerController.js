@@ -273,7 +273,7 @@
             this.weapons = [];
             if (cls.primary) this.weapons.push(this._createWeaponInstance(BO.Math.deepClone(cls.primary), 0));
             if (cls.secondary) this.weapons.push(this._createWeaponInstance(BO.Math.deepClone(cls.secondary), 0));
-            this.activeWeaponIndex = 0;
+            this.activeSlot = 0;
             this.reloading = false;
             this.reloadTimer = 0;
             this.scopeZoom = 4.0;

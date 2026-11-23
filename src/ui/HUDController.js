@@ -539,18 +539,7 @@
                 const td = BO.TowerDefenseMode;
                 if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
                 if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
-                if (this.elBossWrap) {
-                    const tdBoss = td.zombies.find((z) => z.alive && z.isBoss);
-                    if (tdBoss) {
-                        this.elBossWrap.classList.remove('hidden');
-                        this.elBossName.textContent = `${tdBoss.spec.name} — ${(tdBoss.spec.title || 'BOSS').toUpperCase()}`;
-                        this.elBossHp.textContent = `${Math.ceil(tdBoss.hp)} / ${tdBoss.maxHp} HP`;
-                        this.elBossFill.style.width = BO.Math.clamp((tdBoss.hp / Math.max(1, tdBoss.maxHp)) * 100, 0, 100) + '%';
-                        this.elBossWeak.textContent = tdBoss.spec.weaknessText || '';
-                    } else {
-                        this.elBossWrap.classList.add('hidden');
-                    }
-                }
+                if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
                 if (this.elMpScore) this.elMpScore.classList.add('hidden');
                 if (this.elKsDock) this.elKsDock.classList.add('hidden');
 

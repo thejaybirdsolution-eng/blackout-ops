@@ -119,7 +119,7 @@
             let adsTime = base.adsTime;
             const opticId = (atts && atts.optic) ? atts.optic : (base.isSniperScope ? 'sniper_scope' : 'iron');
             let adsFov = base.adsFov;
-            if (base.isSniperScope && opticId !== 'sniper_scope') {
+            if (base.isSniperScope && opticId !== 'sniper_scope' && opticId !== 'var_zoom_20x') {
                 // Non-sniper optics on sniper rifles replace the sniper zoom with standard optic FOV & snappy ADS!
                 adsFov = 62;
                 const snappyMap = { iron: 0.78, reflex: 0.82, holo: 0.86, acog: 0.92 };

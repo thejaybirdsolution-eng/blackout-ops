@@ -789,10 +789,10 @@
             };
             this.interactives.push(this.mysteryBoxObj);
 
-            // 5. CASTLE OVERDRIVE WAR GONG (Fun Interactive Extra!)
+            // 5. CASTLE OVERDRIVE WAR GONG (Placed off center sightline so spawn aim is 100% clear!)
             const gongPos = isAll360
-                ? { x: 0, y: keepY, z: 3.8 }
-                : { x: 0, y: keepY, z: 10.2 };
+                ? { x: 4.8, y: keepY, z: 0.0 }
+                : { x: -8.5, y: keepY, z: 10.2 };
             const gongG = new THREE.Group();
             gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
             const disc = new THREE.Mesh(
@@ -816,10 +816,10 @@
                 radius: 2.3
             });
 
-            // 5B. PAY-TO-USE CUSTOM CLASS ARMORY STATION ON CASTLE KEEP!
+            // 5B. PAY-TO-USE CUSTOM CLASS ARMORY STATION ON CASTLE KEEP (Placed on East Flank, clear of spawn!)
             const ccPos = isAll360
-                ? { x: 0, y: keepY, z: -4.2, rotY: 0 }
-                : { x: 0, y: keepY, z: 15.2, rotY: Math.PI };
+                ? { x: -4.8, y: keepY, z: 0.0, rotY: Math.PI * 0.5 }
+                : { x: 8.5, y: keepY, z: 15.5, rotY: -Math.PI * 0.5 };
             const ccG = new THREE.Group();
             ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
             ccG.rotation.y = ccPos.rotY;
@@ -838,6 +838,12 @@
             ccG.add(locker, ccSign, ccGlow);
             scene.add(ccG);
             this.worldMeshes.push(locker);
+            this.colliders.push({
+                minX: ccPos.x - 0.6, maxX: ccPos.x + 0.6,
+                minY: ccPos.y, maxY: ccPos.y + 2.3,
+                minZ: ccPos.z - 1.05, maxZ: ccPos.z + 1.05,
+                active: true
+            });
             this.interactives.push({
                 type: 'td_custom_class_station',
                 id: 'td_custom_class_station',

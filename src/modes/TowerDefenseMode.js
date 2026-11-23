@@ -1020,7 +1020,8 @@
                 return false;
             }
             let finalDmg = dmg;
-            if (this.modifiers.sniperHeaven && weaponInst && weaponInst.stats && (weaponInst.stats.category === 'sniper' || weaponInst.stats.category === 'marksman')) {
+            const wCat = (weaponInst && weaponInst.stats && weaponInst.stats.category ? String(weaponInst.stats.category).toLowerCase() : '');
+            if (this.modifiers.sniperHeaven && (wCat.includes('sniper') || wCat.includes('marksman'))) {
                 finalDmg = Math.round(finalDmg * 2.5);
             }
             const isMelee = weaponInst && weaponInst.stats && weaponInst.stats.kind === 'melee';
@@ -1170,10 +1171,14 @@
                         BO.Sound.playShopBuy();
                         BO.Events.emit('hud:toast', { text: `🔫 ${inter.label} UPGRADED TO LVL ${existing.level} (${existing.damage} DMG)!`, color: '#38bdf8' });
                     } else {
-                        const tm = BO.CharacterMesh.buildSentryTurret();
-                        tm.root.position.set(inter.x, inter.y - 0.6, inter.z);
-                        BO.World.scene.add(tm.root);
-                        const tObj = { x: inter.x, y: inter.y - 0.6, z: inter.z, mesh: tm.root, headGroup: tm.headGroup, damage: 72, interval: 0.16, cooldown: 0, level: 1 };
+                        const tObj = inter.turretObj
+                            ? Object.assign(inter.turretObj, { damage: 75, interval: 0.16, cooldown: 0, level: 1 })
+                            : (() => {
+                                const tm = BO.CharacterMesh.buildSentryTurret();
+                                tm.root.position.set(inter.x, inter.y - 0.6, inter.z);
+                                BO.World.scene.add(tm.root);
+                                return { x: inter.x, y: inter.y - 0.6, z: inter.z, mesh: tm.root, headGroup: tm.headGroup, damage: 75, interval: 0.16, cooldown: 0, level: 1 };
+                            })();
                         this.turrets.push(tObj);
                         this.towerTurretMap[key] = tObj;
                         BO.Sound.playShopBuy();
