@@ -365,7 +365,7 @@
             const w = BO.ZoneLoot.WEAPON_POOLS[Math.min(4, g.tier + 1)];
             if (w) m.loot.dropPickup(w[Math.floor(Math.random() * w.length)], 60 + Math.round(Math.random() * 25), { x: g.x + 1, y: BO.World.getGroundHeight(g.x + 1, g.z, (g.y || 0) + 3), z: g.z }, 'PMC weapon');
             BO.Events.emit('hud:banner', { title: 'GARRISON CLEARED', sub: g.name.toUpperCase() + ' · SUPPLY CACHE DROPPED · THEY WILL BE BACK IN 4 DAYS', color: '#8fe3c8' });
-            c.save(true);
+            c.save(true, true);
         }
 
         /* ------------------------------------------------------------ rail & handcar */

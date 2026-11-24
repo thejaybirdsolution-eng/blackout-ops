@@ -609,7 +609,7 @@
                     BO.ExpansionShop.updateHud();
                     BO.SurvivalUI.updateHud();
                 } else if (!BO.State.paused && BO.SurvivalUI.open && BO.State.activeMode === 'survival' && BO.SurvivalMode.active &&
-                    !['respawn', 'briefing', 'ending'].includes(BO.SurvivalUI.section)) {
+                    !['respawn', 'briefing', 'ending', 'epilogue'].includes(BO.SurvivalUI.section)) {
                     // Real-time menus: the Zone keeps moving while you rummage through your pack.
                     BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
                     BO.World.updateAnimatedProps(dt, this.elapsed);

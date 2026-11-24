@@ -19,6 +19,7 @@
         pathfinder: { name: 'Pathfinder', level: 2, desc: 'Traversal kit: Trail Bicycle unlocked at start, +2 fuel, +1 torch, +2 cord.', items: { fuel: 2, torch: 1, cord: 2 }, vehicle: 'bike' },
         sapper: { name: 'Field Sapper', level: 4, desc: 'Engineering kit: +6 timber, +4 stone, +4 salvage, +2 wire for rapid fortifying.', items: { timber: 6, stone: 4, scrap: 4, wire: 2 } },
         alchemist: { name: 'Zone Alchemist', level: 6, desc: 'Medical & rad kit: +2 herbal dressings, +1 respirator filter, +2 filtered water, +1 Aether shard.', items: { bandage: 2, filter: 1, freshWater: 2, aetherShard: 1 } },
+        keeper: { name: 'Lantern Keeper', level: 1, unlock: 'seize', desc: 'Earned by seizing the Lantern: +2 filters, +1 trauma kit, +30 5.56 rounds, +1 thermals. The brood is slower to notice you on day 1.', items: { filter: 2, medkits: 1, ammo556: 30, thermals: 1 } },
         vanguard: { name: 'Frontier Vanguard', level: 9, desc: 'Heavy breach kit: +2 iron bars, +2 fuel, +4 salvage, +1 trauma kit, +24 pistol reserve.', items: { ingot: 2, fuel: 2, scrap: 4, medkits: 1 }, ammo: 24 }
     };
 
@@ -101,7 +102,7 @@
 
         setKit(id) {
             const kit = KITS[id];
-            if (!kit || this.level < kit.level) return false;
+            if (!kit || this.level < kit.level || !this.kitUnlocked(id)) return false;
             this.profile.kit = id;
             write(careerKey, this.profile);
             return true;
@@ -117,6 +118,17 @@
         awardCommendations(n = 1) {
             if (!n || n <= 0) return;
             this.profile.commendations += Math.round(n);
+            write(careerKey, this.profile);
+        }
+
+        kitUnlocked(id) {
+            const kit = KITS[id];
+            return !!kit && (!kit.unlock || (this.profile.unlockedKits || []).includes(id));
+        }
+
+        unlockKit(id) {
+            this.profile.unlockedKits = this.profile.unlockedKits || [];
+            if (!this.profile.unlockedKits.includes(id)) this.profile.unlockedKits.push(id);
             write(careerKey, this.profile);
         }
 

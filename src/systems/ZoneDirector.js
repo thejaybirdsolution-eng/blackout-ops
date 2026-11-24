@@ -65,7 +65,9 @@
             const speed = Math.hypot(p.vel.x, p.vel.z);
             let sight = night ? (lit ? 46 : 15) : 32;
             sight *= Math.min(1.25, stealth / 0.85);
-            const hear = p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3;
+            const fm = BO.ZoneFinale?.detectMult ?? 1;
+            sight *= fm;
+            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm;
             const smell = (c.deep?.bleeding || 0) > 0 ? 15 : 0;
             return { sight, hear, smell, night };
         }
@@ -175,7 +177,7 @@
             const p = BO.Player.pos;
             const rf = REGION_FACTOR[this.regionThreat(p.x, p.z)] || 1;
             const breather = this.tension < 0.35 ? 0.55 : this.tension > 0.8 ? 1.15 : 1;
-            return Math.max(1, Math.round(t.cap * rf * breather));
+            return Math.max(1, Math.round(t.cap * rf * breather * (BO.ZoneFinale?.spawnMult ?? 1)));
         }
 
         update(dt) {
@@ -306,8 +308,8 @@
         BOSSES,
         GUARDIANS: [
             { type: 'butcher', at: 'hollow_nest_a', minDay: 2 },
-            { type: 'stalker', at: 'pine_nest', minDay: 2 },
-            { type: 'warden', at: 'lantern', minDay: 1 }
+            { type: 'stalker', at: 'pine_nest', minDay: 2 }
+            // The Warden is raised by the finale (ZoneFinale), not as a roaming guardian.
         ],
         isBoss(type) { return !!BOSSES[type]; },
         spec(type) { const b = BOSSES[type]; return BO.ZombiesData.get(b.spec) || BO.ZombiesData.ORDERED_BOSSES?.[0]; },

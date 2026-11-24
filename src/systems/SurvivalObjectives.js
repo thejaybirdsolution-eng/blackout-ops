@@ -62,6 +62,9 @@
                 this.challenges = new Set(snapshot.challenges || []);
                 this.gateOpen = !!snapshot.gateOpen;
                 this.hasData = !!snapshot.hasData;
+                this.wardenDown = !!snapshot.wardenDown;
+                this.ending = snapshot.ending || null;
+                this.keepExploring = !!snapshot.keepExploring;
             }
             const m = this.mode;
             // Campus gate: a steel barrier across the opening in the south wall.
@@ -80,14 +83,18 @@
         }
 
         snapshot() {
-            return { step: this.step, secured: [...this.secured], nests: [...this.nests], keycards: this.keycards, challenges: [...this.challenges], gateOpen: this.gateOpen, hasData: this.hasData };
+            return { step: this.step, secured: [...this.secured], nests: [...this.nests], keycards: this.keycards, challenges: [...this.challenges], gateOpen: this.gateOpen, hasData: this.hasData,
+                wardenDown: !!this.wardenDown, ending: this.ending || null, keepExploring: !!this.keepExploring };
         }
 
         get unsafeToSave() { return false; }
 
         get objective() {
+            if (this.ending) return (BO.ZoneEndings?.[this.ending]?.title || 'The Lantern is decided').toLowerCase().replace(/^./, (ch) => ch.toUpperCase()) + ' · free roam';
             if (this.freeplay) return 'Free roam · scavenge, build and survive as long as you can.';
             const s = this.current;
+            if (s.id === 'lantern' && !this.wardenDown) return 'Reach the Lantern and defeat its Warden';
+            if (s.id === 'lantern') return 'Decide the fate of the Lantern';
             if (s.id === 'towers') return s.title + ' · ' + (this.campaign.activities?.relayCount || 0) + '/3';
             if (s.id === 'keycards') return s.title + ' · ' + this.keycards + '/3';
             return s.title;
@@ -247,10 +254,12 @@
                 return true;
             }
             if (marker.id === 'lantern') {
+                if (this.ending) { m.toast(this.ending === 'seal' ? 'The core is cold and dark.' : 'The Lantern hums at your touch.'); return true; }
                 if (this.current.id !== 'lantern' && !this.freeplay) {
                     m.toast('The Lantern hums. You do not understand it yet — the campus labs may hold the answers.');
                     return true;
                 }
+                if (!this.wardenDown) { BO.ZoneFinale.begin(); return true; }
                 BO.SurvivalUI.show('ending');
                 return true;
             }
@@ -258,9 +267,7 @@
         }
 
         decide(ending) {
-            this.step = STEPS.length - 1;
-            this.campaign.mark('ending_' + ending, 1, 600);
-            this.mode.finish(true, ending);
+            BO.ZoneFinale.decide(ending);
         }
 
         update() {

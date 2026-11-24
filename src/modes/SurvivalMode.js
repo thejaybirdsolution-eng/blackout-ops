@@ -95,6 +95,8 @@
             c.setup(checkpoint);
             BO.ZoneFrontier.start(this);
             BO.ZoneFrontier.restore(checkpoint?.frontier);
+            BO.ZoneFinale.stop();
+            BO.ZoneFinale.applySaved(c.objectives);
             BO.ZoneBuild.falling.length = 0;
             BO.ZoneBuild.restored();
             if (!checkpoint) {
@@ -113,6 +115,7 @@
             if (this.campaign) BO.ZoneBuild.end(true);
             BO.ZoneHorde?.stop();
             BO.ZoneFrontier?.stop();
+            BO.ZoneFinale?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -484,6 +487,7 @@
             BO.ZoneHorde?.update(dt);
             BO.ZoneBuild.update(dt);
             BO.ZoneFrontier.update(dt);
+            BO.ZoneFinale.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -846,11 +850,12 @@
             c.save(true);
         }
 
-        finish(victory, ending = null) {
+        finish(victory, ending = null, awarded = false) {
             this.active = false;
             BO.SurvivalUI.close();
             const c = this.campaign;
-            if (victory) {
+            if (victory && awarded) c?.mark('extracts', 1, 300);
+            else if (victory) {
                 c?.mark('extracts', 1, 300);
                 BO.SurvivalCareer.awardCommendations?.(ending ? 5 : 3);
                 BO.SurvivalCareer.bankExtraction?.(this.points);

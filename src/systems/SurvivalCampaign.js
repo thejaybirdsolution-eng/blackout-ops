@@ -581,8 +581,9 @@
             return { ...opts[0], y: BO.World.getGroundHeight(opts[0].x, opts[0].z, 80) };
         }
 
-        save(quiet = false) {
-            if (!this.canSave()) {
+        /** force: story-critical saves (endings, boss kills) that must persist even with hostiles nearby. */
+        save(quiet = false, force = false) {
+            if (!force && !this.canSave()) {
                 if (!quiet) this.mode.toast('Find a safe position before saving.');
                 return false;
             }

@@ -521,7 +521,19 @@
     for (const fn of deferred) fn();
     for (const m of markers) if (!m.y) m.y = rawFinal(m.x, m.z);
 
-    // ---- The Crater: the Lantern spire and debris.
+    // ---- The Crater: the Lantern spire, a ring of basalt monoliths (cover from its pulses) and fallen slabs.
+    for (let i = 0; i < 7; i++) {
+        const a = i / 7 * Math.PI * 2 + 0.3, r = 15 + (i % 2) * 3;
+        const x = LANTERN.x + Math.cos(a) * r, z = LANTERN.z + Math.sin(a) * r;
+        const h = 6 + (i % 3) * 1.5, y = rawFinal(x, z) - 0.5;
+        boxes.push({ x, y: y + h / 2, z, w: 2.2, h, d: 2.2, mat: 'bunker_stone' });
+    }
+    for (let i = 0; i < 5; i++) {
+        const a = i / 5 * Math.PI * 2 + 1.1, r = 27;
+        const x = LANTERN.x + Math.cos(a) * r, z = LANTERN.z + Math.sin(a) * r;
+        const y = rawFinal(x, z) - 0.3;
+        boxes.push({ x, y: y + 0.8, z, w: i % 2 ? 4.5 : 1.4, h: 1.6, d: i % 2 ? 1.4 : 4.5, mat: 'bunker_stone' });
+    }
     markers.push({ id: 'lantern', name: 'The Lantern', x: LANTERN.x, y: rawHeight(LANTERN.x, LANTERN.z), z: LANTERN.z, region: 'crater', kind: 'lantern' });
 
     /* --------------------------------------------------------------- deposits */
@@ -720,6 +732,7 @@
             z.lantern.glow.intensity = 1.8 + pulse * 1.4;
             z.lantern.spire.rotation.y = clock * 0.2;
             z.lantern.spire.material.emissiveIntensity = 0.7 + pulse * 0.5;
+            if (z.lantern.fx) z.lantern.fx(z.lantern, clock);
         }
         const blink = Math.sin(clock * 3) > 0.2;
         for (const b of z.beacons) b.visible = blink;

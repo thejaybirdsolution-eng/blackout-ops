@@ -851,3 +851,12 @@ dialog.sv-shell #bo-tooltip .bo-tip-sub { color: var(--sv-amber); }
 .svh-v.tox i b { background: linear-gradient(90deg, #a38a5c, #d8a25a); }
 .svh-v.tox.warn i b { background: linear-gradient(90deg, #d8a25a, #ff7b6b); }
 .svh-v.status.wet { color: #9fd4ff; border-color: rgba(159,212,255,0.45); }
+
+/* ---- Epilogue ---- */
+.sv-epilogue { max-width: 900px; margin: 0 auto; text-align: center; display: grid; gap: 14px; padding: 10px 0 20px; }
+.sv-epilogue h2 { margin: 0; font: 800 30px var(--font-ui, sans-serif); letter-spacing: .12em; color: var(--end); text-shadow: 0 0 24px color-mix(in srgb, var(--end) 45%, transparent); }
+.sv-epi-text { margin: 0 auto; max-width: 720px; font-size: 15px; line-height: 1.7; color: #d6e3df; }
+.sv-epi-effect { display: grid; gap: 4px; padding: 10px 16px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--end) 40%, transparent); background: rgba(255,255,255,0.03); }
+.sv-epi-effect b { color: var(--end); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.sv-epi-effect span { color: #c4d2ce; font-size: 13px; }
+.sv-epi-stats { grid-template-columns: repeat(3, 1fr) !important; }

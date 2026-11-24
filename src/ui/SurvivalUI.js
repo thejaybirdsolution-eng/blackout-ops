@@ -141,7 +141,7 @@
         { id: 'legend', label: 'Guide', bind: 'survLegend', glyph: 'rune' }
     ];
     const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'map', tech: 'skills', objectives: 'journal', record: 'journal' };
-    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'respawn', 'ending']);
+    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'respawn', 'ending', 'epilogue']);
     const STEPS = [
         ['quick', 'Quick start', 'Pick a ready-made expedition'],
         ['operation', 'Operation', 'What you are trying to do'],
@@ -684,7 +684,9 @@
                 case 'infuse': deep?.applyInfusion(arg); break;
                 case 'respawn': deep?.respawnAtGrace(); this.section = 'map'; return this.resume();
                 case 'endRun': this.close(); mode.finish(false); return;
-                case 'decide': this.close(); c.objectives.decide(arg); return;
+                case 'decide': c.objectives.decide(arg); return;
+                case 'epiFinish': BO.ZoneFinale.finish(); return;
+                case 'epiExplore': BO.ZoneFinale.keepExploring(); return;
                 case 'upgradeGun': {
                     const ref = Number(arg);
                     if (BO.Player.weapons[ref]) {
@@ -1075,11 +1077,11 @@
             }).join('');
             const curKit = p.kit || 'standard';
             const kitHtml = Object.entries(meta.KITS || {}).map(([id, k]) => {
-                const unlocked = career.level >= k.level;
+                const unlocked = career.level >= k.level && (career.kitUnlocked ? career.kitUnlocked(id) : true);
                 const selected = curKit === id;
                 const loadText = [BO.SurvivalItemAmounts(k.items), k.ammo ? k.ammo + ' ammo' : '', k.vehicle || ''].filter(Boolean).join(' · ') || 'Standard rifle load';
                 return `<button class="sv-kit-card ${selected ? 'selected' : ''}" ${interactive && unlocked ? `data-act="setKit" data-arg="${id}"` : ''} ${unlocked && interactive ? '' : 'disabled'}${tip(k.name, k.desc, 'Unlocks at Level ' + k.level + ' · ' + loadText)}>
-                    <b>${esc(k.name)}<em>${unlocked ? (selected ? 'ACTIVE' : 'LV ' + k.level) : '🔒 LV ' + k.level}</em></b>
+                    <b>${esc(k.name)}<em>${unlocked ? (selected ? 'ACTIVE' : 'LV ' + k.level) : k.unlock ? '🔒 SEIZE THE LANTERN' : '🔒 LV ' + k.level}</em></b>
                     <small>${esc(k.desc)}</small>
                     <span class="sv-kit-items">${esc(loadText)}</span>
                 </button>`;
@@ -1138,12 +1140,13 @@
                 case 'infuser': title = 'Aether infusion altar'; body = this.ctxInfuser(); break;
                 case 'respawn': title = 'You fell'; body = this.ctxRespawn(); break;
                 case 'ending': title = 'The Lantern'; body = this.ctxEnding(); break;
+                case 'epilogue': title = ''; body = BO.ZoneFinale.epilogue(this.subject || c.objectives.ending); break;
                 default: body = this.tabMap();
             }
             const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - mode.clock));
             const t = mode.threat;
             const kb = BO.Settings.getKeybinds();
-            const tabs = s === 'respawn' || s === 'ending' ? '' : TABS.map((tab) => `<button class="sv-tab ${activeTab === tab.id ? 'active' : ''}" data-act="tab" data-arg="${tab.id}"${tip(tab.label, ({
+            const tabs = s === 'respawn' || s === 'ending' || s === 'epilogue' ? '' : TABS.map((tab) => `<button class="sv-tab ${activeTab === tab.id ? 'active' : ''}" data-act="tab" data-arg="${tab.id}"${tip(tab.label, ({
                 inventory: 'Backpack, hotbar, weapons, tools and field kit.',
                 crafting: 'Every recipe in one place, filtered by category. Station recipes need you nearby.',
                 build: 'Place walls, stations, storage, traps and machines in front of you.',
@@ -2027,6 +2030,7 @@
                         <div><b>${mode.salvaged}</b><small>Salvaged</small></div><div><b>${BO.Math.formatTime(mode.clock)}</b><small>Time</small></div>
                     </div>
                     <div class="sv-jsave">
+                        ${c.objectives.ending ? `<button class="sv-btn primary" data-act="epiFinish"${tip('Finish the expedition', 'You have decided the Lantern. End the run and see your results.')}>Finish expedition</button>` : ''}
                         <button class="sv-btn" data-act="save" ${c.canSave() ? '' : 'disabled'}${tip('Save checkpoint', 'Saves this expedition in your browser. Only possible with no enemies within 9 m.')}>Save checkpoint</button>
                         <small>${checkpoint ? 'Last save at ' + BO.Math.formatTime(checkpoint.clock) : 'No checkpoint yet'}${c.options.autosave ? ' · autosave on' : ''}</small>
                     </div>
@@ -2115,9 +2119,9 @@
                 <h3>The light is louder down here.</h3>
                 <p>The research data ${o.hasData ? 'in your pack names it' : 'would have named it'}: <b>Project Lantern</b>, a resonance engine that was meant to power the valley and instead drew the infection to it like moths. Haven is listening on the relay. Whatever you choose, the Zone will remember.</p>
                 <div class="sv-ending-grid">
-                    ${card('seal', 'Seal it', 'beacon', '#8fe3c8', 'Overload the core and bury the Crater. The infected lose their beacon and scatter — slowly, the Zone can heal.', 'Ends the expedition. Haven survives. Highest commendations.')}
-                    ${card('extract', 'Extract the data', 'flask', '#9fd4ff', 'Leave the Lantern running and walk out with the research. Someone outside will pay for this — or weaponise it.', 'Ends the expedition. Banks your whole pack into the Archive stash.')}
-                    ${card('seize', 'Seize it', 'rune', '#f2b45a', 'Take control of the resonance. The infected bend toward you now. Haven will never trust you again.', 'Ends the expedition. Unlocks the Keeper kit for future runs.')}
+                    ${card('seal', 'Seal it', 'beacon', '#8fe3c8', 'Overload the core and bury the Crater. The infected lose their beacon and scatter — slowly, the Zone can heal.', '+6 commendations. The beam goes dark: fewer infected everywhere and no more horde nights.')}
+                    ${card('extract', 'Extract the data', 'flask', '#9fd4ff', 'Leave the Lantern running and walk out with the research. Someone outside will pay for this — or weaponise it.', '+4 commendations. Banks two shares of your pack into the Archive stash. The world stays as it is.')}
+                    ${card('seize', 'Seize it', 'rune', '#f2b45a', 'Take control of the resonance. The infected bend toward you now. Haven will never trust you again.', '+5 commendations. Infected barely notice you. Unlocks the Lantern Keeper kit for future runs.')}
                 </div>
                 <div class="sv-actions center"><button class="sv-btn ghost" data-act="close"${tip('Not yet', 'Step back from the Lantern. You can return and decide later.')}>Not yet</button></div>
             </div>`;
@@ -2178,11 +2182,12 @@
             let sub = '';
             const horde = BO.ZoneHorde;
             if (!mode.hostilesReleased) { headline = 'Safe period · ' + safeLeft + 's'; sub = mode.objective; }
+            else if (BO.ZoneFinale?.active) { const fs = BO.ZoneFinale.status(); headline = fs.headline; sub = fs.sub; }
             else if (horde?.active) { headline = horde.forecast(); sub = horde.target?.base ? 'Defend your base until the waves are dead or dawn breaks' : 'Survive until the waves are dead or dawn breaks'; }
             else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = mode.objective; }
             else if (deep?.bloodMoonActive) { headline = 'Blood Moon · ' + Math.max(0, Math.ceil(deep.bloodMoonUntil - now)) + 's'; sub = mode.objective; }
             topEl.classList.toggle('is-safe-prep', !mode.hostilesReleased);
-            topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive || !!horde?.active);
+            topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive || !!horde?.active || !!BO.ZoneFinale?.status()?.danger);
             topEl.classList.toggle('is-night', c.isNight);
             if (h.obj.textContent !== headline) h.obj.textContent = headline;
             if (h.objSub.textContent !== sub) h.objSub.textContent = sub;

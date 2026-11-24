@@ -52,6 +52,7 @@
         forecast() {
             const c = this.campaign;
             if (!c || !this.mode.hostilesReleased) return '';
+            if (BO.ZoneFinale?.hordesOff) return 'No more hordes';
             if (this.active) return 'HORDE · wave ' + this.wave + '/' + this.waves + ' · ' + this.remaining() + ' left';
             const n = this.nextHordeNight();
             const tonight = c.isNight ? n === c.nightNumber : n === c.nightNumber + 1;
@@ -88,7 +89,7 @@
         update(dt) {
             const m = this.mode;
             const c = this.campaign;
-            if (!c || !m.hostilesReleased || c.options.gameType === 'peaceful' || c.has('noRoamers')) return;
+            if (!c || !m.hostilesReleased || c.options.gameType === 'peaceful' || c.has('noRoamers') || BO.ZoneFinale?.hordesOff) return;
             const hordeNight = this.nextHordeNight();
             // Dusk warning on the day of a horde.
             if (!c.isNight && hordeNight === c.nightNumber + 1 && c.hour >= 16.5 && this.warnedNight !== hordeNight) {
@@ -201,7 +202,7 @@
                 sub: this.kills + ' KILLED' + (integ != null ? ' · BASE INTEGRITY ' + integ + '%' : '') + ' · +1 COMMENDATION',
                 color: '#8fe3c8'
             });
-            c.save(true);
+            c.save(true, true);
         }
 
         /* ------------------------------------------------------------ steering */
