@@ -251,6 +251,7 @@
         { id: 'base', label: 'Base', bind: 'survBase', glyph: 'build' },
         { id: 'skills', label: 'Skills', bind: 'survSkills', glyph: 'tech' },
         { id: 'journal', label: 'Journal', bind: 'survJournal', glyph: 'flask' },
+        { id: 'catalogue', label: 'Catalogue', bind: 'survCatalogue', glyph: 'feather' },
         { id: 'legend', label: 'Guide', bind: 'survLegend', glyph: 'rune' }
     ];
     const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'fasttravel', tech: 'skills', objectives: 'journal', record: 'journal' };
@@ -1518,6 +1519,7 @@
                 base: 'Power grid, territory, settlers, outposts, hauls, threat ladder and the weather forecast.',
                 skills: 'Technology tree, story progress and Archive mastery.',
                 journal: 'Objective, challenges, contracts, activities and career.',
+                catalogue: 'Field Catalogue: everything you have found, what is still missing, and the set bonuses for completing each set.',
                 legend: 'Searchable encyclopedia of everything in Survival.'
             })[tab.id], 'Hotkey: ' + BO.Settings.keyLabel(kb[tab.bind]))}>
                 ${Icons().named(tab.glyph, activeTab === tab.id ? '#0d1513' : '#9fd4c7', 16)}<span>${tab.label}</span><kbd>${BO.Settings.keyLabel(kb[tab.bind])}</kbd></button>`).join('');

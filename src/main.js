@@ -547,7 +547,7 @@
             if (code === kb.survSkills && BO.ZoneThrill?.pending && BO.ZoneThrill.openPick(true)) return true;
             const tabs = {
                 survInventory: 'inventory', survCraft: 'crafting', survMap: 'map', survTravel: 'travel',
-                survSkills: 'skills', survJournal: 'journal', survLegend: 'legend', survBase: 'base'
+                survSkills: 'skills', survJournal: 'journal', survLegend: 'legend', survBase: 'base', survCatalogue: 'catalogue'
             };
             for (const [action, tab] of Object.entries(tabs)) {
                 if (code === kb[action]) {
@@ -584,7 +584,8 @@
 
         _loop(now) {
             requestAnimationFrame((t) => this._loop(t));
-            const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000));
+            // timeScale < 1 gives short slow-motion beats (Survival rare finds, solo only).
+            const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000)) * (BO.State.timeScale || 1);
             this.lastTime = now;
             this.elapsed += dt;
 

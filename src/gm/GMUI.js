@@ -32,6 +32,7 @@
         },
 
         renderTab(section) {
+            if (section === 'catalogue') return GM.get('catalogue')?.renderTab?.() ?? '<p>Catalogue unavailable.</p>';
             if (section !== 'base') return undefined;
             return this.baseTab();
         },

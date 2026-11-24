@@ -483,6 +483,10 @@
                     let amt = extraLoot ? count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5)) : count;
                     return [id, Math.max(1, Math.round(amt * yMult))];
                 }));
+                // Field Catalogue set bonuses (Earth, Flora) add a flat +1 to the primary yield.
+                const setBonus = BO.GM?.active ? (BO.GM.get('catalogue')?.yieldBonus?.(node) || 0) : 0;
+                const primary = Object.keys(gain).find((id) => id !== 'relic');
+                if (setBonus && primary) gain[primary] += setBonus;
                 if (mfx.gemDropChance && spec.tool === 'pick' && Math.random() < mfx.gemDropChance) {
                     gain.quartz = (gain.quartz || 0) + 1;
                 }

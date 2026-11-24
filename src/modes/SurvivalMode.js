@@ -819,6 +819,7 @@
             this.campaign.mark('salvaged', count, 2);
             const found = BO.SurvivalItemAmounts(accepted);
             const overflow = BO.SurvivalItemAmounts(remainder);
+            if (found) BO.GM?.call('onGranted', accepted);
             if (overflow) this.toast((found ? 'Packed ' + found + '. ' : '') + 'Pack full — dropped ' + overflow);
             else if (found) {
                 const feed = BO.GM?.active ? BO.GM.get('gather') : null;

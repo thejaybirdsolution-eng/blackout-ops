@@ -141,7 +141,7 @@
             const cooked = /^(cooked_|roast_|fried_)/.test(id) || !!MEALS[id];
             if (cooked) GM.get('loot')?.onCookedMeal?.();
             const meal = MEALS[id] || (/^cooked_/.test(id) ? null : null);
-            if (meal) this.applyBuff(id, this.mode.clock + MEAL_SECONDS);
+            if (meal) this.applyBuff(id, this.mode.clock + MEAL_SECONDS * (GM.get('catalogue')?.mealMult?.() || 1));
             if (cooked) GM.first('meal', 'Hot meal', 'Cooked food heals more and clears Weakened');
         },
 

@@ -381,6 +381,7 @@
             for (const [id, [lo, hi]] of Object.entries(a.spec.drops)) { const n = rnd(lo, hi); if (n > 0) drops[id] = n; }
             const mult = (this.campaign.has('richLoot') ? 1.5 : 1) * (this.campaign.has('sv_double_loot') ? 2 : 1);
             for (const k of Object.keys(drops)) drops[k] = Math.max(1, Math.round(drops[k] * mult));
+            BO.GM?.call('onHunt', a, drops);
             if (!agent) {
                 this.campaign.pack.dropBag(drops, { x: a.pos.x, y: a.pos.y, z: a.pos.z });
                 this.campaign.mark('hunted', 1, 0);
