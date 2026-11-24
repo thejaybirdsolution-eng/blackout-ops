@@ -593,11 +593,14 @@
             if (this.modifiers.allBosses || this.modifiers.allEnemiesUnlocked) {
                 return BO.Math.pick(allBosses);
             }
+            if (BO.ZombiesData.BOSSES_BY_ROUND[wave] && BO.ZombiesData.BOSSES_BY_ROUND[wave].isSuperBoss) {
+                return BO.ZombiesData.BOSSES_BY_ROUND[wave];
+            }
             const pool = [BO.ZombiesData.BOSSES_BY_ROUND[5]];
-            if (wave >= 14) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[10]);
-            if (wave >= 18) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[20]);
-            if (wave >= 24) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[25]);
-            if (wave >= 30) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[50]);
+            if (wave >= 12) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[10], BO.ZombiesData.BOSSES_BY_ROUND[12]);
+            if (wave >= 18) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[20], BO.ZombiesData.BOSSES_BY_ROUND[24]);
+            if (wave >= 28) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[25], BO.ZombiesData.BOSSES_BY_ROUND[36]);
+            if (wave >= 40) pool.push(BO.ZombiesData.BOSSES_BY_ROUND[48], BO.ZombiesData.BOSSES_BY_ROUND[50], BO.ZombiesData.BOSSES_BY_ROUND[60]);
             return BO.Math.pick(pool.filter(Boolean));
         }
 
@@ -663,8 +666,24 @@
                 }
             }
 
-            // Guaranteed Boss Spawns only in Boss Rush mode (otherwise governed by 2% + 0.5%/round after Wave 10!)
+            // Milestone Colossal Super Boss Waves (12, 24, 36, 48, 60) + Boss Rush
             const tdFxWave = BO.Mods ? BO.Mods.fx(this.modifiers, 'td') : {};
+            const superMilestone = BO.ZombiesData.BOSSES_BY_ROUND[this.wave];
+            if (superMilestone && superMilestone.isSuperBoss && !this.disabledEnemySet.has(superMilestone.id)) {
+                const spawners = BO.World.mapData.spawners || [{ x: 0, y: 0, z: -26 }];
+                const sp = BO.Math.pick(spawners);
+                const ent = new BO.ZombieEntity(this._buildZombieOpts(superMilestone, sp, true));
+                BO.Mods.afterSpawn(this.modifiers, ent);
+                this.zombies.push(ent);
+                BO.Sound.playBossIntro();
+                BO.Sound.playAnnouncement?.('super_boss', 'Super Boss Inbound!');
+                BO.Events.emit('hud:banner', {
+                    title: `👑 SUPER BOSS WAVE ${this.wave}: ${superMilestone.name}`,
+                    sub: `${superMilestone.title.toUpperCase()} — ${superMilestone.weaknessText}`,
+                    color: '#fbbf24'
+                });
+                return;
+            }
             if ((this.config.tdMode === 'boss_rush' || (tdFxWave.tdBossEveryWave && this.wave >= 2)) && !this.modifiers.allBosses) {
                 const count = this.wave >= 20 ? 2 : 1;
                 for (let c = 0; c < count; c++) this._spawnBossZombie();
@@ -721,9 +740,28 @@
             }, { round: this.wave, isBoss });
         }
 
-        _spawnBossZombie() {
+        _pickTdSpawnPoint() {
             const spawners = BO.World.mapData.spawners || [{ x: 0, y: 0, z: -26 }];
-            const sp = BO.Math.pick(spawners);
+            this._tdSpawnCursor = ((this._tdSpawnCursor || 0) + 1) % spawners.length;
+            let best = spawners[this._tdSpawnCursor];
+            let bestScore = -Infinity;
+            for (let i = 0; i < spawners.length; i++) {
+                const sp = spawners[(this._tdSpawnCursor + i) % spawners.length];
+                let minD = 999;
+                for (let z = 0; z < this.zombies.length; z++) {
+                    const zb = this.zombies[z];
+                    if (!zb || !zb.alive) continue;
+                    const d = BO.Math.dist2D(sp.x, sp.z, zb.pos.x, zb.pos.z);
+                    if (d < minD) minD = d;
+                }
+                const score = Math.min(minD, 22) * 1.5 - i * 0.35 + Math.random() * 3.0;
+                if (score > bestScore) { bestScore = score; best = sp; }
+            }
+            return best;
+        }
+
+        _spawnBossZombie() {
+            const sp = this._pickTdSpawnPoint();
             const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount));
             const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
             const bossSpec = BO.Math.pick(enabledB.length > 0 ? enabledB : unlockedB);
@@ -737,8 +775,7 @@
         }
 
         _spawnWaveZombie() {
-            const spawners = BO.World.mapData.spawners || [{ x: 0, y: 0, z: -26 }];
-            const sp = BO.Math.pick(spawners);
+            const sp = this._pickTdSpawnPoint();
             if (this.modifiers.allBosses) {
                 const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount || BO.ZombiesData.ORDERED_BOSSES.length));
                 const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
@@ -1182,6 +1219,14 @@
                 this.kills++;
                 if (hitbox === 'head') this.headshots++;
                 BO.Progression.grantPlayerXP(zombie.isBoss ? 300 : 55);
+                BO.Progression.registerCombatKill({
+                    mode: 'td',
+                    isHeadshot: hitbox === 'head',
+                    isMelee,
+                    isBoss: !!zombie.isBoss,
+                    isSuperBoss: !!zombie.isSuperBoss,
+                    enemySwing: zombie.attackSwing || 0
+                });
                 BO.Mods.onKill(this.modifiers, zombie, {
                     list: this.zombies,
                     explode: (pt, rad, d) => this._onExplode(pt, rad, d, false, 0, 'corpse_bomb'),

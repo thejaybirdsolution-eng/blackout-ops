@@ -70,8 +70,10 @@
             const kitStealth = (c.day === 1 && BO.SurvivalCareer?.profile?.kit === 'keeper') ? 0.72 : (BO.SurvivalCareer?.profile?.kit === 'signal_ghost' ? 0.82 : 1);
             sight *= fm * kitStealth;
             const T = BO.ZoneThrill;
+            const wpStealth = BO.ZoneWorldPlus?.stealthMult?.() ?? 1;
             if (T?.active) sight *= T.sightMult();
-            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm * ghostMult * kitStealth * (T?.active ? T.hearMult() : 1);
+            sight *= wpStealth;
+            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm * ghostMult * kitStealth * wpStealth * (T?.active ? T.hearMult() : 1);
             const smell = (c.deep?.bleeding || 0) > 0 ? 15 : 0;
             return { sight, hear, smell, night };
         }
@@ -149,15 +151,27 @@
 
         regionThreat(x, z) { return BO.Zone.regionAt(x, z).threat; }
 
-        spawnPoint(minD = 42, maxD = 105) {
+        spawnPoint(minD = 36, maxD = 105) {
             const p = BO.Player.pos;
             const nav = BO.World.nav;
-            const nests = BO.Zone.markers.filter((mk) => mk.kind === 'nest' && !this.mode.campaign.metrics['nest_' + mk.id] && Math.hypot(mk.x - p.x, mk.z - p.z) < 130 && Math.hypot(mk.x - p.x, mk.z - p.z) > 25);
-            for (let tries = 0; tries < 14; tries++) {
+            const nests = BO.Zone.markers.filter((mk) => mk.kind === 'nest' && !this.mode.campaign.metrics['nest_' + mk.id] && Math.hypot(mk.x - p.x, mk.z - p.z) < 135 && Math.hypot(mk.x - p.x, mk.z - p.z) > 24);
+            const pois = (BO.Zone.pois || []).filter((poi) => poi.type !== 'haven' && Math.hypot(poi.x - p.x, poi.z - p.z) < 125 && Math.hypot(poi.x - p.x, poi.z - p.z) > 28);
+            const roads = BO.Zone.roads || [];
+            for (let tries = 0; tries < 20; tries++) {
                 let x, z;
-                if (nests.length && Math.random() < 0.4) {
+                const roll = Math.random();
+                if (nests.length && roll < 0.34) {
                     const n = nests[Math.floor(Math.random() * nests.length)];
-                    x = n.x + (Math.random() - 0.5) * 14; z = n.z + (Math.random() - 0.5) * 14;
+                    x = n.x + (Math.random() - 0.5) * 16; z = n.z + (Math.random() - 0.5) * 16;
+                } else if (pois.length && roll < 0.62) {
+                    const poi = pois[Math.floor(Math.random() * pois.length)];
+                    const ang = Math.random() * Math.PI * 2;
+                    const rad = Math.max(poi.w || 10, poi.d || 10) * 0.55 + 4 + Math.random() * 10;
+                    x = poi.x + Math.cos(ang) * rad; z = poi.z + Math.sin(ang) * rad;
+                } else if (roads.length && roll < 0.78) {
+                    const rd = roads[Math.floor(Math.random() * roads.length)];
+                    const pt = rd.pts[Math.floor(Math.random() * rd.pts.length)];
+                    x = pt[0] + (Math.random() - 0.5) * 14; z = pt[1] + (Math.random() - 0.5) * 14;
                 } else {
                     const a = Math.random() * Math.PI * 2, r = minD + Math.random() * (maxD - minD);
                     x = p.x + Math.cos(a) * r; z = p.z + Math.sin(a) * r;
@@ -165,9 +179,11 @@
                 const i = nav?.idx(x, z) ?? -1;
                 if (i < 0 || !nav.walk[i]) continue;
                 const y = nav.y[i];
-                if (Math.hypot(x - p.x, z - p.z) < 25) continue;
+                const dp = Math.hypot(x - p.x, z - p.z);
+                if (dp < 24 || dp > maxD + 22) continue;
                 if (BO.ZoneInfest?.isSafe(x, z)) continue; // secured ground stays quiet
-                if (BO.World.hasLineOfSight(p.x, p.y + 1.6, p.z, x, y + 1.4, z) && Math.hypot(x - p.x, z - p.z) < 80) continue;
+                if (BO.ZoneWorldPlus?.isInsideUnlockedFort?.(x, z)) continue;
+                if (BO.World.hasLineOfSight(p.x, p.y + 1.6, p.z, x, y + 1.4, z) && dp < 76) continue;
                 return { x, y, z };
             }
             return null;

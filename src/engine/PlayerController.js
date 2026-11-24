@@ -710,6 +710,7 @@
                 amount *= 0.48;
             }
             if (BO.Mods) amount *= BO.Mods.incomingDamageMult();
+            if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus) amount *= BO.ZoneWorldPlus.incomingDamageMult();
             if (this.mpPerks.includes('bulwark') && this.crouching && Math.hypot(this.vel.x, this.vel.z) < 0.3) amount *= 0.78;
             if (BO.State.activeMode === 'zombies' && amount > 0) {
                 const mode = BO.ZombiesMode;
@@ -772,6 +773,9 @@
                         sub: 'TEAMMATE CAN PRESS [E] NEAR YOU TO REVIVE!',
                         color: '#ef4444'
                     });
+                } else if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus?.tryPreventFatalDamage?.(this)) {
+                    // Totem of Undying consumed — player remains alive with restored HP & shockwave!
+                    return;
                 } else {
                     this.hp = 0;
                     this.alive = false;
@@ -906,7 +910,10 @@
             // Recoil & sway springs
             this.recoilPitch = BO.Math.damp(this.recoilPitch, 0, 14, dt);
             this.recoilYaw = BO.Math.damp(this.recoilYaw, 0, 14, dt);
-            this.recoilZ = BO.Math.damp(this.recoilZ, 0, 18, dt);
+            this.recoilRoll = BO.Math.damp(this.recoilRoll || 0, 0, 16, dt);
+            this.recoilZ = BO.Math.damp(this.recoilZ, 0, 19, dt);
+            this.vmKickUp = BO.Math.damp(this.vmKickUp || 0, 0, 22, dt);
+            this.landingDip = BO.Math.damp(this.landingDip || 0, 0, 14, dt);
             this.flinchPitch = BO.Math.damp(this.flinchPitch, 0, 16, dt);
             this.swayX = BO.Math.damp(this.swayX, 0, 10, dt);
             this.swayY = BO.Math.damp(this.swayY, 0, 10, dt);
@@ -948,10 +955,13 @@
                 breathY = Math.cos(t * 1.4) * 0.005;
             }
 
+            const parkourRoll = this.parkourRoll || 0;
+            const parkourPitch = this.parkourPitch || 0;
+            const recoilRoll = this.recoilRoll || 0;
             const finalEuler = new THREE.Euler(
-                BO.Math.clamp(this.pitch + this.recoilPitch + this.flinchPitch + breathY, -1.5, 1.5),
+                BO.Math.clamp(this.pitch + this.recoilPitch + this.flinchPitch + breathY + parkourPitch, -1.5, 1.5),
                 this.yaw + this.recoilYaw + breathX,
-                this.dodgeRollTimer > 0 ? Math.sin(this.dodgeRollTimer / 0.30 * Math.PI) * 0.24 : (this.sliding ? -0.07 : 0),
+                (this.dodgeRollTimer > 0 ? Math.sin(this.dodgeRollTimer / 0.30 * Math.PI) * 0.24 : (this.sliding ? -0.07 : 0)) + parkourRoll + recoilRoll,
                 'YXZ'
             );
             worldCamera.quaternion.setFromEuler(finalEuler);
@@ -1028,8 +1038,44 @@
                         this.rideState = null;
                     }
                     return;
+                } else if (rs.kind === 'parkour') {
+                    rs.t = Math.min(1, rs.t + dt / Math.max(0.12, rs.duration));
+                    const t = rs.t;
+                    if (rs.sub === 'vault') {
+                        const u = 1 - t;
+                        this.pos.x = u * u * rs.sx + 2 * u * t * rs.cx + t * t * rs.dx;
+                        this.pos.z = u * u * rs.sz + 2 * u * t * rs.cz + t * t * rs.dz;
+                        this.pos.y = u * u * rs.sy + 2 * u * t * (rs.cy + 0.18) + t * t * rs.dy;
+                        this.parkourRoll = Math.sin(t * Math.PI) * 0.085;
+                        this.parkourPitch = -Math.sin(t * Math.PI) * 0.055;
+                    } else {
+                        const upT = 1 - Math.pow(1 - t, 2.25);
+                        const fwdT = t < 0.26 ? (t / 0.26) * 0.18 : 0.18 + ((t - 0.26) / 0.74) * 0.82;
+                        this.pos.x = BO.Math.lerp(rs.sx, rs.dx, fwdT);
+                        this.pos.z = BO.Math.lerp(rs.sz, rs.dz, fwdT);
+                        this.pos.y = BO.Math.lerp(rs.sy, rs.dy, upT) + Math.sin(t * Math.PI) * 0.055;
+                        this.parkourPitch = Math.sin(t * Math.PI) * 0.095;
+                        this.parkourRoll = -Math.sin(t * Math.PI) * 0.035;
+                    }
+                    this.vel.set(0, 0, 0);
+                    const isTinyPk = BO.Cheats && BO.Cheats.isActive('tiny');
+                    const szPk = isTinyPk ? 0.25 : 1.0;
+                    const targetEyePk = (this.crouching ? 1.04 : 1.62) * szPk;
+                    this.eyeHeight = BO.Math.damp(this.eyeHeight, targetEyePk, 16, dt);
+                    if (t >= 1) {
+                        this.pos.set(rs.dx, rs.dy, rs.dz);
+                        this.vel.set(rs.exitVx || 0, rs.exitVy || 0, rs.exitVz || 0);
+                        this.onGround = rs.sub === 'mantle';
+                        if (rs.sub === 'mantle') this.jumpsUsed = 0;
+                        this.parkourPitch = 0;
+                        this.parkourRoll = 0;
+                        this.rideState = null;
+                    }
+                    return;
                 }
             }
+            this.parkourPitch = BO.Math.damp(this.parkourPitch || 0, 0, 16, dt);
+            this.parkourRoll = BO.Math.damp(this.parkourRoll || 0, 0, 16, dt);
 
             const { forward, right } = this.getMoveDirectionVectors();
             const kb = BO.Settings.getKeybinds();
@@ -1165,6 +1211,10 @@
 
             const floorY = BO.World.getGroundHeight(this.pos.x, this.pos.z, this.pos.y);
             if (!isNoclip && this.pos.y <= floorY) {
+                if (!this.onGround && !isFly && this.vel.y < -2.4) {
+                    this.landingDip = BO.Math.clamp(-this.vel.y * 0.0042, 0.008, 0.052);
+                    if (!(this.mpPerks && this.mpPerks.includes('dead_silence'))) BO.Sound.playFootstep(true);
+                }
                 this.pos.y = floorY;
                 if (!isFly || this.vel.y < 0) this.vel.y = 0;
                 this.onGround = !isFly;
@@ -1194,8 +1244,149 @@
             }
         }
 
+        /**
+         * Contextual Airborne Mantle & Vault (all modes):
+         * While airborne, pressing Jump probes obstacle geometry along horizontal look direction:
+         *  - Thin traversable barrier with a clear drop on the far side -> smooth Vault onto far side.
+         *  - Flat platform, crate, ledge, or rooftop -> smooth Mantle pull-up onto top surface.
+         */
+        _tryContextualMantleOrVault() {
+            if (!BO.World || this.rideState) return false;
+            if (BO.Cheats && (BO.Cheats.isActive('fly') || BO.Cheats.isActive('noclip'))) return false;
+            if (BO.State.activeMode === 'survival' && BO.SurvivalMode?.campaign?.vehicle) return false;
+
+            const isTiny = BO.Cheats && BO.Cheats.isActive('tiny');
+            const sizeScale = isTiny ? 0.25 : 1.0;
+            const rad = this.radius * sizeScale;
+            const standH = this.standHeight * sizeScale;
+            const crouchH = this.crouchHeight * sizeScale;
+            const minRise = 0.20 * sizeScale;
+            const maxRise = 2.38 * sizeScale;
+
+            const { forward } = this.getMoveDirectionVectors();
+            const fx = forward.x, fz = forward.z;
+            const px = this.pos.x, py = this.pos.y, pz = this.pos.z;
+
+            let hitCol = null;
+            let hitNear = 0;
+            let bestTopY = -Infinity;
+
+            for (let d = 0.36; d <= 1.28; d += 0.14) {
+                const sx = px + fx * d;
+                const sz = pz + fz * d;
+                const pad = rad * 0.7;
+                BO.World.queryColliders(sx - pad, sz - pad, sx + pad, sz + pad, (c) => {
+                    if (!c || !c.active || c.enemiesOnly) return false;
+                    if (sx < c.minX - pad || sx > c.maxX + pad || sz < c.minZ - pad || sz > c.maxZ + pad) return false;
+                    if (c.minY > py + standH - 0.12) return false;
+                    const rise = c.maxY - py;
+                    if (rise < minRise || rise > maxRise) return false;
+                    if (c.maxY > bestTopY) {
+                        bestTopY = c.maxY;
+                        hitCol = c;
+                        hitNear = d;
+                    }
+                    return false;
+                });
+                if (hitCol) break;
+            }
+
+            if (!hitCol) return false;
+            const topY = bestTopY;
+            const rise = topY - py;
+
+            // Verify there is clear crouch-level headroom directly over the obstacle's leading edge
+            const crestDist = hitNear + 0.18;
+            const crestX = px + fx * crestDist;
+            const crestZ = pz + fz * crestDist;
+            if (!BO.World.hasHeadroom(crestX, topY + 0.03, crestZ, rad * 0.72, crouchH)) {
+                return false;
+            }
+
+            // 1. Check VAULT: thin obstacle (<= 1.38m thick) whose far side drops back down with clear space
+            if (rise <= 1.70 * sizeScale) {
+                for (let dFar = hitNear + 0.46; dFar <= hitNear + 1.42; dFar += 0.16) {
+                    const farX = px + fx * dFar;
+                    const farZ = pz + fz * dFar;
+                    // Check if we have cleared past the barrier body horizontally just below topY
+                    let stillInsideBarrier = false;
+                    const checkPad = rad * 0.68;
+                    BO.World.queryColliders(farX - checkPad, farZ - checkPad, farX + checkPad, farZ + checkPad, (c) => {
+                        if (!c || !c.active || c.enemiesOnly) return false;
+                        if (farX < c.minX - checkPad || farX > c.maxX + checkPad || farZ < c.minZ - checkPad || farZ > c.maxZ + checkPad) return false;
+                        if (c.maxY > topY - 0.26 && c.minY < topY) {
+                            stillInsideBarrier = true;
+                            return true;
+                        }
+                        return false;
+                    });
+                    if (stillInsideBarrier) continue;
+
+                    const farFloorY = BO.World.getGroundHeight(farX, farZ, topY + 0.08);
+                    const drop = topY - farFloorY;
+                    if (drop >= 0.30 * sizeScale && drop <= 9.5) {
+                        const landY = Math.max(farFloorY, topY - 0.55 * sizeScale);
+                        const standOk = BO.World.hasHeadroom(farX, landY, farZ, rad * 0.78, standH);
+                        const crouchOk = standOk || BO.World.hasHeadroom(farX, landY, farZ, rad * 0.78, crouchH);
+                        if (crouchOk) {
+                            if (!standOk) this.crouching = true;
+                            this.adsAlpha *= 0.25;
+                            this.rideState = {
+                                kind: 'parkour',
+                                sub: 'vault',
+                                t: 0,
+                                duration: 0.27,
+                                sx: px, sy: py, sz: pz,
+                                cx: (px + farX) * 0.5, cy: topY + 0.12 * sizeScale, cz: (pz + farZ) * 0.5,
+                                dx: farX, dy: landY, dz: farZ,
+                                exitVx: fx * 6.0, exitVz: fz * 6.0, exitVy: -1.4
+                            };
+                            this.jumpsUsed = 1;
+                            if (BO.Sound?.playParkour) BO.Sound.playParkour('vault');
+                            else BO.Sound?.playSlide?.();
+                            return true;
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // 2. Check MANTLE: flat walkable platform, crate, or rooftop surface on top
+            const padX = Math.min(0.12, Math.max(0.01, (hitCol.maxX - hitCol.minX) * 0.35));
+            const padZ = Math.min(0.12, Math.max(0.01, (hitCol.maxZ - hitCol.minZ) * 0.35));
+            for (const stepFwd of [0.34, 0.52, 0.22]) {
+                const lx = BO.Math.clamp(px + fx * (hitNear + stepFwd), hitCol.minX + padX, hitCol.maxX - padX);
+                const lz = BO.Math.clamp(pz + fz * (hitNear + stepFwd), hitCol.minZ + padZ, hitCol.maxZ - padZ);
+                const topGround = BO.World.getGroundHeight(lx, lz, topY + 0.25);
+                if (topGround < topY - 0.24) continue;
+                const standOk = BO.World.hasHeadroom(lx, topY + 0.03, lz, rad * 0.76, standH);
+                const crouchOk = standOk || BO.World.hasHeadroom(lx, topY + 0.03, lz, rad * 0.76, crouchH);
+                if (crouchOk) {
+                    if (!standOk) this.crouching = true;
+                    this.adsAlpha *= 0.35;
+                    const dur = 0.24 + BO.Math.clamp(rise / (2.4 * sizeScale), 0, 1) * 0.11;
+                    this.rideState = {
+                        kind: 'parkour',
+                        sub: 'mantle',
+                        t: 0,
+                        duration: dur,
+                        sx: px, sy: py, sz: pz,
+                        dx: lx, dy: topY + 0.03, dz: lz,
+                        exitVx: fx * 2.6, exitVz: fz * 2.6, exitVy: 0
+                    };
+                    this.jumpsUsed = 0;
+                    if (BO.Sound?.playParkour) BO.Sound.playParkour('mantle');
+                    else BO.Sound?.playFootstep?.(true);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         tryJumpOrMantle() {
             if (!this.alive || this.inLastStand || this.matchRules.noJump) return;
+            if (this.rideState && this.rideState.kind === 'parkour') return;
             if (this.sliding) {
                 this.sliding = false;
                 this.crouching = false;
@@ -1203,10 +1394,15 @@
             if (this.crouching) {
                 this.crouching = false;
             }
+            // Airborne contextual mantle onto flat platforms or vault over thin barriers!
+            if (!this.onGround && this.coyoteTimer <= 0) {
+                if (this._tryContextualMantleOrVault()) return;
+            }
             const mpJumpMult = (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.customRules) ? (BO.MPMode.customRules.jumpScale || 1.0) : 1.0;
             const eagleJump = this.zombiePerks.has('eagle_eye') ? 1.25 : 1.0;
             const modJump = BO.Mods ? BO.Mods.jumpMult() : 1.0;
-            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump * (this.mpPerks.includes('rebound') ? 1.18 : 1) * modJump;
+            const wpJump = (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus) ? BO.ZoneWorldPlus.jumpMult() : 1.0;
+            const jumpMult = ((BO.Cheats && BO.Cheats.isActive('jump')) ? 1.85 : 1.0) * mpJumpMult * eagleJump * (this.mpPerks.includes('rebound') ? 1.18 : 1) * modJump * wpJump;
             const canDoubleJump = (BO.Cheats && BO.Cheats.isActive('2jump')) || !!BO.Mods?.fxActive?.().allowDoubleJump;
             if (this.onGround || this.coyoteTimer > 0) {
                 this.vel.y = 7.6 * jumpMult;
@@ -1483,8 +1679,13 @@
 
             const horizSpeed = Math.hypot(this.vel.x, this.vel.z);
             const moveFactor = BO.Math.clamp(horizSpeed / 6.5, 0, 1) * (1 - this.adsAlpha * 0.85);
-            const bobX = Math.cos(this.bobPhase) * 0.014 * moveFactor;
-            const bobY = Math.abs(Math.sin(this.bobPhase)) * -0.016 * moveFactor;
+            const idleT = performance.now() * 0.0016;
+            const idleFactor = (1 - moveFactor) * (1 - this.adsAlpha * 0.78);
+            const bobX = Math.cos(this.bobPhase) * 0.015 * moveFactor + Math.sin(idleT) * 0.0028 * idleFactor;
+            const bobY = Math.abs(Math.sin(this.bobPhase)) * -0.017 * moveFactor + Math.cos(idleT * 1.7) * 0.0024 * idleFactor;
+
+            const { right } = this.getMoveDirectionVectors();
+            const strafeDot = BO.Math.clamp((this.vel.x * right.x + this.vel.z * right.z) / 7.5, -1, 1);
 
             const hip = w.stats.hipPos;
             const adsX = 0;
@@ -1492,12 +1693,21 @@
             const adsZ = w.stats.adsPos[2];
 
             let px = BO.Math.lerp(hip[0], adsX, this.adsAlpha) + bobX + this.swayX * (1 - this.adsAlpha * 0.7);
-            let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7);
+            let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0);
             let pz = BO.Math.lerp(hip[2], adsZ, this.adsAlpha) + this.recoilZ;
 
-            let rx = this.recoilPitch * 0.9;
-            let ry = 0;
-            let rz = this.sliding ? 0.35 : 0;
+            let rx = this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65;
+            let ry = this.recoilYaw * 0.45;
+            let rz = (this.sliding ? 0.35 : 0) + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
+
+            // Parkour Vault / Mantle one-handed weapon tuck
+            if (this.rideState && this.rideState.kind === 'parkour') {
+                const pkWave = Math.sin(BO.Math.clamp(this.rideState.t || 0, 0, 1) * Math.PI);
+                py -= pkWave * 0.095;
+                px += pkWave * (this.rideState.sub === 'vault' ? -0.05 : 0.04);
+                rx -= pkWave * 0.34;
+                rz += pkWave * (this.rideState.sub === 'vault' ? -0.36 : 0.28);
+            }
 
             // Tactical Sprint 45-degree weapon-up pose
             if (this.tacSprinting && this.adsAlpha < 0.05 && !this.reloading) {
@@ -1508,18 +1718,38 @@
                 rz += 0.25;
             }
 
-            // Reload dip & mag animation
+            // Multi-stage Tactical Reload Choreography (Mag Release -> Magwell Seat -> Bolt Rack)
+            let reloadBoltOffset = 0;
             if (this.reloading) {
-                const p = 1 - (this.reloadTimer / Math.max(0.01, this.reloadDuration));
-                const dip = Math.sin(p * Math.PI);
-                py -= dip * 0.14;
-                rx -= dip * 0.45;
-                rz += dip * 0.30;
-                if (this.vmBuild.magGroup) {
-                    this.vmBuild.magGroup.position.y = -Math.sin(p * Math.PI) * 0.14;
+                const p = BO.Math.clamp(1 - (this.reloadTimer / Math.max(0.01, this.reloadDuration)), 0, 1);
+                if (w.stats.shellReload) {
+                    const dip = Math.sin(p * Math.PI);
+                    py -= dip * 0.075;
+                    rx += dip * 0.22;
+                    rz += dip * 0.36;
+                } else {
+                    const env = Math.sin(p * Math.PI);
+                    const seatBump = Math.exp(-Math.pow((p - 0.62) / 0.075, 2));
+                    const boltPull = Math.exp(-Math.pow((p - 0.84) / 0.07, 2));
+                    py -= env * 0.11 - seatBump * 0.032;
+                    px -= env * 0.028;
+                    rx += (p < 0.45 ? Math.sin((p / 0.45) * Math.PI) * 0.16 : 0) - env * 0.28 + seatBump * 0.14 - boltPull * 0.10;
+                    ry += Math.sin(p * Math.PI * 2) * 0.08;
+                    rz += (p < 0.68 ? Math.sin((p / 0.68) * Math.PI) * 0.42 : -Math.sin(((p - 0.68) / 0.32) * Math.PI) * 0.20);
+                    reloadBoltOffset = boltPull * 0.058;
+                    if (this.vmBuild.magGroup) {
+                        const magDrop = p < 0.34
+                            ? Math.sin((p / 0.34) * Math.PI * 0.5)
+                            : (p < 0.64 ? Math.cos(((p - 0.34) / 0.30) * Math.PI * 0.5) : 0);
+                        this.vmBuild.magGroup.position.y = -magDrop * 0.17;
+                        this.vmBuild.magGroup.position.x = -magDrop * 0.025;
+                        this.vmBuild.magGroup.rotation.z = magDrop * 0.18;
+                    }
                 }
             } else if (this.vmBuild.magGroup) {
                 this.vmBuild.magGroup.position.y = 0;
+                this.vmBuild.magGroup.position.x = 0;
+                this.vmBuild.magGroup.rotation.z = 0;
             }
 
             // Swap dip
@@ -1558,7 +1788,7 @@
                     this.vmBuild.boltGroup.rotation.z += dt * 16;
                 }
             } else if (this.vmBuild.boltGroup) {
-                this.vmBuild.boltGroup.position.z = BO.Math.clamp(this.recoilZ * 1.2, 0, 0.06);
+                this.vmBuild.boltGroup.position.z = BO.Math.clamp(this.recoilZ * 1.35 + reloadBoltOffset, 0, 0.072);
             }
 
             // Mega Buster Hold-to-Charge Live Glowing Orb, Rings & Strip Glow!

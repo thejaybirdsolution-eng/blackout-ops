@@ -102,10 +102,10 @@
 /* ==========================================================================
    Box of Wonders, Pit Master dialog, quest log, sandbox HUD switches, journal
    ========================================================================== */
-.zt-box { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(4, 7, 6, .82); backdrop-filter: blur(3px); font-family: var(--font-ui, sans-serif); color: #e8f1ed; }
-.zt-box-in { width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: #0d1412; border: 1px solid rgba(178, 107, 255, .4); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
-.zt-box-in header { display: flex; align-items: center; gap: 12px; }
-.zt-box-in header b { font: 800 22px var(--font-ui, sans-serif); letter-spacing: .14em; color: #d9b8ff; }
+.zt-box { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(4, 7, 6, .34); font-family: var(--font-ui, sans-serif); color: #e8f1ed; }
+.zt-box-in { width: min(820px, 92vw); max-height: 78vh; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 12px; background: rgba(12, 19, 17, 0.95); border: 2px solid rgba(178, 107, 255, .42); box-shadow: 0 20px 54px rgba(0, 0, 0, .68); }
+.zt-box-in header { display: flex; align-items: center; gap: 10px; }
+.zt-box-in header b { font: 800 18px var(--font-ui, sans-serif); letter-spacing: .12em; color: #d9b8ff; }
 .zt-box-in header span { flex: 1; font-size: 13px; color: #a9c0b7; }
 .zt-box-in button { cursor: pointer; font: 600 13px var(--font-ui, sans-serif); color: #e8f1ed; background: rgba(20, 30, 27, .95); border: 1px solid rgba(159, 224, 201, .2); border-radius: 8px; padding: 8px 12px; }
 .zt-box-in button:hover:not([disabled]) { border-color: #b26bff; }

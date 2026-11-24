@@ -77,6 +77,11 @@
                 event.preventDefault();
                 this.close();
             });
+            this.dialog.addEventListener('mousedown', (event) => {
+                if (event.target !== this.dialog) return;
+                this.close();
+                BO.App._safePointerLock();
+            });
             this.dialog.querySelectorAll('[data-shop-tab]').forEach((button) => {
                 button.onclick = () => {
                     this.tab = button.dataset.shopTab;

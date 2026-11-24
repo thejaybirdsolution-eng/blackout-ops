@@ -278,13 +278,15 @@
                 BO.FX.spawnShellCasing(ejectPos, right);
             }
 
-            // Recoil kick
+            // Recoil kick + torsional roll + crisp upward muzzle snap
             const adsMult = P.adsAlpha > 0.5 ? 0.80 : 1.0;
             const modRec = (BO.Mods ? BO.Mods.recoilMult() : 1.0) * (BO.State.activeMode === 'survival' ? (BO.SurvivalMode?.campaign?.deep?.modFx?.recoilMult || 1.0) : 1.0);
             P.recoilPitch += w.stats.recoilPitch * adsMult * modRec;
             P.recoilYaw += (Math.random() - 0.5) * 2 * w.stats.recoilYaw * adsMult * modRec;
-            P.recoilZ += 0.032;
-            P.cameraShake = Math.max(P.cameraShake, 0.010);
+            P.recoilRoll = (P.recoilRoll || 0) + (Math.random() - 0.5) * 0.046 * adsMult * modRec;
+            P.recoilZ += w.stats.category === 'Shotgun' || w.stats.category === 'Sniper' ? 0.052 : 0.034;
+            P.vmKickUp = Math.min(0.028, (P.vmKickUp || 0) + 0.012 * adsMult);
+            P.cameraShake = Math.max(P.cameraShake, w.stats.category === 'Shotgun' || w.stats.category === 'Sniper' ? 0.018 : 0.011);
 
             const aim = P.getAimRay(this.camera);
 

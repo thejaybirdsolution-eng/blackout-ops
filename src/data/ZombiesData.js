@@ -733,6 +733,138 @@
             movementHabit: 'charge_bull', attackType: 'acid_spit', soundProfile: 'hiss_toxic',
             drops: { points: 12000, xp: 5000, guaranteedPowerUp: 'nuke', refillArmor: true },
             bodySpec: { scale: [2.15, 2.05, 2.25], skinColor: 0x15803d, shirtColor: 0x14532d, pantsColor: 0x052e16, eyeColor: 0xfacc15, extraHeads: 2, tentacles: true, torsoShape: 'broad' }
+        },
+
+        // =====================================================================
+        // FIVE COLOSSAL MULTI-PHASE SUPER BOSSES (ROUNDS 12, 24, 36, 48 & 60)
+        // =====================================================================
+        12: {
+            id: 'super_titan_colossus',
+            bossRound: 12,
+            name: 'KRONOS, TITAN COLOSSUS',
+            title: 'Colossal Siege Furnace Titan',
+            simpleDesc: 'SUPER BOSS! A 3.6× towering magma-steel siege colossus with twin furnace stacks and a seismic war-maul! Unleashes expanding ground-quake shockwaves (jump/mantle to dodge!) and hurls molten boulders.',
+            weaknessText: 'WEAK: EXPOSED CHEST REACTOR & HEADSHOTS (1.9×) • JUMP OVER QUAKE RINGS!',
+            hp: 6200,
+            speed: 2.65,
+            attack: 68,
+            defense: 0.36,
+            isBoss: true,
+            isSuperBoss: true,
+            superMechanic: 'titan_quake',
+            resistances: { bullet: 0.78, explosive: 1.55, fire: 0.35, headshot: 1.90, melee: 0.40 },
+            movementHabit: 'stomp_march',
+            attackType: 'shockwave_slam',
+            soundProfile: 'roar_deep',
+            drops: { points: 5500, xp: 2400, guaranteedPowerUp: 'max_ammo', refillArmor: true },
+            bodySpec: {
+                scale: [3.15, 3.60, 3.05],
+                skinColor: 0x292524, shirtColor: 0x7c2d12, pantsColor: 0x1c1917, eyeColor: 0xfbbf24,
+                helmet: true, horns: true, giantClubArm: true, glowingRibs: 0xf97316, boneSpikes: true, torsoShape: 'armored'
+            }
+        },
+        24: {
+            id: 'super_seraph_harbinger',
+            bossRound: 24,
+            name: 'SERAPHIM NEXUS',
+            title: 'Six-Winged Astral Harbinger',
+            simpleDesc: 'SUPER BOSS! A 3.1× levitating six-winged celestial archon ringed by spinning Aether halos. Sweeps 5-way solar-void lance volleys, blink-dashes, and briefly raises a Radiant Ward below 50% HP!',
+            weaknessText: 'WEAK: PRECISION HEADSHOTS (2.0×) & BULLETS • BREAK RADIANT WARD!',
+            hp: 13500,
+            speed: 3.85,
+            attack: 76,
+            defense: 0.34,
+            isBoss: true,
+            isSuperBoss: true,
+            isMagical: true,
+            superMechanic: 'seraph_nova',
+            resistances: { bullet: 0.92, explosive: 1.25, fire: 0.85, headshot: 2.00, melee: 0.55 },
+            movementHabit: 'hover_drift',
+            attackType: 'aether_bolt',
+            soundProfile: 'wail_void',
+            drops: { points: 9000, xp: 3800, guaranteedPowerUp: 'double_points', refillArmor: true },
+            bodySpec: {
+                scale: [2.75, 3.10, 2.65],
+                skinColor: 0xfef3c7, shirtColor: 0x0284c7, pantsColor: 0x1e3a8a, eyeColor: 0x38bdf8,
+                wings: true, floating: true, haloCrystal: 0xfacc15, extraArms: 2, torsoShape: 'floating'
+            }
+        },
+        36: {
+            id: 'super_hydra_behemoth',
+            bossRound: 36,
+            name: 'LEVIATHAN HYDRA-REX',
+            title: 'Three-Headed Venom Behemoth',
+            simpleDesc: 'SUPER BOSS! A 3.4× armored bio-reptilian titan with 3 snapping fanged heads, dorsal spine sails, and tri-mortar acid barrages! Splits into 2 feral hydras on death!',
+            weaknessText: 'WEAK: FIRE (1.75×) & EXPLOSIVES (1.6×) • AVOID CORROSIVE MORTAR POOLS!',
+            hp: 21000,
+            speed: 3.35,
+            attack: 86,
+            defense: 0.38,
+            isBoss: true,
+            isSuperBoss: true,
+            splitCount: 2,
+            superMechanic: 'hydra_barrage',
+            resistances: { bullet: 0.82, explosive: 1.60, fire: 1.75, headshot: 1.65, melee: 0.50 },
+            movementHabit: 'charge_bull',
+            attackType: 'acid_spit',
+            soundProfile: 'hiss_toxic',
+            drops: { points: 14000, xp: 5200, guaranteedPowerUp: 'max_ammo', refillArmor: true },
+            bodySpec: {
+                scale: [3.15, 3.35, 3.40],
+                skinColor: 0x065f46, shirtColor: 0x047857, pantsColor: 0x022c22, eyeColor: 0xa3e635,
+                extraHeads: 2, backSac: 0x4ade80, tentacles: true, razorClaws: true, boneSpikes: true, torsoShape: 'broad'
+            }
+        },
+        48: {
+            id: 'super_dreadnought_mech',
+            bossRound: 48,
+            name: 'VALKYR-09 DREADNOUGHT',
+            title: 'Armored Siege War-Mech',
+            simpleDesc: 'SUPER BOSS! A 3.5× bipedal war-mech colossus armed with shoulder 6-cell micro-missile pods, a rotary gatling arm, directional ballistic plating, and jet-thruster jump slams!',
+            weaknessText: 'WEAK: EXPLOSIVES (1.95×) & CYCLOPS VISOR CRIT (1.85×) • RESISTS SMALL ARMS!',
+            hp: 29000,
+            speed: 2.95,
+            attack: 96,
+            defense: 0.48,
+            isBoss: true,
+            isSuperBoss: true,
+            superMechanic: 'mech_salvo',
+            resistances: { bullet: 0.58, explosive: 1.95, fire: 0.70, headshot: 1.85, melee: 0.35 },
+            movementHabit: 'stomp_march',
+            attackType: 'fire_bolt',
+            soundProfile: 'metal_clang',
+            drops: { points: 18500, xp: 6800, guaranteedPowerUp: 'max_ammo', refillArmor: true },
+            bodySpec: {
+                scale: [3.15, 3.50, 3.00],
+                skinColor: 0x334155, shirtColor: 0x1e293b, pantsColor: 0x0f172a, eyeColor: 0xef4444,
+                helmet: true, riotShield: true, glowingRibs: 0x38bdf8, torsoShape: 'armored'
+            }
+        },
+        60: {
+            id: 'super_void_sovereign',
+            bossRound: 60,
+            name: 'MALAKOR, ECLIPSE SOVEREIGN',
+            title: 'Apex Monarch of the Singularity',
+            simpleDesc: 'ULTIMATE SUPER BOSS! A 3.7× four-armed Void Emperor wielding a twin-bladed Eclipse Glaive and a black-hole crown. Pulls reality inward with singularity pulses, shadow-dashes, and rains abyssal orbs!',
+            weaknessText: 'WEAK: PACK-A-PUNCH TIER III, WONDER WEAPONS & HEADSHOTS (1.85×) • SPRINT OUT OF SINGULARITY PULL!',
+            hp: 38000,
+            speed: 4.15,
+            attack: 108,
+            defense: 0.46,
+            isBoss: true,
+            isSuperBoss: true,
+            isMagical: true,
+            superMechanic: 'void_singularity',
+            resistances: { bullet: 0.72, explosive: 1.45, fire: 0.85, headshot: 1.85, melee: 0.45 },
+            movementHabit: 'teleport_blink',
+            attackType: 'aether_bolt',
+            soundProfile: 'wail_void',
+            drops: { points: 25000, xp: 9500, guaranteedPowerUp: 'nuke', refillArmor: true },
+            bodySpec: {
+                scale: [3.05, 3.68, 2.95],
+                skinColor: 0x0f051d, shirtColor: 0x4c1d95, pantsColor: 0x05010d, eyeColor: 0xe879f9,
+                extraArms: 2, wings: true, horns: true, floating: true, haloCrystal: 0x22d3ee, tentacles: true, torsoShape: 'floating'
+            }
         }
     };
 

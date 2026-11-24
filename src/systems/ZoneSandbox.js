@@ -36,6 +36,7 @@
         sv_no_sun: S('No sunshine', '☁', 'A permanently grey, overcast sky with dim light.', 'chaos'),
         sv_no_vehicles: S('No vehicles', '🚳', 'Vehicles, the handcar and fast travel are disabled.', 'challenge'),
         sv_free_craft: S('Free building & crafting', '🆓', 'Build and craft anything without paying its cost.'),
+        sv_unlimited_tech: S('Unlimited Tech Points', '🧠', 'Grants 999 Tech Points and makes every technology research node cost 0 Tech Points.'),
         sv_max_level: S('Start at max level', '🏆', 'Begin at survivor level 30 with every perk at its maximum rank.'),
         sv_all_unlocks: S('Everything unlocked', '🔓', 'All research, recipes, vehicles and arena duels are unlocked from the start.'),
         sv_max_backpack: S('Biggest backpack', '🎒', 'Start with the Hauler frame, the largest pack.'),
@@ -131,6 +132,7 @@
             }
             if (c.has('sv_no_infest') && BO.ZoneInfest) { for (const s of BO.ZoneInfest.sites) s.cleared = true; BO.ZoneInfest.applyFlags(); }
             if (c.has('sv_master_map')) for (const r of BO.Zone.REGIONS) c.visited.add(r.id);
+            if (c.has('sv_unlimited_tech') && c.deep) c.deep.techPoints = Math.max(c.deep.techPoints || 0, 999);
             if (c.has('sv_god_mode')) p.hp = p.maxHp;
         }
 

@@ -189,18 +189,28 @@
         [1, 'Standard', 'The normal number of roaming enemies for each day.'],
         [1.5, 'Intense', '50% more enemies may roam at once.']
     ];
-    const STATION_NAME = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln', cookstation: 'Cooking station' };
+    const STATION_NAME = {
+        hand: 'By hand',
+        bench: 'Workbench',
+        campfire: 'Campfire',
+        kiln: 'Kiln',
+        cookstation: 'Cooking station',
+        alchemy: 'Alchemy stand',
+        arcane: 'Arcane table'
+    };
     const STATION_TIP = {
         hand: 'Craft anywhere, straight from your backpack.',
-        bench: 'Stand within 4 m of the Relay shelter or a crafting table you built.',
-        campfire: 'Stand within 4 m of a campfire you built (the Relay shelter stove also works).',
+        bench: 'Stand within 4 m of the Relay shelter, a Survivor Fort, or a crafting table you built.',
+        campfire: 'Stand within 4 m of a campfire you built (safehouse & fort stoves also work).',
         kiln: 'Stand within 4 m of a stone kiln you built.',
-        cookstation: 'Stand within 4 m of a cooking station you built. It also counts as a campfire.'
+        cookstation: 'Stand within 4 m of a cooking station you built. It also counts as a campfire.',
+        alchemy: 'Stand within 4 m of an Alchemy Brewing Stand you built or found in a fort.',
+        arcane: 'Stand within 4 m of an Arcane Enchanting Table you built or found.'
     };
     const CRAFT_CATS = [
         ['all', 'All recipes', 'grid'], ['tools', 'Tools', 'axe'], ['materials', 'Materials', 'ingot'],
-        ['medical', 'Medical', 'medkit'], ['food', 'Food & drink', 'cup'], ['lighting', 'Lighting', 'torch'],
-        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'wheel']
+        ['medical', 'Medical', 'medkit'], ['potions', 'Alchemy', 'flask'], ['food', 'Food & drink', 'cup'],
+        ['lighting', 'Lighting', 'torch'], ['gear', 'Gear & gadgets', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'wheel']
     ];
     const RECIPE_CAT = {
         braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
@@ -214,6 +224,7 @@
         reload9: 'weapons', reload556: 'weapons', reload762: 'weapons', reload12: 'weapons',
         coilgun: 'weapons'
     };
+    if (BO.ZoneExpansionData?.ITEM_DESCRIPTIONS) Object.assign(ITEM_INFO, BO.ZoneExpansionData.ITEM_DESCRIPTIONS);
     BO.SurvivalItemInfo = ITEM_INFO;
     const TABS = [
         { id: 'inventory', label: 'Inventory', bind: 'survInventory', glyph: 'chest' },
@@ -224,8 +235,9 @@
         { id: 'journal', label: 'Journal', bind: 'survJournal', glyph: 'flask' },
         { id: 'legend', label: 'Guide', bind: 'survLegend', glyph: 'rune' }
     ];
-    const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'map', tech: 'skills', objectives: 'journal', record: 'journal' };
-    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'respawn', 'ending', 'epilogue']);
+    const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'fasttravel', tech: 'skills', objectives: 'journal', record: 'journal' };
+    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'fasttravel', 'respawn', 'ending', 'epilogue']);
+    const COMPACT_SECTIONS = new Set(['inventory', 'crafting', 'build', 'chest', 'npc', 'shrine', 'infuser', 'fasttravel']);
     const STEPS = [
         ['quick', 'Quick start', 'Pick a ready-made expedition'],
         ['operation', 'Operation', 'What you are trying to do'],
@@ -239,7 +251,9 @@
     const RES_COLOR = {
         pine: '#7fb07a', hardwood: '#b2a36b', boulder: '#a9b3ae', iron: '#d39a7c', coal: '#7d8191', copper: '#7cc6ad',
         quartz: '#a8e3f5', deep: '#d6aef2', clay: '#b88b6d', buried: '#b7cf8f', kindling: '#a88a62', stones: '#b4b9b1',
-        roots: '#93b97c', herbs: '#8fc77a'
+        roots: '#93b97c', herbs: '#8fc77a',
+        emerald_vein: '#34d399', diamond_seam: '#38bdf8', lapis_outcrop: '#60a5fa', flux_vein: '#f87171',
+        wheat_patch: '#facc15', root_patch: '#fb923c', melon_patch: '#84cc16', reed_clump: '#a3e635'
     };
 
     function costRows(cost, have) {
@@ -283,13 +297,10 @@
         show(section, deploy, subject) {
             if (!this.dialog) this.create();
             section = ALIAS[section] || section;
-            if (section === 'travel') section = 'map';
-            const fromTravel = arguments[0] === 'travel';
             this.returnToBriefing = section === 'legend' && !BO.SurvivalMode.active;
             if (this.section !== section) this.feedback = null;
             this.section = section;
             this.subject = subject;
-            if (fromTravel) this.mapFocus = 'travel';
             if (deploy) this.deploy = deploy;
             if (section !== 'briefing' && BO.SurvivalMode.active) {
                 BO.App._clearInputState();
@@ -297,7 +308,10 @@
             }
             BO.Tooltips?.hide?.();
             if (!this.open) this.dialog.showModal();
-            this.dialog.classList.toggle('sv-is-deploy', section === 'briefing' || (section === 'legend' && this.returnToBriefing));
+            const isDeploy = section === 'briefing' || (section === 'legend' && this.returnToBriefing);
+            this.dialog.classList.toggle('sv-is-deploy', isDeploy);
+            this.dialog.classList.toggle('sv-compact', !isDeploy && COMPACT_SECTIONS.has(section));
+            this.dialog.dataset.section = section || '';
             this.render();
         }
 
@@ -316,6 +330,12 @@
                 if (this.section === 'legend' && this.returnToBriefing) { this.section = 'briefing'; this.render(); return; }
                 if (this.section === 'briefing') this.close();
                 else this.resume();
+            });
+            this.dialog.addEventListener('mousedown', (event) => {
+                if (event.target !== this.dialog) return;
+                if (this.section === 'respawn' || this.section === 'ending' || this.section === 'epilogue' || this.section === 'briefing') return;
+                BO.Sound?.playUIClick?.();
+                this.resume();
             });
             this.root.addEventListener('submit', (e) => e.preventDefault());
             this.root.addEventListener('click', (e) => {
@@ -578,8 +598,8 @@
             }
             if (code === kb.survTravel) {
                 e.preventDefault();
-                if (this.section === 'map') this.resume();
-                else { this.mapFocus = 'travel'; this.switchTab('map'); }
+                if (this.section === 'fasttravel') this.resume();
+                else this.switchTab('fasttravel');
                 return;
             }
             if (this.section === 'inventory' && this.selItem) {
@@ -599,6 +619,12 @@
             this.section = id;
             this.subject = null;
             this.feedback = null;
+            if (this.dialog) {
+                const isDeploy = id === 'briefing' || (id === 'legend' && this.returnToBriefing);
+                this.dialog.classList.toggle('sv-is-deploy', isDeploy);
+                this.dialog.classList.toggle('sv-compact', !isDeploy && COMPACT_SECTIONS.has(id));
+                this.dialog.dataset.section = id || '';
+            }
             this.render();
         }
 
@@ -742,7 +768,8 @@
                     this.selSide = el.dataset.side || null;
                     if (this.section === 'chest' && kind === 'item' && el.dataset.side) {
                         const dir = el.dataset.side === 'pack' ? 'store' : 'take';
-                        if (event.shiftKey || event.detail >= 2) pack.transfer(this.subject, this.selItem.id, event.shiftKey ? 'all' : 'one', dir === 'store');
+                        const chestKey = BO.ZoneWorldPlus?.resolveChestKey?.(this.subject) || this.subject;
+                        if (event.shiftKey || event.detail >= 2) pack.transfer(chestKey, this.selItem.id, event.shiftKey ? 'all' : 'one', dir === 'store');
                     }
                     break;
                 }
@@ -770,7 +797,12 @@
                     break;
                 }
                 case 'drop': { const [id, amt] = arg.split(':'); pack.drop(id, amt); break; }
-                case 'transfer': { const [dir, id, amt] = arg.split(':'); pack.transfer(this.subject, id, amt, dir === 'store'); break; }
+                case 'transfer': {
+                    const [dir, id, amt] = arg.split(':');
+                    const chestKey = BO.ZoneWorldPlus?.resolveChestKey?.(this.subject) || this.subject;
+                    pack.transfer(chestKey, id, amt, dir === 'store');
+                    break;
+                }
                 case 'equipTool': {
                     if (pack.tools[arg] > 0) pack.equipped = arg;
                     const idx = hotbar.indexOf({ kind: 'tool', id: arg });
@@ -816,10 +848,21 @@
                     break;
                 }
                 case 'craftCat': this.craftCat = arg; break;
-                case 'recipe': this.selRecipe = arg; break;
-                case 'craft': this.craftRecipe(arg, Number(el.dataset.times) || 1); break;
-                case 'buildSel': this.selBuild = arg; break;
+                case 'recipe':
+                    this.selRecipe = arg;
+                    if (event?.shiftKey || event?.detail >= 2) this.craftRecipe(arg, event?.ctrlKey ? 5 : 1);
+                    break;
+                case 'craft': this.craftRecipe(arg, Number(el.dataset.times) || (event?.shiftKey ? 5 : 1)); break;
+                case 'buildSel':
+                    this.selBuild = arg;
+                    if (event?.detail >= 2 && BO.ZoneBuild.begin(arg)) return this.resume();
+                    break;
                 case 'place': if (BO.ZoneBuild.begin(arg)) return this.resume(); break;
+                case 'openFastTravel': this.section = 'fasttravel'; break;
+                case 'openFullMap': this.section = 'map'; break;
+                case 'wpAction':
+                    if (BO.ZoneWorldPlus?.handleUiAction?.(arg, this.subject, this)) return;
+                    break;
                 case 'rotate': c.buildRotation = 1 - c.buildRotation; break;
                 case 'repairBase': deep?.repairBase(); break;
                 case 'dismantle': deep?.dismantleNearest(); break;
@@ -1416,10 +1459,11 @@
                 case 'skills': body = this.tabSkills(); break;
                 case 'journal': body = this.tabJournal(); break;
                 case 'legend': body = `<div class="sv-guide-host">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'start') : ''}</div>`; break;
-                case 'chest': title = 'Storage chest'; body = this.ctxChest(); break;
-                case 'npc': body = this.ctxNpc(); title = c.contact(this.subject)?.name || 'Contact'; break;
+                case 'chest': title = BO.ZoneWorldPlus?.chestTitle?.(this.subject) || 'Storage chest'; body = this.ctxChest(); break;
+                case 'npc': body = this.ctxNpc(); title = BO.ZoneWorldPlus?.npcTitle?.(this.subject) || c.contact(this.subject)?.name || 'Contact'; break;
                 case 'shrine': title = 'Site of Grace'; body = this.ctxShrine(); break;
                 case 'infuser': title = 'Aether infusion altar'; body = this.ctxInfuser(); break;
+                case 'fasttravel': title = 'Fast Travel Network'; body = this.ctxFastTravel(); break;
                 case 'respawn': title = 'You fell'; body = this.ctxRespawn(); break;
                 case 'ending': title = 'The Lantern'; body = this.ctxEnding(); break;
                 case 'epilogue': title = ''; body = BO.ZoneFinale.epilogue(this.subject || c.objectives.ending); break;
@@ -1477,8 +1521,9 @@
             switch (s) {
                 case 'inventory': return 'Drag items onto the hotbar · select an item and press 1–0 to place it · right-click a slot to clear it · <kbd>ESC</kbd> close';
                 case 'chest': return 'Click to inspect · double-click moves one · shift-click moves the whole stack · <kbd>ESC</kbd> close';
-                case 'crafting': return 'Recipes that need a station unlock when you stand within 4 m of it · ' + k('survCraft') + ' or <kbd>ESC</kbd> close';
-                case 'build': return 'Pieces are placed 2.6 m in front of you on the half-metre grid · ' + k('survBuild') + ' or <kbd>ESC</kbd> close';
+                case 'crafting': return 'Shift-click any recipe to craft · station recipes unlock within 4 m · ' + k('survCraft') + ' or <kbd>ESC</kbd> close';
+                case 'build': return 'Double-click any structure to start placing · <kbd>R</kbd> rotates · ' + k('survBuild') + ' or <kbd>ESC</kbd> close';
+                case 'fasttravel': return 'Click any unlocked beacon, fort, signpost or safehouse to travel · ' + k('survTravel') + ' or <kbd>ESC</kbd> close';
                 case 'map': return 'Hover markers for details · toggle layers on the right · ' + k('survMap') + ' or <kbd>ESC</kbd> close';
                 case 'respawn': return 'Choose how to continue.';
                 case 'npc': return 'Trades use materials from your backpack · <kbd>ESC</kbd> close';
@@ -1669,20 +1714,22 @@
         ctxChest() {
             const c = BO.SurvivalMode.campaign;
             const pack = c.pack;
-            const stored = pack.chests.get(this.subject) || {};
+            const chestKey = BO.ZoneWorldPlus?.resolveChestKey?.(this.subject) || this.subject;
+            const limits = BO.ZoneWorldPlus?.chestLimits?.(this.subject) || { weight: 54, slots: 18, label: 'Chest' };
+            const stored = pack.chests.get(chestKey) || {};
             const sel = this.selItem;
             const grid = (items, side) => Object.entries(items).filter(([id, n]) => frontier.items[id] && n > 0).map(([id, n]) => `
                 <button class="sv-tile ${sel?.kind === 'item' && sel.id === id && this.selSide === side ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" data-side="${side}"${tip(itemName(id) + ' ×' + n, ITEM_INFO[id] || '', 'Double-click moves one · shift-click moves the stack')}>
-                ${Icons().item(id, 30)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(itemName(id))}</span></button>`).join('');
+                ${Icons().item(id, 28)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(itemName(id))}</span></button>`).join('');
             const chestW = pack.weight(stored);
             const selStored = sel?.kind === 'item' ? stored[sel.id] || 0 : 0;
             return `<div class="sv-chest">
                 <section><div class="sv-pack-cap"><b>Backpack</b><span class="sv-cap-bar"><i style="width:${pct(pack.weight(), pack.limits.weight)}%"></i></span><small>${pack.weight().toFixed(1)} / ${pack.limits.weight} kg</small></div>
                     <div class="sv-grid sv-scroll" data-scroll="pgrid">${grid(pack.inventory, 'pack') || '<p class="sv-muted">Your pack is empty.</p>'}</div></section>
-                <section><div class="sv-pack-cap"><b>Chest</b><span class="sv-cap-bar"><i style="width:${pct(chestW, 54)}%"></i></span><small>${chestW.toFixed(1)} / 54 kg · ${pack.slots(stored)}/18 stacks</small></div>
-                    <div class="sv-grid sv-scroll" data-scroll="cgrid">${grid(stored, 'chest') || '<p class="sv-muted">The chest is empty.</p>'}</div></section>
-                <aside class="sv-detail">${sel?.kind === 'item' ? `${this.detailPanel(sel)}
-                    ${selStored ? `<div class="sv-actions"><button class="sv-btn" data-act="transfer" data-arg="take:${sel.id}:one">Take 1</button><button class="sv-btn" data-act="transfer" data-arg="take:${sel.id}:all">Take all (${selStored})</button></div>` : ''}` : '<div class="sv-empty-detail"><b>Select an item</b><p>Pick anything on either side to move it between your pack and the chest.</p></div>'}</aside>
+                <section><div class="sv-pack-cap"><b>${esc(limits.label || 'Chest')}</b><span class="sv-cap-bar"><i style="width:${pct(chestW, limits.weight)}%"></i></span><small>${chestW.toFixed(1)} / ${limits.weight} kg · ${pack.slots(stored)}/${limits.slots} stacks</small></div>
+                    <div class="sv-grid sv-scroll" data-scroll="cgrid">${grid(stored, 'chest') || '<p class="sv-muted">Empty storage.</p>'}</div></section>
+                <aside class="sv-detail sv-scroll">${sel?.kind === 'item' ? `${this.detailPanel(sel)}
+                    ${selStored ? `<div class="sv-actions"><button class="sv-btn sm" data-act="transfer" data-arg="take:${sel.id}:one">Take 1</button><button class="sv-btn sm primary" data-act="transfer" data-arg="take:${sel.id}:all">Take all (${selStored})</button></div>` : ''}` : '<div class="sv-empty-detail"><b>Quick Transfer</b><p>Shift-click any stack to move it immediately, or double-click to move one.</p></div>'}</aside>
             </div>`;
         }
 
@@ -1787,7 +1834,7 @@
             const here = c.stations;
             const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
             const statusText = { ready: 'Ready', missing: 'Missing materials', station: 'Needs ' + '', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
-            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
+            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation', 'alchemy', 'arcane'].filter((st) => st === 'hand' || st === 'bench' || st === 'campfire' || st === 'kiln' || here.includes(st) || all.some((r) => r.station === st)).map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st] || st, STATION_TIP[st] || '', here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove', alchemy: 'flask', arcane: 'rune' }[st] || 'wrench', here.includes(st) ? '#9fe0c9' : '#56645f', 15)}${STATION_NAME[st] || st}</span>`).join('')}</div>`;
             const cats = CRAFT_CATS.map(([id, label, glyph]) => {
                 const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
                 return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;
@@ -2237,6 +2284,9 @@
                     hit(bag.x, bag.z, body ? 'Your body bag' : 'Dropped bag', (body ? 'Everything you carried when you fell. ' : '') + (BO.SurvivalItemAmounts(bag.items) || 'Empty'), 9);
                 }
             }
+            if (this.mapLayers.sites || this.mapLayers.contacts) {
+                BO.ZoneWorldPlus?.drawMapMarkers?.(ctx, sx, sz, hit, label, zoom);
+            }
             // Waypoint
             const p = BO.Player;
             if (this.mapWaypoint) {
@@ -2306,15 +2356,16 @@
             if (!deep) return '<p class="sv-muted">Skills are unavailable.</p>';
             const nameOf = (id) => dd.techTree.find((t) => t.id === id)?.name || id;
             const offGrid = !!deep.modFx?.noAutomation;
+            const infTp = c.has('sv_unlimited_tech');
             const tiers = [1, 2, 3, 4].map((tier) => `<div class="sv-tier"><div class="sv-tier-h">Tier ${tier}</div>${dd.techTree.filter((n) => n.tier === tier).map((n) => {
                 const owned = deep.hasTech(n.id);
                 const reqOk = !n.req || deep.hasTech(n.req);
-                const afford = deep.techPoints >= n.cost;
+                const afford = infTp || deep.techPoints >= n.cost;
                 const st = owned ? 'owned' : !reqOk ? 'locked' : afford ? 'ready' : 'short';
-                return `<div class="sv-node st-${st}"${tip(n.name, n.desc, owned ? 'Researched' : !reqOk ? 'Requires ' + nameOf(n.req) : n.cost + ' Tech Point(s)')}>
+                return `<div class="sv-node st-${st}"${tip(n.name, n.desc, owned ? 'Researched' : !reqOk ? 'Requires ' + nameOf(n.req) : (infTp ? '0 Tech Points (Unlimited Tech active)' : n.cost + ' Tech Point(s)'))}>
                     <b>${esc(n.name)}</b><small>${esc(n.desc)}</small>
                     ${n.req ? `<span class="sv-node-req">${deep.hasTech(n.req) ? '✓' : '🔒'} ${esc(nameOf(n.req))}</span>` : ''}
-                    <button class="sv-btn sm ${st === 'ready' ? 'primary' : ''}" data-act="unlockTech" data-arg="${n.id}" ${st === 'ready' ? '' : 'disabled'}>${owned ? 'Researched' : !reqOk ? 'Locked' : 'Research · ' + n.cost + ' TP'}</button></div>`;
+                    <button class="sv-btn sm ${st === 'ready' ? 'primary' : ''}" data-act="unlockTech" data-arg="${n.id}" ${st === 'ready' ? '' : 'disabled'}>${owned ? 'Researched' : !reqOk ? 'Locked' : 'Research · ' + (infTp ? 'FREE' : n.cost + ' TP')}</button></div>`;
             }).join('')}</div>`).join('');
             const o = c.objectives;
             let lastAct = 0;
@@ -2333,7 +2384,7 @@
             }).join('');
             return `<div class="sv-skills">
                 <section class="sv-tech sv-scroll" data-scroll="tech">
-                    <div class="sv-sec-h"><h3>Technology</h3><span class="sv-pill">${deep.techPoints} Tech Point${deep.techPoints === 1 ? '' : 's'}</span>${offGrid ? '<span class="sv-pill warn">Automation disabled by modifier</span>' : ''}</div>
+                    <div class="sv-sec-h"><h3>Technology</h3><span class="sv-pill">${infTp ? '∞ Tech Points' : deep.techPoints + ' Tech Point' + (deep.techPoints === 1 ? '' : 's')}</span>${offGrid ? '<span class="sv-pill warn">Automation disabled by modifier</span>' : ''}</div>
                     <p class="sv-muted sm">Earn Tech Points by levelling up and defeating named infected.</p>
                     <div class="sv-tiers">${tiers}</div>
                 </section>
@@ -2402,6 +2453,9 @@
 
         /* ---------------------------------------------------------- contexts */
         ctxNpc() {
+            if (BO.ZoneWorldPlus?.handlesNpc?.(this.subject)) {
+                return BO.ZoneWorldPlus.renderNpcPanel(this.subject, this, { esc, tip, costInline, Icons });
+            }
             const mode = BO.SurvivalMode;
             const c = mode.campaign;
             const npc = c.contact(this.subject);
@@ -2418,7 +2472,7 @@
                 const afford = mode.canAfford(item.cost);
                 const gives = item.gain ? BO.SurvivalItemAmounts(item.gain) : item.ammo ? item.ammo + ' rounds for each weapon' : item.plates ? item.plates + ' armor plate' : item.vehicle ? 'Vehicle (ride it from the map)' : '';
                 return `<div class="sv-shop ${owned ? 'owned' : ''}"${tip(item.name, 'You get: ' + gives + '.', 'Costs ' + BO.SurvivalItemAmounts(item.cost))}>
-                    ${item.gain ? Icons().item(Object.keys(item.gain)[0], 28) : Icons().named(item.plates ? 'plate' : item.ammo ? 'rifle' : item.vehicle === 'glider' ? 'flare' : 'gear', '#cfe3da', 28)}<span class="sv-shop-t"><b>${esc(item.name)}</b><small>${esc(gives)}</small></span>
+                    ${item.gain ? Icons().item(Object.keys(item.gain)[0], 26) : Icons().named(item.plates ? 'plate' : item.ammo ? 'rifle' : item.vehicle === 'glider' ? 'flare' : 'gear', '#cfe3da', 26)}<span class="sv-shop-t"><b>${esc(item.name)}</b><small>${esc(gives)}</small></span>
                     <span class="sv-bcost">${costInline(item.cost, mode.points)}</span>
                     <button class="sv-btn sm ${afford && !owned ? 'primary' : ''}" data-act="trade" data-arg="${id}" ${owned || !afford ? 'disabled' : ''}>${owned ? 'Owned' : 'Trade'}</button></div>`;
             }).join('');
@@ -2433,6 +2487,38 @@
                     </div>
                 </section>
                 <section class="sv-npc-shop sv-scroll" data-scroll="shop"><h4 class="sv-sub">Trades</h4>${shop || '<p class="sv-muted">This contact has nothing to trade.</p>'}</section>
+            </div>`;
+        }
+
+        ctxFastTravel() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const pPos = BO.Player.pos;
+            const navHalf = career.masteryRank('navigator') >= 2;
+            const nearWaystone = c.placed?.some((p) => p.alive && p.type === 'waystone' && Math.hypot(p.x - pPos.x, p.z - pPos.z) < 6) ||
+                BO.ZoneWorldPlus?.isNearSignpost?.(pPos.x, pPos.z);
+            const blocked = c.has('footOnly') ? 'On Foot Only modifier active.' : !c.canSave() ? 'Clear nearby hostiles first.' : (c.deep?.bleeding || 0) > 0 ? 'Stop bleeding first.' : c.pack.weight() > c.pack.limits.weight ? 'Overloaded — drop or stash weight.' : '';
+            const points = c.travelPoints || [];
+            const rows = points.length ? points.map((t) => {
+                const dist = Math.round(Math.hypot(t.x - pPos.x, t.z - pPos.z));
+                const free = nearWaystone || t.kind === 'Waystone' || t.free;
+                const hours = free ? 0 : Math.max(0.4, dist / 110) * (navHalf ? 0.5 : 1);
+                const why = dist < 14 ? 'Here now' : blocked;
+                const dotCol = t.kind === 'Safehouse' ? '#8fe3c8' : t.kind === 'Settlement' ? '#f2d07a' : t.kind === 'Fort' ? '#fb923c' : t.kind === 'Waystone' ? '#c084fc' : t.kind === 'Signpost' ? '#38bdf8' : '#9fd4ff';
+                return `<button class="sv-trow sv-ft-row" data-act="travel" data-arg="${esc(t.id)}" ${why ? 'disabled' : ''}${tip(t.name, why || (free ? 'Instant transit (' + dist + ' m) — zero time or food cost!' : 'Travel ' + dist + ' m · ' + hours.toFixed(1) + 'h elapsed.'), t.kind)}>
+                    <span class="sv-dot" style="background:${dotCol}"></span>
+                    <span class="sv-ft-main"><b>${esc(t.name)}</b><small>${esc(t.kind)} · ${dist} m</small></span>
+                    <span class="sv-ft-cost ${free ? 'free' : ''}">${why ? esc(why) : (free ? 'INSTANT' : hours.toFixed(1) + 'h')}</span>
+                </button>`;
+            }).join('') : '<p class="sv-muted">Attune roadside Transit Signposts, secure Safehouses, clear Survivor Forts, repair Radio Towers, or build Resonance Waystones to unlock Fast Travel destinations.</p>';
+
+            return `<div class="sv-ft-popup">
+                <div class="sv-ft-head">
+                    <span class="sv-muted sm">${points.length} destination${points.length === 1 ? '' : 's'} unlocked${nearWaystone ? ' · <b style="color:#8fe3c8">Beacon/Signpost link: 0h instant transit!</b>' : ''}</span>
+                    <button class="sv-btn sm ghost" data-act="openFullMap">Open Full Map [${keyOf('survMap')}]</button>
+                </div>
+                ${blocked ? `<div class="sv-req short">${esc(blocked)}</div>` : ''}
+                <div class="sv-ft-grid sv-scroll" data-scroll="ft">${rows}</div>
             </div>`;
         }
 

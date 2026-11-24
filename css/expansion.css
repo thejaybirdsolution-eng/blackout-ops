@@ -1,15 +1,16 @@
 
 .expansion-shop {
-    width: min(880px, 94vw);
-    max-height: 86vh;
-    border: 1px solid #3f5770;
+    width: min(740px, 92vw);
+    max-height: 78vh;
+    border: 2px solid rgba(94, 234, 212, 0.38);
+    border-radius: 12px;
     color: #ecf4ff;
-    background: #101722;
-    padding: clamp(12px, 3vw, 26px);
-    box-shadow: 0 16px 68px #000a;
+    background: rgba(12, 19, 31, 0.94);
+    padding: 14px 16px;
+    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.75);
 }
 
-.expansion-shop::backdrop { background: #070d16bf; }
+.expansion-shop::backdrop { background: rgba(4, 8, 14, 0.32); }
 
 .expansion-shop-head, .expansion-shop-tools {
     display: flex;

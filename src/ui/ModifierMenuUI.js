@@ -8,7 +8,82 @@
         chaos:     { label: 'CHAOS',     color: '#f43f5e', order: 3 }
     };
 
+    const PRESET_STORAGE_KEY = 'boCustomModPresets/v1';
     const uiStateByMode = Object.create(null);
+
+    function readAllPresets() {
+        try {
+            const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : {};
+            return (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function writeAllPresets(map) {
+        try {
+            localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(map || {}));
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function listPresets(mode) {
+        const all = readAllPresets();
+        return Array.isArray(all[mode]) ? all[mode] : [];
+    }
+
+    function savePreset(mode, name, activeKeys) {
+        const cleanName = String(name || '').trim().slice(0, 28);
+        const mods = Array.from(toActiveSet(activeKeys));
+        if (!cleanName || !mods.length) return null;
+        const all = readAllPresets();
+        const list = Array.isArray(all[mode]) ? all[mode] : [];
+        const existing = list.find((p) => p.name.toLowerCase() === cleanName.toLowerCase());
+        let saved;
+        if (existing) {
+            existing.name = cleanName;
+            existing.mods = mods;
+            existing.updatedAt = Date.now();
+            saved = existing;
+        } else {
+            saved = {
+                id: 'mp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+                name: cleanName,
+                mods,
+                createdAt: Date.now()
+            };
+            list.unshift(saved);
+        }
+        all[mode] = list.slice(0, 24);
+        writeAllPresets(all);
+        return saved;
+    }
+
+    function updatePresetById(mode, id, activeKeys) {
+        const mods = Array.from(toActiveSet(activeKeys));
+        if (!mods.length) return false;
+        const all = readAllPresets();
+        const list = Array.isArray(all[mode]) ? all[mode] : [];
+        const target = list.find((p) => p.id === id);
+        if (!target) return false;
+        target.mods = mods;
+        target.updatedAt = Date.now();
+        writeAllPresets(all);
+        return true;
+    }
+
+    function deletePreset(mode, id) {
+        const all = readAllPresets();
+        const list = Array.isArray(all[mode]) ? all[mode] : [];
+        const next = list.filter((p) => p.id !== id);
+        if (next.length === list.length) return false;
+        all[mode] = next;
+        writeAllPresets(all);
+        return true;
+    }
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -193,7 +268,33 @@
             return `<button type="button" class="mmx-seg t-${tid}${st.tier === tid ? ' active' : ''}" data-mm-tier="${tid}" data-tip-title="${esc(tlbl)}" data-tip="${esc(TIER_TIP[tid])}" data-tip-sub="${cnt} modifiers"><i></i>${esc(tlbl)}</button>`;
         }).join('');
 
-        const bundlesHtml = bundles.length ? `
+        const userPresets = listPresets(mode);
+        const exactMatch = (mods) => mods.length === activeSet.size && mods.every((k) => activeSet.has(k));
+        const presetsHtml = `
+            <div class="mmx-presets-bar">
+                <span class="mmx-label">Custom presets</span>
+                <div class="mmx-preset-form">
+                    <input type="text" class="mmx-preset-input" data-mm-preset-name maxlength="28" placeholder="Preset name (e.g. Fast Chaos)…" value="${esc(st.draftName || '')}" title="Name your current modifier set to save and reuse anytime">
+                    <button type="button" class="mmx-btn primary" data-mm-act="savepreset" ${stats.totalActive ? '' : 'disabled'} data-tip-title="Save custom preset" data-tip="${stats.totalActive ? 'Saves your current ' + stats.totalActive + ' active modifier(s) under this name for ' + mode.toUpperCase() + '. Typing an existing preset name updates it.' : 'Switch on at least 1 modifier first to save a preset.'}">★ Save set</button>
+                </div>
+                <div class="mmx-preset-list">
+                    ${userPresets.length ? userPresets.map((p) => {
+                        const validMods = (p.mods || []).filter((k) => defs.some((d) => d.key === k));
+                        const matched = validMods.length > 0 && exactMatch(validMods);
+                        const names = validMods.map((k) => (defs.find((d) => d.key === k) || {}).label).filter(Boolean);
+                        const tipBody = 'Includes (' + validMods.length + '): ' + (names.join(', ') || 'None');
+                        return `<div class="mmx-preset-pill${matched ? ' active' : ''}">
+                            <button type="button" class="mmx-preset-load" data-mm-load-preset="${esc(p.id)}" data-tip-title="Preset: ${esc(p.name)}" data-tip="${esc(tipBody)}" data-tip-sub="${matched ? 'Currently loaded · click to clear' : 'Click to apply this modifier set'}">
+                                <span>★</span><b>${esc(p.name)}</b><em>${validMods.length}</em>
+                            </button>
+                            ${!matched && stats.totalActive ? `<button type="button" class="mmx-preset-ico" data-mm-update-preset="${esc(p.id)}" data-tip-title="Overwrite '${esc(p.name)}'" data-tip="Replace '${esc(p.name)}' with your currently active ${stats.totalActive} modifier(s).">↻</button>` : ''}
+                            <button type="button" class="mmx-preset-ico del" data-mm-del-preset="${esc(p.id)}" data-tip-title="Delete preset" data-tip="Delete '${esc(p.name)}' from saved ${mode.toUpperCase()} presets.">×</button>
+                        </div>`;
+                    }).join('') : '<span class="mmx-preset-hint">No saved sets yet — toggle modifiers and save named presets for 1-click reuse.</span>'}
+                </div>
+            </div>`;
+
+        const bundlesHtml = presetsHtml + (bundles.length ? `
             <div class="mmx-packs"><span class="mmx-label">Curated packs</span>
                 ${bundles.map((b) => {
                     const allOn = b.mods.length > 0 && b.mods.every((k) => activeSet.has(k));
@@ -202,7 +303,7 @@
                     return `<button type="button" class="mmx-pack${allOn ? ' active' : ''}" data-mm-bundle="${esc(b.id)}" data-tip-title="${esc(b.name)}" data-tip="${esc(body)}" data-tip-sub="${allOn ? 'Click to remove the pack' : 'Click to add all ' + b.mods.length}">
                         <span>${esc(b.ico)}</span>${esc(b.name)}<em>${b.mods.length}</em></button>`;
                 }).join('')}
-            </div>` : '';
+            </div>` : '');
 
         const trayHtml = stats.activeDefs.length
             ? stats.activeDefs.map((d) => `<button type="button" class="mmx-chip t-${d.tier}" data-mm-remove="${esc(d.key)}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc || 'No description.')}" data-tip-sub="Click to switch off"><span>${esc(d.ico)}</span>${esc(d.label)}<b>×</b></button>`).join('')
@@ -332,6 +433,22 @@
             });
         }
 
+        shell.addEventListener('input', (e) => {
+            const nameInput = e.target.closest('[data-mm-preset-name]');
+            if (nameInput) {
+                getState(mode).draftName = nameInput.value || '';
+            }
+        });
+
+        shell.addEventListener('keydown', (e) => {
+            const nameInput = e.target.closest('[data-mm-preset-name]');
+            if (nameInput && e.key === 'Enter') {
+                e.preventDefault();
+                const saveBtn = shell.querySelector('[data-mm-act="savepreset"]');
+                if (saveBtn && !saveBtn.disabled) saveBtn.click();
+            }
+        });
+
         shell.addEventListener('click', (e) => {
             const cardBtn = e.target.closest('[data-mm-key]');
             if (cardBtn) {
@@ -403,11 +520,59 @@
                 return;
             }
 
+            const loadPresetBtn = e.target.closest('[data-mm-load-preset]');
+            if (loadPresetBtn) {
+                const pid = loadPresetBtn.dataset.mmLoadPreset;
+                const preset = listPresets(mode).find((p) => p.id === pid);
+                if (!preset) return;
+                const data = normalizeModeData(mode);
+                const valid = (preset.mods || []).filter((k) => data.defs.some((d) => d.key === k));
+                const cur = getActive();
+                const isSame = valid.length === cur.size && valid.every((k) => cur.has(k));
+                commitActive(isSame ? new Set() : new Set(valid));
+                BO.Sound?.playUIClick?.();
+                return;
+            }
+
+            const updPresetBtn = e.target.closest('[data-mm-update-preset]');
+            if (updPresetBtn) {
+                const pid = updPresetBtn.dataset.mmUpdatePreset;
+                if (updatePresetById(mode, pid, getActive())) {
+                    BO.Sound?.playPerkBuy?.();
+                    refreshShellInPlace(shell, mode, getActive(), false);
+                }
+                return;
+            }
+
+            const delPresetBtn = e.target.closest('[data-mm-del-preset]');
+            if (delPresetBtn) {
+                const pid = delPresetBtn.dataset.mmDelPreset;
+                if (deletePreset(mode, pid)) {
+                    BO.Sound?.playUIClick?.();
+                    refreshShellInPlace(shell, mode, getActive(), false);
+                }
+                return;
+            }
+
             const actBtn = e.target.closest('[data-mm-act]');
             if (actBtn) {
                 const act = actBtn.dataset.mmAct;
                 const data = normalizeModeData(mode);
                 const st = getState(mode);
+                if (act === 'savepreset') {
+                    const cur = getActive();
+                    if (!cur.size) return;
+                    const inp = shell.querySelector('[data-mm-preset-name]');
+                    const rawName = (inp ? inp.value : st.draftName || '').trim();
+                    const fallback = 'Custom Set ' + (listPresets(mode).length + 1);
+                    const saved = savePreset(mode, rawName || fallback, cur);
+                    if (saved) {
+                        st.draftName = '';
+                        BO.Sound?.playPerkBuy?.();
+                        refreshShellInPlace(shell, mode, cur, false);
+                    }
+                    return;
+                }
                 if (act === 'clear') {
                     commitActive(new Set());
                     return;
@@ -438,6 +603,10 @@
         TIER_META,
         normalizeModeData,
         getState,
+        listPresets,
+        savePreset,
+        updatePresetById,
+        deletePreset,
         renderHtml,
         bindContainer,
         refreshShellInPlace

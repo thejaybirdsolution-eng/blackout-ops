@@ -112,6 +112,24 @@
         paw: '<ellipse cx="12" cy="15.5" rx="4.2" ry="3.5"/><circle cx="6.5" cy="10.5" r="1.7"/><circle cx="10" cy="8" r="1.7"/><circle cx="14" cy="8" r="1.7"/><circle cx="17.5" cy="10.5" r="1.7"/>',
         portal: '<ellipse cx="12" cy="12" rx="7" ry="9"/><ellipse cx="12" cy="12" rx="3.5" ry="5"/><path d="M12 3v2M12 19v2"/>',
         skull: '<path d="M12 3a7 7 0 0 0-7 7c0 2.6 1.3 4.6 3 5.7V19h8v-3.3c1.7-1.1 3-3.1 3-5.7a7 7 0 0 0-7-7z"/><circle cx="9.5" cy="11" r="1.3"/><circle cx="14.5" cy="11" r="1.3"/><path d="M10 19v2M14 19v2"/>',
+        // Zone Expansion glyphs (Minecraft-inspired relics, crops, potions, stairs & gadgets)
+        emerald: '<polygon points="12,2 19,7 19,17 12,22 5,17 5,7"/><polygon points="12,6 15.5,8.5 15.5,15.5 12,18 8.5,15.5 8.5,8.5"/>',
+        diamond: '<polygon points="7,4 17,4 21,9 12,21 3,9"/><path d="M3 9h18M7 4l5 17M17 4l-5 17"/>',
+        pearl: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M9 7.5a5 5 0 0 1 5.5 1"/>',
+        totem: '<path d="M9 4h6v5l4 2-4 2v7H9v-7L5 11l4-2z"/><path d="M10.5 7h.01M13.5 7h.01M12 12v5"/>',
+        apple: '<path d="M12 7c-4-1-7 2-7 6.5C5 18 8 21 12 20c4 1 7-2 7-6.5C19 9 16 6 12 7z"/><path d="M12 7c0-2 1.5-3.5 3.5-4M10 4.5c1.2.2 2 1 2 2.5"/>',
+        carrot: '<path d="M6 18 15 6c2 1 3 2 3 4L6 18z"/><path d="M15 6l2-3M17 7l3-1M14 5V2"/>',
+        bread: '<path d="M4 13c0-4 3.5-6 8-6s8 2 8 6v4H4z"/><path d="M9 9l1 2.5M14 9l1 2.5"/>',
+        wheat: '<path d="M12 21V5M9 8l3 3 3-3M9 12l3 3 3-3M9 16l3 3 3-3M12 3l-1.5 2.5L12 7l1.5-1.5z"/>',
+        melon: '<path d="M4 10a8 8 0 0 0 16 0z"/><path d="M6.5 10a5.5 5.5 0 0 0 11 0M10 12.5h.01M14 12.5h.01M12 14h.01"/>',
+        tnt: '<rect x="4" y="6" width="16" height="14" rx="1.5"/><path d="M4 11h16M4 15h16M12 6V3c1.5-1 3 0 4-1"/>',
+        grapple: '<path d="M12 10v11M12 4l-5 5M12 4l5 5M12 4l-2 6M12 4l2 6"/>',
+        magnet: '<path d="M6 5v7a6 6 0 0 0 12 0V5h-3.5v7a2.5 2.5 0 0 1-5 0V5z"/><path d="M6 8.5h3.5M14.5 8.5H18"/>',
+        shears: '<circle cx="7" cy="18" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M9 16 18 4M15 16 6 4"/>',
+        stairs: '<path d="M3 20h18V5h-4.5v5H12v5H7.5v5H3z"/>',
+        tower: '<path d="M5 21l2-10h10l2 10M4 11h16V7H4zM8 7V4h8v3M9 21l3-6 3 6"/>',
+        arch: '<path d="M4 21V5h16v16h-4v-7a4 4 0 0 0-8 0v7z"/>',
+        hopper: '<path d="M3 5h18l-6 8v6l-6 2v-8z"/>',
         unknown: '<rect x="5" y="5" width="14" height="14" rx="3"/><path d="M10 10a2 2 0 1 1 3 1.7c-.7.4-1 .8-1 1.3M12 16h.01"/>'
     };
 
@@ -162,7 +180,23 @@
         bedroll: 'bedroll', fishing_bait: 'hook', fireworks: 'flare',
         scrap_wheel: 'wheel', engine_parts: 'machine',
         // Armory attachment kits
-        optic_kit: 'scope', suppressor_kit: 'suppressor', mag_kit: 'ammo', grip_kit: 'wrench'
+        optic_kit: 'scope', suppressor_kit: 'suppressor', mag_kit: 'ammo', grip_kit: 'wrench',
+        // Zone Expansion items, relics, potions, farming crops & tactical gadgets
+        emerald_chip: 'emerald', diamond_shard: 'diamond', abyssal_alloy: 'ingot',
+        lapis_prism: 'crystal', flux_dust: 'powder', slime_gel: 'drop',
+        cinder_rod: 'torch', wraith_tear: 'drop', spider_silk: 'cord', xp_bottle: 'flask',
+        phase_pearl: 'pearl', chorus_fruit: 'berries', resurrection_idol: 'totem',
+        gilded_apple: 'apple', enchanted_apple: 'apple', milk_flask: 'bottle',
+        swiftness_draught: 'flask', leaping_draught: 'flask', strength_draught: 'flask',
+        night_vision_draught: 'flask', fire_ward_draught: 'flask', turtle_shell_brew: 'flask',
+        phantom_draught: 'flask', regen_draught: 'flask',
+        wheat: 'wheat', flour: 'powder', bread: 'bread', apple: 'apple',
+        carrot: 'carrot', golden_carrot: 'carrot', potato: 'egg', baked_potato: 'roast',
+        pumpkin: 'can', pumpkin_pie: 'pie', sugar_reed: 'wheat', sugar: 'powder',
+        cocoa_beans: 'seed', cookie_ration: 'pie', melon_slice: 'melon', glistering_melon: 'melon',
+        rabbit_ragout: 'bowl', cake_slice: 'pie',
+        grappling_hook: 'grapple', tnt_charge: 'tnt', magnet_charm: 'magnet',
+        super_boss_beacon: 'beacon', abyssal_armor: 'vest', fort_flare: 'flare'
     };
 
     const ITEM_TINT = {
@@ -191,11 +225,27 @@
         frag_grenade: '#8fb87a', molotov: '#ff8a47', spyglass: '#e8c468',
         bedroll: '#8fc2a9', fishing_bait: '#eb9486', fireworks: '#ff7ad9',
         scrap_wheel: '#9aa4ad', engine_parts: '#b5c4d4',
-        optic_kit: '#7ee8fa', suppressor_kit: '#9fd4c7', mag_kit: '#ffd27a', grip_kit: '#c7d3dc'
+        optic_kit: '#7ee8fa', suppressor_kit: '#9fd4c7', mag_kit: '#ffd27a', grip_kit: '#c7d3dc',
+        // Zone Expansion tints
+        emerald_chip: '#34d399', diamond_shard: '#38bdf8', abyssal_alloy: '#c084fc',
+        lapis_prism: '#60a5fa', flux_dust: '#f87171', slime_gel: '#86efac',
+        cinder_rod: '#fb923c', wraith_tear: '#e2e8f0', spider_silk: '#f1f5f9', xp_bottle: '#bef264',
+        phase_pearl: '#a855f7', chorus_fruit: '#d8b4fe', resurrection_idol: '#facc15',
+        gilded_apple: '#fde047', enchanted_apple: '#e879f9', milk_flask: '#f8fafc',
+        swiftness_draught: '#7dd3fc', leaping_draught: '#86efac', strength_draught: '#fca5a5',
+        night_vision_draught: '#818cf8', fire_ward_draught: '#fdba74', turtle_shell_brew: '#94a3b8',
+        phantom_draught: '#cbd5e1', regen_draught: '#f472b6',
+        wheat: '#facc15', flour: '#fef3c7', bread: '#d97706', apple: '#f87171',
+        carrot: '#fb923c', golden_carrot: '#fde047', potato: '#d6bc8b', baked_potato: '#e09f5a',
+        pumpkin: '#f97316', pumpkin_pie: '#fb923c', sugar_reed: '#a3e635', sugar: '#f8fafc',
+        cocoa_beans: '#a16207', cookie_ration: '#d97706', melon_slice: '#f43f5e', glistering_melon: '#fbbf24',
+        rabbit_ragout: '#ea580c', cake_slice: '#fbcfe8',
+        grappling_hook: '#94a3b8', tnt_charge: '#ef4444', magnet_charm: '#60a5fa',
+        super_boss_beacon: '#f43f5e', abyssal_armor: '#a855f7', fort_flare: '#fb7185'
     };
 
     const TOOL_GLYPH = { axe: 'axe', pick: 'pick', shovel: 'shovel' };
-    const TOOL_SPECIAL = { saw: 'saw', miningDrill: 'drill' };
+    const TOOL_SPECIAL = { saw: 'saw', miningDrill: 'drill', shears: 'shears' };
     const BUILD_GLYPH = {
         wall: 'wall', stoneWall: 'wall', obsidianWall: 'wall', floor: 'floor', stoneFloor: 'floor', roof: 'roof',
         bed: 'bed', bench: 'bench', ladder: 'ladder', campfire: 'fire', firepit: 'fire',
@@ -203,7 +253,16 @@
         chest: 'chest', wallTorch: 'torch', kiln: 'kiln',
         spikes: 'spikes', wire: 'snare', door: 'door', platform: 'platform', smelter: 'machine', hydro: 'bottle',
         turret: 'turret', generator: 'generator', beacon: 'beacon', infuser: 'altar',
-        planter: 'seed', rainbarrel: 'drop', waystone: 'portal', armoryBench: 'scope'
+        planter: 'seed', rainbarrel: 'drop', waystone: 'portal', armoryBench: 'scope',
+        // Zone Expansion buildables
+        woodStairs: 'stairs', stoneStairs: 'stairs', obsidianStairs: 'stairs',
+        woodDoor: 'door', ironDoor: 'door', doubleGate: 'door',
+        supplyCrate: 'chest', ironVault: 'chest', quantumChest: 'portal',
+        alchemyStand: 'flask', arcaneTable: 'rune', autoCollector: 'hopper',
+        wellPump: 'drop', compostBin: 'leaf',
+        halfWall: 'wall', stoneHalfWall: 'wall', windowWall: 'wall', archway: 'arch',
+        catwalk: 'floor', railing: 'splint', pillar: 'wall', watchtower: 'tower',
+        sandbagWall: 'brick', barbedWire: 'snare', spikeWall: 'spikes', floodlight: 'lantern'
     };
 
     function svg(glyph, color, size = 24) {
@@ -229,7 +288,7 @@
         tool(id, size) {
             const t = BO.SurvivalFrontierData?.tools?.[id];
             const glyph = TOOL_SPECIAL[id] || TOOL_GLYPH[t?.family] || 'wrench';
-            const tint = t?.level >= 4 ? '#c79bff' : t?.level >= 2 ? '#c7d3dc' : '#b8a68c';
+            const tint = t?.level >= 4 ? '#c084fc' : id.startsWith('diamond') ? '#38bdf8' : t?.level >= 2 ? '#c7d3dc' : '#b8a68c';
             return svg(glyph, tint, size);
         },
         weapon(weapon, size) {
@@ -238,7 +297,10 @@
             return svg(weaponGlyph(weapon), col, size);
         },
         build(id, size) {
-            const tint = id === 'obsidianWall' || id === 'waystone' ? '#b48cff' : id === 'cookstation' || id === 'firepit' || id === 'smoker' ? '#ffb07a' : CAT_COLOR.build;
+            const tint = id === 'obsidianWall' || id === 'obsidianStairs' || id === 'waystone' || id === 'quantumChest' || id === 'arcaneTable' ? '#b48cff'
+                : id === 'cookstation' || id === 'firepit' || id === 'smoker' || id === 'alchemyStand' ? '#ffb07a'
+                : id === 'floodlight' ? '#fde047'
+                : CAT_COLOR.build;
             return svg(BUILD_GLYPH[id] || 'build', tint, size);
         },
         fist(size) { return svg('fist', '#e7d9c4', size); },

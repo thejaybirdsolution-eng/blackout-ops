@@ -236,12 +236,14 @@
                 this.mode.toast('Requires prerequisite technology first.');
                 return false;
             }
-            const cost = this.modFx?.maxTechCostOne ? 1 : node.cost;
-            if (this.techPoints < cost) {
+            const infTp = this.campaign.has('sv_unlimited_tech');
+            const cost = infTp ? 0 : (this.modFx?.maxTechCostOne ? 1 : node.cost);
+            if (!infTp && this.techPoints < cost) {
                 this.mode.toast(`Need ${cost} Tech Point(s).`);
                 return false;
             }
-            this.techPoints -= cost;
+            if (infTp) this.techPoints = Math.max(this.techPoints, 999);
+            else this.techPoints -= cost;
             this.unlockedTech.add(techId);
             if (techId === 't2_armory') ['mp5', 'r870', 'kar98k_irons', 'deagle'].forEach((s) => this.unlockedSchematics.add(s));
             if (techId === 't3_heavy_arms') ['m4a1', 'ak47', 'spas12_tac', 'katana_carbon'].forEach((s) => this.unlockedSchematics.add(s));

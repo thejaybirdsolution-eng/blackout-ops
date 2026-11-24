@@ -2474,6 +2474,27 @@
             }
         }
 
+        /** Returns true if no active player-blocking collider overlaps the given vertical cylinder/box volume. */
+        hasHeadroom(x, y, z, radius = 0.34, height = 1.72) {
+            const minX = x - radius, maxX = x + radius;
+            const minZ = z - radius, maxZ = z + radius;
+            const minY = y + 0.08, maxY = y + height;
+            if (this.large && this.terrain && this.terrain.inside(x, z) && !this.terrain.carved(x, y + 0.3, z)) {
+                if (this.terrain.height(x, z) > y + 0.22) return false;
+            }
+            let blocked = false;
+            this.queryColliders(minX, minZ, maxX, maxZ, (c) => {
+                if (!c || !c.active || c.enemiesOnly) return false;
+                if (c.maxX <= minX || c.minX >= maxX || c.maxZ <= minZ || c.minZ >= maxZ) return false;
+                if (c.maxY > minY && c.minY < maxY) {
+                    blocked = true;
+                    return true;
+                }
+                return false;
+            });
+            return !blocked;
+        }
+
         /** Tell navigation a collider switched on/off (doors, destroyed walls). */
         notifyColliderChanged(c) {
             if (this.nav && c && c.minX !== undefined && !c.navIgnore) this.nav.rebuildArea(c.minX, c.minZ, c.maxX, c.maxZ);

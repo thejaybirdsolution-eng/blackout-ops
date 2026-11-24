@@ -490,11 +490,13 @@
         transfer(chestId, id, amount, deposit) {
             const chest = this.chests.get(chestId);
             const site = this.mode.near;
-            if (!chest || !data.items[id] || site?.id !== 'build:' + chestId) return false;
+            const okAccess = site?.id === 'build:' + chestId || BO.ZoneWorldPlus?.canAccessChest?.(chestId, site);
+            if (!chest || !data.items[id] || !okAccess) return false;
             const source = deposit ? this.inventory : chest;
             const target = deposit ? chest : this.inventory;
             const desired = amount === 'all' ? source[id] : Math.min(source[id] || 0, 1);
-            const n = this.room(id, desired || 0, target, deposit ? { slots: 18, weight: 54 } : this.limits);
+            const chestLim = BO.ZoneWorldPlus?.chestLimitsForKey?.(chestId) || { slots: 18, weight: 54 };
+            const n = this.room(id, desired || 0, target, deposit ? chestLim : this.limits);
             if (!n) {
                 this.mode.toast('The destination has no room.');
                 return false;

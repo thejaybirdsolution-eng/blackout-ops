@@ -253,12 +253,25 @@
                 root.add(aura);
 
                 if (spec.isBoss) {
-                    const core = new THREE.Mesh(
-                        this._geo('zboss_core', () => new THREE.OctahedronGeometry(0.11, 0)),
-                        eyeMat
+                    const core = this._tagHitbox(
+                        new THREE.Mesh(
+                            this._geo(spec.isSuperBoss ? 'zsuper_core' : 'zboss_core', () => new THREE.OctahedronGeometry(spec.isSuperBoss ? 0.145 : 0.11, 0)),
+                            eyeMat
+                        ),
+                        entity,
+                        spec.isSuperBoss ? 'head' : 'torso'
                     );
                     core.position.set(0, 0.40, chestD * 0.5 + 0.045);
                     bodyPivot.add(core);
+                }
+                if (spec.isSuperBoss) {
+                    const superRing = new THREE.Mesh(
+                        this._geo('zsuper_ring', () => new THREE.TorusGeometry(0.68, 0.042, 6, 28)),
+                        this._mat('zsuper_ring_m', () => new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.85 }))
+                    );
+                    superRing.rotation.x = Math.PI * 0.5;
+                    superRing.position.y = 0.08;
+                    root.add(superRing);
                 }
             }
 

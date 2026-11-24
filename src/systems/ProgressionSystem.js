@@ -10,6 +10,74 @@
     class ProgressionSystem {
         constructor() {
             this.sessionStartStats = null;
+            this._mkCount = 0;
+            this._mkLastAt = 0;
+            this._spreeCount = 0;
+            this._hsStreak = 0;
+        }
+
+        resetCombatStreak() {
+            this._mkCount = 0;
+            this._mkLastAt = 0;
+            this._spreeCount = 0;
+            this._hsStreak = 0;
+        }
+
+        /**
+         * Universal Halo-inspired Multi-Kill, Killing Spree, Headhunter & Bulltrue tracker across ALL game modes.
+         */
+        registerCombatKill(opts = {}) {
+            const now = performance.now() / 1000;
+            if (now - this._mkLastAt <= 4.2) {
+                this._mkCount++;
+            } else {
+                this._mkCount = 1;
+            }
+            this._mkLastAt = now;
+            this._spreeCount++;
+
+            if (opts.isHeadshot) {
+                this._hsStreak++;
+            } else {
+                this._hsStreak = 0;
+            }
+
+            // Multi-kill chain callouts & medals (Double Kill -> Killionaire!)
+            if (this._mkCount >= 2) {
+                if (this._mkCount === 2) this.awardMedal('double_kill');
+                else if (this._mkCount === 3) this.awardMedal('triple_kill');
+                else if (this._mkCount === 4) this.awardMedal('fury_kill');
+                else if (this._mkCount === 5) this.awardMedal('frenzy_kill');
+                else if (this._mkCount === 6) this.awardMedal('killtrocity');
+                else if (this._mkCount >= 7) this.awardMedal('killimanjaro');
+                BO.Sound.playMultikillVoice(this._mkCount);
+            } else {
+                // Spree or tactical skill callouts when not in a multi-kill chain
+                if (this._spreeCount === 5) {
+                    this.awardMedal('bloodthirsty');
+                    BO.Sound.playAnnouncement('killing_spree');
+                } else if (this._spreeCount === 10) {
+                    this.awardMedal('merciless');
+                    BO.Sound.playAnnouncement('killing_frenzy');
+                } else if (this._spreeCount === 15) {
+                    this.awardMedal('ruthless');
+                    BO.Sound.playAnnouncement('running_riot');
+                } else if (this._spreeCount === 20) {
+                    this.awardMedal('rampage_spree');
+                    BO.Sound.playAnnouncement('rampage');
+                } else if (this._spreeCount === 25) {
+                    this.awardMedal('untouchable');
+                    BO.Sound.playAnnouncement('untouchable');
+                } else if (this._spreeCount >= 30 && this._spreeCount % 10 === 0) {
+                    BO.Sound.playAnnouncement('invincible');
+                } else if (opts.enemySwing && opts.enemySwing > 0.35) {
+                    this.awardMedal('bulltrue');
+                    BO.Sound.playAnnouncement('bulltrue');
+                } else if (this._hsStreak > 0 && this._hsStreak % 3 === 0) {
+                    this.awardMedal('headhunter');
+                    BO.Sound.playAnnouncement('headhunter');
+                }
+            }
         }
 
         getRankInfo() {

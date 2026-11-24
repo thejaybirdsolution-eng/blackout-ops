@@ -112,6 +112,7 @@
             BO.ZoneDungeons?.start(this, checkpoint?.dungeons);
             BO.ZoneLegends?.start(this, checkpoint?.legends);
             BO.ZoneQuests?.start(this, checkpoint?.quests);
+            BO.ZoneWorldPlus?.start(this, checkpoint?.worldPlus);
             BO.ZoneSandbox?.start(this, !!checkpoint);
             BO.ZoneFinale.stop();
             BO.ZoneFinale.applySaved(c.objectives);
@@ -143,6 +144,7 @@
             BO.ZoneArmory?.stop();
             BO.ZoneCompanions?.stop();
             BO.ZoneWild?.stop();
+            BO.ZoneWorldPlus?.stop();
             BO.ZoneSandbox?.stop();
             BO.ZoneInfest?.stop();
             BO.ZoneThrill?.stop();
@@ -412,6 +414,7 @@
                 if (mfx.weaponDmgMult && damageKind !== 'melee') amount *= mfx.weaponDmgMult;
                 if (mfx.flatDmgMult) amount *= mfx.flatDmgMult;
                 if (deep?.training) amount *= deep.trainingDamageMult(damageKind);
+                amount *= (BO.ZoneWorldPlus?.damageMult?.() || 1);
                 // Run perks, weapon traits and champion armour (reads awareness before the hit reveals you).
                 if (BO.ZoneThrill) amount = BO.ZoneThrill.modifyHit(entity, amount, hitbox, damageKind);
                 // A hit always makes the target aware of you.
@@ -432,6 +435,15 @@
                 if (!entity.survivalType) this.dropBotLoot(entity);
                 deep?.onKill?.(entity, damageKind);
                 BO.ZoneThrill?.onKill(entity, hitbox, damageKind);
+                BO.ZoneWorldPlus?.onEnemyKilled?.(entity, hitbox, damageKind);
+                BO.Progression?.registerCombatKill?.({
+                    mode: 'survival',
+                    isHeadshot: hitbox === 'head',
+                    isMelee: damageKind === 'melee',
+                    isBoss: !!(entity.isBoss || entity.bossLabel),
+                    isSuperBoss: !!entity.isSuperBoss,
+                    enemySwing: entity.attackSwing || 0
+                });
             }
             return killed;
         }
@@ -465,6 +477,8 @@
                     if (z.horde) return H.targetFor(z);
                     const compTgt = BO.ZoneCompanions?.targetForZombie?.(z);
                     if (compTgt) return compTgt;
+                    const fortTgt = BO.ZoneWorldPlus?.targetForZombie?.(z);
+                    if (fortTgt) return fortTgt;
                     const bot = closest(bots, z.pos, 11);
                     if (bot && (!z.zs || z.zs.state !== 'hunt' || bot.pos.distanceTo(z.pos) < p.pos.distanceTo(z.pos))) return { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true };
                     return D.getTarget(z);
@@ -472,6 +486,7 @@
                 onAttackCustomTarget: (z, ct) => {
                     if (ct?.structure) BO.ZoneHorde.strike(z, ct.structure);
                     else if (ct?.companion) BO.ZoneCompanions?.damageCompanion(z.damage);
+                    else if (ct?.fortDefender) BO.ZoneWorldPlus?.damageDefender(ct.fortDefender, z.damage);
                     else if (ct?.target) this.hit(ct.target, z.damage, 'torso', null, 'melee', z);
                 },
                 onMeleePlayer: (z) => {
@@ -542,6 +557,7 @@
             BO.ZoneDungeons?.update(dt);
             BO.ZoneLegends?.update(dt);
             BO.ZoneQuests?.update(dt);
+            BO.ZoneWorldPlus?.update(dt);
             BO.ZoneSandbox?.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
@@ -625,7 +641,7 @@
                 const v = -this.fallPeak;
                 this.wasAirborne = false;
                 this.fallPeak = 0;
-                if (v > 14.5 && !BO.Player.isFlying && !this.campaign.has('sv_no_fall')) {
+                if (v > 14.5 && !BO.Player.isFlying && !this.campaign.has('sv_no_fall') && !BO.ZoneWorldPlus?.noFallDamage?.()) {
                     const dmg = Math.round((v - 14.5) * 7);
                     p.takeDamage(dmg);
                     BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.12);
@@ -705,7 +721,7 @@
                 f.life -= dt;
                 if (!pulse || f.life <= 0) continue;
                 BO.FX.spawnParticles(f.pos.clone().add(new THREE.Vector3(0.7, 0.3, 0)), 4, 0xcb6630, 1.2, -1.2, 0.8);
-                if (p.pos.distanceTo(f.pos) < 1.7) p.takeDamage(7, f.pos);
+                if (p.pos.distanceTo(f.pos) < 1.7 && !BO.ZoneWorldPlus?.hasFireWard?.()) p.takeDamage(7, f.pos);
                 for (const part of this.structures.values()) {
                     if (part.material !== 'wood' || part.hp <= 0 || part.mesh.position.distanceTo(f.pos) > 2.7) continue;
                     this.damagePart(part, 15, 'fire');
@@ -768,6 +784,7 @@
                 BO.Sound?.playFootstep?.(true);
                 return;
             }
+            if (BO.ZoneWorldPlus?.activateMarker?.(site)) return;
             if (BO.ZoneDungeons?.activate(site) || BO.ZoneLegends?.activate(site) || BO.ZoneCompanions?.activate(site) || BO.ZoneArmory?.activate(site) || BO.ZoneWild?.activate(site)) return;
             if (BO.ZoneFrontier.activate(site)) return;
             if (BO.ZoneEvents.activate(site)) return;
@@ -871,6 +888,8 @@
 
         consume(id) {
             if (!this.active || !BO.Player.alive || !this.campaign) return false;
+            const wp = BO.ZoneWorldPlus?.consume?.(id);
+            if (wp !== undefined) return wp;
             const wild = BO.ZoneWild?.consume(id);
             if (wild !== undefined) return wild;
             if (['medkits', 'rations', 'canned', 'splint', 'painkillers', 'gunkit'].includes(id)) return this.useItem(id);

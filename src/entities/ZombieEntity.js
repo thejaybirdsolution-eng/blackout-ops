@@ -15,6 +15,12 @@
             this.spec = opts.spec || BO.ZombiesData.get(opts.type || 'shambler');
             this.type = this.spec.id;
             this.isBoss = !!this.spec.isBoss;
+            this.isSuperBoss = !!this.spec.isSuperBoss;
+            this.superMechanic = this.spec.superMechanic || null;
+            this.superTimer = 4.2 + Math.random() * 1.4;
+            this.superEnraged = false;
+            this.wardTimer = 0;
+            this._superBolts = [];
             this.round = opts.round || 1;
 
             this.maxHp = opts.hp || this.spec.hp || 150;
@@ -41,7 +47,7 @@
             this.yaw = 0;
             const sc = (this.spec.bodySpec && this.spec.bodySpec.scale) || [1, 1, 1];
             this.radius = BO.Math.clamp(0.38 * sc[0], 0.30, 0.85);
-            this.height = this.spec.bodySpec?.missingLegs && !this.spec.bodySpec?.floating ? 0.85 : (1.75 * sc[1]);
+            this.height = this.isSuperBoss ? 2.15 : (this.spec.bodySpec?.missingLegs && !this.spec.bodySpec?.floating ? 0.85 : (1.75 * sc[1]));
 
             this.windowInteractive = opts.windowInteractive || null;
             this.state = this.windowInteractive ? 'approach_window' : 'chase';
@@ -140,6 +146,9 @@
             if (hitbox === 'shield') {
                 dmg *= 0.25;
                 BO.Sound.playZombieGroan('metal_clang', 0.45);
+            } else if (this.wardTimer > 0 && hitbox !== 'head') {
+                dmg *= 0.45;
+                BO.Sound.playZombieGroan('metal_clang', 0.35);
             } else if (hitbox === 'head') {
                 if (this.spec.bodySpec?.headless) {
                     dmg *= 0.7; // No head to crit!
@@ -157,7 +166,21 @@
             }
 
             this.hp -= Math.max(1, dmg);
-            this.flinchTimer = this.isBoss ? 0.06 : 0.16;
+            this.flinchTimer = this.isSuperBoss ? 0.03 : (this.isBoss ? 0.06 : 0.16);
+
+            if (this.isSuperBoss && !this.superEnraged && this.hp > 0 && this.hp <= this.maxHp * 0.50) {
+                this.superEnraged = true;
+                this.speed *= 1.24;
+                this.superTimer = Math.min(this.superTimer, 0.85);
+                if (this.superMechanic === 'seraph_nova') this.wardTimer = 4.5;
+                const auraCol = this.spec.bodySpec?.eyeColor || 0xfbbf24;
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 2.5, 0)), 26, auraCol, 6.5, 3, 0.75, 1.6);
+                BO.Sound.playZombieGroan(this.soundProfile, 1.0);
+                BO.Events.emit('hud:toast', {
+                    text: `👑 ${this.spec.name} ENRAGED — PHASE II UNLEASHED!`,
+                    color: '#fbbf24'
+                });
+            }
 
             if (dirVec && !this.isBoss) {
                 const kb = this.defense > 0.25 ? 1.1 : 2.4;
@@ -231,11 +254,18 @@
             if (this.flinchTimer > 0) this.flinchTimer -= dt;
             if (this.acidTimer > 0) this.acidTimer -= dt;
             if (this.slowTimer > 0) this.slowTimer -= dt;
+            if (this.wardTimer > 0) this.wardTimer -= dt;
             if (this._magicAura) this._magicAura.rotation.z += dt * 3.5;
             if (this.attackCooldown > 0) this.attackCooldown -= dt;
             if (this.rangedCooldown > 0) this.rangedCooldown -= dt;
             if (this.attackSwing > 0) this.attackSwing = Math.max(0, this.attackSwing - dt * 2.5);
             this.habitPhase += dt * 4.5;
+
+            if (this._superBolts && this._superBolts.length > 0) this._tickSuperBolts(dt);
+
+            if (this.isSuperBoss && this.superMechanic === 'hydra_barrage' && this.burnTimer <= 0 && this.hp > 0 && this.hp < this.maxHp && (this.hp / this.maxHp) > 0.35) {
+                this.hp = Math.min(this.maxHp, this.hp + this.maxHp * 0.006 * dt);
+            }
 
             if (this.burnTimer > 0) {
                 this.burnTimer -= dt;
@@ -368,16 +398,31 @@
                 const distToTarget = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, tx, ty, tz);
                 const attackRange = (customTarget && customTarget.attackRange !== undefined)
                     ? customTarget.attackRange
-                    : (this.isBoss ? 2.45 : (this.attackType === 'shockwave_slam' ? 2.2 : 1.58));
+                    : (this.isSuperBoss ? 3.4 : (this.isBoss ? 2.45 : (this.attackType === 'shockwave_slam' ? 2.2 : 1.58)));
+
+                // Bespoke Multi-Phase Colossal Super Boss Mechanics
+                if (this.isSuperBoss && this.superMechanic && !chasingMonkey && closestP.alive) {
+                    this.superTimer -= dt;
+                    if (this.superTimer <= 0 && distToTarget < 30) {
+                        this.superTimer = (this.superEnraged ? 4.3 : 5.8) + Math.random() * 1.4;
+                        this._executeSuperMechanic(tx, ty, tz, distToTarget, floorY, callbacks, customTarget);
+                    }
+                }
 
                 // Special Ranged Attacks (Acid Spit, Fire Bolt, Frost Shard, Life Drain, Aether Bolt)
                 const isRanged = ['acid_spit', 'fire_bolt', 'frost_shard', 'life_drain', 'aether_bolt'].includes(this.attackType);
                 const allowProj = !(callbacks && callbacks.allowProjectiles === false);
-                if (allowProj && !chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < 22 && this.rangedCooldown <= 0) {
-                    if (BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.3, this.pos.z, tx, ty + 1.2, tz)) {
-                        this.rangedCooldown = this.isBoss ? 2.4 : 3.8;
+                const maxRangeDist = this.isSuperBoss ? 32 : 22;
+                const eyeY = this.isSuperBoss ? 3.1 : 1.3;
+                if (allowProj && !chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < maxRangeDist && this.rangedCooldown <= 0) {
+                    if (BO.World.hasLineOfSight(this.pos.x, this.pos.y + eyeY, this.pos.z, tx, ty + 1.2, tz)) {
+                        this.rangedCooldown = this.isSuperBoss ? 2.1 : (this.isBoss ? 2.4 : 3.8);
                         this.attackSwing = 1.0;
-                        if (callbacks && callbacks.onRangedAttack) callbacks.onRangedAttack(this, tx, ty + 1.15, tz);
+                        if (callbacks && callbacks.onRangedAttack) {
+                            callbacks.onRangedAttack(this, tx, ty + 1.15, tz, this.isSuperBoss ? { originY: 3.1 } : null);
+                        } else if (this.isSuperBoss) {
+                            this._fireSuperSalvo(tx, ty + 1.15, tz, { count: 3, spread: 0.16, kind: this.attackType, speed: 19, originY: 3.1 });
+                        }
                     }
                 }
 
@@ -563,7 +608,126 @@
             }
         }
 
+        _fireSuperSalvo(tx, ty, tz, opts = {}, callbacks = null) {
+            if (callbacks && callbacks.onRangedAttack && callbacks.allowProjectiles !== false) {
+                callbacks.onRangedAttack(this, tx, ty, tz, opts);
+                return;
+            }
+            if (!BO.World.scene) return;
+            const kind = opts.kind || this.attackType || 'fire_bolt';
+            const col = kind === 'acid_spit' ? 0x4ade80 : (kind === 'fire_bolt' ? 0xf97316 : (kind === 'frost_shard' ? 0x38bdf8 : 0xc084fc));
+            const count = opts.count || 3;
+            const spread = opts.spread ?? 0.20;
+            const speed = opts.speed || 20;
+            const origin = new THREE.Vector3(this.pos.x, this.pos.y + (opts.originY || 3.1), this.pos.z);
+            for (let c = 0; c < count; c++) {
+                const ang = (c - (count - 1) * 0.5) * spread;
+                const dir = new THREE.Vector3(tx - origin.x, ty - origin.y, tz - origin.z).normalize();
+                if (ang !== 0) dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+                const mesh = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.26, 8, 8),
+                    new THREE.MeshBasicMaterial({ color: col })
+                );
+                mesh.position.copy(origin);
+                BO.World.scene.add(mesh);
+                this._superBolts.push({
+                    kind,
+                    mesh,
+                    pos: origin.clone(),
+                    vel: dir.multiplyScalar(speed),
+                    damage: Math.max(12, Math.round(this.damage * 0.58)),
+                    life: 3.6,
+                    color: col
+                });
+            }
+            BO.Sound.playZombieGroan(this.soundProfile, 0.85);
+        }
+
+        _tickSuperBolts(dt) {
+            const P = BO.Player;
+            for (let i = this._superBolts.length - 1; i >= 0; i--) {
+                const ep = this._superBolts[i];
+                ep.life -= dt;
+                const step = ep.vel.clone().multiplyScalar(dt);
+                const hitWall = BO.World.raycastWorld(ep.pos, step.clone().normalize(), step.length() + 0.16);
+                ep.pos.add(step);
+                ep.mesh.position.copy(ep.pos);
+                const hitPlayer = P && P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.85;
+                if (hitPlayer) {
+                    P.takeDamage(ep.damage, this.pos, false);
+                    BO.FX.spawnParticles(ep.pos, 8, ep.color, 3.8, 5, 0.4, 1.2);
+                }
+                if (hitPlayer || hitWall || ep.life <= 0) {
+                    if (hitWall) BO.FX.spawnParticles(ep.pos, 6, ep.color, 3, 5, 0.35, 1.0);
+                    if (BO.World.scene) BO.World.scene.remove(ep.mesh);
+                    this._superBolts.splice(i, 1);
+                }
+            }
+        }
+
+        _executeSuperMechanic(tx, ty, tz, distToTarget, floorY, callbacks, customTarget) {
+            const P = BO.Player;
+            const m = this.superMechanic;
+            this.attackSwing = 1.0;
+
+            if (m === 'titan_quake') {
+                BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 0.35, 0)), 7.2, 0xf97316);
+                BO.Sound.playExplosion(0.72);
+                if (P) P.cameraShake = Math.max(P.cameraShake || 0, 0.14);
+                if (P && P.alive && !customTarget && BO.Math.dist2D(P.pos.x, P.pos.z, this.pos.x, this.pos.z) < 8.6) {
+                    if (P.pos.y - this.pos.y < 0.72) {
+                        P.takeDamage(Math.max(18, Math.round(this.damage * 0.60)), this.pos, false);
+                        P.vel.y = Math.max(P.vel.y, 4.8);
+                    }
+                }
+                if (distToTarget > 6.0) {
+                    this._fireSuperSalvo(tx, ty + 1.1, tz, { count: this.superEnraged ? 3 : 1, spread: 0.18, kind: 'fire_bolt', speed: 18, originY: 3.4 }, callbacks);
+                }
+            } else if (m === 'seraph_nova') {
+                this.wardTimer = Math.max(this.wardTimer, 3.6);
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 18, 0xfef08a, 5.2, 2, 0.65, 1.5);
+                this._fireSuperSalvo(tx, ty + 1.15, tz, { count: this.superEnraged ? 7 : 5, spread: 0.22, kind: 'aether_bolt', speed: 21, originY: 3.3 }, callbacks);
+            } else if (m === 'hydra_barrage') {
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), 16, 0x4ade80, 4.8, 2, 0.6, 1.4);
+                this._fireSuperSalvo(tx, ty + 1.15, tz, { count: this.superEnraged ? 5 : 3, spread: 0.26, kind: 'acid_spit', speed: 18, originY: 3.1 }, callbacks);
+            } else if (m === 'mech_salvo') {
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 3.4, 0)), 14, 0xf97316, 4.5, 4, 0.5, 1.2);
+                this._fireSuperSalvo(tx, ty + 1.1, tz, { count: this.superEnraged ? 6 : 4, spread: 0.18, kind: 'fire_bolt', speed: 22, originY: 3.5 }, callbacks);
+                if (distToTarget > 7.5 && distToTarget < 20.0 && this.pos.y <= floorY + 0.15) {
+                    const dx = tx - this.pos.x, dz = tz - this.pos.z;
+                    const d = Math.max(0.1, Math.hypot(dx, dz));
+                    this.vel.y = 8.4;
+                    this.vel.x += (dx / d) * 9.2;
+                    this.vel.z += (dz / d) * 9.2;
+                }
+            } else if (m === 'void_singularity') {
+                BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), 22, 0xa855f7, 6.0, -2.0, 0.6, 1.4);
+                if (P && P.alive && !customTarget) {
+                    const pd = BO.Math.dist2D(P.pos.x, P.pos.z, this.pos.x, this.pos.z);
+                    if (pd > 2.2 && pd < 13.5) {
+                        const pull = 6.2;
+                        P.vel.x += ((this.pos.x - P.pos.x) / pd) * pull;
+                        P.vel.z += ((this.pos.z - P.pos.z) / pd) * pull;
+                    }
+                }
+                this._fireSuperSalvo(tx, ty + 1.15, tz, { count: this.superEnraged ? 6 : 4, spread: 0.20, kind: 'aether_bolt', speed: 20, originY: 3.4 }, callbacks);
+                if (distToTarget > 8.0 && !(callbacks && callbacks.preventBlink)) {
+                    const dx = tx - this.pos.x, dz = tz - this.pos.z;
+                    const d = Math.max(0.1, Math.hypot(dx, dz));
+                    this.pos.x += (dx / d) * 3.8;
+                    this.pos.z += (dz / d) * 3.8;
+                    BO.World.resolveHorizontal(this.pos, this.radius, this.height, false);
+                }
+            }
+        }
+
         destroy() {
+            if (this._superBolts && BO.World.scene) {
+                for (const b of this._superBolts) {
+                    if (b.mesh) BO.World.scene.remove(b.mesh);
+                }
+                this._superBolts.length = 0;
+            }
             if (this.parts && this.parts.root && BO.World.scene) {
                 BO.World.scene.remove(this.parts.root);
             }

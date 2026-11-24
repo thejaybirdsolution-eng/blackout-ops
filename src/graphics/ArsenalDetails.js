@@ -600,83 +600,472 @@
         return result >>> 0;
     }
 
+    // =========================================================================
+    // BESPOKE 70-ZOMBIE + 10-BOSS + 5-SUPER-BOSS 3D SILHOUETTE OVERHAUL
+    // Every single zombie ID maps to unique head, torso/back & limb silhouette
+    // geometry so no two undead types ever look alike on the battlefield!
+    // =========================================================================
+    const ZOMBIE_PROFILES = {
+        // Original 20
+        shambler:        { head: 'jaw_crook',    back: 'rebar_impale',  acc: 0x78716c, glow: 0xff3333 },
+        ankle_biter:     { head: 'feral_maw',    back: 'torn_vertebra', acc: 0xa8a29e, glow: 0xfacc15 },
+        sprinter:        { head: 'swept_crest',  back: 'track_collar',  acc: 0xdc2626, glow: 0xf59e0b, arm: 'wrist_blades' },
+        one_arm_ripper:  { head: 'scar_plate',   back: 'stump_bone',    acc: 0xd6d3d1, glow: 0xf97316, arm: 'bone_scythe' },
+        hunch_spitter:   { head: 'spit_tubes',   back: 'acid_boils',    acc: 0x4ade80, glow: 0x22c55e },
+        headless_charger:{ head: 'none',         back: 'bull_ram',      acc: 0x991b1b, glow: 0xef4444 },
+        bloater:         { head: 'bloated_jaw',  back: 'gas_pustules',  acc: 0xa3e635, glow: 0xd9f99d },
+        hopper:          { head: 'mantis_crest', back: 'dorsal_fin',    acc: 0x38bdf8, glow: 0x38bdf8, arm: 'mantis_scythe' },
+        hellhound:       { head: 'hell_collar',  back: 'magma_spines',  acc: 0xf97316, glow: 0xff7b00 },
+        nova_crawler:    { head: 'hazmat_dome',  back: 'chem_tank',     acc: 0x22c55e, glow: 0x4ade80 },
+        shield_walker:   { head: 'swat_visor',   back: 'riot_pack',     acc: 0x3b82f6, glow: 0x60a5fa },
+        twin_horror:     { head: 'third_eye',    back: 'stitch_spine',  acc: 0xe879f9, glow: 0xf0abfc },
+        pyro_fiend:      { head: 'flame_crown',  back: 'brazier_cage',  acc: 0xea580c, glow: 0xfb923c },
+        frost_wraith:    { head: 'ice_tiara',    back: 'glacier_spires',acc: 0x7dd3fc, glow: 0xe0f2fe },
+        spider_ravager:  { head: 'arachnid_eyes',back: 'spider_legs',   acc: 0x881337, glow: 0xf43f5e },
+        club_goliath:    { head: 'jaw_iron',     back: 'skull_pauldron',acc: 0xa8a29e, glow: 0xf59e0b, arm: 'chain_shackle' },
+        shadow_stalker:  { head: 'assassin_cowl',back: 'void_cloak',    acc: 0x3b0764, glow: 0xc084fc, arm: 'void_daggers' },
+        vampire_siren:   { head: 'vamp_tiara',   back: 'gothic_collar', acc: 0x991b1b, glow: 0xfef08a },
+        iron_juggernaut: { head: 'slit_furnace', back: 'tank_stacks',   acc: 0x64748b, glow: 0xf43f5e },
+        aether_revenant: { head: 'astral_crown', back: 'astrolabe',     acc: 0x9333ea, glow: 0xf0abfc },
+
+        // Easy 17 (21-37)
+        goblin_runt:     { head: 'goblin_ears',  back: 'loot_sack',     acc: 0x65a30d, glow: 0xfacc15, arm: 'shiv' },
+        bone_lanky:      { head: 'skull_crest',  back: 'exposed_ribs',  acc: 0xe2e8f0, glow: 0x38bdf8 },
+        spring_imp:      { head: 'imp_horns',    back: 'coil_springs',  acc: 0xdc2626, glow: 0xfde047 },
+        twin_slime:      { head: 'slime_shell',  back: 'slime_orbs',    acc: 0x22c55e, glow: 0x86efac },
+        plague_ratman:   { head: 'rat_snout',    back: 'sewer_tail',    acc: 0x78716c, glow: 0xef4444 },
+        frost_gnome:     { head: 'gnome_cap',    back: 'ice_pack',      acc: 0x0284c7, glow: 0x7dd3fc },
+        toxic_toad:      { head: 'toad_sac',     back: 'wart_ridge',    acc: 0x84cc16, glow: 0xfacc15 },
+        sand_mummy:      { head: 'pharaoh_nemes',back: 'linen_wraps',   acc: 0xd6d3d1, glow: 0xf59e0b },
+        shadow_imp:      { head: 'smoke_horns',  back: 'shadow_fins',   acc: 0x1e1b4b, glow: 0xa855f7 },
+        acrobat_ghoul:   { head: 'jester_hood',  back: 'cape_ribbons',  acc: 0x7c3aed, glow: 0x22d3ee },
+        scarecrow_fiend: { head: 'straw_hat',    back: 'cross_pole',    acc: 0xd97706, glow: 0xf97316 },
+        mud_waddler:     { head: 'moss_slab',    back: 'swamp_rocks',   acc: 0x57534e, glow: 0x84cc16 },
+        lightning_sprite:{ head: 'tesla_halo',   back: 'arc_fins',      acc: 0x06b6d4, glow: 0xfef08a },
+        mitosis_ghoul:   { head: 'split_hemi',   back: 'twin_nuclei',   acc: 0x14b8a6, glow: 0x5eead4 },
+        bone_hound:      { head: 'jackal_crest', back: 'bone_ridge',    acc: 0xe5e7eb, glow: 0xef4444 },
+        ember_dwarf:     { head: 'magma_beard',  back: 'forge_anvil',   acc: 0xea580c, glow: 0xfef08a },
+        swamp_witch:     { head: 'bog_antlers',  back: 'vial_rack',     acc: 0x4ade80, glow: 0xa855f7 },
+
+        // Normal 17 (38-54)
+        feral_werewolf:  { head: 'lupine_mane',  back: 'fur_hackles',   acc: 0x64748b, glow: 0xfef08a },
+        jungle_tigerman: { head: 'tiger_ruff',   back: 'stripe_plates', acc: 0xf97316, glow: 0xfde047 },
+        grizzly_bear:    { head: 'bear_muzzle',  back: 'grizzly_hump',  acc: 0x78350f, glow: 0xef4444 },
+        swamp_ogre:      { head: 'ogre_jaw',     back: 'gut_cauldron',  acc: 0x65a30d, glow: 0xfacc15 },
+        quad_blob:       { head: 'gel_nucleus',  back: 'quad_pods',     acc: 0xa855f7, glow: 0xf0abfc },
+        blood_witch:     { head: 'crimson_tiara',back: 'blood_chalice', acc: 0xe11d48, glow: 0xfb7185 },
+        sumo_gut:        { head: 'sumo_topknot', back: 'mawashi_belt',  acc: 0xdc2626, glow: 0xef4444 },
+        stilts_stalker:  { head: 'lantern_cage', back: 'stilt_rods',    acc: 0x38bdf8, glow: 0x7dd3fc },
+        kangaroo_fiend:  { head: 'roo_ears',     back: 'spring_tail',   acc: 0xd97706, glow: 0xfef08a },
+        storm_shaman:    { head: 'totem_mask',   back: 'thunder_drums', acc: 0x2563eb, glow: 0x38bdf8, arm: 'totem_staff' },
+        viking_berserker:{ head: 'winged_helm',  back: 'round_buckler', acc: 0xd4a437, glow: 0x60a5fa, arm: 'viking_axe' },
+        ronin_undead:    { head: 'kabuto_crest', back: 'sashimono',     acc: 0xdc2626, glow: 0xfef08a, arm: 'katana_blade' },
+        polar_mauler:    { head: 'frost_muzzle', back: 'iceberg_back',  acc: 0xe2e8f0, glow: 0x38bdf8 },
+        mirror_wraith:   { head: 'prism_mask',   back: 'mirror_shards', acc: 0x818cf8, glow: 0xe0e7ff },
+        stone_gargoyle:  { head: 'gargoyle_brow',back: 'pedestal_ribs', acc: 0x64748b, glow: 0xf97316 },
+        cyber_assassin:  { head: 'cyber_visor',  back: 'neon_spine',    acc: 0x06b6d4, glow: 0x22d3ee, arm: 'neon_katana' },
+        saber_tigerman:  { head: 'saber_fangs',  back: 'trophy_pelt',   acc: 0xfde68a, glow: 0xef4444 },
+
+        // Hard 16 (55-70)
+        manbearpig:          { head: 'pig_snout',    back: 'tattered_suit', acc: 0xf472b6, glow: 0xef4444 },
+        alpha_werewolf:      { head: 'dire_crown',   back: 'blood_mane',    acc: 0x991b1b, glow: 0xef4444 },
+        iron_ogre:           { head: 'siege_bucket', back: 'spiked_dome',   acc: 0x475569, glow: 0xf97316 },
+        arch_witch:          { head: 'coven_crown',  back: 'grimoire_ring', acc: 0xa855f7, glow: 0xf0abfc },
+        armored_warbear:     { head: 'war_chamfron', back: 'steel_barding', acc: 0x475569, glow: 0xfacc15 },
+        swarm_broodmother:   { head: 'hive_mandible',back: 'egg_cluster',   acc: 0x84cc16, glow: 0xa3e635 },
+        minotaur_charger:    { head: 'bull_horns',   back: 'chain_harness', acc: 0xd4a437, glow: 0xfacc15 },
+        cyclops_crusher:     { head: 'cyclops_eye',  back: 'boulder_strap', acc: 0xb45309, glow: 0xfef08a },
+        yeti_colossus:       { head: 'ram_ice_horns',back: 'frost_pelt',    acc: 0xbae6fd, glow: 0x38bdf8 },
+        vampire_lord:        { head: 'dracula_crest',back: 'bat_mantle',    acc: 0x991b1b, glow: 0xef4444 },
+        magma_brute:         { head: 'lava_jaw',     back: 'volcano_vents', acc: 0xea580c, glow: 0xfef08a },
+        fracture_golem:      { head: 'crystal_spire',back: 'prism_geode',   acc: 0x38bdf8, glow: 0xe0f2fe },
+        hydra_spawn:         { head: 'serpent_frill',back: 'hydra_sails',   acc: 0x16a34a, glow: 0xfacc15 },
+        obsidian_golem:      { head: 'monolith_vis', back: 'rune_slabs',    acc: 0x312e81, glow: 0xc084fc },
+        infernal_manbearpig: { head: 'hell_tusks',   back: 'hellfire_mane', acc: 0xf97316, glow: 0xfef08a },
+        void_emperor:        { head: 'eclipse_crown',back: 'void_arches',   acc: 0x6d28d9, glow: 0x22d3ee }
+    };
+
     function undeadDetails(parts, spec, width = 0.46, depth = 0.25) {
         const b = spec.bodySpec || {};
         const id = spec.id || 'default';
         const seed = hashId(id);
-        const isArmor = b.torsoShape === 'armored' || spec.isBoss || /panzer|armored|knight|juggernaut|ogre/.test(id);
-        const isToxic = /acid|spitter|toxic|nova|plague|ooze|slime|bloater/.test(id);
-        const isFrost = /frost|cry|ice|maul/.test(id);
-        const isFire = /pyro|fire|hell|cinder|inferno|magma/.test(id);
-        const spectral = b.floating || b.glowingRibs;
-        const color = spectral ? (b.eyeColor || 0x7bbcb4) : [0x9b7049, 0x5e766a, 0xa69a7f, 0x725e59, 0x7a613f][seed % 5];
+        const prof = ZOMBIE_PROFILES[id] || null;
+        const accCol = prof ? prof.acc : [0x9b7049, 0x5e766a, 0xa69a7f, 0x725e59, 0x7a613f][seed % 5];
+        const glowCol = prof ? prof.glow : (b.eyeColor || 0xef4444);
 
+        // =====================================================================
+        // COLOSSAL SUPER BOSS BESPOKE 3D RIGS (5 ICONIC ENCOUNTERS)
+        // =====================================================================
+        if (spec.isSuperBoss) {
+            parts.bodyPivot.add(detailGroup('superboss/body/' + id, (add) => {
+                const front = depth * 0.5 + 0.05;
+                if (id === 'super_titan_colossus') {
+                    // Twin roaring magma-furnace exhaust stacks + heavy siege pauldrons + chest reactor ring
+                    for (const s of [-1, 1]) {
+                        add('chamfer', dark, s * 0.22, 0.58, -front - 0.12, 0.11, 0.54, 0.11, -0.18, 0, s * 0.12);
+                        add('crystal', 0xfbbf24, s * 0.24, 0.88, -front - 0.16, 0.12, 0.18, 0.12, 0, 0, 0, true);
+                        add('box', 0x7c2d12, s * (width * 0.62), 0.56, 0, 0.22, 0.22, 0.34, 0, 0, -s * 0.2);
+                        add('crystal', 0xf97316, s * (width * 0.68), 0.70, 0, 0.09, 0.22, 0.09, 0, 0, -s * 0.35, true);
+                    }
+                    add('ring', brass, 0, 0.40, front + 0.03, 0.28, 0.28, 0.06);
+                    add('crystal', 0xfef08a, 0, 0.40, front + 0.06, 0.16, 0.16, 0.12, 0, 0, 0, true);
+                } else if (id === 'super_seraph_harbinger') {
+                    // Six radiant feather-blade wings + 3 interlocking celestial rings
+                    for (const s of [-1, 1]) {
+                        for (let tier = 0; tier < 3; tier++) {
+                            const wy = 0.62 - tier * 0.18;
+                            const spread = 0.48 + tier * 0.12;
+                            add('box', 0xfef3c7, s * spread, wy, -0.18 - tier * 0.04, 0.66, 0.09, 0.03, 0.1, s * 0.28, s * (0.38 - tier * 0.26));
+                            add('crystal', 0x38bdf8, s * (spread + 0.28), wy + 0.04, -0.20, 0.18, 0.05, 0.04, 0, 0, s * 0.2, true);
+                        }
+                    }
+                    add('ring', 0xfacc15, 0, 0.46, -0.24, 0.88, 0.88, 0.05, 0.25, 0.2, 0, true);
+                    add('ring', 0x38bdf8, 0, 0.46, -0.24, 0.66, 0.66, 0.04, -0.35, -0.25, 0.5, true);
+                } else if (id === 'super_hydra_behemoth') {
+                    // Towering venomous dorsal spine sails + whipping barbed dragon tail + glowing neck glands
+                    for (let i = 0; i < 5; i++) {
+                        add('crystal', i % 2 ? 0x4ade80 : 0x065f46, 0, 0.62 - i * 0.13, -front - 0.08 - i * 0.05, 0.10, 0.30 - i * 0.03, 0.18, -0.45, 0, 0, i % 2 === 1);
+                    }
+                    add('chamfer', 0x065f46, 0, -0.02, -front - 0.42, 0.18, 0.82, 0.18, -1.05);
+                    add('crystal', 0xa3e635, 0, -0.28, -front - 0.78, 0.16, 0.26, 0.16, -1.2, 0, 0, true);
+                    for (const s of [-1, 1]) add('crystal', 0x4ade80, s * 0.26, 0.52, front, 0.13, 0.16, 0.13, 0, 0, 0, true);
+                } else if (id === 'super_dreadnought_mech') {
+                    // Twin shoulder 6-cell Micro-Missile Pods + rear jetpack thrusters + chest core
+                    for (const s of [-1, 1]) {
+                        add('box', steel, s * 0.34, 0.70, -0.02, 0.22, 0.20, 0.28);
+                        for (let r = 0; r < 2; r++) {
+                            for (let c = 0; c < 3; c++) {
+                                add('crystal', 0xef4444, s * 0.34 + (c - 1) * 0.055, 0.66 + r * 0.07, 0.13, 0.035, 0.035, 0.03, 0, 0, 0, true);
+                            }
+                        }
+                        add('chamfer', dark, s * 0.16, 0.32, -front - 0.14, 0.13, 0.34, 0.13, 0.18);
+                        add('crystal', 0x38bdf8, s * 0.16, 0.14, -front - 0.16, 0.10, 0.12, 0.10, 0, 0, 0, true);
+                    }
+                    add('box', brass, 0, 0.42, front + 0.05, 0.24, 0.18, 0.05);
+                    add('crystal', 0x38bdf8, 0, 0.42, front + 0.08, 0.14, 0.10, 0.05, 0, 0, 0, true);
+                } else if (id === 'super_void_sovereign') {
+                    // Grand abyssal arch-wings + floating singularity core behind shoulders
+                    for (const s of [-1, 1]) {
+                        add('box', 0x3b0764, s * 0.46, 0.56, -0.22, 0.14, 0.78, 0.08, 0, 0, -s * 0.36);
+                        add('crystal', 0xe879f9, s * 0.64, 0.82, -0.24, 0.14, 0.36, 0.10, 0, 0, -s * 0.48, true);
+                    }
+                    add('ring', 0x22d3ee, 0, 0.72, -0.28, 0.78, 0.78, 0.05, 0, 0, 0, true);
+                    add('crystal', 0x090314, 0, 0.72, -0.28, 0.24, 0.24, 0.24);
+                }
+            }));
+
+            if (parts.armR) {
+                parts.armR.add(detailGroup('superboss/armR/' + id, (add) => {
+                    if (id === 'super_titan_colossus') {
+                        // Colossal Seismic Forge War-Hammer
+                        add('chamfer', steel, 0.04, -0.62, 0.18, 0.07, 0.85, 0.07, 0.9);
+                        add('box', dark, 0.04, -0.88, 0.48, 0.36, 0.24, 0.26, 0.9);
+                        add('crystal', 0xf97316, 0.04, -0.88, 0.60, 0.22, 0.12, 0.08, 0.9, 0, 0, true);
+                    } else if (id === 'super_seraph_harbinger') {
+                        // Radiant Solar-Void Greatlance
+                        add('chamfer', brass, 0, -0.52, 0.36, 0.04, 1.45, 0.04, 1.25);
+                        add('crystal', 0x38bdf8, 0, -0.74, 0.98, 0.14, 0.38, 0.14, 1.25, 0, 0, true);
+                    } else if (id === 'super_dreadnought_mech') {
+                        // 6-Barrel Rotary Gatling Cannon
+                        add('box', dark, 0.04, -0.38, 0.14, 0.18, 0.18, 0.32, 1.15);
+                        for (let bIdx = 0; bIdx < 6; bIdx++) {
+                            const a = (bIdx / 6) * Math.PI * 2;
+                            add('chamfer', steel, 0.04 + Math.cos(a) * 0.05, -0.56 + Math.sin(a) * 0.05, 0.42, 0.026, 0.56, 0.026, 1.15);
+                        }
+                    } else if (id === 'super_void_sovereign') {
+                        // Twin-Bladed Eclipse Glaive
+                        add('chamfer', 0x1e1b4b, 0, -0.50, 0.25, 0.045, 1.55, 0.045, 1.15);
+                        add('crystal', 0xe879f9, 0, -0.82, 0.92, 0.14, 0.44, 0.08, 1.15, 0, 0, true);
+                        add('crystal', 0x22d3ee, 0, -0.18, -0.40, 0.12, 0.38, 0.08, 1.15, 0, 0, true);
+                    }
+                }));
+            }
+
+            if (parts.headGroup) {
+                for (const head of parts.headGroup.children.filter((c) => c.isGroup)) {
+                    head.add(detailGroup('superboss/head/' + id, (add) => {
+                        if (id === 'super_titan_colossus') {
+                            add('box', brass, 0, 0.16, 0.04, 0.30, 0.10, 0.26);
+                            for (let k = -1; k <= 1; k++) add('crystal', 0xfbbf24, k * 0.10, 0.26, 0.08, 0.06, 0.16, 0.06, 0, 0, 0, true);
+                        } else if (id === 'super_seraph_harbinger') {
+                            add('chamfer', brass, 0, 0.0, 0.14, 0.22, 0.26, 0.08);
+                            add('box', 0x38bdf8, 0, 0.01, 0.18, 0.035, 0.20, 0.03, 0, 0, 0, true);
+                        } else if (id === 'super_hydra_behemoth') {
+                            for (const s of [-1, 1]) add('box', 0x4ade80, s * 0.16, 0.04, -0.02, 0.14, 0.20, 0.03, 0, s * 0.45, -s * 0.3, true);
+                        } else if (id === 'super_dreadnought_mech') {
+                            add('box', steel, 0, 0.03, 0.02, 0.30, 0.24, 0.28);
+                            add('box', 0xef4444, 0, 0.03, 0.165, 0.24, 0.055, 0.03, 0, 0, 0, true);
+                        } else if (id === 'super_void_sovereign') {
+                            add('ring', 0xe879f9, 0, 0.32, 0, 0.36, 0.36, 0.05, Math.PI / 2, 0, 0, true);
+                            add('crystal', 0x22d3ee, 0, 0.36, 0, 0.12, 0.18, 0.12, 0, 0, 0, true);
+                        }
+                    }));
+                }
+            }
+            return;
+        }
+
+        // =====================================================================
+        // QUADRUPED DISTINCT HARNESSES, RIDGES & HEAD CRESTS
+        // =====================================================================
         if (b.quadruped) {
-            parts.bodyPivot.add(detailGroup('undead2/harness/' + id, (add) => {
-                for (const side of [-1, 1]) {
-                    for (let i = 0; i < 3; i++) {
-                        add('crystal', color, side * (0.072 + i * 0.011), 0.17, 0.24 - i * 0.16,
-                            0.089, 0.11 + i * 0.019, 0.095, 0.16, 0, side * 0.35, !!spectral);
+            parts.bodyPivot.add(detailGroup('undead3/quad/' + id, (add) => {
+                const backKind = prof?.back || 'magma_spines';
+                if (backKind === 'magma_spines') {
+                    add('ring', brass, 0, 0.08, 0.36, 0.34, 0.34, 0.06);
+                    for (let i = 0; i < 4; i++) add('crystal', glowCol, 0, 0.26, 0.26 - i * 0.18, 0.08, 0.18, 0.10, -0.35, 0, 0, true);
+                } else if (backKind === 'bone_ridge') {
+                    for (let i = 0; i < 5; i++) {
+                        add('box', 0xe5e7eb, 0, 0.23, 0.30 - i * 0.15, 0.28 - i * 0.03, 0.04, 0.05);
+                        add('crystal', 0xe5e7eb, 0, 0.28, 0.30 - i * 0.15, 0.05, 0.12, 0.06);
+                    }
+                } else if (backKind === 'grizzly_hump') {
+                    add('chamfer', accCol, 0, 0.22, 0.16, 0.44, 0.22, 0.38);
+                    for (const s of [-1, 1]) add('crystal', 0xd6d3d1, s * 0.20, 0.18, 0.24, 0.06, 0.14, 0.06, 0, 0, -s * 0.4);
+                } else if (backKind === 'iceberg_back') {
+                    for (let i = 0; i < 5; i++) add('crystal', 0x7dd3fc, (i % 2 ? 0.1 : -0.1), 0.26, 0.25 - i * 0.14, 0.11, 0.24, 0.11, -0.2, 0, (i % 2 ? -0.25 : 0.25), true);
+                } else if (backKind === 'steel_barding') {
+                    add('box', steel, 0, 0.16, 0.05, 0.48, 0.24, 0.72);
+                    add('box', brass, 0, 0.29, 0.05, 0.10, 0.05, 0.74);
+                    for (const s of [-1, 1]) add('crystal', glowCol, s * 0.25, 0.24, 0.22, 0.07, 0.16, 0.07, 0, 0, -s * 0.45, true);
+                } else {
+                    for (const side of [-1, 1]) {
+                        for (let i = 0; i < 3; i++) add('crystal', accCol, side * 0.12, 0.20, 0.24 - i * 0.16, 0.08, 0.14, 0.09, 0.16, 0, side * 0.35, !!b.glowingRibs);
                     }
                 }
             }));
             return;
         }
 
-        parts.bodyPivot.add(detailGroup('undead2/body/' + id, (add) => {
-            const side = seed % 2 ? 1 : -1;
-            const front = depth * 0.50 + (isArmor ? 0.054 : 0.018);
-            const plates = 2 + (seed % 3);
-            for (let i = 0; i < plates; i++) {
-                const y = 0.52 - i * 0.068;
-                if (spectral) {
-                    add('crystal', color, side * width * 0.25, y, front, 0.095, 0.064, 0.055, 0, i * 0.21, side * 0.22, true);
-                } else if (isArmor) {
-                    add('chamfer', steel, side * width * 0.28, y, front, 0.165, 0.058, 0.036, 0, 0, side * (i * 0.14));
-                    add('box', dark, side * width * 0.33, y + 0.011, front + 0.018, 0.074, 0.011, 0.010);
-                } else {
-                    // Ammo pouches / dogtags / tattered coat pockets
-                    add('box', color, side * width * 0.26, y, front, 0.105, 0.058, 0.022, 0, 0, side * 0.08);
-                }
-            }
-            if (isArmor) {
-                // Panzer exhaust/reactor backpack
-                add('box', dark, 0, 0.38, -front - 0.06, width * 0.62, 0.36, 0.14);
+        // =====================================================================
+        // BIPED / FLOATING BESPOKE TORSO, BACK & SHOULDER SILHOUETTES (70/70)
+        // =====================================================================
+        parts.bodyPivot.add(detailGroup('undead3/body/' + id, (add) => {
+            const front = depth * 0.5 + 0.02;
+            const back = -depth * 0.5 - 0.02;
+            const bk = prof?.back || '';
+
+            if (bk === 'rebar_impale') {
+                add('chamfer', steel, 0.14, 0.48, 0.02, 0.026, 0.62, 0.026, 0.55, 0, -0.38);
+                add('box', accCol, -0.14, 0.38, front, 0.12, 0.22, 0.03, 0, 0, 0.14);
+            } else if (bk === 'torn_vertebra') {
+                for (let i = 0; i < 5; i++) add('box', 0xd6d3d1, 0, 0.08 - i * 0.07, back - i * 0.04, 0.09 - i * 0.01, 0.05, 0.06);
+            } else if (bk === 'track_collar') {
                 for (const s of [-1, 1]) {
-                    add('chamfer', steel, s * width * 0.20, 0.62, -front - 0.06, 0.045, 0.22, 0.045);
-                    if (isFire) add('crystal', 0xf97316, s * width * 0.20, 0.74, -front - 0.06, 0.055, 0.075, 0.055, 0, 0, 0, true);
+                    add('box', accCol, s * (width * 0.48), 0.36, 0, 0.035, 0.34, depth * 0.92);
+                    add('crystal', accCol, s * 0.18, 0.58, back, 0.05, 0.18, 0.06, -0.45, 0, -s * 0.2);
                 }
-            }
-            if (isFrost) {
-                for (let c = 0; c < 4; c++) {
-                    add('crystal', 0x7dd3fc, (c - 1.5) * width * 0.22, 0.45 + (c % 2) * 0.12, -front, 0.075, 0.22, 0.075, -0.35, 0, (c - 1.5) * 0.25, true);
+            } else if (bk === 'stump_bone') {
+                add('chamfer', 0xe5e7eb, -width * 0.58, 0.48, 0, 0.06, 0.22, 0.06, 0, 0, 0.85);
+                add('box', 0x7f1d1d, -width * 0.52, 0.50, 0, 0.10, 0.12, 0.12);
+            } else if (bk === 'acid_boils' || bk === 'gas_pustules' || bk === 'egg_cluster') {
+                const count = bk === 'egg_cluster' ? 6 : 4;
+                for (let i = 0; i < count; i++) {
+                    const ang = (i / count) * Math.PI * 2;
+                    add('crystal', glowCol, Math.cos(ang) * 0.16, 0.34 + Math.sin(ang) * 0.14, back - 0.08, 0.13, 0.13, 0.13, 0, 0, 0, true);
                 }
-            }
-            if (!spectral && b.torsoShape !== 'bloated') {
-                add('box', color, width * -0.25 * side, 0.32, -front, 0.089, 0.30, 0.025, 0, 0, side * 0.24);
+            } else if (bk === 'bull_ram') {
+                add('box', steel, 0, 0.40, front + 0.03, width * 0.95, 0.26, 0.07);
+                for (const s of [-1, 1]) add('crystal', accCol, s * (width * 0.56), 0.52, front + 0.08, 0.08, 0.26, 0.08, 1.15, 0, -s * 0.25);
+            } else if (bk === 'dorsal_fin' || bk === 'hydra_sails' || bk === 'shadow_fins' || bk === 'arc_fins') {
+                for (let i = 0; i < 4; i++) {
+                    add('box', glowCol, 0, 0.56 - i * 0.12, back - 0.07, 0.03, 0.14, 0.18 - i * 0.02, -0.35, 0, 0, bk === 'arc_fins');
+                }
+            } else if (bk === 'chem_tank') {
+                for (const s of [-1, 1]) {
+                    add('chamfer', steel, s * 0.11, 0.38, back - 0.08, 0.10, 0.36, 0.10);
+                    add('box', glowCol, s * 0.11, 0.38, back - 0.13, 0.05, 0.24, 0.03, 0, 0, 0, true);
+                }
+            } else if (bk === 'riot_pack') {
+                add('box', dark, 0, 0.40, back - 0.06, 0.30, 0.30, 0.12);
+                add('crystal', 0x3b82f6, 0.18, 0.62, 0, 0.06, 0.06, 0.06, 0, 0, 0, true);
+            } else if (bk === 'stitch_spine') {
+                for (let i = 0; i < 5; i++) add('box', steel, 0, 0.50 - i * 0.08, front + 0.02, 0.16, 0.02, 0.03, 0, 0, (i % 2 ? 0.2 : -0.2));
+            } else if (bk === 'brazier_cage' || bk === 'volcano_vents') {
+                add('box', dark, 0, 0.48, back - 0.10, 0.28, 0.28, 0.18);
+                add('crystal', glowCol, 0, 0.64, back - 0.10, 0.18, 0.24, 0.18, 0, 0, 0, true);
+            } else if (bk === 'glacier_spires' || bk === 'prism_geode') {
+                for (let c = 0; c < 5; c++) {
+                    add('crystal', glowCol, (c - 2) * 0.10, 0.42 + (c % 2) * 0.14, back - 0.06, 0.09, 0.30, 0.09, -0.4, 0, (c - 2) * 0.22, true);
+                }
+            } else if (bk === 'spider_legs') {
+                for (const s of [-1, 1]) {
+                    for (let l = 0; l < 3; l++) {
+                        add('chamfer', accCol, s * 0.24, 0.52 - l * 0.11, back - 0.06, 0.035, 0.42, 0.035, -0.25, 0, -s * (0.95 + l * 0.22));
+                        add('crystal', glowCol, s * 0.48, 0.56 - l * 0.14, back - 0.10, 0.04, 0.24, 0.04, 0.2, 0, -s * 2.1);
+                    }
+                }
+            } else if (bk === 'skull_pauldron' || bk === 'spiked_dome') {
+                add('chamfer', 0xe5e7eb, -width * 0.56, 0.58, 0, 0.18, 0.16, 0.18);
+                for (let k = -1; k <= 1; k++) add('crystal', steel, width * 0.56, 0.66, k * 0.07, 0.05, 0.18, 0.05);
+            } else if (bk === 'void_cloak' || bk === 'bat_mantle' || bk === 'gothic_collar') {
+                add('box', accCol, 0, 0.60, back - 0.02, width * 1.15, 0.22, 0.06, -0.25);
+                add('box', dark, 0, 0.20, back - 0.05, width * 0.96, 0.56, 0.04, 0.12);
+            } else if (bk === 'tank_stacks') {
+                add('box', steel, 0, 0.38, back - 0.09, 0.34, 0.36, 0.16);
+                for (const s of [-1, 1]) add('chamfer', dark, s * 0.12, 0.66, back - 0.10, 0.06, 0.28, 0.06);
+                for (let t = 0; t < 3; t++) add('box', dark, 0, 0.24 + t * 0.10, front + 0.04, 0.36, 0.06, 0.04);
+            } else if (bk === 'astrolabe' || bk === 'grimoire_ring' || bk === 'void_arches') {
+                add('ring', glowCol, 0, 0.52, back - 0.14, 0.62, 0.62, 0.04, 0, 0, 0, true);
+                add('ring', accCol, 0, 0.52, back - 0.14, 0.44, 0.44, 0.04, 0.4, 0.4, 0);
+            } else if (bk === 'loot_sack') {
+                add('chamfer', 0x78350f, 0.06, 0.38, back - 0.12, 0.26, 0.30, 0.24, -0.2);
+            } else if (bk === 'exposed_ribs') {
+                for (let r = 0; r < 4; r++) add('ring', 0xe2e8f0, 0, 0.22 + r * 0.08, 0, width * 0.95, depth * 1.05, 0.03, Math.PI / 2);
+            } else if (bk === 'coil_springs') {
+                for (const s of [-1, 1]) add('ring', steel, s * 0.14, -0.10, 0, 0.16, 0.16, 0.05, Math.PI / 2);
+                add('chamfer', accCol, 0, 0.08, back - 0.14, 0.03, 0.38, 0.03, -0.9);
+            } else if (bk === 'slime_orbs' || bk === 'quad_pods' || bk === 'twin_nuclei') {
+                for (const s of [-1, 1]) add('crystal', glowCol, s * 0.16, 0.36, 0.04, 0.15, 0.15, 0.15, 0, 0, 0, true);
+            } else if (bk === 'sewer_tail' || bk === 'spring_tail') {
+                add('chamfer', accCol, 0, 0.02, back - 0.24, 0.05, 0.62, 0.05, -1.12);
+            } else if (bk === 'cross_pole') {
+                add('box', 0x78350f, 0, 0.52, back - 0.06, 0.88, 0.06, 0.06);
+                add('box', 0x78350f, 0, 0.36, back - 0.06, 0.07, 0.68, 0.06);
+            } else if (bk === 'swamp_rocks') {
+                for (let i = 0; i < 4; i++) add('chamfer', 0x44403c, (i - 1.5) * 0.12, 0.48 + (i % 2) * 0.08, back - 0.06, 0.16, 0.14, 0.16);
+            } else if (bk === 'forge_anvil') {
+                add('box', dark, 0, 0.42, back - 0.10, 0.34, 0.22, 0.16);
+                add('crystal', glowCol, 0, 0.56, back - 0.10, 0.14, 0.12, 0.14, 0, 0, 0, true);
+            } else if (bk === 'vial_rack') {
+                for (let v = -1; v <= 1; v++) add('chamfer', glowCol, v * 0.10, 0.28, front + 0.03, 0.05, 0.12, 0.05, 0, 0, 0.2, true);
+            } else if (bk === 'sashimono') {
+                add('chamfer', dark, 0.08, 0.68, back - 0.08, 0.025, 0.78, 0.025);
+                add('box', accCol, 0.08, 0.82, back - 0.18, 0.02, 0.42, 0.22);
+            } else if (bk === 'round_buckler') {
+                add('chamfer', 0x78350f, 0, 0.38, back - 0.08, 0.46, 0.05, 0.46, Math.PI / 2);
+                add('chamfer', brass, 0, 0.38, back - 0.11, 0.14, 0.06, 0.14, Math.PI / 2);
+            } else if (bk === 'neon_spine') {
+                for (let n = 0; n < 5; n++) add('box', glowCol, 0, 0.16 + n * 0.09, back - 0.03, 0.08, 0.04, 0.05, 0, 0, 0, true);
+            } else if (bk === 'mawashi_belt') {
+                add('ring', accCol, 0, 0.10, 0, width * 1.18, depth * 1.18, 0.10, Math.PI / 2);
+            } else if (bk === 'thunder_drums') {
+                for (let d = 0; d < 3; d++) {
+                    const a = (d / 3) * Math.PI - Math.PI * 0.5 + Math.PI * 0.5;
+                    add('chamfer', accCol, Math.cos(a) * 0.28, 0.64 + Math.sin(a) * 0.16, back - 0.10, 0.13, 0.06, 0.13, Math.PI / 2);
+                }
+            } else if (bk === 'rune_slabs') {
+                for (const s of [-1, 1]) add('box', glowCol, s * 0.34, 0.54, back - 0.12, 0.12, 0.44, 0.05, 0, 0, -s * 0.18, true);
+            } else if (bk === 'tattered_suit' || bk === 'hellfire_mane') {
+                add('box', 0xdc2626, 0, 0.34, front + 0.02, 0.07, 0.28, 0.03); // Necktie / blaze strip!
+                for (const s of [-1, 1]) add('crystal', glowCol, s * 0.22, 0.58, back - 0.04, 0.12, 0.22, 0.12, -0.3, 0, 0, bk === 'hellfire_mane');
+            } else {
+                const side = seed % 2 ? 1 : -1;
+                for (let i = 0; i < 3; i++) {
+                    add('box', accCol, side * width * 0.26, 0.50 - i * 0.09, front, 0.11, 0.06, 0.03, 0, 0, side * 0.1);
+                }
             }
         }));
 
+        // =====================================================================
+        // BESPOKE FOREARM / MELEE WEAPON SILHOUETTES
+        // =====================================================================
+        if (prof?.arm && parts.armR) {
+            parts.armR.add(detailGroup('undead3/arm/' + id, (add) => {
+                if (prof.arm === 'bone_scythe' || prof.arm === 'mantis_scythe') {
+                    add('crystal', accCol, 0.03, -0.56, 0.18, 0.06, 0.48, 0.14, 1.15, 0, 0, prof.arm === 'mantis_scythe');
+                } else if (prof.arm === 'wrist_blades' || prof.arm === 'void_daggers') {
+                    add('crystal', glowCol, 0.04, -0.52, 0.16, 0.04, 0.34, 0.07, 1.35, 0, 0, true);
+                } else if (prof.arm === 'katana_blade' || prof.arm === 'neon_katana') {
+                    add('box', prof.arm === 'neon_katana' ? glowCol : steel, 0, -0.58, 0.36, 0.022, 0.045, 0.72, 0.35, 0, 0, prof.arm === 'neon_katana');
+                } else if (prof.arm === 'viking_axe') {
+                    add('chamfer', 0x78350f, 0, -0.50, 0.22, 0.035, 0.58, 0.035, 1.1);
+                    add('box', steel, 0, -0.64, 0.44, 0.03, 0.24, 0.18, 1.1);
+                } else if (prof.arm === 'totem_staff') {
+                    add('chamfer', 0x78350f, 0, -0.46, 0.20, 0.03, 1.05, 0.03, 1.2);
+                    add('crystal', glowCol, 0, -0.62, 0.68, 0.12, 0.16, 0.12, 0, 0, 0, true);
+                } else if (prof.arm === 'shiv') {
+                    add('crystal', steel, 0, -0.54, 0.14, 0.03, 0.22, 0.05, 1.3);
+                } else if (prof.arm === 'chain_shackle') {
+                    add('ring', steel, 0, -0.44, 0.04, 0.15, 0.15, 0.04, Math.PI / 2);
+                }
+            }));
+        }
+
+        // =====================================================================
+        // BESPOKE HEADGEAR, MASKS, HORNS, SNOUTS & CROWNS (70/70)
+        // =====================================================================
         if (b.headless || !parts.headGroup) return;
         for (const head of parts.headGroup.children.filter((child) => child.isGroup)) {
-            head.add(detailGroup('undead2/head/' + id, (add) => {
-                const side = seed & 1 ? 1 : -1;
-                if (isToxic) {
-                    // Cracked military respirator gas mask + dual filter canisters!
-                    add('chamfer', 0x26292e, 0, -0.055, 0.145, 0.105, 0.095, 0.095, Math.PI / 2);
+            head.add(detailGroup('undead3/head/' + id, (add) => {
+                const hd = prof?.head || '';
+                if (hd === 'spit_tubes' || hd === 'hazmat_dome') {
+                    add('chamfer', 0x26292e, 0, -0.055, 0.145, 0.11, 0.10, 0.10, Math.PI / 2);
                     for (const s of [-1, 1]) {
-                        add('chamfer', 0x3b4438, s * 0.075, -0.075, 0.165, 0.058, 0.052, 0.058, 0, s * 0.4, 0);
-                        add('box', 0x84cc16, s * 0.056, 0.018, 0.148, 0.052, 0.036, 0.014, 0, 0, 0, true);
+                        add('chamfer', accCol, s * 0.08, -0.075, 0.165, 0.06, 0.055, 0.06, 0, s * 0.4, 0);
+                        add('box', glowCol, s * 0.056, 0.018, 0.152, 0.055, 0.038, 0.016, 0, 0, 0, true);
                     }
-                } else if (isArmor && !spectral) {
-                    add('chamfer', steel, side * 0.105, 0.057, 0.061, 0.074, 0.091, 0.081, 0.08, -side * 0.28, side * 0.36);
-                    add('box', dark, 0, 0.022, 0.145, 0.185, 0.036, 0.032);
-                } else if (spectral) {
-                    add('crystal', color, side * 0.095, 0.089, 0.059, 0.053, 0.127, 0.062, 0.18, 0, -side * 0.22, true);
+                } else if (hd === 'swat_visor' || hd === 'cyber_visor' || hd === 'monolith_vis' || hd === 'slit_furnace') {
+                    add('box', dark, 0, 0.02, 0.152, 0.23, 0.065, 0.04);
+                    add('box', glowCol, 0, 0.02, 0.172, 0.19, 0.026, 0.015, 0, 0, 0, true);
+                } else if (hd === 'goblin_ears' || hd === 'roo_ears') {
+                    const tall = hd === 'roo_ears';
+                    for (const s of [-1, 1]) {
+                        add('crystal', accCol, s * (tall ? 0.10 : 0.19), tall ? 0.24 : 0.03, 0, tall ? 0.06 : 0.18, tall ? 0.24 : 0.06, 0.05, 0, 0, -s * (tall ? 0.18 : 1.15));
+                    }
+                } else if (hd === 'rat_snout' || hd === 'pig_snout' || hd === 'hell_tusks') {
+                    add('chamfer', accCol, 0, -0.035, 0.19, 0.11, 0.12, 0.11, Math.PI / 2);
+                    if (hd !== 'rat_snout') {
+                        for (const s of [-1, 1]) add('crystal', 0xe5e7eb, s * 0.075, -0.05, 0.21, 0.035, 0.14, 0.035, 0.5, 0, -s * 0.25);
+                    }
+                } else if (hd === 'gnome_cap') {
+                    add('crystal', accCol, 0, 0.28, -0.01, 0.19, 0.36, 0.19);
+                    add('box', 0xf8fafc, 0, -0.12, 0.13, 0.16, 0.14, 0.06);
+                } else if (hd === 'straw_hat') {
+                    add('chamfer', 0xd97706, 0, 0.14, 0, 0.44, 0.03, 0.44);
+                    add('chamfer', 0xb45309, 0, 0.22, 0, 0.22, 0.16, 0.22);
+                } else if (hd === 'jester_hood') {
+                    for (const s of [-1, 1]) {
+                        add('chamfer', accCol, s * 0.14, 0.20, -0.02, 0.08, 0.22, 0.08, 0, 0, -s * 0.55);
+                        add('crystal', glowCol, s * 0.23, 0.27, -0.02, 0.05, 0.05, 0.05, 0, 0, 0, true);
+                    }
+                } else if (hd === 'pharaoh_nemes') {
+                    add('box', brass, 0, 0.06, -0.02, 0.34, 0.26, 0.22);
+                    add('crystal', glowCol, 0, 0.16, 0.14, 0.05, 0.09, 0.05, 0.3, 0, 0, true);
+                } else if (hd === 'kabuto_crest') {
+                    add('box', dark, 0, 0.06, -0.03, 0.32, 0.16, 0.28);
+                    for (const s of [-1, 1]) add('box', brass, s * 0.09, 0.20, 0.13, 0.14, 0.04, 0.02, 0, 0, s * 0.55);
+                } else if (hd === 'winged_helm') {
+                    for (const s of [-1, 1]) add('box', 0xf8fafc, s * 0.18, 0.14, 0, 0.03, 0.20, 0.14, -0.25, 0, -s * 0.35);
+                    add('box', 0xd97706, 0, -0.14, 0.13, 0.16, 0.16, 0.06);
+                } else if (hd === 'sumo_topknot') {
+                    add('chamfer', 0x0f172a, 0, 0.19, 0.02, 0.09, 0.12, 0.14, 0.6);
+                } else if (hd === 'cyclops_eye') {
+                    add('crystal', glowCol, 0, 0.03, 0.165, 0.13, 0.13, 0.06, 0, 0, 0, true);
+                    add('box', brass, 0, 0.10, 0.15, 0.22, 0.04, 0.05);
+                } else if (hd === 'bull_horns' || hd === 'ram_ice_horns') {
+                    for (const s of [-1, 1]) add('crystal', hd === 'ram_ice_horns' ? 0x7dd3fc : 0xe5e7eb, s * 0.22, 0.18, 0.06, 0.08, 0.34, 0.08, 0.45, 0, -s * 0.85, hd === 'ram_ice_horns');
+                    if (hd === 'bull_horns') add('ring', brass, 0, -0.05, 0.17, 0.07, 0.07, 0.02);
+                } else if (hd === 'saber_fangs') {
+                    for (const s of [-1, 1]) add('crystal', 0xfef3c7, s * 0.065, -0.14, 0.155, 0.035, 0.16, 0.035, Math.PI, 0, 0);
+                } else if (hd === 'lantern_cage') {
+                    add('box', dark, 0, 0.04, 0.02, 0.24, 0.26, 0.24);
+                    add('crystal', glowCol, 0, 0.04, 0.02, 0.15, 0.18, 0.15, 0, 0, 0, true);
+                } else if (hd === 'flame_crown' || hd === 'ice_tiara' || hd === 'astral_crown' || hd === 'crimson_tiara' || hd === 'coven_crown' || hd === 'eclipse_crown' || hd === 'dire_crown' || hd === 'dracula_crest') {
+                    for (let k = -2; k <= 2; k++) {
+                        add('crystal', glowCol, k * 0.055, 0.18 + (2 - Math.abs(k)) * 0.035, 0.06, 0.04, 0.14, 0.04, 0.15, 0, -k * 0.15, true);
+                    }
+                } else if (hd === 'arachnid_eyes') {
+                    for (let e = 0; e < 6; e++) {
+                        add('crystal', glowCol, (e - 2.5) * 0.038, 0.04 + (e % 2) * 0.03, 0.155, 0.026, 0.026, 0.02, 0, 0, 0, true);
+                    }
+                } else if (hd === 'assassin_cowl') {
+                    add('crystal', dark, 0, 0.14, -0.02, 0.28, 0.28, 0.28);
+                } else if (hd === 'totem_mask' || hd === 'prism_mask') {
+                    add('box', accCol, 0, 0.02, 0.155, 0.24, 0.28, 0.03);
+                    for (let f = -1; f <= 1; f++) add('box', glowCol, f * 0.07, 0.22, 0.14, 0.03, 0.16, 0.02, 0, 0, -f * 0.2, true);
+                } else if (hd === 'magma_beard') {
+                    add('crystal', glowCol, 0, -0.18, 0.13, 0.18, 0.22, 0.10, Math.PI, 0, 0, true);
+                } else if (hd === 'toad_sac') {
+                    add('chamfer', glowCol, 0, -0.12, 0.14, 0.20, 0.12, 0.18, 0, 0, 0, true);
+                } else if (hd === 'tesla_halo') {
+                    add('ring', glowCol, 0, 0.20, 0, 0.28, 0.28, 0.035, Math.PI / 2, 0, 0, true);
+                } else if (hd === 'serpent_frill') {
+                    for (const s of [-1, 1]) add('box', accCol, s * 0.15, 0.02, 0.0, 0.12, 0.20, 0.02, 0, s * 0.4, -s * 0.25);
                 } else {
-                    // Torn tactical chinstrap / cheek scar / dogtag gleam
-                    add('box', color, side * 0.101, -0.010, 0.075, 0.034, 0.077, 0.015, 0.02, side * 0.48, side * 0.37);
-                    add('box', dark, side * 0.106, 0.014, 0.080, 0.027, 0.009, 0.016, 0, side * 0.38);
+                    const side = seed & 1 ? 1 : -1;
+                    add('box', accCol, side * 0.105, 0.03, 0.08, 0.04, 0.09, 0.04, 0, side * 0.35, side * 0.25);
+                    if (b.glowingRibs || spec.isBoss) add('crystal', glowCol, 0, 0.17, 0.08, 0.06, 0.12, 0.06, 0.2, 0, 0, true);
                 }
             }));
         }

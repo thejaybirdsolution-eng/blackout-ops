@@ -102,11 +102,14 @@
             const p = BO.Player.pos;
             const reach = 4.2;
             if ((type === 'bench' || type === 'campfire') && this.objectives.safehouseNear?.(p, 8)) return true;
+            if (BO.ZoneWorldPlus?.stationAvailable?.(type, p)) return true;
+            if (type === 'bench' && this.placed.some((piece) => piece.alive && piece.type === 'tanrack' && near(p, piece, reach))) return true;
+            if (type === 'campfire' && this.placed.some((piece) => piece.alive && ['firepit', 'cookstation', 'smoker'].includes(piece.type) && near(p, piece, reach))) return true;
             return this.placed.some((piece) => piece.alive && piece.type === type && near(p, piece, reach));
         }
 
         get stations() {
-            return ['hand', 'bench', 'campfire', 'kiln'].filter((type) => this.stationAvailable(type));
+            return ['hand', 'bench', 'campfire', 'kiln', 'cookstation', 'alchemy', 'arcane'].filter((type) => this.stationAvailable(type));
         }
 
         setup(checkpoint) {
@@ -338,8 +341,8 @@
                     piece.type === 'campfire' ? { emissive: 0xd76218, emissiveIntensity: 0.64 } : {});
                 piece.mesh = mesh;
                 BO.ZoneWild?.decorate(piece);
-                if (['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'platform'].includes(piece.type)) {
-                    const stone = piece.type.startsWith('stone') || piece.type === 'door';
+                if (BO.ZoneBuild?.isStruct(piece.type) || ['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'platform', 'sandbagWall'].includes(piece.type)) {
+                    const stone = /stone|obsidian|iron|arch|catwalk|pillar|door|Gate/.test(piece.type);
                     const part = m.addStructure(mesh, w, h, d, stone ? 'brick' : 'wood');
                     if (stone) part.hp = piece.type === 'door' ? 320 : 265;
                     part.buildPiece = piece;
@@ -355,6 +358,7 @@
                     label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire', chest: 'Open storage chest', kiln: 'Use stone kiln', firepit: 'Cook at the fire camp', cookstation: 'Use the cooking station', tanrack: 'Use the tanning rack', smoker: 'Use the smokehouse' }[piece.type] });
                 if (piece.type === 'ladder') m.markers.push({ ...piece, y: piece.y + 2.86, id: 'build:' + piece.id, name: spec.name, label: 'Climb down' });
             }
+            BO.ZoneWorldPlus?.decoratePlacedPiece?.(piece, spec);
             this.deep?.registerBuild(piece);
             this.placed.push(piece);
         }
@@ -529,6 +533,7 @@
                 if (deep.activeTonics.staminElixir > this.mode.clock) mult *= 1.22;
                 if (this.mode.hunger >= 75 && deep.hydration >= 75) mult *= 1.08;
             }
+            mult *= (BO.ZoneWorldPlus?.speedMult?.() || 1);
             if (this.mode.fracture && !(this.mode.painUntil > this.mode.clock)) mult *= 0.68;
             const pack = this.pack;
             const load = pack.weight() / Math.max(1, pack.limits.weight);
@@ -547,9 +552,11 @@
                 ![...this.mode.zombies, ...this.mode.bots].some((enemy) => enemy.alive && enemy.team !== 0 && near(enemy.pos, p.pos, 9));
         }
 
-        /** Fast-travel destinations: secured safehouses and repaired radio towers. */
+        /** Fast-travel destinations: secured safehouses, radio towers, signposts, forts and waystones. */
         get travelPoints() {
-            return this.objectives.travelPoints ? this.objectives.travelPoints() : [];
+            const base = this.objectives.travelPoints ? this.objectives.travelPoints() : [];
+            const extra = BO.ZoneWorldPlus?.travelPoints?.() || [];
+            return [...base, ...extra];
         }
 
         travel(id) {
@@ -560,15 +567,16 @@
             if ((this.deep?.bleeding || 0) > 0) { this.mode.toast('Stop the bleeding before you travel.'); return false; }
             const dist = Math.hypot(dest.x - p.pos.x, dest.z - p.pos.z);
             if (dist < 15) return false;
-            const hours = Math.max(0.5, dist / 100) * (career.masteryRank('navigator') >= 2 ? 0.5 : 1);
+            const instant = dest.instant || dest.kind === 'Waystone' || BO.ZoneWorldPlus?.isNearSignpost?.(p.pos.x, p.pos.z);
+            const hours = instant ? 0 : Math.max(0.5, dist / 100) * (career.masteryRank('navigator') >= 2 ? 0.5 : 1);
             p.pos.set(dest.x, BO.World.getGroundHeight(dest.x, dest.z, (dest.y || 0) > 0.5 ? dest.y + 1.5 : 80) + 0.1, dest.z);
             p.vel.set(0, 0, 0);
             this.restHours += hours;
-            this.mode.hunger = Math.max(0, this.mode.hunger - hours * 3);
+            if (hours > 0) this.mode.hunger = Math.max(0, this.mode.hunger - hours * 3);
             this.vehicle = null;
             this.updateLocation();
             this.mark('fastTravel', 1, 0);
-            this.mode.toast('Travelled to ' + dest.name + ' · ' + hours.toFixed(1) + ' hours passed.');
+            this.mode.toast(instant ? 'Instant transit to ' + dest.name + '!' : 'Travelled to ' + dest.name + ' · ' + hours.toFixed(1) + ' hours passed.');
             return true;
         }
 
@@ -603,6 +611,7 @@
                 objectives: this.objectives.snapshot(), activities: this.activities?.snapshot(), deep: this.deep?.snapshot(), frontier: BO.ZoneFrontier?.snapshot(),
                 thrill: BO.ZoneThrill?.snapshot(), infest: BO.ZoneInfest?.snapshot(), contracts: BO.ZoneContracts?.snapshot(),
                 wild: BO.ZoneWild?.snapshot(), companions: BO.ZoneCompanions?.snapshot(), armory: BO.ZoneArmory?.snapshot(), dungeons: BO.ZoneDungeons?.snapshot(), legends: BO.ZoneLegends?.snapshot(), quests: BO.ZoneQuests?.snapshot(),
+                worldPlus: BO.ZoneWorldPlus?.snapshot(),
                 hostilesReleased: m.hostilesReleased,
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,
@@ -613,7 +622,7 @@
                 kills: m.kills, salvaged: m.salvaged, breaches: m.breaches,
                 hunger: m.hunger, radiation: m.radiation, composure: m.composure, mealUntil: m.mealUntil, ember: m.ember,
                 completed: [...m.completed],
-                placed: this.placed.map(({ id, x, y, z, type, size, alive, part }) => ({ id, x, y, z, type, size, alive, hp: part?.hp })),
+                placed: this.placed.map(({ id, x, y, z, type, size, alive, part, stairDir }) => ({ id, x, y, z, type, size, alive, hp: part?.hp, stairDir })),
                 // Infested packs and bounty targets are stored by their own systems.
                 enemies: m.zombies.filter((z) => z.alive && !z.infest && !z.contract && !z.dungeon && !z.legend && !z.arena).map((z) => ({
                     type: z.survivalType, pos: z.pos.toArray(), hp: z.hp, spec: z.spec.id

@@ -354,14 +354,24 @@
 
             const wMult = Number(this.customValues.waveSizeMult) || 1.0;
             if (bossSpec) {
-                // Boss Round (Round 5, 10, 15, 20, 25, 30, 35, 40, 45, 50)
+                // Boss & Colossal Super Boss Rounds
                 this.remainingToSpawn = Math.max(1, Math.min(200, Math.round((4 + Math.floor(r * 0.35)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0) * wMult)));
                 BO.Sound.playBossIntro();
-                BO.Events.emit('hud:banner', {
-                    title: `BOSS ROUND ${r}: ${bossSpec.name}`,
-                    sub: `${bossSpec.title.toUpperCase()} — ${bossSpec.weaknessText}`,
-                    color: '#ef4444'
-                });
+                if (bossSpec.isSuperBoss) {
+                    if (BO.Player) BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.14);
+                    BO.Sound.playAnnouncement?.('super_boss', 'Super Boss Inbound!');
+                    BO.Events.emit('hud:banner', {
+                        title: `👑 SUPER BOSS ROUND ${r}: ${bossSpec.name}`,
+                        sub: `${bossSpec.title.toUpperCase()} — ${bossSpec.weaknessText}`,
+                        color: '#fbbf24'
+                    });
+                } else {
+                    BO.Events.emit('hud:banner', {
+                        title: `BOSS ROUND ${r}: ${bossSpec.name}`,
+                        sub: `${bossSpec.title.toUpperCase()} — ${bossSpec.weaknessText}`,
+                        color: '#ef4444'
+                    });
+                }
                 this._spawnBoss(bossSpec);
             } else {
                 this.remainingToSpawn = Math.max(1, Math.min(300, Math.round((5 + r * 3.2 + (r > 10 ? (r - 10) * 1.4 : 0)) * (this.modifiers.chaosSwarm ? 2.0 : 1.0) * wMult)));
@@ -476,20 +486,67 @@
             const allWindows = BO.World.interactives.filter((i) => i.type === 'window' && unlocked.has(i.data.zone) && (!i.data.requiresPower || BO.World.powerOn));
             const allGround = (map.groundSpawners || []).filter((g) => unlocked.has(g.zone));
 
-            // Multi-floor preference ("Five"): prefer spawners on player's current floor first!
-            const py = BO.Player ? BO.Player.pos.y : 0;
+            const P = BO.Player;
+            const px = P ? P.pos.x : 0;
+            const py = P ? P.pos.y : 0;
+            const pz = P ? P.pos.z : 0;
             const sameFloorWin = allWindows.filter((w) => Math.abs((w.data.y || 0) - py) < 3.6);
             const sameFloorGnd = allGround.filter((g) => Math.abs((g.y || 0) - py) < 3.6);
             const validWindows = sameFloorWin.length > 0 ? sameFloorWin : allWindows;
             const validGround = sameFloorGnd.length > 0 ? sameFloorGnd : allGround;
 
-            if (validGround.length > 0 && (!allowWindow || validWindows.length === 0 || Math.random() < 0.35)) {
-                const gs = BO.Math.pick(validGround);
-                return { x: gs.x + BO.Math.randRange(-0.9, 0.9), y: gs.y || 0, z: gs.z + BO.Math.randRange(-0.9, 0.9), winInter: null };
+            this._recentZSpawns ??= new Map();
+            const now = this.elapsed || 0;
+
+            const scorePoint = (sx, sy, sz, isWin) => {
+                const dp = BO.Math.dist2D(sx, sz, px, pz);
+                // Prefer 7m..26m pressure band; penalize right-on-player (<4.5m) or ultra-distant (>34m)
+                let s = dp < 4.5 ? -55 : (dp <= 26 ? 26 - Math.abs(dp - 14.5) * 0.75 : Math.max(-18, 22 - (dp - 26) * 0.9));
+                // Anti-clustering against active zombies
+                let minZDist = 999;
+                for (let i = 0; i < this.zombies.length; i++) {
+                    const z = this.zombies[i];
+                    if (!z || !z.alive) continue;
+                    const dz = BO.Math.dist2D(sx, sz, z.pos.x, z.pos.z);
+                    if (dz < minZDist) minZDist = dz;
+                }
+                if (minZDist < 1.8) s -= 45;
+                else if (minZDist < 3.6) s -= 16;
+                // Recent reuse cooldown
+                const key = `${Math.round(sx)}_${Math.round(sz)}_${isWin ? 1 : 0}`;
+                const lastT = this._recentZSpawns.get(key);
+                if (lastT !== undefined && (now - lastT) < 3.2) s -= 28;
+                return s + Math.random() * 6.5;
+            };
+
+            const useGround = validGround.length > 0 && (!allowWindow || validWindows.length === 0 || Math.random() < 0.48);
+            if (useGround) {
+                let bestG = validGround[0], bestScore = -Infinity;
+                for (let i = 0; i < validGround.length; i++) {
+                    const gs = validGround[i];
+                    const sc = scorePoint(gs.x, gs.y || 0, gs.z, false);
+                    if (sc > bestScore) { bestScore = sc; bestG = gs; }
+                }
+                const gy = bestG.y || 0;
+                this._recentZSpawns.set(`${Math.round(bestG.x)}_${Math.round(bestG.z)}_0`, now);
+                for (let t = 0; t < 5; t++) {
+                    const jx = bestG.x + (t === 4 ? 0 : BO.Math.randRange(-1.05, 1.05));
+                    const jz = bestG.z + (t === 4 ? 0 : BO.Math.randRange(-1.05, 1.05));
+                    if (!BO.World.hasHeadroom || BO.World.hasHeadroom(jx, gy + 0.05, jz, 0.42, 1.75)) {
+                        return { x: jx, y: gy, z: jz, winInter: null };
+                    }
+                }
+                return { x: bestG.x, y: gy, z: bestG.z, winInter: null };
             }
             if (allowWindow && validWindows.length > 0) {
-                const w = BO.Math.pick(validWindows);
-                return { x: w.data.outside[0], y: w.data.outside[1] || w.data.y || 0, z: w.data.outside[2], winInter: w };
+                let bestW = validWindows[0], bestScore = -Infinity;
+                for (let i = 0; i < validWindows.length; i++) {
+                    const w = validWindows[i];
+                    const sc = scorePoint(w.data.outside[0], w.data.outside[1] || w.data.y || 0, w.data.outside[2], true);
+                    if (sc > bestScore) { bestScore = sc; bestW = w; }
+                }
+                this._recentZSpawns.set(`${Math.round(bestW.data.outside[0])}_${Math.round(bestW.data.outside[2])}_1`, now);
+                return { x: bestW.data.outside[0], y: bestW.data.outside[1] || bestW.data.y || 0, z: bestW.data.outside[2], winInter: bestW };
             }
             return { x: BO.World.mapData.playerSpawn.x, y: BO.World.mapData.playerSpawn.y || 0, z: (BO.World.mapData.playerSpawn.z || 0) + 6, winInter: null };
         }
@@ -612,20 +669,23 @@
             this.zombies.push(z);
         }
 
-        _spawnEnemyProjectile(zombie, tx, ty, tz) {
+        _spawnEnemyProjectile(zombie, tx, ty, tz, extraOpts = null) {
             if (!BO.World.scene) return;
-            const kind = zombie.attackType;
+            const kind = (extraOpts && extraOpts.kind) || zombie.attackType;
             const col = kind === 'acid_spit' ? 0x4ade80 : (kind === 'fire_bolt' ? 0xf97316 : (kind === 'frost_shard' ? 0x38bdf8 : (kind === 'life_drain' ? 0xef4444 : 0xc084fc)));
-            const count = zombie.isBoss ? 3 : 1;
-            const origin = new THREE.Vector3(zombie.pos.x, zombie.pos.y + 1.4, zombie.pos.z);
+            const count = (extraOpts && extraOpts.count) || (zombie.isSuperBoss ? 4 : (zombie.isBoss ? 3 : 1));
+            const spreadStep = (extraOpts && extraOpts.spread !== undefined) ? extraOpts.spread : 0.16;
+            const originY = (extraOpts && extraOpts.originY) || (zombie.isSuperBoss ? 3.1 : 1.4);
+            const speed = (extraOpts && extraOpts.speed) || (zombie.isSuperBoss ? 21 : (zombie.isBoss ? 19 : 15));
+            const origin = new THREE.Vector3(zombie.pos.x, zombie.pos.y + originY, zombie.pos.z);
 
             for (let c = 0; c < count; c++) {
-                const spreadAngle = (c - (count - 1) * 0.5) * 0.16;
+                const spreadAngle = (c - (count - 1) * 0.5) * spreadStep;
                 const dir = new THREE.Vector3(tx - origin.x, ty - origin.y, tz - origin.z).normalize();
                 if (spreadAngle !== 0) dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
 
                 const mesh = new THREE.Mesh(
-                    new THREE.SphereGeometry(zombie.isBoss ? 0.22 : 0.14, 8, 8),
+                    new THREE.SphereGeometry(zombie.isSuperBoss ? 0.27 : (zombie.isBoss ? 0.22 : 0.14), 8, 8),
                     new THREE.MeshBasicMaterial({ color: col })
                 );
                 mesh.position.copy(origin);
@@ -635,8 +695,8 @@
                     kind,
                     mesh,
                     pos: origin.clone(),
-                    vel: dir.multiplyScalar(zombie.isBoss ? 19 : 15),
-                    damage: Math.round(zombie.damage * 0.65),
+                    vel: dir.multiplyScalar(speed),
+                    damage: Math.round(zombie.damage * (zombie.isSuperBoss ? 0.58 : 0.65)),
                     life: 3.5,
                     color: col,
                     owner: zombie
@@ -738,6 +798,14 @@
                 BO.Progression.checkSingleGameHeadshotUnlock(this.headshots);
             }
             BO.Progression.recordStat('zombiesKills', 1);
+            BO.Progression.registerCombatKill({
+                mode: 'zombies',
+                isHeadshot: isHead,
+                isMelee,
+                isBoss: !!z.isBoss,
+                isSuperBoss: !!z.isSuperBoss,
+                enemySwing: z.attackSwing || 0
+            });
 
             if (BO.Player.frenziedActive) {
                 BO.Player.armor = Math.min(BO.Player.maxArmor, BO.Player.armor + 25);
@@ -772,11 +840,22 @@
                 BO.Player.armor = BO.Player.maxArmor;
                 BO.Player.armorReservePlates = 3;
                 this._spawnPowerUp(z.pos.x, z.pos.y, z.pos.z, z.spec.drops.guaranteedPowerUp || 'max_ammo');
-                BO.Events.emit('hud:banner', {
-                    title: `${z.spec.name} DEFEATED!`,
-                    sub: `+${z.spec.drops.points} PTS • FULL ARMOR & GUARANTEED POWER-UP`,
-                    color: '#22c55e'
-                });
+                if (z.isSuperBoss) {
+                    this._spawnPowerUp(z.pos.x + 1.4, z.pos.y, z.pos.z, 'double_points');
+                    this.supplies += 3500;
+                    BO.Sound.playAnnouncement?.('boss_slain', 'Colossus Slain!');
+                    BO.Events.emit('hud:banner', {
+                        title: `👑 ${z.spec.name} VANQUISHED!`,
+                        sub: `+${z.spec.drops.points} PTS • +3,500 SUPPLIES • TWIN POWER-UPS & FULL ARMOR`,
+                        color: '#fbbf24'
+                    });
+                } else {
+                    BO.Events.emit('hud:banner', {
+                        title: `${z.spec.name} DEFEATED!`,
+                        sub: `+${z.spec.drops.points} PTS • FULL ARMOR & GUARANTEED POWER-UP`,
+                        color: '#22c55e'
+                    });
+                }
             } else if (z.spec.isPentagonThief) {
                 this._onPentagonThiefKilled(z.pos);
             } else {
@@ -1681,8 +1760,8 @@
                     BO.Player.takeDamage(this._enemyAttackDamage(attacker), attacker.pos, false);
                     BO.Sound.playZombieGroan(attacker.soundProfile, 0.9);
                 },
-                onRangedAttack: (attacker, tx, ty, tz) => {
-                    if (allowProj) this._spawnEnemyProjectile(attacker, tx, ty, tz);
+                onRangedAttack: (attacker, tx, ty, tz, extraOpts) => {
+                    if (allowProj) this._spawnEnemyProjectile(attacker, tx, ty, tz, extraOpts);
                 }
             };
             for (let i = this.zombies.length - 1; i >= 0; i--) {

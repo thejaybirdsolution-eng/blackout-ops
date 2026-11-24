@@ -32,8 +32,16 @@
         ['help', 'Troubleshooting', 'unknown', 'Why you cannot build, craft, save, reload or enter the Crater — and how to fix it.']
     ];
     const CAT_LABEL = Object.fromEntries(CATS.map(([id, label]) => [id, label]));
-    const STATION = { hand: 'By hand (anywhere)', bench: 'Workbench (safehouse or placed bench)', campfire: 'Campfire (or safehouse stove)', kiln: 'Stone kiln' };
-    const STATION_SHORT = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln' };
+    const STATION = {
+        hand: 'By hand (anywhere)',
+        bench: 'Workbench (safehouse, fort or placed bench)',
+        campfire: 'Campfire (or safehouse/fort stove)',
+        kiln: 'Stone kiln',
+        cookstation: 'Cooking station',
+        alchemy: 'Alchemy brewing stand',
+        arcane: 'Arcane rune table'
+    };
+    const STATION_SHORT = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln', cookstation: 'Cooking station', alchemy: 'Alchemy stand', arcane: 'Arcane table' };
 
     const REGION_GUIDE = {
         crash: 'Threat 1 · Meadow. Your helicopter wreck and opening salvage. Stop the bleeding, search the fuselage, and move toward the ranger station.',
@@ -169,7 +177,13 @@
             text: 'Weather rolls across the valley and shifts by biome: Overcast, Ash Rain (increases weapon jam chance and fills lungs without a filter), Rad Fog (thick fog + 1.4× radiation), wetlands rain (makes you wet and colder), and Frostline Blizzards.' });
         add({ cat: 'threat', title: 'World events', icon: icon('flare', '#ff7b6b'), tags: ['Every 5–9 min'],
             text: 'The Zone acts on its own. Active events show as HUD chips, a flag on the compass and a pulsing marker on the map.',
-            lists: [{ h: 'Events', items: ['Supply airdrop: a plane drops a crate under red smoke — military loot and a weapon, but a PMC squad heads for it too. Gone after 7 minutes.', 'Infected migration: a herd of 12–22 walks a route across the Zone. Noise pulls members off the route.', 'Distress call: a survivor is pinned down at a building. Clear the infected near them within 6 minutes for supplies, and they mark an unread intel document on your map.', 'Lantern surge (day 2+): a 30-second warning, then 90 seconds of radiation outdoors. A roof or a filter protects you.'] }] });
+            lists: [{ h: 'Events', items: ['Supply airdrop: a plane drops a crate under red smoke — military loot and a weapon, but a PMC squad heads for it too. Gone after 7 minutes.', 'Infected migration: a herd of 12–22 walks a route across the Zone. Noise pulls members off the route.', 'Distress call: a survivor is pinned down at a building. Clear the infected near them within 6 minutes for supplies, and they mark an unread intel document on your map.', 'Lantern surge (day 2+): a 30-second warning, then 90 seconds of radiation outdoors. A roof or a filter protects you.', 'Survivor Fort Siege: a zombie horde attacks Fort Bastion, Fort Timberwatch, or Fort Ironhold. Defeat all attackers to permanently liberate the fort, unlock its two Armory Chests & Fast Travel Beacon, and deploy 3 persistent Defender NPCs with live HP who patrol, shoot nearby zombies, and draw enemy aggro!'] }] });
+        add({ cat: 'travel', title: 'Fast travel signposts, forts & waystones', icon: icon('portal', '#34d399'), tags: ['Press T anywhere'],
+            text: 'Press T (or interact with any roadside Signpost, Waystone, or Fort Beacon) to open the compact Fast Travel menu. Travelling between Signposts or Waystones is instantaneous (0 h); field fast travel to Safehouses, Radio Towers, Haven, or Liberated Forts advances time modestly.',
+            facts: [['Signposts', '8 crossroads signposts across the Zone (Crash & Relay start attuned)'], ['Quantum Chest', 'Shared dimensional storage accessible from every Quantum Ender-Chest']] });
+        add({ cat: 'crafting', title: 'Alchemy, Arcane relics & Black Market trading', icon: icon('flask', '#d8b4fe'), tags: ['Multiple paths'],
+            text: 'Build an Alchemy Brewing Stand for 8 combat/utility potions, or an Arcane Rune Table for Totems of Undying, Phase Ender-Pearls, Enchanted Golden Apples, and Bottles o\' Skilling. Every item can be gathered/crafted directly OR bartered from Roaming Black Market Brokers (Broker Vex & Peddler Kael) and Gated Specialist Contacts (Viper, Dr. Morrow & Warlord Krag — unlocked by Level, Kills, or Bribes).',
+            facts: [['Totem of Undying', 'Automatically prevents fatal damage while carried in your backpack'], ['Grappling Launcher', 'Reusable 28 m zip-hook onto rooftops, cliffs & watchtowers']] });
 
         /* ---------- 3b. Levels, loot & contracts ---------- */
         const TH = BO.ZoneThrill;

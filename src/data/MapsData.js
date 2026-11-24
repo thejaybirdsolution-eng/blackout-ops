@@ -210,10 +210,27 @@
             { id: 'win_lab_s', zone: 'lab', x: 25.0, y: 0, z: 6.0, w: 2.3, axis: 'x', outside: [27.2, 0, 6.0], inside: [22.6, 0, 6.0], waypointId: 'wp_lab_se' }
         ],
         groundSpawners: [
+            { zone: 'spawn', x: -7.8, y: 0, z: 18.2, waypointId: 'wp_spawn_sw' },
+            { zone: 'spawn', x: 7.8, y: 0, z: 18.2, waypointId: 'wp_spawn_se' },
             { zone: 'courtyard', x: -7.5, y: 0, z: -9.5, waypointId: 'wp_court_nw' },
             { zone: 'courtyard', x: 7.5, y: 0, z: -9.5, waypointId: 'wp_court_ne' },
+            { zone: 'courtyard', x: -8.0, y: 0, z: 3.2, waypointId: 'wp_court_w' },
+            { zone: 'courtyard', x: -7.8, y: 0, z: -5.5, waypointId: 'wp_court_w' },
+            { zone: 'courtyard', x: 8.0, y: 0, z: -5.5, waypointId: 'wp_court_e' },
+            { zone: 'courtyard', x: 0.0, y: 0, z: -10.2, waypointId: 'wp_court_n' },
+            { zone: 'generator', x: -22.8, y: 0, z: -9.5, waypointId: 'wp_gen_w' },
+            { zone: 'generator', x: -22.8, y: 0, z: 8.2, waypointId: 'wp_gen_sw' },
+            { zone: 'generator', x: -13.5, y: 0, z: -8.5, waypointId: 'wp_gen_n' },
+            { zone: 'generator', x: -13.5, y: 0, z: 7.5, waypointId: 'wp_gen_s' },
+            { zone: 'lab', x: 22.8, y: 0, z: -9.5, waypointId: 'wp_lab_e' },
+            { zone: 'lab', x: 22.8, y: 0, z: 8.2, waypointId: 'wp_lab_se' },
+            { zone: 'lab', x: 13.5, y: 0, z: -8.5, waypointId: 'wp_lab_n' },
+            { zone: 'lab', x: 13.5, y: 0, z: 7.5, waypointId: 'wp_lab_s' },
             { zone: 'vault', x: -7.5, y: 0, z: -24.5, waypointId: 'wp_vault_w' },
-            { zone: 'vault', x: 7.5, y: 0, z: -24.5, waypointId: 'wp_vault_e' }
+            { zone: 'vault', x: 7.5, y: 0, z: -24.5, waypointId: 'wp_vault_e' },
+            { zone: 'vault', x: -7.5, y: 0, z: -14.5, waypointId: 'wp_vault_s' },
+            { zone: 'vault', x: 7.5, y: 0, z: -14.5, waypointId: 'wp_vault_s' },
+            { zone: 'vault', x: 0.0, y: 0, z: -16.5, waypointId: 'wp_vault_s' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -8.8, y: 0, z: 16.0, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive + Faster Regen', requiresPower: false },
@@ -397,10 +414,27 @@
             { id: 'w_reac_s', zone: 'reactor', x: 26.0, y: 0, z: 5.0, w: 2.3, axis: 'x', outside: [28.0, 0, 5.0], inside: [23.4, 0, 5.0], waypointId: 'wp_o_reac_se' }
         ],
         groundSpawners: [
+            { zone: 'spawn', x: -7.8, y: 0, z: 20.2, waypointId: 'wp_o_air_w' },
+            { zone: 'spawn', x: 7.8, y: 0, z: 20.2, waypointId: 'wp_o_air_e' },
             { zone: 'silo', x: -11.5, y: 0, z: -8.0, waypointId: 'wp_o_silo_nw' },
             { zone: 'silo', x: 11.5, y: 0, z: -8.0, waypointId: 'wp_o_silo_ne' },
+            { zone: 'silo', x: -11.5, y: 0, z: 7.5, waypointId: 'wp_o_silo_sw' },
+            { zone: 'silo', x: 11.5, y: 0, z: 7.5, waypointId: 'wp_o_silo_se' },
+            { zone: 'silo', x: -11.8, y: 0, z: 0.0, waypointId: 'wp_o_silo_w' },
+            { zone: 'silo', x: 11.8, y: 0, z: 0.0, waypointId: 'wp_o_silo_e' },
+            { zone: 'cryo', x: -23.5, y: 0, z: -8.0, waypointId: 'wp_o_cryo_nw' },
+            { zone: 'cryo', x: -23.5, y: 0, z: 8.0, waypointId: 'wp_o_cryo_sw' },
+            { zone: 'cryo', x: -16.5, y: 0, z: -6.5, waypointId: 'wp_o_cryo_n' },
+            { zone: 'cryo', x: -16.5, y: 0, z: 6.5, waypointId: 'wp_o_cryo_s' },
+            { zone: 'reactor', x: 23.5, y: 0, z: -8.0, waypointId: 'wp_o_reac_ne' },
+            { zone: 'reactor', x: 23.5, y: 0, z: 8.0, waypointId: 'wp_o_reac_se' },
+            { zone: 'reactor', x: 16.5, y: 0, z: -6.5, waypointId: 'wp_o_reac_n' },
+            { zone: 'reactor', x: 16.5, y: 0, z: 6.5, waypointId: 'wp_o_reac_s' },
             { zone: 'control', x: -9.5, y: 0, z: -23.0, waypointId: 'wp_o_ctrl_w' },
-            { zone: 'control', x: 9.5, y: 0, z: -23.0, waypointId: 'wp_o_ctrl_e' }
+            { zone: 'control', x: 9.5, y: 0, z: -23.0, waypointId: 'wp_o_ctrl_e' },
+            { zone: 'control', x: -9.0, y: 0, z: -13.5, waypointId: 'wp_o_ctrl_s' },
+            { zone: 'control', x: 9.0, y: 0, z: -13.5, waypointId: 'wp_o_ctrl_s' },
+            { zone: 'control', x: 0.0, y: 0, z: -14.5, waypointId: 'wp_o_ctrl_s' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -8.8, y: 0, z: 18.0, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive + Faster Regen', requiresPower: false },
@@ -549,7 +583,10 @@
             { x: -22, y: 0, z: 24, yaw: -0.3 }, { x: 22, y: 0, z: 24, yaw: 0.3 },
             { x: -16, y: 0, z: 15, yaw: -0.2 }, { x: 16, y: 0, z: 15, yaw: 0.2 },
             { x: -6, y: 0, z: 15, yaw: 0 }, { x: 6, y: 0, z: 15, yaw: 0 },
-            { x: -21, y: 0, z: 4, yaw: -0.8 }, { x: 21, y: 0, z: 4, yaw: 0.8 }
+            { x: -21, y: 0, z: 4, yaw: -0.8 }, { x: 21, y: 0, z: 4, yaw: 0.8 },
+            { x: -16, y: 0, z: 7, yaw: 0 }, { x: 16, y: 0, z: 7, yaw: 0 },
+            { x: -7.8, y: 0, z: 8, yaw: 0.3 }, { x: 7.8, y: 0, z: 8, yaw: -0.3 },
+            { x: 0, y: 2.6, z: 1.5, yaw: 0 }
         ],
         team1Spawns: [
             { x: -7, y: 0, z: -24, yaw: Math.PI }, { x: 0, y: 0, z: -25, yaw: Math.PI }, { x: 7, y: 0, z: -24, yaw: Math.PI },
@@ -557,7 +594,10 @@
             { x: -22, y: 0, z: -24, yaw: Math.PI + 0.3 }, { x: 22, y: 0, z: -24, yaw: Math.PI - 0.3 },
             { x: -16, y: 0, z: -15, yaw: Math.PI + 0.2 }, { x: 16, y: 0, z: -15, yaw: Math.PI - 0.2 },
             { x: -6, y: 0, z: -15, yaw: Math.PI }, { x: 6, y: 0, z: -15, yaw: Math.PI },
-            { x: -21, y: 0, z: -4, yaw: Math.PI + 0.8 }, { x: 21, y: 0, z: -4, yaw: Math.PI - 0.8 }
+            { x: -21, y: 0, z: -4, yaw: Math.PI + 0.8 }, { x: 21, y: 0, z: -4, yaw: Math.PI - 0.8 },
+            { x: -16, y: 0, z: -7, yaw: Math.PI }, { x: 16, y: 0, z: -7, yaw: Math.PI },
+            { x: -7.8, y: 0, z: -8, yaw: Math.PI - 0.3 }, { x: 7.8, y: 0, z: -8, yaw: Math.PI + 0.3 },
+            { x: 0, y: 2.6, z: -1.5, yaw: Math.PI }
         ],
         domFlags: [
             { id: 'A', label: 'A', x: 0, y: 0, z: 18.5 },
@@ -680,7 +720,9 @@
             { x: -25, y: 0, z: 24, yaw: -0.3 }, { x: 25, y: 0, z: 24, yaw: 0.3 },
             { x: -19, y: 0, z: 16, yaw: -0.2 }, { x: 19, y: 0, z: 16, yaw: 0.2 },
             { x: -26.5, y: 0, z: 8, yaw: -0.4 }, { x: 26.5, y: 0, z: 8, yaw: 0.4 },
-            { x: -11, y: 0, z: 16, yaw: 0 }, { x: 11, y: 0, z: 16, yaw: 0 }
+            { x: -11, y: 0, z: 16, yaw: 0 }, { x: 11, y: 0, z: 16, yaw: 0 },
+            { x: -26.5, y: 0, z: 0, yaw: -1.2 }, { x: 26.5, y: 0, z: 0, yaw: 1.2 },
+            { x: 19, y: 3.0, z: 2, yaw: 1.2 }, { x: -10, y: 0, z: 6, yaw: 0 }, { x: 10, y: 0, z: 6, yaw: 0 }
         ],
         team1Spawns: [
             { x: -8, y: 0, z: -28, yaw: Math.PI }, { x: 0, y: 0, z: -29, yaw: Math.PI }, { x: 8, y: 0, z: -28, yaw: Math.PI },
@@ -688,7 +730,9 @@
             { x: -25, y: 0, z: -24, yaw: Math.PI + 0.3 }, { x: 25, y: 0, z: -24, yaw: Math.PI - 0.3 },
             { x: -19, y: 0, z: -17, yaw: Math.PI + 0.2 }, { x: 19, y: 0, z: -17, yaw: Math.PI - 0.2 },
             { x: -26.5, y: 0, z: -8, yaw: Math.PI + 0.4 }, { x: 26.5, y: 0, z: -8, yaw: Math.PI - 0.4 },
-            { x: -11, y: 0, z: -16, yaw: Math.PI }, { x: 11, y: 0, z: -16, yaw: Math.PI }
+            { x: -11, y: 0, z: -16, yaw: Math.PI }, { x: 11, y: 0, z: -16, yaw: Math.PI },
+            { x: -19, y: 3.0, z: -2, yaw: -1.2 }, { x: -10, y: 0, z: -6, yaw: Math.PI }, { x: 10, y: 0, z: -6, yaw: Math.PI },
+            { x: -26.5, y: 0, z: -16, yaw: Math.PI + 0.3 }, { x: 26.5, y: 0, z: -16, yaw: Math.PI - 0.3 }
         ],
         domFlags: [
             { id: 'A', label: 'A', x: 0, y: 0, z: 23.5 },
@@ -829,8 +873,14 @@
             { id: 'n_w10', zone: 'upstairs', x: 3.0, y: 3.4, z: 16.0, w: 2.3, axis: 'z', outside: [3.0, 3.4, 18.0], inside: [3.0, 3.4, 13.8], waypointId: 'n_up_s' }
         ],
         groundSpawners: [
+            { zone: 'help', x: -3.8, y: 0, z: -13.5, waypointId: 'n_hlp_c' },
+            { zone: 'help', x: 6.2, y: 0, z: -14.0, waypointId: 'n_hlp_c' },
+            { zone: 'help', x: -3.8, y: 0, z: -3.5, waypointId: 'n_hlp_d' },
             { zone: 'upstairs', x: -2.0, y: 3.4, z: -12.0, waypointId: 'n_up_n' },
-            { zone: 'upstairs', x: 2.0, y: 3.4, z: 12.0, waypointId: 'n_up_s' }
+            { zone: 'upstairs', x: 2.0, y: 3.4, z: 12.0, waypointId: 'n_up_s' },
+            { zone: 'upstairs', x: -6.8, y: 3.4, z: 0.0, waypointId: 'n_up_n' },
+            { zone: 'upstairs', x: 6.2, y: 3.4, z: -2.0, waypointId: 'n_up_s' },
+            { zone: 'upstairs', x: -6.2, y: 3.4, z: 12.0, waypointId: 'n_up_s' }
         ],
         perks: [],
         wallBuys: [
@@ -1065,10 +1115,23 @@
             { id: 'snn_w_w3', zone: 'comm', x: -23.6, y: 0, z: 6.5, w: 2.3, axis: 'z', outside: [-23.6, 0, 8.5], inside: [-23.6, 0, 4.5], waypointId: 'snn_w' }
         ],
         groundSpawners: [
+            { zone: 'central_down', x: 4.5, y: 0.14, z: -4.5, waypointId: 'snn_c' },
             { zone: 'path_n', x: -4.2, y: 0, z: -14.0, waypointId: 'snn_pn' },
+            { zone: 'path_n', x: 4.2, y: 0, z: -14.5, waypointId: 'snn_pn' },
             { zone: 'path_e', x: 14.0, y: 0, z: -4.2, waypointId: 'snn_pe' },
+            { zone: 'path_e', x: 14.5, y: 0, z: 4.2, waypointId: 'snn_pe' },
             { zone: 'path_s', x: 4.2, y: 0, z: 14.0, waypointId: 'snn_ps' },
-            { zone: 'path_w', x: -14.0, y: 0, z: 4.2, waypointId: 'snn_pw' }
+            { zone: 'path_s', x: -4.2, y: 0, z: 14.5, waypointId: 'snn_ps' },
+            { zone: 'path_w', x: -14.0, y: 0, z: 4.2, waypointId: 'snn_pw' },
+            { zone: 'path_w', x: -14.5, y: 0, z: -4.2, waypointId: 'snn_pw' },
+            { zone: 'fishing', x: -4.2, y: 0.16, z: -26.5, waypointId: 'snn_n' },
+            { zone: 'fishing', x: 4.2, y: 0.16, z: -21.0, waypointId: 'snn_n' },
+            { zone: 'doctors', x: 26.5, y: 0.16, z: -2.0, waypointId: 'snn_e' },
+            { zone: 'doctors', x: 21.0, y: 0.16, z: 4.2, waypointId: 'snn_e' },
+            { zone: 'storage', x: -4.2, y: 0.16, z: 21.0, waypointId: 'snn_s' },
+            { zone: 'storage', x: 4.2, y: 0.16, z: 26.5, waypointId: 'snn_s' },
+            { zone: 'comm', x: -21.0, y: 0.16, z: -4.2, waypointId: 'snn_w' },
+            { zone: 'comm', x: -24.5, y: 0.16, z: 4.2, waypointId: 'snn_w' }
         ],
         randomizePerks: true,
         perkSlots: [
@@ -1236,8 +1299,20 @@
             { id: 'dr_w8', zone: 'garage', x: 26.0, y: 0, z: -4.8, w: 2.3, axis: 'x', outside: [27.6, 0, -4.8], inside: [23.8, 0, -4.8], waypointId: 'dr_ga' }
         ],
         groundSpawners: [
+            { zone: 'spawn', x: -7.5, y: 0, z: 10.5, waypointId: 'dr_sp' },
+            { zone: 'spawn', x: 7.5, y: 0, z: 10.5, waypointId: 'dr_sp' },
+            { zone: 'animal', x: -22.5, y: 0, z: 11.5, waypointId: 'dr_an' },
+            { zone: 'animal', x: -15.0, y: 0, z: -8.5, waypointId: 'dr_an' },
+            { zone: 'animal', x: -22.5, y: 0, z: -1.0, waypointId: 'dr_an' },
+            { zone: 'garage', x: 22.5, y: 0, z: 11.5, waypointId: 'dr_ga' },
+            { zone: 'garage', x: 14.5, y: 0, z: -8.5, waypointId: 'dr_ga' },
+            { zone: 'garage', x: 13.5, y: 0, z: 6.5, waypointId: 'dr_ga' },
             { zone: 'power_ct', x: -10.0, y: 0, z: -23.0, waypointId: 'dr_pw' },
-            { zone: 'power_ct', x: 1.0, y: 0, z: -22.0, waypointId: 'dr_pw' }
+            { zone: 'power_ct', x: 1.0, y: 0, z: -22.0, waypointId: 'dr_pw' },
+            { zone: 'power_ct', x: -20.5, y: 0, z: -22.0, waypointId: 'dr_pw' },
+            { zone: 'power_ct', x: 20.5, y: 0, z: -22.0, waypointId: 'dr_pw' },
+            { zone: 'power_ct', x: -12.0, y: 0, z: -15.5, waypointId: 'dr_pw' },
+            { zone: 'power_ct', x: 9.0, y: 2.5, z: -24.0, waypointId: 'dr_cat' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -7.5, y: 0, z: 18.5, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive', requiresPower: false },
@@ -1456,8 +1531,20 @@
             { id: 'k_w10', zone: 'stage', requiresPower: true, x: 6.0, y: 0.45, z: -28.0, w: 2.3, axis: 'z', outside: [6.0, 0, -29.0], inside: [6.0, 0.45, -26.0], waypointId: 'k_st' }
         ],
         groundSpawners: [
+            { zone: 'foyer', x: 21.5, y: 0, z: 11.5, waypointId: 'k_fo' },
+            { zone: 'foyer', x: 14.5, y: 0, z: 3.5, waypointId: 'k_fo' },
+            { zone: 'dressing', x: 21.5, y: 0, z: -9.0, waypointId: 'k_dr' },
+            { zone: 'dressing', x: 15.0, y: 0, z: -5.5, waypointId: 'k_dr' },
+            { zone: 'lower_hall', x: -21.5, y: 0, z: 12.0, waypointId: 'k_lh' },
+            { zone: 'lower_hall', x: -14.5, y: 0, z: 5.5, waypointId: 'k_lh' },
+            { zone: 'alley', x: -21.5, y: 0, z: -9.0, waypointId: 'k_al' },
+            { zone: 'alley', x: -16.5, y: 0, z: -2.5, waypointId: 'k_al' },
             { zone: 'stage', x: -18.0, y: 0, z: -17.0, waypointId: 'k_st_w' },
-            { zone: 'stage', x: 18.0, y: 0, z: -17.0, waypointId: 'k_st_e' }
+            { zone: 'stage', x: 18.0, y: 0, z: -17.0, waypointId: 'k_st_e' },
+            { zone: 'stage', x: -8.2, y: 0, z: -4.0, waypointId: 'k_st' },
+            { zone: 'stage', x: 8.2, y: 0, z: -4.0, waypointId: 'k_st' },
+            { zone: 'stage', x: 0.0, y: 0.45, z: -23.5, waypointId: 'k_st' },
+            { zone: 'stage', x: -6.5, y: 0.45, z: -24.5, waypointId: 'k_st' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -8.4, y: 0, z: 18.0, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive (Lobby Bar)', requiresPower: false },
@@ -1656,10 +1743,21 @@
         ],
         groundSpawners: [
             { zone: 'spawn', x: -12.0, y: 12.0, z: -5.0, waypointId: 'fv_sp_h' },
+            { zone: 'spawn', x: 12.0, y: 12.0, z: 5.0, waypointId: 'fv_sp_h' },
+            { zone: 'spawn', x: -12.0, y: 12.0, z: 5.0, waypointId: 'fv_sp_h' },
+            { zone: 'spawn', x: 0.0, y: 12.0, z: -5.5, waypointId: 'fv_sp_h' },
             { zone: 'war_room', x: -13.0, y: 6.0, z: 6.0, waypointId: 'fv_wr' },
             { zone: 'war_room', x: 13.0, y: 6.0, z: 6.0, waypointId: 'fv_wr' },
+            { zone: 'war_room', x: -14.5, y: 6.0, z: -7.5, waypointId: 'fv_wr' },
+            { zone: 'war_room', x: 14.5, y: 6.0, z: -7.5, waypointId: 'fv_wr' },
+            { zone: 'war_room', x: -6.5, y: 7.4, z: 9.0, waypointId: 'fv_wr' },
+            { zone: 'war_room', x: 6.5, y: 7.4, z: 9.0, waypointId: 'fv_wr' },
             { zone: 'labs', x: -15.0, y: 0, z: -23.0, waypointId: 'fv_lb' },
-            { zone: 'labs', x: 15.0, y: 0, z: -23.0, waypointId: 'fv_lb' }
+            { zone: 'labs', x: 15.0, y: 0, z: -23.0, waypointId: 'fv_lb' },
+            { zone: 'labs', x: -18.5, y: 0, z: -8.0, waypointId: 'fv_lb' },
+            { zone: 'labs', x: 18.5, y: 0, z: -8.0, waypointId: 'fv_lb' },
+            { zone: 'labs', x: 0.0, y: 0, z: -21.5, waypointId: 'fv_lb' },
+            { zone: 'labs', x: 0.0, y: 0, z: 6.5, waypointId: 'fv_lb' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -9.5, y: 12.0, z: 19.0, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive (Briefing Room)', requiresPower: false },
@@ -1851,9 +1949,19 @@
         groundSpawners: [
             { zone: 'cosmodrome', x: 16.0, y: 0, z: 0.0, waypointId: 'as_co' },
             { zone: 'cosmodrome', x: 16.0, y: 0, z: -8.0, waypointId: 'as_co' },
+            { zone: 'cosmodrome', x: -20.0, y: 0, z: 5.5, waypointId: 'as_co' },
+            { zone: 'cosmodrome', x: -16.5, y: 0, z: -2.0, waypointId: 'as_co' },
+            { zone: 'cosmodrome', x: 23.5, y: 0, z: 5.0, waypointId: 'as_co' },
+            { zone: 'cosmodrome', x: 4.5, y: 0, z: -6.5, waypointId: 'as_co' },
+            { zone: 'cosmodrome', x: -6.5, y: 0, z: 2.5, waypointId: 'as_co' },
             { zone: 'power_bldg', x: -20.0, y: 2.6, z: -14.0, waypointId: 'as_pw' },
+            { zone: 'power_bldg', x: -24.0, y: 2.6, z: -8.5, waypointId: 'as_pw' },
+            { zone: 'power_bldg', x: -15.5, y: 2.6, z: -11.5, waypointId: 'as_pw' },
             { zone: 'rocket_pad', x: -9.0, y: 0, z: -24.0, waypointId: 'as_rk' },
-            { zone: 'rocket_pad', x: 9.0, y: 0, z: -24.0, waypointId: 'as_rk' }
+            { zone: 'rocket_pad', x: 9.0, y: 0, z: -24.0, waypointId: 'as_rk' },
+            { zone: 'rocket_pad', x: 0.0, y: 0, z: -15.5, waypointId: 'as_rk' },
+            { zone: 'rocket_pad', x: -9.5, y: 0, z: -16.0, waypointId: 'as_rk' },
+            { zone: 'rocket_pad', x: 9.5, y: 0, z: -16.0, waypointId: 'as_rk' }
         ],
         perks: [
             { id: 'quick_revive', name: 'Quick Revive', cost: 500, x: -8.2, y: 0, z: 18.0, rotY: Math.PI * 0.5, color: '#38bdf8', desc: 'Solo Self-Revive (Centrifuge)', requiresPower: false },
@@ -2028,8 +2136,19 @@
         groundSpawners: [
             { zone: 'spawn', x: -6.5, y: 0, z: 17.0, waypointId: 'nt_sp' },
             { zone: 'spawn', x: 6.5, y: 0, z: 17.0, waypointId: 'nt_sp' },
+            { zone: 'spawn', x: -18.0, y: 0, z: 16.5, waypointId: 'nt_sp' },
+            { zone: 'spawn', x: 18.0, y: 0, z: 16.5, waypointId: 'nt_sp' },
+            { zone: 'spawn', x: 0.0, y: 0, z: -7.2, waypointId: 'nt_sp' },
+            { zone: 'green_house', x: -16.5, y: 0, z: 3.5, waypointId: 'nt_gh' },
+            { zone: 'green_house', x: -16.5, y: 3.1, z: -5.5, waypointId: 'nt_gh' },
+            { zone: 'yellow_house', x: 16.5, y: 0, z: 3.5, waypointId: 'nt_yh' },
+            { zone: 'yellow_house', x: 16.5, y: 3.1, z: -5.5, waypointId: 'nt_yh' },
             { zone: 'green_yard', x: -17.0, y: 0, z: -22.0, waypointId: 'nt_gy' },
-            { zone: 'yellow_yard', x: 17.0, y: 0, z: -22.0, waypointId: 'nt_yy' }
+            { zone: 'green_yard', x: -8.5, y: 0, z: -16.5, waypointId: 'nt_gy' },
+            { zone: 'green_yard', x: -24.5, y: 0, z: -16.5, waypointId: 'nt_gy' },
+            { zone: 'yellow_yard', x: 17.0, y: 0, z: -22.0, waypointId: 'nt_yy' },
+            { zone: 'yellow_yard', x: 8.5, y: 0, z: -16.5, waypointId: 'nt_yy' },
+            { zone: 'yellow_yard', x: 24.5, y: 0, z: -16.5, waypointId: 'nt_yy' }
         ],
         perks: [], // Dynamic Sky-Drop Perks fall from the sky onto skyDropPads!
         skyDropPads: [
@@ -2163,14 +2282,18 @@
             { x: -6, y: 0, z: 21, yaw: 0 }, { x: 0, y: 0, z: 18, yaw: 0 }, { x: 6, y: 0, z: 21, yaw: 0 },
             { x: 13, y: 0, z: 19, yaw: 0 }, { x: 20, y: 0, z: 18, yaw: 0 }, { x: 26, y: 0, z: 19, yaw: 0 },
             { x: -26, y: 0, z: 11, yaw: 0 }, { x: 26, y: 0, z: 11, yaw: 0 }, { x: -14, y: 0, z: 12, yaw: 0 },
-            { x: 14, y: 0, z: 12, yaw: 0 }, { x: 0, y: 0, z: 11, yaw: 0 }, { x: -25, y: 0, z: 3, yaw: -0.6 }
+            { x: 14, y: 0, z: 12, yaw: 0 }, { x: 0, y: 0, z: 11, yaw: 0 }, { x: -25, y: 0, z: 3, yaw: -0.6 },
+            { x: 25, y: 0, z: 3, yaw: 0.6 }, { x: -16, y: 0, z: 2, yaw: 0 }, { x: 16, y: 0, z: 2, yaw: 0 },
+            { x: -16, y: 3.1, z: -4, yaw: 0.4 }, { x: 16, y: 3.1, z: -4, yaw: -0.4 }
         ],
         team1Spawns: [
             { x: -25, y: 0, z: -24, yaw: Math.PI }, { x: -18, y: 0, z: -24, yaw: Math.PI }, { x: -10, y: 0, z: -24, yaw: Math.PI },
             { x: -4, y: 0, z: -23, yaw: Math.PI }, { x: 4, y: 0, z: -23, yaw: Math.PI }, { x: 10, y: 0, z: -24, yaw: Math.PI },
             { x: 18, y: 0, z: -24, yaw: Math.PI }, { x: 25, y: 0, z: -24, yaw: Math.PI }, { x: -25, y: 0, z: -15, yaw: Math.PI },
             { x: -12, y: 0, z: -15, yaw: Math.PI }, { x: 12, y: 0, z: -15, yaw: Math.PI }, { x: 25, y: 0, z: -15, yaw: Math.PI },
-            { x: -5, y: 0, z: -14, yaw: Math.PI }, { x: 5, y: 0, z: -14, yaw: Math.PI }, { x: 25, y: 0, z: -5, yaw: Math.PI - 0.6 }
+            { x: -5, y: 0, z: -14, yaw: Math.PI }, { x: 5, y: 0, z: -14, yaw: Math.PI }, { x: 25, y: 0, z: -5, yaw: Math.PI - 0.6 },
+            { x: -25, y: 0, z: -5, yaw: Math.PI + 0.6 }, { x: -21, y: 0, z: -14, yaw: Math.PI }, { x: 21, y: 0, z: -14, yaw: Math.PI },
+            { x: -26, y: 0, z: -8, yaw: Math.PI + 0.5 }, { x: 26, y: 0, z: -8, yaw: Math.PI - 0.5 }
         ],
         domFlags: [
             { id: 'A', label: 'A', x: -15.5, y: 0, z: -14.5 },
@@ -2500,14 +2623,16 @@
             { x: 10, y: 0, z: 20, yaw: 0 }, { x: 19, y: 0, z: 20, yaw: 0.4 }, { x: -20, y: 0, z: 10, yaw: -0.6 },
             { x: 20, y: 0, z: 15, yaw: 0.5 }, { x: 20, y: 0, z: 6, yaw: 0.8 }, { x: -10, y: 0, z: 10, yaw: 0 },
             { x: 6, y: 0, z: 12, yaw: 0 }, { x: -19, y: 0, z: 3, yaw: -1.1 }, { x: 19, y: 0, z: 1, yaw: 1.2 },
-            { x: -8, y: 0, z: 18, yaw: 0 }, { x: 8, y: 0, z: 15, yaw: 0 }
+            { x: -8, y: 0, z: 18, yaw: 0 }, { x: 8, y: 0, z: 15, yaw: 0 },
+            { x: -15, y: 0, z: 2, yaw: 0 }, { x: -2, y: 2.8, z: 2, yaw: 0 }, { x: 15, y: 0, z: 7, yaw: 0.6 }
         ],
         team1Spawns: [
             { x: -19, y: 0, z: -20, yaw: Math.PI }, { x: -10, y: 0, z: -20, yaw: Math.PI }, { x: 0, y: 0, z: -20, yaw: Math.PI },
             { x: 10, y: 0, z: -20, yaw: Math.PI }, { x: 20, y: 0, z: -20, yaw: Math.PI - 0.5 }, { x: -20, y: 0, z: -10, yaw: Math.PI + 0.6 },
             { x: 21, y: 0, z: -12, yaw: Math.PI - 0.7 }, { x: 20, y: 0, z: -4, yaw: Math.PI - 0.9 }, { x: -10, y: 0, z: -10, yaw: Math.PI },
             { x: 8, y: 0, z: -11, yaw: Math.PI }, { x: -19, y: 0, z: -3, yaw: Math.PI + 1.0 }, { x: 18, y: 0, z: -2, yaw: Math.PI - 1.0 },
-            { x: -16, y: 0, z: -16, yaw: Math.PI + 0.5 }, { x: 0, y: 0, z: -15, yaw: Math.PI }
+            { x: -16, y: 0, z: -16, yaw: Math.PI + 0.5 }, { x: 0, y: 0, z: -15, yaw: Math.PI },
+            { x: -17, y: 0, z: -17, yaw: Math.PI + 0.6 }, { x: 2, y: 2.8, z: -2, yaw: Math.PI }, { x: 12, y: 0, z: -16, yaw: Math.PI }
         ],
         domFlags: [
             { id: 'A', label: 'A', x: -16.5, y: 0, z: 18.5 },
@@ -2578,7 +2703,10 @@
             ]}
         ],
         spawners: [
-            { x: -16, y: 0, z: -136 }, { x: -6, y: 0, z: -139 }, { x: 6, y: 0, z: -139 }, { x: 16, y: 0, z: -136 }
+            { x: -19, y: 0, z: -138 }, { x: -12, y: 0, z: -140 }, { x: -5, y: 0, z: -141 },
+            { x: 5, y: 0, z: -141 }, { x: 12, y: 0, z: -140 }, { x: 19, y: 0, z: -138 },
+            { x: -20, y: 0, z: -126 }, { x: -10, y: 0, z: -128 }, { x: 0, y: 0, z: -130 },
+            { x: 10, y: 0, z: -128 }, { x: 20, y: 0, z: -126 }, { x: 0, y: 0, z: -122 }
         ],
         stairTopPoint: { x: 0, y: 5.4, z: 8.6 },
         stairBottomPoint: { x: 0, y: 0, z: -5.0 },
@@ -2672,9 +2800,13 @@
             ]}
         ],
         spawners: [
-            { x: -42, y: 0, z: -128 }, { x: 0, y: 0, z: -130 }, { x: 42, y: 0, z: -128 },
-            { x: -128, y: 0, z: -42 }, { x: -128, y: 0, z: 0 },
-            { x: 128, y: 0, z: -42 }, { x: 128, y: 0, z: 0 }
+            { x: -72, y: 0, z: -128 }, { x: -42, y: 0, z: -129 }, { x: -14, y: 0, z: -130 },
+            { x: 14, y: 0, z: -130 }, { x: 42, y: 0, z: -129 }, { x: 72, y: 0, z: -128 },
+            { x: -116, y: 0, z: -116 }, { x: 116, y: 0, z: -116 },
+            { x: -128, y: 0, z: -76 }, { x: -129, y: 0, z: -48 }, { x: -128, y: 0, z: -22 },
+            { x: -128, y: 0, z: 2 }, { x: -126, y: 0, z: 16 },
+            { x: 128, y: 0, z: -76 }, { x: 129, y: 0, z: -48 }, { x: 128, y: 0, z: -22 },
+            { x: 128, y: 0, z: 2 }, { x: 126, y: 0, z: 16 }
         ],
         stairTopPoint: { x: 0, y: 5.4, z: 8.6 },
         stairBottomPoint: { x: 0, y: 0, z: -5.0 },
@@ -2768,10 +2900,11 @@
             ]}
         ],
         spawners: [
-            { x: -30, y: 0, z: -128 }, { x: 30, y: 0, z: -128 },
-            { x: -30, y: 0, z: 128 }, { x: 30, y: 0, z: 128 },
-            { x: -128, y: 0, z: -30 }, { x: -128, y: 0, z: 30 },
-            { x: 128, y: 0, z: -30 }, { x: 128, y: 0, z: 30 }
+            { x: -64, y: 0, z: -128 }, { x: -24, y: 0, z: -130 }, { x: 24, y: 0, z: -130 }, { x: 64, y: 0, z: -128 },
+            { x: -64, y: 0, z: 128 }, { x: -24, y: 0, z: 130 }, { x: 24, y: 0, z: 130 }, { x: 64, y: 0, z: 128 },
+            { x: -128, y: 0, z: -64 }, { x: -130, y: 0, z: -24 }, { x: -130, y: 0, z: 24 }, { x: -128, y: 0, z: 64 },
+            { x: 128, y: 0, z: -64 }, { x: 130, y: 0, z: -24 }, { x: 130, y: 0, z: 24 }, { x: 128, y: 0, z: 64 },
+            { x: -112, y: 0, z: -112 }, { x: 112, y: 0, z: -112 }, { x: -112, y: 0, z: 112 }, { x: 112, y: 0, z: 112 }
         ],
         stairTopPoint: { x: 0, y: 5.4, z: 6.4 },
         stairBottomPoint: { x: 0, y: 0, z: 17.6 },

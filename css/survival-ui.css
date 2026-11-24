@@ -963,3 +963,219 @@ button.sv-intel:hover { border-color: rgba(247,227,166,0.4); }
 .sv-intel.open { border-color: rgba(247,227,166,0.55); background: rgba(247,227,166,0.06); }
 
 .sv-compass .cmp-pip.event { color: #ff7b6b; }
+
+/* ============================================================================
+   COMPACT, SEAMLESS MINECRAFT-INSPIRED IN-GAME POPUP MENUS (.sv-compact)
+   Keeps the live 3D Exclusion Zone & HUD visible around benches, chests & NPCs
+============================================================================ */
+dialog.sv-shell.sv-compact {
+    inset: 0;
+    margin: auto;
+    width: min(940px, 94vw);
+    height: min(600px, 84vh);
+    border-radius: 14px;
+    border: 2px solid rgba(143, 227, 200, 0.36);
+    background:
+        radial-gradient(640px 320px at 15% -10%, rgba(95, 191, 159, 0.12), transparent 60%),
+        rgba(12, 19, 17, 0.95);
+    backdrop-filter: none;
+    box-shadow: 0 24px 68px rgba(0, 0, 0, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    animation: sv-compact-in 0.09s ease-out;
+}
+@keyframes sv-compact-in {
+    from { opacity: 0; transform: scale(0.975); }
+    to   { opacity: 1; transform: scale(1); }
+}
+dialog.sv-shell.sv-compact::backdrop {
+    background: rgba(0, 0, 0, 0.28);
+}
+dialog.sv-shell.sv-compact[data-section="chest"] {
+    width: min(880px, 93vw);
+    height: min(545px, 82vh);
+}
+dialog.sv-shell.sv-compact[data-section="npc"],
+dialog.sv-shell.sv-compact[data-section="shrine"] {
+    width: min(820px, 93vw);
+    height: min(520px, 80vh);
+}
+dialog.sv-shell.sv-compact[data-section="infuser"],
+dialog.sv-shell.sv-compact[data-section="fasttravel"] {
+    width: min(700px, 92vw);
+    height: min(490px, 78vh);
+}
+dialog.sv-shell.sv-compact .sv-frame {
+    padding: 11px 14px 10px;
+    gap: 7px;
+}
+dialog.sv-shell.sv-compact .sv-vitals,
+dialog.sv-shell.sv-compact .sv-banner {
+    display: none;
+}
+dialog.sv-shell.sv-compact .sv-thead {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 8px;
+}
+dialog.sv-shell.sv-compact .sv-brand {
+    display: none;
+}
+dialog.sv-shell.sv-compact .sv-tabs {
+    padding: 3px;
+    border-radius: 10px;
+}
+dialog.sv-shell.sv-compact .sv-tab {
+    height: 30px;
+    padding: 0 9px;
+    font-size: 11.5px;
+    gap: 5px;
+}
+dialog.sv-shell.sv-compact .sv-clock {
+    font-size: 11.5px;
+    gap: 7px;
+}
+dialog.sv-shell.sv-compact .sv-clock b {
+    font-size: 13px;
+}
+dialog.sv-shell.sv-compact .sv-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+dialog.sv-shell.sv-compact .sv-ctx-title h2 {
+    margin: 0;
+    font-size: 17px;
+    letter-spacing: 1px;
+    color: var(--sv-accent);
+}
+dialog.sv-shell.sv-compact .sv-foot {
+    min-height: 20px;
+    font-size: 11px;
+}
+dialog.sv-shell.sv-compact .sv-grid {
+    grid-template-columns: repeat(auto-fill, minmax(66px, 1fr));
+    grid-auto-rows: 72px;
+    gap: 5px;
+}
+dialog.sv-shell.sv-compact .sv-tile {
+    padding: 4px 3px;
+    border-radius: 7px;
+    border-color: rgba(159, 224, 201, 0.18);
+    background: linear-gradient(180deg, rgba(18, 27, 24, 0.92), rgba(28, 41, 37, 0.88));
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+}
+dialog.sv-shell.sv-compact .sv-tile:hover {
+    border-color: var(--sv-accent);
+    background: rgba(44, 66, 59, 0.94);
+}
+dialog.sv-shell.sv-compact .sv-tile-name {
+    font-size: 9.5px;
+}
+dialog.sv-shell.sv-compact .sv-inv {
+    grid-template-columns: 205px minmax(0, 1fr) 245px;
+    gap: 9px;
+}
+dialog.sv-shell.sv-compact .sv-craft {
+    grid-template-columns: 185px minmax(0, 1fr) 265px;
+    gap: 9px;
+}
+dialog.sv-shell.sv-compact .sv-chest {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 235px;
+    gap: 9px;
+}
+dialog.sv-shell.sv-compact .sv-npc,
+dialog.sv-shell.sv-compact .sv-shrine {
+    grid-template-columns: 270px minmax(0, 1fr);
+    gap: 9px;
+}
+dialog.sv-shell.sv-compact .sv-detail,
+dialog.sv-shell.sv-compact .sv-npc-card,
+dialog.sv-shell.sv-compact .sv-npc-shop {
+    padding: 11px 12px;
+}
+
+/* Compact Fast Travel & Gated / Black Market NPC Cards */
+.sv-ft-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+}
+.sv-ft-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.sv-ft-grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-auto-rows: max-content;
+    gap: 6px;
+    align-content: start;
+}
+.sv-ft-row {
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    padding: 9px 11px;
+}
+.sv-ft-main {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+}
+.sv-ft-main b {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sv-ft-main small {
+    font-size: 11px;
+    color: var(--sv-dim);
+    text-align: left;
+}
+.sv-ft-cost {
+    font: 700 11px var(--font-mono);
+    color: var(--sv-amber);
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid rgba(242, 180, 90, 0.35);
+    background: rgba(242, 180, 90, 0.08);
+}
+.sv-ft-cost.free {
+    color: var(--sv-accent);
+    border-color: rgba(143, 227, 200, 0.45);
+    background: rgba(143, 227, 200, 0.12);
+}
+
+.sv-gate-box {
+    margin-top: 10px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(242, 180, 90, 0.45);
+    background: rgba(242, 180, 90, 0.08);
+    display: grid;
+    gap: 7px;
+}
+.sv-gate-box b {
+    color: var(--sv-amber);
+    font-size: 13px;
+}
+.sv-gate-box small {
+    color: #d6e3df;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.sv-bm-tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(242, 208, 122, 0.5);
+    background: rgba(242, 208, 122, 0.12);
+    color: var(--sv-gold);
+    font: 700 11px var(--font-mono);
+}

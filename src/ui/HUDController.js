@@ -692,9 +692,47 @@
 
         _updateEnemyAndBossHUD(mode) {
             const isWaveMode = (mode === 'td' || mode === 'zombies');
-            if (!isWaveMode) {
+            if (!isWaveMode && mode !== 'survival') {
                 if (this.elEnemyTracker) this.elEnemyTracker.classList.add('hidden');
                 if (this.elMultiBoss) this.elMultiBoss.classList.add('hidden');
+                return;
+            }
+            if (mode === 'survival') {
+                if (this.elEnemyTracker) this.elEnemyTracker.classList.add('hidden');
+                const sm = BO.SurvivalMode;
+                const P = BO.Player;
+                const survBosses = (sm && sm.active && sm.zombies)
+                    ? sm.zombies.filter((z) => z && z.alive && (z.isBoss || z.isSuperBoss || z.bossLabel) && (!P || z.pos.distanceTo(P.pos) < 72))
+                    : [];
+                if (this.elMultiBoss) {
+                    if (survBosses.length === 0) {
+                        this.elMultiBoss.classList.add('hidden');
+                        this.elMultiBoss.innerHTML = '';
+                    } else {
+                        this.elMultiBoss.classList.remove('hidden');
+                        this.elMultiBoss.style.display = 'grid';
+                        this.elMultiBoss.style.gridTemplateColumns = survBosses.length >= 2 ? 'repeat(2, minmax(0, 1fr))' : '1fr';
+                        this.elMultiBoss.style.gap = '6px';
+                        this.elMultiBoss.style.width = survBosses.length >= 2 ? 'min(640px, 90vw)' : 'min(560px, 86vw)';
+                        this.elMultiBoss.innerHTML = survBosses.slice(0, 4).map((b) => {
+                            const pct = BO.Math.clamp((b.hp / Math.max(1, b.maxHp)) * 100, 0, 100);
+                            const isSuper = !!b.isSuperBoss;
+                            const label = b.bossLabel || b.spec?.name || 'APEX BOSS';
+                            const tags = `${b.wardTimer > 0 ? ' • 🛡 WARD' : ''}${b.superEnraged ? ' • 🔥 PHASE II' : ''}`;
+                            return `
+                                <div style="background:rgba(15,5,10,0.90);border:1px solid ${isSuper ? '#fbbf24' : '#ef4444'};border-radius:6px;padding:5px 9px;box-shadow:0 0 16px ${isSuper ? 'rgba(251,191,36,0.34)' : 'rgba(239,68,68,0.28)'};min-width:0;">
+                                    <div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;font-weight:800;letter-spacing:0.6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;">
+                                        <span style="color:${isSuper ? '#fde047' : '#fca5a5'};overflow:hidden;text-overflow:ellipsis;">${isSuper ? '👑 SUPER BOSS • ' : '☠ '}${label}${tags}</span>
+                                        <span style="color:#fef08a;flex-shrink:0;">${Math.ceil(b.hp)}/${b.maxHp}</span>
+                                    </div>
+                                    <div style="height:${isSuper ? '9px' : '8px'};background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
+                                        <div style="height:100%;width:${pct}%;background:${isSuper ? 'linear-gradient(90deg,#f59e0b,#ef4444,#fde047)' : 'linear-gradient(90deg,#dc2626,#f97316)'};transition:width 0.1s"></div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                }
                 return;
             }
             const src = mode === 'td' ? BO.TowerDefenseMode : BO.ZombiesMode;
@@ -743,17 +781,19 @@
                     this.elMultiBoss.style.display = 'grid';
                     this.elMultiBoss.style.gridTemplateColumns = isMulti ? 'repeat(2, minmax(0, 1fr))' : '1fr';
                     this.elMultiBoss.style.gap = '6px';
-                    this.elMultiBoss.style.width = isMulti ? 'min(640px, 90vw)' : 'min(540px, 84vw)';
+                    this.elMultiBoss.style.width = isMulti ? 'min(640px, 90vw)' : 'min(560px, 86vw)';
                     this.elMultiBoss.innerHTML = bosses.slice(0, 6).map((b) => {
                         const pct = BO.Math.clamp((b.hp / Math.max(1, b.maxHp)) * 100, 0, 100);
+                        const isSuper = !!b.isSuperBoss;
+                        const tags = `${b.wardTimer > 0 ? ' • 🛡 WARD' : ''}${b.superEnraged ? ' • 🔥 PHASE II' : ''}`;
                         return `
-                            <div style="background:rgba(15,5,10,0.88);border:1px solid #ef4444;border-radius:6px;padding:${isMulti ? '4px 7px' : '5px 9px'};box-shadow:0 0 14px rgba(239,68,68,0.28);min-width:0;">
+                            <div style="background:rgba(15,5,10,0.90);border:1px solid ${isSuper ? '#fbbf24' : '#ef4444'};border-radius:6px;padding:${isMulti ? '4px 7px' : '5px 9px'};box-shadow:0 0 15px ${isSuper ? 'rgba(251,191,36,0.34)' : 'rgba(239,68,68,0.28)'};min-width:0;">
                                 <div style="display:flex;justify-content:space-between;gap:6px;font-size:${isMulti ? '10px' : '11px'};font-weight:800;letter-spacing:0.6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;">
-                                    <span style="color:#fca5a5;overflow:hidden;text-overflow:ellipsis;">☠ ${b.spec.name}${!isMulti && b.spec.title ? ' — ' + b.spec.title.toUpperCase() : ''}</span>
+                                    <span style="color:${isSuper ? '#fde047' : '#fca5a5'};overflow:hidden;text-overflow:ellipsis;">${isSuper ? '👑 SUPER BOSS • ' : '☠ '}${b.spec.name}${!isMulti && b.spec.title ? ' — ' + b.spec.title.toUpperCase() : ''}${tags}</span>
                                     <span style="color:#fef08a;flex-shrink:0;">${Math.ceil(b.hp)}/${b.maxHp}</span>
                                 </div>
-                                <div style="height:${isMulti ? '7px' : '8px'};background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
-                                    <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#dc2626,#f97316);transition:width 0.1s"></div>
+                                <div style="height:${isMulti ? '7px' : (isSuper ? '9px' : '8px')};background:rgba(255,255,255,0.12);border-radius:4px;overflow:hidden">
+                                    <div style="height:100%;width:${pct}%;background:${isSuper ? 'linear-gradient(90deg,#f59e0b,#ef4444,#fde047)' : 'linear-gradient(90deg,#dc2626,#f97316)'};transition:width 0.1s"></div>
                                 </div>
                             </div>
                         `;

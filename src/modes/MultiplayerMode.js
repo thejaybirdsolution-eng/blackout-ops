@@ -504,16 +504,22 @@
             } else if (this.multikillCount === 4) {
                 BO.Progression.awardMedal('fury_kill');
                 BO.Sound.playMultikillVoice(4);
-                BO.Events.emit('hud:banner', { title: 'QUAD KILL!', sub: `4X UNSTOPPABLE FURY • ${weaponLabel}`, color: '#ef4444' });
-            } else if (this.multikillCount >= 5) {
+                BO.Events.emit('hud:banner', { title: 'OVERKILL!', sub: `4X UNSTOPPABLE FURY • ${weaponLabel}`, color: '#ef4444' });
+            } else if (this.multikillCount === 5) {
                 BO.Progression.awardMedal('frenzy_kill');
+                BO.Sound.playMultikillVoice(5);
+                BO.Events.emit('hud:banner', { title: 'KILLTACULAR!', sub: `5X RAPID ELIMINATION • ${weaponLabel}`, color: '#c084fc' });
+            } else if (this.multikillCount >= 6) {
+                BO.Progression.awardMedal(this.multikillCount === 6 ? 'killtrocity' : 'killimanjaro');
                 BO.Sound.playMultikillVoice(this.multikillCount);
-                BO.Events.emit('hud:banner', { title: `${this.multikillCount}X MEGA KILL!`, sub: 'TOTAL DOMINATION!', color: '#c084fc' });
+                BO.Events.emit('hud:banner', { title: this.multikillCount === 6 ? 'KILLTROCITY!' : (this.multikillCount === 7 ? 'KILLIMANJARO!' : `${this.multikillCount}X KILLIONAIRE!`), sub: 'TOTAL DOMINATION!', color: '#fde047' });
             }
 
-            if (this.currentStreak === 5) BO.Progression.awardMedal('bloodthirsty');
-            else if (this.currentStreak === 10) BO.Progression.awardMedal('merciless');
-            else if (this.currentStreak === 15) BO.Progression.awardMedal('ruthless');
+            if (this.currentStreak === 5) { BO.Progression.awardMedal('bloodthirsty'); if (this.multikillCount < 2) BO.Sound.playAnnouncement('killing_spree'); }
+            else if (this.currentStreak === 10) { BO.Progression.awardMedal('merciless'); if (this.multikillCount < 2) BO.Sound.playAnnouncement('killing_frenzy'); }
+            else if (this.currentStreak === 15) { BO.Progression.awardMedal('ruthless'); if (this.multikillCount < 2) BO.Sound.playAnnouncement('running_riot'); }
+            else if (this.currentStreak === 20) { BO.Progression.awardMedal('rampage_spree'); if (this.multikillCount < 2) BO.Sound.playAnnouncement('rampage'); }
+            else if (this.currentStreak === 25) { BO.Progression.awardMedal('untouchable'); if (this.multikillCount < 2) BO.Sound.playAnnouncement('untouchable'); }
 
             if (this.customRules.killstreaksEnabled !== false) {
                 const hardline = BO.Player.mpPerks.includes('hardline') ? 1 : 0;

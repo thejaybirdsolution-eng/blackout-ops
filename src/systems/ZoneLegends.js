@@ -22,7 +22,12 @@
         { id: 'lycan', name: 'The Lycanthrope King', spec: 'boss_lycan_king', need: (c) => [c.metrics.hunt_wolf || 0, 6], how: 'Kill 6 wolves. Appears only at night.', night: true },
         { id: 'ogre', name: 'The Ogre Emperor', spec: 'boss_ogre_emperor', need: (c) => [c.metrics.oreHarvests || 0, 30], how: 'Mine 30 ore deposits.' },
         { id: 'hydra', name: 'The Hydra of the Deep', spec: 'boss_hydra_matron', need: (c) => [c.metrics.dungeonsCleared || 0, 3], how: 'Clear 3 dungeons.' },
-        { id: 'nyx', name: 'Overlord Nyx', spec: 'boss_nyx', need: (c) => [c.metrics.legends || 0, 6], how: 'Defeat 6 other legendary bosses.' }
+        { id: 'nyx', name: 'Overlord Nyx', spec: 'boss_nyx', need: (c) => [c.metrics.legends || 0, 6], how: 'Defeat 6 other legendary bosses.' },
+        { id: 'kronos', name: 'Kronos, Titan Colossus', spec: 'super_titan_colossus', need: (c) => [c.metrics.kills || 0, 110], how: 'Colossal Super Boss · Slay 110 infected in the Zone.' },
+        { id: 'seraphim', name: 'Seraphim Nexus', spec: 'super_seraph_harbinger', need: (c) => [c.metrics.secured || 0, 6], how: 'Colossal Super Boss · Secure 6 infested or siege sites.' },
+        { id: 'leviathan', name: 'Leviathan Hydra-Rex', spec: 'super_hydra_behemoth', need: (c) => [c.metrics.dungeonsCleared || 0, 2], how: 'Colossal Super Boss · Clear 2 Zone dungeons.' },
+        { id: 'valkyr', name: 'Valkyr-09 Dreadnought', spec: 'super_dreadnought_mech', need: (c) => [c.metrics.pmc || 0, 12], how: 'Colossal Super Boss · Eliminate 12 PMC patrol soldiers.' },
+        { id: 'malakor', name: 'Malakor, Eclipse Sovereign', spec: 'super_void_sovereign', need: (c) => [c.metrics.legends || 0, 8], how: 'Apex Super Boss · Defeat 8 Legendary Hunts. Appears at night.', night: true }
     ];
 
     const PIT_MASTERS = [

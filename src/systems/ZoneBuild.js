@@ -16,13 +16,25 @@
     const ROOF_OFF = 2.72; // legacy placement offset used by SurvivalCampaign.place for roofs
     const STRUCT = {
         floor: { kind: 'floor', mat: 'wood' }, stoneFloor: { kind: 'floor', mat: 'stone' },
+        catwalk: { kind: 'floor', mat: 'stone' },
         roof: { kind: 'floor', mat: 'wood', roof: true }, platform: { kind: 'block', mat: 'wood' },
+        woodStairs: { kind: 'block', mat: 'wood' }, stoneStairs: { kind: 'block', mat: 'stone' }, obsidianStairs: { kind: 'block', mat: 'stone' },
         wall: { kind: 'wall', mat: 'wood' }, stoneWall: { kind: 'wall', mat: 'stone' },
-        obsidianWall: { kind: 'wall', mat: 'stone' }, door: { kind: 'wall', mat: 'stone', door: true }
+        obsidianWall: { kind: 'wall', mat: 'stone' }, door: { kind: 'wall', mat: 'stone', door: true },
+        woodDoor: { kind: 'wall', mat: 'wood', door: true }, ironDoor: { kind: 'wall', mat: 'stone', door: true }, doubleGate: { kind: 'wall', mat: 'stone', door: true },
+        halfWall: { kind: 'wall', mat: 'wood' }, stoneHalfWall: { kind: 'wall', mat: 'stone' },
+        windowWall: { kind: 'wall', mat: 'wood' }, archway: { kind: 'wall', mat: 'stone' },
+        railing: { kind: 'wall', mat: 'wood' }, pillar: { kind: 'wall', mat: 'stone' }
     };
     const LOSS = { wood: { v: 0.12, h: 0.3 }, stone: { v: 0.06, h: 0.2 } };
     /** Structural hit points: a timber wall holds a few minutes of clawing, masonry much longer, obsidian holds against anything. */
-    const HP = { floor: 260, wall: 220, roof: 160, platform: 300, stoneFloor: 640, stoneWall: 560, obsidianWall: 1400, door: 420 };
+    const HP = {
+        floor: 260, wall: 220, roof: 160, platform: 300, stoneFloor: 640, stoneWall: 560, obsidianWall: 1400, door: 420,
+        woodStairs: 280, stoneStairs: 620, obsidianStairs: 1350,
+        woodDoor: 240, ironDoor: 580, doubleGate: 520,
+        halfWall: 180, stoneHalfWall: 420, windowWall: 210, archway: 520,
+        catwalk: 360, railing: 140, pillar: 680
+    };
     const E = 0.08;
 
     const tmpV = new THREE.Vector3();
@@ -136,6 +148,7 @@
             const marker = m.markers.find((mk) => mk.id === 'build:' + piece.id);
             if (marker) marker.alive = false;
             BO.ZoneArmory?.onPieceRemoved?.(piece);
+            BO.ZoneWorldPlus?.onPieceRemoved?.(piece);
             const mesh = piece.mesh;
             if (mesh) {
                 this.falling.push({ mesh, vy: 0, spin: (Math.random() - 0.5) * 3, t: 0 });
@@ -147,6 +160,7 @@
         onPieceLost(piece) {
             if (!piece) return;
             BO.ZoneArmory?.onPieceRemoved?.(piece);
+            BO.ZoneWorldPlus?.onPieceRemoved?.(piece);
             if (!STRUCT[piece.type]) return;
             this.settle();
         }
