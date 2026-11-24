@@ -150,9 +150,8 @@
         ['rules', 'Survival rules', 'Needs and saving'],
         ['modifiers', 'Modifiers', 'Optional twists'],
         ['roster', 'Enemy roster', 'Which infected can appear'],
-        ['career', 'Career', 'Your record and unlocks']
+        ['career', 'Career & Kits', 'Mastery, kits, blueprints and record']
     ];
-    const TRAIN_ROUTE = [[19, -12], [43, -12], [43, -36], [-35, -36], [-35, 32], [19, 32]];
     const RES_COLOR = {
         pine: '#7fb07a', hardwood: '#b2a36b', boulder: '#a9b3ae', iron: '#d39a7c', coal: '#7d8191', copper: '#7cc6ad',
         quartz: '#a8e3f5', deep: '#d6aef2', clay: '#b88b6d', buried: '#b7cf8f', kindling: '#a88a62', stones: '#b4b9b1',
@@ -186,7 +185,11 @@
             this.packFilter = 'All';
             this.packSort = 'category';
             this.craftCat = 'all';
-            this.mapLayers = { sites: true, contacts: true, grace: true, resources: false, base: true };
+            this.mapLayers = { sites: true, contacts: true, grace: true, ziplines: true, resources: false, base: true };
+            this.mapZoom = 1;
+            this.mapPan = { x: 0, z: 0 };
+            this.mapWaypoint = null;
+            this._mapDrag = null;
             this.scrollMemo = {};
         }
 
@@ -301,10 +304,59 @@
                 }
                 this.render();
             });
+            this.root.addEventListener('mousedown', (e) => {
+                if (e.target.id !== 'sv-map-canvas' || e.button !== 0 || this.section !== 'map') return;
+                this._mapDrag = { cx: e.clientX, cy: e.clientY, startPan: { ...this.mapPan }, moved: false, canvas: e.target };
+            });
             this.root.addEventListener('mousemove', (e) => {
+                if (this._mapDrag && this.section === 'map') {
+                    const dx = e.clientX - this._mapDrag.cx;
+                    const dy = e.clientY - this._mapDrag.cy;
+                    if (!this._mapDrag.moved && Math.hypot(dx, dy) > 4) this._mapDrag.moved = true;
+                    if (this._mapDrag.moved) {
+                        const rect = this._mapDrag.canvas.getBoundingClientRect();
+                        const b = BO.SurvivalWorld?.bounds || { x0: -250, x1: 250, z0: -240, z1: 210 };
+                        const spanX = (b.x1 - b.x0) / Math.max(1, this.mapZoom);
+                        const spanZ = (b.z1 - b.z0) / Math.max(1, this.mapZoom);
+                        this.mapPan.x = this._mapDrag.startPan.x - (dx / Math.max(1, rect.width)) * spanX;
+                        this.mapPan.z = this._mapDrag.startPan.z - (dy / Math.max(1, rect.height)) * spanZ;
+                        this.mapTip.hidden = true;
+                        this.drawMap();
+                        return;
+                    }
+                }
                 if (e.target.id === 'sv-map-canvas') this.mapHover(e);
                 else if (!this.mapTip.hidden) this.mapTip.hidden = true;
             });
+            window.addEventListener('mouseup', (e) => {
+                const drag = this._mapDrag;
+                this._mapDrag = null;
+                if (!drag || drag.moved || this.section !== 'map' || e.target !== drag.canvas) return;
+                const rect = drag.canvas.getBoundingClientRect();
+                const px = ((e.clientX - rect.left) / Math.max(1, rect.width)) * drag.canvas.width;
+                const py = ((e.clientY - rect.top) / Math.max(1, rect.height)) * drag.canvas.height;
+                const proj = this._mapProjection(drag.canvas);
+                const wx = Math.round(proj.wx(px));
+                const wz = Math.round(proj.wz(py));
+                if (this.mapWaypoint && Math.hypot(wx - this.mapWaypoint.x, wz - this.mapWaypoint.z) < 12 / Math.max(1, this.mapZoom)) {
+                    this.mapWaypoint = null;
+                } else {
+                    this.mapWaypoint = { x: wx, z: wz };
+                }
+                this.render();
+            });
+            this.root.addEventListener('wheel', (e) => {
+                if (e.target.id !== 'sv-map-canvas' || this.section !== 'map') return;
+                e.preventDefault();
+                const next = e.deltaY < 0 ? Math.min(4, this.mapZoom + 0.5) : Math.max(1, this.mapZoom - 0.5);
+                if (next !== this.mapZoom) {
+                    this.mapZoom = next;
+                    if (next === 1) this.mapPan = { x: 0, z: 0 };
+                    this.drawMap();
+                    const zEl = this.root.querySelector('#sv-map-zoom');
+                    if (zEl) zEl.textContent = this.mapZoom.toFixed(1).replace(/\.0$/, '') + '×';
+                }
+            }, { passive: false });
             this.root.addEventListener('mouseleave', () => { this.mapTip.hidden = true; });
         }
 
@@ -427,6 +479,12 @@
                 case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
                 case 'closeBrief': return this.close();
+                case 'buyMastery':
+                    career.buyMastery(arg);
+                    return this.renderBriefing();
+                case 'setKit':
+                    career.setKit(arg);
+                    return this.renderBriefing();
             }
             if (!mode.active || !c) return;
             const deep = c.deep;
@@ -486,6 +544,17 @@
                 case 'light': pack.shortcut(); break;
                 case 'flask': deep?.useFlask(); break;
                 case 'talisman': deep?.equipTalisman(arg); break;
+                case 'withdrawStash': {
+                    if (c.area?.id !== 'relay') {
+                        this.feedback = 'Return to Relay Sanctuary to withdraw banked items.';
+                        break;
+                    }
+                    const taken = career.withdrawStash(pack);
+                    const count = Object.values(taken || {}).reduce((a, b) => a + b, 0);
+                    this.feedback = count ? 'Withdrew ' + count + ' item(s) from Safe-House Stash.' : 'Stash empty or backpack full.';
+                    hotbar.reconcile();
+                    break;
+                }
                 case 'craftCat': this.craftCat = arg; break;
                 case 'recipe': this.selRecipe = arg; break;
                 case 'craft': this.craftRecipe(arg, Number(el.dataset.times) || 1); break;
@@ -495,6 +564,19 @@
                 case 'repairBase': deep?.repairBase(); break;
                 case 'dismantle': deep?.dismantleNearest(); break;
                 case 'layer': this.mapLayers[arg] = !this.mapLayers[arg]; break;
+                case 'mapZoom': {
+                    const next = Math.max(1, Math.min(4, (this.mapZoom || 1) + (Number(arg) || 0)));
+                    this.mapZoom = next;
+                    if (next === 1) this.mapPan = { x: 0, z: 0 };
+                    break;
+                }
+                case 'mapReset':
+                    this.mapZoom = 1;
+                    this.mapPan = { x: 0, z: 0 };
+                    break;
+                case 'clearWaypoint':
+                    this.mapWaypoint = null;
+                    break;
                 case 'travel': if (c.travel(arg)) return this.resume(); this.feedback = 'Fast travel is not possible right now.'; break;
                 case 'ride': if (c.ride(arg === 'off' ? null : arg)) return this.resume(); break;
                 case 'unlockTech': deep?.unlockTech(arg); break;
@@ -602,7 +684,7 @@
                 rules: () => this.stepRules(o),
                 modifiers: () => this.stepModifiers(o),
                 roster: () => this.stepRoster(o),
-                career: () => this.record()
+                career: () => this.record(true)
             }[this.step]();
             const xp = career.profile.xp;
             const lvlBase = (career.level - 1) ** 2 * 110;
@@ -610,7 +692,7 @@
             this.root.innerHTML = `<div class="sv-deploy-frame">
                 <header class="sv-dhead">
                     <div class="sv-dhead-title">
-                        <span class="sv-kicker">Solo expedition · Exclusion Zone</span>
+                        <span class="sv-kicker">Solo expedition · 20× Exclusion Zone (500 × 450 m)</span>
                         <h2>Survival</h2>
                     </div>
                     <div class="sv-career-chip"${tip('Survival career', 'Your survival level carries across expeditions. Levels unlock vehicles and the locked biomes (Frostline Quarry at 3, Cinder Flats at 5).', xp.toLocaleString() + ' XP total')}>
@@ -669,7 +751,7 @@
                     const total = BO.ZombiesData.ORDERED_PROGRESSION.length;
                     return (total - o.disabledEnemies.length) + ' of ' + total + ' enabled';
                 }
-                case 'career': return 'Level ' + career.level + ' · ' + esc(career.rank);
+                case 'career': return 'Level ' + career.level + ' · ' + esc(BO.SurvivalMeta?.KITS?.[career.profile.kit]?.name || career.rank);
             }
             return '';
         }
@@ -868,6 +950,7 @@
                     <div${tip('Safe period', 'Seconds before anything hostile can spawn.')}><dt>Safe period</dt><dd>${safe}s</dd></div>
                     <div${tip('Survival needs', 'Food, water, temperature and radiation.')}><dt>Needs</dt><dd>${o.survivalNeeds ? 'On' : 'Off'}</dd></div>
                     <div${tip('Preset', 'The curated expedition these settings match, if any.')}><dt>Preset</dt><dd>${preset ? esc(r.presets[preset].name) : 'Custom'}</dd></div>
+                    <div${tip('Deployment kit', BO.SurvivalMeta?.KITS?.[career.profile.kit]?.desc || 'Standard balanced kit.')}><dt>Kit</dt><dd>${esc(BO.SurvivalMeta?.KITS?.[career.profile.kit]?.name || 'Standard')}</dd></div>
                 </dl>
                 <div class="sv-threat"${tip('Threat forecast', 'How many infected may roam at once (bar) and how many enemy types are unlocked (number) on each day. Nights allow about 35% more.')}>
                     <div class="sv-threat-h"><b>Threat forecast</b><small>Roaming limit by day</small></div>
@@ -882,8 +965,10 @@
                 </div>`;
         }
 
-        record() {
-            const stats = career.profile.stats;
+        record(interactive = false) {
+            const p = career.profile;
+            const stats = p.stats || {};
+            const meta = BO.SurvivalMeta || { MASTERY: {}, KITS: {} };
             let fastest = 0;
             try { fastest = Number(localStorage.getItem('boSurvivalFastest')) || 0; } catch (_) { /* storage disabled */ }
             const numbers = [
@@ -892,10 +977,52 @@
                 ['Weapons forged', stats.weaponsForged], ['Blood Moons survived', stats.bloodMoons], ['Contracts claimed', stats.quests],
                 ['Items crafted', stats.crafted], ['Structures built', stats.built], ['Salvage collected', stats.salvaged]
             ];
-            const unlocks = [...data.vehicles.map((v) => ({ ...v, kind: 'Vehicle' })), ...data.areas.filter((a) => a.level > 1).map((a) => ({ ...a, kind: 'Area', detail: 'Locked biome behind a gate.' }))]
+            const comm = p.commendations || 0;
+            const masteryHtml = Object.entries(meta.MASTERY || {}).map(([id, m]) => {
+                const rank = career.masteryRank(id);
+                const maxed = rank >= m.max;
+                const afford = !maxed && comm >= m.cost;
+                const pips = Array.from({ length: m.max }, (_, i) => `<i class="${i < rank ? 'on' : ''}"></i>`).join('');
+                return `<div class="sv-mastery-card ${maxed ? 'maxed' : ''}"${tip(m.name, m.desc, 'Rank ' + rank + ' / ' + m.max + ' · Cost: ' + m.cost + ' Commendation(s)')}>
+                    <div class="sv-mastery-h"><b>${esc(m.name)}</b><small>${rank}/${m.max}</small></div>
+                    <small>${esc(m.desc)}</small>
+                    <div class="sv-mastery-pips">${pips}</div>
+                    ${interactive ? `<button class="sv-btn sm ${afford ? 'primary' : ''}" data-act="buyMastery" data-arg="${id}" ${maxed || !afford ? 'disabled' : ''}>${maxed ? 'Maxed' : 'Upgrade · ' + m.cost + ' Comm.'}</button>` : ''}
+                </div>`;
+            }).join('');
+            const curKit = p.kit || 'standard';
+            const kitHtml = Object.entries(meta.KITS || {}).map(([id, k]) => {
+                const unlocked = career.level >= k.level;
+                const selected = curKit === id;
+                const loadText = [BO.SurvivalItemAmounts(k.items), k.ammo ? k.ammo + ' ammo' : '', k.vehicle || ''].filter(Boolean).join(' · ') || 'Standard rifle load';
+                return `<button class="sv-kit-card ${selected ? 'selected' : ''}" ${interactive && unlocked ? `data-act="setKit" data-arg="${id}"` : ''} ${unlocked && interactive ? '' : 'disabled'}${tip(k.name, k.desc, 'Unlocks at Level ' + k.level + ' · ' + loadText)}>
+                    <b>${esc(k.name)}<em>${unlocked ? (selected ? 'ACTIVE' : 'LV ' + k.level) : '🔒 LV ' + k.level}</em></b>
+                    <small>${esc(k.desc)}</small>
+                    <span class="sv-kit-items">${esc(loadText)}</span>
+                </button>`;
+            }).join('');
+            const bpSet = new Set(p.blueprints || []);
+            const bpHtml = (deepData().weaponSchematics || []).map((sch) => {
+                const got = bpSet.has(sch.id);
+                return `<span class="sv-modchip ${got ? '' : 'dim'}"${tip(sch.name + ' Blueprint', got ? 'Permanently unlocked across runs — craftable immediately at any Workbench.' : 'Unlock by forging in-run, mining an Aether meteor, or claiming boss spoils.')}>${got ? '✓ ' : '🔒 '}${esc(sch.name)}</span>`;
+            }).join('');
+            const stashEntries = Object.entries(p.stash || {}).filter(([id, n]) => frontier.items[id] && n > 0);
+            const stashHtml = stashEntries.length
+                ? stashEntries.map(([id, n]) => `<span class="sv-modchip"${tip(itemName(id) + ' ×' + n, 'Stored in your Safe-House Stash from past extractions. Withdraw at Relay Sanctuary.')}>${esc(itemName(id))} ×${n}</span>`).join('')
+                : '<span class="sv-muted sm">Empty — extract items at Evac Ridge to bank supplies for future deployments.</span>';
+            const unlocks = [...data.vehicles.map((v) => ({ ...v, kind: 'Vehicle' })), ...data.areas.filter((a) => a.level > 1).map((a) => ({ ...a, kind: 'Area', detail: 'Locked biome — opens at Level ' + a.level + ' or via early gate breach.' }))]
                 .sort((a, b) => a.level - b.level);
             return `<div class="sv-stats">${numbers.map(([label, n]) => `<div class="sv-stat"><b>${(n || 0).toLocaleString()}</b><small>${label}</small></div>`).join('')}
+                    <div class="sv-stat"><b>${comm}</b><small>Commendations</small></div>
                     ${fastest ? `<div class="sv-stat"><b>${BO.Math.formatTime(fastest)}</b><small>Fastest extraction</small></div>` : ''}</div>
+                <div class="sv-meta-bar"><div><b>Persistent Mastery</b><small>Permanent upgrades carried into every deployment. Earned from level-ups, bosses, Blood Moons and extractions.</small></div><b>${comm} Commendation${comm === 1 ? '' : 's'}</b></div>
+                <div class="sv-meta-grid">${masteryHtml}</div>
+                <h4 class="sv-sub">Deployment kits ${interactive ? '<small>Choose your starting loadout</small>' : `<small>Active: ${esc(meta.KITS?.[curKit]?.name || 'Standard')}</small>`}</h4>
+                <div class="sv-kit-grid">${kitHtml}</div>
+                <h4 class="sv-sub">Permanent blueprints <small>${bpSet.size}/${(deepData().weaponSchematics || []).length}</small></h4>
+                <div class="sv-modchips">${bpHtml}</div>
+                <h4 class="sv-sub">Safe-house stash <small>Withdrawable at Relay</small></h4>
+                <div class="sv-modchips">${stashHtml}</div>
                 <h4 class="sv-sub">Level unlocks</h4>
                 <div class="sv-unlocks">${unlocks.map((u) => `<div class="sv-unlock ${career.level >= u.level ? 'got' : ''}"${tip(u.name, u.detail || '', u.kind + ' · level ' + u.level)}>
                     <span class="sv-unlock-l">LV ${u.level}</span><b>${esc(u.name)}</b><small>${u.kind} · ${career.level >= u.level ? 'Unlocked' : 'Locked'}</small></div>`).join('')}</div>`;
@@ -1079,6 +1206,14 @@
                         <button class="sv-btn sm" data-act="flask" ${deep?.flaskCharges > 0 ? '' : 'disabled'}${tip('Aether Flask', 'Heal 50+ health and cure bleeding. Hotkey: ' + keyOf('survFlask'))}>${Icons().named('flask', '#9be3a6', 16)} Flask (${deep?.flaskCharges ?? 0})</button>
                     </div>
                     ${pack.filtered ? `<p class="sv-muted sm">Respirator filter active · ${Math.ceil(pack.filterUntil - BO.SurvivalMode.clock)}s</p>` : ''}
+                    ${(() => {
+                        const stashList = Object.entries(career.profile.stash || {}).filter(([id, n]) => frontier.items[id] && n > 0);
+                        if (!stashList.length) return '';
+                        const atRelay = c.area?.id === 'relay';
+                        return `<h4 class="sv-sub">Safe-house stash <small>${stashList.reduce((s, [, n]) => s + n, 0)}</small></h4>
+                            <div class="sv-chip-row">${stashList.map(([id, n]) => `<span class="sv-modchip">${esc(itemName(id))} ×${n}</span>`).join('')}</div>
+                            <button class="sv-btn sm" data-act="withdrawStash" ${atRelay ? '' : 'disabled'}${tip('Withdraw Safe-House Stash', atRelay ? 'Move banked items from past extractions into your backpack.' : 'Return to Relay Sanctuary to withdraw banked items.')}>${atRelay ? 'Withdraw to pack' : 'Relay only'}</button>`;
+                    })()}
                 </aside>
                 <section class="sv-inv-pack">
                     <div class="sv-pack-head">
@@ -1356,16 +1491,18 @@
             const mode = BO.SurvivalMode;
             const c = mode.campaign;
             const fuel = mode.points.fuel || 0;
-            const freeTravel = !!c.deep?.modFx?.freeTravel;
-            const areas = data.areas.filter((a) => a.y >= 0 && a.id !== 'trench');
+            const freeTravel = !!(c.deep?.modFx?.freeTravel || career.masteryRank('navigator') >= 2);
+            const pPos = BO.Player.pos;
+            const areas = data.areas.filter((a) => a.y >= 0 && a.id !== 'trench' && a.id !== 'cavern');
             const travel = areas.map((a) => {
                 const visited = c.visited.has(a.id);
                 const locked = c.gates.get(a.id)?.collider.active;
                 const here = c.area?.id === a.id;
-                const why = here ? 'You are here.' : !visited ? 'Discover this area on foot first.' : locked ? 'Unlock its gate first.' : c.has('footOnly') ? 'On Foot Only modifier.' :
+                const dist = Math.round(Math.hypot(a.x - pPos.x, a.z - pPos.z));
+                const why = here ? 'You are here.' : !visited ? 'Discover this biome on foot first.' : locked ? 'Gate locked (Level ' + a.level + (a.breachCost ? ' or breachable' : '') + ').' : c.has('footOnly') ? 'On Foot Only modifier.' :
                     !c.canSave() ? 'Not while enemies are within 9 m.' : (!freeTravel && fuel < 1) ? 'Needs 1 fuel.' : '';
-                return `<button class="sv-trow" data-act="travel" data-arg="${a.id}" ${why ? 'disabled' : ''}${tip(a.name, why || 'Travel here instantly for ' + (freeTravel ? 'free' : '1 fuel') + '. One hour passes.')}>
-                    <span class="sv-dot" style="background:#${a.color.toString(16).padStart(6, '0')}"></span><b>${esc(a.name)}</b><small>${why || (freeTravel ? 'Free' : '1 fuel')}</small></button>`;
+                return `<button class="sv-trow" data-act="travel" data-arg="${a.id}" ${why ? 'disabled' : ''}${tip(a.name + ' (Tier ' + (a.tier || 1) + ')', why || 'Travel ' + dist + ' m here for ' + (freeTravel ? 'free' : '1 fuel') + '. One hour passes.')}>
+                    <span class="sv-dot" style="background:#${a.color.toString(16).padStart(6, '0')}"></span><b><span class="sv-tier-badge">T${a.tier || 1}</span>${esc(a.name)}</b><small>${why ? why : (freeTravel ? 'Free · ' : '1 fuel · ') + dist + ' m'}</small></button>`;
             }).join('');
             const vehicles = data.vehicles.map((v) => {
                 const owned = c.hasVehicle(v.id);
@@ -1373,19 +1510,57 @@
                 return `<button class="sv-trow ${on ? 'on' : ''}" data-act="ride" data-arg="${on ? 'off' : v.id}" ${owned ? '' : 'disabled'}${tip(v.name, v.detail, owned ? (on ? 'Click to dismount' : 'Click to ride') : 'Unlocks at survival level ' + v.level + ' or by trading')}>
                     ${Icons().named(v.id === 'glider' ? 'flare' : v.id === 'mount' ? 'leaf' : 'gear', owned ? '#9fd4c7' : '#56645f', 16)}<b>${esc(v.name)}</b><small>${on ? 'Riding · dismount' : owned ? 'Road ×' + v.speed + ' · off-road ×' + v.offroad : 'Level ' + v.level}</small></button>`;
             }).join('');
-            const layers = [['sites', 'Landmarks'], ['contacts', 'Contacts'], ['grace', 'Sites of Grace'], ['resources', 'Resources'], ['base', 'Your base']]
+            const layers = [['sites', 'Landmarks'], ['contacts', 'Contacts'], ['grace', 'Sites of Grace'], ['ziplines', 'Ziplines'], ['resources', 'Resources'], ['base', 'Your base']]
                 .map(([id, label]) => `<button class="sv-layer ${this.mapLayers[id] ? 'on' : ''}" data-act="layer" data-arg="${id}"${tip(label, 'Show or hide ' + label.toLowerCase() + ' on the map.')}><i></i>${label}</button>`).join('');
+            const wp = this.mapWaypoint;
+            const wpDist = wp ? Math.round(Math.hypot(wp.x - pPos.x, wp.z - pPos.z)) : 0;
             const focusTravel = this.mapFocus === 'travel';
             this.mapFocus = null;
             return `<div class="sv-map-wrap">
-                <div class="sv-map-stage"><canvas id="sv-map-canvas" width="1120" height="1000" aria-label="Exclusion Zone map"></canvas>
+                <div class="sv-map-stage"><canvas id="sv-map-canvas" width="1200" height="1080" aria-label="Exclusion Zone map"></canvas>
                     <div class="sv-map-compass">N</div></div>
                 <aside class="sv-map-side sv-scroll" data-scroll="mapside">
                     <div class="sv-objective"><span class="sv-kicker">Objective</span><p>${esc(mode.objective)}</p></div>
+                    <div class="sv-map-controls">
+                        <span class="sv-map-zoom">Zoom <b id="sv-map-zoom">${this.mapZoom.toFixed(1).replace(/\.0$/, '')}×</b> · 500×450 m</span>
+                        <button class="sv-btn sm" data-act="mapZoom" data-arg="-0.5" ${this.mapZoom <= 1 ? 'disabled' : ''}${tip('Zoom out', 'Scroll wheel also zooms.')}>−</button>
+                        <button class="sv-btn sm" data-act="mapZoom" data-arg="0.5" ${this.mapZoom >= 4 ? 'disabled' : ''}${tip('Zoom in', 'Scroll on the map to zoom in, then drag to pan.')}>+</button>
+                        <button class="sv-btn sm ghost" data-act="mapReset"${tip('Reset view', 'Reset zoom and pan to view the entire 500 × 450 m sector.')}>Reset</button>
+                    </div>
+                    ${wp ? `<div class="sv-map-wp"><span>Pin (${wp.x}, ${wp.z}) · <b>${wpDist} m</b></span><button class="sv-btn sm ghost" data-act="clearWaypoint">Clear</button></div>`
+                        : '<p class="sv-muted sm">Click map to pin waypoint · Scroll to zoom · Drag to pan.</p>'}
                     <h4 class="sv-sub">Layers</h4><div class="sv-layers">${layers}</div>
-                    <h4 class="sv-sub ${focusTravel ? 'flash' : ''}">Fast travel ${freeTravel ? '' : `<small>${fuel} fuel</small>`}</h4><div class="sv-tlist">${travel}</div>
+                    <h4 class="sv-sub ${focusTravel ? 'flash' : ''}">Fast travel ${freeTravel ? '<small>Free (Navigator)</small>' : `<small>${fuel} fuel</small>`}</h4><div class="sv-tlist">${travel}</div>
                     <h4 class="sv-sub">Vehicles</h4><div class="sv-tlist">${vehicles}</div>
                 </aside></div>`;
+        }
+
+        _mapProjection(canvas) {
+            const b = BO.SurvivalWorld?.bounds || { x0: -250, x1: 250, z0: -240, z1: 210 };
+            const W = canvas.width;
+            const H = canvas.height;
+            const zoom = Math.max(1, Math.min(4, this.mapZoom || 1));
+            const fullW = b.x1 - b.x0;
+            const fullH = b.z1 - b.z0;
+            const spanX = fullW / zoom;
+            const spanZ = fullH / zoom;
+            const maxPanX = (fullW - spanX) / 2;
+            const maxPanZ = (fullH - spanZ) / 2;
+            this.mapPan.x = Math.max(-maxPanX, Math.min(maxPanX, this.mapPan?.x || 0));
+            this.mapPan.z = Math.max(-maxPanZ, Math.min(maxPanZ, this.mapPan?.z || 0));
+            const cx = (b.x0 + b.x1) / 2 + this.mapPan.x;
+            const cz = (b.z0 + b.z1) / 2 + this.mapPan.z;
+            const x0 = cx - spanX / 2;
+            const x1 = cx + spanX / 2;
+            const z0 = cz - spanZ / 2;
+            const z1 = cz + spanZ / 2;
+            return {
+                b, x0, x1, z0, z1, zoom,
+                sx: (x) => ((x - x0) / (x1 - x0)) * W,
+                sz: (z) => ((z - z0) / (z1 - z0)) * H,
+                wx: (px) => x0 + (px / W) * (x1 - x0),
+                wz: (py) => z0 + (py / H) * (z1 - z0)
+            };
         }
 
         drawMap() {
@@ -1394,101 +1569,146 @@
             const mode = BO.SurvivalMode;
             const c = mode.campaign;
             const deep = c.deep;
+            const world = BO.SurvivalWorld || {};
+            const proj = this._mapProjection(canvas);
+            const { b, sx, sz, zoom } = proj;
             const ctx = canvas.getContext('2d');
             const W = canvas.width;
             const H = canvas.height;
-            const X0 = -56, X1 = 56, Z0 = -56, Z1 = 44;
-            const sx = (x) => ((x - X0) / (X1 - X0)) * W;
-            const sz = (z) => ((z - Z0) / (Z1 - Z0)) * H;
             const hex = (n, a = 1) => {
-                const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-                return `rgba(${r},${g},${b},${a})`;
+                const r = (n >> 16) & 255, g = (n >> 8) & 255, bl = n & 255;
+                return `rgba(${r},${g},${bl},${a})`;
             };
             this.mapHits = [];
             ctx.clearRect(0, 0, W, H);
             const bg = ctx.createLinearGradient(0, 0, 0, H);
-            bg.addColorStop(0, '#1b2a25');
-            bg.addColorStop(1, '#16221e');
+            bg.addColorStop(0, '#182621');
+            bg.addColorStop(1, '#131d19');
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, W, H);
-            ctx.strokeStyle = 'rgba(160,210,190,0.07)';
+            // 50 m coordinate grid
+            ctx.strokeStyle = 'rgba(160,210,190,0.08)';
             ctx.lineWidth = 1;
-            for (let x = -50; x <= 50; x += 10) { ctx.beginPath(); ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), H); ctx.stroke(); }
-            for (let z = -50; z <= 40; z += 10) { ctx.beginPath(); ctx.moveTo(0, sz(z)); ctx.lineTo(W, sz(z)); ctx.stroke(); }
+            for (let x = Math.ceil(b.x0 / 50) * 50; x <= b.x1; x += 50) {
+                ctx.beginPath(); ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), H); ctx.stroke();
+            }
+            for (let z = Math.ceil(b.z0 / 50) * 50; z <= b.z1; z += 50) {
+                ctx.beginPath(); ctx.moveTo(0, sz(z)); ctx.lineTo(W, sz(z)); ctx.stroke();
+            }
             // Biome washes
+            const washR = (78 / (b.x1 - b.x0)) * W * zoom;
             for (const a of data.areas) {
                 if (a.id === 'trench' || a.id === 'cavern') continue;
                 if (a.bounds) {
                     const [l, r, n, s] = a.bounds;
-                    ctx.fillStyle = hex(a.color, 0.22);
+                    ctx.fillStyle = hex(a.color, 0.20);
                     ctx.fillRect(sx(l), sz(n), sx(r) - sx(l), sz(s) - sz(n));
-                    ctx.strokeStyle = hex(a.color, c.gates.get(a.id)?.collider.active ? 0.9 : 0.5);
-                    ctx.setLineDash(c.gates.get(a.id)?.collider.active ? [8, 6] : []);
+                    const locked = c.gates.get(a.id)?.collider.active;
+                    ctx.strokeStyle = hex(a.color, locked ? 0.9 : 0.5);
+                    ctx.setLineDash(locked ? [8, 6] : []);
                     ctx.lineWidth = 2;
                     ctx.strokeRect(sx(l), sz(n), sx(r) - sx(l), sz(s) - sz(n));
                     ctx.setLineDash([]);
                 } else {
-                    const g = ctx.createRadialGradient(sx(a.x), sz(a.z), 0, sx(a.x), sz(a.z), 150);
-                    g.addColorStop(0, hex(a.color, 0.30));
+                    const g = ctx.createRadialGradient(sx(a.x), sz(a.z), 0, sx(a.x), sz(a.z), washR);
+                    g.addColorStop(0, hex(a.color, 0.28));
                     g.addColorStop(1, hex(a.color, 0));
                     ctx.fillStyle = g;
-                    ctx.beginPath(); ctx.arc(sx(a.x), sz(a.z), 150, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(sx(a.x), sz(a.z), washR, 0, Math.PI * 2); ctx.fill();
                 }
             }
-            // Research trench
-            ctx.fillStyle = 'rgba(120,90,160,0.28)';
-            ctx.fillRect(sx(-12), sz(-56), sx(12) - sx(-12), sz(-29) - sz(-56));
-            ctx.strokeStyle = 'rgba(190,160,230,0.45)';
-            ctx.strokeRect(sx(-12), sz(-56), sx(12) - sx(-12), sz(-29) - sz(-56));
-            if (mode.flooded) {
-                ctx.fillStyle = 'rgba(80,150,180,0.38)';
-                ctx.fillRect(sx(24.5), sz(-29), sx(51.5) - sx(24.5), sz(-1) - sz(-29));
-            }
-            // Buildings
-            ctx.fillStyle = 'rgba(190,200,195,0.22)';
-            for (const b of BO.SurvivalData.map.boxes) {
-                if (b.y < 0.3 || b.w > 20 || b.d > 20 || b.h < 1.2) continue;
-                ctx.fillRect(sx(b.x - b.w / 2), sz(b.z - b.d / 2), Math.max(2, sx(b.x + b.w / 2) - sx(b.x - b.w / 2)), Math.max(2, sz(b.z + b.d / 2) - sz(b.z - b.d / 2)));
-            }
-            // Road and rail
-            ctx.fillStyle = 'rgba(150,150,140,0.35)';
-            ctx.fillRect(sx(-4), sz(-1), sx(4) - sx(-4), sz(30) - sz(-1));
-            ctx.strokeStyle = 'rgba(214,190,140,0.55)';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([10, 6]);
-            ctx.beginPath();
-            TRAIN_ROUTE.forEach(([x, z], i) => (i ? ctx.lineTo(sx(x), sz(z)) : ctx.moveTo(sx(x), sz(z))));
-            ctx.closePath();
-            ctx.stroke();
-            ctx.setLineDash([]);
-            // Perimeter
-            ctx.strokeStyle = 'rgba(160,210,190,0.35)';
+            // Research trench (60 x 80 m)
+            ctx.fillStyle = 'rgba(120,90,160,0.30)';
+            ctx.fillRect(sx(-30), sz(-240), sx(30) - sx(-30), sz(-160) - sz(-240));
+            ctx.strokeStyle = 'rgba(190,160,230,0.5)';
             ctx.lineWidth = 2;
-            ctx.strokeRect(1, 1, W - 2, H - 2);
-            const label = (text, x, z, color = 'rgba(226,240,233,0.85)', size = 15) => {
+            ctx.strokeRect(sx(-30), sz(-240), sx(30) - sx(-30), sz(-160) - sz(-240));
+            // Dam Deluge Basin
+            if (mode.flooded && world.delugeBounds) {
+                const d = world.delugeBounds;
+                ctx.fillStyle = 'rgba(80,150,180,0.38)';
+                ctx.fillRect(sx(d.x0), sz(d.z0), sx(d.x1) - sx(d.x0), sz(d.z1) - sz(d.z0));
+            }
+            // Roads & Derelict Airfield runway
+            ctx.fillStyle = 'rgba(150,150,140,0.30)';
+            const drawRect = (x0, z0, x1, z1) => ctx.fillRect(sx(x0), sz(z0), sx(x1) - sx(x0), sz(z1) - sz(z0));
+            drawRect(-5, -160, 5, 175);
+            drawRect(-210, 45, 210, 55);
+            drawRect(-129, -45, -121, 135);
+            drawRect(126, -115, 134, 140);
+            drawRect(115, 140, 235, 170);
+            ctx.strokeStyle = 'rgba(225,225,215,0.45)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([12, 10]);
+            ctx.beginPath(); ctx.moveTo(sx(120), sz(155)); ctx.lineTo(sx(230), sz(155)); ctx.stroke();
+            ctx.setLineDash([]);
+            // Buildings
+            ctx.fillStyle = 'rgba(190,200,195,0.28)';
+            for (const bx of BO.SurvivalData.map.boxes) {
+                if (bx.y < 0.3 || bx.w > 60 || bx.d > 60 || bx.h < 1.0) continue;
+                ctx.fillRect(sx(bx.x - bx.w / 2), sz(bx.z - bx.d / 2), Math.max(2, sx(bx.x + bx.w / 2) - sx(bx.x - bx.w / 2)), Math.max(2, sz(bx.z + bx.d / 2) - sz(bx.z - bx.d / 2)));
+            }
+            // 1,100 m Grand Rail Loop
+            const route = world.trainRoute || [];
+            if (route.length) {
+                ctx.strokeStyle = 'rgba(214,190,140,0.62)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([10, 6]);
+                ctx.beginPath();
+                route.forEach(([x, z], i) => (i ? ctx.lineTo(sx(x), sz(z)) : ctx.moveTo(sx(x), sz(z))));
+                ctx.closePath();
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            // World perimeter
+            ctx.strokeStyle = 'rgba(160,210,190,0.4)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(sx(b.x0), sz(b.z0), sx(b.x1) - sx(b.x0), sz(b.z1) - sz(b.z0));
+            const label = (text, x, z, color = 'rgba(226,240,233,0.88)', size = 14) => {
                 ctx.font = `600 ${size}px Bahnschrift, "Segoe UI", sans-serif`;
                 ctx.textAlign = 'center';
-                ctx.fillStyle = 'rgba(8,14,12,0.75)';
+                ctx.fillStyle = 'rgba(8,14,12,0.78)';
                 const w = ctx.measureText(text).width;
                 ctx.fillRect(sx(x) - w / 2 - 5, sz(z) - size + 1, w + 10, size + 6);
                 ctx.fillStyle = color;
                 ctx.fillText(text, sx(x), sz(z) + 2);
             };
             const hit = (x, z, title, body, r = 12) => this.mapHits.push({ x: sx(x), y: sz(z), r, title, body });
-            // Area names
+            // Tactical Ziplines
+            if (this.mapLayers.ziplines && world.ziplines?.length) {
+                for (const zl of world.ziplines) {
+                    const [x1, , z1] = zl.from;
+                    const [x2, , z2] = zl.to;
+                    ctx.strokeStyle = 'rgba(126,232,250,0.85)';
+                    ctx.lineWidth = 2.5;
+                    ctx.setLineDash([6, 4]);
+                    ctx.beginPath(); ctx.moveTo(sx(x1), sz(z1)); ctx.lineTo(sx(x2), sz(z2)); ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = '#7ee8fa';
+                    ctx.beginPath(); ctx.arc(sx(x1), sz(z1), 4.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(sx(x2), sz(z2), 4.5, 0, Math.PI * 2); ctx.fill();
+                    const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
+                    hit(x1, z1, 'Zipline: ' + zl.label, 'Bidirectional fast traverse (28 m/s). Press interact at post.', 10);
+                    hit(x2, z2, 'Zipline: ' + zl.label, 'Bidirectional fast traverse (28 m/s). Press interact at post.', 10);
+                    hit(mx, mz, 'Zipline: ' + zl.label, 'Bidirectional fast traverse (28 m/s).', 12);
+                }
+            }
+            // Biome labels + Tier tags
+            const tierDesc = { 1: 'Tier 1 Safe Belt (1.0× rewards)', 2: 'Tier 2 Frontier (1.35× XP & Runes)', 3: 'Tier 3 Hotzone (1.75× XP & Runes)' };
             for (const a of data.areas) {
                 const lockedLvl = BO.SurvivalCareer.level < a.level;
                 const visited = c.visited.has(a.id);
-                label(a.name.toUpperCase() + (lockedLvl ? ' · LV ' + a.level : ''), a.x, a.z + (a.id === 'trench' ? 0 : -5), visited ? 'rgba(226,240,233,0.95)' : 'rgba(170,190,182,0.6)', 14);
-                hit(a.x, a.z - 5, a.name, (visited ? 'Discovered.' : 'Not yet discovered.') + (lockedLvl ? ' Unlocks at survival level ' + a.level + '.' : ''), 40);
+                const tBadge = ' · T' + (a.tier || 1);
+                label(a.name.toUpperCase() + tBadge + (lockedLvl ? ' · LV ' + a.level : ''), a.x, a.z + (a.id === 'trench' ? 0 : -14), visited ? 'rgba(226,240,233,0.95)' : 'rgba(170,190,182,0.65)', 13);
+                hit(a.x, a.z - 14, a.name + ' (Tier ' + (a.tier || 1) + ')', (tierDesc[a.tier || 1] || '') + ' · ' + (visited ? 'Discovered.' : 'Not yet discovered.') + (lockedLvl ? ' Opens at survival level ' + a.level + (a.breachCost ? ' (or breach gate).' : '.') : ''), 36);
             }
             // Resources
             if (this.mapLayers.resources) {
                 for (const node of c.pack.resources.values()) {
                     if (node.hp <= 0) continue;
                     ctx.fillStyle = RES_COLOR[node.kind] || '#ccc';
-                    ctx.beginPath(); ctx.arc(sx(node.marker.x), sz(node.marker.z), 4, 0, Math.PI * 2); ctx.fill();
-                    hit(node.marker.x, node.marker.z, node.spec.name, node.spec.tool ? 'Needs ' + ({ axe: 'an axe', pick: 'a pickaxe', shovel: 'a shovel' }[node.spec.tool]) + (node.spec.tier > 1 ? ' (tier ' + node.spec.tier + ')' : ' or slow bare hands') : 'Gather by hand.', 6);
+                    ctx.beginPath(); ctx.arc(sx(node.marker.x), sz(node.marker.z), 3.8, 0, Math.PI * 2); ctx.fill();
+                    hit(node.marker.x, node.marker.z, node.spec.name, node.spec.tool ? 'Needs ' + ({ axe: 'an axe', pick: 'a pickaxe', shovel: 'a shovel' }[node.spec.tool]) + (node.spec.tier > 1 ? ' (tier ' + node.spec.tier + ')' : ' or slow bare hands') : 'Gather by hand.', 7);
                 }
             }
             // Base
@@ -1522,8 +1742,8 @@
                     const done = mode.completed.has(site.id) && !['lookout', 'train', 'shelter'].includes(site.id);
                     const pos = site.id === 'train' ? mode.train.pos : site;
                     diamond(pos.x, pos.z, '#' + site.color.toString(16).padStart(6, '0'), 13, done);
-                    label(site.name, pos.x, pos.z + 4.2, done ? 'rgba(170,180,176,0.7)' : 'rgba(240,248,244,0.95)', 13);
-                    hit(pos.x, pos.z, site.name, site.label + (done ? ' (done)' : ''), 12);
+                    label(site.name, pos.x, pos.z + 10, done ? 'rgba(170,180,176,0.7)' : 'rgba(240,248,244,0.95)', 12);
+                    hit(pos.x, pos.z, site.name, site.label + (done ? ' (done)' : ''), 13);
                 }
                 BO.SurvivalData.stashes.forEach(([x, , z], i) => {
                     const done = mode.completed.has('stash' + i);
@@ -1532,8 +1752,8 @@
                 });
                 if (deep?.meteor) {
                     diamond(deep.meteor.x, deep.meteor.z, '#c084fc', 14);
-                    label('Aether meteor', deep.meteor.x, deep.meteor.z + 4.2, '#e9d5ff', 13);
-                    hit(deep.meteor.x, deep.meteor.z, 'Aether meteor', 'Mine it for Aether shards and a schematic.', 12);
+                    label('Aether meteor', deep.meteor.x, deep.meteor.z + 10, '#e9d5ff', 12);
+                    hit(deep.meteor.x, deep.meteor.z, 'Aether meteor', 'Mine it for Aether shards and a permanent blueprint.', 12);
                 }
                 if (deep?.lostEcho) {
                     diamond(deep.lostEcho.x, deep.lostEcho.z, '#fde047', 12);
@@ -1543,7 +1763,7 @@
             if (this.mapLayers.grace) {
                 for (const s of deep?.allShrines || []) {
                     const lit = deep.kindledShrines.has(s.id);
-                    ctx.fillStyle = lit ? '#fde047' : 'rgba(253,224,71,0.35)';
+                    ctx.fillStyle = lit ? '#fde047' : 'rgba(253,224,71,0.38)';
                     ctx.beginPath();
                     for (let i = 0; i < 10; i++) {
                         const r = i % 2 ? 4 : 9;
@@ -1554,7 +1774,7 @@
                     }
                     ctx.closePath();
                     ctx.fill();
-                    hit(s.x, s.z, s.name, lit ? 'Kindled: rest, refill your flask and warp here.' : 'Not kindled yet. Visit it to kindle.', 10);
+                    hit(s.x, s.z, s.name, lit ? 'Kindled: rest, refill your flask and warp here.' : 'Not kindled yet. Visit it to kindle.', 11);
                 }
             }
             if (this.mapLayers.contacts) {
@@ -1567,24 +1787,53 @@
                     ctx.beginPath(); ctx.arc(sx(npc.x), sz(npc.z), 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
                     const q = npc.quest;
                     const claimed = q && c.claims[npc.id + ':quest'];
-                    hit(npc.x, npc.z, npc.name, npc.hint.trim() + (q ? ' Contract: ' + q[0] + (claimed ? ' (claimed)' : ' ' + Math.min(c.metrics[q[1]] || 0, q[2]) + '/' + q[2]) : ''), 8);
+                    hit(npc.x, npc.z, npc.name, npc.hint.trim() + (q ? ' Contract: ' + q[0] + (claimed ? ' (claimed)' : ' ' + Math.min(c.metrics[q[1]] || 0, q[2]) + '/' + q[2]) : ''), 9);
                 }
             }
-            // Player
+            // Custom pinned waypoint
             const p = BO.Player;
+            if (this.mapWaypoint) {
+                const wp = this.mapWaypoint;
+                ctx.strokeStyle = 'rgba(126,232,250,0.65)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.beginPath(); ctx.moveTo(sx(p.pos.x), sz(p.pos.z)); ctx.lineTo(sx(wp.x), sz(wp.z)); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.strokeStyle = '#7ee8fa';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(sx(wp.x), sz(wp.z), 9, 0, Math.PI * 2); ctx.stroke();
+                ctx.fillStyle = '#7ee8fa';
+                ctx.beginPath(); ctx.arc(sx(wp.x), sz(wp.z), 3, 0, Math.PI * 2); ctx.fill();
+                const dist = Math.round(Math.hypot(wp.x - p.pos.x, wp.z - p.pos.z));
+                label(dist + ' m', wp.x, wp.z - 12, '#7ee8fa', 12);
+                hit(wp.x, wp.z, 'Pinned Waypoint', dist + ' m away (' + wp.x + ', ' + wp.z + ') — click again to clear.', 12);
+            }
+            // Player
             const f = p.getMoveDirectionVectors().forward;
             const ang = Math.atan2(f.z, f.x);
             ctx.save();
             ctx.translate(sx(p.pos.x), sz(p.pos.z));
             ctx.rotate(ang);
             ctx.fillStyle = 'rgba(242,180,90,0.22)';
-            ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 46, -0.5, 0.5); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 44, -0.5, 0.5); ctx.closePath(); ctx.fill();
             ctx.fillStyle = '#f2b45a';
             ctx.strokeStyle = '#1a120a';
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-8, 8); ctx.lineTo(-4, 0); ctx.lineTo(-8, -8); ctx.closePath(); ctx.fill(); ctx.stroke();
             ctx.restore();
             hit(p.pos.x, p.pos.z, 'You', (c.area?.name || '') + ' · ' + Math.round(p.pos.x) + ', ' + Math.round(p.pos.z), 14);
+            // 100 m scale bar
+            const barMeters = zoom >= 2.5 ? 50 : 100;
+            const barPx = Math.max(40, (barMeters / (b.x1 - b.x0)) * W * zoom);
+            ctx.fillStyle = 'rgba(8,14,12,0.75)';
+            ctx.fillRect(18, H - 36, barPx + 20, 22);
+            ctx.strokeStyle = '#9fe0c9';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(26, H - 22); ctx.lineTo(26 + barPx, H - 22); ctx.moveTo(26, H - 27); ctx.lineTo(26, H - 18); ctx.moveTo(26 + barPx, H - 27); ctx.lineTo(26 + barPx, H - 18); ctx.stroke();
+            ctx.font = '700 11px monospace';
+            ctx.fillStyle = '#cfe8df';
+            ctx.textAlign = 'left';
+            ctx.fillText(barMeters + ' m', 30, H - 26);
         }
 
         mapHover(e) {
@@ -1597,7 +1846,7 @@
             for (const h of this.mapHits || []) {
                 const d = Math.hypot(h.x - x, h.y - y);
                 const scale = canvas.width / rect.width;
-                if (d < Math.max(h.r, 9) * scale && d < bestD && !(h.r >= 40 && best)) { best = h; bestD = d; }
+                if (d < Math.max(h.r, 9) * scale && d < bestD && !(h.r >= 35 && best)) { best = h; bestD = d; }
             }
             if (!best) { this.mapTip.hidden = true; return; }
             this.mapTip.innerHTML = `<b>${esc(best.title)}</b><span>${esc(best.body)}</span>`;

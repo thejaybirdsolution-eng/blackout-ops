@@ -15,33 +15,33 @@
     });
 
     const plots = [
-        { id: 'beans', name: 'Relay bean bed', x: 5, y: 0, z: 39, color: 0x89b56f, grow: 72, loot: { rations: 3, cropSeeds: 2 } },
-        { id: 'fiber', name: 'Relay fiber bed', x: 9, y: 0, z: 39, color: 0xc9ac67, grow: 54, loot: { fiber: 6, cropSeeds: 2 } },
-        { id: 'bitterleaf', name: 'Relay herb bed', x: 13, y: 0, z: 39, color: 0x6fb290, grow: 60, loot: { herbs: 5, cropSeeds: 2 } }
+        { id: 'beans', name: 'Relay bean bed', x: 18, y: 0, z: 152, color: 0x89b56f, grow: 72, loot: { rations: 3, cropSeeds: 2 } },
+        { id: 'fiber', name: 'Relay fiber bed', x: 30, y: 0, z: 152, color: 0xc9ac67, grow: 54, loot: { fiber: 6, cropSeeds: 2 } },
+        { id: 'bitterleaf', name: 'Relay herb bed', x: 42, y: 0, z: 152, color: 0x6fb290, grow: 60, loot: { herbs: 5, cropSeeds: 2 } }
     ];
     const pumps = [
-        { id: 'relay', name: 'Relay rainwater filter', x: 7, y: 0, z: 35 },
-        { id: 'marsh', name: 'Spillway hand pump', x: 49, y: 0, z: -10 },
-        { id: 'west', name: 'West catchment filter', x: -42, y: 0, z: -19 }
+        { id: 'relay', name: 'Relay rainwater filter', x: 24, y: 0, z: 140 },
+        { id: 'marsh', name: 'Spillway hand pump', x: 204, y: 0, z: -48 },
+        { id: 'west', name: 'West catchment filter', x: -162, y: 0, z: -72 }
     ];
     const shore = [
-        { id: 'west', name: 'Pinebreak cistern', x: -38, y: 0, z: -14, color: 0x789faf,
+        { id: 'west', name: 'Pinebreak cistern', x: -152, y: 0, z: -48, color: 0x789faf,
             loot: [{ scrap: 2, cord: 1 }, { rations: 1, fuel: 1 }, { timber: 3, cloth: 1 }] },
-        { id: 'spillway', name: 'Flood channel', x: 40, y: 0, z: -19, color: 0x91bdbe,
+        { id: 'spillway', name: 'Flood channel', x: 166, y: 0, z: -92, color: 0x91bdbe,
             loot: [{ copper: 3, scrap: 1 }, { clay: 4, fuel: 1 }, { iron: 2, quartz: 1 }] },
-        { id: 'freight', name: 'Freight drainage basin', x: 31, y: 0, z: 9, color: 0x98b1b2,
+        { id: 'freight', name: 'Freight drainage basin', x: 138, y: 0, z: 36, color: 0x98b1b2,
             loot: [{ iron: 2, cloth: 1 }, { wire: 2, salvageLine: 1 }, { scrap: 3, fuel: 1 }] }
     ];
     const relays = [
-        { id: 'pine', name: 'Pinebreak repeater', x: -46, y: 0, z: 22 },
-        { id: 'freight', name: 'Freight repeater', x: 22, y: 0, z: -16 },
-        { id: 'ridge', name: 'Slateback repeater', x: -50, y: 5.6, z: 37.7 }
+        { id: 'pine', name: 'Pinebreak repeater', x: -175, y: 0, z: 82 },
+        { id: 'freight', name: 'Freight repeater', x: 108, y: 0, z: -64 },
+        { id: 'ridge', name: 'Radar Ridge repeater', x: 98, y: 11, z: -176 }
     ];
     const surveys = [
-        { id: 'fork', name: 'Pinebreak Trail Fork', x: -32, y: 0, z: 25, loot: { cord: 1 } },
-        { id: 'spire', name: 'Slateback Summit', x: -51, y: 7.2, z: 32.5, loot: { quartz: 2, coil: 1 } },
-        { id: 'cistern', name: 'Hidden Waterworks', x: 46, y: 0, z: -25, loot: { fuel: 1, freshWater: 1 } },
-        { id: 'echo', name: 'Echo Survey Bench', x: -9.8, y: -5, z: -51.1, loot: { quartz: 2, filter: 1 } }
+        { id: 'fork', name: 'Pinebreak Trail Fork', x: -115, y: 0, z: 96, loot: { cord: 1 } },
+        { id: 'spire', name: 'Slateback Summit', x: -208, y: 20, z: 158, loot: { quartz: 2, coil: 1 } },
+        { id: 'cistern', name: 'Hidden Waterworks', x: 198, y: 0, z: -112, loot: { fuel: 1, freshWater: 1 } },
+        { id: 'echo', name: 'Echo Survey Bench', x: -64, y: -8, z: -218, loot: { quartz: 2, filter: 1 } }
     ];
     const routes = [
         { id: 'med', name: 'Hospital circuit', sites: ['hospital', 'pine'], labels: ['Field hospital', 'Pinebreak repeater'], reward: { medkits: 2, cloth: 2 } },
@@ -49,9 +49,10 @@
         { id: 'ridge', name: 'Ridge survey', sites: ['crest', 'west'], labels: ['Slateback Summit', 'Pinebreak cistern'], reward: { wire: 2, quartz: 2 } }
     ];
     const dropSites = [
-        { x: -12, y: 0, z: -15, name: 'west of the trench road' },
-        { x: -34, y: 0, z: 1, name: 'at the Pinebreak treeline' },
-        { x: 34, y: 0, z: 13, name: 'south of the freight depot' }
+        { x: -58, y: 0, z: -55, name: 'west of the trench highway' },
+        { x: -128, y: 0, z: 8, name: 'at the Pinebreak treeline' },
+        { x: 146, y: 0, z: 54, name: 'south of the freight depot' },
+        { x: 185, y: 0, z: 172, name: 'along the Derelict Airfield runway' }
     ];
     const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     const remaining = (seconds) => Math.max(0, Math.ceil(seconds)) + 's';

@@ -74,14 +74,18 @@
         getPool(area) {
             const kind = this.options.pool;
             const list = this.roster;
-            const threat = this.mode.threat || BO.SurvivalRules.threat(1, false, this.options, this.mode.difficultyRules, list.length);
+            const areaSpec = data.areas.find((a) => a.id === area);
+            const tierBoost = Math.max(0, (areaSpec?.tier || 1) - 1);
+            const threat = BO.SurvivalRules.threat((this.mode.threat?.day || this.day) + tierBoost, this.isNight, this.options, this.mode.difficultyRules, list.length);
             const allowed = list.slice(0, Math.max(1, threat.poolSize));
             const keywordsByArea = {
                 pine: 'grizzly_bear|armored_warbear|bone_hound|werewolf|goblin|ratman|scarecrow|tiger|toad|crawler',
                 frost: 'frost|cry|ice|wraith|ghost|polar|yeti',
                 cinder: 'fire|hell|inferno|infernal|magma|burn|pyro|ember',
                 trench: 'mutant|slime|hydra|phantom|brute|aether|void|blob|mitosis|fracture|broodmother|twin_horror|shadow_stalker',
-                basin: 'acid|water|ooze|swamp|poison|toxic|mud|bloater|hunch_spitter|broodmother'
+                basin: 'acid|water|ooze|swamp|poison|toxic|mud|bloater|hunch_spitter|broodmother',
+                airfield: 'cyber_assassin|ronin|shield_walker|sprinter|headless|iron_juggernaut',
+                radar: 'wraith|shaman|sprite|shadow_imp|shadow_stalker'
             };
             const keywords = keywordsByArea[area] || data.pools[kind]?.keywords || '';
             const preferred = keywords ? allowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
@@ -110,6 +114,19 @@
             this.pack.setup();
             if (!checkpoint && this.has('fullBags')) this.pack.level = 2;
             if (!checkpoint && this.has('loaded')) this.pack.receive({ scrap: 4, cloth: 2, rations: 2, freshWater: 2, torch: 1 });
+            if (!checkpoint) {
+                const kit = BO.SurvivalMeta?.KITS?.[career.profile.kit];
+                if (kit) {
+                    if (kit.items && Object.keys(kit.items).length) this.pack.receive(kit.items, false);
+                    if (kit.vehicle) this.vehicles.add(kit.vehicle);
+                    if (kit.ammo && BO.Player.activeWeapon) BO.Player.activeWeapon.reserve += kit.ammo;
+                }
+                const armRank = career.masteryRank('armorer');
+                if (armRank > 0) {
+                    BO.Player.armor = Math.min(BO.Player.maxArmor || 150, BO.Player.armor + armRank * 25);
+                    BO.Player.armorReservePlates = Math.min(8, BO.Player.armorReservePlates + armRank);
+                }
+            }
             this.objectives.setup(checkpoint?.objectives);
             this.activities?.setup();
             this.deep?.setup();
@@ -136,8 +153,8 @@
         addBiomes() {
             const m = this.mode;
             for (const area of data.areas) {
-                if (area.id === 'trench') continue;
-                const [left, right, north, south] = area.bounds || [area.x - 11, area.x + 11, area.z - 8, area.z + 8];
+                if (area.id === 'trench' || area.id === 'cavern') continue;
+                const [left, right, north, south] = area.bounds || [area.x - 36, area.x + 36, area.z - 28, area.z + 28];
                 const w = right - left;
                 const d = south - north;
                 const tile = m.mesh(new THREE.PlaneGeometry(w, d), area.color, (left + right) / 2, 0.030, (north + south) / 2,
@@ -149,34 +166,35 @@
                         const mesh = m.mesh(new THREE.BoxGeometry(w, 2.85, d), material, x, 1.42, z);
                         m.solid(mesh, w, 2.85, d);
                     };
-                    // Enclosures have one full-height access gate, so the level lock applies from either direction.
+                    // Enclosures have one full-height access gate; open at target level or breach early with salvage & fuel.
                     fence((left + right) / 2, north, w, 0.42);
                     fence((left + right) / 2, south, w, 0.42);
                     const gateX = area.id === 'frost' ? right : left;
                     const entry = area.entrance[1];
                     fence(area.id === 'frost' ? left : right, (north + south) / 2, 0.42, d);
-                    fence(gateX, (north + entry - 2.1) / 2, 0.45, entry - north - 2.1);
-                    fence(gateX, (entry + 2.1 + south) / 2, 0.45, south - entry - 2.1);
-                    const gate = m.mesh(new THREE.BoxGeometry(0.55, 2.8, 4.2), 0xb5aa78, gateX, 1.4, entry);
-                    this.gates.set(area.id, { mesh: gate, collider: m.solid(gate, 0.55, 2.8, 4.2) });
-                    m.marker({ id: 'gate:' + area.id, x: gateX, y: 0, z: entry, name: area.name, label: 'Open ' + area.name, color: area.color });
+                    fence(gateX, (north + entry - 2.4) / 2, 0.45, entry - north - 2.4);
+                    fence(gateX, (entry + 2.4 + south) / 2, 0.45, south - entry - 2.4);
+                    const gate = m.mesh(new THREE.BoxGeometry(0.6, 2.8, 4.8), 0xb5aa78, gateX, 1.4, entry);
+                    this.gates.set(area.id, { mesh: gate, collider: m.solid(gate, 0.6, 2.8, 4.8) });
+                    const breachTxt = area.breachCost ? ` (Lv ${area.level} or breach)` : '';
+                    m.marker({ id: 'gate:' + area.id, x: gateX, y: 0, z: entry, name: area.name, label: 'Open ' + area.name + breachTxt, color: area.color });
                 }
-                for (let i = 0; i < 5; i++) {
-                    const x = left + 2.2 + i * ((w - 4.4) / 5);
-                    const z = north + 2.1 + (i * 3.7) % (d - 4.2);
-                    const rock = m.mesh(new THREE.DodecahedronGeometry(0.64 + i % 2 * 0.38), area.color, x, 0.42, z);
-                    rock.scale.set(1.6, 0.65, 1.1);
+                for (let i = 0; i < 6; i++) {
+                    const x = left + 4 + i * ((w - 8) / 6);
+                    const z = north + 4 + (i * 13.7) % (d - 8);
+                    const rock = m.mesh(new THREE.DodecahedronGeometry(0.85 + i % 2 * 0.45), area.color, x, 0.5, z);
+                    rock.scale.set(1.8, 0.72, 1.2);
                 }
             }
-            // A launch platform gives players a predictable glider test site at any level.
-            const deck = m.mesh(new THREE.BoxGeometry(4.5, 0.3, 4.5), 0x596b66, 1, 4.2, 37.5);
-            m.solid(deck, 4.5, 0.3, 4.5);
-            for (const x of [-0.9, 2.9]) {
-                const post = m.mesh(new THREE.BoxGeometry(0.22, 4, 0.22), 0x58655d, x, 2, 37.5);
-                m.solid(post, 0.22, 4, 0.22);
+            // 16m Relay Glider Launch Tower for high-altitude valley launches & Zipline 1.
+            const deck = m.mesh(new THREE.BoxGeometry(6.0, 0.4, 6.0), 0x596b66, 16, 16.0, 138);
+            m.solid(deck, 6.0, 0.4, 6.0);
+            for (const x of [13.5, 18.5]) for (const z of [135.5, 140.5]) {
+                const post = m.mesh(new THREE.BoxGeometry(0.32, 16, 0.32), 0x58655d, x, 8, z);
+                m.solid(post, 0.32, 16, 0.32);
             }
-            m.marker({ id: 'launch', x: 1, y: 0, z: 35.8, label: 'Climb to the glider launch deck', color: 0xbacbbb });
-            m.marker({ id: 'launch-down', x: 1, y: 4.35, z: 37.5, label: 'Climb down', color: 0xbacbbb });
+            m.marker({ id: 'launch', x: 16, y: 0, z: 133, label: 'Climb 16m glider tower', color: 0xbacbbb });
+            m.marker({ id: 'launch-down', x: 16, y: 16.3, z: 138, label: 'Climb down tower', color: 0xbacbbb });
         }
 
         addNPC(npc) {
@@ -197,21 +215,15 @@
 
         updateLocation() {
             const pos = BO.Player.pos;
-            let area = pos.y < -1.7 ? data.areas.find((zone) => zone.id === (pos.x < -4.6 && pos.z < -43 ? 'cavern' : 'trench')) : null;
-            if (!area && pos.y > 2.6 && pos.x < -37 && pos.z > 28) area = data.areas.find((zone) => zone.id === 'ridge');
-            if (!area) {
-                area = data.areas.find((zone) => zone.bounds &&
-                    pos.x >= zone.bounds[0] && pos.x <= zone.bounds[1] && pos.z >= zone.bounds[2] && pos.z <= zone.bounds[3]);
-            }
-            if (!area) area = data.areas.filter((zone) => !zone.bounds && zone.y === 0)
-                .reduce((best, zone) => Math.hypot(pos.x - zone.x, pos.z - zone.z) < Math.hypot(pos.x - best.x, pos.z - best.z) ? zone : best);
-            if (area.id === this.area?.id) return;
+            const area = BO.SurvivalWorld.areaAt(pos.x, pos.y, pos.z);
+            if (!area || area.id === this.area?.id) return;
             this.area = area;
             this.selectedEnemies = this.getPool(area.id);
             if (!this.visited.has(area.id)) {
                 this.visited.add(area.id);
                 this.mark('visited', 1, 23);
-                this.mode.toast('Discovered ' + area.name + ' · +23 XP');
+                const tierMsg = area.tier > 1 ? ` (Tier ${area.tier} · +${area.tier === 3 ? 75 : 35}% Yield)` : '';
+                this.mode.toast('Discovered ' + area.name + tierMsg + ' · +23 XP');
             }
         }
 
@@ -231,13 +243,14 @@
                 this.nextPatrol = m.clock + 38;
                 if (m.bots.filter((unit) => unit.alive && unit.team === 1).length < Math.min(8, this.day * 2) && BO.Player.pos.y > -1) {
                     const pos = BO.Player.pos;
-                    const x = pos.x > 0 ? -27 : 25;
-                    m.spawnBot(x, 0, -15, 'mp5', 105);
+                    const x = BO.Math.clamp(pos.x + (pos.x > 0 ? -42 : 42), -220, 220);
+                    const z = BO.Math.clamp(pos.z + (Math.random() - 0.5) * 40, -140, 185);
+                    m.spawnBot(x, 0, z, 'mp5', 105);
                 }
             }
             const p = BO.Player;
             for (const contact of this.npcs) {
-                const visible = near(p.pos, contact.npc, 38);
+                const visible = near(p.pos, contact.npc, 60);
                 contact.avatar.root.visible = visible;
                 contact.badge.visible = visible;
             }
@@ -245,14 +258,14 @@
                 if (Math.hypot(p.vel.x, p.vel.z) > 4) m.noise = Math.max(m.noise, this.vehicle === 'rover' ? 5 : 1.8);
             }
             if (this.vehicle === 'glider' && !p.onGround && p.vel.y < 0) {
-                p.vel.y = Math.max(-2.4, p.vel.y);
+                p.vel.y = Math.max(-1.6, p.vel.y);
                 if (!this.gliding) this.mark('glides', 1, 36);
                 this.gliding = true;
             } else if (this.vehicle === 'glider' && this.gliding && p.onGround) {
                 this.vehicle = null;
                 this.gliding = false;
             }
-            if (this.mode.rider) this.vehicle = null;
+            if (this.mode.rider || this.mode.zip) this.vehicle = null;
             this.updateVehicleModel();
             this.metrics.radiation = Math.max(this.metrics.radiation || 0, Math.floor(m.radiation));
         }
@@ -267,8 +280,15 @@
             }
             if (prefix === 'gate') {
                 const area = data.areas.find((zone) => zone.id === id);
-                if (career.level < area.level) this.mode.toast(area.name + ' unlocks at level ' + area.level + '.');
-                else this.openGate(id);
+                if (career.level >= area.level) {
+                    this.openGate(id);
+                } else if (area.breachCost && this.mode.spend(area.breachCost)) {
+                    this.openGate(id);
+                    this.mode.toast(`Breached ${area.name} early! Watch out for Tier ${area.tier} threats.`);
+                } else {
+                    const need = area.breachCost ? ` (or breach with ${BO.SurvivalItemAmounts(area.breachCost)})` : '';
+                    this.mode.toast(`${area.name} unlocks at level ${area.level}${need}.`);
+                }
                 return true;
             }
             if (prefix === 'build') {
@@ -292,7 +312,7 @@
                 return true;
             }
             if (marker.id === 'launch' || marker.id === 'launch-down') {
-                BO.Player.pos.set(1, marker.id === 'launch' ? 4.36 : 0, marker.id === 'launch' ? 37.5 : 35.6);
+                BO.Player.pos.set(16, marker.id === 'launch' ? 16.35 : 0, marker.id === 'launch' ? 138 : 133);
                 BO.Player.vel.set(0, 0, 0);
                 return true;
             }
@@ -349,7 +369,7 @@
             }
             const { x, y, z, size } = target;
             if (this.placed.length >= 80) return m.toast('Structure limit reached for this expedition.');
-            if (y < -1 || Math.abs(x) > 51 || z < -50 || z > 40 ||
+            if (y < -1 || Math.abs(x) > 246 || z < -236 || z > 206 ||
                 data.areas.some((zone) => zone.bounds && x >= zone.bounds[0] && x <= zone.bounds[1] && z >= zone.bounds[2] && z <= zone.bounds[3])) {
                 return m.toast('Build on the open surface outside restricted biomes.');
             }
@@ -583,24 +603,30 @@
                 if (deep.activeTonics.staminElixir > this.mode.clock) mult *= 1.22;
                 if (this.mode.hunger >= 75 && deep.hydration >= 75) mult *= 1.08;
             }
+            const d = BO.SurvivalWorld.delugeBounds;
+            const inFlood = this.mode.flooded && p.pos.x > d.x0 && p.pos.x < d.x1 && p.pos.z > d.z0 && p.pos.z < d.z1 && p.pos.y < 0.6;
             if (!vehicle) {
-                if (this.mode.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6) return 0.75 * mult;
+                if (inFlood) return 0.75 * mult;
                 return mult;
             }
-            const road = Math.abs(p.pos.x) < 4.1 && p.pos.z > -1;
-            return (road ? vehicle.speed : vehicle.offroad) * mult * (mfx.vehicleSpeedMult || 1);
+            const onNSRoad = Math.abs(p.pos.x) < 6.5 && p.pos.z > -122 && p.pos.z < 152;
+            const onEWRoad = Math.abs(p.pos.z - 26) < 6.5 && p.pos.x > -165 && p.pos.x < 190;
+            const onRunway = p.pos.x >= 130 && p.pos.x <= 235 && p.pos.z >= 168 && p.pos.z <= 184;
+            const road = onNSRoad || onEWRoad || onRunway;
+            const navMult = 1 + career.masteryRank('navigator') * 0.15;
+            return (road ? vehicle.speed : vehicle.offroad) * mult * navMult * (mfx.vehicleSpeedMult || 1);
         }
 
         canSave() {
             const p = BO.Player;
-            return this.mode.active && p.alive && !this.mode.rider && !this.mode.exfil && !this.has('ironRun') && !this.objectives.unsafeToSave &&
+            return this.mode.active && p.alive && !this.mode.rider && !this.mode.zip && !this.mode.exfil && !this.has('ironRun') && !this.objectives.unsafeToSave &&
                 ![...this.mode.zombies, ...this.mode.bots].some((enemy) => enemy.alive && enemy.team !== 0 && near(enemy.pos, p.pos, 9));
         }
 
         travel(id) {
             if (this.has('footOnly') || !this.canSave() || !this.visited.has(id) || id === 'trench' || this.area?.id === id) return false;
             const area = data.areas.find((zone) => zone.id === id);
-            const needFuel = !this.deep?.modFx?.freeTravel;
+            const needFuel = !this.deep?.modFx?.freeTravel && career.masteryRank('navigator') < 2;
             if (!area || area.y < 0 || this.gates.get(id)?.collider.active || (needFuel && !this.mode.spend({ fuel: 1 }))) return false;
             BO.Player.pos.set(area.x, area.y, area.z);
             BO.Player.vel.set(0, 0, 0);

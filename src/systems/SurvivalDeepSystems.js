@@ -35,7 +35,7 @@
             // Tech Tree, Schematics & Infusions (Zero creatures)
             this.techPoints = campaign.has('abundantTech') ? 5 : 2;
             this.unlockedTech = new Set();
-            this.unlockedSchematics = new Set();
+            this.unlockedSchematics = new Set(BO.SurvivalCareer.profile.blueprints || []);
             this.infusions = []; // up to 2 IDs from D().infusions
 
             // Survival depth statuses
@@ -202,10 +202,14 @@
 
         awardRunes(baseAmount) {
             const mfx = this.modFx || {};
+            const areaTier = this.campaign.area?.tier || 1;
+            const tierMult = areaTier === 3 ? 1.75 : areaTier === 2 ? 1.35 : 1;
+            const scavMult = 1 + BO.SurvivalCareer.masteryRank('scavenger') * 0.15;
             const mult = (1 + (this.attributes.arcane || 0) * 0.15) *
                 (this.hasTalisman('scavenger_scarab') ? 1.35 : 1) *
                 (this.campaign.has('abundantTech') ? 1.5 : 1) *
                 (mfx.runeMult || 1) *
+                tierMult * scavMult *
                 (this.campaign.isNight && mfx.nightRuneBonus ? (1 + mfx.nightRuneBonus) : 1);
             const gained = Math.max(1, Math.round(baseAmount * mult));
             this.runes += gained;
@@ -308,6 +312,8 @@
                 p.activeWeapon.mag = p.activeWeapon.stats.magSize;
                 p.activeWeapon.reserve = Math.min(p.activeWeapon.stats.reserveMax, sch.ammo);
             }
+            this.unlockedSchematics.add(sch.id);
+            BO.SurvivalCareer.unlockBlueprint(sch.id);
             this.campaign.mark('weaponsForged', 1, 60);
             BO.Sound?.playPaP?.();
             this.mode.toast(`Forged and equipped ${sch.name}!`);
@@ -382,7 +388,8 @@
             if (!p) return;
             const mfx = this.modFx || {};
             const jugBonus = this.activeTonics.jugBrew > this.mode.clock ? 75 : 0;
-            const baseHp = (this.campaign.has('glass') ? 70 : 100) + (mfx.maxHpDelta || 0);
+            const condBonus = BO.SurvivalCareer.masteryRank('conditioning') * 15;
+            const baseHp = (this.campaign.has('glass') ? 70 : 100) + condBonus + (mfx.maxHpDelta || 0);
             const targetMax = baseHp + (this.attributes.vigor || 0) * 15 +
                 (this.hasTalisman('crimson_medallion') ? 25 : 0) + jugBonus;
             const diff = targetMax - p.maxHp;
@@ -529,7 +536,8 @@
                 if (pouch.runes) this.awardRunes(pouch.runes);
                 if (pouch.schematic) {
                     this.unlockedSchematics.add(pouch.schematic);
-                    m.toast(`Unlocked schematic: ${pouch.schematic.toUpperCase()}!`);
+                    BO.SurvivalCareer.unlockBlueprint(pouch.schematic);
+                    m.toast(`Unlocked permanent blueprint: ${pouch.schematic.toUpperCase()}!`);
                 }
                 pouch.marker.alive = false;
                 this.lootPouches.delete(marker.id);
@@ -543,7 +551,8 @@
                 if (locked.length) {
                     const pick = BO.Math.pick(locked);
                     this.unlockedSchematics.add(pick.id);
-                    m.toast(`Meteor mined! +3 Aether Shards & unlocked ${pick.name} schematic!`);
+                    BO.SurvivalCareer.unlockBlueprint(pick.id);
+                    m.toast(`Meteor mined! +3 Aether Shards & unlocked ${pick.name} blueprint!`);
                 } else {
                     m.toast('Meteor mined! +3 Aether Shards & +160 Runes!');
                 }
@@ -625,6 +634,7 @@
             if (isBoss) {
                 this.grantTechPoints(1 + (mfx.bossBonusTech || 0));
                 if (mfx.bossBonusRunes) this.awardRunes(mfx.bossBonusRunes);
+                BO.SurvivalCareer.awardCommendations(1);
                 this._spawnLootPouch(entity.pos, { aetherShard: 2 + (mfx.bossExtraShard || 0), scrap: 4, medkits: 1 }, 120, true);
                 if (entity.survivalType === 'frostBoss') this.foundTalismans.add('scavenger_scarab');
                 if (entity.survivalType === 'cinderBoss' || entity.survivalType === 'apex') this.foundTalismans.add('ironheart_crest');
@@ -842,14 +852,15 @@
                     this.awardRunes(250);
                     m.grant({ aetherShard: mfx.bloodMoonDoubleRewards ? 4 : 2, scrap: 4, medkits: 1 });
                     if (mfx.bloodMoonDoubleRewards) this.grantTechPoints(2);
+                    BO.SurvivalCareer.awardCommendations(1);
                     this.campaign.mark('bloodMoons', 1, 140);
-                    m.toast('Blood Moon survived! +250 Runes & +Aether Shards.');
+                    m.toast('Blood Moon survived! +250 Runes, +Aether Shards & +1 Commendation.');
                 }
             }
 
-            // Aether Meteor Falls
+            // Aether Meteor Falls across the 20x Valley
             if (!this.meteor && clock >= this.nextMeteor) {
-                const spots = [[-16, 0, 20], [18, 0, 18], [-22, 0, -10], [26, 0, -18]];
+                const spots = [[-68, 0, 72], [74, 0, 68], [-82, 0, -58], [92, 0, -72], [-152, 0, 12], [154, 0, 118], [-168, 0, -152], [176, 0, 56]];
                 const [x, y, z] = BO.Math.pick(spots);
                 const rock = this._mesh(new THREE.DodecahedronGeometry(0.75), 0x7c3aed, x, y + 0.55, z, { emissive: 0xa855f7, emissiveIntensity: 0.65 });
                 const beam = this._mesh(new THREE.CylinderGeometry(0.18, 0.42, 16, 8), 0xc084fc, x, y + 8.5, z, { transparent: true, opacity: 0.32, emissive: 0xa855f7, emissiveIntensity: 0.8 });

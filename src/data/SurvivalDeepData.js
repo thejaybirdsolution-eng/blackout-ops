@@ -58,13 +58,15 @@
     frontier.buildings.push(...deepBuildings);
     BO.SurvivalCampaignData.build.push(...deepBuildings);
 
-    // 5 Sites of Grace (Elden Ring-inspired Sanctuary Checkpoints)
+    // 7 Sites of Grace (Elden Ring-inspired Sanctuary Checkpoints across 20x Valley)
     const shrines = [
-        { id: 'relay_grace', name: 'Relay Sanctuary Grace', area: 'relay', x: 3.2, y: 0, z: 29.0 },
-        { id: 'pine_grace', name: 'Pinebreak Glade Grace', area: 'pine', x: -35.0, y: 0, z: 12.0 },
-        { id: 'freight_grace', name: 'Freight Overpass Grace', area: 'freight', x: 22.5, y: 0, z: -14.0 },
-        { id: 'ridge_grace', name: 'Slateback Summit Grace', area: 'ridge', x: -48.2, y: 5.6, z: 34.8 },
-        { id: 'trench_grace', name: 'Trench Threshold Grace', area: 'trench', x: 3.5, y: -5, z: -45.0 }
+        { id: 'relay_grace', name: 'Relay Sanctuary Grace', area: 'relay', x: 14, y: 0, z: 118 },
+        { id: 'pine_grace', name: 'Pinebreak Glade Grace', area: 'pine', x: -138, y: 0, z: 42 },
+        { id: 'freight_grace', name: 'Freight Overpass Grace', area: 'freight', x: 102, y: 0, z: -38 },
+        { id: 'ridge_grace', name: 'Slateback Summit Grace', area: 'ridge', x: -198, y: 14, z: 142 },
+        { id: 'airfield_grace', name: 'Airfield Hangar Grace', area: 'airfield', x: 168, y: 0, z: 162 },
+        { id: 'radar_grace', name: 'Radar Overlook Grace', area: 'radar', x: 88, y: 11, z: -186 },
+        { id: 'trench_grace', name: 'Trench Threshold Grace', area: 'trench', x: 14, y: -8, z: -180 }
     ];
 
     // 5 Levelable RPG Attributes (Spend Aether Runes at Shrines or Tech Panel)
@@ -88,16 +90,16 @@
     };
 
     const talismanPickups = [
-        { id: 'turtle_emblem', x: -37.5, y: 0, z: 22.0 },
-        { id: 'marksman_lens', x: 29.0, y: 0, z: -2.0 },
-        { id: 'rad_charm', x: 43.0, y: 0, z: -21.0 },
-        { id: 'claw_talisman', x: -50.8, y: 7.2, z: 33.8 }
+        { id: 'turtle_emblem', x: -144, y: 0, z: 74 },
+        { id: 'marksman_lens', x: 134, y: 0, z: -8 },
+        { id: 'rad_charm', x: 186, y: 0, z: -96 },
+        { id: 'claw_talisman', x: -208, y: 20, z: 164 }
     ];
 
     const goldenSeeds = [
-        { id: 'seed_pine', name: 'Golden Aether Seed (Pinebreak)', x: -46.0, y: 0, z: 29.0 },
-        { id: 'seed_basin', name: 'Golden Aether Seed (Spillway)', x: 48.0, y: 0, z: -17.0 },
-        { id: 'seed_cavern', name: 'Golden Aether Seed (Echo Cavern)', x: -9.8, y: -5, z: -50.2 }
+        { id: 'seed_pine', name: 'Golden Aether Seed (Pinebreak)', x: -178, y: 0, z: 102 },
+        { id: 'seed_basin', name: 'Golden Aether Seed (Spillway)', x: 206, y: 0, z: -72 },
+        { id: 'seed_cavern', name: 'Golden Aether Seed (Echo Cavern)', x: -64, y: -8, z: -214 }
     ];
 
     // 16-Node 4-Tier Palworld-Inspired Technology Tree (STRICTLY ZERO CREATURES/PALS!)

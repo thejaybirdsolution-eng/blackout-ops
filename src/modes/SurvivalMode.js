@@ -6,7 +6,7 @@
     const data = BO.SurvivalData;
     const distance = (a, b) => BO.Math.dist3D(a.x, a.y, a.z, b.x, b.y, b.z);
     const vector = (p) => new THREE.Vector3(p.x, p.y, p.z);
-    const trainRoute = [[19, -12], [43, -12], [43, -36], [-35, -36], [-35, 32], [19, 32]];
+    const trainRoute = BO.SurvivalWorld.trainRoute;
     const lootTable = [
         { scrap: 3, cloth: 2 }, { scrap: 2, fuel: 1, rations: 1 }, { scrap: 3, fuel: 1 },
         { cloth: 2, rations: 1 }, { scrap: 2, fuel: 2 }
@@ -66,8 +66,9 @@
             this.timber = [];
             this.markers = [];
             this.rider = false;
+            this.zip = null;
             this.near = null;
-            this.train = { pos: new THREE.Vector3(19, 0, -12), next: 1, running: false };
+            this.train = { pos: new THREE.Vector3(trainRoute[0][0], 0, trainRoute[0][1]), next: 1, running: false };
             this.threat = null;
             this.lastDay = 1;
             this.lastNight = 0;
@@ -191,42 +192,63 @@
                     }
                 }
             }
-            // A small crown and crude timber deck become debris when either pair of supports gives way.
-            const deck = this.mesh(new THREE.BoxGeometry(5, 0.35, 4), 0x866f52, 17, 3.5, 18);
-            this.tower = { deck, collider: this.solid(deck, 5, 0.35, 4), supports: [], collapsed: false };
-            for (const x of [15, 19]) for (const z of [16.5, 19.5]) {
-                const mesh = this.mesh(new THREE.BoxGeometry(0.34, 3.5, 0.34), 0x6f513d, x, 1.75, z);
-                this.tower.supports.push(this.addStructure(mesh, 0.34, 3.5, 0.34, 'wood', 'support'));
+            // Collapsible Watchtower at Relay Crossroads
+            const deck = this.mesh(new THREE.BoxGeometry(6, 0.35, 5), 0x866f52, 58, 5.5, 52);
+            this.tower = { deck, collider: this.solid(deck, 6, 0.35, 5), supports: [], collapsed: false };
+            for (const x of [56, 60]) for (const z of [50.5, 53.5]) {
+                const mesh = this.mesh(new THREE.BoxGeometry(0.42, 5.5, 0.42), 0x6f513d, x, 2.75, z);
+                this.tower.supports.push(this.addStructure(mesh, 0.42, 5.5, 0.42, 'wood', 'support'));
             }
-            for (let i = 0; i < 36; i++) {
-                const side = i % 2 ? 1 : -1;
-                const x = side * (43 + (i % 5) * 2.1);
-                const z = -45 + (i * 13 % 82);
-                const h = 4.5 + i % 4;
-                const trunk = this.mesh(new THREE.CylinderGeometry(0.18, 0.32, h, 6), 0x594333, x, h / 2, z);
-                const crown = this.mesh(new THREE.ConeGeometry(1.6, h * 0.82, 7), 0x384d3e, x, h * 0.87, z);
-                const tree = this.addStructure(trunk, 0.6, h, 0.6, 'wood', 'tree');
+            // Forest & outer perimeter timber (avoiding highways, trench cutout & runway)
+            const treeSpots = [];
+            for (let i = 0; i < 96; i++) {
+                const band = i % 3;
+                const x = band === 0 ? -125 - (i * 19 % 110) : (i % 2 ? 1 : -1) * (175 + (i % 6) * 11);
+                const z = -220 + (i * 41 % 410);
+                if (Math.abs(x) < 35 && z < -115) continue;
+                if (Math.abs(x) < 12 || Math.abs(z - 26) < 12) continue;
+                if (x > 120 && z > 130) continue;
+                if (treeSpots.some(([tx, tz]) => Math.hypot(x - tx, z - tz) < 9)) continue;
+                treeSpots.push([x, z]);
+                const h = 5.5 + (i % 4) * 1.1;
+                const trunk = this.mesh(new THREE.CylinderGeometry(0.22, 0.38, h, 6), 0x594333, x, h / 2, z);
+                const crown = this.mesh(new THREE.ConeGeometry(1.9, h * 0.82, 7), 0x384d3e, x, h * 0.87, z);
+                const tree = this.addStructure(trunk, 0.7, h, 0.7, 'wood', 'tree');
                 tree.crown = crown;
                 this.timber.push(tree);
             }
-            this.water = this.mesh(new THREE.BoxGeometry(27, 0.09, 28), 0x305966, 38, 0.13, -15,
+            const db = BO.SurvivalWorld.delugeBounds;
+            this.water = this.mesh(new THREE.BoxGeometry(db.x1 - db.x0, 0.12, db.z1 - db.z0), 0x305966, (db.x0 + db.x1) / 2, 0.15, (db.z0 + db.z1) / 2,
                 { transparent: true, opacity: 0.63, metalness: 0.24, roughness: 0.27 });
             this.water.visible = false;
 
             this.train.cars = [
-                this.mesh(new THREE.BoxGeometry(3, 2.0, 4.8), 0x5e6853, 19, 1.2, -12),
-                this.mesh(new THREE.BoxGeometry(3.1, 0.60, 4.0), 0x574d43, 13, 0.44, -12),
-                this.mesh(new THREE.BoxGeometry(3.1, 0.60, 4.0), 0x686150, 8, 0.44, -12)
+                this.mesh(new THREE.BoxGeometry(3.2, 2.2, 5.2), 0x5e6853, trainRoute[0][0], 1.2, trainRoute[0][1]),
+                this.mesh(new THREE.BoxGeometry(3.3, 0.65, 4.4), 0x574d43, trainRoute[0][0] - 6, 0.44, trainRoute[0][1]),
+                this.mesh(new THREE.BoxGeometry(3.3, 0.65, 4.4), 0x686150, trainRoute[0][0] - 12, 0.44, trainRoute[0][1])
             ];
             for (let i = 0; i < trainRoute.length; i++) {
                 const [x, z] = trainRoute[i];
                 const [u, v] = trainRoute[(i + 1) % trainRoute.length];
                 const alongX = z === v;
-                for (const offset of [-0.76, 0.76]) {
-                    this.mesh(new THREE.BoxGeometry(alongX ? Math.abs(u - x) : 0.07, 0.045, alongX ? 0.07 : Math.abs(v - z)),
+                for (const offset of [-0.78, 0.78]) {
+                    this.mesh(new THREE.BoxGeometry(alongX ? Math.abs(u - x) : 0.08, 0.05, alongX ? 0.08 : Math.abs(v - z)),
                         0x726d62, (x + u) / 2 + (alongX ? 0 : offset), 0.032, (z + v) / 2 + (alongX ? offset : 0));
                 }
             }
+            // 6 Tactical Ziplines with pylons, tensioned cables & bidirectional markers
+            (BO.SurvivalWorld.ziplines || []).forEach((zip, idx) => {
+                const a = new THREE.Vector3(zip.from[0], zip.from[1] + 2.2, zip.from[2]);
+                const b = new THREE.Vector3(zip.to[0], zip.to[1] + 2.2, zip.to[2]);
+                const mid = a.clone().add(b).multiplyScalar(0.5);
+                const len = a.distanceTo(b);
+                const cable = this.mesh(new THREE.CylinderGeometry(0.04, 0.04, len, 6), 0x94a3b8, mid.x, mid.y, mid.z);
+                cable.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+                for (const [endIdx, pt] of [[0, zip.from], [1, zip.to]]) {
+                    this.mesh(new THREE.CylinderGeometry(0.14, 0.18, 2.5, 6), 0x475569, pt[0], pt[1] + 1.25, pt[2]);
+                    this.marker({ id: `zipline:${idx}:${endIdx}`, x: pt[0], y: pt[1], z: pt[2], name: 'Zipline', label: 'Zip: ' + zip.label, color: 0x38bdf8 });
+                }
+            });
         }
 
         marker(site) {
@@ -381,7 +403,7 @@
             // Rival Bounty needs Sable from the start; everywhere else he arrives on day 3.
             if (type === 'bounty') this.deployCommander(true);
             for (let i = 0; i < Math.min(2, t.cap); i++) this.spawnRoamer(true);
-            if (type === 'expedition' && !this.core && !this.campaign.metrics.apex) this.spawnInfected(-6, -5, -50, 'apex');
+            if (type === 'expedition' && !this.core && !this.campaign.metrics.apex) this.spawnInfected(-14, -8, -214, 'apex');
             this.refreshTargets();
         }
 
@@ -394,18 +416,19 @@
             return this.threat;
         }
 
-        /** Surface spawn point out of sight range, never inside a locked biome. */
-        spawnPoint(minDist = 20) {
+        /** Surface spawn point inside the active 34–115m encounter ring, never inside a locked biome. */
+        spawnPoint(minDist = 34, maxDist = 115) {
             const p = BO.Player.pos;
             const locked = BO.SurvivalCampaignData.areas.filter((a) => a.bounds && this.campaign.gates.get(a.id)?.collider.active);
-            const inLocked = (x, z) => locked.some((a) => x >= a.bounds[0] - 1 && x <= a.bounds[1] + 1 && z >= a.bounds[2] - 1 && z <= a.bounds[3] + 1);
-            const points = data.map.waypoints.filter((w) => w.y === 0)
-                .map((w) => ({ x: w.x + (Math.random() - 0.5) * 3, y: 0, z: w.z + (Math.random() - 0.5) * 3 }))
+            const inLocked = (x, z) => locked.some((a) => x >= a.bounds[0] - 2 && x <= a.bounds[1] + 2 && z >= a.bounds[2] - 2 && z <= a.bounds[3] + 2);
+            const basePts = data.map.waypoints.filter((w) => w.y >= 0)
+                .map((w) => ({ x: w.x + (Math.random() - 0.5) * 8, y: w.y, z: w.z + (Math.random() - 0.5) * 8 }))
                 .filter((w) => !inLocked(w.x, w.z) && Math.hypot(w.x - p.x, w.z - p.z) >= minDist);
-            if (!points.length) return null;
-            points.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
-            // Prefer the nearer half so roamers actually find the player, but never right on top of them.
-            return BO.Math.pick(points.slice(0, Math.max(1, Math.ceil(points.length / 2))));
+            if (!basePts.length) return null;
+            const ring = basePts.filter((w) => Math.hypot(w.x - p.x, w.z - p.z) <= maxDist);
+            if (ring.length) return BO.Math.pick(ring);
+            basePts.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+            return BO.Math.pick(basePts.slice(0, Math.min(4, basePts.length)));
         }
 
         get roamingCount() {
@@ -423,7 +446,7 @@
             if (this.commanderDeployed) return;
             this.commanderDeployed = true;
             if (!required && this.campaign.has('noPatrols')) return;
-            this.commander = this.spawnBot(37, 0, -20, 'ak47', 225, 1, true);
+            this.commander = this.spawnBot(135, 0, -52, 'ak47', 225, 1, true);
             if (this.commander) this.commander.name = 'Commander Sable';
             if (!required) this.toast("Commander Sable's PMC unit has entered the zone.");
         }
@@ -593,14 +616,15 @@
                 phase < 45 ? 'Overcast' : phase < 87 ? 'Ash rain' : phase < 135 ? 'Rad fog' : 'Clearing';
             const fog = this.scene.fog;
             const nearbyFire = this.fire.some((fire) => fire.pos.clone().addScaledVector(this.wind, 2.4).distanceTo(p.pos) < 5);
-            fog.density = 0.012 + (this.weather === 'Rad fog' ? 0.016 : 0) + darkness * 0.008 + (nearbyFire ? 0.008 : 0);
-            if (this.weatherLight) this.weatherLight.intensity = 1.35 - darkness * 0.97;
+            fog.density = 0.0038 + (this.weather === 'Rad fog' ? 0.011 : 0) + darkness * 0.0045 + (nearbyFire ? 0.006 : 0);
+            if (this.weatherLight) this.weatherLight.intensity = 1.38 - darkness * 0.97;
             if (this.weatherHemi) this.weatherHemi.intensity = 1.12 - darkness * 0.50;
             this.noise = Math.max(0, this.noise - dt);
             this.coilHeat = Math.max(0, this.coilHeat - dt);
             this.updateCycle();
             this.updateFactions(dt);
             this.updateTrain(dt);
+            if (this.zip) this.updateZip(dt);
             this.updateHazards(dt, darkness);
             this.updateSpawns();
             this.updatePrompt();
@@ -641,7 +665,8 @@
 
         updateHazards(dt, darkness) {
             const p = BO.Player;
-            const deluge = this.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6;
+            const db = BO.SurvivalWorld.delugeBounds;
+            const deluge = this.flooded && p.pos.x > db.x0 && p.pos.x < db.x1 && p.pos.z > db.z0 && p.pos.z < db.z1 && p.pos.y < 0.6;
             const survivalNeeds = this.campaign?.options.survivalNeeds !== false;
             const deep = this.campaign?.deep;
             const fx = deep?.modFx;
@@ -712,8 +737,8 @@
                 this.patrolsDeployed = true;
                 if (!campaign.has('noPatrols')) {
                     const p = BO.Player.pos;
-                    for (const [x, y, z, weapon] of [[27, 0, 0, 'mp5'], [33, 0, -9, 'm1911']]) {
-                        if (distance(p, { x, y, z }) > 14) this.spawnBot(x, y, z, weapon);
+                    for (const [x, y, z, weapon] of [[118, 0, -12, 'mp5'], [128, 0, -24, 'm1911']]) {
+                        if (distance(p, { x, y, z }) > 18) this.spawnBot(x, y, z, weapon);
                     }
                     this.toast('PMC scavengers have moved into Freight Works.');
                 }
@@ -721,15 +746,41 @@
             if (t.commander && !this.commanderDeployed && campaign.options.gameType !== 'bounty') this.deployCommander(false);
             if (t.mimics && this.clock >= this.nextMimic && this.weather === 'Rad fog') {
                 this.nextMimic = this.clock + 120;
-                this.spawnInfected(12, 0, -32, 'mimic');
+                const p = BO.Player.pos;
+                this.spawnInfected(BO.Math.clamp(p.x + 28, -235, 235), 0, BO.Math.clamp(p.z - 28, -225, 195), 'mimic');
             }
             if (this.clock >= this.commanderReturnAt) {
                 this.commanderReturnAt = Infinity;
-                this.commander = this.spawnBot(-41, 0, -15, 'm249', 290, 1, true);
+                this.commander = this.spawnBot(-142, 0, -58, 'm249', 290, 1, true);
                 this.commander.name = 'Commander Sable • Reinforced';
-                this.spawnBot(-45, 0, -13, 'mp5');
+                this.spawnBot(-146, 0, -54, 'mp5');
                 this.toast('Sable is back with reinforcements.');
             }
+        }
+
+        startZip(index, reverse = false) {
+            const spec = BO.SurvivalWorld.ziplines?.[index];
+            if (!spec) return false;
+            const a = reverse ? spec.to : spec.from;
+            const b = reverse ? spec.from : spec.to;
+            this.zip = {
+                from: new THREE.Vector3(a[0], a[1] + 0.5, a[2]),
+                to: new THREE.Vector3(b[0], b[1] + 0.5, b[2]),
+                t: 0,
+                speed: 28 / Math.max(1, Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]))
+            };
+            this.campaign.mark('rides', 1, 5);
+            this.toast('Riding zipline: ' + spec.label);
+            return true;
+        }
+
+        updateZip(dt) {
+            const z = this.zip;
+            if (!z || !BO.Player.alive) { this.zip = null; return; }
+            z.t = Math.min(1, z.t + dt * z.speed);
+            BO.Player.pos.lerpVectors(z.from, z.to, z.t);
+            BO.Player.vel.set(0, 0, 0);
+            if (z.t >= 1) this.zip = null;
         }
 
         updateTrain(dt) {
@@ -739,11 +790,12 @@
             const [x, z] = trainRoute[train.next];
             const next = new THREE.Vector3(x, 0, z);
             const direction = next.sub(train.pos);
-            if (direction.length() <= 6.7 * dt) {
+            const speed = 22;
+            if (direction.length() <= speed * dt) {
                 train.pos.set(x, 0, z);
                 train.next = (train.next + 1) % trainRoute.length;
             } else {
-                train.pos.addScaledVector(direction.normalize(), dt * 6.7);
+                train.pos.addScaledVector(direction.normalize(), dt * speed);
             }
             const delta = train.pos.clone().sub(previous);
             if (this.rider && BO.Player.alive) {
@@ -793,11 +845,16 @@
             if (!this.active || !BO.Player.alive) return;
             if (this.rider) {
                 this.rider = false;
-                BO.Player.pos.x = Math.max(-52, Math.min(52, this.train.pos.x + 2.4));
+                BO.Player.pos.x = Math.max(-244, Math.min(244, this.train.pos.x + 2.8));
                 return;
             }
             const site = this.near;
             if (!site) return;
+            if (site.id.startsWith('zipline:')) {
+                const [, idx, rev] = site.id.split(':');
+                this.startZip(Number(idx), Number(rev) === 1);
+                return;
+            }
             if (this.campaign?.activate(site)) return;
             if (site.id === 'shelter') {
                 this.composure = Math.min(100, this.composure + 20);
@@ -822,8 +879,8 @@
                 if (!this.campaign.objectives.routeEvac()) return;
                 if (!this.exfil) {
                     this.exfil = { site, readyAt: this.clock + (this.campaign.has('quickEvac') ? 19 : 38) };
-                    this.spawnInfected(-37, 0, -17);
-                    this.spawnInfected(-44, 0, -32);
+                    this.spawnInfected(site.x - 18, 0, site.z + 18);
+                    this.spawnInfected(site.x + 20, 0, site.z - 16);
                 }
                 this.nextSpawn = Math.min(this.nextSpawn, this.clock + 2);
                 return this.toast(this.objective);
@@ -976,7 +1033,11 @@
         finish(victory) {
             this.active = false;
             BO.SurvivalUI.close();
-            if (victory) this.campaign?.mark('extracts', 1, 160);
+            if (victory) {
+                this.campaign?.mark('extracts', 1, 160);
+                BO.SurvivalCareer.awardCommendations(3);
+                BO.SurvivalCareer.bankExtraction(this.points);
+            }
             BO.SurvivalCareer.tick(this.campaign.run, 'seconds', Math.floor(this.clock), 0);
             BO.SurvivalCareer.discard(this.campaign?.run);
             const stats = { mode: 'survival', victory, title: victory ? 'EXTRACTION COMPLETE' : 'EXPEDITION LOST',

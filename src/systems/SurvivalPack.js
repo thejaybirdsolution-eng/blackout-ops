@@ -41,8 +41,8 @@
             const endBonus = (this.campaign.deep?.attributes?.endurance || 0) * 3;
             const techBonus = this.campaign.deep?.hasTech?.('t1_scavenge') ? 8 : 0;
             const extraKg = this.campaign.deep?.modFx?.bonusCarryKg || 0;
-            const mult = this.campaign.has?.('megaStack') ? 2 : 1;
-            const slotBonus = this.campaign.has?.('megaStack') ? 10 : 0;
+            const mult = (this.campaign.has?.('megaStack') ? 2 : 1) * (1 + BO.SurvivalCareer.masteryRank('logistics') * 0.12);
+            const slotBonus = (this.campaign.has?.('megaStack') ? 10 : 0) + BO.SurvivalCareer.masteryRank('logistics') * 2;
             return {
                 name: base.name,
                 weight: base.weight * mult + endBonus + techBonus + extraKg,
@@ -309,7 +309,8 @@
                 if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? 480 : 170);
                 const mfx = this.campaign.deep?.modFx || {};
                 const extraLoot = this.campaign.has('richLoot') || this.campaign.deep?.hasInfusion('fortune');
-                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1);
+                const scavMult = 1 + BO.SurvivalCareer.masteryRank('scavenger') * 0.15;
+                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1) * scavMult;
                 const gain = Object.fromEntries(Object.entries(spec.gain).map(([id, count]) => {
                     if (id === 'relic') return [id, count];
                     let amt = extraLoot ? count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5)) : count;

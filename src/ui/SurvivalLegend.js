@@ -35,22 +35,24 @@
     const STATION_SHORT = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln' };
     const TOOL_NAME = { axe: 'axe', pick: 'pickaxe', shovel: 'shovel' };
     const AREA_NOTES = {
-        relay: 'The starting sanctuary. Workshop shelter (workbench and stove), many contacts, the garden beds, a water filter, basic branches, stones and fiber, the Relay Sanctuary Grace and the glider launch deck.',
-        pine: 'Western woods. Pine trees, fiber roots, bitterleaf, the Scout Vale rescue beacon, a repeater, the Pinebreak cistern fishing spot and the Pinebreak Glade Grace.',
-        freight: 'Eastern rail yards. The freight cache, the locomotive, ammunition and vehicle traders, a repeater and the Freight Overpass Grace.',
-        basin: 'Eastern wetland around the dam. Clay, copper and buried salvage. Opening the dam floods part of it for good — scavenge first.',
-        frost: 'Locked northwest quarry (survival level 3). Hardwood, boulders, quartz, buried salvage and the Pale Maul boss (challenge it via Kestrel). Freezing at night.',
-        cinder: 'Locked southeast flats (survival level 5). Coal, iron, copper and quartz, and the Cinder Regent boss (challenge it via Ember). Hot: you drink faster.',
-        trench: 'The research facility below the central ramp. Ore veins, the Apex Guardian and the Aether core. Radiation builds up down here — bring a filter and light.',
-        ridge: 'Slateback Ridge: a switchback climb with rich ore, hardwood, the Mason and Cartographer contacts, a survey cairn and the Summit Grace.',
-        cavern: 'Echo Cavern, west through the research trench. Dark and irradiated, with luminous quartz, copper and the deep Resonant Geode guarded by the Resonant Sentinel.'
+        relay: 'Tier 1 starting sanctuary. Workshop shelter (workbench and stove), key contacts, garden beds, a water filter, timber, stones, fiber, the Relay Sanctuary Grace and the 16 m Glider Launch Tower.',
+        pine: 'Tier 1 western woods across the central highway. Pine trees, fiber roots, bitterleaf, the Scout Vale rescue beacon, a repeater, the Pinebreak cistern fishing spot, tactical ziplines and the Pinebreak Glade Grace.',
+        freight: 'Tier 1 eastern rail yards on the 1,100 m Grand Rail Loop. The freight cache, the locomotive, ammunition and vehicle traders, a repeater and the Freight Overpass Grace.',
+        basin: 'Tier 2 eastern wetland around the dam. Clay, copper and buried salvage. Opening the dam floods a 120 × 120 m basin for good — scavenge first.',
+        airfield: 'Tier 2 southeastern Derelict Airfield. Long concrete runway, hangar ruins, an 11 m ATC watchtower, supply drop zone, fuel/salvage caches, and iron/copper deposits.',
+        frost: 'Tier 3 locked northwest quarry (survival level 3 or breach gate early). Hardwood, boulders, quartz, buried salvage and the Pale Maul boss (challenge it via Kestrel). Freezing at night.',
+        cinder: 'Tier 3 locked southeast flats (survival level 5 or breach gate early). Coal, iron, copper and quartz, and the Cinder Regent boss (challenge it via Ember). Hot: you drink faster.',
+        radar: 'Tier 2 northeast Radar Ridge plateau (11 m elevation). Satellite arrays, quartz, deep crystal veins, Site of Grace and high-value salvage.',
+        trench: 'Tier 3 research facility below the 60 × 85 m central ramp. Ore veins, the Apex Guardian and the Aether core. Radiation builds up down here — bring a filter and light.',
+        ridge: 'Tier 2 Slateback Ridge: a switchback climb up to a 14 m plateau and 20 m summit with rich ore, hardwood, the Mason and Cartographer contacts, a survey cairn and the Summit Grace.',
+        cavern: 'Tier 3 Echo Cavern, deep west of the research trench. Dark and irradiated, with luminous quartz, copper and the deep Resonant Geode guarded by the Resonant Sentinel.'
     };
     const SITE_INFO = {
-        shelter: 'Your base of operations. Works as a workbench and a campfire stove, and resting here restores composure.',
+        shelter: 'Your base of operations. Works as a workbench and a campfire stove; resting restores composure, and your extracted Safe-House Stash can be withdrawn at Relay.',
         hospital: 'Search it once for 3 salvage, 1 MRI coil, 2 cloth and 1 trauma kit. The MRI coil powers the coil prototype weapon.',
-        dam: 'Open the spillway to flood the freight basin permanently. Anything standing in the basin is crushed. Needed for the Spillway Test contract.',
+        dam: 'Open the spillway to flood the 120 × 120 m freight basin permanently. Anything standing in the basin is crushed. Needed for the Spillway Test contract.',
         depot: 'Search it once for 4 salvage, 2 fuel, a ration, an extra lethal and an MP5 carbine with 60 rounds.',
-        train: 'Restore it for 5 salvage and 2 fuel, then ride it around the rail loop. Interact again to step off.',
+        train: 'Restore it for 5 salvage and 2 fuel, then ride the 1,100 m Grand Rail Loop around the Exclusion Zone at 22 m/s. Interact again to step off.',
         bunker: 'The Aether core lies at the bottom of the research trench. Defeat the Apex Guardian first (Core Expedition).',
         lookout: 'Evac Ridge. Call extraction here once your objective is complete, then hold the position until the timer ends.',
         squadmate: 'Rescue Scout Vale, who then fights alongside you in the western sector.'
@@ -84,13 +86,9 @@
     const an = (w) => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
 
     function areaAt(x, y, z) {
+        if (BO.SurvivalWorld?.areaAt) return BO.SurvivalWorld.areaAt(x, y, z);
         const areas = BO.SurvivalCampaignData.areas;
-        let a = null;
-        if (y < -1.7) a = areas.find((zone) => zone.id === (x < -4.6 && z < -43 ? 'cavern' : 'trench'));
-        if (!a && y > 2.6 && x < -37 && z > 28) a = areas.find((zone) => zone.id === 'ridge');
-        if (!a) a = areas.find((zone) => zone.bounds && x >= zone.bounds[0] && x <= zone.bounds[1] && z >= zone.bounds[2] && z <= zone.bounds[3]);
-        if (!a) a = areas.filter((zone) => !zone.bounds && zone.y === 0).reduce((best, zone) => Math.hypot(x - zone.x, z - zone.z) < Math.hypot(x - best.x, z - best.z) ? zone : best);
-        return a;
+        return areas.find((zone) => zone.id === 'relay') || areas[0];
     }
 
     function build() {
@@ -151,15 +149,15 @@
         const lootSrc = (items, text) => { for (const id of Object.keys(items || {})) src(id, text); };
         lootSrc({ scrap: 3, coil: 1, cloth: 2, medkits: 1 }, 'Field hospital search (once)');
         lootSrc({ scrap: 4, fuel: 2, rations: 1 }, 'Freight siding cache (once)');
-        lootSrc({ scrap: 1, cloth: 1, fuel: 1, rations: 1 }, 'Salvage caches — 10 marked crates around the zone (once each)');
+        lootSrc({ scrap: 1, cloth: 1, fuel: 1, rations: 1 }, 'Salvage caches — 14 marked crates around the zone (once each)');
         for (const sh of acts.shore || []) for (const l of sh.loot) lootSrc(l, 'Fishing haul at ' + sh.name + ' (weighted salvage line)');
         for (const pl of acts.plots || []) lootSrc(pl.loot, 'Harvest the ' + pl.name + ' (Relay garden)');
         for (const sv of acts.surveys || []) lootSrc(sv.loot, 'Survey landmark: ' + sv.name);
         for (const rt of acts.routes || []) lootSrc(rt.reward, 'Dispatch route reward: ' + rt.name);
         lootSrc({ wire: 3, fuel: 2, medkits: 2 }, 'Reward for powering all three repeaters');
-        lootSrc({ scrap: 3, medkits: 1, fuel: 1, cloth: 2 }, 'Weather balloon supply drops (every few minutes)');
+        lootSrc({ scrap: 3, medkits: 1, fuel: 1, cloth: 2 }, 'Weather balloon supply drops (4 landing sites)');
         lootSrc({ cropSeeds: 3, freshWater: 2 }, 'Starter crops from the Relay dispatch board');
-        lootSrc({ freshWater: 1 }, 'Hand pumps (Relay, Spillway, west catchment) — free, refill over time');
+        lootSrc({ freshWater: 1 }, 'Hand pumps (Relay, Spillway, Pinebreak, Airfield) — free, refill over time');
         lootSrc({ freshWater: 1 }, 'Hydro-collector you build');
         lootSrc({ ingot: 1, scrap: 1 }, 'Auto-smelter you build');
         lootSrc({ aetherShard: 3, quartz: 3, iron: 2 }, 'Aether meteors (purple beacon on the map)');
@@ -202,6 +200,8 @@
                 'Spend the Tech Point in Skills (' + key('survSkills') + ').',
                 'Check your objective in the Journal (' + key('survJournal') + ').'] }] });
         add({ cat: 'start', title: 'The core loop', icon: icon('build'), text: 'Gather → craft better tools → reach better deposits → build a base and stations → research tech and level attributes → beat bosses → complete your operation and extract at Evac Ridge.' });
+        add({ cat: 'start', title: '20× Exclusion Zone & Risk Tiers', icon: icon('scroll'), tags: ['500 × 450 m', '11 biomes'], text: 'The Exclusion Zone spans 500 × 450 m (225,000 m²) across 11 interconnected biomes divided into 3 risk-reward tiers. Deep biomes grant higher XP and Aether rune yields alongside richer deposits and tougher enemies.',
+            facts: [['Tier 1 (Safe Belt)', 'Relay, Pinebreak, Freight (1.0× rewards)'], ['Tier 2 (Frontier)', 'Basin, Airfield, Radar Ridge, Slateback (1.35×)'], ['Tier 3 (Hotzone)', 'Frostline, Cinder, Trench, Echo Cavern (1.75×)']] });
         add({ cat: 'start', title: 'Bare hands vs. tools', icon: icon('fist'), text: 'Bare hands break branches, stones, fiber, tier-1 trees and rocks, timber walls and even standing trees — at a quarter of a stone tool\'s speed. Tier-2 deposits (copper, quartz, hardwood, buried salvage) need the right tool. Hold a tool on the hotbar and click (or hold) to swing it.',
             facts: [['Hand power', '0.25 per hit'], ['Stone tool', '1 per hit (4× faster)'], ['Iron tool', '2 per hit'], ['Drill / Aether', '3–4 per hit']] });
         add({ cat: 'start', title: 'The hotbar', icon: icon('chest'), text: 'Ten slots for weapons, tools and usable items. Number keys select a slot and the mouse wheel cycles through all ten. An empty slot is bare hands. New tools and supplies are added automatically; drag things around in the Inventory, or select an item and press a number key.' });
@@ -236,8 +236,8 @@
         add({ cat: 'threat', title: 'PMC scavengers & Commander Sable', icon: icon('rifle', '#f2b45a'), text: 'Two armed PMC scavengers move into Freight Works on day 2. Commander Sable (225 HP, rifle) arrives on day 3 — or at once in Rival Bounty. Below 70 HP Sable retreats and returns 52 s later with a machine gun and an escort. With the PMC Occupation pool, more patrols join each day (up to 8). No Roaming PMC Patrols disables them.' });
         add({ cat: 'threat', title: 'Weather', icon: icon('drop', '#9fd4ff'), text: 'With dynamic weather on, a 3-minute cycle rolls through: Overcast → Ash rain → Radiation fog → Clearing.', lists: [{ h: 'Effects', items: ['Ash rain: worn firearms (80+ shots) may jam — press reload to clear.', 'Radiation fog: thick fog, more radiation in contaminated areas, and from day 3 Mimics may call out on the radio pretending to be survivors.', 'Clearing / Overcast: no special effects.'] }] });
         add({ cat: 'threat', title: 'Crimson Blood Moon', icon: icon('fire', '#ef6b6b'), text: 'Every third night (nights 3, 6, 9…) — or every night in Blood Moon Defense or with the Crimson Blood Moons modifier — the sky turns red for 75 s and infected surge in every 11 s. Survive it for 250 runes, 2 Aether shards, 4 salvage and a trauma kit.' });
-        add({ cat: 'threat', title: 'Aether meteors', icon: icon('crystal', '#c79bff'), text: 'After about 3 minutes, and every ~3 minutes after one is mined, a meteor crashes at one of four surface spots (shown on the map). Mine it for 3 Aether shards, 3 quartz, 2 iron, 160 runes and a random weapon schematic.' });
-        add({ cat: 'threat', title: 'Weather balloon drops', icon: icon('flare', '#ffb36b'), text: 'Supply caches drift down at one of three spots every few minutes (sooner with repeaters powered or an orbital flare). Each holds 3 salvage, a trauma kit, fuel and 2 cloth, and expires if you wait too long.' });
+        add({ cat: 'threat', title: 'Aether meteors', icon: icon('crystal', '#c79bff'), text: 'After about 3 minutes, and every ~3 minutes after one is mined, a meteor crashes at one of eight surface craters across the valley (shown on the map). Mine it for 3 Aether shards, 3 quartz, 2 iron, 160 runes and a permanent weapon blueprint.' });
+        add({ cat: 'threat', title: 'Weather balloon drops', icon: icon('flare', '#ffb36b'), text: 'Supply caches drift down at one of four landing sites (including the Derelict Airfield runway) every few minutes (sooner with repeaters powered or an orbital flare). Each holds 3 salvage, a trauma kit, fuel and 2 cloth, and expires if you wait too long.' });
         add({ cat: 'threat', title: 'Noise & stealth', icon: icon('fist'), text: 'Gunfire, mining drills, explosions and vehicles make noise, which draws extra roamers. Crouching while quiet makes you hard to spot; crouched hits on an unaware enemy from behind deal a 3.5× stealth takedown. A suppressor keeps gunfire quiet.' });
 
         /* ---------- vitals ---------- */
@@ -318,10 +318,11 @@
             const res = Object.entries(frontier.resources).map(([k, r]) => [r.name, here(k)]).filter(([, n]) => n).map(([n, c]) => n + ' ×' + c);
             const people = campaign.contacts.filter((n) => n.area === a.id).map((n) => n.name);
             const graces = (deep.shrines || []).filter((s) => s.area === a.id).map((s) => s.name);
-            add({ cat: 'map', title: a.name, icon: Ic.svg('scroll', '#' + a.color.toString(16).padStart(6, '0'), 26), tags: [a.level > 1 ? 'Level ' + a.level : 'Open'],
-                text: (AREA_NOTES[a.id] || '') + (a.level > 1 ? ' Its gate opens at survival level ' + a.level + '.' : ''),
+            const breachNote = a.breachCost ? ' Or breach the gate early with ' + amounts(a.breachCost) + '.' : '';
+            add({ cat: 'map', title: a.name, icon: Ic.svg('scroll', '#' + a.color.toString(16).padStart(6, '0'), 26), tags: ['Tier ' + (a.tier || 1), a.level > 1 ? 'Level ' + a.level : 'Open'],
+                text: (AREA_NOTES[a.id] || '') + (a.level > 1 ? ' Its gate opens at survival level ' + a.level + '.' + breachNote : ''),
                 lists: [{ h: 'Resources', items: res.length ? res : ['None'] }, { h: 'Contacts', items: people.length ? people : ['None'] }, ...(graces.length ? [{ h: 'Site of Grace', items: graces }] : [])],
-                keywords: 'area biome zone ' + a.id });
+                keywords: 'area biome zone tier' + (a.tier || 1) + ' ' + a.id });
         }
         for (const s of base.sites) add({ cat: 'map', title: s.name, icon: Ic.svg('build', '#' + s.color.toString(16).padStart(6, '0'), 26), tags: [areaAt(s.x, s.y, s.z).name], text: SITE_INFO[s.id] || s.label });
 
@@ -368,8 +369,10 @@
         for (const seed of deep.goldenSeeds || []) add({ cat: 'progression', title: seed.name, icon: icon('seed', '#fde047'), tags: [areaAt(seed.x, seed.y, seed.z).name], text: 'Permanently adds one Aether Flask charge (up to 6).' });
         for (const node of deep.techTree || []) add({ cat: 'progression', title: 'Tech: ' + node.name, icon: icon('tech', '#9fd4ff'), tags: ['Tier ' + node.tier, node.cost + ' TP'], text: node.desc + (node.req ? ' Requires “' + techName(node.req) + '”.' : ''), keywords: 'tech research' });
         for (const [id, inf] of Object.entries(deep.infusions || {})) add({ cat: 'progression', title: 'Infusion: ' + inf.name, icon: icon('crystal', '#c79bff'), tags: ['Altar'], text: inf.desc + ' Apply at an Aether infusion altar for 2 quartz, 1 Aether shard and 120 runes (two active at once).' });
-        add({ cat: 'progression', title: 'Runes & Tech Points', icon: icon('rune', '#f2d07a'), text: 'Runes drop from every kill (28 infected, 55 PMC, 320 bosses) and from Blood Moons and meteors. Tech Points come from levelling up, kindling Graces and beating bosses.' });
-        add({ cat: 'progression', title: 'Survival career', icon: icon('flare'), text: 'XP from discoveries, crafting, building, kills, contracts and challenges raises your survival level across expeditions. Level 2 unlocks the bicycle, 3 the pack horse and Frostline Quarry, 4 the glider, 5 Cinder Flats, 6 the rover.', lists: [{ h: 'Ranks', items: campaign.ranks.map(([lv, r]) => 'Level ' + lv + ': ' + r) }] });
+        add({ cat: 'progression', title: 'Runes & Tech Points', icon: icon('rune', '#f2d07a'), text: 'Runes drop from every kill (28 infected, 55 PMC, 320 bosses) and from Blood Moons and meteors, boosted by Tier 2 (1.35×) and Tier 3 (1.75×) biome multipliers. Tech Points come from levelling up, kindling Graces and beating bosses.' });
+        add({ cat: 'progression', title: 'Blueprints, Commendations & Mastery', icon: icon('tech', '#f2b45a'), tags: ['Persistent'], text: 'Weapon blueprints unlocked in-run persist permanently across all future expeditions. Earn Commendations from levelling up, defeating bosses, surviving Blood Moons and extracting — then spend them in the Career & Kits screen on 5 permanent Mastery perks (Logistics, Conditioning, Scavenger, Armorer, Navigator).' });
+        add({ cat: 'progression', title: 'Deployment Kits & Safe-House Stash', icon: icon('chest', '#9fe0c9'), tags: ['Persistent'], text: 'Pick one of 5 Deployment Kits (Standard, Pathfinder, Sapper, Alchemist, Vanguard) in the Deployment screen to customize your starting load. Extracting safely at Evac Ridge banks salvage and meds into your Safe-House Stash, withdrawable at Relay Sanctuary in future runs.' });
+        add({ cat: 'progression', title: 'Survival career', icon: icon('flare'), text: 'XP from discoveries, crafting, building, kills, contracts and challenges raises your survival level across expeditions (scaled by biome Tier). Level 2 unlocks the bicycle, 3 the pack horse and Frostline Quarry, 4 the glider, 5 Cinder Flats, 6 the rover.', lists: [{ h: 'Ranks', items: campaign.ranks.map(([lv, r]) => 'Level ' + lv + ': ' + r) }] });
 
         /* ---------- activities ---------- */
         for (const p of acts.plots || []) add({ cat: 'activities', title: p.name, icon: icon('seed'), tags: ['Garden'], text: 'Plant crop seeds, water with filtered water, wait about ' + p.grow + ' s, then harvest.', facts: [['Harvest', amounts(p.loot)]] });
@@ -378,12 +381,13 @@
         for (const r of acts.relays || []) add({ cat: 'activities', title: r.name, icon: icon('generator'), tags: [areaAt(r.x, r.y, r.z).name], text: 'Power it with 1 copper wire and 1 fuel. All three powered: faster supply drops plus 3 wire, 2 fuel and 2 trauma kits.' });
         for (const sv of acts.surveys || []) add({ cat: 'activities', title: 'Survey: ' + sv.name, icon: icon('scroll'), tags: [areaAt(sv.x, sv.y, sv.z).name], text: 'Record this landmark for a one-time reward.', facts: [['Reward', amounts(sv.loot)]] });
         for (const rt of acts.routes || []) add({ cat: 'activities', title: 'Dispatch: ' + rt.name, icon: icon('flare'), tags: ['Relay board'], text: 'Accept at the Relay dispatch board, then visit: ' + rt.labels.join(' → ') + '.', facts: [['Reward', amounts(rt.reward)]] });
-        add({ cat: 'activities', title: 'Salvage caches', icon: icon('chest', '#9caa83'), text: 'Ten marked crates around the zone (two in the trench). Each can be searched once for salvage, cloth, fuel or rations.' });
+        add({ cat: 'activities', title: 'Salvage caches', icon: icon('chest', '#9caa83'), text: 'Fourteen marked crates around the zone (including Derelict Airfield, Radar Ridge and Research Trench). Each can be searched once for salvage, cloth, fuel or rations.' });
 
         /* ---------- travel ---------- */
         for (const v of campaign.vehicles) add({ cat: 'travel', title: v.name, icon: icon(v.id === 'glider' ? 'flare' : 'gear'), tags: ['Level ' + v.level], text: v.detail + ' Equip it from the map screen; unlocks at survival level ' + v.level + ' or by trading.', facts: [['On the road', '×' + v.speed + ' speed'], ['Off-road', '×' + v.offroad + ' speed']] });
-        add({ cat: 'travel', title: 'Locomotive', icon: icon('gear', '#ffc46e'), text: 'Restore it at the freight yard (5 salvage, 2 fuel) and ride the rail loop around the zone. Interact to step off.' });
-        add({ cat: 'travel', title: 'Fast travel', icon: icon('scroll'), text: 'From the map, travel to any discovered surface area for 1 fuel (free with some modifiers). One hour passes. Not possible with enemies within 9 m, while evacuating, or with On Foot Only. Sites of Grace warp for free.' });
+        add({ cat: 'travel', title: 'Tactical Ziplines & 16 m Tower', icon: icon('flare', '#7ee8fa'), tags: ['28 m/s'], text: 'Six bidirectional ziplines span key canyons, highways and elevated ridges across the 500 × 450 m zone — interact at either anchor post to zip at 28 m/s. Climb the 16 m Glider Launch Tower east of Relay Sanctuary for sweeping valley flights.' });
+        add({ cat: 'travel', title: 'Grand Rail Loop Locomotive', icon: icon('gear', '#ffc46e'), text: 'Restore the locomotive at the freight yard (5 salvage, 2 fuel) and ride the 1,100 m Grand Rail Loop around the Exclusion Zone at 22 m/s. Interact to step off.' });
+        add({ cat: 'travel', title: 'Fast travel & Waypoints', icon: icon('scroll'), text: 'From the 20× tactical map, scroll to zoom, drag to pan, and click anywhere to drop a distance waypoint. Fast-travel to any discovered surface biome for 1 fuel (free with Navigator Mastery Rank 2 or modifiers). Sites of Grace warp for free.' });
 
         /* ---------- rules ---------- */
         for (const [id, m] of Object.entries(rules.modes)) add({ cat: 'rules', title: 'Operation: ' + m.name, icon: icon('flare'), text: m.description });

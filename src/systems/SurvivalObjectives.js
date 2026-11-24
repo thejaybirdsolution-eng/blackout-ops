@@ -3,11 +3,11 @@
     'use strict';
 
     const cairns = [
-        ['relay','Relay Watch',9,0,21], ['pine','Pinebreak Survey',-34,0,-10], ['freight','Freight Signal',32,0,10],
-        ['ridge','Slateback Benchmark',-49,5.6,36.9], ['basin','Basin Marker',48,0,-14], ['trench','Trench Survey',6,-5,-51]
+        ['relay','Relay Watch',32,0,86], ['pine','Pinebreak Survey',-136,0,-32], ['freight','Freight Signal',138,0,36],
+        ['ridge','Slateback Benchmark',-196,14,146], ['basin','Basin Marker',196,0,-58], ['trench','Trench Survey',22,-8,-212]
     ];
     const delivery = { iron: 12, planks: 8, coal: 4, scrap: 10 };
-    const encounterSites = [[-36, 0, -18], [-43, 0, -35], [-17, 0, -38], [-25, 0, -15], [-46, 0, -25]];
+    const encounterSites = [[-145, 0, -82], [-152, 0, -118], [-88, 0, -142], [-115, 0, -78], [-164, 0, -96]];
     const fieldChallenges = [
         { id: 'trail', name: 'Trail Kit', info: 'Gather eight nodes, craft five items, and open one supply cache.', criteria: [['gatheredNodes', 8], ['crafted', 5], ['fieldCaches', 1]], reward: { rations: 2, cloth: 2, scrap: 3 }, xp: 110 },
         { id: 'base', name: 'Safe Haven', info: 'Build five pieces, rest in a field bed, and stock a chest with four items.', criteria: [['built', 5], ['fieldRests', 1], ['storedItems', 4]], reward: { planks: 4, brick: 3, torch: 2 }, xp: 135 },
@@ -48,10 +48,10 @@
             for (const [id, label, x, y, z] of cairns) {
                 if (!this.surveyed.has(id)) m.marker({ id: 'survey:' + id, name: label, x, y, z, label: 'Record ' + label, color: 0x8af3d1 });
             }
-            for (const [id, x, y, z] of [['camp', -15, 0, 22], ['quarry', -50, 0, -41], ['rail', 33, 0, -12]]) {
+            for (const [id, x, y, z] of [['camp', -58, 0, 86], ['quarry', -192, 0, -162], ['rail', 132, 0, -42]]) {
                 if (!this.caches.has(id)) m.marker({ id: 'field-cache:' + id, name: 'Field crate', x, y, z, label: 'Open field crate', color: 0xe6c485 });
             }
-            m.marker({ id: 'field-board', name: 'Expedition board', x: 2.8, y: 0, z: 33.7, label: 'Read field challenges', color: 0xa6ddd0 });
+            m.marker({ id: 'field-board', name: 'Expedition board', x: 10, y: 0, z: 128, label: 'Read field challenges', color: 0xa6ddd0 });
         }
 
         snapshot() {

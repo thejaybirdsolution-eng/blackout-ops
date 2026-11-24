@@ -6,6 +6,24 @@
     const careerKey = 'boSurvivalCareer/v1';
     const checkpointKey = 'boSurvivalCheckpoint/v1';
 
+    const MASTERY = {
+        logistics: { name: 'Field Logistics', max: 3, cost: 2, desc: '+12% carry weight & +2 pack slots per rank.' },
+        conditioning: { name: 'Combat Conditioning', max: 3, cost: 2, desc: '+15 starting max HP & faster stamina recovery per rank.' },
+        scavenger: { name: 'Zone Scavenger', max: 3, cost: 2, desc: '+15% gathering & Aether Rune yield per rank.' },
+        armorer: { name: 'Ballistic Armorer', max: 3, cost: 2, desc: '+25 starting armor & +1 spare plate per rank.' },
+        navigator: { name: 'Valley Navigator', max: 2, cost: 3, desc: '+15% vehicle speed per rank; Rank 2 grants free fast travel.' }
+    };
+
+    const KITS = {
+        standard: { name: 'Standard Issue', level: 1, desc: 'Balanced start: M1911 (32 reserve), C4, Monkey Bomb, 1 ration, 1 trauma kit.', items: {} },
+        pathfinder: { name: 'Pathfinder', level: 2, desc: 'Traversal kit: Trail Bicycle unlocked at start, +2 fuel, +1 torch, +2 cord.', items: { fuel: 2, torch: 1, cord: 2 }, vehicle: 'bike' },
+        sapper: { name: 'Field Sapper', level: 4, desc: 'Engineering kit: +6 timber, +4 stone, +4 salvage, +2 wire for rapid fortifying.', items: { timber: 6, stone: 4, scrap: 4, wire: 2 } },
+        alchemist: { name: 'Zone Alchemist', level: 6, desc: 'Medical & rad kit: +2 herbal dressings, +1 respirator filter, +2 filtered water, +1 Aether shard.', items: { bandage: 2, filter: 1, freshWater: 2, aetherShard: 1 } },
+        vanguard: { name: 'Frontier Vanguard', level: 9, desc: 'Heavy breach kit: +2 iron bars, +2 fuel, +4 salvage, +1 trauma kit, +24 pistol reserve.', items: { ingot: 2, fuel: 2, scrap: 4, medkits: 1 }, ammo: 24 }
+    };
+
+    const BANKABLE = ['scrap', 'ingot', 'wire', 'quartz', 'aetherShard', 'coil'];
+
     function read(key) {
         try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; }
     }
@@ -41,8 +59,15 @@
         constructor() {
             const saved = read(careerKey);
             this.profile = {
-                xp: Number(saved?.xp) || 0, stats: { ...(saved?.stats || {}) },
-                trips: { ...(saved?.trips || {}) }, options: options(saved?.options)
+                xp: Number(saved?.xp) || 0,
+                stats: { ...(saved?.stats || {}) },
+                trips: { ...(saved?.trips || {}) },
+                options: options(saved?.options),
+                blueprints: Array.isArray(saved?.blueprints) ? [...new Set(saved.blueprints)] : [],
+                commendations: Number(saved?.commendations) || 0,
+                mastery: { ...(saved?.mastery || {}) },
+                stash: { ...(saved?.stash || {}) },
+                kit: Object.hasOwn(KITS, saved?.kit) ? saved.kit : 'standard'
             };
             this.checkpoint = read(checkpointKey);
         }
@@ -57,6 +82,75 @@
 
         get rank() {
             return data.ranks.filter(([level]) => this.level >= level).at(-1)[1];
+        }
+
+        masteryRank(id) {
+            return Math.min(MASTERY[id]?.max || 0, Number(this.profile.mastery[id]) || 0);
+        }
+
+        buyMastery(id) {
+            const spec = MASTERY[id];
+            if (!spec) return false;
+            const rank = this.masteryRank(id);
+            if (rank >= spec.max || this.profile.commendations < spec.cost) return false;
+            this.profile.commendations -= spec.cost;
+            this.profile.mastery[id] = rank + 1;
+            write(careerKey, this.profile);
+            return true;
+        }
+
+        setKit(id) {
+            const kit = KITS[id];
+            if (!kit || this.level < kit.level) return false;
+            this.profile.kit = id;
+            write(careerKey, this.profile);
+            return true;
+        }
+
+        unlockBlueprint(id) {
+            if (!id || this.profile.blueprints.includes(id)) return false;
+            this.profile.blueprints.push(id);
+            write(careerKey, this.profile);
+            return true;
+        }
+
+        awardCommendations(n = 1) {
+            if (!n || n <= 0) return;
+            this.profile.commendations += Math.round(n);
+            write(careerKey, this.profile);
+        }
+
+        bankExtraction(packItems = {}) {
+            const banked = {};
+            for (const id of BANKABLE) {
+                const qty = packItems[id] || 0;
+                if (qty <= 0) continue;
+                const add = Math.max(1, Math.ceil(qty * 0.25));
+                const prev = this.profile.stash[id] || 0;
+                const next = Math.min(25, prev + add);
+                if (next > prev) {
+                    this.profile.stash[id] = next;
+                    banked[id] = next - prev;
+                }
+            }
+            write(careerKey, this.profile);
+            return banked;
+        }
+
+        withdrawStash(pack) {
+            if (!pack) return {};
+            const taken = {};
+            for (const [id, qty] of Object.entries(this.profile.stash)) {
+                if (qty <= 0) continue;
+                const { accepted } = pack.receive({ [id]: qty }, false);
+                if (accepted[id]) {
+                    this.profile.stash[id] -= accepted[id];
+                    if (this.profile.stash[id] <= 0) delete this.profile.stash[id];
+                    taken[id] = accepted[id];
+                }
+            }
+            if (Object.keys(taken).length) write(careerKey, this.profile);
+            return taken;
         }
 
         remember(value) {
@@ -76,18 +170,21 @@
             const count = total - previous;
             counters[key] = total;
             const modXp = (BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.deep?.modFx?.xpMult) ? BO.SurvivalMode.campaign.deep.modFx.xpMult : 1;
-            const xpMult = ((BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.has?.('abundantTech')) ? 2 : 1) * modXp;
+            const areaTier = (BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.area?.tier) ? BO.SurvivalMode.campaign.area.tier : 1;
+            const tierMult = areaTier === 3 ? 1.75 : areaTier === 2 ? 1.35 : 1;
+            const xpMult = ((BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.has?.('abundantTech')) ? 2 : 1) * modXp * tierMult;
             this.profile.xp += Math.round(xp * count * xpMult);
             this.profile.stats[key] = (this.profile.stats[key] || 0) + count;
-            write(careerKey, this.profile);
             if (this.level > old) {
+                this.profile.commendations += (this.level - old);
                 BO.Events.emit('hud:banner', {
-                    title: 'SURVIVAL LEVEL ' + this.level, sub: this.rank.toUpperCase(), color: '#a8d9bc'
+                    title: 'SURVIVAL LEVEL ' + this.level, sub: this.rank.toUpperCase() + ' · +' + (this.level - old) + ' COMMENDATION', color: '#a8d9bc'
                 });
                 if (BO.SurvivalMode?.active && BO.SurvivalMode?.campaign?.deep) {
                     BO.SurvivalMode.campaign.deep.grantTechPoints(this.level - old);
                 }
             }
+            write(careerKey, this.profile);
         }
 
         store(checkpoint) {
@@ -101,6 +198,7 @@
         }
     }
 
+    BO.SurvivalMeta = { MASTERY, KITS };
     BO.SurvivalCampaignOptions = options;
     BO.SurvivalCareer = new SurvivalCareer();
 })(window.BO);

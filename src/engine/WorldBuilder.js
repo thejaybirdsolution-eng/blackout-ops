@@ -89,8 +89,9 @@
                 sun.shadow.mapSize.width = q.shadowMapSize;
                 sun.shadow.mapSize.height = q.shadowMapSize;
                 sun.shadow.camera.near = 2;
-                sun.shadow.camera.far = 120;
-                const d = 36;
+                const isSurv = this.mapData.mode === 'survival';
+                sun.shadow.camera.far = isSurv ? 240 : 120;
+                const d = isSurv ? 85 : 36;
                 sun.shadow.camera.left = -d;
                 sun.shadow.camera.right = d;
                 sun.shadow.camera.top = d;
