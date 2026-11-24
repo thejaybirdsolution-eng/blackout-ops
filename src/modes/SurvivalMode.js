@@ -93,6 +93,8 @@
                 p.switchWeapon(-1);
             }
             c.setup(checkpoint);
+            BO.ZoneBuild.falling.length = 0;
+            BO.ZoneBuild.restored();
             if (!checkpoint) {
                 // You come to in the wreck: hurt and bleeding, with six rounds in the pistol.
                 p.hp = Math.round(p.maxHp * 0.7);
@@ -106,6 +108,8 @@
         }
 
         stop() {
+            if (this.campaign) BO.ZoneBuild.end(true);
+            BO.ZoneHorde?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -202,9 +206,12 @@
             this.removeSolid(part.mesh, part.collider);
             this.breaches++;
             if (kind !== 'restore') this.campaign?.mark('breaches', 1, 6);
-            if (part.buildPiece) part.buildPiece.alive = false;
             BO.FX.spawnParticles(part.mesh.position.clone(), 7, part.material === 'wood' ? 0xaa8254 : 0xbe9580, 4, 9, 0.5);
             part.mesh.visible = false;
+            if (part.buildPiece) {
+                part.buildPiece.alive = false;
+                BO.ZoneBuild?.onPieceLost(part.buildPiece);
+            }
         }
 
         crush(pos, radius) {
@@ -407,11 +414,17 @@
             const callbacks = {
                 allowProjectiles: false,
                 getTarget: (z) => {
+                    const H = BO.ZoneHorde;
+                    if (z.breach) { const br = H.breachTarget(z); if (br) return br; }
+                    if (z.horde) return H.targetFor(z);
                     const bot = closest(bots, z.pos, 11);
                     if (bot && (!z.zs || z.zs.state !== 'hunt' || bot.pos.distanceTo(z.pos) < p.pos.distanceTo(z.pos))) return { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true };
                     return D.getTarget(z);
                 },
-                onAttackCustomTarget: (z, ct) => ct?.target && this.hit(ct.target, z.damage, 'torso', null, 'melee', z),
+                onAttackCustomTarget: (z, ct) => {
+                    if (ct?.structure) BO.ZoneHorde.strike(z, ct.structure);
+                    else if (ct?.target) this.hit(ct.target, z.damage, 'torso', null, 'melee', z);
+                },
                 onMeleePlayer: (z) => {
                     p.takeDamage(z.damage, z.pos, false, z);
                     D.onPlayerHurt();
@@ -464,6 +477,8 @@
             this.updateCycle();
             this.updateFactions(dt);
             BO.ZoneDirector.update(dt);
+            BO.ZoneHorde?.update(dt);
+            BO.ZoneBuild.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);

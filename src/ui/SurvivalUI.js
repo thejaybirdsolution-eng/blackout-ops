@@ -641,7 +641,7 @@
                 case 'recipe': this.selRecipe = arg; break;
                 case 'craft': this.craftRecipe(arg, Number(el.dataset.times) || 1); break;
                 case 'buildSel': this.selBuild = arg; break;
-                case 'place': if (c.build(arg)) return this.resume(); break;
+                case 'place': if (BO.ZoneBuild.begin(arg)) return this.resume(); break;
                 case 'rotate': c.buildRotation = 1 - c.buildRotation; break;
                 case 'repairBase': deep?.repairBase(); break;
                 case 'dismantle': deep?.dismantleNearest(); break;
@@ -1541,9 +1541,14 @@
             const b = pieces.find((x) => x.id === this.selBuild);
             const cost = costOf(b);
             const techOk = !b.tech || deep?.hasTech(b.tech);
-            const can = techOk && mode.canAfford(cost) && c.canBuild;
-            const why = !techOk ? 'Research “' + techName(b.tech) + '” in Skills first.' : !c.canBuild ? 'Stand on open ground (not riding, not during evacuation).' : !mode.canAfford(cost) ? 'Gather the missing materials.' : '';
+            const can = techOk && mode.canAfford(cost);
+            const why = !techOk ? 'Research “' + techName(b.tech) + '” in Skills first.' : !mode.canAfford(cost) ? 'Gather the missing materials.' : '';
             const built = c.placed.filter((x) => x.alive).length;
+            const structural = BO.ZoneBuild.isStruct(b.id);
+            const parts = c.placed.filter((x) => x.alive && BO.ZoneBuild.isStruct(x.type));
+            const avgSup = parts.length ? Math.round(parts.reduce((a, x) => a + (x.support ?? 1), 0) / parts.length * 100) : null;
+            const weakest = parts.length ? Math.round(Math.min(...parts.map((x) => x.support ?? 1)) * 100) : null;
+            const H = BO.ZoneHorde;
             return `<div class="sv-build">
                 <section class="sv-bgrid sv-scroll" data-scroll="bgrid">${cards}</section>
                 <aside class="sv-detail sv-scroll" data-scroll="bdetail">
@@ -1551,14 +1556,15 @@
                     <p class="sv-detail-text">${esc(b.detail)}</p>
                     <h4 class="sv-sub">Materials</h4><ul class="sv-costs">${costRows(cost, inv)}</ul>
                     ${b.tech ? `<div class="sv-req ${techOk ? 'ok' : 'short'}">${techOk ? '✓' : '🔒'} ${esc(techName(b.tech))}</div>` : ''}
-                    <div class="sv-actions"><button class="sv-btn primary" data-act="place" data-arg="${b.id}" ${can ? '' : 'disabled'}${tip('Place', can ? 'Places it 2.6 m in front of you and closes the terminal.' : why)}>Place in front</button></div>
+                    <div class="sv-actions"><button class="sv-btn primary" data-act="place" data-arg="${b.id}" ${can ? '' : 'disabled'}${tip('Build', can ? 'Closes the terminal and shows a preview that follows your aim. Left-click places (repeatedly), R rotates, right-click or ' + keyOf('survBuild') + ' exits.' : why)}>Build</button></div>
+                    ${structural ? `<p class="sv-muted sm">Snaps to the 2.8 m grid: foundations on the ground, floors beside floors, walls on floor edges or other walls, upper floors and roofs on wall tops. Support drops ${b.id.startsWith('stone') || b.id === 'door' ? '6% per level up and 20%' : '12% per level up and 30%'} per cell outward; below 10% it cannot stand.</p>` : '<p class="sv-muted sm">Place it on the ground or on any floor you have built.</p>'}
                     ${why ? `<p class="sv-reason">${esc(why)}</p>` : ''}
                     <h4 class="sv-sub">Base</h4>
-                    <dl class="sv-kv"><div${tip('Base level', 'Rises with the variety of structure types you have standing (every 3 types).')}><dt>Base level</dt><dd>${deep?.baseLevel ?? 1} / 5</dd></div><div><dt>Structures</dt><dd>${built} / 80</dd></div>
-                        <div${tip('Orientation', 'Walls and floors snap to your facing; rotate turns them 90°.')}><dt>Rotation</dt><dd>${c.buildRotation ? 'Turned 90°' : 'Facing you'}</dd></div></dl>
+                    <dl class="sv-kv"><div${tip('Base level', 'Rises with the variety of structure types you have standing (every 3 types).')}><dt>Base level</dt><dd>${deep?.baseLevel ?? 1} / 5</dd></div><div><dt>Structures</dt><dd>${built} / 160</dd></div>
+                        <div${tip('Structural integrity', 'Average and weakest support across your structural pieces. Blue is solid, red is barely holding.')}><dt>Integrity</dt><dd>${avgSup == null ? '—' : avgSup + '% avg · ' + weakest + '% weakest'}</dd></div>
+                        <div${tip('Horde nights', 'Every third night a horde converges on your base (or on you). They tear through the weakest walls.')}><dt>Next horde</dt><dd>${esc(H.forecast() || 'After the safe period')}</dd></div></dl>
                     <div class="sv-actions wrap">
-                        <button class="sv-btn sm" data-act="rotate"${tip('Rotate', 'Turn the next placement by 90°.')}>Rotate 90°</button>
-                        <button class="sv-btn sm" data-act="repairBase" ${mode.canAfford({ scrap: 1 }) ? '' : 'disabled'}${tip('Repair all', 'Restore every damaged structure for 1 salvage.')}>Repair all (1 salvage)</button>
+                        <button class="sv-btn sm" data-act="repairBase"${tip('Repair nearby', 'Fully repair damaged structures within 14 m: 1 timber per timber piece, 1 brick per masonry piece.')}>Repair nearby</button>
                         <button class="sv-btn sm ghost" data-act="dismantle"${tip('Dismantle nearest', 'Remove your closest structure within 4 m for a partial refund.')}>Dismantle nearest</button>
                     </div>
                 </aside></div>`;
@@ -2155,11 +2161,13 @@
             const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - now));
             let headline = mode.objective;
             let sub = '';
+            const horde = BO.ZoneHorde;
             if (!mode.hostilesReleased) { headline = 'Safe period · ' + safeLeft + 's'; sub = mode.objective; }
+            else if (horde?.active) { headline = horde.forecast(); sub = horde.target?.base ? 'Defend your base until the waves are dead or dawn breaks' : 'Survive until the waves are dead or dawn breaks'; }
             else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = mode.objective; }
             else if (deep?.bloodMoonActive) { headline = 'Blood Moon · ' + Math.max(0, Math.ceil(deep.bloodMoonUntil - now)) + 's'; sub = mode.objective; }
             topEl.classList.toggle('is-safe-prep', !mode.hostilesReleased);
-            topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive);
+            topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive || !!horde?.active);
             topEl.classList.toggle('is-night', c.isNight);
             if (h.obj.textContent !== headline) h.obj.textContent = headline;
             if (h.objSub.textContent !== sub) h.objSub.textContent = sub;
@@ -2170,6 +2178,7 @@
                 `<span>${esc(mode.weather)}</span>`,
                 `<span>${esc(c.area?.name || '')}</span>`,
                 mode.hostilesReleased && t ? `<span class="${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t.cap} roaming</span>` : '',
+                mode.hostilesReleased && !horde?.active ? `<span class="${/tonight/.test(horde.forecast()) ? 'night' : ''}">${esc(horde.forecast())}</span>` : '',
                 deep?.stealthFactor < 0.65 ? '<span class="stealth">Hidden</span>' : '',
                 vehicle ? `<span>${esc(vehicle.name)}</span>` : ''
             ].join('');
@@ -2227,7 +2236,7 @@
             // ---- interaction prompt
             const prompt = BO.HUD.elPrompt;
             if (prompt) {
-                prompt.classList.toggle('hidden', !mode.prompt);
+                prompt.classList.toggle('hidden', !mode.prompt || !!BO.ZoneBuild?.active);
                 const text = mode.prompt ? '[' + keyOf('interact') + '] ' + mode.prompt : '';
                 if (prompt.textContent !== text) prompt.textContent = text;
                 prompt.style.color = '#e6f4ee';

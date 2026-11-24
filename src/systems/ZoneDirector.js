@@ -193,7 +193,7 @@
             const p = BO.Player.pos;
             // Despawn far, unaware infected so the population follows the player.
             for (const zb of m.zombies) {
-                if (!zb.alive || zb.bossLabel || zb.zs?.state === 'hunt') continue;
+                if (!zb.alive || zb.bossLabel || zb.horde || zb.zs?.state === 'hunt') continue;
                 if (Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) > 155) {
                     zb.alive = false;
                     zb.despawned = true;

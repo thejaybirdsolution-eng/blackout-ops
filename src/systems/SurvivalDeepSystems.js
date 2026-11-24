@@ -611,28 +611,29 @@
             const refund = fullRefund ? { scrap: 3, timber: 2, ingot: 1 } : { scrap: 2, timber: 1 };
             this.mode.grant(refund);
             this.mode.toast(fullRefund ? 'Zero-Waste Dismantle (+3 Salvage, +2 Timber, +1 Iron Ingot).' : 'Structure dismantled (+2 Salvage, +1 Timber).');
+            BO.ZoneBuild?.settle();
             return true;
         }
 
+        /** Repair damaged structures within 14 m: 1 timber per timber piece, 1 brick per masonry piece. */
         repairBase() {
-            let count = 0;
-            for (const piece of this.campaign.placed) {
-                if (!piece.alive || !piece.part) continue;
-                const maxHp = piece.type.startsWith('stone') ? 265 : 170;
-                if (piece.part.hp < maxHp) {
-                    piece.part.hp = maxHp;
-                    count++;
-                }
+            const p = BO.Player.pos;
+            const todo = this.campaign.placed.filter((piece) => piece.alive && piece.part && piece.part.hp < (piece.part.maxHp || piece.part.hp) - 0.5 &&
+                Math.hypot(piece.x - p.x, piece.z - p.z) < 14);
+            if (!todo.length) { this.mode.toast('Nothing nearby needs repairing.'); return false; }
+            const inv = this.mode.points;
+            let timber = inv.timber || 0, brick = inv.brick || 0, done = 0;
+            const used = { timber: 0, brick: 0 };
+            for (const piece of todo) {
+                const stone = piece.part.material === 'brick';
+                if (stone ? brick < 1 : timber < 1) continue;
+                if (stone) { brick--; used.brick++; } else { timber--; used.timber++; }
+                piece.part.hp = piece.part.maxHp;
+                done++;
             }
-            if (!count) {
-                this.mode.toast('All built structures are already at full integrity.');
-                return false;
-            }
-            if (!this.mode.spend({ scrap: 1 })) {
-                this.mode.toast('Requires 1 Salvage to repair nearby structures.');
-                return false;
-            }
-            this.mode.toast(`Repaired ${count} structure(s).`);
+            if (!done) { this.mode.toast('Repairs need timber (timber pieces) or brick (masonry).'); return false; }
+            this.mode.spend(Object.fromEntries(Object.entries(used).filter(([, n]) => n > 0)));
+            this.mode.toast('Repaired ' + done + ' structure' + (done === 1 ? '' : 's') + (done < todo.length ? ' (' + (todo.length - done) + ' still damaged: not enough materials)' : '') + '.');
             return true;
         }
 

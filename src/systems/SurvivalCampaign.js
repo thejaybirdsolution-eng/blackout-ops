@@ -538,7 +538,7 @@
 
         canSave() {
             const p = BO.Player;
-            return this.mode.active && p.alive && !this.mode.rider && !this.mode.exfil && !this.has('ironRun') && !this.objectives.unsafeToSave &&
+            return this.mode.active && p.alive && !this.mode.rider && !this.mode.exfil && !this.has('ironRun') && !this.objectives.unsafeToSave && !BO.ZoneHorde?.active &&
                 ![...this.mode.zombies, ...this.mode.bots].some((enemy) => enemy.alive && enemy.team !== 0 && near(enemy.pos, p.pos, 9));
         }
 

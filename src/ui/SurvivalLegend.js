@@ -310,8 +310,18 @@
             add({ cat: 'building', title: b.name, icon: Ic.build(b.id, 26), tags: [b.tech ? 'Tech: ' + techName(b.tech) : 'No research'], text: b.detail,
                 facts: [['Cost', amounts(b.cost)], ['Size', b.size.map((v) => v.toFixed(1)).join(' × ') + ' m'], ...(b.tech ? [['Research', techName(b.tech)]] : [])] });
         }
-        add({ cat: 'building', title: 'Placement rules', icon: icon('build'), text: 'Pieces go 2.6 m in front of you on a half-metre grid, facing you (rotate 90° in the Build screen). You must be on the ground, not riding or evacuating, outside the locked biomes, and not blocking a contact or mission site. Roofs need a wall within 3 m. Up to 80 structures per expedition.' });
-        add({ cat: 'building', title: 'Base level, repair & dismantle', icon: icon('wall'), text: 'Every three different structure types raise your base level (max 5). Repair every damaged piece for 1 salvage, or dismantle your nearest piece within 4 m for a partial refund (2 salvage, 1 timber).' });
+        add({ cat: 'building', title: 'Build mode & snapping', icon: icon('build'),
+            text: 'Choose a piece in the Build tab and press Build: a preview follows your aim. Structural pieces snap to a 2.8 m grid — foundations to the world grid on the ground, floors beside floors, walls onto floor edges or on top of other walls, upper floors and roofs onto wall tops. Furniture goes on the ground or on any floor.',
+            lists: [{ h: 'Controls', items: ['Left mouse: place (stay in build mode to keep placing)', 'R: rotate furniture and free-standing walls', 'Right mouse, ' + key('survBuild') + ' or Esc: leave build mode'] }],
+            facts: [['Range', '8 m'], ['Structure limit', '160 per expedition'], ['Not allowed', 'Threat 4+ regions, deep water, the Zone edge']] });
+        add({ cat: 'building', title: 'Structural integrity', icon: icon('wall'),
+            text: 'Every structural piece has support from 0–100%. Anything touching the ground is 100%. Each level up and each cell outward loses support, so tall towers and long overhangs need stone or extra walls underneath. Below 10% a piece cannot be placed — and if a supporting piece is destroyed, everything relying on it collapses along with any furniture on it.',
+            facts: [['Timber', '−12% per level up, −30% per cell out'], ['Masonry & doors', '−6% per level up, −20% per cell out'], ['Colours in build mode', 'blue solid · green good · yellow weak · red failing']] });
+        add({ cat: 'building', title: 'Horde nights', icon: icon('beacon', '#ff7b6b'),
+            text: 'Every third night (every second with Brutal Nights) the Lantern pulses and a horde comes: three waves from one side of the compass, about 50 seconds apart. If you are within 75 m of your base they go for the base; otherwise they hunt you. They follow the cheapest route through your walls and tear through the weakest point, so a closed ring of masonry with a firing position beats a single strong wall.',
+            lists: [{ h: 'Survive it', items: ['Watch the HUD forecast and the HORDE TONIGHT warning at dusk.', 'Build in masonry and close every gap — they mass wherever a wall is weakest.', 'Stand on an upper floor and shoot down; heavies and named infected wreck walls fastest.', 'Repair between waves from the Build tab (1 timber or brick per piece).', 'It ends when every wave is dead or at dawn: +XP and a commendation.'] }],
+            facts: [['Timber wall', '220 HP'], ['Masonry wall', '560 HP'], ['Reinforced door', '420 HP']] });
+        add({ cat: 'building', title: 'Base level, repair & dismantle', icon: icon('wall'), text: 'Every three different structure types raise your base level (max 5). Repair damaged pieces within 14 m for 1 timber (timber pieces) or 1 brick (masonry) each, or dismantle your nearest piece within 4 m for a partial refund.' });
 
         /* ---------- map ---------- */
         for (const a of campaign.areas) {

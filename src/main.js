@@ -289,6 +289,11 @@
                     return;
                 }
 
+                if (BO.ZoneBuild?.active && BO.State.activeMode === 'survival') {
+                    if (e.button === 0) BO.ZoneBuild.place();
+                    else if (e.button === 2) BO.ZoneBuild.end();
+                    return;
+                }
                 if (e.button === 0) {
                     this.mouseDown = true;
                     P.mouseDragging = true;
@@ -392,6 +397,7 @@
                 const kb = BO.Settings.getKeybinds();
                 const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
 
+                if (code === 'Escape' && BO.ZoneBuild?.active) { e.preventDefault(); BO.ZoneBuild.end(); return; }
                 if (code === 'Escape' || code === kb.pause) {
                     e.preventDefault();
                     // ESC backs out of an open sub-panel before unpausing.
@@ -439,6 +445,8 @@
                     P.tryJumpOrMantle();
                 } else if ((code === kb.crouch || code === 'KeyC' || code === 'ControlLeft') && firstDown) {
                     P.tryCrouchOrSlide();
+                } else if (code === kb.reload && firstDown && BO.ZoneBuild?.active && survival) {
+                    BO.ZoneBuild.rotate();
                 } else if (code === kb.reload && firstDown) {
                     if (BO.State.activeMode !== 'survival' || !BO.SurvivalMode.clearJam()) P.startReload();
                 } else if (code === 'Digit1' && firstDown && !survival) {
@@ -530,7 +538,8 @@
                 }
             }
             if (code === kb.survBuild) {
-                if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
+                if (BO.ZoneBuild?.active) BO.ZoneBuild.end();
+                else if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
                 else BO.SurvivalUI.show('build');
                 return true;
             }

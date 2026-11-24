@@ -370,6 +370,7 @@
             this.nz = Math.floor((terrain.maxZ - terrain.minZ) / cell);
             this.n = this.nx * this.nz;
             this.walk = new Uint8Array(this.n);   // 0 blocked, 1 walkable
+            this.soft = new Uint8Array(this.n);   // 1 = blocked only by breakable player structures
             this.y = new Float32Array(this.n);
             this.g = new Float32Array(this.n);
             this.parent = new Int32Array(this.n);
@@ -414,15 +415,20 @@
             const floor = this.world.getGroundHeight(x, z, h + 0.6);
             this.y[i] = floor;
             const water = t.def.isWater ? t.def.isWater(x, z, floor) : (t.def.waterLevel != null && floor < t.def.waterLevel - 1.1);
+            this.soft[i] = 0;
             if (water || t.slope(x, z) > 1.05) { this.walk[i] = 0; return; }
-            let blocked = false;
+            let hard = false, soft = false;
             const r = this.cell * 0.22;
+            // Ground under player floors counts from the terrain so a raised foundation reads as a soft obstacle.
             this.world.queryColliders(x - r, z - r, x + r, z + r, (col) => {
                 if (!col.active || col.navIgnore) return false;
-                if (col.maxY > floor + 0.5 && col.minY < floor + 1.7) { blocked = true; return true; }
+                if (col.maxY > floor + 0.5 && col.minY < floor + 1.7) {
+                    if (col.structure) soft = true; else { hard = true; return true; }
+                }
                 return false;
             });
-            this.walk[i] = blocked ? 0 : 1;
+            this.walk[i] = hard || soft ? 0 : 1;
+            this.soft[i] = !hard && soft ? 1 : 0;
         }
 
         nearestWalkable(i, maxRing = 6) {
@@ -535,10 +541,12 @@
         }
 
         /** Dijkstra flow field toward (tx,tz) within `radius` metres; shared by every horde member. */
-        flowTo(tx, tz, radius = 90) {
-            const target = this.nearestWalkable(this.idx(tx, tz));
+        flowTo(tx, tz, radius = 90, breach = false) {
+            // A breaching field may start inside an enclosed base and pass through player structures at a cost.
+            let target = this.idx(tx, tz);
+            if (!(breach && target >= 0 && (this.walk[target] || this.soft[target]))) target = this.nearestWalkable(target);
             if (target < 0) return null;
-            const key = target;
+            const key = target + (breach ? ':b' : '');
             const cached = this.flows.get(key);
             if (cached && cached.v === this.version && performance.now() - cached.t < 900) return cached;
             const dist = new Float32Array(this.n).fill(Infinity);
@@ -557,9 +565,11 @@
                     const x = cx + dx, z = cz + dz;
                     if (x < 0 || z < 0 || x >= nx || z >= this.nz || Math.abs(x - tX) > r || Math.abs(z - tZ) > r) continue;
                     const nb = z * nx + x;
-                    if (!this._passable(cur, nb)) continue;
-                    if (dx && dz && (!this.walk[cz * nx + x] || !this.walk[z * nx + cx])) continue;
-                    const nd = dCur + (dx && dz ? 1.4142 : 1);
+                    const softHop = breach && this.soft[nb] && Math.abs(this.y[cur] - this.y[nb]) < 1.6;
+                    if (!softHop && !this._passable(cur, nb)) continue;
+                    const okC = (j) => this.walk[j] || (breach && this.soft[j]);
+                    if (dx && dz && (!okC(cz * nx + x) || !okC(z * nx + cx))) continue;
+                    const nd = dCur + (dx && dz ? 1.4142 : 1) + (softHop ? 9 : 0);
                     if (nd < dist[nb]) { dist[nb] = nd; heap.push(nb, nd); }
                 }
             }
