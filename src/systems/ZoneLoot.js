@@ -246,6 +246,8 @@
             }
             const R = Math.random;
             const { items, weapon } = roll(entry.type, entry.tier || 1, R);
+            const bonus = BO.ZoneFrontier?.regionBonus(entry);
+            if (bonus && bonus.id !== '__weapon') items[bonus.id] = (items[bonus.id] || 0) + bonus.n;
             if (Object.keys(items).length) m.grant(items);
             else m.toast(NAMES[entry.type] + ': nothing useful.');
             if (weapon) this.offerWeapon(weapon, entry.tier || 1, { x: entry.x, y: entry.y, z: entry.z });

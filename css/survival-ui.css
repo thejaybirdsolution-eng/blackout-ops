@@ -847,3 +847,7 @@ dialog.sv-shell #bo-tooltip .bo-tip-sub { color: var(--sv-amber); }
 .zb-why { color: #ff8a6b; font-size: 12px; }
 .zb-keys { display: flex; gap: 10px; color: #8fa39e; font-size: 11px; }
 .zb-keys kbd { font: 700 10px var(--font-mono, monospace); padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e6f2ee; margin-right: 3px; }
+
+.svh-v.tox i b { background: linear-gradient(90deg, #a38a5c, #d8a25a); }
+.svh-v.tox.warn i b { background: linear-gradient(90deg, #d8a25a, #ff7b6b); }
+.svh-v.status.wet { color: #9fd4ff; border-color: rgba(159,212,255,0.45); }

@@ -485,6 +485,7 @@
             boxes.push({ x, y: y + 18, z, w: 4, h: 0.6, d: 0.6, mat: 'rust_steel', noCollide: true });
         }
         deferred.push(() => radioTower('frost_tower', 'Summit radio tower', 80, -200, r));
+        markers.push({ id: 'frost_mine', name: 'Quarry mine head', x: 105, y: 0, z: -144, region: r, kind: 'landmark' });
     })();
 
     // ---- Cinder Refinery: tanks, cracking towers, flare stack, control room.

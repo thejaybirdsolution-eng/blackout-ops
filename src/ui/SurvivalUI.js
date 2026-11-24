@@ -1170,7 +1170,7 @@
                 <div class="sv-vital chip"${tip('Armor', 'Armor absorbs damage. Insert spare plates with ' + keyOf('survPlate') + '.')}>${Icons().named('plate', '#c7d3dc', 15)}<b>${Math.round(p.armor)} · ${p.armorReservePlates}</b></div>
             </div>`;
             const status = `<div class="sv-clock"${tip('Time & threat', 'Day ' + c.day + (c.isNight ? ' (night)' : '') + '. ' + (t ? 'Up to ' + t.cap + ' infected may roam right now, drawn from the ' + t.poolSize + ' weakest types.' : 'Hostiles are not active yet.'))}>
-                <b>Day ${c.day}</b><span>${c.clockFace}</span><span>${esc(mode.weather)}</span>${mode.hostilesReleased ? `<span class="sv-threat-pill ${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t?.cap ?? '-'} roaming</span>` : `<span class="sv-threat-pill safe">Safe ${safeLeft}s</span>`}</div>`;
+                <b>Day ${c.day}</b><span>${c.clockFace}</span><span>${esc(mode.localWeather || mode.weather)}</span>${mode.hostilesReleased ? `<span class="sv-threat-pill ${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t?.cap ?? '-'} roaming</span>` : `<span class="sv-threat-pill safe">Safe ${safeLeft}s</span>`}</div>`;
             return `<div class="sv-frame">
                 <header class="sv-thead">
                     <div class="sv-brand"><span class="sv-kicker">Field terminal</span><b>${esc(c.area?.name || 'Exclusion Zone')}</b></div>
@@ -1834,6 +1834,21 @@
                     hit(r.x, r.z, r.name, r.powered ? 'Online. Radio towers are fast-travel points.' : 'Offline. Climb it and repair the relay with 1 copper wire and 1 fuel.', 11);
                 }
             }
+            const FR = BO.ZoneFrontier;
+            if (FR?.active && this.mapLayers.threats) {
+                for (const g of FR.garrisons) {
+                    const st = FR.garrisonState(g);
+                    if (!c.visited.has(g.region)) continue;
+                    icon(g.x, g.z, 'diamond', st === 'cleared' ? '#8fe3c8' : '#f2b45a', 8, st === 'cleared');
+                    if (zoom >= 1.5) label('PMC', g.x, g.z, st === 'cleared' ? '#bff3e1' : '#f7d9a6', 10, -12);
+                    const back = c.metrics['garrison_' + g.id] ? Math.max(0, c.metrics['garrison_' + g.id] + 4 - c.day) : 0;
+                    hit(g.x, g.z, 'PMC garrison · ' + g.name, st === 'cleared' ? 'Cleared. Reoccupied in ' + back + ' day' + (back === 1 ? '' : 's') + '.' : 'Held by about ' + (g.left ?? g.size) + ' armed operators. Shooting raises their alarm: the siren draws infected and reinforcements arrive in 30 s. Clearing it drops a supply cache.', 10);
+                }
+            }
+            if (FR?.car && this.mapLayers.sites) {
+                icon(FR.car.position.x, FR.car.position.z, 'circle', '#d6be8c', 7);
+                hit(FR.car.position.x, FR.car.position.z, 'Freight handcar', 'Ride it along the rail line: W/S to pump, up to ~45 km/h. Loud.', 9);
+            }
             if (this.mapLayers.threats) {
                 for (const z of mode.zombies) {
                     if (!z.alive || !z.bossLabel) continue;
@@ -2175,7 +2190,7 @@
             const t = mode.threat;
             const chips = [
                 `<span><b>DAY ${c.day}</b> ${c.clockFace}</span>`,
-                `<span>${esc(mode.weather)}</span>`,
+                `<span>${esc(mode.localWeather || mode.weather)}</span>`,
                 `<span>${esc(c.area?.name || '')}</span>`,
                 mode.hostilesReleased && t ? `<span class="${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t.cap} roaming</span>` : '',
                 mode.hostilesReleased && !horde?.active ? `<span class="${/tonight/.test(horde.forecast()) ? 'night' : ''}">${esc(horde.forecast())}</span>` : '',
@@ -2191,6 +2206,10 @@
                 v('rad', 'RAD', mode.radiation, 100, mode.radiation > 60) +
                 `<div class="svh-v temp ${temp < 2 ? 'cold' : temp > 31 ? 'hot' : ''}"><span>TEMP</span><em>${temp}°C</em></div>` +
                 v('noise ' + (mode.noise > 5 ? 'loud' : ''), 'NOISE', Math.min(9, mode.noise || 0), 9, mode.noise > 5) +
+                ((BO.ZoneFrontier?.tox || 0) > 1 ? v('tox', 'TOX', BO.ZoneFrontier.tox, 100, BO.ZoneFrontier.tox > 40) : '') +
+                (temp < -3 ? '<div class="svh-v status">FREEZING</div>' : temp < 2 ? '<div class="svh-v status">COLD</div>' : '') +
+                ((BO.ZoneFrontier?.wet || 0) > 30 ? '<div class="svh-v status wet">WET</div>' : '') +
+                (BO.ZoneFrontier?.riding ? '<div class="svh-v status ok">HANDCAR · ' + Math.round(Math.abs(BO.ZoneFrontier.carV) * 3.6) + ' KM/H</div>' : '') +
                 (deep?.bleeding > 0 ? '<div class="svh-v status">BLEEDING</div>' : '') + (mode.fracture ? '<div class="svh-v status">FRACTURE</div>' : '') +
                 (mode.jammed && mode.jammed === p.activeWeapon ? '<div class="svh-v status">JAMMED · RELOAD</div>' : '') + ((deep?.infection || 0) >= 40 ? '<div class="svh-v status">INFECTED</div>' : '') +
                 (c.pack.filtered ? '<div class="svh-v status ok">FILTER</div>' : '');

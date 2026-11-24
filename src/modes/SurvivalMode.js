@@ -93,6 +93,8 @@
                 p.switchWeapon(-1);
             }
             c.setup(checkpoint);
+            BO.ZoneFrontier.start(this);
+            BO.ZoneFrontier.restore(checkpoint?.frontier);
             BO.ZoneBuild.falling.length = 0;
             BO.ZoneBuild.restored();
             if (!checkpoint) {
@@ -110,6 +112,7 @@
         stop() {
             if (this.campaign) BO.ZoneBuild.end(true);
             BO.ZoneHorde?.stop();
+            BO.ZoneFrontier?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -378,6 +381,7 @@
                 this.campaign?.mark('bosses', 1, 200);
                 this.campaign?.mark('boss_' + entity.survivalType, 1, 0);
                 this.campaign?.objectives.onBossKilled?.(entity);
+                BO.ZoneFrontier?.onBossKilled(entity);
             }
             if (killed && !agent) {
                 if (entity.survivalType && this.campaign.isNight) this.campaign.mark('nightKills', 1, 0);
@@ -479,6 +483,7 @@
             BO.ZoneDirector.update(dt);
             BO.ZoneHorde?.update(dt);
             BO.ZoneBuild.update(dt);
+            BO.ZoneFrontier.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -495,11 +500,15 @@
             const darkness = c?.darkness ?? 0;
             const phase = this.clock % 300;
             this.weather = !c?.options.weather ? 'Clear' : phase < 90 ? 'Overcast' : phase < 150 ? 'Ash rain' : phase < 225 ? 'Rad fog' : 'Clearing';
+            const FR = BO.ZoneFrontier;
+            this.localWeather = FR?.active ? FR.localize(this.weather) : this.weather;
             const fog = this.scene.fog;
             const nearbyFire = this.fire.some((f) => f.pos.distanceTo(p.pos) < 6);
             const regionFog = BO.Zone.regionAt(p.pos.x, p.pos.z).threat >= 5 ? 0.006 : 0;
-            fog.density = 0.0052 + (this.weather === 'Rad fog' ? 0.012 : this.weather === 'Ash rain' ? 0.004 : 0) + darkness * 0.006 + (nearbyFire ? 0.004 : 0) + regionFog;
-            fog.color.setHex(0x8f9a90).lerp(NIGHT_FOG, darkness);
+            const radFog = this.weather === 'Rad fog' && this.localWeather === 'Rad fog' ? 0.012 : this.weather === 'Ash rain' && this.localWeather === 'Ash rain' ? 0.004 : 0;
+            fog.density = 0.0052 + radFog + (FR?.active ? FR.fogExtra() : 0) + darkness * 0.006 + (nearbyFire ? 0.004 : 0) + regionFog;
+            if (FR?.active) fog.color.copy(FR.fogTint(dt)).lerp(NIGHT_FOG, darkness);
+            else fog.color.setHex(0x8f9a90).lerp(NIGHT_FOG, darkness);
             if (c?.deep?.bloodMoonActive) fog.color.lerp(BLOOD_FOG, 0.6);
             if (this.scene.background?.isColor) this.scene.background.copy(fog.color);
             if (this.weatherLight) {
@@ -686,6 +695,7 @@
                 BO.Sound?.playFootstep?.(true);
                 return;
             }
+            if (BO.ZoneFrontier.activate(site)) return;
             if (this.loot.begin(site)) return;
             if (site.pickup) { this.loot.takePickup(site); return; }
             if (this.campaign?.activate(site)) return;

@@ -233,7 +233,12 @@
                 this.pathTimer -= dt;
                 if (!this.roamGoal || this.pathTimer <= 0 || BO.Math.dist2D(this.pos.x, this.pos.z, this.roamGoal.x, this.roamGoal.z) < 2.2) {
                     this.pathTimer = 1.4 + Math.random() * 0.8;
-                    if (context.objectivePos && Math.random() < 0.72) {
+                    if (this.post) {
+                        // Guards and patrols hold a post instead of roaming the whole map.
+                        const a = Math.random() * Math.PI * 2, r = Math.random() * this.post.r;
+                        this.roamGoal = { x: this.post.x + Math.cos(a) * r, y: this.post.y, z: this.post.z + Math.sin(a) * r };
+                        this.pathTimer = 3 + Math.random() * 5;
+                    } else if (context.objectivePos && Math.random() < 0.72) {
                         this.roamGoal = context.objectivePos;
                     } else if (BO.World.mapData.waypoints && BO.World.mapData.waypoints.length > 0) {
                         this.roamGoal = BO.Math.pick(BO.World.mapData.waypoints);

@@ -232,7 +232,7 @@
             for (const g of BO.ZoneBosses.GUARDIANS) {
                 if ((c.metrics['boss_' + g.type] || 0) > 0) continue;
                 if (g.minDay && c.day < g.minDay) continue;
-                const mk = m.markers.find((x) => x.id === g.at);
+                const mk = m.markers.find((x) => x.id === g.at) || BO.Zone.markers.find((x) => x.id === g.at);
                 if (!mk) continue;
                 const live = m.zombies.find((z) => z.alive && z.survivalType === g.type);
                 const d = Math.hypot(mk.x - p.x, mk.z - p.z);
@@ -267,7 +267,8 @@
             const weapons = c.day >= 5 ? ['ak47', 'm4a1', 'mp5'] : ['mp5', 'm1911', 'r870'];
             for (let i = 0; i < squad; i++) {
                 const x = s.x + 6 + i * 1.8, z = s.z + 6;
-                m.spawnBot(x, BO.World.getGroundHeight(x, z, 60), z, weapons[i % weapons.length], 90 + c.day * 6);
+                const bot = m.spawnBot(x, BO.World.getGroundHeight(x, z, 60), z, weapons[i % weapons.length], 90 + c.day * 6);
+                if (bot) bot.post = { x: s.x, y: s.y || 0, z: s.z, r: 24 };
             }
         }
 
