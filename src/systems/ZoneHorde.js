@@ -205,6 +205,10 @@
             const integ = this.baseStart != null ? Math.round(this.integrity() * 100) : null;
             c.mark('hordesSurvived', 1, cleared ? 300 : 180);
             BO.SurvivalCareer.awardCommendations?.(1);
+            // Dawn payoff: Haven airdrops a weapon to whoever held the line.
+            const pool = BO.ZoneLoot.WEAPON_POOLS[Math.min(4, 2 + Math.floor((c.day - 1) / 3))];
+            const wid = pool[Math.floor(Math.random() * pool.length)];
+            setTimeout(() => { if (m.active && BO.Player.alive) m.loot.offerWeapon(wid, Math.min(4, 1 + Math.ceil(c.day / 3)), BO.Player.pos, { floor: cleared ? 3 : 2 }); }, 2500);
             BO.Events.emit('hud:banner', {
                 title: cleared ? 'HORDE DESTROYED' : 'YOU SURVIVED THE NIGHT',
                 sub: this.kills + ' KILLED' + (integ != null ? ' · BASE INTEGRITY ' + integ + '%' : '') + ' · +1 COMMENDATION',

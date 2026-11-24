@@ -69,7 +69,9 @@
             const ghostMult = Math.max(0.55, 1 - (BO.SurvivalCareer?.masteryRank?.('ghost') || 0) * 0.12);
             const kitStealth = (c.day === 1 && BO.SurvivalCareer?.profile?.kit === 'keeper') ? 0.72 : (BO.SurvivalCareer?.profile?.kit === 'signal_ghost' ? 0.82 : 1);
             sight *= fm * kitStealth;
-            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm * ghostMult * kitStealth;
+            const T = BO.ZoneThrill;
+            if (T?.active) sight *= T.sightMult();
+            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm * ghostMult * kitStealth * (T?.active ? T.hearMult() : 1);
             const smell = (c.deep?.bleeding || 0) > 0 ? 15 : 0;
             return { sight, hear, smell, night };
         }
@@ -164,6 +166,7 @@
                 if (i < 0 || !nav.walk[i]) continue;
                 const y = nav.y[i];
                 if (Math.hypot(x - p.x, z - p.z) < 25) continue;
+                if (BO.ZoneInfest?.isSafe(x, z)) continue; // secured ground stays quiet
                 if (BO.World.hasLineOfSight(p.x, p.y + 1.6, p.z, x, y + 1.4, z) && Math.hypot(x - p.x, z - p.z) < 80) continue;
                 return { x, y, z };
             }
@@ -172,7 +175,7 @@
 
         nearbyCount(radius = 135) {
             const p = BO.Player.pos;
-            return this.mode.zombies.filter((zb) => zb.alive && !zb.bossLabel && Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) < radius).length;
+            return this.mode.zombies.filter((zb) => zb.alive && !zb.bossLabel && !zb.infest && !zb.contract && Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) < radius).length;
         }
 
         cap() {
@@ -200,7 +203,7 @@
             const p = BO.Player.pos;
             // Despawn far, unaware infected so the population follows the player.
             for (const zb of m.zombies) {
-                if (!zb.alive || zb.bossLabel || zb.horde || zb.herd || zb.distress || zb.zs?.state === 'hunt') continue;
+                if (!zb.alive || zb.bossLabel || zb.horde || zb.herd || zb.distress || zb.infest || zb.contract || zb.zs?.state === 'hunt') continue;
                 if (Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) > 155) {
                     zb.alive = false;
                     zb.despawned = true;
@@ -216,14 +219,24 @@
                 const cap = this.cap();
                 let n = this.nearbyCount();
                 let spawned = 0;
-                while (n < cap && spawned < 2) {
-                    const pt = this.spawnPoint();
-                    if (!pt) break;
+                // Roamers come in small groups, and about a third are already drifting your way.
+                const pt = n < cap ? this.spawnPoint(38, 100) : null;
+                if (pt) {
                     const region = BO.Zone.regionAt(pt.x, pt.z);
                     c.selectedEnemies = c.getPool(region.id);
-                    const zb = m.spawnInfected(pt.x, pt.y, pt.z);
-                    if (!zb) break;
-                    n++; spawned++;
+                    const group = Math.min(cap - n, 1 + Math.floor(Math.random() * 3));
+                    const drift = Math.random() < 0.35;
+                    const nav = BO.World.nav;
+                    for (let g = 0; g < group; g++) {
+                        let x = pt.x + (Math.random() - 0.5) * 6, z = pt.z + (Math.random() - 0.5) * 6;
+                        const j = nav?.idx(x, z) ?? -1;
+                        if (j < 0 || !nav.walk[j]) { x = pt.x; z = pt.z; }
+                        const zb = m.spawnInfected(x, BO.World.getGroundHeight(x, z, pt.y + 2), z);
+                        if (!zb) break;
+                        if (drift) { const s = this.sense(zb); s.state = 'curious'; s.x = p.x + (Math.random() - 0.5) * 20; s.z = p.z + (Math.random() - 0.5) * 20; s.until = m.clock + 30; }
+                        n++;
+                        spawned++;
+                    }
                 }
             }
             this.updatePatrols();

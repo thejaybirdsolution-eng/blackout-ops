@@ -1,0 +1,100 @@
+/* ==========================================================================
+   Zone thrill layer: run XP, perk cards, kill streaks, champion nameplates,
+   weapon rarity card and Haven contracts.
+   ========================================================================== */
+#zt-hud { position: fixed; inset: 0; pointer-events: none; z-index: 60; font-family: var(--font-ui, 'Rajdhani', 'Segoe UI', sans-serif); }
+#zt-hud.dim > :not(.zt-pick) { opacity: 0; }
+#zt-hud > * { transition: opacity .2s; }
+#zt-hud [hidden], #zt-contracts[hidden] { display: none !important; }
+
+/* ---- XP bar: just above the hotbar */
+.zt-xp { position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(460px, 46vw); display: flex; align-items: center; gap: 8px; }
+.zt-xp .zt-lvl { pointer-events: auto; flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+    font: 700 14px var(--font-mono, monospace); color: #1a1405; background: radial-gradient(circle at 35% 30%, #ffe7a8, #e0a93a 70%); box-shadow: 0 0 0 2px rgba(10, 14, 12, .85), 0 0 14px rgba(255, 196, 92, .45); }
+.zt-xp > i { flex: 1; height: 6px; border-radius: 4px; background: rgba(9, 15, 13, .72); border: 1px solid rgba(255, 210, 122, .22); overflow: hidden; }
+.zt-xp > i u { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #c9902a, #ffd27a); box-shadow: 0 0 10px rgba(255, 210, 122, .6); transition: width .35s ease-out; }
+.zt-xp .zt-ready { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); white-space: nowrap; font: 700 11px var(--font-mono, monospace); letter-spacing: .08em;
+    color: #1a1405; background: #ffd27a; padding: 3px 10px; border-radius: 999px; animation: zt-pulse 1.1s ease-in-out infinite; }
+.zt-xp .zt-buffs { position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%); display: flex; gap: 6px; font-style: normal; white-space: nowrap; }
+.zt-xp .zt-buffs span { font: 700 10px var(--font-mono, monospace); letter-spacing: .06em; color: #ffcf8a; text-shadow: 0 1px 3px #000; }
+@keyframes zt-pulse { 50% { box-shadow: 0 0 18px rgba(255, 210, 122, .85); transform: translateX(-50%) scale(1.06); } }
+
+/* ---- streak popups and XP ticks around the crosshair */
+.zt-pops { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.zt-pop { text-align: center; animation: zt-pop 2.2s ease-out forwards; }
+.zt-pop b { display: block; font: 800 26px/1 var(--font-ui, sans-serif); letter-spacing: .12em; color: #ffd27a; text-shadow: 0 0 18px rgba(255, 160, 60, .7), 0 2px 4px #000; }
+.zt-pop small { font: 700 12px var(--font-mono, monospace); color: #fff3d0; text-shadow: 0 1px 3px #000; }
+@keyframes zt-pop { 0% { opacity: 0; transform: scale(1.6); } 12% { opacity: 1; transform: scale(1); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.zt-ticks { position: absolute; left: calc(50% + 34px); top: calc(50% - 6px); display: flex; flex-direction: column; gap: 1px; }
+.zt-tick { font: 700 12px var(--font-mono, monospace); text-shadow: 0 1px 3px #000, 0 0 6px rgba(0, 0, 0, .6); animation: zt-tick 1.6s ease-out forwards; white-space: nowrap; }
+@keyframes zt-tick { 0% { opacity: 0; transform: translateX(-6px); } 10% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+
+/* ---- champion nameplates */
+.zt-plates { position: absolute; inset: 0; }
+.zt-plate { position: absolute; left: 0; top: 0; text-align: center; will-change: transform; white-space: nowrap; }
+.zt-plate b { display: block; font: 700 12px var(--font-ui, sans-serif); letter-spacing: .05em; color: var(--cc); text-shadow: 0 0 8px rgba(0, 0, 0, .9), 0 1px 2px #000; }
+.zt-plate i { display: block; width: 74px; height: 4px; margin: 2px auto 0; background: rgba(0, 0, 0, .65); border-radius: 2px; overflow: hidden; }
+.zt-plate i u { display: block; height: 100%; background: var(--cc); }
+
+/* ---- held weapon rarity card (bottom right, above ammo) */
+.zt-wcard { position: absolute; right: 18px; bottom: 98px; max-width: 360px; text-align: right; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 6px; align-items: baseline;
+    padding: 6px 10px; border-radius: 8px; background: linear-gradient(90deg, transparent, rgba(8, 12, 11, .78)); border-right: 3px solid var(--rc); }
+.zt-wcard b { font: 800 11px var(--font-mono, monospace); letter-spacing: .12em; color: var(--rc); }
+.zt-wcard span { font: 700 14px var(--font-ui, sans-serif); color: #eef4f1; }
+.zt-wcard i { pointer-events: auto; font: 600 10px var(--font-mono, monospace); font-style: normal; color: #d8e6df; background: rgba(255, 255, 255, .08); border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent); padding: 1px 6px; border-radius: 999px; }
+
+/* ---- perk card picker */
+.zt-pick { position: absolute; inset: 0; pointer-events: auto; display: grid; place-items: center; background: radial-gradient(ellipse at center, rgba(6, 10, 9, .55), rgba(4, 7, 6, .88)); backdrop-filter: blur(3px); animation: zt-fade .18s ease-out; }
+@keyframes zt-fade { from { opacity: 0; } }
+.zt-pick-in { width: min(980px, 94vw); }
+.zt-pick header { text-align: center; margin-bottom: 18px; }
+.zt-pick header b { display: block; font: 800 34px/1 var(--font-ui, sans-serif); letter-spacing: .2em; color: #ffd27a; text-shadow: 0 0 24px rgba(255, 170, 60, .5); }
+.zt-pick header span { font: 600 13px var(--font-mono, monospace); letter-spacing: .14em; text-transform: uppercase; color: #b9d3c9; }
+.zt-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.zt-card { position: relative; cursor: pointer; text-align: left; padding: 22px 18px 18px; min-height: 230px; border-radius: 14px; color: #e8f1ed;
+    background: linear-gradient(170deg, color-mix(in srgb, var(--rc) 16%, #121a17), #0b110f 60%); border: 1px solid color-mix(in srgb, var(--rc) 45%, transparent);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05); transition: transform .14s, box-shadow .14s, border-color .14s; animation: zt-deal .32s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.zt-card:nth-child(2) { animation-delay: .06s; } .zt-card:nth-child(3) { animation-delay: .12s; }
+@keyframes zt-deal { from { opacity: 0; transform: translateY(26px) rotate(-2deg); } }
+.zt-card:hover, .zt-card:focus-visible { transform: translateY(-6px); border-color: var(--rc); box-shadow: 0 16px 40px rgba(0, 0, 0, .6), 0 0 26px color-mix(in srgb, var(--rc) 35%, transparent); outline: none; }
+.zt-card.rar-e { background: linear-gradient(170deg, rgba(255, 180, 58, .22), #120f08 62%); }
+.zt-card .zt-key { position: absolute; top: 10px; right: 12px; font: 700 12px var(--font-mono, monospace); font-style: normal; color: #0c120f; background: var(--rc); border-radius: 5px; padding: 1px 7px; }
+.zt-card .zt-ico { display: block; font-size: 38px; font-style: normal; line-height: 1; margin-bottom: 12px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); }
+.zt-card b { display: block; font: 800 21px/1.1 var(--font-ui, sans-serif); letter-spacing: .03em; }
+.zt-card .zt-cat { display: block; margin: 4px 0 12px; font: 600 10.5px var(--font-mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--rc); }
+.zt-card p { margin: 0; font: 500 15px/1.4 var(--font-ui, sans-serif); color: #d7e5df; }
+.zt-card s { display: block; margin-top: 8px; font: 500 11.5px/1.3 var(--font-ui, sans-serif); color: #7f948c; text-decoration: none; }
+.zt-pick footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.zt-pick footer button { cursor: pointer; font: 700 13px var(--font-ui, sans-serif); letter-spacing: .06em; color: #dfeee8; background: rgba(13, 21, 18, .9); border: 1px solid rgba(159, 224, 201, .25); border-radius: 8px; padding: 8px 14px; }
+.zt-pick footer button:hover:not([disabled]) { border-color: #8fe3c8; }
+.zt-pick footer button[disabled] { opacity: .4; cursor: default; }
+.zt-pick footer small { font: 600 10px var(--font-mono, monospace); color: #8aa69b; margin-left: 6px; }
+.zt-owned { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-size: 20px; }
+.zt-owned i { font-style: normal; position: relative; cursor: help; }
+.zt-owned sup { font: 700 9px var(--font-mono, monospace); color: #ffd27a; position: absolute; right: -6px; top: -2px; }
+
+/* ---- Haven contracts tracker (right edge) */
+#zt-contracts { position: fixed; right: 14px; top: 150px; width: 238px; z-index: 59; pointer-events: none; display: flex; flex-direction: column; gap: 5px; transition: opacity .2s; }
+#zt-contracts.dim { opacity: 0; }
+#zt-contracts header { font: 700 10px var(--font-mono, monospace); letter-spacing: .2em; color: #ffd27a; opacity: .85; padding-left: 2px; }
+.zt-k { display: grid; grid-template-columns: 22px 1fr; column-gap: 6px; align-items: center; padding: 6px 9px; border-radius: 8px; background: rgba(8, 13, 11, .74); border-left: 3px solid #ffd27a; }
+.zt-k em { grid-row: span 2; font-style: normal; font-size: 15px; color: #ffd27a; text-align: center; }
+.zt-k b { font: 700 13px/1.15 var(--font-ui, sans-serif); color: #eef4f1; }
+.zt-k small { font: 600 10.5px var(--font-mono, monospace); color: #a9c0b7; }
+.zt-k i { grid-column: 2; display: block; height: 3px; margin-top: 3px; background: rgba(255, 255, 255, .1); border-radius: 2px; overflow: hidden; }
+.zt-k i u { display: block; height: 100%; background: #ffd27a; }
+.zt-k.k-bounty { border-left-color: #ff6b5b; } .zt-k.k-bounty em { color: #ff6b5b; }
+
+/* ---- compass pips and chip */
+.sv-compass .cmp-pip.contract { color: #ffd27a; }
+.sv-compass .cmp-pip.site { color: #ff6b5b; opacity: .9; }
+#hud-survival .svh-chips span.held { color: #8fe3c8; border-color: rgba(143, 227, 200, .45); }
+
+/* ---- journal perk list */
+.zt-perklist { display: grid; gap: 6px; margin-bottom: 12px; }
+.zt-perklist div { display: grid; grid-template-columns: 26px 1fr; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(159, 224, 201, .1); }
+.zt-perklist em { grid-row: span 2; font-style: normal; font-size: 18px; text-align: center; }
+.zt-perklist b { font-size: 13px; color: #eaf6f0; }
+.zt-perklist small { font-size: 11.5px; color: #9fb8ae; }
+
+@media (max-width: 900px) { .zt-cards { grid-template-columns: 1fr; } .zt-card { min-height: 0; } #zt-contracts { top: 120px; width: 200px; } }

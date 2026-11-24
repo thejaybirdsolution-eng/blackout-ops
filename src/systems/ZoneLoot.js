@@ -187,7 +187,7 @@
 
         stop() {
             for (const mesh of this.meshes) { mesh.removeFromParent(); mesh.geometry.dispose(); mesh.material.dispose(); }
-            for (const p of this.pickups.values()) this.mode.disposeOwned(p.mesh);
+            for (const p of this.pickups.values()) { this.mode.disposeOwned(p.mesh); p.beam?.removeFromParent(); }
             this.meshes = [];
             this.pickups.clear();
         }
@@ -210,7 +210,7 @@
             if (this.search) return true;
             const scavRank = BO.SurvivalCareer?.masteryRank?.('scavenger') || 0;
             const ghostRank = BO.SurvivalCareer?.masteryRank?.('ghost') || 0;
-            const dur = (SEARCH_TIME[entry.type] || 1.2) * (this.mode.campaign?.has('fastLoot') ? 0.6 : 1) * Math.max(0.5, 1 - scavRank * 0.15);
+            const dur = (SEARCH_TIME[entry.type] || 1.2) * (this.mode.campaign?.has('fastLoot') ? 0.6 : 1) * Math.max(0.5, 1 - scavRank * 0.15) * (BO.ZoneThrill?.searchMult() ?? 1);
             this.search = { entry, t: 0, dur, pos: BO.Player.pos.clone() };
             const noise = SEARCH_NOISE[entry.type];
             if (noise) BO.ZoneDirector?.noise(entry.x, entry.z, noise * Math.max(0.5, 1 - ghostRank * 0.12), 'search');
@@ -249,7 +249,7 @@
             }
             const R = BO.ZoneSeed && m.seed ? BO.ZoneSeed.rng(m.seed, 'loot:' + entry.i) : Math.random;
             const { items, weapon } = roll(entry.type, entry.tier || 1, R);
-            const lootMult = (m.tierSpec?.loot || 1) * (1 + (BO.SurvivalCareer?.masteryRank?.('scavenger') || 0) * 0.10);
+            const lootMult = (m.tierSpec?.loot || 1) * (1 + (BO.SurvivalCareer?.masteryRank?.('scavenger') || 0) * 0.10) * (BO.ZoneThrill?.lootMult() ?? 1);
             if (lootMult > 1.01) {
                 for (const k of Object.keys(items)) items[k] = Math.max(1, Math.round(items[k] * lootMult));
             }
@@ -260,24 +260,36 @@
             if (weapon) this.offerWeapon(weapon, entry.tier || 1, { x: entry.x, y: entry.y, z: entry.z });
         }
 
-        /** A found weapon: take it straight into a free slot, or drop it as a pickup to swap later. */
-        offerWeapon(id, tier, pos) {
+        /** A found weapon: take it straight into a free slot, or drop it as a pickup to swap later. opts: {floor, luck} rarity bias. */
+        offerWeapon(id, tier, pos, opts = {}) {
             const p = BO.Player;
             const spec = BO.WeaponsData.get(id);
             if (!spec) return;
             const cond = Math.round(35 + Math.random() * 30 + tier * 8);
+            const roll = BO.ZoneThrill ? BO.ZoneThrill.rollWeapon(id, tier, opts.floor || 0, opts.luck || 0) : null;
+            const label = this.rollLabel(roll, spec.name || id);
             if (p.weapons.length < 2) {
-                this.give(id, cond);
-                this.mode.toast('Found a ' + (spec.name || id) + ' (' + Math.min(100, cond) + '% condition).');
+                this.give(id, cond, -1, roll);
+                this.mode.toast('Found ' + label + ' (' + Math.min(100, cond) + '% condition).');
                 return;
             }
-            this.dropPickup(id, cond, pos, spec.name);
-            this.mode.toast('Found a ' + (spec.name || id) + '. Interact with it to swap for your current weapon.');
+            this.dropPickup(id, cond, pos, spec.name, roll);
+            this.mode.toast('Found ' + label + '. Interact with it to swap for your current weapon.');
         }
 
-        give(id, cond, replaceSlot = -1) {
+        /** "a Rare MP5 [Vampiric, Hair Trigger]" */
+        rollLabel(roll, name) {
+            if (!roll || !BO.ZoneThrill) return 'a ' + name;
+            const d = BO.ZoneThrill.describe(roll, name);
+            const r = d.rarity.name;
+            return (/^[AEIOU]/.test(r) ? 'an ' : 'a ') + r + ' ' + d.title + (d.traits.length ? ' [' + d.traits.join(', ') + ']' : '');
+        }
+
+        give(id, cond, replaceSlot = -1, roll = null) {
             const p = BO.Player;
-            const inst = p._createWeaponInstance({ id, camo: 'default', attachments: {} }, false);
+            const cfg = { id, camo: 'default', attachments: {} };
+            if (roll) Object.assign(cfg, { rarity: roll.rarity, perks: [...(roll.perks || [])] }, roll.title ? { title: roll.title } : {});
+            const inst = p._createWeaponInstance(cfg, false);
             inst.cond = Math.min(100, cond);
             inst.maxCond = 100;
             const cal = caliberOf(id);
@@ -291,13 +303,17 @@
             return inst;
         }
 
-        dropPickup(id, cond, pos, name) {
+        dropPickup(id, cond, pos, name, roll = null) {
             const key = 'wpn:' + this.pickupIndex++;
             const y = BO.World.getGroundHeight(pos.x + 0.6, pos.z, pos.y + 1);
-            const mesh = this.mode.mesh(new THREE.BoxGeometry(0.9, 0.12, 0.22), 0x3a3f44, pos.x + 0.6, y + 0.08, pos.z, { metalness: 0.6, emissive: 0x334155, emissiveIntensity: 0.4 });
-            const marker = { id: key, x: pos.x + 0.6, y, z: pos.z, name: name || id, label: 'Swap for ' + (name || id), alive: true, pickup: { id, cond } };
+            const rar = roll && BO.ZoneThrill ? BO.ZoneThrill.describe(roll, name || id) : null;
+            const glow = rar ? rar.rarity.hex : 0x334155;
+            const mesh = this.mode.mesh(new THREE.BoxGeometry(0.9, 0.12, 0.22), 0x3a3f44, pos.x + 0.6, y + 0.08, pos.z, { metalness: 0.6, emissive: glow, emissiveIntensity: rar && rar.rarity.id !== 'common' ? 0.9 : 0.4 });
+            const title = rar ? rar.rarity.name + ' ' + rar.title : (name || id);
+            const marker = { id: key, x: pos.x + 0.6, y, z: pos.z, name: title, label: 'Swap for ' + title + (rar?.traits.length ? ' [' + rar.traits.join(', ') + ']' : ''), alive: true, pickup: { id, cond } };
             this.mode.markers.push(marker);
-            this.pickups.set(key, { id, cond, mesh, marker, x: marker.x, y, z: marker.z });
+            const beam = BO.ZoneThrill?.beamFor(roll, marker.x, y, marker.z) || null;
+            this.pickups.set(key, { id, cond, mesh, marker, x: marker.x, y, z: marker.z, roll, beam });
         }
 
         takePickup(marker) {
@@ -307,23 +323,25 @@
             const slot = p.activeSlot >= 0 ? p.activeSlot : (p.weapons.length < 2 ? -1 : 0);
             if (slot >= 0 && p.weapons[slot]) {
                 const old = p.weapons[slot];
-                this.dropPickup(old.cfg.id, old.cond ?? 70, p.pos, old.stats.name);
+                const oldRoll = old.cfg.rarity ? { rarity: old.cfg.rarity, perks: old.cfg.perks || [], title: old.cfg.title } : null;
+                this.dropPickup(old.cfg.id, old.cond ?? 70, p.pos, BO.WeaponsData.get(old.cfg.id)?.name || old.stats.name, oldRoll);
             }
-            this.give(pk.id, pk.cond, slot);
+            this.give(pk.id, pk.cond, slot, pk.roll);
             marker.alive = false;
             this.pickups.delete(marker.id);
             this.mode.disposeOwned(pk.mesh);
-            this.mode.toast('Equipped ' + (BO.WeaponsData.get(pk.id)?.name || pk.id) + '.');
+            if (pk.beam) { pk.beam.removeFromParent(); pk.beam.geometry.dispose(); }
+            this.mode.toast('Equipped ' + this.rollLabel(pk.roll, BO.WeaponsData.get(pk.id)?.name || pk.id).replace(/^an? /, '') + '.');
             return true;
         }
 
         snapshot() {
-            return { searched: [...this.searched], pickups: [...this.pickups.values()].map(({ id, cond, x, y, z }) => ({ id, cond, x, y, z })) };
+            return { searched: [...this.searched], pickups: [...this.pickups.values()].map(({ id, cond, x, y, z, roll }) => ({ id, cond, x, y, z, roll: roll || null })) };
         }
 
         restore(s) {
             for (const i of s.searched || []) { const e = this.list[i]; if (e) this.markSearched(e); }
-            for (const pk of s.pickups || []) this.dropPickup(pk.id, pk.cond, { x: pk.x - 0.6, y: pk.y, z: pk.z }, BO.WeaponsData.get(pk.id)?.name);
+            for (const pk of s.pickups || []) this.dropPickup(pk.id, pk.cond, { x: pk.x - 0.6, y: pk.y, z: pk.z }, BO.WeaponsData.get(pk.id)?.name, pk.roll || null);
         }
     }
 

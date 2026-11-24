@@ -389,6 +389,7 @@
                 if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
                 if (BO.State.screen !== 'playing') return;
                 if (BO.ExpansionShop.open) return;
+                if (BO.ZoneThrill?.picking) { BO.ZoneThrill.handleKey(e); return; }
                 if (BO.SurvivalUI.open) {
                     BO.SurvivalUI.handleKey(e);
                     return;
@@ -526,6 +527,8 @@
                     return true;
                 }
             }
+            // A pending perk card takes the Skills key.
+            if (code === kb.survSkills && BO.ZoneThrill?.pending && BO.ZoneThrill.openPick(true)) return true;
             const tabs = {
                 survInventory: 'inventory', survCraft: 'crafting', survMap: 'map', survTravel: 'travel',
                 survSkills: 'skills', survJournal: 'journal', survLegend: 'legend'
@@ -574,7 +577,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI.open && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.ZoneThrill?.picking && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);

@@ -390,7 +390,7 @@
                     marks.push({ a, m });
                 }
                 const pips = {};
-                for (const [id, cls, glyph] of [['lantern', 'lantern', '✦'], ['objective', 'obj', '◆'], ['waypoint', 'wp', '●'], ['safe', 'safe', '⌂'], ['body', 'body', '✚'], ['event', 'event', '⚑']]) {
+                for (const [id, cls, glyph] of [['lantern', 'lantern', '✦'], ['objective', 'obj', '◆'], ['waypoint', 'wp', '●'], ['safe', 'safe', '⌂'], ['body', 'body', '✚'], ['event', 'event', '⚑'], ['contract', 'contract', '✪'], ['site', 'site', '☠']]) {
                     const p = document.createElement('span');
                     p.className = 'cmp-pip ' + cls;
                     p.innerHTML = `<b>${glyph}</b><small></small>`;
@@ -442,6 +442,10 @@
             for (const e of evs) { const d = Math.hypot(e.x - P.pos.x, e.z - P.pos.z); if (d < ed) { ed = d; ev = e; } }
             place('event', ev);
             if (ev) cmp.pips.event.style.color = ev.color;
+            let kp = null, kd = Infinity;
+            for (const k of BO.ZoneContracts?.points() || []) { const d = Math.hypot(k.x - P.pos.x, k.z - P.pos.z); if (d < kd) { kd = d; kp = k; } }
+            place('contract', kp);
+            place('site', BO.ZoneInfest?.nearestInfested?.(150) || null);
         }
 
         /** Called every frame while the terminal is open and the world keeps running. Taking damage snaps you out. */
@@ -2018,6 +2022,22 @@
                     hit(r.x, r.z, r.name, r.powered ? 'Online. Radio towers are fast-travel points.' : 'Offline. Climb it and repair the relay with 1 copper wire and 1 fuel.', 11);
                 }
             }
+            if (BO.ZoneInfest && this.mapLayers.threats) {
+                for (const s of BO.ZoneInfest.known()) {
+                    const col = s.cleared ? (s.opened ? '#5c8a74' : '#8fe3c8') : '#ff6b5b';
+                    icon(s.x, s.z, s.cleared ? 'diamond' : 'skull', col, s.kind === 'poi' ? 7 : 6, s.cleared && s.opened);
+                    if (zoom >= 2.2) label(s.name, s.x, s.z, col, 10, 16);
+                    hit(s.x, s.z, s.name + (s.cleared ? ' · secured' : ' · infested'), s.cleared ? (s.opened ? 'Secured; stash already opened. No roaming infected spawn nearby.' : 'Secured. The supply stash here is unlocked — go open it.') : 'About ' + (s.active ? BO.ZoneInfest.aliveMembers(s).length : s.left) + ' infected' + (s.alpha && !s.alphaDead ? ', led by a champion' : '') + '. Clear them to secure the site and unlock its stash.', 9);
+                }
+            }
+            for (const k of BO.ZoneContracts?.points() || []) {
+                ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+                if (k.area) { ctx.beginPath(); ctx.arc(sx(k.x), sz(k.z), Math.max(10, k.area * (sx(k.x + 1) - sx(k.x))), 0, Math.PI * 2); ctx.stroke(); }
+                ctx.setLineDash([]);
+                icon(k.x, k.z, 'star', '#ffd27a', 10);
+                label(k.label, k.x, k.z, '#ffd27a', 11, 26);
+                hit(k.x, k.z, 'Contract · ' + k.label, k.kind === 'bounty' ? 'A named champion was last seen inside the circle.' : 'Haven radio contract.', 14);
+            }
             for (const ev of BO.ZoneEvents?.points() || []) {
                 const pulseR = 10 + 6 * Math.sin(performance.now() / 300);
                 ctx.strokeStyle = ev.color; ctx.lineWidth = 2;
@@ -2217,6 +2237,7 @@
                     <div><span class="sv-kicker">${esc(r.modes[c.options.gameType]?.name)} · ${esc(r.difficulties[c.options.difficulty]?.name)}</span><h3>${esc(mode.objective)}</h3><p>${esc(r.modes[c.options.gameType]?.description)}</p></div>
                     <div class="sv-jstats">
                         <div><b>${c.day}</b><small>Day</small></div><div><b>${mode.kills}</b><small>Kills</small></div>
+                        <div><b>${BO.ZoneThrill?.level || 1}</b><small>Level</small></div><div><b>${BO.ZoneInfest?.securedCount() || 0}</b><small>Sites held</small></div>
                         <div><b>${mode.salvaged}</b><small>Salvaged</small></div><div><b>${BO.Math.formatTime(mode.clock)}</b><small>Time</small></div>
                     </div>
                     <div class="sv-jsave">
@@ -2227,7 +2248,10 @@
                 </div>
                 <div class="sv-jcols">
                     <section><h4 class="sv-sub">Field challenges</h4>${challenges}</section>
-                    <section><h4 class="sv-sub">Contracts</h4><p class="sv-muted sm">Complete the task, then talk to the contact to claim.</p><div class="sv-contracts">${contracts}</div>
+                    <section><h4 class="sv-sub">Survivor perks</h4>${BO.ZoneThrill ? BO.ZoneThrill.summaryHtml() : ''}
+                        <h4 class="sv-sub">Haven contracts</h4><div class="sv-contracts">${(BO.ZoneContracts?.list || []).map((k) => { const pr = BO.ZoneContracts.progress(k); return `<div class="sv-contract"${tip(k.title, k.sub, '+' + k.xp + ' XP and a weapon reward')}><b>${esc(k.title)}</b><small>${esc(k.sub)}</small><span class="sv-prog sm"><i style="width:${pr ? pct(pr[0], pr[1]) : 0}%"></i></span><em>${pr ? pr[0] + '/' + pr[1] : '+' + k.xp}</em></div>`; }).join('') || '<p class="sv-muted sm">Haven radios new contracts every few minutes.</p>'}</div>
+                        <p class="sv-muted sm">${BO.ZoneInfest ? esc(BO.ZoneInfest.chip()) + ' sites secured.' : ''}</p>
+                        ${contracts ? `<h4 class="sv-sub">Contacts</h4><div class="sv-contracts">${contracts}</div>` : ''}
                         ${c.activities ? `<div class="sv-activities">${c.activities.renderJournal()}</div>` : ''}</section>
                     <section><h4 class="sv-sub">Intel <small>${BO.ZoneArchive?.summary().intel || 0}/16</small></h4>${BO.ZoneArchive ? BO.ZoneArchive.intelHtml(esc, this.intelOpen) : ''}
                         <h4 class="sv-sub">Career</h4>${this.record()}</section>
@@ -2416,6 +2440,7 @@
                 mode.hostilesReleased && t ? `<span class="${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t.cap} roaming</span>` : '',
                 mode.hostilesReleased && !horde?.active ? `<span class="${/tonight/.test(horde.forecast()) ? 'night' : ''}">${esc(horde.forecast())}</span>` : '',
                 ...(BO.ZoneEvents?.chips() || []).map((t) => `<span class="night">${esc(t)}</span>`),
+                BO.ZoneInfest?.chip() ? `<span class="held">${esc(BO.ZoneInfest.chip())}</span>` : '',
                 deep?.stealthFactor < 0.65 ? '<span class="stealth">Hidden</span>' : '',
                 vehicle ? `<span>${esc(vehicle.name)}</span>` : ''
             ].join('');

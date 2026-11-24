@@ -15,6 +15,7 @@
         ['start', 'Getting started', 'flare', 'The crash, Acts 1–3, the Lantern mystery, and how to survive day one.'],
         ['controls', 'Controls', 'fist', 'Every key and mouse action. Rebind any key from the pause menu.'],
         ['threat', 'Senses, hordes & events', 'fire', 'Sight/hearing/smell AI, noise ring, horde nights, PMC garrisons and weather.'],
+        ['thrill', 'Levels, loot & contracts', 'rune', 'Survivor levels and perk cards, weapon rarity and traits, champions, infested sites, contracts and caches.'],
         ['vitals', 'Vitals, injuries & climate', 'flask', 'Health, bleeding, fractures, hunger, water, cold, toxic ash and radiation.'],
         ['map', 'Zone regions', 'scroll', 'Every region of the 500 × 450 m Exclusion Zone: threat, climate and resources.'],
         ['building', 'Building & fortifications', 'build', 'Snap building, structural integrity, breaching, traps, turrets and power.'],
@@ -166,6 +167,32 @@
         add({ cat: 'threat', title: 'World events', icon: icon('flare', '#ff7b6b'), tags: ['Every 5–9 min'],
             text: 'The Zone acts on its own. Active events show as HUD chips, a flag on the compass and a pulsing marker on the map.',
             lists: [{ h: 'Events', items: ['Supply airdrop: a plane drops a crate under red smoke — military loot and a weapon, but a PMC squad heads for it too. Gone after 7 minutes.', 'Infected migration: a herd of 12–22 walks a route across the Zone. Noise pulls members off the route.', 'Distress call: a survivor is pinned down at a building. Clear the infected near them within 6 minutes for supplies, and they mark an unread intel document on your map.', 'Lantern surge (day 2+): a 30-second warning, then 90 seconds of radiation outdoors. A roof or a filter protects you.'] }] });
+
+        /* ---------- 3b. Levels, loot & contracts ---------- */
+        const TH = BO.ZoneThrill;
+        if (TH) {
+            add({ cat: 'thrill', title: 'Survivor levels & perk cards', icon: icon('rune', '#ffd27a'), tags: ['Every expedition'],
+                text: 'Everything you do earns XP: kills (+4 for headshots), kill streaks and multi-kills, containers, discoveries, securing sites, stashes, contracts and caches. Each level heals 25% and lets you choose one of three perk cards. Cards open on their own once no infected is hunting you, or press ' + key('survSkills') + ' to choose now. Press 1–3 to pick, R to reroll (you start with 1 reroll and earn more from contracts), Esc for later. Perks last for the whole expedition, deaths included.',
+                facts: [['Card rarity', 'Common · Rare · Epic (Epic perks from level 3–5)'], ['Ranks', 'Most perks stack 2–3 times'], ['Where to see them', 'Journal → Survivor perks']],
+                lists: ['Combat', 'Stealth', 'Survival', 'Scavenging', 'Building', 'Legend'].map((cat) => ({ h: cat, items: TH.PERKS.filter((p) => p.cat === cat).map((p) => p.name + ' (max ' + p.max + '): ' + p.desc(1)) })) });
+            add({ cat: 'thrill', title: 'Weapon rarity & traits', icon: icon('rifle', '#b26bff'),
+                text: 'Every found weapon rolls a rarity. Higher rarity means more damage and more traits. Weapons on the ground stand under a loot beam in their rarity colour, and their swap prompt lists the traits. Higher-threat regions, cleared-site stashes, champions, contracts and treasure caches roll better. The Gunsmith\'s Luck perk raises the odds.',
+                facts: TH.RARITY.map((r) => [r.name, '+' + Math.round((r.dmg - 1) * 100) + '% damage · ' + r.perks + ' trait' + (r.perks === 1 ? '' : 's')]),
+                lists: [{ h: 'Traits', items: Object.values(TH.WPERKS).map((t) => t.name + ': ' + t.desc + (t.kind === 'gun' ? ' (firearms only)' : '')) }, { h: 'Legendary weapons', items: ['Always three traits and a unique name, such as "Widowmaker" or "Quiet Mercy".'] }] });
+            add({ cat: 'thrill', title: 'Champion infected', icon: icon('blade', '#ff8a3d'),
+                text: 'Some infected are champions: tinted, ringed with light and named above their head. They are tougher (their health is capped by the day, so a pistol can still finish one), and they lead most infested sites. A champion always drops a bag of ammunition and supplies, usually a weapon of Rare or better, and sometimes coordinates to a treasure cache. Champions get more common with each day and in more dangerous regions.',
+                lists: [{ h: 'Affixes', items: Object.values(TH.AFFIX).map((a) => a.name + ': ' + a.desc) }] });
+        }
+        add({ cat: 'thrill', title: 'Infested sites & securing the Zone', icon: icon('flare', '#8fe3c8'), tags: ['Red flag = infested', 'Green flag = secured'],
+            text: 'Every building and dozens of outdoor sites (wrecked convoys, abandoned camps, military roadblocks, crash sites, hunters\' camps, supply caches, burned-out buses) are held by a pack of infected, usually led by a champion. A red flag flies over each. Kill the whole pack to secure the site: the flag turns green, its supply stash unlocks under a green beam, and roaming infected stop spawning within about 38 m. Stashes hold military supplies, sometimes a frag grenade, and always a weapon of Uncommon or better.',
+            facts: [['Packs appear', 'Within about 105 m'], ['Reinfestation', 'From 3 days after securing, a 30% chance each dawn'], ['Progress', 'HUD chip "Zone held", map icons, compass ☠ pip for the nearest infested site']] });
+        add({ cat: 'thrill', title: 'Haven contracts', icon: icon('scroll', '#ffd27a'), tags: ['3 on offer'],
+            text: 'Quartermaster Rowan radios short contracts from Haven. Three are always on offer; finish one and a new one arrives within about 20 seconds. Each pays XP, ammunition for the gun you hold, a supply, and a weapon of guaranteed minimum rarity. Some also pay a perk reroll. Located contracts show on the compass (✪) and the map.',
+            lists: [{ h: 'Contract types', items: ['Clear: secure a named infested site.', 'Bounty: hunt a named champion with 2–3 affixes somewhere inside a marked circle (expires after a day).', 'Headhunter: headshot kills.', 'Champion hunt: kill champions (+1 reroll).', 'Scavenger: search containers.', 'Kill streak: chain kills with no more than 8 s between them (+1 reroll).', 'Burn a nest (+1 reroll).'] }] });
+        add({ cat: 'thrill', title: 'Treasure caches', icon: icon('chest', '#ffb43a'),
+            text: 'Champions sometimes carry coordinates. A gold beam marks the cache 110–230 m away, and it shows in the contracts list, on the compass and on the map. When you get close, a guard pack led by a champion rises around it. Clear the guards and open it for a military supply roll, a medkit and an Epic weapon, with a 25% chance of Legendary. Up to two caches can be marked at once.' });
+        add({ cat: 'thrill', title: 'Kill streaks & multi-kills', icon: icon('fire', '#ffd27a'),
+            text: 'Kills within 2.6 s of each other are multi-kills (Double, Triple, Quad, Massacre). Kills with no more than 8 s between them build a streak: Killing Spree (5), Rampage (10), Unstoppable (15), Zone Reaper (25), Lantern\'s Wrath (40), Extinction Event (60). Each pays bonus XP. Ordinary infected also drop a few rounds for your gun now and then.' });
 
         /* ---------- 4. Vitals & climate ---------- */
         for (const [t, g, d, note, fixes] of VITALS) {

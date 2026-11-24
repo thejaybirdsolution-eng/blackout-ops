@@ -103,6 +103,9 @@
             c.setup(checkpoint);
             BO.ZoneFrontier.start(this);
             BO.ZoneFrontier.restore(checkpoint?.frontier);
+            BO.ZoneThrill?.start(this, checkpoint?.thrill);
+            BO.ZoneInfest?.start(this, checkpoint?.infest);
+            BO.ZoneContracts?.start(this, checkpoint?.contracts);
             BO.ZoneFinale.stop();
             BO.ZoneFinale.applySaved(c.objectives);
             BO.ZoneBuild.falling.length = 0;
@@ -126,6 +129,9 @@
             BO.ZoneFinale?.stop();
             BO.ZoneArchive?.stop();
             BO.ZoneEvents?.stop();
+            BO.ZoneContracts?.stop();
+            BO.ZoneInfest?.stop();
+            BO.ZoneThrill?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -283,6 +289,8 @@
             }
             if (this.jammed === weapon) { p.fireCooldown = 0.4; return false; }
             weapon.cond = weapon.cond ?? 75;
+            const ironclad = BO.ZoneThrill?.has(weapon, 'durable');
+            if (ironclad) weapon.cond = Math.max(weapon.cond, 60);
             if (weapon.cond < 15 && Math.random() < 0.25) {
                 p.fireCooldown = 0.3;
                 BO.Sound.playEmptyClick?.();
@@ -297,11 +305,11 @@
                 this.toast('Stoppage! Press reload to clear it.');
                 return false;
             }
-            const wearMult = (this.campaign?.deep?.hasInfusion?.('unbreaking') ? 0.4 : 1) * deadeyeMult;
+            const wearMult = ironclad ? 0 : (this.campaign?.deep?.hasInfusion?.('unbreaking') ? 0.4 : 1) * deadeyeMult;
             weapon.cond = Math.max(0, weapon.cond - 0.22 * wearMult);
             this.shotEmber = this.ember > 0;
             if (this.shotEmber) this.ember--;
-            const radius = BO.ZoneLoot.shotNoise(weapon);
+            const radius = BO.ZoneLoot.shotNoise(weapon) * (BO.ZoneThrill?.shotNoiseMult() ?? 1);
             this.noise = Math.max(this.noise, radius / 35);
             BO.ZoneDirector.noise(p.pos.x, p.pos.z, radius, 'gunshot');
             if (BO.ZoneLoot.caliberOf(weapon) && Math.random() < 0.45) this.points.brass = (this.points.brass || 0) + 1;
@@ -367,6 +375,7 @@
             entity.survivalType = type;
             if (boss) entity.bossLabel = BO.ZoneBosses.label(type);
             this.zombies.push(entity);
+            BO.ZoneThrill?.onSpawn(entity, type, required);
             return entity;
         }
 
@@ -388,6 +397,8 @@
                 if (mfx.weaponDmgMult && damageKind !== 'melee') amount *= mfx.weaponDmgMult;
                 if (mfx.flatDmgMult) amount *= mfx.flatDmgMult;
                 if (deep?.training) amount *= deep.trainingDamageMult(damageKind);
+                // Run perks, weapon traits and champion armour (reads awareness before the hit reveals you).
+                if (BO.ZoneThrill) amount = BO.ZoneThrill.modifyHit(entity, amount, hitbox, damageKind);
                 // A hit always makes the target aware of you.
                 if (entity.zs) { entity.zs.state = 'hunt'; entity.zs.seen = this.clock; }
             }
@@ -405,6 +416,7 @@
                 this.campaign?.mark(entity.survivalType ? 'infected' : 'pmc', 1, entity.survivalType ? 0 : 14);
                 if (!entity.survivalType) this.dropBotLoot(entity);
                 deep?.onKill?.(entity, damageKind);
+                BO.ZoneThrill?.onKill(entity, hitbox, damageKind);
             }
             return killed;
         }
@@ -446,6 +458,7 @@
                 },
                 onMeleePlayer: (z) => {
                     p.takeDamage(z.damage, z.pos, false, z);
+                    BO.ZoneThrill?.onEnemyMelee(z);
                     D.onPlayerHurt();
                     const deep = this.campaign?.deep;
                     if (deep && p.alive && !p.guardingWithHands) {
@@ -502,6 +515,9 @@
             BO.ZoneFinale.update(dt);
             BO.ZoneArchive.update(dt);
             BO.ZoneEvents.update(dt);
+            BO.ZoneInfest?.update(dt);
+            BO.ZoneContracts?.update(dt);
+            BO.ZoneThrill?.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -727,6 +743,8 @@
             }
             if (BO.ZoneFrontier.activate(site)) return;
             if (BO.ZoneEvents.activate(site)) return;
+            if (BO.ZoneInfest?.activate(site)) return;
+            if (BO.ZoneContracts?.activate(site)) return;
             if (this.loot.begin(site)) return;
             if (site.pickup) { this.loot.takePickup(site); return; }
             if (this.campaign?.activate(site)) return;
