@@ -1394,7 +1394,7 @@
                     <div class="panel-title" style="color:#f87171;">5 UNIQUE BOSS ROUNDS (ROUNDS 5, 10, 20, 25 &amp; 50)</div>
                     <div class="card-grid" style="margin-bottom:14px;">
                         ${bosses.map((b) => `
-                            <div class="select-card active-zombies"
+                            <div class="select-card active-zombies" data-tip-enemy="${b.id}"
                                 data-tip-title="ROUND ${b.bossRound} BOSS: ${escAttr(b.name)}"
                                 data-tip="${escAttr(b.simpleDesc)}"
                                 data-tip-sub="${escAttr(b.weaknessText)} | Reward: +${b.drops.points} PTS &amp; Guaranteed Power-Up">
@@ -1407,7 +1407,7 @@
                         ${zombies.map((z) => {
                             const odds = BO.ZombiesData.getSpawnOddsPercent(z, 60);
                             const res = z.resistances;
-                            return `<div class="select-card"
+                            return `<div class="select-card" data-tip-enemy="${z.id}"
                                 data-tip-title="#${z.tier} ${escAttr(z.name)} (Unlocks Round ${z.unlockRound})"
                                 data-tip="${escAttr(z.simpleDesc)}"
                                 data-tip-sub="Habit: ${z.movementHabit} • Attack: ${z.attackType} • Bullet ${Math.round(res.bullet * 100)}% / Blast ${Math.round(res.explosive * 100)}% / Fire ${Math.round(res.fire * 100)}% / HS ${Math.round(res.headshot * 100)}%">
@@ -1739,7 +1739,7 @@
                                 const odds = BO.ZombiesData.getSpawnOddsPercent(z, 60);
                                 const r = z.resistances;
                                 return `
-                                    <tr data-tip-title="#${z.tier} ${escAttr(z.name)}" data-tip="${escAttr(z.simpleDesc)}">
+                                    <tr data-tip-enemy="${z.id}" data-tip-sub="Joins Zombies from round ${z.unlockRound}" data-tip-title="#${z.tier} ${escAttr(z.name)}" data-tip="${escAttr(z.simpleDesc)}">
                                         <td>#${z.tier}</td>
                                         <td><b>${z.name}</b></td>
                                         <td style="color:#f5a623;font-weight:700;">Round ${z.unlockRound}</td>
@@ -2055,7 +2055,7 @@
                     ${zombies.map((z) => {
                         const checked = cc.customZombiePool.includes(z.id);
                         return `
-                            <label class="mod-row ${checked ? 'active' : ''}">
+                            <label class="mod-row ${checked ? 'active' : ''}" data-tip-enemy="${z.id}" data-tip="${escAttr(z.simpleDesc || z.name)}" data-tip-sub="${checked ? 'In your custom pool' : 'Tick to add to your custom pool'}">
                                 <div>
                                     <div style="font-weight:800;">#${z.tier} ${z.name}</div>
                                     <div style="font-size:11px;color:var(--text-dim);">HP ${z.hp} • SPD ${z.speed} • ${z.attackType}</div>
@@ -2808,8 +2808,8 @@
                             `${d.unlock}${d.points ? ` • Worth ${d.points} pts` : ''}`
                         ].filter((l, i) => l !== '' || i === 1).join('\n');
                         return `
-                            <label class="mod-row ep-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" style="--ep-col:${g.color};"
-                                data-tip-title="${escAttr(z.name)}" data-tip="${escAttr(tipBody)}" data-tip-sub="${escAttr('Tip: ' + d.tip)}">
+                            <label class="mod-row ep-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" data-tip-enemy="${z.id}" style="--ep-col:${g.color};"
+                                data-tip-title="${escAttr(z.name)}" data-tip="${escAttr(tipBody)}" data-tip-sub="${escAttr(d.unlock + (enabled ? ' · enabled' : ' · disabled'))}">
                                 <span class="ep-row-main">
                                     <b>${escAttr(z.name)}</b>
                                     <span class="ep-row-meta">${'★'.repeat(d.threat)} • HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span>

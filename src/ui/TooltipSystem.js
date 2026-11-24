@@ -25,6 +25,7 @@
                 <div class="bo-tip-title"></div>
                 <div class="bo-tip-body"></div>
                 <div class="bo-tip-sub"></div>
+                <div class="bo-tip-rich hidden"></div>
             `;
             document.body.appendChild(box);
             this.el = box;
@@ -69,6 +70,10 @@
             if (!this.el || !target) return;
             const text = target.getAttribute('data-tip');
             if (!text) return;
+            if (target === this.activeTarget && !this.el.classList.contains('hidden')) {
+                this._position(x, y);
+                return;
+            }
             this.activeTarget = target;
             // Modal <dialog>s render in the top layer: the tooltip must live inside them to be visible.
             const host = target.closest('dialog[open]') || document.body;
@@ -81,11 +86,25 @@
             const bodyEl = this.el.querySelector('.bo-tip-body');
             const subEl = this.el.querySelector('.bo-tip-sub');
 
-            titleEl.textContent = title;
-            titleEl.classList.toggle('hidden', !title);
-            bodyEl.textContent = text;
-            subEl.textContent = sub;
-            subEl.classList.toggle('hidden', !sub);
+            const richEl = this.el.querySelector('.bo-tip-rich');
+            const enemyId = target.getAttribute('data-tip-enemy');
+            const spec = enemyId && BO.EnemyInfo ? BO.EnemyInfo.specById(enemyId) : null;
+            this.el.classList.toggle('is-rich', !!spec);
+            richEl.classList.toggle('hidden', !spec);
+            if (spec) {
+                richEl.innerHTML = BO.EnemyInfo.card(spec, sub);
+                titleEl.classList.add('hidden');
+                bodyEl.classList.add('hidden');
+                subEl.classList.add('hidden');
+            } else {
+                richEl.innerHTML = '';
+                bodyEl.classList.remove('hidden');
+                titleEl.textContent = title;
+                titleEl.classList.toggle('hidden', !title);
+                bodyEl.textContent = text;
+                subEl.textContent = sub;
+                subEl.classList.toggle('hidden', !sub);
+            }
 
             this.el.classList.remove('hidden');
             this._position(x, y);

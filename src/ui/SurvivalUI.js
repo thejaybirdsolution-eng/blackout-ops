@@ -130,6 +130,7 @@
         fieldRepair: 'gear', weighTheLine: 'gear', craftOrbitalFlare: 'gear', ammo: 'gear', incendiary: 'gear',
         coilgun: 'weapons'
     };
+    BO.SurvivalItemInfo = ITEM_INFO;
     const TABS = [
         { id: 'inventory', label: 'Inventory', bind: 'survInventory', glyph: 'chest' },
         { id: 'crafting', label: 'Crafting', bind: 'survCraft', glyph: 'wrench' },
@@ -248,7 +249,12 @@
                 if (e.target.id === 'survival-legend-search') {
                     this.legendQuery = e.target.value;
                     const res = this.root.querySelector('#survival-legend-results');
-                    if (res && BO.SurvivalLegend) res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery, this.legendCat || 'all');
+                    if (res && BO.SurvivalLegend) {
+                        res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery, this.legendCat || 'start');
+                        res.scrollTop = 0;
+                        BO.SurvivalLegend.hydrate(res);
+                        this.root.querySelectorAll('.fg-cat').forEach((b) => b.classList.toggle('active', !this.legendQuery && b.dataset.arg === (this.legendCat || 'start')));
+                    }
                 }
             });
             this.root.addEventListener('change', (e) => {
@@ -416,6 +422,7 @@
                     return;
                 }
                 case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
+                case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
                 case 'closeBrief': return this.close();
             }
@@ -553,14 +560,17 @@
                 this.root.innerHTML = `<div class="sv-deploy-frame sv-legend-solo">
                     <header class="sv-dhead"><div class="sv-dhead-title"><span class="sv-kicker">Survival</span><h2>Field guide</h2></div>
                     <button class="sv-btn" data-act="backToBrief"${tip('Back', 'Return to the deployment screen.')}>← Back to deployment</button></header>
-                    <div class="sv-scroll" data-scroll="legend">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'all') : ''}</div></div>`;
-                return this.restoreScroll();
+                    <div class="sv-guide-host">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'start') : ''}</div></div>`;
+                this.restoreScroll();
+                BO.SurvivalLegend?.hydrate(this.root);
+                return;
             }
             const mode = BO.SurvivalMode;
             if (!mode.active || !mode.campaign) return;
             this.root.innerHTML = this.renderTerminal();
             if (s === 'map') this.drawMap();
             this.restoreScroll();
+            if (s === 'legend') BO.SurvivalLegend?.hydrate(this.root);
         }
 
         rememberScroll() {
@@ -727,9 +737,38 @@
                 <div class="sv-field"><div class="sv-field-h"><b>Encounter rate</b><small>Scales how many enemies may roam at once on top of the day's limit.</small></div>
                     ${this.segmented('encounterRate', o.encounterRate, ENCOUNTER.map(([v, l, b]) => [v, l, '', b]))}</div>
                 <div class="sv-field"><div class="sv-field-h"><b>Enemy pool</b><small>Flavours which unlocked infected appear and whether PMC patrols join in (from day 2).</small></div>
-                    <div class="sv-card-grid pools">${Object.entries(data.pools).map(([id, p]) => `<button class="sv-card compact ${o.pool === id ? 'selected' : ''}" data-act="opt" data-key="pool" data-arg="${id}"${tip(p.name, p.extra)}>
+                    <div class="sv-card-grid pools">${Object.entries(data.pools).map(([id, p]) => `<button class="sv-card compact ${o.pool === id ? 'selected' : ''}" data-act="opt" data-key="pool" data-arg="${id}"${tip(p.name, this.poolTooltip(id, o), o.pool === id ? 'Selected' : 'Click to select')}>
                         <span class="sv-card-main"><b>${esc(p.name)}</b><small>${esc(p.extra)}</small></span>${o.pool === id ? '<span class="sv-check">✓</span>' : ''}</button>`).join('')}</div></div>
                 <div class="sv-field">${this.toggle('weather', o.weather, 'Dynamic weather', 'Overcast, ash rain and radiation fog roll through. Ash rain can jam worn weapons; fog thickens and raises radiation.')}</div>`;
+        }
+
+        /** Plain-text list of the infected a pool favours, with the day each one joins. */
+        poolTooltip(poolId, o) {
+            const pool = data.pools[poolId];
+            const roster = BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => !o.disabledEnemies.includes(z.id));
+            const diff = rules().difficulties[o.difficulty];
+            const dayOf = (i) => {
+                for (let d = 1; d < 40; d++) if (rules().threat(d, false, o, diff, roster.length).poolSize > i) return d;
+                return 40;
+            };
+            const indexed = roster.map((z, i) => ({ z, day: dayOf(i) }));
+            const kw = pool.keywords ? new RegExp(pool.keywords, 'i') : null;
+            const matches = kw ? indexed.filter(({ z }) => kw.test(z.id)) : indexed;
+            const line = ({ z, day }) => '• ' + z.name + ' (day ' + day + ')';
+            let body = pool.extra + '\n\n';
+            if (!kw) {
+                body += 'Draws from every enabled infected (' + roster.length + '), weakest first:\n' + indexed.slice(0, 12).map(line).join('\n') +
+                    (indexed.length > 12 ? '\n…and ' + (indexed.length - 12) + ' more, up to ' + indexed[indexed.length - 1].z.name + '.' : '');
+            } else if (matches.length >= 3) {
+                body += 'Favours these ' + matches.length + ' infected (each still joins on its day):\n' + matches.slice(0, 18).map(line).join('\n') +
+                    (matches.length > 18 ? '\n…and ' + (matches.length - 18) + ' more.' : '') +
+                    '\n\nThe two newest unlocks always stay in rotation, and biomes with their own wildlife (woods, quarry, flats, marsh, trench) keep their local types.';
+            } else {
+                body += 'Only ' + matches.length + ' enabled infected match this pool, so it plays like Mixed patrols:\n' + indexed.slice(0, 10).map(line).join('\n') + '\n…';
+            }
+            if (poolId === 'patrols') body += '\n\nAlso: armed PMC patrols (rifles and SMGs) join from day 2, more each day (max 8).';
+            if (poolId === 'horde') body += '\n\nSpawns 30% more often than other pools.';
+            return body;
         }
 
         stepRules(o) {
@@ -789,7 +828,7 @@
                     rows.push(`<div class="sv-roster-day">Joins on day ${d}</div>`);
                     lastDay = d;
                 }
-                rows.push(`<button class="sv-enemy ${on ? 'on' : 'off'}" data-act="roster" data-arg="${z.id}"${tip(z.name, (z.simpleDesc || z.desc || 'Infected variant.'), (on ? 'Enabled' : 'Disabled') + ' · ' + z.hp + ' HP · speed ' + z.speed)}>
+                rows.push(`<button class="sv-enemy ${on ? 'on' : 'off'}" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), on ? 'Enabled · joins Survival on day ' + d + ' · click to disable' : 'Disabled · click to enable')}>
                     <span class="sv-enemy-box">${on ? '✓' : ''}</span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
             });
             const offRows = list.filter((z) => disabled.has(z.id));
@@ -874,7 +913,7 @@
                 case 'map': body = this.tabMap(); break;
                 case 'skills': body = this.tabSkills(); break;
                 case 'journal': body = this.tabJournal(); break;
-                case 'legend': body = `<div class="sv-scroll sv-pad" data-scroll="legend">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'all') : ''}</div>`; break;
+                case 'legend': body = `<div class="sv-guide-host">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'start') : ''}</div>`; break;
                 case 'chest': title = 'Storage chest'; body = this.ctxChest(); break;
                 case 'npc': body = this.ctxNpc(); title = c.contact(this.subject)?.name || 'Contact'; break;
                 case 'shrine': title = 'Site of Grace'; body = this.ctxShrine(); break;

@@ -145,132 +145,97 @@
         });
     }
 
+    const RATING_INFO = {
+        STANDARD: 'No modifiers: the mode plays exactly as designed.',
+        CUSTOMIZED: 'A light touch of tweaks on top of the standard rules.',
+        SUPERCHARGED: 'Mostly helpful buffs. An easier, power-fantasy run.',
+        MAYHEM: 'Several challenge or chaos modifiers stacked. Expect a hard run.',
+        APOCALYPSE: 'A huge or chaotic stack. Only for the brave.'
+    };
+    const TIER_TIP = {
+        all: 'Show every tier.',
+        buff: 'Buffs make the run easier or more rewarding.',
+        tactical: 'Tactical modifiers change how you play without simply making it harder.',
+        challenge: 'Challenge modifiers make the run harder.',
+        chaos: 'Chaos modifiers add wild, unpredictable rules.'
+    };
+
     function renderDeckParts(mode, data, st, activeSet) {
         const { defs, cats, catMap, bundles } = data;
         const stats = computeStats(defs, activeSet);
         const n = Math.max(1, stats.totalActive);
         const pct = (t) => stats.totalActive ? ((stats.tiers[t] || 0) / n * 100).toFixed(1) : 0;
         const filtered = filterDefs(defs, st, activeSet);
+        const catName = (id) => (catMap[id] && catMap[id].name) || id;
+        const scope = st.cat !== 'all' ? ' from the current category' : '';
 
         const meterHtml = `
-            <div class="mm-balance-row">
-                <div class="mm-active-pill">
-                    <span class="mm-active-num">${stats.totalActive}</span>
-                    <span class="mm-active-sep">/</span>
-                    <span class="mm-total-num">${defs.length}</span>
-                    <span class="mm-active-lbl">ACTIVE</span>
-                    <span class="mm-rating-badge mm-rating-${stats.rating.toLowerCase()}">${stats.rating}</span>
+            <div class="mmx-count" data-tip-title="Active modifiers" data-tip="${stats.totalActive} of ${defs.length} modifiers are switched on. Click any tile to toggle it; hover a tile to read exactly what it does.">
+                <b>${stats.totalActive}</b><span>/ ${defs.length}<small>active</small></span>
+            </div>
+            <div class="mmx-rating mmx-r-${stats.rating.toLowerCase()}" data-tip-title="Run rating: ${stats.rating}" data-tip="${esc(RATING_INFO[stats.rating] || '')}">${stats.rating}</div>
+            <div class="mmx-meter-wrap" data-tip-title="Impact mix" data-tip="How your active modifiers split between Buffs (help you), Tactical (change how you play), Challenge (harder) and Chaos (wild).">
+                <div class="mmx-meter">
+                    <span class="t-buff" style="width:${pct('buff')}%"></span><span class="t-tactical" style="width:${pct('tactical')}%"></span>
+                    <span class="t-challenge" style="width:${pct('challenge')}%"></span><span class="t-chaos" style="width:${pct('chaos')}%"></span>
                 </div>
-                <div class="mm-meter-wrap" data-tip="Impact Distribution across active modifiers">
-                    <div class="mm-meter">
-                        <span class="mm-seg-buff" style="width:${pct('buff')}%"></span>
-                        <span class="mm-seg-tactical" style="width:${pct('tactical')}%"></span>
-                        <span class="mm-seg-challenge" style="width:${pct('challenge')}%"></span>
-                        <span class="mm-seg-chaos" style="width:${pct('chaos')}%"></span>
-                    </div>
-                    <div class="mm-meter-legend">
-                        <span class="mm-lg-buff">● ${stats.tiers.buff} Buff</span>
-                        <span class="mm-lg-tactical">● ${stats.tiers.tactical} Tactical</span>
-                        <span class="mm-lg-challenge">● ${stats.tiers.challenge} Challenge</span>
-                        <span class="mm-lg-chaos">● ${stats.tiers.chaos} Chaos</span>
-                    </div>
-                </div>
-                <div class="mm-deck-actions">
-                    <button type="button" class="mm-act-btn" data-mm-act="rand3" data-tip="Pick 3 random modifiers">🎲 Random 3</button>
-                    <button type="button" class="mm-act-btn" data-mm-act="rand5" data-tip="Pick 5 random modifiers">⚡ Random 5</button>
-                    <button type="button" class="mm-act-btn mm-act-danger" data-mm-act="clear" ${stats.totalActive ? '' : 'disabled'}>✕ Clear All</button>
-                </div>
+                <div class="mmx-meter-legend">${['buff', 'tactical', 'challenge', 'chaos'].map((t) => `<span class="t-${t}"><i></i>${stats.tiers[t]} ${TIER_META[t].label.toLowerCase()}</span>`).join('')}</div>
+            </div>
+            <div class="mmx-actions">
+                <button type="button" class="mmx-btn" data-mm-act="rand3" data-tip-title="Random 3" data-tip="Replace your selection with 3 random modifiers${scope}.">⟳ Random 3</button>
+                <button type="button" class="mmx-btn" data-mm-act="rand5" data-tip-title="Random 5" data-tip="Replace your selection with 5 random modifiers${scope}.">⟳ Random 5</button>
+                <button type="button" class="mmx-btn danger" data-mm-act="clear" ${stats.totalActive ? '' : 'disabled'} data-tip-title="Clear all" data-tip="Switch every modifier off and return to the standard rules.">Clear all</button>
             </div>`;
 
-        const tierTabsHtml = [
-            ['all', `All (${defs.length})`],
-            ['buff', 'Buff'],
-            ['tactical', 'Tactical'],
-            ['challenge', 'Challenge'],
-            ['chaos', 'Chaos']
-        ].map(([tid, tlbl]) => {
+        const tierTabsHtml = ['all', 'buff', 'tactical', 'challenge', 'chaos'].map((tid) => {
+            const tlbl = tid === 'all' ? 'All tiers' : TIER_META[tid].label.charAt(0) + TIER_META[tid].label.slice(1).toLowerCase();
             const cnt = tid === 'all' ? defs.length : defs.filter((d) => d.tier === tid).length;
-            return `<button type="button" class="mm-tier-pill mm-tp-${tid}${st.tier === tid ? ' active' : ''}" data-mm-tier="${tid}">${tlbl}${tid !== 'all' ? ` <span>${cnt}</span>` : ''}</button>`;
+            return `<button type="button" class="mmx-seg t-${tid}${st.tier === tid ? ' active' : ''}" data-mm-tier="${tid}" data-tip-title="${esc(tlbl)}" data-tip="${esc(TIER_TIP[tid])}" data-tip-sub="${cnt} modifiers"><i></i>${esc(tlbl)}</button>`;
         }).join('');
 
         const bundlesHtml = bundles.length ? `
-            <div class="mm-bundles">
-                <span class="mm-bundles-lbl">CURATED PACKS</span>
-                <div class="mm-bundle-list">
-                    ${bundles.map((b) => {
-                        const allOn = b.mods.length > 0 && b.mods.every((k) => activeSet.has(k));
-                        return `<button type="button" class="mm-bundle-btn${allOn ? ' active' : ''}" data-mm-bundle="${esc(b.id)}" data-tip="${esc(b.desc)}">
-                            <span class="mm-bundle-ico">${esc(b.ico)}</span>
-                            <span class="mm-bundle-name">${esc(b.name)}</span>
-                            <span class="mm-bundle-cnt">${b.mods.length}</span>
-                        </button>`;
-                    }).join('')}
-                </div>
+            <div class="mmx-packs"><span class="mmx-label">Curated packs</span>
+                ${bundles.map((b) => {
+                    const allOn = b.mods.length > 0 && b.mods.every((k) => activeSet.has(k));
+                    const names = b.mods.map((k) => (defs.find((d) => d.key === k) || {}).label).filter(Boolean);
+                    const body = (b.desc ? b.desc + '\n\n' : '') + 'Includes: ' + names.join(', ');
+                    return `<button type="button" class="mmx-pack${allOn ? ' active' : ''}" data-mm-bundle="${esc(b.id)}" data-tip-title="${esc(b.name)}" data-tip="${esc(body)}" data-tip-sub="${allOn ? 'Click to remove the pack' : 'Click to add all ' + b.mods.length}">
+                        <span>${esc(b.ico)}</span>${esc(b.name)}<em>${b.mods.length}</em></button>`;
+                }).join('')}
             </div>` : '';
 
-        const trayHtml = stats.activeDefs.length ? `
-            <div class="mm-tray-items">
-                ${stats.activeDefs.map((d) => {
-                    const cat = catMap[d.cat] || { color: '#38bdf8' };
-                    return `<button type="button" class="mm-chip mm-chip-${d.tier}" style="--cat-color:${cat.color}" data-mm-remove="${esc(d.key)}" data-tip="Click to disable ${esc(d.label)}">
-                        <span>${esc(d.ico)}</span>
-                        <span>${esc(d.label)}</span>
-                        <span class="mm-chip-x">×</span>
-                    </button>`;
-                }).join('')}
-            </div>` : `<div class="mm-tray-empty">No modifiers active yet — choose a category tab, apply a Curated Pack, or roll Random 3 / 5 above.</div>`;
+        const trayHtml = stats.activeDefs.length
+            ? stats.activeDefs.map((d) => `<button type="button" class="mmx-chip t-${d.tier}" data-mm-remove="${esc(d.key)}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc || 'No description.')}" data-tip-sub="Click to switch off"><span>${esc(d.ico)}</span>${esc(d.label)}<b>×</b></button>`).join('')
+            : '<span class="mmx-empty">Standard rules: no modifiers active. Pick tiles below, apply a curated pack, or roll a random set.</span>';
 
-        const tabsHtml = `
-            <button type="button" class="mm-tab${st.cat === 'all' ? ' active' : ''}" data-mm-cat="all" style="--cat-color:#38bdf8">
-                <span class="mm-tab-ico">🌐</span>
-                <span class="mm-tab-name">All Categories</span>
-                <span class="mm-tab-cnt">${stats.totalActive}/${defs.length}</span>
-            </button>
-            ${cats.map((c) => {
+        const railBtn = (id, ico, name, a, t, color, tip) => `<button type="button" class="mmx-cat${st.cat === id ? ' active' : ''}${a ? ' has' : ''}" data-mm-cat="${esc(id)}" style="--c:${color}" data-tip-title="${esc(name)}" data-tip="${esc(tip)}">
+            <span class="mmx-cat-ico">${esc(ico)}</span><span class="mmx-cat-name">${esc(name)}</span><span class="mmx-cat-n">${a ? `<b>${a}</b>/` : ''}${t}</span></button>`;
+        const tabsHtml = railBtn('all', '◈', 'All categories', stats.totalActive, defs.length, 'var(--mx-accent)', 'Browse every modifier, grouped by category.') +
+            cats.map((c) => {
                 const cs = stats.byCat[c.id] || { total: 0, active: 0 };
-                return `<button type="button" class="mm-tab${st.cat === c.id ? ' active' : ''}${cs.active > 0 ? ' has-active' : ''}" data-mm-cat="${esc(c.id)}" style="--cat-color:${c.color}">
-                    <span class="mm-tab-ico">${esc(c.ico)}</span>
-                    <span class="mm-tab-name">${esc(c.name)}</span>
-                    <span class="mm-tab-cnt">${cs.active}/${cs.total}</span>
-                </button>`;
-            }).join('')}`;
+                if (!cs.total) return '';
+                return railBtn(c.id, c.ico, c.name, cs.active, cs.total, c.color, cs.total + ' modifiers in ' + c.name + '.');
+            }).join('');
 
-        // Group filtered results cleanly in category order
         const catOrder = cats.length ? cats : Array.from(new Set(defs.map((d) => d.cat))).map((id) => ({ id, name: id, ico: '✦', color: '#38bdf8' }));
+        const tile = (d) => {
+            const on = activeSet.has(d.key);
+            const tm = TIER_META[d.tier] || TIER_META.tactical;
+            const sub = tm.label + ' · ' + catName(d.cat) + (d.exclusive ? ' · mode exclusive' : '') + ' · click to turn ' + (on ? 'off' : 'on');
+            return `<button type="button" class="mmx-tile t-${d.tier}${on ? ' on' : ''}${d.exclusive ? ' special' : ''}" data-mm-key="${esc(d.key)}" aria-pressed="${on ? 'true' : 'false'}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc || 'No description.')}" data-tip-sub="${esc(sub)}">
+                <span class="mmx-tile-ico">${esc(d.ico)}</span><span class="mmx-tile-name">${esc(d.label)}</span>${d.exclusive ? '<span class="mmx-star">★</span>' : ''}<span class="mmx-check"></span></button>`;
+        };
         const groupsHtml = catOrder.map((c) => {
             if (st.cat !== 'all' && st.cat !== c.id) return '';
             const items = filtered.filter((d) => d.cat === c.id);
             if (!items.length) return '';
             const cs = stats.byCat[c.id] || { total: items.length, active: 0 };
-            return `<section class="mm-group" data-mm-group="${esc(c.id)}" style="--cat-color:${c.color}">
-                <header class="mm-group-hd">
-                    <div class="mm-group-title">
-                        <span class="mm-group-ico">${esc(c.ico)}</span>
-                        <h4>${esc(c.name)}</h4>
-                        <span class="mm-group-stat">${cs.active} active · ${items.length} shown</span>
-                    </div>
-                    ${cs.active > 0 ? `<button type="button" class="mm-clear-cat" data-mm-clear-cat="${esc(c.id)}">Clear Category (${cs.active})</button>` : ''}
-                </header>
-                <div class="mm-grid">
-                    ${items.map((d) => {
-                        const on = activeSet.has(d.key);
-                        const tm = TIER_META[d.tier] || TIER_META.tactical;
-                        return `<button type="button" class="mm-card${on ? ' active' : ''}${d.exclusive ? ' exclusive' : ''}" data-mm-key="${esc(d.key)}" data-mm-tier="${esc(d.tier)}" aria-pressed="${on ? 'true' : 'false'}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc)}" data-tip-sub="${esc((tm.label || '') + ' · click to turn ' + (on ? 'OFF' : 'ON'))}">
-                            <div class="mm-card-top">
-                                <span class="mm-card-ico">${esc(d.ico)}</span>
-                                <span class="mm-card-lbl">${esc(d.label)}</span>
-                                <span class="mm-card-badges">
-                                    ${d.exclusive ? '<span class="mm-spec-badge" data-tip="Mode-Exclusive Modifier">★ SPECIAL</span>' : ''}
-                                    <span class="mm-tier-badge mm-tb-${esc(d.tier)}">${tm.label}</span>
-                                </span>
-                                <span class="mm-toggle-pill">${on ? 'ON' : 'OFF'}</span>
-                            </div>
-                            <div class="mm-card-desc">${esc(d.desc)}</div>
-                        </button>`;
-                    }).join('')}
-                </div>
+            return `<section class="mmx-group" style="--c:${c.color}">
+                <header><span class="mmx-group-ico">${esc(c.ico)}</span><h4>${esc(c.name)}</h4><small>${cs.active} on · ${items.length} shown</small>
+                ${cs.active > 0 ? `<button type="button" class="mmx-link" data-mm-clear-cat="${esc(c.id)}" data-tip="Switch off every active modifier in ${esc(c.name)}.">Clear ${cs.active}</button>` : ''}</header>
+                <div class="mmx-grid">${items.map(tile).join('')}</div>
             </section>`;
-        }).filter(Boolean).join('') || `<div class="mm-empty-state">No modifiers match your current search or filters. <button type="button" class="mm-act-btn" data-mm-act="resetfilters">Reset Filters</button></div>`;
+        }).filter(Boolean).join('') || '<div class="mmx-none">No modifiers match your search or filters. <button type="button" class="mmx-btn" data-mm-act="resetfilters">Reset filters</button></div>';
 
         const hiddenSyncHtml = mode === 'survival'
             ? Array.from(activeSet).map((k) => `<input type="checkbox" class="mm-sync-input" data-mod value="${esc(k)}" checked style="display:none">`).join('')
@@ -286,25 +251,24 @@
         const activeSet = toActiveSet(opts.active);
         const parts = renderDeckParts(mode, data, st, activeSet);
         return `
-            <div class="mm-shell mm-mode-${esc(mode)}" data-mm-mode="${esc(mode)}">
+            <div class="mm-shell mmx mm-mode-${esc(mode)}" data-mm-mode="${esc(mode)}">
                 <div class="mm-sync-wrap" style="display:none">${parts.hiddenSyncHtml}</div>
-                <div class="mm-deck">
-                    <div class="mm-balance-slot">${parts.meterHtml}</div>
-                    <div class="mm-toolbar">
-                        <div class="mm-search-wrap">
-                            <span class="mm-search-ico">⌕</span>
-                            <input type="search" class="mm-search" data-mm-search placeholder="Search ${data.defs.length} modifiers, effects, categories..." value="${esc(st.q)}" autocomplete="off" spellcheck="false">
+                <header class="mmx-head mm-balance-slot">${parts.meterHtml}</header>
+                <div class="mmx-loadout"><span class="mmx-label">Active</span><div class="mm-tray-slot mmx-tray">${parts.trayHtml}</div></div>
+                <div class="mmx-main">
+                    <nav class="mm-tabs-slot mmx-rail" aria-label="Modifier categories">${parts.tabsHtml}</nav>
+                    <section class="mmx-content">
+                        <div class="mmx-toolbar">
+                            <label class="mmx-search" data-tip-title="Search" data-tip="Search names, effects and categories. Descriptions are searched too, even though they only show on hover.">
+                                <span>⌕</span><input type="search" data-mm-search placeholder="Search ${data.defs.length} modifiers…" value="${esc(st.q)}" autocomplete="off" spellcheck="false">
+                            </label>
+                            <div class="mm-tier-slot mmx-segs">${parts.tierTabsHtml}</div>
+                            <button type="button" class="mmx-only${st.onlyActive ? ' active' : ''}" data-mm-only-active data-tip-title="Only active" data-tip="Show only the modifiers you have switched on."><i></i>Only active</button>
                         </div>
-                        <div class="mm-tier-slot">${parts.tierTabsHtml}</div>
-                        <button type="button" class="mm-only-active-btn${st.onlyActive ? ' active' : ''}" data-mm-only-active>
-                            <span>✓ Only Active</span>
-                        </button>
-                    </div>
-                    <div class="mm-bundles-slot">${parts.bundlesHtml}</div>
-                    <div class="mm-tray-slot">${parts.trayHtml}</div>
+                        <div class="mm-bundles-slot">${parts.bundlesHtml}</div>
+                        <div class="mm-body-slot mmx-body">${parts.groupsHtml}</div>
+                    </section>
                 </div>
-                <div class="mm-tabs-slot mm-tabs" role="tablist" aria-label="Modifier Categories">${parts.tabsHtml}</div>
-                <div class="mm-body-slot mm-body">${parts.groupsHtml}</div>
             </div>`;
     }
 
@@ -327,6 +291,7 @@
         setHtml('.mm-body-slot', parts.groupsHtml);
         const onlyBtn = shell.querySelector('[data-mm-only-active]');
         if (onlyBtn) onlyBtn.classList.toggle('active', !!st.onlyActive);
+        if (BO.Tooltips && BO.Tooltips.hide) BO.Tooltips.hide();
     }
 
     function bindContainer(rootEl, opts = {}) {

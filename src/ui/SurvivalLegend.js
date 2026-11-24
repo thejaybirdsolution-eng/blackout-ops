@@ -1,230 +1,469 @@
 /* ============================================================================
-   BLACKOUT OPS — Comprehensive Searchable Survival Legend
-   Explains every control, safe-minute rule, mode, difficulty, modifier, preset,
-   shrine, rune attribute, talisman, tech node, schematic, infusion, structure,
-   activity, world event, status condition, item, recipe, biome, NPC & boss.
+   BLACKOUT OPS — Survival Field Guide
+   A searchable, categorised reference for every Survival element: controls,
+   rules, threat escalation, vitals, every resource (where it is and what it
+   yields), every item (where to get it and what it is used for), tools,
+   stations, recipes, structures, biomes, landmarks, contacts, enemies,
+   bosses, progression, activities, travel and troubleshooting.
+   Entries are generated from the live game data, so they never go stale.
 ============================================================================ */
 (function (BO) {
     'use strict';
 
-    const categories = {
-        start: 'Start here & grace timer',
-        controls: 'Controls & keybinds',
-        rules: 'Modes, difficulty & modifiers',
-        combat: 'Bare hands, combat & bosses',
-        shrines: 'Shrines, runes & talismans',
-        tech: 'Tech tree, schematics & infusions',
-        activities: 'Farming, fishing & world events',
-        status: 'Vitals, temperature & stealth',
-        building: 'Base building & automation',
-        storage: 'Backpack, chests & supplies',
-        tools: 'Resources & gathering tools',
-        recipes: 'Crafting & perk tonics',
-        map: 'Landmarks & biomes',
-        contacts: 'Contacts, trades & quests',
-        travel: 'Vehicles, train & fast travel',
-        career: 'Career, XP & checkpoints',
-        help: 'Troubleshooting'
+    const CATS = [
+        ['start', 'Getting started', 'flare', 'The first minutes, the core loop and how the zone escalates.'],
+        ['controls', 'Controls', 'fist', 'Every key and mouse action. All keys can be rebound from the pause menu.'],
+        ['threat', 'Days, threat & events', 'fire', 'How enemies scale by day and night, weather, Blood Moons and world events.'],
+        ['vitals', 'Vitals & status', 'flask', 'Health, food, water, temperature, radiation and status effects — what drains them and what fixes them.'],
+        ['resources', 'Resources & gathering', 'pick', 'Every deposit in the zone: what tool it needs, what it yields and exactly where to find it.'],
+        ['items', 'Items', 'chest', 'Every item: what it does, where to get it and what it is used for.'],
+        ['tools', 'Tools', 'axe', 'Gathering tools: tiers, power, durability and what each can break.'],
+        ['crafting', 'Crafting & stations', 'wrench', 'Crafting stations and every recipe, with ingredients and results.'],
+        ['building', 'Building & base', 'build', 'Every structure you can place, what it costs and what it does.'],
+        ['map', 'Biomes & landmarks', 'scroll', 'Every area and landmark: what is there and why to go.'],
+        ['contacts', 'Contacts & trades', 'leaf', 'Every contact: where they are, what they trade, gifts and contracts.'],
+        ['enemies', 'Enemies', 'blade', 'Every infected type. Hover a card for its full dossier and look.'],
+        ['bosses', 'Bosses & rivals', 'rifle', 'Zone bosses and PMC rivals: where they appear and how to beat them.'],
+        ['progression', 'Progression', 'rune', 'Sites of Grace, attributes, talismans, tech, infusions, schematics and career.'],
+        ['activities', 'Activities', 'seed', 'Gardening, water, fishing, repeaters, surveys, dispatch routes and caches.'],
+        ['travel', 'Travel', 'gear', 'Vehicles, the locomotive, gliders and fast travel.'],
+        ['rules', 'Modes & rules', 'tech', 'Operations, difficulties, presets, enemy pools and every modifier.'],
+        ['help', 'Troubleshooting', 'unknown', 'Why you cannot build, craft, save, travel or extract — and the fix.']
+    ];
+    const CAT_LABEL = Object.fromEntries(CATS.map(([id, label]) => [id, label]));
+    const STATION = { hand: 'By hand (anywhere)', bench: 'Workbench (Relay shelter or a crafting table)', campfire: 'Campfire (or the Relay shelter stove)', kiln: 'Stone kiln' };
+    const STATION_SHORT = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln' };
+    const TOOL_NAME = { axe: 'axe', pick: 'pickaxe', shovel: 'shovel' };
+    const AREA_NOTES = {
+        relay: 'The starting sanctuary. Workshop shelter (workbench and stove), many contacts, the garden beds, a water filter, basic branches, stones and fiber, the Relay Sanctuary Grace and the glider launch deck.',
+        pine: 'Western woods. Pine trees, fiber roots, bitterleaf, the Scout Vale rescue beacon, a repeater, the Pinebreak cistern fishing spot and the Pinebreak Glade Grace.',
+        freight: 'Eastern rail yards. The freight cache, the locomotive, ammunition and vehicle traders, a repeater and the Freight Overpass Grace.',
+        basin: 'Eastern wetland around the dam. Clay, copper and buried salvage. Opening the dam floods part of it for good — scavenge first.',
+        frost: 'Locked northwest quarry (survival level 3). Hardwood, boulders, quartz, buried salvage and the Pale Maul boss (challenge it via Kestrel). Freezing at night.',
+        cinder: 'Locked southeast flats (survival level 5). Coal, iron, copper and quartz, and the Cinder Regent boss (challenge it via Ember). Hot: you drink faster.',
+        trench: 'The research facility below the central ramp. Ore veins, the Apex Guardian and the Aether core. Radiation builds up down here — bring a filter and light.',
+        ridge: 'Slateback Ridge: a switchback climb with rich ore, hardwood, the Mason and Cartographer contacts, a survey cairn and the Summit Grace.',
+        cavern: 'Echo Cavern, west through the research trench. Dark and irradiated, with luminous quartz, copper and the deep Resonant Geode guarded by the Resonant Sentinel.'
     };
-
-    const stations = {
-        hand: 'Anywhere (by hand)',
-        bench: 'Relay workshop or Crafting Table',
-        kiln: 'Stone kiln',
-        campfire: 'Campfire'
+    const SITE_INFO = {
+        shelter: 'Your base of operations. Works as a workbench and a campfire stove, and resting here restores composure.',
+        hospital: 'Search it once for 3 salvage, 1 MRI coil, 2 cloth and 1 trauma kit. The MRI coil powers the coil prototype weapon.',
+        dam: 'Open the spillway to flood the freight basin permanently. Anything standing in the basin is crushed. Needed for the Spillway Test contract.',
+        depot: 'Search it once for 4 salvage, 2 fuel, a ration, an extra lethal and an MP5 carbine with 60 rounds.',
+        train: 'Restore it for 5 salvage and 2 fuel, then ride it around the rail loop. Interact again to step off.',
+        bunker: 'The Aether core lies at the bottom of the research trench. Defeat the Apex Guardian first (Core Expedition).',
+        lookout: 'Evac Ridge. Call extraction here once your objective is complete, then hold the position until the timer ends.',
+        squadmate: 'Rescue Scout Vale, who then fights alongside you in the western sector.'
     };
-    const toolFamilies = { axe: 'axe', pick: 'pickaxe', shovel: 'shovel' };
+    const VITALS = [
+        ['Health', 'plate', 'Your life. At 0 you fall: with a kindled Site of Grace or a field bed you can respawn (losing carried runes at a recoverable echo); otherwise the expedition ends.',
+            'Regenerates 1.2/s while food and water are both 75% or higher (and you are not bleeding).', ['Trauma kit (+55)', 'Herbal dressing (+27, stops bleeding)', 'Aether Flask (+50, refills at Grace)', 'Hearty stew (+25)', 'Aether stim (+45)', 'Sleeping at a Grace or bed (full)']],
+        ['Food', 'can', 'Drains about 0.11% per second (about 15 minutes from full). At 0 you lose 1 health per second.',
+            'Fast Metabolism doubles the drain.', ['Field ration (+35)', 'Hearty stew (+65)', 'Hot meal at a campfire/shelter (+55)']],
+        ['Water', 'bottle', 'Drains about 0.09% per second (faster above 31°C, e.g. Cinder Flats). At 0 you lose 1 health per second.',
+            'Hand pumps refill your bottles for free.', ['Filtered water (+50)', 'Bitterleaf tea (+25)', 'Hearty stew (+35)', 'Field espresso (+20)', 'Thermal broth (+20)']],
+        ['Temperature', 'fire', 'Follows the area and time of day: about 21°C on the lowlands, 10°C underground, -4°C in Frostline Quarry, 36°C in Cinder Flats, 9°C colder at night (19°C with Sub-zero Nights). Below 2°C you lose stamina; below -3°C you lose health.',
+            'Standing within 5.5 m of a campfire, kiln, torch, beacon or kindled Grace adds 15°C.', ['Thermal spiced broth (+18°C)', 'Hearty stew (+10°C)', 'Lead-Lined Zone Charm (halves cold drain)']],
+        ['Radiation', 'mask', 'Builds up underground (trench and cavern) and in flood water, and falls slowly on the surface. Above 75 it costs 2 health per second.',
+            'A respirator filter cuts buildup by 82% for two minutes. Arcane ranks and the Lead-Lined Charm reduce it.', ['Respirator filter', 'Bitterleaf tea (-19)', 'Antibiotic elixir (-30)']],
+        ['Composure', 'cup', 'Falls in darkness. Under 30 your aim sways.',
+            'A hot meal keeps it full for two minutes; resting restores it.', ['Hot meal', 'Bitterleaf tea (+36)', 'Field espresso (+25)', 'Resting at the shelter or a bed']],
+        ['Bleeding', 'bandage', 'Costs 2 health per second until it wears off. Caused by some infected hits (Bio-Toxic Hits modifier).',
+            'Stops on its own after a few seconds.', ['Herbal dressing', 'Antibiotic elixir', 'Aether Flask']],
+        ['Infection', 'vial', 'Builds with bio-toxic hits. At 70 or more it costs 2 health per second.',
+            'The flask removes 35 per drink.', ['Antibiotic elixir (cures)', 'Aether Flask (-35)', 'Resting at a Grace (cures)']],
+        ['Stamina', 'flare', 'Spent on sprinting, dodge rolls and guarding. Recovers when you stop.',
+            'Endurance ranks, the Turtle Emblem talisman and Rested Comfort speed it up.', ['Field espresso', 'Aether stim', 'Stamin-Up elixir']],
+        ['Armor', 'plate', 'Absorbs damage before health. Insert spare plates with your armor plate key.',
+            'Armor plates are traded by Rowan, Suri and Kestrel.', ['Armor plate (trade)', 'Armored Insertion modifier']]
+    ];
 
-    const areaNotes = {
-        relay: 'Starting sanctuary with workshop, supply contacts, crop beds, basic resources, Relay Sanctuary Grace, and glider launch deck.',
-        pine: 'Western woods rich in timber, fiber, bitterleaf herbs, Scout Vale rescue beacon, Pinebreak repeater, and Pinebreak Glade Grace.',
-        freight: 'Eastern rail and warehouse yards with Freight Cache, Locomotive, Ammo/Vehicle merchants, and Freight Overpass Grace.',
-        basin: 'Eastern wetland around the Dam spillway. Scavenge before flooding. Bridges and raised rail stay above water.',
-        frost: 'Northwest quarry (Career Level 3). Talk to Kestrel to fight Pale Maul. Rich in hardwood, stone, quartz, and buried salvage.',
-        cinder: 'Southeast dry flats (Career Level 5). Talk to Ember to fight Cinder Regent. Rich in coal, iron, copper, and quartz.',
-        trench: 'Subterranean facility below the central north ramp. Guards the Aether Core & Apex Guardian. Bring light and rad gear.',
-        ridge: 'Southwest switchback climb up Slateback Ridge with views, ore veins, Mason Holt, Cartographer Linn, and Summit Grace.',
-        cavern: 'Follow the Research Trench west into Echo Cavern. Holds luminous quartz, the deep Resonant Geode, and Resonant Sentinel.'
-    };
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const norm = (v) => String(v ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+    const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 
-    const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    })[c]);
-    const normalize = (value) => String(value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
-    const coords = ({ x, y, z }) => y ? `Map X ${x}, Z ${z}, elevation ${y}.` : `Map X ${x}, Z ${z}.`;
-    const readKey = (code) => String(code || '').replace(/^(Key|Digit)/, '').replace(/(Left|Right)$/, ' $1');
-
-    function formatter(frontier) {
-        return (cost) => Object.entries(typeof cost === 'number' ? { scrap: cost } : (cost || {}))
-            .filter(([, count]) => count > 0)
-            .map(([id, count]) => `${count} ${frontier.items?.[id]?.[0] || id}`)
-            .join(' + ');
+    function areaAt(x, y, z) {
+        const areas = BO.SurvivalCampaignData.areas;
+        let a = null;
+        if (y < -1.7) a = areas.find((zone) => zone.id === (x < -4.6 && z < -43 ? 'cavern' : 'trench'));
+        if (!a && y > 2.6 && x < -37 && z > 28) a = areas.find((zone) => zone.id === 'ridge');
+        if (!a) a = areas.find((zone) => zone.bounds && x >= zone.bounds[0] && x <= zone.bounds[1] && z >= zone.bounds[2] && z <= zone.bounds[3]);
+        if (!a) a = areas.filter((zone) => !zone.bounds && zone.y === 0).reduce((best, zone) => Math.hypot(x - zone.x, z - zone.z) < Math.hypot(x - best.x, z - best.z) ? zone : best);
+        return a;
     }
 
-    function addControls(add) {
-        const keys = BO.Settings?.getKeybinds?.() || {};
-        const key = (id, fallback) => keys[id] ? (BO.Settings.keyLabel ? BO.Settings.keyLabel(keys[id]) : readKey(keys[id])) : fallback;
-        const move = [['forward', 'W'], ['left', 'A'], ['back', 'S'], ['right', 'D']].map(([id, fb]) => key(id, fb)).join('/');
-        add('controls', 'Rebind anything', 'Every key can be changed: pause the game and choose Controls & Keybinds, or open Settings › Controls. Conflicting keys swap automatically.', 'keybind rebind controls remap');
-        add('controls', `${move} · Move & sprint`, `${key('sprint', 'Shift')} sprints. ${key('jump', 'Space')} jumps/mantles. ${key('crouch', 'C')} toggles crouch stealth (or slides while sprinting).`);
-        add('controls', `${key('survDodge', 'Alt')} · Dodge roll`, 'A quick directional roll with 0.34 s of invulnerability to evade lunges, acid and boss slams. Costs stamina.', 'dodge roll evade invulnerable alt');
-        add('controls', `${key('hotbar1', '1')}–${key('hotbar10', '0')} / mouse wheel · 10-slot hotbar`, 'Your hotbar holds weapons, tools and usable items. Number keys pick a slot; the wheel cycles all ten. An empty slot is bare hands. Drag items onto the hotbar in the Inventory.', 'hotbar slot bare hands fists unarmed wheel');
-        add('controls', 'Left mouse · Fire / punch / swing / use', 'Fires a held weapon, punches with bare hands (hold and release for a heavy haymaker), swings a held tool (hold to keep chopping) or uses a held consumable.', 'parry block guard combo haymaker swing tool');
-        add('controls', 'Right mouse · Aim / guard & parry', 'Aims firearms. With bare hands, raises a guard; raising it within 0.28 s of a hit is a Perfect Parry.', 'parry block guard');
-        add('controls', `${key('interact', 'E')} · Interact / gather`, 'Gather deposits (with your best tool, or slowly by hand), open chests and doors, tend gardens, pump water, talk to contacts, kindle Sites of Grace and mine meteors.');
-        add('controls', `${key('survInventory', 'Tab')} · Inventory`, 'Backpack, hotbar, equipment, tools and talismans.');
-        add('controls', `${key('survCraft', 'J')} · Crafting`, 'Every recipe in one list by category. Recipes that need a workbench, campfire or kiln unlock when you stand within 4 m of one.');
-        add('controls', `${key('survBuild', 'B')} · Build`, 'Place walls, floors, stations, storage, traps, turrets and beacons (detonates planted C4 first).');
-        add('controls', `${key('survMap', 'M')} / ${key('survTravel', 'T')} · Map & travel`, 'Field map with landmarks, contacts and resources; fast travel and vehicles live on the right-hand side.');
-        add('controls', `${key('survSkills', 'K')} · Skills`, 'Spend Tech Points on the 4-tier technology tree and Aether Runes on attributes.');
-        add('controls', `${key('survJournal', 'O')} · Journal`, 'Objective, field challenges, contracts, activities, saving and your career record.');
-        add('controls', `${key('survLegend', 'L')} · Survival guide`, 'Open this encyclopedia. The game pauses while any Survival screen is open.');
-        add('controls', `${key('survFlask', 'X')} · Aether Flask`, 'Drink a charge to restore 50+ HP and stop bleeding. Refill at any Site of Grace, Homestead Beacon or by sleeping.', 'flask heal estus');
-        add('controls', `${key('survLight', 'H')} · Light`, 'Light or put out a carried torch or lantern.');
-        add('controls', `${key('reload', 'R')} / ${key('inspect', 'I')} / ${key('survPlate', 'F')} / ${key('melee', 'V')}`, 'Reload or clear a jam · inspect your magazine · insert a spare armor plate · quick punch or tool swing with anything in hand.');
-    }
+    function build() {
+        const frontier = BO.SurvivalFrontierData;
+        const campaign = BO.SurvivalCampaignData;
+        const base = BO.SurvivalData;
+        const rules = BO.SurvivalRules;
+        const deep = BO.SurvivalDeepData || {};
+        const acts = BO.SurvivalActivitiesData || {};
+        const info = BO.SurvivalItemInfo || {};
+        const Ic = BO.SurvivalIcons;
+        const kb = BO.Settings.getKeybinds();
+        const key = (a) => BO.Settings.keyLabel(kb[a]);
+        const name = (id) => frontier.items[id]?.[0] || frontier.tools[id]?.name || id;
+        const amounts = (c) => Object.entries(typeof c === 'number' ? { scrap: c } : (c || {})).filter(([, n]) => n > 0).map(([id, n]) => n + ' ' + name(id)).join(', ');
+        const out = [];
+        const add = (e) => { out.push({ tags: [], facts: [], lists: [], ...e }); };
+        const icon = (glyph, color) => Ic.named(glyph, color || '#9fe0c9', 26);
 
-    function addCoreSections(add, openingSeconds) {
-        add('start', `Opening Grace Period (First ${openingSeconds}s — No Enemies)`, 'During the first 60 seconds (or 120s with Extended Safe Start), NO zombies, bosses, or hostile patrols spawn anywhere. Boss challenges, the Research Core, Blood Moons, and Evac Ridge stay sealed until the safe timer finishes. Opening Survival menus pauses the clock!', 'safe minute no enemies spawn grace timer');
-        add('start', 'First minute checklist', '1) Pick up fallen branches, loose stones and fiber roots around the Relay (press interact or punch them). 2) In Crafting, braid cord and make a stone hatchet and pickaxe — they land on your hotbar automatically. 3) Kindle the Relay Sanctuary Grace by the shelter (+1 Tech Point). 4) Spend it in Skills. 5) Check the Journal for your objective.');
-        add('start', 'Days, nights & escalating threat', 'Day 1 is quiet: only the 4 weakest infected roam, about 3 at a time. Every new day (midnight) unlocks stronger infected and raises the roaming limit until the full roster is in play around day 7. Nights allow about 35% more roamers. PMC scavengers arrive on day 2 and Commander Sable on day 3.', 'day night escalation threat cap roaming difficulty');
-        add('start', 'Bare hands vs tools', 'Bare hands break branches, stones, fiber, tier-1 trees and rocks, timber walls and even standing trees — at a quarter of a stone tool\'s speed. Tier-2 deposits (copper, quartz, hardwood, buried salvage) need the right tool. Hold a tool on the hotbar and click to swing it.', 'hands punch gather harvest tool slow');
-        add('start', 'Complete Survival Loop', 'Explore 9 Zones -> Harvest & Mine -> Research 16 Tech Nodes -> Build Automated Base & Turrets -> Kindle Shrines & Level Attributes -> Craft Perk Tonics & Aether Infusions -> Beat Zone Bosses & Blood Moons -> Extract at Evac Ridge.');
-
-        add('combat', 'Bare Hands Mastery: Combos, Guard & Perfect Parry', 'Select an empty hotbar slot. Left-Click chains Jab (44 dmg) -> Cross (52 dmg) -> Heavy Uppercut (72 dmg + stagger). Holding Left-Click >0.45s unleashes a 96-dmg Charged Haymaker! Holding Right-Click blocks 68% frontal damage; raising Guard within 0.28s of impact triggers a PERFECT PARRY (0 dmg, stuns attacker 2.4s, +25% stamina, and opens a 2.8x damage Riposte counter!).', 'bare hands punch guard parry riposte combo haymaker');
-        add('combat', 'Stealth Backstab & Dodge Roll', 'Crouch [C] when quiet to drop enemy detection radius sharply. Striking an unaware enemy from behind while crouched deals a 3.5x Stealth Takedown critical! Press Left Alt to Dodge Roll with 0.34s invulnerability frames.');
-        add('combat', 'Boss Poise, Phase 2 Rage & Spoils', 'At <=50% HP, Zone Bosses erupt into Phase 2 Rage (+25% speed & damage). Defeating any boss drops a golden Boss Spoils pouch with Runes, Aether Shards, and bonus Weapon Schematics, plus +1 Tech Point.');
-        add('combat', 'Apex Guardian, Pale Maul, Cinder Regent & Resonant Sentinel', 'Apex Guardian guards the Research Trench Aether Core. Challenge Pale Maul via Kestrel (Frostline) and Cinder Regent via Ember (Cinder Flats). Mining the deep geode in Echo Cavern awakens the Resonant Sentinel.');
-        add('combat', 'Hostile Mimics & Commander Sable', 'Rad fog can hide Mimics mimicking distress radio calls. Commander Sable leads armed PMC squads and may retreat below 70 HP to return later with reinforced heavy guards.');
-
-        add('shrines', 'Sites of Grace & Homestead Grace Beacons', '5 ancient Sites of Grace dot the map (and you can build a Homestead Grace Beacon at Tech Tier 3). Kindling a Shrine grants +1 Tech Point, +50 XP, refills HP & Aether Flask, clears Bleeding/Infection, and sets your Respawn Sanctuary.');
-        add('shrines', 'Aether Flask & Golden Aether Seeds', 'Press your flask key anytime for an instant burst heal (+50 HP + 5/Arcane) that stops Bleeding. Start with 3 charges; find 3 hidden Golden Aether Seeds (Pinebreak, Spillway, Echo Cavern) to expand up to 6 charges!');
-        add('shrines', 'Lost Aether Echoes & Sanctuary Respawn', 'When you have a kindled Shrine or Field Bed (and Iron Expedition is off), falling drops a glowing golden Soul Echo holding your carried Runes and lets you respawn safely at Sanctuary to reclaim them.');
-
-        add('activities', 'Crop Gardening (Relay Beds)', 'Collect starter seeds at the Relay Dispatch Board. Plant seeds in the 3 Relay beds, water them with Filtered Water from Hand Pumps, and harvest fresh Rations, Plant Fiber, and Bitterleaf Herbs. Rapid Hydroponics increases growth 2.5x.');
-        add('activities', 'Water Pumps & Weighted Salvage Line Fishing', 'Use Hand Pumps (Relay, Spillway, Pinebreak) for Filtered Water (hydration & recipes). Craft a Weighted Salvage Line in Crafting and cast at the 3 shoreline pools — watch the float dip, then press [E] within 3.5s to haul salvage, fuel, iron, copper, and quartz!');
-        add('activities', 'Repeater Towers, Dispatch Routes & Weather Balloons', 'Power 3 Repeaters with Copper Wire + Fuel for faster Supply Drops & a relay reward. Accept Dispatch Routes at Relay Board to seal checkpoints for medkits, fuel & quartz. Watch for descending orange Weather Balloon crates across the map.');
-        add('activities', 'Crimson Blood Moon Nights & Aether Meteor Falls', 'After the safe period, every 3rd night (or every night with the modifier or Blood Moon Defense) turns the sky crimson for a 75s Blood Moon surge — survive it for +250 Runes, +2 Aether Shards & Salvage! Periodically, purple Aether Meteors crash on the surface with 3 Aether Shards and random Weapon Schematics.');
-
-        add('status', 'Temperature, Hydration & Peak Condition', 'Frostline Quarry and nights drop ambient temperature; freezing drains stamina & HP unless near Campfire/Kiln/Torch/Shrine or warmed by Spiced Broth. Drink Filtered Water, Tea, or Stew to keep Hydration up. Keeping Hunger & Hydration >= 75% grants Peak Condition (+8% speed & passive HP regen).');
-        add('status', 'Rested Comfort, Bleeding & Bio-Infection', 'Standing near warm campfires/shrines or sleeping in a Bed grants Rested Comfort (+18% stamina regen). Tough hits or Bio-Toxic modifier can inflict Bleeding or Infection — cure with Herbal Dressings, Antibiotic Elixir, or Aether Flask.');
-        add('status', 'Weather, Radiation & Weapon Jamming', 'Rad fog reduces visibility; Ash rain can jam worn firearms (clear with R). Research Trench & Echo Cavern add radiation (slowed by Respirator Filter, Arcane rank, or Lead-Lined Charm).');
-
-        add('building', 'Base Level (Lv 1-5), Repair & Dismantle', 'Building varied pieces raises your Homestead Base Level (1 to 5). Use the Build menu to rotate orientation, repair damaged fortifications for 1 Salvage, or dismantle the nearest structure within 4m to reclaim materials.');
-        add('help', 'Cannot build, craft, save, or extract?', 'Dismount vehicles and stand on level surface outside restricted enclosures. Roofs need a nearby wall. Tech-locked structures/schematics require unlocking their node in Skills. Check the Journal to confirm your Mode objective and make sure the opening safe period has finished before challenging bosses or evacuating.');
-    }
-
-    function addDynamicData(add, rules, deep, frontier, campaign, base, cost) {
-        const modCount = Object.keys(rules.modifiers || {}).length;
-        const catCount = Array.isArray(rules.categories) ? rules.categories.length : Object.keys(rules.categories || {}).length;
-        const findCat = (gid) => Array.isArray(rules.categories)
-            ? rules.categories.find((c) => c.id === gid)
-            : rules.categories?.[gid];
-        add('rules', 'Briefing Presets, Modes & Rules', `Choose from ${Object.keys(rules.presets || {}).length} one-click Presets, ${Object.keys(rules.modes || {}).length} Game Modes, ${Object.keys(rules.difficulties || {}).length} Difficulties, and ${modCount} categorized Modifiers across ${catCount} categories before deploying.`);
-        for (const [id, m] of Object.entries(rules.modes || {})) add('rules', `Mode: ${m.name}`, m.description, id);
-        for (const [id, p] of Object.entries(rules.presets || {})) add('rules', `Preset: ${p.name}`, p.description, id);
-        for (const [id, d] of Object.entries(rules.difficulties || {})) add('rules', `Difficulty: ${d.name}`, `${d.hp}x enemy HP, ${d.damage}x damage, ${d.rate}x encounter rate, cap ${d.enemyCap}.`, id);
-        for (const [id, mod] of Object.entries(rules.modifiers || {})) {
-            const catObj = findCat(mod.group);
-            const catLabel = catObj?.name || mod.group || 'Rule';
-            add('rules', `Modifier (${catLabel}): ${mod.name}`, mod.description, `${id} ${mod.group || ''} ${catLabel} ${mod.tier || ''} ${mod.exclusive ? 'special exclusive' : ''}`);
+        /* ---------- derived lookups ---------- */
+        const deposits = frontier.deposits || [];
+        const depositAreas = {};
+        for (const d of deposits) {
+            const a = areaAt(d.x, d.y, d.z);
+            (depositAreas[d.kind] ||= {});
+            depositAreas[d.kind][a.name] = (depositAreas[d.kind][a.name] || 0) + 1;
         }
-        for (const [id, pool] of Object.entries(campaign.pools || {})) add('rules', `Pool: ${pool.name}`, pool.extra, id);
+        const areaList = (kind) => Object.entries(depositAreas[kind] || {}).sort((a, b) => b[1] - a[1]).map(([n, c]) => n + ' ×' + c);
+        const contactArea = (npc) => campaign.areas.find((a) => a.id === npc.area)?.name || npc.area;
+        const allRecipes = [
+            ...frontier.recipes.map((r) => ({ ...r, kind: 'frontier' })),
+            ...base.recipes.map((r) => ({ ...r, kind: 'legacy', station: r.id === 'cook' ? 'campfire' : 'bench', desc: r.detail, gain: r.id === 'medkit' ? { medkits: 1 } : {} }))
+        ];
+        const sources = {};
+        const uses = {};
+        const src = (id, text) => { if (!id) return; (sources[id] ||= new Set()).add(text); };
+        const use = (id, text) => { if (!id) return; (uses[id] ||= new Set()).add(text); };
+        for (const [kind, r] of Object.entries(frontier.resources)) {
+            const req = r.tool ? (r.tier <= 1 ? ' (best with a ' + TOOL_NAME[r.tool] + '; bare hands work slowly)' : ' (needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ')') : ' (by hand)';
+            const where = areaList(kind);
+            for (const id of Object.keys(r.gain)) src(id, 'Gather ' + r.name + req + (where.length ? ' — ' + where.join(', ') : ''));
+        }
+        for (const r of allRecipes) {
+            for (const id of Object.keys(r.gain || {})) src(id, 'Craft: ' + r.name + ' (' + STATION_SHORT[r.station] + ')');
+            for (const [id, n] of Object.entries(r.cost || {})) use(id, r.name + ' (' + n + ', ' + STATION_SHORT[r.station] + ')');
+        }
+        for (const [tid, t] of Object.entries(frontier.tools)) for (const [id, n] of Object.entries(t.cost)) use(id, t.name + ' (' + n + ')');
+        for (const b of campaign.build) for (const [id, n] of Object.entries(typeof b.cost === 'number' ? { scrap: b.cost } : b.cost)) use(id, 'Build ' + b.name + ' (' + n + ')');
+        for (const npc of campaign.contacts) {
+            for (const sid of npc.shop || []) {
+                const st = campaign.stock[sid];
+                if (!st) continue;
+                for (const id of Object.keys(st.gain || {})) src(id, 'Trade with ' + npc.name + ' (' + contactArea(npc) + ') for ' + amounts(st.cost));
+                for (const [id, n] of Object.entries(st.cost)) use(id, 'Trade currency: ' + st.name + ' from ' + npc.name + ' (' + n + ')');
+            }
+            for (const id of Object.keys(npc.gift || {})) src(id, 'Free gift from ' + npc.name + ' (' + contactArea(npc) + ')');
+        }
+        const lootSrc = (items, text) => { for (const id of Object.keys(items || {})) src(id, text); };
+        lootSrc({ scrap: 3, coil: 1, cloth: 2, medkits: 1 }, 'Field hospital search (once)');
+        lootSrc({ scrap: 4, fuel: 2, rations: 1 }, 'Freight siding cache (once)');
+        lootSrc({ scrap: 1, cloth: 1, fuel: 1, rations: 1 }, 'Salvage caches — 10 marked crates around the zone (once each)');
+        for (const sh of acts.shore || []) for (const l of sh.loot) lootSrc(l, 'Fishing haul at ' + sh.name + ' (weighted salvage line)');
+        for (const pl of acts.plots || []) lootSrc(pl.loot, 'Harvest the ' + pl.name + ' (Relay garden)');
+        for (const sv of acts.surveys || []) lootSrc(sv.loot, 'Survey landmark: ' + sv.name);
+        for (const rt of acts.routes || []) lootSrc(rt.reward, 'Dispatch route reward: ' + rt.name);
+        lootSrc({ wire: 3, fuel: 2, medkits: 2 }, 'Reward for powering all three repeaters');
+        lootSrc({ scrap: 3, medkits: 1, fuel: 1, cloth: 2 }, 'Weather balloon supply drops (every few minutes)');
+        lootSrc({ cropSeeds: 3, freshWater: 2 }, 'Starter crops from the Relay dispatch board');
+        lootSrc({ freshWater: 1 }, 'Hand pumps (Relay, Spillway, west catchment) — free, refill over time');
+        lootSrc({ freshWater: 1 }, 'Hydro-collector you build');
+        lootSrc({ ingot: 1, scrap: 1 }, 'Auto-smelter you build');
+        lootSrc({ aetherShard: 3, quartz: 3, iron: 2 }, 'Aether meteors (purple beacon on the map)');
+        lootSrc({ aetherShard: 2, scrap: 4, medkits: 1 }, 'Boss spoils pouch and surviving a Blood Moon');
+        lootSrc({ scrap: 1, cloth: 1, herbs: 1, fiber: 1 }, 'Random drops from defeated enemies');
+        lootSrc({ scrap: 1 }, 'Every third kill');
+        lootSrc({ timber: 3, resin: 1 }, 'Felling the tall perimeter trees (bag drops where they fall)');
+        lootSrc({ scrap: 2, timber: 1 }, 'Dismantling your own structures');
+        use('fuel', 'Fast travel between discovered areas (1 each)');
+        use('fuel', 'Lighting a quartz lantern (1 each)');
+        use('fuel', 'Restoring the locomotive (2)');
+        use('scrap', 'Restoring the locomotive (5)');
+        use('scrap', 'Repairing all your structures (1)');
+        use('wire', 'Powering a repeater tower (1, with 1 fuel)');
+        use('fuel', 'Powering a repeater tower (1, with 1 wire)');
+        use('freshWater', 'Watering garden beds');
+        use('cropSeeds', 'Planting garden beds');
+        use('quartz', 'Aether infusions (2 each)');
+        use('aetherShard', 'Aether infusions (1 each)');
+        use('relic', 'Hauler frame pack');
+        use('coil', 'Coil prototype weapon');
+        use('salvageLine', 'Fishing at the three waterside stations');
 
-        for (const s of deep.shrines || []) add('shrines', s.name, `Site of Grace in ${s.area}. ${coords(s)} Kindle for +1 Tech Point, heal & set respawn.`, s.id);
-        for (const [id, attr] of Object.entries(deep.attributes || {})) add('shrines', `Attribute: ${attr.name}`, `${attr.bonus}. Spend Aether Runes at any Shrine or in Skills.`, id);
-        for (const [id, tal] of Object.entries(deep.talismans || {})) add('shrines', `Talisman: ${tal.name}`, `${tal.effect} Found: ${tal.location}. Equip up to 3 in Backpack or Shrine.`, id);
-        for (const seed of deep.goldenSeeds || []) add('shrines', seed.name, `Permanent +1 Aether Flask max charge (up to 6). ${coords(seed)}`, seed.id);
+        /* ---------- getting started ---------- */
+        const safe = rules.openingSeconds || 60;
+        add({ cat: 'start', title: 'Your first minute', icon: icon('flare'), text: 'Nothing hostile spawns for the first ' + safe + ' seconds (120 with Extended Safe Start), and every Survival screen pauses the game.',
+            lists: [{ h: 'Do this', items: ['Pick up fallen branches, loose stones and fiber roots around the Relay (interact or punch them).',
+                'Open Crafting (' + key('survCraft') + '): braid cord, then make a stone hatchet and a stone pickaxe. They go straight onto your hotbar.',
+                'Kindle the Relay Sanctuary Grace beside the shelter for a free Tech Point and a respawn point.',
+                'Spend the Tech Point in Skills (' + key('survSkills') + ').',
+                'Check your objective in the Journal (' + key('survJournal') + ').'] }] });
+        add({ cat: 'start', title: 'The core loop', icon: icon('build'), text: 'Gather → craft better tools → reach better deposits → build a base and stations → research tech and level attributes → beat bosses → complete your operation and extract at Evac Ridge.' });
+        add({ cat: 'start', title: 'Bare hands vs. tools', icon: icon('fist'), text: 'Bare hands break branches, stones, fiber, tier-1 trees and rocks, timber walls and even standing trees — at a quarter of a stone tool\'s speed. Tier-2 deposits (copper, quartz, hardwood, buried salvage) need the right tool. Hold a tool on the hotbar and click (or hold) to swing it.',
+            facts: [['Hand power', '0.25 per hit'], ['Stone tool', '1 per hit (4× faster)'], ['Iron tool', '2 per hit'], ['Drill / Aether', '3–4 per hit']] });
+        add({ cat: 'start', title: 'The hotbar', icon: icon('chest'), text: 'Ten slots for weapons, tools and usable items. Number keys select a slot and the mouse wheel cycles through all ten. An empty slot is bare hands. New tools and supplies are added automatically; drag things around in the Inventory, or select an item and press a number key.' });
+        add({ cat: 'start', title: 'Saving & dying', icon: icon('beacon'), text: 'Save from the Journal or by sleeping, whenever no enemy is within 9 m (autosave does this every 45 s if enabled). Falling with a kindled Grace or a field bed lets you respawn there; your carried runes drop at a Lost Aether Echo you can reclaim. Iron Expedition disables saving and respawning.' });
 
-        for (const node of deep.techTree || []) {
-            add('tech', `Tier ${node.tier} Tech: ${node.name}`, `Costs ${node.cost} Tech Point(s).${node.req ? ' Requires previous tier link.' : ''} ${node.desc}`, node.id);
+        /* ---------- controls ---------- */
+        const ctl = (title, k, text) => add({ cat: 'controls', title, icon: icon('fist'), tags: [k], text });
+        ctl('Rebind any key', 'PAUSE', 'Pause and choose Controls & Keybinds (or Settings › Controls). Conflicting keys swap automatically, and ESC always pauses.');
+        ctl('Move & sprint', [key('forward'), key('left'), key('back'), key('right')].join('/'), key('sprint') + ' sprints, ' + key('jump') + ' jumps and mantles, ' + key('crouch') + ' crouches (quiet, harder to detect) or slides while sprinting.');
+        ctl('Dodge roll', key('survDodge'), 'A quick roll in your movement direction with 0.34 s of invulnerability. Costs stamina.');
+        ctl('Hotbar', key('hotbar1') + '–' + key('hotbar10'), 'Select a hotbar slot. The mouse wheel cycles all ten.');
+        ctl('Fire / punch / swing / use', 'LMB', 'Fires a weapon, punches with bare hands (hold and release for a heavy haymaker), swings a held tool (hold to keep swinging) or uses a held consumable.');
+        ctl('Aim / guard & parry', 'RMB', 'Aims a firearm. With bare hands it raises a guard that blocks 68% of frontal damage; raise it within 0.28 s of a hit for a Perfect Parry (stuns the attacker and opens a 2.8× riposte).');
+        ctl('Interact / gather', key('interact'), 'Gather (with your best tool, or slowly by hand), talk, open, kindle, pump, plant, cast and mine.');
+        ctl('Inventory', key('survInventory'), 'Backpack, hotbar, equipment, tools and talismans.');
+        ctl('Crafting', key('survCraft'), 'All recipes. Station recipes unlock within 4 m of the station.');
+        ctl('Build', key('survBuild'), 'Place structures in front of you (detonates C4 first if you have charges out).');
+        ctl('Map & travel', key('survMap') + ' / ' + key('survTravel'), 'Field map, fast travel and vehicles.');
+        ctl('Skills', key('survSkills'), 'Tech tree, attributes and infusions.');
+        ctl('Journal', key('survJournal'), 'Objective, challenges, contracts, activities, saving and career.');
+        ctl('Field guide', key('survLegend'), 'This guide.');
+        ctl('Aether Flask', key('survFlask'), 'Heal 50+ and stop bleeding. Refill at a Grace or by sleeping.');
+        ctl('Light', key('survLight'), 'Light or put out a torch (90 s) or lantern (4 min, 1 fuel).');
+        ctl('Reload / inspect / plate / melee', [key('reload'), key('inspect'), key('survPlate'), key('melee')].join(' / '), 'Reload or clear a jam · read your magazine · insert an armor plate · quick punch or tool swing.');
+
+        /* ---------- threat ---------- */
+        const diffStd = rules.difficulties.standard;
+        const rosterN = BO.ZombiesData.ORDERED_PROGRESSION.length;
+        const rows = [1, 2, 3, 4, 5, 6, 7].map((d) => { const t = rules.threat(d, false, { encounterRate: 1 }, diffStd, rosterN); const n = rules.threat(d, true, { encounterRate: 1 }, diffStd, rosterN); return 'Day ' + d + ': ' + t.cap + ' roaming (' + n.cap + ' at night) from the ' + t.poolSize + ' weakest types'; });
+        add({ cat: 'threat', title: 'Escalating days', icon: icon('fire', '#f2b45a'), text: 'A new day starts at midnight. Day 1 is quiet: only the 4 weakest infected roam, about 3 at once. Each day unlocks stronger infected, makes them a little tougher (+7% health and +5% damage per day) and raises how many may roam. Difficulty scales the final cap; Encounter Rate scales every day.', lists: [{ h: 'Standard difficulty', items: rows }] });
+        add({ cat: 'threat', title: 'Night', icon: icon('fire', '#7cc4f0'), text: 'Night runs 19:00–06:00. It allows about 35% more roamers, unlocks two extra enemy types, gets darker (composure drains) and colder (9°C, or 19°C with Sub-zero Nights). Relentless Nights doubles night spawning.' });
+        add({ cat: 'threat', title: 'PMC scavengers & Commander Sable', icon: icon('rifle', '#f2b45a'), text: 'Two armed PMC scavengers move into Freight Works on day 2. Commander Sable (225 HP, rifle) arrives on day 3 — or at once in Rival Bounty. Below 70 HP Sable retreats and returns 52 s later with a machine gun and an escort. With the PMC Occupation pool, more patrols join each day (up to 8). No Roaming PMC Patrols disables them.' });
+        add({ cat: 'threat', title: 'Weather', icon: icon('drop', '#9fd4ff'), text: 'With dynamic weather on, a 3-minute cycle rolls through: Overcast → Ash rain → Radiation fog → Clearing.', lists: [{ h: 'Effects', items: ['Ash rain: worn firearms (80+ shots) may jam — press reload to clear.', 'Radiation fog: thick fog, more radiation in contaminated areas, and from day 3 Mimics may call out on the radio pretending to be survivors.', 'Clearing / Overcast: no special effects.'] }] });
+        add({ cat: 'threat', title: 'Crimson Blood Moon', icon: icon('fire', '#ef6b6b'), text: 'Every third night (nights 3, 6, 9…) — or every night in Blood Moon Defense or with the Crimson Blood Moons modifier — the sky turns red for 75 s and infected surge in every 11 s. Survive it for 250 runes, 2 Aether shards, 4 salvage and a trauma kit.' });
+        add({ cat: 'threat', title: 'Aether meteors', icon: icon('crystal', '#c79bff'), text: 'After about 3 minutes, and every ~3 minutes after one is mined, a meteor crashes at one of four surface spots (shown on the map). Mine it for 3 Aether shards, 3 quartz, 2 iron, 160 runes and a random weapon schematic.' });
+        add({ cat: 'threat', title: 'Weather balloon drops', icon: icon('flare', '#ffb36b'), text: 'Supply caches drift down at one of three spots every few minutes (sooner with repeaters powered or an orbital flare). Each holds 3 salvage, a trauma kit, fuel and 2 cloth, and expires if you wait too long.' });
+        add({ cat: 'threat', title: 'Noise & stealth', icon: icon('fist'), text: 'Gunfire, mining drills, explosions and vehicles make noise, which draws extra roamers. Crouching while quiet makes you hard to spot; crouched hits on an unaware enemy from behind deal a 3.5× stealth takedown. A suppressor keeps gunfire quiet.' });
+
+        /* ---------- vitals ---------- */
+        for (const [title, glyph, text, note, remedies] of VITALS) {
+            add({ cat: 'vitals', title, icon: icon(glyph), text, facts: [['Note', note]], lists: [{ h: 'What helps', items: remedies }] });
+        }
+        add({ cat: 'vitals', title: 'Peak condition & Rested Comfort', icon: icon('beacon'), text: 'Keeping food and water at 75%+ gives +8% speed and slow health regeneration. Standing near a fire or Grace, eating stew or sleeping grants Rested Comfort (+18% stamina recovery).' });
+
+        /* ---------- resources ---------- */
+        for (const [kind, r] of Object.entries(frontier.resources)) {
+            const tierTool = r.tool ? 'Tier ' + r.tier + ' ' + TOOL_NAME[r.tool] : 'None';
+            const hand = !r.tool ? '1 hit' : r.tier <= 1 ? Math.ceil(r.strokes / 0.25) + ' punches (slow)' : 'Not possible';
+            const toolHits = r.tool ? Object.values(frontier.tools).filter((t) => t.family === r.tool && t.level >= r.tier).sort((a, b) => a.level - b.level).map((t) => t.name + ': ' + Math.ceil(r.strokes / t.power) + ' hits') : [];
+            const locs = deposits.filter((d) => d.kind === kind);
+            add({ cat: 'resources', title: r.name, icon: Ic.svg(r.tool === 'axe' ? 'log' : r.tool === 'pick' ? 'ore' : r.tool === 'shovel' ? 'clay' : kind === 'herbs' || kind === 'roots' ? 'leaf' : kind === 'stones' ? 'stone' : 'log', '#' + r.color.toString(16).padStart(6, '0'), 26),
+                tags: [r.tool ? TOOL_NAME[r.tool] : 'by hand', plural(locs.length, 'spot')],
+                text: (r.tool ? (r.tier <= 1 ? 'Best broken with a ' + TOOL_NAME[r.tool] + '. Bare hands also work, four times slower.' : 'Needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ' or better — bare hands cannot break it.') : 'Pick it up by hand: press interact or punch it.') +
+                    ' Depleted deposits regrow after ' + (r.tool ? '8 minutes' : 'about 3 minutes') + ' (only while you are more than 10 m away).' + (kind === 'deep' ? ' Striking it awakens the Resonant Sentinel boss; defeat it to mine the core.' : ''),
+                facts: [['Yields', amounts(r.gain)], ['Tool', tierTool], ['By hand', hand]],
+                lists: [{ h: 'Where to find it', items: areaList(kind).length ? areaList(kind) : ['Nowhere on the surface'] }, ...(toolHits.length ? [{ h: 'Hits needed', items: toolHits }] : [])],
+                keywords: kind + ' where find location ' + Object.keys(r.gain).map(name).join(' ') });
+        }
+        add({ cat: 'resources', title: 'Tall perimeter trees', icon: icon('log', '#7fb07a'), text: 'The tall pines along the east and west edges of the map can be felled with an axe (or slowly by hand). They drop 3 timber and 1 resin where they land — and crush anything they fall on.' });
+        add({ cat: 'resources', title: 'Destructible walls', icon: icon('wall'), text: 'Timber walls (70 HP) and masonry (170 HP) around the depots and trench can be broken with tools, explosives, fire or fists. Bullets do only 37% damage to masonry. Breaking the watchtower supports collapses the deck onto anything below.' });
+
+        /* ---------- items ---------- */
+        const usable = BO.SurvivalHotbar ? BO.SurvivalHotbar.usable : new Set();
+        for (const [id, [nm, cat, kg]] of Object.entries(frontier.items)) {
+            const s = [...(sources[id] || [])];
+            const u = [...(uses[id] || [])];
+            add({ cat: 'items', title: nm, icon: Ic.item(id, 26), tags: [cat, kg + ' kg', ...(usable.has(id) ? ['usable'] : [])],
+                text: (info[id] || cat + '.') + (usable.has(id) ? ' Can be held on the hotbar and used with the fire button.' : ''),
+                lists: [{ h: 'Where to get it', items: s.length ? s : ['Not obtainable in the field'] }, { h: 'Used for', items: u.length ? u : (usable.has(id) ? ['Consumed when used'] : ['—']) }],
+                keywords: id + ' ' + cat });
+        }
+
+        /* ---------- tools ---------- */
+        for (const [id, t] of Object.entries(frontier.tools)) {
+            const works = Object.values(frontier.resources).filter((r) => r.tool === t.family && r.tier <= t.level).map((r) => r.name);
+            add({ cat: 'tools', title: t.name, icon: Ic.tool(id, 26), tags: ['Tier ' + t.level, t.family],
+                text: 'A tier ' + t.level + ' ' + TOOL_NAME[t.family] + '. Each gathering hit removes ' + t.power + ' (bare hands: 0.25) and costs 1 durability. Hitting an enemy with it deals ' + ({ axe: 58, pick: 52, shovel: 40 }[t.family] + (t.level - 1) * 14) + ' damage.',
+                facts: [['Durability', t.wear], ['Power', t.power + ' (' + Math.round(t.power / 0.25) + '× hands)'], ['Station', STATION_SHORT[t.station]], ['Cost', amounts(t.cost)]],
+                lists: [{ h: 'Can break', items: works }] });
+        }
+        add({ cat: 'tools', title: 'Repairing tools', icon: icon('wrench'), text: 'A field repair kit (2 salvage + 1 cord, by hand) restores 24 durability to your held or equipped tool. A tool at 0 durability still works as a weak bare-hand-speed swing until repaired or replaced. Long-Lasting Tools and the Unbreaking infusion slow wear.' });
+
+        /* ---------- crafting ---------- */
+        for (const st of ['hand', 'bench', 'campfire', 'kiln']) {
+            const list = allRecipes.filter((r) => r.station === st).map((r) => r.name)
+                .concat(Object.values(frontier.tools).filter((t) => t.station === st).map((t) => t.name));
+            const how = { hand: 'Always available from the Crafting screen.', bench: 'The Relay shelter works as a workbench. Build your own crafting table (4 timber, 2 stone, 1 salvage). Also hosts weapon forging and Mk upgrades.',
+                campfire: 'Build a campfire (2 timber, 3 stone). The Relay shelter stove also counts. Fires warm you too.', kiln: 'Build a stone kiln (6 stone, 3 clay).' }[st];
+            add({ cat: 'crafting', title: 'Station: ' + STATION_SHORT[st], icon: icon({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln' }[st]), text: how + ' Stand within 4 m of it to unlock its recipes.', lists: [{ h: list.length + ' recipes', items: list }] });
+        }
+        const techName = (tid) => deep.techTree?.find((n) => n.id === tid)?.name || tid;
+        for (const r of allRecipes) {
+            add({ cat: 'crafting', title: r.name, icon: Object.keys(r.gain || {})[0] ? Ic.item(Object.keys(r.gain)[0], 26) : icon('wrench'), tags: [STATION_SHORT[r.station], ...(r.tech ? ['Tech'] : [])],
+                text: (r.desc || '') + (r.tech ? ' Requires the “' + techName(r.tech) + '” research.' : '') + (r.pack ? ' Upgrades your backpack (craft them in order).' : ''),
+                facts: [['Ingredients', amounts(r.cost)], ['Makes', amounts(r.gain) || (r.pack ? frontier.packs[r.pack].name : 'Effect')], ['Station', STATION[r.station]]] });
         }
         for (const sch of deep.weaponSchematics || []) {
-            add('tech', `Weapon Schematic: ${sch.name}`, `Forge at Workbench for ${cost(sch.cost)} once unlocked. Equips live 3D weapon directly.`, sch.id);
+            add({ cat: 'crafting', title: 'Forge: ' + sch.name, icon: icon('rifle', '#f8d17a'), tags: ['Workbench', 'Weapon'], text: 'Forges this weapon at a workbench and equips it. Unlock via the “' + techName(sch.tech) + '” research, or find its schematic in boss spoils, rare enemy drops or meteors.', facts: [['Cost', amounts(sch.cost)], ['Ammo', sch.ammo > 1 ? sch.ammo + ' rounds' : 'Melee']] });
         }
-        for (const [id, inf] of Object.entries(deep.infusions || {})) {
-            add('tech', `Aether Infusion: ${inf.name}`, `${inf.desc} Apply up to 2 at an Aether Infusion Altar (2 Quartz + 1 Aether Shard + 120 Runes).`, id);
+        add({ cat: 'crafting', title: 'Weapon Mk II / III upgrades', icon: icon('rifle', '#fde68a'), tags: ['Workbench', 'Tech'], text: 'After researching the Weapon Mk II / III Bench, upgrade a firearm at a workbench: more damage, a bigger magazine and faster reloads.', facts: [['Mk II', '2 iron bars, 3 salvage'], ['Mk III', '3 iron bars, 1 Aether shard, 2 copper wire']] });
+        for (const [i, p] of frontier.packs.entries()) add({ cat: 'crafting', title: 'Backpack: ' + p.name, icon: icon('chest'), tags: ['Tier ' + (i + 1)], text: i === 0 ? 'Your starting pack.' : 'Crafted at a workbench after the previous tier.', facts: [['Carry weight', p.weight + ' kg'], ['Unique stacks', p.slots]] });
+
+        /* ---------- building ---------- */
+        for (const b of campaign.build) {
+            add({ cat: 'building', title: b.name, icon: Ic.build(b.id, 26), tags: [b.tech ? 'Tech: ' + techName(b.tech) : 'No research'], text: b.detail,
+                facts: [['Cost', amounts(b.cost)], ['Size', b.size.map((v) => v.toFixed(1)).join(' × ') + ' m'], ...(b.tech ? [['Research', techName(b.tech)]] : [])] });
+        }
+        add({ cat: 'building', title: 'Placement rules', icon: icon('build'), text: 'Pieces go 2.6 m in front of you on a half-metre grid, facing you (rotate 90° in the Build screen). You must be on the ground, not riding or evacuating, outside the locked biomes, and not blocking a contact or mission site. Roofs need a wall within 3 m. Up to 80 structures per expedition.' });
+        add({ cat: 'building', title: 'Base level, repair & dismantle', icon: icon('wall'), text: 'Every three different structure types raise your base level (max 5). Repair every damaged piece for 1 salvage, or dismantle your nearest piece within 4 m for a partial refund (2 salvage, 1 timber).' });
+
+        /* ---------- map ---------- */
+        for (const a of campaign.areas) {
+            const here = (kind) => deposits.filter((d) => d.kind === kind && areaAt(d.x, d.y, d.z).id === a.id).length;
+            const res = Object.entries(frontier.resources).map(([k, r]) => [r.name, here(k)]).filter(([, n]) => n).map(([n, c]) => n + ' ×' + c);
+            const people = campaign.contacts.filter((n) => n.area === a.id).map((n) => n.name);
+            const graces = (deep.shrines || []).filter((s) => s.area === a.id).map((s) => s.name);
+            add({ cat: 'map', title: a.name, icon: Ic.svg('scroll', '#' + a.color.toString(16).padStart(6, '0'), 26), tags: [a.level > 1 ? 'Level ' + a.level : 'Open'],
+                text: (AREA_NOTES[a.id] || '') + (a.level > 1 ? ' Its gate opens at survival level ' + a.level + '.' : ''),
+                lists: [{ h: 'Resources', items: res.length ? res : ['None'] }, { h: 'Contacts', items: people.length ? people : ['None'] }, ...(graces.length ? [{ h: 'Site of Grace', items: graces }] : [])],
+                keywords: 'area biome zone ' + a.id });
+        }
+        for (const s of base.sites) add({ cat: 'map', title: s.name, icon: Ic.svg('build', '#' + s.color.toString(16).padStart(6, '0'), 26), tags: [areaAt(s.x, s.y, s.z).name], text: SITE_INFO[s.id] || s.label });
+
+        /* ---------- contacts ---------- */
+        for (const npc of campaign.contacts) {
+            const trades = (npc.shop || []).map((sid) => campaign.stock[sid]).filter(Boolean).map((st) => st.name + ' — costs ' + amounts(st.cost) + (st.gain ? ' → ' + amounts(st.gain) : st.ammo ? ' → ' + st.ammo + ' rounds per weapon' : st.plates ? ' → 1 armor plate' : st.vehicle ? ' → vehicle' : ''));
+            const lists = [];
+            if (trades.length) lists.push({ h: 'Trades', items: trades });
+            const extra = [];
+            if (npc.gift) extra.push('Free gift on first visit: ' + amounts(npc.gift));
+            if (npc.quest) extra.push('Contract “' + npc.quest[0] + '”: reach ' + npc.quest[2] + ' ' + npc.quest[1].replace(/_/g, ' ') + ' → ' + npc.quest[3] + ' XP, 2 salvage and a trauma kit');
+            if (npc.special === 'helper') extra.push('Can be recruited to fight beside you');
+            else if (npc.special) extra.push('Can summon the area boss for you to fight');
+            if (extra.length) lists.push({ h: 'Also', items: extra });
+            add({ cat: 'contacts', title: npc.name, icon: icon('leaf', '#8eea9d'), tags: [contactArea(npc)], text: '“' + npc.hint.trim() + '”', lists });
         }
 
-        for (const [index, pack] of (frontier.packs || []).entries()) add('storage', pack.name, `Backpack tier ${index + 1}. Base capacity ${pack.weight} kg and ${pack.slots} stacks (scales with Endurance, Logistics Tech & Deep Pack modifier).`, 'bag capacity');
-        for (const [id, [name, cat, kg]] of Object.entries(frontier.items || {})) add('storage', name, `${cat}. ${kg} kg per unit.`, id);
-        for (const [id, t] of Object.entries(frontier.tools || {})) add('tools', t.name, `Tier ${t.level} ${toolFamilies[t.family] || t.family}. Power ${t.power}, durability ${t.wear}. Craft at ${stations[t.station] || t.station} for ${cost(t.cost)}.`, id);
-        for (const [id, r] of Object.entries(frontier.resources || {})) {
-            const req = r.tool ? (r.tier <= 1 ? `Best with a ${toolFamilies[r.tool]}; bare hands work at a quarter speed.` : `Requires a tier ${r.tier} ${toolFamilies[r.tool]} or better.`) : 'Gather by hand or punch it.';
-            add('tools', r.name, `${req} Base strokes: ${r.strokes}. Yield: ${cost(r.gain)}.`, id);
-        }
-        for (const rec of frontier.recipes || []) add('recipes', rec.name, `${stations[rec.station] || rec.station}. Cost: ${cost(rec.cost)}. ${rec.desc}`, rec.id);
-        for (const rec of base.recipes || []) add('recipes', rec.name, `${stations.bench}. Cost: ${cost(rec.cost)}. ${rec.detail}`, rec.id);
-
-        for (const piece of campaign.build || []) add('building', piece.name, `Cost: ${cost(piece.cost)}.${piece.tech ? ' Requires Tech unlock.' : ''} ${piece.detail}`, piece.id);
-        for (const area of campaign.areas || []) add('map', area.name, `${areaNotes[area.id] || ''} ${area.level > 1 ? `Unlocks at Career Lv ${area.level}.` : 'Open from Lv 1.'} ${coords(area)}`, area.id);
-        for (const site of base.sites || []) add('map', site.name, `${site.label}. ${coords(site)}`, site.id);
-        for (const ride of campaign.vehicles || []) add('travel', ride.name, `Unlocks at Career Lv ${ride.level} (or buy at contact). ${ride.detail}`, ride.id);
-        for (const npc of campaign.contacts || []) {
-            const q = npc.quest ? ` Contract “${npc.quest[0]}” (${npc.quest[2]} goal, +${npc.quest[3]} XP).` : '';
-            add('contacts', npc.name, `${coords(npc)} ${npc.hint.trim()}${q}`, npc.id);
-        }
-        for (const [lv, rank] of campaign.ranks || []) add('career', `Rank Lv ${lv}: ${rank}`, `Career rank unlocked at Survival level ${lv}.`, 'rank level');
-
-        // Include Enemy & Boss Field Reports right inside Legend!
-        const allEnemies = [...(BO.ZombiesData?.ORDERED_PROGRESSION || []), ...(BO.ZombiesData?.ORDERED_BOSSES || [])];
-        for (const spec of allEnemies) {
-            const rep = BO.ZombiesData.describe ? BO.ZombiesData.describe(spec) : null;
-            add('combat', `${spec.isBoss ? 'BOSS: ' : 'Hostile: '}${spec.name}`, rep ? `${rep.threatLabel} Threat. ${spec.simpleDesc} Tip: ${rep.tip}` : spec.simpleDesc, spec.id);
-        }
-    }
-
-    function getEntries() {
-        const frontier = BO.SurvivalFrontierData || {};
-        const campaign = BO.SurvivalCampaignData || {};
-        const base = BO.SurvivalData || {};
-        const rules = BO.SurvivalRules || {};
-        const deep = BO.SurvivalDeepData || {};
-        const result = [];
-        const add = (category, title, detail, keywords = '') => result.push({ category, title, detail, keywords });
-        const cost = formatter(frontier);
-
-        addControls(add);
-        addCoreSections(add, rules.openingSeconds || 60);
-        addDynamicData(add, rules, deep, frontier, campaign, base, cost);
-        return result;
-    }
-
-    function renderResults(query = '', category = 'all') {
-        const terms = normalize(query).trim().split(/\s+/).filter(Boolean);
-        const matches = getEntries().filter((entry) => {
-            if (category !== 'all' && entry.category !== category) return false;
-            const searchable = normalize(`${entry.title} ${entry.detail} ${entry.keywords} ${categories[entry.category] || ''}`);
-            return terms.every((term) => searchable.includes(term));
+        /* ---------- enemies ---------- */
+        BO.ZombiesData.ORDERED_PROGRESSION.forEach((z, i) => {
+            let day = 1;
+            for (let d = 1; d < 40; d++) if (rules.threat(d, false, { encounterRate: 1 }, diffStd, rosterN).poolSize > i) { day = d; break; }
+            const d = BO.ZombiesData.describe(z);
+            add({ cat: 'enemies', title: z.name, enemy: z.id, icon: '', tags: ['Day ' + day, '★'.repeat(d.threat)],
+                text: z.simpleDesc + ' ' + d.tip, facts: [['Health', z.hp], ['Speed', BO.EnemyInfo ? BO.EnemyInfo.speedLabel(z.speed) + ' (' + z.speed + ')' : z.speed], ['Attack', z.attack]],
+                keywords: z.id + ' ' + z.rarity + ' ' + z.movementHabit + ' ' + z.attackType });
         });
 
-        if (!matches.length) return '<p role="status">No matching legend entries. Try another keyword or choose "All categories".</p>';
+        /* ---------- bosses ---------- */
+        const bosses = [
+            ['Apex Guardian', 'At the bottom of the research trench from the moment hostiles release (Core Expedition). Guards the Aether core.', '580'],
+            ['Pale Maul', 'Challenge it by talking to Quarry Ward Kestrel in Frostline Quarry (survival level 3).', '720'],
+            ['Cinder Regent', 'Challenge it by talking to Kiln Keeper Ember in Cinder Flats (survival level 5).', '980'],
+            ['Resonant Sentinel', 'Wakes when you strike the deep Resonant Geode in Echo Cavern. Defeat it to mine the core (needed for the Hauler frame).', '820'],
+            ['Ridge Breaker', 'Leads the final wave of a Ridge Siege at Evac Ridge.', '690']
+        ];
+        for (const [nm, where, hp] of bosses) add({ cat: 'bosses', title: nm, icon: icon('blade', '#f87171'), tags: ['Zone boss'], text: where + ' At half health it enrages (+25% speed and damage). Defeating any boss drops a spoils pouch (2 Aether shards, 4 salvage, a trauma kit, 120 runes, often a schematic) and grants a Tech Point.', facts: [['Base health', hp + ' × difficulty'], ['Hit damage', '32 × difficulty']] });
+        add({ cat: 'bosses', title: 'Commander Sable', icon: icon('rifle', '#f2b45a'), tags: ['PMC rival'], text: 'Rival PMC commander with a rifle (225 HP). Arrives on day 3 (immediately in Rival Bounty). Retreats under 70 HP and returns 52 s later with a machine gun (290 HP) and an escort. Killing him is worth 150 XP.' });
+        add({ cat: 'bosses', title: 'Mimics', icon: icon('crystal', '#c79bff'), tags: ['From day 3'], text: 'During radiation fog, a fast spectral infected may broadcast fake survivor calls (“Extraction here.”). Don\'t follow strange radio messages.' });
 
-        const sections = Object.entries(categories).map(([id, label]) => {
-            const items = matches.filter((entry) => entry.category === id);
-            if (!items.length) return '';
-            return `<section class="survival-legend-group" aria-labelledby="survival-legend-heading-${id}">
-                <h3 id="survival-legend-heading-${id}">${label} (${items.length})</h3>
-                <div class="expansion-shop-items">${items.map(({ title, detail }) => `<article class="select-card expansion-shop-card" style="--item-color:#a6ddd0">
-                    <h4 class="card-head">${escape(title)}</h4><div class="card-sub">${escape(detail)}</div>
-                </article>`).join('')}</div>
-            </section>`;
-        }).join('');
-        return `<p class="survival-legend-count" role="status">Showing ${matches.length} ${matches.length === 1 ? 'entry' : 'entries'} across all Survival systems</p>${sections}`;
+        /* ---------- progression ---------- */
+        for (const s of deep.shrines || []) add({ cat: 'progression', title: s.name, icon: icon('beacon', '#fde047'), tags: [areaAt(s.x, s.y, s.z).name, 'Site of Grace'], text: 'Kindle it for +1 Tech Point and 50 XP (first time). Resting here restores health, refills your flask, cures bleeding and infection, sets your respawn point and lets you level attributes, sleep and warp between kindled Graces.' });
+        for (const [id, a] of Object.entries(deep.attributes || {})) add({ cat: 'progression', title: 'Attribute: ' + a.name, icon: icon('rune', a.color), tags: ['Runes'], text: a.bonus + '. Raise attributes with Aether Runes at a Site of Grace or in Skills; each rank costs more than the last.' });
+        for (const [id, t] of Object.entries(deep.talismans || {})) add({ cat: 'progression', title: 'Talisman: ' + t.name, icon: icon('beacon', t.color), tags: ['Talisman'], text: t.effect + ' Equip up to three in the Inventory or at a Grace.', facts: [['Found', t.location]] });
+        for (const seed of deep.goldenSeeds || []) add({ cat: 'progression', title: seed.name, icon: icon('seed', '#fde047'), tags: [areaAt(seed.x, seed.y, seed.z).name], text: 'Permanently adds one Aether Flask charge (up to 6).' });
+        for (const node of deep.techTree || []) add({ cat: 'progression', title: 'Tech: ' + node.name, icon: icon('tech', '#9fd4ff'), tags: ['Tier ' + node.tier, node.cost + ' TP'], text: node.desc + (node.req ? ' Requires “' + techName(node.req) + '”.' : ''), keywords: 'tech research' });
+        for (const [id, inf] of Object.entries(deep.infusions || {})) add({ cat: 'progression', title: 'Infusion: ' + inf.name, icon: icon('crystal', '#c79bff'), tags: ['Altar'], text: inf.desc + ' Apply at an Aether infusion altar for 2 quartz, 1 Aether shard and 120 runes (two active at once).' });
+        add({ cat: 'progression', title: 'Runes & Tech Points', icon: icon('rune', '#f2d07a'), text: 'Runes drop from every kill (28 infected, 55 PMC, 320 bosses) and from Blood Moons and meteors. Tech Points come from levelling up, kindling Graces and beating bosses.' });
+        add({ cat: 'progression', title: 'Survival career', icon: icon('flare'), text: 'XP from discoveries, crafting, building, kills, contracts and challenges raises your survival level across expeditions. Level 2 unlocks the bicycle, 3 the pack horse and Frostline Quarry, 4 the glider, 5 Cinder Flats, 6 the rover.', lists: [{ h: 'Ranks', items: campaign.ranks.map(([lv, r]) => 'Level ' + lv + ': ' + r) }] });
+
+        /* ---------- activities ---------- */
+        for (const p of acts.plots || []) add({ cat: 'activities', title: p.name, icon: icon('seed'), tags: ['Garden'], text: 'Plant crop seeds, water with filtered water, wait about ' + p.grow + ' s, then harvest.', facts: [['Harvest', amounts(p.loot)]] });
+        for (const p of acts.pumps || []) add({ cat: 'activities', title: p.name, icon: icon('bottle'), tags: [areaAt(p.x, p.y, p.z).name], text: 'Draw a free bottle of filtered water. It refills after a short wait. Leave a little pack room.' });
+        for (const sh of acts.shore || []) add({ cat: 'activities', title: 'Fishing: ' + sh.name, icon: icon('hook'), tags: [areaAt(sh.x, sh.y, sh.z).name], text: 'Cast a weighted salvage line (2 materials, by hand), wait for the float to dip, then interact within 3.5 s.', lists: [{ h: 'Possible hauls', items: sh.loot.map(amounts) }] });
+        for (const r of acts.relays || []) add({ cat: 'activities', title: r.name, icon: icon('generator'), tags: [areaAt(r.x, r.y, r.z).name], text: 'Power it with 1 copper wire and 1 fuel. All three powered: faster supply drops plus 3 wire, 2 fuel and 2 trauma kits.' });
+        for (const sv of acts.surveys || []) add({ cat: 'activities', title: 'Survey: ' + sv.name, icon: icon('scroll'), tags: [areaAt(sv.x, sv.y, sv.z).name], text: 'Record this landmark for a one-time reward.', facts: [['Reward', amounts(sv.loot)]] });
+        for (const rt of acts.routes || []) add({ cat: 'activities', title: 'Dispatch: ' + rt.name, icon: icon('flare'), tags: ['Relay board'], text: 'Accept at the Relay dispatch board, then visit: ' + rt.labels.join(' → ') + '.', facts: [['Reward', amounts(rt.reward)]] });
+        add({ cat: 'activities', title: 'Salvage caches', icon: icon('chest', '#9caa83'), text: 'Ten marked crates around the zone (two in the trench). Each can be searched once for salvage, cloth, fuel or rations.' });
+
+        /* ---------- travel ---------- */
+        for (const v of campaign.vehicles) add({ cat: 'travel', title: v.name, icon: icon(v.id === 'glider' ? 'flare' : 'gear'), tags: ['Level ' + v.level], text: v.detail + ' Equip it from the map screen; unlocks at survival level ' + v.level + ' or by trading.', facts: [['On the road', '×' + v.speed + ' speed'], ['Off-road', '×' + v.offroad + ' speed']] });
+        add({ cat: 'travel', title: 'Locomotive', icon: icon('gear', '#ffc46e'), text: 'Restore it at the freight yard (5 salvage, 2 fuel) and ride the rail loop around the zone. Interact to step off.' });
+        add({ cat: 'travel', title: 'Fast travel', icon: icon('scroll'), text: 'From the map, travel to any discovered surface area for 1 fuel (free with some modifiers). One hour passes. Not possible with enemies within 9 m, while evacuating, or with On Foot Only. Sites of Grace warp for free.' });
+
+        /* ---------- rules ---------- */
+        for (const [id, m] of Object.entries(rules.modes)) add({ cat: 'rules', title: 'Operation: ' + m.name, icon: icon('flare'), text: m.description });
+        for (const [id, d] of Object.entries(rules.difficulties)) add({ cat: 'rules', title: 'Difficulty: ' + d.name, icon: icon('fire', '#f2b45a'), facts: [['Enemy health', '×' + d.hp], ['Damage taken', '×' + d.damage], ['Spawn speed', '×' + d.rate], ['Max roaming', d.enemyCap]] });
+        for (const [id, p] of Object.entries(rules.presets)) add({ cat: 'rules', title: 'Preset: ' + p.name, icon: icon('chest'), text: p.description });
+        for (const [id, p] of Object.entries(campaign.pools)) add({ cat: 'rules', title: 'Enemy pool: ' + p.name, icon: icon('blade'), text: p.extra });
+        for (const [id, m] of Object.entries(rules.modifiers)) add({ cat: 'rules', title: 'Modifier: ' + m.name, icon: '<span class="fg-emoji">' + esc(m.ico || '◆') + '</span>', tags: [m.tier || ''], text: m.description, keywords: id + ' modifier' });
+
+        /* ---------- help ---------- */
+        const help = [
+            ['Can\'t build', 'Stand on open ground (not riding, not evacuating), outside the locked biomes, with the placement spot clear of walls and away from contacts and mission sites. Roofs need a wall within 3 m. Locked pieces need their research.'],
+            ['Can\'t craft a recipe', 'Check the crafting screen: it tells you if you are missing materials, need to stand within 4 m of a station, need research, or lack pack room for the result.'],
+            ['Can\'t gather something', 'Tier-2 deposits need a tier-2 tool. The deep geode needs the Resonant Sentinel defeated. Depleted deposits regrow after a few minutes while you are away.'],
+            ['Can\'t save, sleep or fast travel', 'No enemy may be within 9 m, and you cannot be riding, evacuating, mid-siege or on an Iron expedition.'],
+            ['Can\'t extract', 'Complete your operation first (see the Journal), then interact at Evac Ridge and hold the position until the timer finishes.'],
+            ['Pack full', 'Weight and unique stacks are both limited. Drop or store items in a chest, or craft a bigger backpack at a workbench. Overflow drops in a bag you can pick up later.'],
+            ['Weapon won\'t fire', 'It may be jammed (ash rain, worn gun): press reload. Or it is out of ammo: craft field cartridges at a workbench or trade for an ammunition pouch.']
+        ];
+        for (const [t, x] of help) add({ cat: 'help', title: t, icon: icon('unknown', '#f2b45a'), text: x });
+        return out;
     }
 
-    function render(query = '', category = 'all') {
-        const options = [['all', 'All categories'], ...Object.entries(categories)];
-        return `<div class="survival-lobby survival-legend-filters" role="search" aria-label="Survival legend">
-            <label class="survival-option" for="survival-legend-search"><span>Search the complete Survival guide</span>
-                <input id="survival-legend-search" type="search" value="${escape(query)}" placeholder="Search parry, turret, blood moon, shrine, raygun, 60s..." autocomplete="off" spellcheck="false" aria-controls="survival-legend-results">
-            </label>
-            <label class="survival-option" for="survival-legend-category"><span>Filter by category</span>
-                <select id="survival-legend-category" aria-controls="survival-legend-results">${options.map(([id, label]) =>
-                    `<option value="${id}"${id === category ? ' selected' : ''}>${label}</option>`).join('')}</select>
-            </label>
-        </div><div id="survival-legend-results">${renderResults(query, category)}</div>`;
+    let cached = null;
+    function entries() {
+        cached = build();
+        return cached;
     }
 
-    BO.SurvivalLegend = { render, renderResults, getEntries };
+    function cardHtml(e) {
+        const lists = e.lists.filter((l) => l.items && l.items.length).map((l) => `<div class="fg-list"><h5>${esc(l.h)}</h5><ul>${l.items.slice(0, 40).map((x) => `<li>${esc(x)}</li>`).join('')}${l.items.length > 40 ? `<li class="fg-more">…and ${l.items.length - 40} more</li>` : ''}</ul></div>`).join('');
+        const facts = e.facts.length ? `<dl class="fg-facts">${e.facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : '';
+        const portrait = e.enemy ? `<img class="fg-portrait" data-portrait="${esc(e.enemy)}" alt="">` : '';
+        return `<article class="fg-card${e.enemy ? ' fg-enemy' : ''}"${e.enemy ? ` data-tip-enemy="${esc(e.enemy)}" data-tip="${esc(e.title)}"` : ''}>
+            <header>${portrait || `<span class="fg-ico">${e.icon || ''}</span>`}<div><h4>${esc(e.title)}</h4>${e.tags.filter(Boolean).length ? `<span class="fg-tags">${e.tags.filter(Boolean).map((t) => `<i>${esc(t)}</i>`).join('')}</span>` : ''}</div></header>
+            ${e.text ? `<p>${esc(e.text)}</p>` : ''}${facts}${lists}
+        </article>`;
+    }
+
+    function renderResults(query = '', category = 'start') {
+        const all = entries();
+        const terms = norm(query).trim().split(/\s+/).filter(Boolean);
+        if (terms.length) {
+            const hits = all.filter((e) => {
+                const hay = norm([e.title, e.text, e.keywords, e.tags.join(' '), CAT_LABEL[e.cat], ...e.facts.flat(), ...e.lists.flatMap((l) => l.items)].join(' '));
+                return terms.every((t) => hay.includes(t));
+            });
+            if (!hits.length) return `<div class="fg-empty"><b>Nothing found for “${esc(query)}”.</b><p>Try a resource, item, enemy, place or system name — e.g. copper, water, Blood Moon, kiln, Kestrel.</p></div>`;
+            return `<p class="fg-count">${hits.length} result${hits.length === 1 ? '' : 's'} for “${esc(query)}”</p>` +
+                CATS.map(([id, label]) => {
+                    const items = hits.filter((e) => e.cat === id);
+                    return items.length ? `<section class="fg-section"><h3>${esc(label)} <small>${items.length}</small></h3><div class="fg-grid">${items.map(cardHtml).join('')}</div></section>` : '';
+                }).join('');
+        }
+        const cat = CATS.find(([id]) => id === category) || CATS[0];
+        const items = all.filter((e) => e.cat === cat[0]);
+        return `<div class="fg-intro"><h3>${esc(cat[1])}</h3><p>${esc(cat[3])}</p></div><div class="fg-grid">${items.map(cardHtml).join('')}</div>`;
+    }
+
+    function render(query = '', category = 'start') {
+        if (category === 'all') category = 'start';
+        const all = entries();
+        const counts = Object.fromEntries(CATS.map(([id]) => [id, all.filter((e) => e.cat === id).length]));
+        return `<div class="fg">
+            <nav class="fg-rail sv-scroll" aria-label="Field guide sections">
+                ${CATS.map(([id, label, glyph, intro]) => `<button class="fg-cat ${!query && id === category ? 'active' : ''}" data-act="legendCat" data-arg="${id}" data-tip-title="${esc(label)}" data-tip="${esc(intro)}">
+                    ${BO.SurvivalIcons.named(glyph, id === category && !query ? '#0d1513' : '#9fd4c7', 16)}<span>${esc(label)}</span><em>${counts[id]}</em></button>`).join('')}
+            </nav>
+            <section class="fg-main">
+                <label class="fg-search"><span>⌕</span><input id="survival-legend-search" type="search" value="${esc(query)}" placeholder="Search ${all.length} entries: resources, items, enemies, places, systems…" autocomplete="off" spellcheck="false"></label>
+                <div id="survival-legend-results" class="fg-results sv-scroll" data-scroll="guide">${renderResults(query, category)}</div>
+            </section>
+        </div>`;
+    }
+
+    /** Fills enemy portraits a few at a time so long lists never stall the UI. */
+    let hydrateToken = 0;
+    function hydrate(root) {
+        if (!root || !BO.EnemyInfo) return;
+        const token = ++hydrateToken;
+        const imgs = [...root.querySelectorAll('img[data-portrait]:not([src])')];
+        const step = () => {
+            if (token !== hydrateToken) return;
+            const t0 = performance.now();
+            while (imgs.length && performance.now() - t0 < 12) {
+                const img = imgs.shift();
+                if (img.isConnected) img.src = BO.EnemyInfo.portrait(img.dataset.portrait) || '';
+            }
+            if (imgs.length) setTimeout(step, 16);
+        };
+        step();
+    }
+
+    BO.SurvivalLegend = { render, renderResults, hydrate, getEntries: entries, categories: CATS };
 })(window.BO);
