@@ -257,6 +257,10 @@
             this.stop();
             this.mode = mode;
             this.active = true;
+            if (this.pendingGroups?.length) {
+                this.ownedGroups.push(...this.pendingGroups);
+                this.pendingGroups = [];
+            }
             this.unlockedSignposts = new Set(SIGNPOSTS.filter((s) => s.starter).map((s) => s.id));
             this.unlockedGates = new Set();
             this.brokerRep = { bm_vex: 0, bm_kael: 0 };
@@ -333,6 +337,13 @@
         }
 
         _trackGroup(group) {
+            // Restoring a checkpoint decorates built pieces before this system starts (and start()
+            // clears ownedGroups). Park those groups and adopt them once start() has run.
+            if (!this.active) {
+                (BO.SurvivalMode?.scene || this.mode?.scene)?.add(group);
+                (this.pendingGroups = this.pendingGroups || []).push(group);
+                return group;
+            }
             this.mode.scene.add(group);
             this.ownedGroups.push(group);
             return group;

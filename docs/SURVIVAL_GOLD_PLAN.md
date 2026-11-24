@@ -181,3 +181,32 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 8. **Base life** — farming & water, livestock, base upkeep chip, radial wheel. (A6, A8, A9)
 9. **Journal merge** — one tracker. (R7)
 10. **Final QA** — a full scripted run, days 1–5 plus one boss; the Field Guide updated; the plan doc marked with what shipped.
+
+---
+
+# STEP 4 — IMPLEMENTATION STATUS (branch `survival-gold`)
+
+| # | Module | Files | Status |
+|---|---|---|---|
+| 1 | Merge & stabilise | — | `survival-overhaul` and `survival-1.0` were already linear ancestors; no merge needed. All four modes smoke-tested clean. |
+| 2 | Performance | `src/systems/NodeBatch.js`, `SurvivalPack.js` | Deposits batched into one mesh per 24 m cell; nodes within 14 m stay live. Same camera, same spawn: 2,670 → 546 and 2,426 → 688 draw calls looking across the map. Game logic was already cheap (~0.4 ms/frame). |
+| 3 | Readable, tactile gathering | `src/gm/GMGather.js`, `SurvivalPack.js` | Distinct larger silhouettes, look-at outline + label, ore glint, shake/crack tint/rising-pitch crunch, burst-and-magnet drops, pickup feed, sprout regrowth (small 1 day, veins 3 days), half yield inside your own claim. |
+| 4 | First Night | `src/gm/GMNight.js` | Ray-tested rooms → Shelter → Safe Room (no spawns inside), night sleep only in a Safe Room (35% ambush elsewhere, none on horde nights), ~12-minute day one, sunset warnings, 7-step tracker with Trail-pack reward, Weave cloth recipe. |
+| 5 | Crafting & build UX | `src/gm/GMRecipes.js`, `SurvivalUI.js`, `ZoneBuild.js` | Recipe/blueprint discovery with chime, grouped list (Craftable now / One ingredient away / …), live search, 7 build tabs, have/need at the ghost, Next Up line (Settings toggle). Fixed: bleeding no longer closes menus. |
+| 6 | Catalogue & rare finds | `src/gm/GMCatalogue.js` | 110 entries in 7 sets from live data, discovery cards + XP, set bonuses, Catalogue tab (`.`), light pillars (diamond/emerald/geode/rare+ weapons, max 3), rare-pickup sting + 250 ms slow-mo (solo). |
+| 7 | Cuts | `src/gm/GMRetire.js` | Arcane/alchemy/infuser/cooking stations retired (recipes moved to campfire/bench); quantum chest, waystone, obsidian walls/stairs removed from the build menu; three enemy-stat-only modifiers removed. |
+| 8 | Base life | `src/gm/GMBaseLife.js` | Auto-watering from rain barrels and rain, Base status chip, hold-X quick wheel (8 slices), contracts+quests capped at 3 rows. |
+| 9 | Final QA | `src/gm/GMGuide.js`, `ZoneWorldPlus.js` | Field Guide entries for every new system. Scripted First Night using the real harvest/craft/build paths, save → resume round trip, Survival ↔ Zombies switching, all modes clean. **Fixed: resuming a save with built doors crashed (and would have deleted restored doors).** |
+
+### Deliberate deviations from the plan
+- **Legacy Deep code not deleted (C4).** `SurvivalDeepSystems` also runs hydration, bleeding, the tech tree and modifier effects; deleting it would break the game. The cut parts stay inert.
+- **Obsidian armour kept (part of C3).** Nothing replaces it yet; only the 1,400 HP obsidian walls and stairs are cut.
+- **Retired pieces are not refunded on load (Q13).** They keep working in old saves, so no player loses anything; they just can't be built again.
+- **Ore is not finite (I3).** Veins refill over three in-game days instead, to avoid an iron soft-lock on a 470 m map.
+- **Drops are visual (I2).** Items are granted on break (so weight, Hot loot and quests stay exact) and fly to you as a visual burst.
+- **Livestock pens (A8) not built.** Farming already existed (stages, watering, seeds back); this pass added auto-watering. Pens need new animal AI and are left for a follow-up.
+- **Catalogue has 110 entries, not ~140**: built only from content that exists in the game.
+
+### Not verified
+- No human playthrough yet. Everything above was verified by scripted play in a browser, not by hand with mouse and keyboard.
+- The live site still runs `main`. None of this is published until `survival-gold` is merged and pushed.
