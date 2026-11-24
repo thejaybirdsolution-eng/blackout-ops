@@ -284,6 +284,7 @@
             const target = this.buildTarget(type);
             const spec = data.build.find((part) => part.id === type);
             const m = this.mode;
+            if (spec && BO.SurvivalRetired?.isRetiredBuild(type)) return m.toast(spec.name + ' is retired and can no longer be built.');
             if (!target || !spec || !this.canBuild) return this.mode.toast('Stand on stable ground to build.');
             if (spec.tech && this.deep && !this.deep.hasTech(spec.tech)) {
                 const techNode = BO.SurvivalDeepData?.techTree.find((t) => t.id === spec.tech);

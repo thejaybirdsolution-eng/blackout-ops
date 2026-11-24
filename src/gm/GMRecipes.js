@@ -116,6 +116,7 @@
                 }
             }
             for (const b of BO.SurvivalCampaignData.build) {
+                if (BO.SurvivalRetired?.isRetiredBuild(b.id)) continue;
                 const key = 'b:' + b.id;
                 if (this.revealed.has(key) || !this.buildVisible(b)) continue;
                 this.revealed.add(key);

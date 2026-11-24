@@ -228,7 +228,7 @@
         power: ['generator', 'solarPanel', 'batteryBank', 'windTurbine', 'pylon']
     })) for (const id of ids) BUILD_TAB_OF[id] = tab;
     /** Blueprints retired from the build menu (kept in data so old saves still load). */
-    const BUILD_HIDDEN = new Set();
+    const BUILD_HIDDEN = BO.SurvivalRetired?.builds || new Set();
     const RECIPE_CAT = {
         braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
         cutLens: 'materials', charcoal: 'materials', smeltAetherAlloy: 'materials', makePowder: 'materials', salvageRadio: 'materials',
@@ -1910,7 +1910,7 @@
             const sel = all.find((r) => r.key === this.selRecipe);
             const here = c.stations;
             const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
-            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation', 'alchemy', 'arcane'].filter((st) => st === 'hand' || st === 'bench' || st === 'campfire' || st === 'kiln' || here.includes(st) || all.some((r) => r.station === st)).map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st] || st, STATION_TIP[st] || '', here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove', alchemy: 'flask', arcane: 'rune' }[st] || 'wrench', here.includes(st) ? '#9fe0c9' : '#56645f', 15)}${STATION_NAME[st] || st}</span>`).join('')}</div>`;
+            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln'].filter((st) => st === 'hand' || st === 'bench' || st === 'campfire' || st === 'kiln' || here.includes(st) || all.some((r) => r.station === st)).map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st] || st, STATION_TIP[st] || '', here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove', alchemy: 'flask', arcane: 'rune' }[st] || 'wrench', here.includes(st) ? '#9fe0c9' : '#56645f', 15)}${STATION_NAME[st] || st}</span>`).join('')}</div>`;
             const cats = CRAFT_CATS.map(([id, label, glyph]) => {
                 const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
                 return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;

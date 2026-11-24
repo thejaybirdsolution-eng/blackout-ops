@@ -169,6 +169,7 @@
         begin(type) {
             const spec = BO.SurvivalCampaignData.build.find((b) => b.id === type);
             if (!spec) return false;
+            if (BO.SurvivalRetired?.isRetiredBuild(type)) { this.mode.toast(spec.name + ' is retired and can no longer be built.'); return false; }
             const c = this.campaign;
             if (spec.tech && c.deep && !c.deep.hasTech(spec.tech)) {
                 const node = BO.SurvivalDeepData?.techTree.find((t) => t.id === spec.tech);
