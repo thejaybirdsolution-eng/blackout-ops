@@ -19,7 +19,7 @@
             this.metrics = {};
             this.claims = {};
             this.visited = new Set();
-            this.vehicles = new Set(['skates']);
+            this.vehicles = new Set();
             this.placed = [];
             this.gates = new Map();
             this.npcs = [];
@@ -66,8 +66,8 @@
 
         /** Enabled infected, weakest first. */
         get roster() {
-            const active = BO.ZombiesData.ORDERED_PROGRESSION.filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
-            return active.length ? active : [BO.ZombiesData.ORDERED_PROGRESSION[0]];
+            const active = BO.Zone.bestiary().filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
+            return active.length ? active : [BO.Zone.bestiary()[0]];
         }
 
         /** Enemy types allowed to spawn right now: the day's unlocked tier, flavoured by area and pool. */
@@ -79,20 +79,17 @@
             const threat = BO.SurvivalRules.threat((this.mode.threat?.day || this.day) + tierBoost, this.isNight, this.options, this.mode.difficultyRules, list.length);
             const allowed = list.slice(0, Math.max(1, threat.poolSize));
             const keywordsByArea = {
-                hollow: 'ratman|ghoul|shambler|zombie|hunch|crawler|imp|gnome',
-                kessel: 'brute|shield|juggernaut|bloater|sapper|walker',
-                spillway: 'acid|water|ooze|swamp|poison|toxic|mud|bloater|slime',
-                campus: 'mutant|aether|void|phantom|mitosis|fracture|cyber|shadow',
-                crater: 'aether|void|wraith|hydra|golem|phantom',
-                pine: 'grizzly_bear|armored_warbear|bone_hound|werewolf|goblin|ratman|scarecrow|tiger|toad|crawler',
-                frost: 'frost|cry|ice|wraith|ghost|polar|yeti',
-                cinder: 'fire|hell|inferno|infernal|magma|burn|pyro|ember',
-                trench: 'mutant|slime|hydra|phantom|brute|aether|void|blob|mitosis|fracture|broodmother|twin_horror|shadow_stalker',
-                basin: 'acid|water|ooze|swamp|poison|toxic|mud|bloater|hunch_spitter|broodmother',
-                airfield: 'cyber_assassin|ronin|shield_walker|sprinter|headless|iron_juggernaut',
-                radar: 'wraith|shaman|sprite|shadow_imp|shadow_stalker'
+                crash: 'shambler|ankle_biter', relay: 'shambler|ankle_biter|sprinter',
+                hollow: 'shambler|ankle_biter|hunch_spitter|one_arm_ripper',
+                kessel: 'shield_walker|iron_juggernaut|club_goliath|headless_charger',
+                pine: 'shadow_stalker|sprinter|one_arm_ripper',
+                spillway: 'mud_waddler|bloater|hunch_spitter',
+                frost: 'club_goliath|shambler|headless_charger',
+                cinder: 'bloater|headless_charger|iron_juggernaut',
+                campus: 'shadow_stalker|shield_walker|iron_juggernaut',
+                crater: 'iron_juggernaut|club_goliath|shadow_stalker'
             };
-            const keywords = keywordsByArea[area] || data.pools[kind]?.keywords || '';
+            const keywords = [keywordsByArea[area], data.pools[kind]?.keywords].filter(Boolean).join('|');
             const preferred = keywords ? allowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
             // Area flavour only takes over once it has real variety; the newest unlocks always stay in rotation.
             if (preferred.length >= 3) return [...new Set([...preferred, ...allowed.slice(-2)])];
@@ -633,7 +630,7 @@
             this.metrics = { ...save.metrics };
             this.claims = { ...save.claims };
             this.visited = new Set(save.visited);
-            this.vehicles = new Set(save.vehicles);
+            this.vehicles = new Set((save.vehicles || []).filter((id) => data.vehicles.some((v) => v.id === id)));
             this.restHours = save.restHours;
             this.vehicle = save.transport || null;
             m.clock = save.clock;

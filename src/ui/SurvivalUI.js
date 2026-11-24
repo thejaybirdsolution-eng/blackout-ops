@@ -54,7 +54,7 @@
         repair: 'Field repair kit. Restores 24 durability to your held or equipped tool.',
         caveMap: 'Survey notes about Echo Cavern below the research trench.',
         relic: 'The Resonant Core. Required for the Hauler frame pack.',
-        aetherShard: 'Crystallised Aether energy for high-tier tools, stims, beacons and infusions.',
+        aetherShard: 'Luminous crystal from Frostline seam 6, refined by Black Pine. Powers resonance tools, stims, relay beacons and mods. Found in lab cabinets and refined at a kiln from quartz.',
         stew: 'Hearty stew: +65 food, +35 water, +25 health and warmth.',
         espresso: 'Field espresso: composure, water and a stamina boost.',
         antibiotic: 'Cures bleeding and infection and clears 30% radiation.',
@@ -373,6 +373,9 @@
          */
         drawCompass(el, deg, label) {
             const PX = 2.1; // pixels per degree
+            const hidden = !!BO.SurvivalMode.campaign?.has('sv_no_map_gps');
+            el.style.visibility = hidden ? 'hidden' : '';
+            if (hidden) return;
             if (!this._cmp || this._cmp.el !== el || !el.classList.contains('sv-compass')) {
                 el.classList.add('sv-compass');
                 el.innerHTML = '<div class="cmp-tape"></div><div class="cmp-read"></div><i class="cmp-mid"></i>';
@@ -544,7 +547,7 @@
                 case 'roster': {
                     const opts = { ...career.profile.options };
                     const set = new Set(opts.disabledEnemies);
-                    const total = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                    const total = BO.Zone.bestiary().length;
                     if (set.has(arg)) set.delete(arg);
                     else if (set.size < total - 1) set.add(arg);
                     opts.disabledEnemies = [...set];
@@ -553,10 +556,9 @@
                 }
                 case 'rosterBulk': {
                     const opts = { ...career.profile.options };
-                    const ids = BO.ZombiesData.ORDERED_PROGRESSION.map((z) => z.id);
-                    opts.disabledEnemies = arg === 'all' ? [] : arg === 'noMagic'
-                        ? BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.isMagical).map((z) => z.id)
-                        : ids.slice(25);
+                    const ids = BO.Zone.bestiary().map((z) => z.id);
+                    // 'light' keeps the six lighter types; 'noHeavy' drops the three armoured heavies.
+                    opts.disabledEnemies = arg === 'all' ? [] : arg === 'light' ? ids.slice(6) : ids.slice(-3);
                     career.remember(opts);
                     return this.renderBriefing();
                 }
@@ -852,7 +854,7 @@
                         <span class="sv-kicker">Solo expedition · 20× Exclusion Zone (500 × 450 m)</span>
                         <h2>Survival</h2>
                     </div>
-                    <div class="sv-career-chip"${tip('Survival career', 'Your survival level carries across expeditions. Levels unlock vehicles and the locked biomes (Frostline Quarry at 3, Cinder Flats at 5).', xp.toLocaleString() + ' XP total')}>
+                    <div class="sv-career-chip"${tip('Survival career', 'Your survival level carries across expeditions. Levels unlock vehicles (trail bicycle at 2, pack horse at 3, salvage rover at 6) and deployment kits.', xp.toLocaleString() + ' XP total')}>
                         <span class="sv-lvl">${career.level}</span>
                         <span class="sv-career-meta"><b>${esc(career.rank)}</b><span class="sv-xpbar"><i style="width:${lvlPct}%"></i></span>
                         <small>${career.level >= 50 ? 'Max level' : (career.nextXP - xp).toLocaleString() + ' XP to level ' + (career.level + 1)}</small></span>
@@ -872,8 +874,8 @@
                         <div class="sv-step-head"><span class="sv-kicker">Step ${stepIndex + 1} of ${STEPS.length}</span><h3>${STEPS[stepIndex][1]}</h3><p>${STEPS[stepIndex][2]}.</p></div>
                         ${body}
                         <div class="sv-step-nav">
-                            ${stepIndex > 0 ? `<button class="sv-btn ghost" data-act="step" data-arg="${STEPS[stepIndex - 1][0]}">← ${STEPS[stepIndex - 1][1]}</button>` : '<span></span>'}
-                            ${stepIndex < STEPS.length - 1 ? `<button class="sv-btn" data-act="step" data-arg="${STEPS[stepIndex + 1][0]}">${STEPS[stepIndex + 1][1]} →</button>` : ''}
+                            ${stepIndex > 0 ? `<button class="sv-btn ghost" data-act="step" data-arg="${STEPS[stepIndex - 1][0]}"${tip('Back: ' + STEPS[stepIndex - 1][1], STEPS[stepIndex - 1][2] + '.')}>← ${STEPS[stepIndex - 1][1]}</button>` : '<span></span>'}
+                            ${stepIndex < STEPS.length - 1 ? `<button class="sv-btn" data-act="step" data-arg="${STEPS[stepIndex + 1][0]}"${tip('Next: ' + STEPS[stepIndex + 1][1], STEPS[stepIndex + 1][2] + '.')}>${STEPS[stepIndex + 1][1]} →</button>` : ''}
                         </div>
                     </main>
                     <aside class="sv-summary sv-scroll" data-scroll="summary">${this.summary(o, presetMatch)}</aside>
@@ -905,7 +907,7 @@
                 case 'rules': return (o.survivalNeeds ? 'Needs on' : 'Needs off') + ' · ' + (o.autosave ? 'autosave' : 'manual saves');
                 case 'modifiers': return o.modifiers.length ? plural(o.modifiers.length, 'active modifier') : 'None';
                 case 'roster': {
-                    const total = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                    const total = BO.Zone.bestiary().length;
                     return (total - o.disabledEnemies.length) + ' of ' + total + ' enabled';
                 }
                 case 'career': return 'Level ' + career.level + ' · ' + esc(BO.SurvivalMeta?.KITS?.[career.profile.kit]?.name || career.rank);
@@ -990,14 +992,14 @@
             const seedBlock = `<div class="sv-field sv-seed-box">
                 <div class="sv-field-h"><b>World seed & Daily Expedition</b><small>Seeds deterministically shape container loot rolls, rare weapon finds and zone variation. Share a seed to replay the exact same Zone.</small></div>
                 <div class="sv-seed-row">
-                    <input id="sv-seed-input" class="sv-seed-input" type="text" maxlength="20" placeholder="Random seed (e.g. KESTREL-409)" value="${esc(o.seed || '')}" />
+                    <input id="sv-seed-input" class="sv-seed-input" type="text" maxlength="20" placeholder="Random seed (e.g. KESTREL-409)" value="${esc(o.seed || '')}"${tip('World seed', 'The same seed gives the same loot rolls, so you can replay or share an expedition. Leave empty for a random seed.')} />
                     <button class="sv-btn sm" data-act="rollSeed"${tip('Roll seed', 'Generate a new callsign seed.')}>Roll</button>
                     ${o.seed ? `<button class="sv-btn sm ghost" data-act="clearSeed"${tip('Clear seed', 'Use a fresh random seed on deploy.')}>Clear</button>` : ''}
                 </div>
                 ${daily ? `<div class="sv-daily-card ${o.daily ? 'active' : ''}">
                     <div><b>Daily Expedition · ${esc(daily.seed)}</b>
                     <small>${esc(rules().difficulties[daily.difficulty]?.name || daily.difficulty)} · ${daily.modifiers.map((m) => rules().modifiers[m]?.name || m).join(', ')} · ${dailyDone ? '✓ Completed today' : '+' + daily.bonusCommendations + ' Bonus Commendations'}</small></div>
-                    <button class="sv-btn sm ${o.daily ? 'primary' : ''}" data-act="dailyRun">${o.daily ? 'Active' : 'Load Daily'}</button>
+                    <button class="sv-btn sm ${o.daily ? 'primary' : ''}" data-act="dailyRun"${tip('Daily Expedition', 'Load today’s fixed seed, difficulty, start hour and two modifiers — the same for everyone today. Win it once a day for bonus commendations.')}>${o.daily ? 'Active' : 'Load Daily'}</button>
                 </div>` : ''}
             </div>`;
             return `${seedBlock}<div class="sv-field"><div class="sv-field-h"><b>Starting time</b><small>When on the 24-hour clock you deploy. Night runs 19:00–06:00 and raises the roaming limit.</small></div>
@@ -1015,7 +1017,7 @@
         /** Plain-text list of the infected a pool favours, with the day each one joins. */
         poolTooltip(poolId, o) {
             const pool = data.pools[poolId];
-            const roster = BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => !o.disabledEnemies.includes(z.id));
+            const roster = BO.Zone.bestiary().filter((z) => !o.disabledEnemies.includes(z.id));
             if (!roster.length) return pool.extra + '\n\nNo enemies are enabled in the roster.';
             const diff = rules().difficulties[o.difficulty];
             const dayOf = (i) => {
@@ -1095,7 +1097,7 @@
         }
 
         stepRoster(o) {
-            const list = BO.ZombiesData.ORDERED_PROGRESSION;
+            const list = BO.Zone.bestiary();
             const disabled = new Set(o.disabledEnemies);
             const unlockDay = (i) => {
                 for (let d = 1; d < 30; d++) if (rules().threat(d, false, o, rules().difficulties[o.difficulty], 999).poolSize > i) return d;
@@ -1121,11 +1123,11 @@
             });
             const offRows = offList.map((z) => `<button class="sv-enemy off" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Disabled · click to enable')}>
                     <span class="sv-enemy-box"></span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
-            return `<p class="sv-lede">Enemies unlock from weakest to strongest as days pass. Disable any you never want to meet; the rest shift earlier.</p>
+            return `<p class="sv-lede">The Exclusion Zone has twelve kinds of infected. They unlock from weakest to strongest as days pass; regions favour their own (riot walkers at Kessel, the drowned at the Spillway, stalkers in Pinebreak). Disable any you never want to meet; the rest shift earlier.</p>
                 <div class="sv-row-actions">
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="all"${tip('Enable all', 'Allow every infected variant to appear when its day comes.')}>Enable all</button>
-                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="grounded"${tip('Grounded roster', 'Keep only the 25 weakest variants: no late-game monsters at all.')}>Grounded only (25 weakest)</button>
-                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="noMagic"${tip('No magical infected', 'Disable every magical / Aether-powered variant.')}>No magical infected</button>
+                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="light"${tip('Lighter roster', 'Keep only the six lighter infected: no chargers, bloaters, riot walkers, stalkers or heavies.')}>Lighter six only</button>
+                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="noHeavy"${tip('No heavies', 'Disable the shadow stalker, club goliath and iron juggernaut.')}>No heavies</button>
                 </div>
                 <div class="sv-roster">${onRows.join('')}${offRows.length ? `<div class="sv-roster-day off">Disabled (${offList.length})</div>` + offRows.join('') : ''}</div>`;
         }
@@ -1134,7 +1136,7 @@
             const r = rules();
             const mode = r.modes[o.gameType];
             const diff = r.difficulties[o.difficulty];
-            const rosterSize = BO.ZombiesData.ORDERED_PROGRESSION.length - o.disabledEnemies.length;
+            const rosterSize = BO.Zone.bestiary().length - o.disabledEnemies.length;
             const days = [1, 2, 3, 4, 5, 6, 7].map((d) => r.threat(d, false, o, diff, rosterSize));
             const maxCap = Math.max(...days.map((t) => t.cap), 1);
             const safe = r.openingSecondsFor ? r.openingSecondsFor(o) : 60;
@@ -1283,7 +1285,7 @@
                 <div class="sv-modchips">${bpHtml}</div>
                 <h4 class="sv-sub">Expedition Chronicle <small>${history.length} logged</small></h4>
                 ${historyHtml}
-                ${interactive ? `<div class="sv-archive-foot"><button class="sv-btn sm ghost danger" data-act="resetCareer">${this._confirmReset ? 'Click again to wipe Archive & Career' : 'Reset Archive Career'}</button></div>` : ''}`;
+                ${interactive ? `<div class="sv-archive-foot"><button class="sv-btn sm ghost danger" data-act="resetCareer"${tip('Reset Archive Career', 'Permanently wipes your level, commendations, mastery, kits, stash, intel, feats, chronicle and saved checkpoint. Click twice to confirm.')}>${this._confirmReset ? 'Click again to wipe Archive & Career' : 'Reset Archive Career'}</button></div>` : ''}`;
         }
 
         /* ================================================================
@@ -1421,7 +1423,7 @@
             const inv = pack.inventory;
             const lim = pack.limits;
             const weight = pack.weight();
-            const cats = ['All', 'Raw materials', 'Components', 'Consumables', 'Lighting', 'Tools', 'Keys'];
+            const cats = ['All', 'Ammunition', 'Raw materials', 'Components', 'Consumables', 'Equipment', 'Lighting', 'Tools', 'Keys'];
             const order = Object.keys(frontier.items);
             let items = Object.entries(inv).filter(([id, n]) => n > 0 && frontier.items[id] && (this.packFilter === 'All' || frontier.items[id][1] === this.packFilter));
             const sorters = {
@@ -1788,6 +1790,12 @@
                         : '<p class="sv-muted sm">Click the map to pin a waypoint (it shows on your compass) · scroll to zoom · drag to pan.</p>'}
                     <h4 class="sv-sub">Layers</h4><div class="sv-layers">${layers}</div>
                     <h4 class="sv-sub ${focusTravel ? 'flash' : ''}">Fast travel <small>${navHalf ? 'Navigator: half time' : 'costs time'}</small></h4><div class="sv-tlist">${travel}</div>
+                    <h4 class="sv-sub">Vehicles <small>${c.vehicle ? 'Riding' : 'On foot'}</small></h4><div class="sv-tlist">${data.vehicles.map((v) => {
+                        const owned = c.hasVehicle(v.id);
+                        const on = c.vehicle === v.id;
+                        return `<button class="sv-trow ${on ? 'on' : ''}" data-act="ride" data-arg="${on ? 'off' : v.id}" ${owned ? '' : 'disabled'}${tip(v.name, v.detail, owned ? (on ? 'Click to dismount' : 'Click to ride · roads ×' + v.speed + ', off-road ×' + v.offroad) : 'Unlocks at survival level ' + v.level + ', from a Haven trade or a kit')}>
+                            ${Icons().named(v.id === 'mount' ? 'leaf' : 'gear', owned ? '#9fd4c7' : '#56645f', 16)}<b>${esc(v.name)}</b><small>${on ? 'Riding · click to dismount' : owned ? 'Road ×' + v.speed + ' · off-road ×' + v.offroad : 'Level ' + v.level}</small></button>`;
+                    }).join('')}</div>
                     <h4 class="sv-sub">Regions <small>${c.visited.size}/${BO.Zone.REGIONS.length} discovered</small></h4><ul class="sv-region-list">${regions}</ul>
                 </aside></div>`;
         }
@@ -2285,8 +2293,9 @@
             const mode = BO.SurvivalMode;
             const deep = mode.campaign.deep;
             const dd = deepData();
-            const afford = deep.runes >= 120 && mode.canAfford({ quartz: 2, aetherShard: 1 });
-            return `<div class="sv-npc-shop sv-scroll" data-scroll="inf"><p class="sv-muted">Infusions last the whole expedition. Up to two can be active. Each costs 2 quartz, 1 Aether shard and 120 runes.</p>
+            const grounded = !!deep.grounded;
+            const afford = (grounded || deep.runes >= 120) && mode.canAfford({ quartz: 2, aetherShard: 1 });
+            return `<div class="sv-npc-shop sv-scroll" data-scroll="inf"><p class="sv-muted">${grounded ? 'Resonance mods last the whole expedition. Up to two can be active. Each costs 2 quartz and 1 resonance crystal.' : 'Infusions last the whole expedition. Up to two can be active. Each costs 2 quartz, 1 Aether shard and 120 runes.'}</p>
                 ${Object.entries(dd.infusions || {}).map(([id, inf]) => {
                     const on = deep.hasInfusion(id);
                     return `<div class="sv-shop ${on ? 'owned' : ''}"${tip(inf.name, inf.desc)}>${Icons().named('crystal', '#c79bff', 28)}<span class="sv-shop-t"><b>${esc(inf.name)}</b><small>${esc(inf.desc)}</small></span>

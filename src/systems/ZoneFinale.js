@@ -284,7 +284,7 @@
 
         finish() {
             const o = this.campaign.objectives;
-            this.mode.finish(true, o.ending, true);
+            this.mode.finish(true, o.ending === 'operation' ? null : o.ending, true);
         }
 
         epilogue(ending) {

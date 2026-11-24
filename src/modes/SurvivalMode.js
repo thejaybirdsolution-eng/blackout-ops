@@ -353,7 +353,7 @@
         spawnInfected(x, y, z, type = 'normal', savedSpec = null, required = false) {
             if (this.clock < this.openingSeconds && !required) return null;
             if (!required && type === 'normal' && this.campaign.has('noRoamers')) return null;
-            const candidates = this.campaign?.selectedEnemies?.length ? this.campaign.selectedEnemies : BO.ZombiesData.ORDERED_PROGRESSION.slice(0, 4);
+            const candidates = this.campaign?.selectedEnemies?.length ? this.campaign.selectedEnemies : BO.Zone.bestiary().slice(0, 4);
             const boss = BO.ZoneBosses?.isBoss(type);
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) : boss ? BO.ZoneBosses.spec(type) : BO.Math.pick(candidates);
             if (!spec) return null;

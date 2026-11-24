@@ -36,7 +36,13 @@
         get mode() { return BO.SurvivalMode; }
         get campaign() { return BO.SurvivalMode.campaign; }
 
-        get every() { return this.campaign?.has('brutalNights') ? 2 : 3; }
+        get every() {
+            const c = this.campaign;
+            if (!c) return 3;
+            if (c.options.gameType === 'bloodmoon' || c.has('bloodMoonEveryNight')) return 1;
+            if (c.options.gameType === 'siege' || c.has('brutalNights')) return 2;
+            return 3;
+        }
 
         /** Night number of the next horde (the current one if it is under way). */
         nextHordeNight() {

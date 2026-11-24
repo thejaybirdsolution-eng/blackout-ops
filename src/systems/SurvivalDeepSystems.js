@@ -278,9 +278,9 @@
                 this.mode.toast(`${spec.name} is already active.`);
                 return false;
             }
-            const runeCost = this.modFx?.freeInfusionRunes ? 0 : 120;
+            const runeCost = this.modFx?.freeInfusionRunes || this.grounded ? 0 : 120;
             if (this.runes < runeCost || !this.mode.spend({ quartz: 2, aetherShard: 1 })) {
-                this.mode.toast(`Requires 2 Luminous Quartz, 1 Aether Shard${runeCost ? `, and ${runeCost} Runes` : ''}.`);
+                this.mode.toast(`Requires 2 Luminous Quartz, 1 ${this.grounded ? 'Resonance crystal' : 'Aether Shard'}${runeCost ? `, and ${runeCost} Runes` : ''}.`);
                 return false;
             }
             this.runes -= runeCost;
@@ -446,6 +446,12 @@
                     m.markers.push({ ...piece, id: 'deepbuild:' + piece.id, name: piece.type, label: labels[piece.type], alive: true });
                 }
                 this.machines.push(entry);
+            } else if (piece.type === 'beacon' && this.grounded) {
+                // In the Zone a relay beacon is a forward safehouse you built: respawn, fast travel, workbench.
+                this._mesh(new THREE.OctahedronGeometry(0.22), 0x8fe3c8, piece.x, piece.y + 1.98, piece.z, { emissive: 0x8fe3c8, emissiveIntensity: 0.8 });
+                const mk = { id: 'safehouse_beacon_' + piece.id, name: 'Relay beacon (your outpost)', x: piece.x + 0.9, y: piece.y, z: piece.z, kind: 'safehouse', alive: true, piece, reach: 2.6 };
+                m.markers.push(mk);
+                this.campaign.objectives?.markSecured(mk, true);
             } else if (piece.type === 'beacon') {
                 const flame = this._mesh(new THREE.OctahedronGeometry(0.22), 0xfacc15, piece.x, piece.y + 1.98, piece.z,
                     { emissive: 0xf59e0b, emissiveIntensity: 0.8 });
@@ -454,7 +460,7 @@
                 this.kindledShrines.add('beacon_' + piece.id);
                 this.lastRestPoint = { x: piece.x, y: piece.y, z: piece.z };
             } else if (piece.type === 'infuser') {
-                m.markers.push({ ...piece, id: 'infuser:' + piece.id, name: 'Aether Infusion Altar', label: 'Use Aether Infusion Altar', alive: true });
+                m.markers.push({ ...piece, id: 'infuser:' + piece.id, name: this.grounded ? 'Resonance mod bench' : 'Aether Infusion Altar', label: this.grounded ? 'Apply a resonance mod' : 'Use Aether Infusion Altar', alive: true });
             }
         }
 
@@ -856,7 +862,7 @@
             // Blood Moons rise on every third night (3, 6, 9...), or every night when the mode/modifier asks for it.
             const nightNo = this.campaign.nightNumber;
             const everyNight = this.campaign.has('bloodMoonEveryNight') || this.campaign.options.gameType === 'bloodmoon';
-            const triggerNight = nightNo >= 1 && (everyNight || nightNo % 3 === 0);
+            const triggerNight = !this.grounded && nightNo >= 1 && (everyNight || nightNo % 3 === 0);
             if (!this.bloodMoonActive && this.campaign.isNight && triggerNight && this.bloodMoonNightKey !== nightNo) {
                 this.bloodMoonActive = true;
                 this.bloodMoonNightKey = nightNo;
@@ -890,7 +896,7 @@
             }
 
             // Aether Meteor Falls across the 20x Valley
-            if (!this.meteor && clock >= this.nextMeteor) {
+            if (!this.grounded && !this.meteor && clock >= this.nextMeteor) {
                 const spots = [[-68, 0, 72], [74, 0, 68], [-82, 0, -58], [92, 0, -72], [-152, 0, 12], [154, 0, 118], [-168, 0, -152], [176, 0, 56]];
                 const [x, y, z] = BO.Math.pick(spots);
                 const rock = this._mesh(new THREE.DodecahedronGeometry(0.75), 0x7c3aed, x, y + 0.55, z, { emissive: 0xa855f7, emissiveIntensity: 0.65 });

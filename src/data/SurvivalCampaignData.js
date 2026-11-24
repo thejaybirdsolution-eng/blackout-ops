@@ -17,10 +17,8 @@
         [1, 'Drifter'], [2, 'Scout'], [4, 'Ranger'], [6, 'Pathfinder'], [9, 'Warden'], [13, 'Vanguard'], [18, 'Zone Marshal']
     ];
     const vehicles = [
-        { id: 'skates', name: 'Roller skates', level: 1, speed: 1.65, offroad: 0.95, color: 0xcd9a83, detail: 'Fast on paved highways, slower on mud and dirt.' },
         { id: 'bike', name: 'Trail bicycle', level: 2, speed: 2.10, offroad: 1.60, color: 0x82c39d, detail: 'Nimble road and cross-country transit across the valley.' },
         { id: 'mount', name: 'Pack horse', level: 3, speed: 1.85, offroad: 2.10, color: 0x9c745a, detail: 'Dominates rough terrain, marsh mud, and mountain slopes.' },
-        { id: 'glider', name: 'Ridge glider', level: 4, speed: 2.40, offroad: 2.40, color: 0xcfc590, detail: 'Launch off Relay Tower, Slateback Ridge, or ATC Tower for long aerial glides.' },
         { id: 'rover', name: 'Salvage rover', level: 6, speed: 2.90, offroad: 2.30, color: 0x8394a4, detail: 'High-speed heavy valley cruiser. Draws distant infected with engine noise.' }
     ];
     const build = [
@@ -80,8 +78,8 @@
     const pools = {
         mixed: { name: 'Mixed patrols', keywords: '', extra: 'An escalating mix of infected and PMC reinforcements.' },
         horde: { name: 'Infected surge', keywords: 'shambler|sprinter|ankle_biter|ripper|bloater|hopper|crawler|shield_walker|ghoul|ratman|mummy|goblin|lanky|scarecrow|hunch_spitter|headless|mud_waddler|ravager|goliath', extra: 'Classic undead hordes with 30% faster spawn rates.' },
-        mutants: { name: 'Aether mutants', keywords: 'wraith|witch|slime|hydra|aether|void|blob|mitosis|sprite|gnome|shaman|vampire|broodmother|fracture|twin_horror|toxic_toad|shadow_imp|shadow_stalker|magma_brute', extra: 'Favours Aether, magical, and splitting mutant infected.' },
-        patrols: { name: 'PMC occupation', keywords: 'shambler|sprinter|ripper|headless|shield_walker|cyber_assassin|ronin|berserker|juggernaut|iron_ogre|warbear|obsidian|ratman|bone_hound|werewolf', extra: 'Additional PMC patrols contest surface routes alongside armored and feral infected.' }
+        mutants: { name: 'Resonance-touched', keywords: 'shadow_stalker|hunch_spitter|mud_waddler|bloater|headless', extra: 'Favours the strangest infected: stalkers, spitters, the drowned and bloaters.' },
+        patrols: { name: 'PMC occupation', keywords: 'shield_walker|iron_juggernaut|club_goliath|headless|sprinter|one_arm_ripper', extra: 'Additional PMC patrols contest surface routes alongside riot-gear and heavy infected.' }
     };
     const defaults = { difficulty: 'standard', pool: 'mixed', dayLength: 360, startHour: 8, survivalNeeds: true,
         weather: true, autosave: true, encounterRate: 1 };

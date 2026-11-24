@@ -77,6 +77,47 @@
         const add = (e) => { out.push({ tags: [], facts: [], lists: [], ...e }); };
         const icon = (glyph, color) => Ic.named(glyph, color || '#9fe0c9', 26);
 
+        /* ---------- Where everything comes from (computed from the live world and tables) ---------- */
+        const Z = BO.Zone;
+        const regionName = (id) => Z?.REGIONS.find((r) => r.id === id)?.name || id;
+        const depositsByRegion = {};   // region -> kind -> count
+        const kindRegions = {};        // kind -> region -> count
+        for (const d of Z?.deposits || []) {
+            const reg = d.region || Z.regionAt(d.x, d.z).id;
+            ((depositsByRegion[reg] ||= {})[d.kind] = (depositsByRegion[reg][d.kind] || 0) + 1);
+            ((kindRegions[d.kind] ||= {})[reg] = (kindRegions[d.kind][reg] || 0) + 1);
+        }
+        const containersByRegion = {};
+        for (const c of Z?.containers || []) ((containersByRegion[c.region] ||= {})[c.type] = (containersByRegion[c.region][c.type] || 0) + 1);
+        const topRegions = (obj, n = 3) => Object.entries(obj || {}).sort((a, b) => b[1] - a[1]).slice(0, n).map(([r, c]) => regionName(r) + ' ×' + c).join(', ');
+        const sources = {};
+        const src = (id, line) => { (sources[id] ||= []).push(line); };
+        for (const [kind, spec] of Object.entries(frontier.resources || {})) {
+            const where = topRegions(kindRegions[kind]);
+            for (const id of Object.keys(spec.gain || {})) {
+                src(id, (spec.tool ? 'Break ' : 'Gather ') + spec.name.toLowerCase() + (spec.tool ? ' (' + ({ axe: 'axe', pick: 'pickaxe', shovel: 'shovel' }[spec.tool]) + ', tier ' + spec.tier + (spec.tier <= 1 ? ' or slow bare hands' : '') + ')' : ' by hand') + (where ? ' — most in ' + where : ''));
+            }
+        }
+        src('timber', 'Fell any tree (pines and broadleafs everywhere; Pinebreak Forest is densest). Dead trees give less.');
+        src('resin', 'Fell pine trees; also pine timber deposits.');
+        src('fiber', 'Small pines sometimes drop plant fiber when felled.');
+        const LT = BO.ZoneLoot?.TABLES || {};
+        const LN = BO.ZoneLoot?.NAMES || {};
+        const containerWhere = (type) => topRegions(Object.fromEntries(Object.entries(containersByRegion).map(([r, t]) => [r, t[type] || 0]).filter(([, n]) => n > 0)), 2);
+        for (const [type, rows] of Object.entries(LT)) {
+            const total = rows.reduce((s, r) => s + r[1], 0);
+            for (const [id, w] of rows) {
+                if (id === '__weapon') continue;
+                const chance = w / total > 0.25 ? 'common' : w / total > 0.12 ? 'uncommon' : 'rare';
+                const where = containerWhere(type);
+                src(id, (LN[type] || type) + 's (' + chance + ')' + (where ? ' — e.g. ' + where : ''));
+            }
+        }
+        for (const [reg, rows] of Object.entries(BO.ZoneFrontier?.REGION_LOOT || {})) for (const [id] of rows) if (id !== '__weapon') src(id, 'Bonus find in any container in ' + regionName(reg));
+        for (const rec of frontier.recipes || []) for (const id of Object.keys(rec.gain || {})) src(id, 'Craft: ' + rec.name + ' (' + (STATION_SHORT[rec.station] || rec.station) + ') from ' + amounts(rec.cost));
+        for (const [sid, st] of Object.entries(BO.SurvivalCampaignData?.stock || {})) for (const id of Object.keys(st.gain || {})) src(id, 'Trade at Haven: ' + st.name + ' for ' + amounts(st.cost));
+        const dedupe = (list) => [...new Set(list)].slice(0, 8);
+
         /* ---------- 1. Getting started ---------- */
         add({ cat: 'start', title: 'The first five minutes', icon: icon('flare'),
             text: 'You wake inside a downed helicopter in Crash Valley, injured and bleeding, with six rounds in an M1911. During the opening safe period nothing hostile spawns — use it to bandage, search the wreck, and reach the Relay Ranger Station.',
@@ -137,7 +178,13 @@
             const threatTxt = ['', 'Tier 1 (Low)', 'Tier 2 (Moderate)', 'Tier 3 (High)', 'Tier 4 (Severe)', 'Tier 5 (Extreme)'][r.threat] || 'Tier ' + r.threat;
             add({ cat: 'map', title: r.name, icon: icon('scroll', r.threat >= 4 ? '#ef8a6b' : '#8fe3c8'),
                 tags: [threatTxt, r.biome || ''], text: REGION_GUIDE[r.id] || 'Exclusion Zone sector.',
-                facts: [['Threat', threatTxt], ['Biome', r.biome || 'Mixed']] });
+                facts: [['Threat', threatTxt], ['Biome', r.biome || 'Mixed']],
+                lists: [
+                    { h: 'Resource deposits', items: Object.entries(depositsByRegion[r.id] || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => (frontier.resources[k]?.name || k) + ' ×' + n + ' → ' + amounts(frontier.resources[k]?.gain)) },
+                    { h: 'Regional finds', items: (BO.ZoneFrontier?.REGION_LOOT?.[r.id] || []).filter(([id]) => id !== '__weapon').map(([id]) => name(id)) },
+                    { h: 'Points of interest', items: [...new Set((Z.pois || []).filter((p) => p.region === r.id && p.name).map((p) => p.name))].slice(0, 10) },
+                    { h: 'Containers', items: Object.entries(containersByRegion[r.id] || {}).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([t, n]) => (LN[t] || t) + ' ×' + n) }
+                ].filter((l) => l.items.length) });
         }
 
         /* ---------- 6. Building & fortifications ---------- */
@@ -166,7 +213,9 @@
                 text: 'Power ' + spec.power + ' · Durability ' + spec.wear + '.', facts: [['Cost', amounts(spec.cost)], ['Station', STATION_SHORT[spec.station] || spec.station]] });
         }
         for (const [id, [label, cat, wt]] of Object.entries(frontier.items || {})) {
-            add({ cat: 'items', title: label, icon: icon('chest'), tags: [cat, wt + ' kg'], text: info[id] || (cat + ' item used in survival crafting or scavenging.'), keywords: id });
+            const found = dedupe(sources[id] || []);
+            add({ cat: 'items', title: label, icon: icon('chest'), tags: [cat, wt + ' kg'], text: info[id] || (cat + ' item used in survival crafting or scavenging.'), keywords: id,
+                lists: found.length ? [{ h: 'Where to find it', items: found }] : [{ h: 'Where to find it', items: ['Not found in the Zone this version — earned from special rewards only.'] }] });
         }
 
         /* ---------- 9. Guardians & the Warden ---------- */
@@ -213,7 +262,7 @@
             text: 'Long-term goals that pay commendations once: story beats, every ending, a deathless ending, an ending before day 5, ten days survived, horde and garrison milestones, a 40-piece fortress, a third storey, all regions, hand-loading, the handcar, airdrops, rescues and the intel dossier. Progress bars in The Archive show how close you are.' });
 
         /* ---------- 11. Enemies ---------- */
-        const roster = BO.ZombiesData.ORDERED_PROGRESSION || [];
+        const roster = BO.Zone.bestiary() || [];
         for (let i = 0; i < roster.length; i++) {
             const z = roster[i];
             add({ cat: 'enemies', title: z.name, enemy: z.id, tags: ['HP ' + z.hp, 'Speed ' + z.speed.toFixed(1)],
@@ -299,7 +348,7 @@
                     ${BO.SurvivalIcons.named(glyph, 'currentColor', 16)}<span>${esc(label)}</span><em>${counts[id]}</em></button>`).join('')}
             </nav>
             <section class="fg-main">
-                <label class="fg-search"><span>⌕</span><input id="survival-legend-search" type="search" value="${esc(query)}" placeholder="Search ${all.length} entries: Warden, Archive, seeds, regions, items, enemies…" autocomplete="off" spellcheck="false"></label>
+                <label class="fg-search"><span>⌕</span><input id="survival-legend-search" type="search" title="Search every Field Guide entry: items, regions, enemies, systems and controls" value="${esc(query)}" placeholder="Search ${all.length} entries: Warden, Archive, seeds, regions, items, enemies…" autocomplete="off" spellcheck="false"></label>
                 <div id="survival-legend-results" class="fg-results sv-scroll" data-scroll="guide">${renderResults(query, category)}</div>
             </section>
         </div>`;

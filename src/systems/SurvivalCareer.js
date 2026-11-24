@@ -137,7 +137,7 @@
         standard: { name: 'Standard Issue', level: 1, desc: 'Balanced start: M1911 (6 loaded), bandage, ration, cloth & scrap.', items: {} },
         pathfinder: { name: 'Pathfinder', level: 2, desc: 'Traversal kit: Trail Bicycle unlocked at start, +2 fuel, +1 torch, +2 cord.', items: { fuel: 2, torch: 1, cord: 2 }, vehicle: 'bike' },
         sapper: { name: 'Field Sapper', level: 4, desc: 'Engineering kit: +6 timber, +4 stone, +4 salvage, +2 wire for rapid fortifying.', items: { timber: 6, stone: 4, scrap: 4, wire: 2 } },
-        alchemist: { name: 'Zone Alchemist', level: 6, desc: 'Medical & rad kit: +2 bandages, +1 respirator filter, +2 filtered water, +1 Aether shard.', items: { bandage: 2, filter: 1, freshWater: 2, aetherShard: 1 } },
+        alchemist: { name: 'Zone Alchemist', level: 6, desc: 'Medical & rad kit: +2 bandages, +1 respirator filter, +2 filtered water, +1 resonance crystal.', items: { bandage: 2, filter: 1, freshWater: 2, aetherShard: 1 } },
         vanguard: { name: 'Frontier Vanguard', level: 9, desc: 'Heavy breach kit: +2 iron bars, +2 fuel, +4 salvage, +1 trauma kit, +24 9mm rounds.', items: { ingot: 2, fuel: 2, scrap: 4, medkits: 1, ammo9: 24 } },
         keeper: { name: 'Lantern Keeper', level: 1, unlock: 'seize', unlockLabel: 'SEIZE THE LANTERN', desc: 'Earned by seizing the Lantern: +2 filters, +1 trauma kit, +30 5.56 rounds, +1 thermals. Brood is slower to notice you on day 1.', items: { filter: 2, medkits: 1, ammo556: 30, thermals: 1 } },
         signal_ghost: { name: 'Signal Ghost', level: 1, unlock: 'seal', unlockLabel: 'SEAL THE LANTERN', desc: 'Earned by sealing the Lantern: +1 radio parts, +2 batteries, +20 9mm, +2 bandages. Lower noise footprint.', items: { radioParts: 1, battery: 2, ammo9: 20, bandage: 2 } },
@@ -159,7 +159,7 @@
 
     function options(input = {}) {
         const d = data.defaults;
-        const ids = BO.ZombiesData.ORDERED_PROGRESSION.map((enemy) => enemy.id);
+        const ids = BO.Zone.bestiary().map((enemy) => enemy.id);
         const tier = Math.max(1, Math.min(ZONE_TIERS.length, Math.floor(Number(input.zoneTier) || 1)));
         const seed = input.seed ? normalizeSeed(input.seed) : '';
         return {

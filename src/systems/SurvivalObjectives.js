@@ -35,6 +35,45 @@
         { id: 'farmer', name: 'Zone Homestead', info: 'Harvest two garden crops, draw water twice and reel one salvage line haul.', criteria: [['cropsHarvested', 2], ['waterDrawn', 2], ['salvageHauls', 1]], reward: { stew: 2, freshWater: 2, aetherShard: 1 }, xp: 185 }
     ];
 
+
+    /* Operations other than the story: each has a goal measured live, a progress line and a compass target. */
+    const SALVAGE = { iron: 12, planks: 8, coal: 4, scrap: 10 };
+    /** Horde goals fall back to nights survived when horde nights are switched off (No roaming infected). */
+    const hordeGoal = (o, n) => o.campaign.has('noRoamers')
+        ? ['Nights survived', Math.min(n, Math.max(0, o.campaign.day - 1)), n]
+        : ['Hordes survived', Math.min(n, o.campaign.metrics.hordesSurvived || 0), n];
+    const OPS = {
+        homestead: {
+            progress: (o) => {
+                const c = o.campaign, alive = c.placed.filter((p) => p.alive);
+                const has = (t) => alive.some((p) => p.type === t);
+                return [['Structures', Math.min(12, alive.length), 12], ['Bed, table & chest', ['bed', 'bench', 'chest'].filter(has).length, 3], hordeGoal(o, 2)];
+            }
+        },
+        survey: {
+            progress: (o) => [['Regions', Math.min(7, o.campaign.visited.size), 7], ['Radio towers', o.campaign.activities?.relayCount || 0, 3]],
+            target: (o, near) => {
+                const relays = [...(o.campaign.activities?.relays.values() || [])].filter((r) => !r.powered);
+                if (relays.length) return near(relays);
+                return near(BO.Zone.REGIONS.filter((r) => !o.campaign.visited.has(r.id)));
+            }
+        },
+        salvage: {
+            progress: (o) => Object.entries(SALVAGE).map(([id, n]) => [BO.SurvivalItemName ? BO.SurvivalItemName(id) : id, o.delivered ? n : Math.min(n, o.mode.points[id] || 0), n]).concat([['Delivered to Haven', o.delivered ? 1 : 0, 1]]),
+            target: () => BO.Zone.HAVEN
+        },
+        bounty: {
+            progress: (o) => [['Garrisons cleared', Math.min(4, o.campaign.metrics.garrisons || 0), 4]],
+            target: (o, near) => near((BO.ZoneFrontier?.garrisons || []).filter((g) => BO.ZoneFrontier.garrisonState(g) !== 'cleared'))
+        },
+        siege: { progress: (o) => [hordeGoal(o, 3)] },
+        bloodmoon: { progress: (o) => [hordeGoal(o, 5)] },
+        gauntlet: {
+            progress: (o) => [['Named infected', Math.min(4, o.campaign.metrics.bosses || 0), 4]],
+            target: (o, near) => near((BO.ZoneBosses?.GUARDIANS || []).filter((g) => !(o.campaign.metrics['boss_' + g.type] > 0)).map((g) => o.mode.markers.find((m) => m.id === g.at) || BO.Zone.markers.find((m) => m.id === g.at)).filter(Boolean))
+        }
+    };
+
     class SurvivalObjectives {
         constructor(campaign) {
             this.campaign = campaign;
@@ -50,7 +89,10 @@
             this.activeWave = [];
         }
 
-        get freeplay() { return this.kind === 'freeplay'; }
+        get freeplay() { return this.kind === 'freeplay' || !!OPS[this.kind]; }
+        get op() { return OPS[this.kind] || null; }
+        opProgress() { return this.op ? this.op.progress(this) : []; }
+        get opDone() { const pr = this.opProgress(); return pr.length > 0 && pr.every(([, a, b]) => a >= b); }
         get current() { return STEPS[this.step] || STEPS[STEPS.length - 1]; }
 
         setup(snapshot) {
@@ -65,6 +107,7 @@
                 this.wardenDown = !!snapshot.wardenDown;
                 this.ending = snapshot.ending || null;
                 this.keepExploring = !!snapshot.keepExploring;
+                this.delivered = !!snapshot.delivered;
             }
             const m = this.mode;
             // Campus gate: a steel barrier across the opening in the south wall.
@@ -84,13 +127,17 @@
 
         snapshot() {
             return { step: this.step, secured: [...this.secured], nests: [...this.nests], keycards: this.keycards, challenges: [...this.challenges], gateOpen: this.gateOpen, hasData: this.hasData,
-                wardenDown: !!this.wardenDown, ending: this.ending || null, keepExploring: !!this.keepExploring };
+                wardenDown: !!this.wardenDown, ending: this.ending || null, keepExploring: !!this.keepExploring, delivered: !!this.delivered };
         }
 
         get unsafeToSave() { return false; }
 
         get objective() {
             if (this.ending) return (BO.ZoneEndings?.[this.ending]?.title || 'The Lantern is decided').toLowerCase().replace(/^./, (ch) => ch.toUpperCase()) + ' · free roam';
+            if (this.op) {
+                const pr = this.opProgress();
+                return (BO.SurvivalRules.modes[this.kind]?.name || 'Operation') + ' · ' + pr.map(([l, a, b]) => l + ' ' + a + '/' + b).join(' · ');
+            }
             if (this.freeplay) return 'Free roam · scavenge, build and survive as long as you can.';
             const s = this.current;
             if (s.id === 'lantern' && !this.wardenDown) return 'Reach the Lantern and defeat its Warden';
@@ -100,8 +147,8 @@
             return s.title;
         }
 
-        get actName() { return this.freeplay ? 'Free roam' : ACT_NAMES[this.current.act]; }
-        get hint() { return this.freeplay ? '' : this.current.hint; }
+        get actName() { return this.op ? (BO.SurvivalRules.modes[this.kind]?.name || 'Operation') : this.freeplay ? 'Free roam' : ACT_NAMES[this.current.act]; }
+        get hint() { return this.op ? (BO.SurvivalRules.modes[this.kind]?.description || '') : this.freeplay ? '' : this.current.hint; }
         get steps() { return STEPS; }
 
         advance(toId) {
@@ -119,11 +166,11 @@
 
         /* --------------------------------------------------------------- safehouses */
         safehouses() {
-            return this.mode.markers.filter((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id)).map((mk) => ({ id: mk.id, name: mk.name, x: mk.x, y: mk.y, z: mk.z }));
+            return this.mode.markers.filter((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id) && mk.alive !== false && (!mk.piece || mk.piece.alive)).map((mk) => ({ id: mk.id, name: mk.name, x: mk.x, y: mk.y, z: mk.z }));
         }
 
         safehouseNear(pos, r) {
-            return this.mode.markers.some((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id) && Math.hypot(mk.x - pos.x, mk.z - pos.z) < r && Math.abs(mk.y - pos.y) < 4);
+            return this.mode.markers.some((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id) && mk.alive !== false && (!mk.piece || mk.piece.alive) && Math.hypot(mk.x - pos.x, mk.z - pos.z) < r && Math.abs(mk.y - pos.y) < 4);
         }
 
         travelPoints() {
@@ -271,6 +318,20 @@
         }
 
         update() {
+            if (this.op && !this.ending) {
+                // Salvage Run: deliver at Haven.
+                if (this.kind === 'salvage' && !this.delivered) {
+                    const p0 = BO.Player.pos;
+                    const enough = Object.entries(SALVAGE).every(([id, n]) => (this.mode.points[id] || 0) >= n);
+                    if (enough && Math.hypot(BO.Zone.HAVEN.x - p0.x, BO.Zone.HAVEN.z - p0.z) < 14) {
+                        this.mode.spend(SALVAGE);
+                        this.delivered = true;
+                        this.mode.toast('Quartermaster Rowan takes the salvage. "That keeps Haven running for a month."');
+                    }
+                }
+                if (this.opDone) this.completeOperation();
+                return;
+            }
             if (this.freeplay) return;
             const p = BO.Player.pos;
             const s = this.current;
@@ -293,6 +354,11 @@
 
         /** World position of the current story objective, for the compass. */
         target() {
+            if (this.op && !this.ending) {
+                const p1 = BO.Player.pos;
+                const near1 = (list) => list.reduce((best, e) => (!best || Math.hypot(e.x - p1.x, e.z - p1.z) < Math.hypot(best.x - p1.x, best.z - p1.z) ? e : best), null);
+                return this.op.target ? this.op.target(this, near1) : null;
+            }
             if (this.freeplay) return null;
             const m = this.mode;
             const p = BO.Player.pos;
@@ -310,6 +376,24 @@
                 case 'lantern': return BO.Zone.LANTERN;
                 default: return null;
             }
+        }
+
+        /** Operation goal met: commendations, a forced save and the epilogue screen (finish now or keep exploring). */
+        completeOperation() {
+            if (this.ending) return;
+            const name = BO.SurvivalRules.modes[this.kind]?.name || 'Operation';
+            BO.ZoneEndings.operation = {
+                title: 'OPERATION COMPLETE · ' + name.toUpperCase(), color: '#8fe3c8',
+                text: (BO.SurvivalRules.modes[this.kind]?.description || '') + ' Done. Haven hears about it on the relay before you have even caught your breath.',
+                effect: 'Nothing in the world changes — the Zone, and the Lantern, are still out there if you keep exploring.',
+                commendations: 3
+            };
+            this.ending = 'operation';
+            this.campaign.mark('operations', 1, 400);
+            BO.SurvivalCareer.awardCommendations?.(3);
+            this.campaign.save(true, true);
+            BO.Events.emit('hud:banner', { title: 'OPERATION COMPLETE', sub: name.toUpperCase() + ' · +3 COMMENDATIONS', color: '#8fe3c8' });
+            setTimeout(() => { if (this.mode.active && BO.Player.alive) BO.SurvivalUI.show('epilogue', null, 'operation'); }, 1800);
         }
 
         routeEvac() { return true; }

@@ -10,7 +10,7 @@
     // Extend SurvivalFrontierData Items, Tools & Recipes cleanly
     const frontier = BO.SurvivalFrontierData;
     Object.assign(frontier.items, {
-        aetherShard: ['Aether shard', 'Components', 0.25],
+        aetherShard: ['Resonance crystal', 'Components', 0.25],
         stew: ['Hearty venison stew', 'Consumables', 0.45],
         espresso: ['Field espresso', 'Consumables', 0.18],
         antibiotic: ['Antibiotic elixir', 'Consumables', 0.22],
@@ -39,7 +39,7 @@
         { id: 'brewSpeed', tech: 't2_tonics', name: 'Adrenaline auto-injector', station: 'campfire', cost: { quartz: 1, herbs: 2, freshWater: 1 }, gain: { speedTonic: 1 }, desc: 'Grants +40% faster weapon reload & fire rate for 3 minutes.' },
         { id: 'brewStamin', tech: 't2_tonics', name: 'Endurance serum', station: 'campfire', cost: { resin: 2, herbs: 2, freshWater: 1 }, gain: { staminElixir: 1 }, desc: 'Grants +22% sprint speed & halved stamina drain for 3 minutes.' },
         { id: 'brewDeadshot', tech: 't2_tonics', name: 'Ballistic focus drop', station: 'campfire', cost: { copper: 2, quartz: 1, freshWater: 1 }, gain: { deadshotTinc: 1 }, desc: 'Grants +45% headshot & critical damage for 3 minutes.' },
-        { id: 'smeltAetherAlloy', name: 'Refine Aether shard', station: 'kiln', cost: { quartz: 3, coal: 2, iron: 2 }, gain: { aetherShard: 1 }, desc: 'Crystallize Zone minerals into a high-energy Aether Shard.' }
+        { id: 'smeltAetherAlloy', name: 'Refine resonance crystal', station: 'kiln', cost: { quartz: 3, coal: 2, iron: 2 }, gain: { aetherShard: 1 }, desc: 'Crystallise Frostline quartz into a luminous resonance crystal.' }
     );
 
     // New Base-Building Fortifications, Interactive Doors, Traps & Automated Base Tech (Zero Pals!)
@@ -149,8 +149,7 @@
         { id: 'katana_carbon', name: 'Shadow Carbon Katana', tech: 't3_heavy_arms', cost: { ingot: 4, quartz: 2, cord: 2 }, ammo: 1 },
         { id: 'scarh', name: 'SCAR-H Heavy 7.62', tech: 't4_elite_arms', cost: { ingot: 5, wire: 3, aetherShard: 1 }, ammo: 120 },
         { id: 'intervention', name: 'Intervention (MW2)', tech: 't4_elite_arms', cost: { ingot: 5, lens: 1, wire: 2, aetherShard: 1 }, ammo: 30 },
-        { id: 'm249', name: 'M249 SAW LMG', tech: 't4_elite_arms', cost: { ingot: 6, wire: 3, aetherShard: 1 }, ammo: 200 },
-        { id: 'raygun', name: 'Ray Gun Prototype', tech: 't4_elite_arms', cost: { coil: 1, lens: 2, aetherShard: 3 }, ammo: 100 }
+        { id: 'm249', name: 'M249 SAW LMG', tech: 't4_elite_arms', cost: { ingot: 6, wire: 3, aetherShard: 1 }, ammo: 200 }
     ];
 
     BO.SurvivalDeepData = {

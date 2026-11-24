@@ -827,7 +827,16 @@
         }
     }
 
+    /** The grounded Survival bestiary: twelve infected, weakest to strongest. Zombies mode keeps its full roster. */
+    const BESTIARY_IDS = ['shambler', 'ankle_biter', 'sprinter', 'hunch_spitter', 'one_arm_ripper', 'mud_waddler', 'headless_charger', 'bloater', 'shield_walker', 'shadow_stalker', 'club_goliath', 'iron_juggernaut'];
+    let bestiaryCache = null;
+    function bestiary() {
+        if (!bestiaryCache) bestiaryCache = BESTIARY_IDS.map((id) => BO.ZombiesData.get(id)).filter(Boolean);
+        return bestiaryCache;
+    }
+
     BO.Zone = {
+        BESTIARY_IDS, bestiary,
         applyOverrides, HAVEN: { x: -100, z: 92 },
         BOUNDS, REGIONS, ROADS, RAIL, WATER, LANTERN, RESERVOIR,
         regionAt, rawFinal, roadInfo, inReservoir, colorAt, pois, containers, markers, deposits, trees, rocks, ladders, lights, pads,

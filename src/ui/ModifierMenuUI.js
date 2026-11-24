@@ -260,7 +260,7 @@
                     <section class="mmx-content">
                         <div class="mmx-toolbar">
                             <label class="mmx-search" data-tip-title="Search" data-tip="Search names, effects and categories. Descriptions are searched too, even though they only show on hover.">
-                                <span>⌕</span><input type="search" data-mm-search placeholder="Search ${data.defs.length} modifiers…" value="${esc(st.q)}" autocomplete="off" spellcheck="false">
+                                <span>⌕</span><input type="search" data-mm-search placeholder="Search ${data.defs.length} modifiers…" value="${esc(st.q)}" autocomplete="off" spellcheck="false" title="Filter modifiers by name or description">
                             </label>
                             <div class="mm-tier-slot mmx-segs">${parts.tierTabsHtml}</div>
                             <button type="button" class="mmx-only${st.onlyActive ? ' active' : ''}" data-mm-only-active data-tip-title="Only active" data-tip="Show only the modifiers you have switched on."><i></i>Only active</button>

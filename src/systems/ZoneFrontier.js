@@ -454,6 +454,7 @@
         toggleRide() {
             const P = BO.Player;
             const m = this.mode;
+            if (!this.riding && m.campaign.has('footOnly')) { m.toast('On foot only: the handcar is off limits this expedition.'); return true; }
             if (this.riding) {
                 this.riding = false;
                 const p = this.railPoint(this.carS);
@@ -537,4 +538,5 @@
     }
 
     BO.ZoneFrontier = new ZoneFrontier();
+    BO.ZoneFrontier.REGION_LOOT = REGION_LOOT;
 })(window.BO);
