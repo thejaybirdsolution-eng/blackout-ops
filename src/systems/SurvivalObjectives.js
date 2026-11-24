@@ -1,21 +1,38 @@
-
+/* ============================================================================
+   BLACKOUT OPS — The Lantern: story, safehouses and field challenges
+   Act 1 · Signal       — survive the crash, secure the ranger station, restore
+                          the Relay mast, find the Haven survivors.
+   Act 2 · Cartography  — repair three radio towers to triangulate the Lantern,
+                          burn three nests to recover campus keycards.
+   Act 3 · Breach       — open the campus, recover the research data, descend
+                          into the Crater and decide the Lantern's fate.
+   Also owns safehouses (respawn, workbench, fast travel) and field challenges.
+============================================================================ */
 (function (BO) {
     'use strict';
 
-    const cairns = [
-        ['relay','Relay Watch',32,0,86], ['pine','Pinebreak Survey',-136,0,-32], ['freight','Freight Signal',138,0,36],
-        ['ridge','Slateback Benchmark',-196,14,146], ['basin','Basin Marker',196,0,-58], ['trench','Trench Survey',22,-8,-212]
+    const STEPS = [
+        { id: 'wreck', act: 1, title: 'Search the helicopter wreck', hint: 'The wreck is right beside you. Look for the military crate.' },
+        { id: 'reach', act: 1, title: 'Reach the ranger station in Relay Basin', hint: 'Follow the road north-east. The green-sided building by the trees.' },
+        { id: 'secure', act: 1, title: 'Secure the ranger station', hint: 'Clear any infected within 25 m, then interact at the door.' },
+        { id: 'mast', act: 1, title: 'Restore the Relay radio mast', hint: 'Bring 2 copper wire and 1 battery to the top of the mast on the hill west of the station.' },
+        { id: 'haven', act: 1, title: 'Answer the broadcast: find Haven', hint: 'The survivors are in a sandbagged camp east of the mast.' },
+        { id: 'towers', act: 2, title: 'Repair the three radio towers', hint: 'Pinebreak Forest, the Spillway dam and Frostline summit. Each needs 1 copper wire and 1 fuel.' },
+        { id: 'keycards', act: 2, title: 'Burn three nests and recover the campus keycards', hint: 'Nests in Hollow Town and Pinebreak Forest. Burn them with a molotov or explosives — or 2 fuel and a light.' },
+        { id: 'gate', act: 3, title: 'Open the Black Pine campus gate', hint: 'Bring the three keycards to the campus gate north of the Crater.' },
+        { id: 'data', act: 3, title: 'Recover the Lantern research data', hint: 'Search the labs inside the campus walls.' },
+        { id: 'lantern', act: 3, title: 'Descend into the Crater and reach the Lantern', hint: 'The beam marks the way. Radiation is extreme — bring filters.' },
+        { id: 'done', act: 3, title: 'The Lantern has been decided', hint: '' }
     ];
-    const delivery = { iron: 12, planks: 8, coal: 4, scrap: 10 };
-    const encounterSites = [[-145, 0, -82], [-152, 0, -118], [-88, 0, -142], [-115, 0, -78], [-164, 0, -96]];
+    const ACT_NAMES = { 1: 'Act 1 · Signal', 2: 'Act 2 · Cartography', 3: 'Act 3 · Breach' };
     const fieldChallenges = [
-        { id: 'trail', name: 'Trail Kit', info: 'Gather eight nodes, craft five items, and open one supply cache.', criteria: [['gatheredNodes', 8], ['crafted', 5], ['fieldCaches', 1]], reward: { rations: 2, cloth: 2, scrap: 3 }, xp: 110 },
-        { id: 'base', name: 'Safe Haven', info: 'Build five pieces, rest in a field bed, and stock a chest with four items.', criteria: [['built', 5], ['fieldRests', 1], ['storedItems', 4]], reward: { planks: 4, brick: 3, torch: 2 }, xp: 135 },
-        { id: 'explorer', name: 'Surveyor', info: 'Discover five areas and record three cairns.', criteria: [['visited', 5], ['cairns', 3]], reward: { fuel: 2, wire: 2, filter: 1 }, xp: 175 },
+        { id: 'trail', name: 'Scavenger', info: 'Gather eight resources, craft five items and search fifteen containers.', criteria: [['gatheredNodes', 8], ['crafted', 5], ['containers', 15]], reward: { rations: 2, cloth: 2, scrap: 3 }, xp: 110 },
+        { id: 'base', name: 'Safe Haven', info: 'Build five pieces, rest in a field bed and stock a chest with four items.', criteria: [['built', 5], ['fieldRests', 1], ['storedItems', 4]], reward: { planks: 4, brick: 3, torch: 2 }, xp: 135 },
+        { id: 'explorer', name: 'Surveyor', info: 'Discover five regions and six landmarks.', criteria: [['visited', 5], ['landmarks', 6]], reward: { fuel: 2, wire: 2, filter: 1 }, xp: 175 },
         { id: 'foundry', name: 'Ore to Iron', info: 'Mine four deposits and make two kiln recipes.', criteria: [['oreHarvests', 4], ['kilnJobs', 2]], reward: { ingot: 2, coal: 4 }, xp: 150 },
         { id: 'hunter', name: 'Night Watch', info: 'Defeat six infected at night.', criteria: [['nightKills', 6]], reward: { medkits: 2, torch: 3 }, xp: 175 },
-        { id: 'farmer', name: 'Zone Homestead', info: 'Harvest two garden crops, draw water twice, and reel one salvage line haul.', criteria: [['cropsHarvested', 2], ['waterDrawn', 2], ['salvageHauls', 1]], reward: { stew: 2, freshWater: 2, aetherShard: 1 }, xp: 165 },
-        { id: 'sanctuary', name: 'Grace & Tech', info: 'Kindle two Sites of Grace and research two Technology nodes.', criteria: [['shrinesKindled', 2], ['techUnlocked', 2]], reward: { aetherShard: 2, ingot: 2, quartz: 2 }, xp: 200 }
+        { id: 'gunsmith', name: 'Gunsmith', info: 'Hand-load ammunition twice and repair a weapon.', criteria: [['crafted_reload9', 1], ['crafted_makeGunkit', 1]], reward: { powder: 3, primers: 20, brass: 20 }, xp: 160 },
+        { id: 'farmer', name: 'Zone Homestead', info: 'Harvest two garden crops, draw water twice and reel one salvage line haul.', criteria: [['cropsHarvested', 2], ['waterDrawn', 2], ['salvageHauls', 1]], reward: { stew: 2, freshWater: 2, aetherShard: 1 }, xp: 185 }
     ];
 
     class SurvivalObjectives {
@@ -23,161 +40,274 @@
             this.campaign = campaign;
             this.mode = campaign.mode;
             this.kind = campaign.options.gameType;
-            this.surveyed = new Set();
-            this.caches = new Set();
+            this.step = 0;
+            this.secured = new Set();
+            this.nests = new Set();
+            this.keycards = 0;
             this.challenges = new Set();
-            this.delivery = false;
-            this.wave = 0;
-            this.waveClearedAt = 0;
-            this.siegeDone = false;
+            this.gateOpen = false;
+            this.hasData = false;
             this.activeWave = [];
-            this.siegeSpawned = false;
         }
 
+        get freeplay() { return this.kind === 'freeplay'; }
+        get current() { return STEPS[this.step] || STEPS[STEPS.length - 1]; }
+
         setup(snapshot) {
+            if (snapshot) {
+                this.step = snapshot.step || 0;
+                this.secured = new Set(snapshot.secured || []);
+                this.nests = new Set(snapshot.nests || []);
+                this.keycards = snapshot.keycards || 0;
+                this.challenges = new Set(snapshot.challenges || []);
+                this.gateOpen = !!snapshot.gateOpen;
+                this.hasData = !!snapshot.hasData;
+            }
             const m = this.mode;
-            this.surveyed = new Set(snapshot?.surveyed);
-            this.caches = new Set(snapshot?.caches);
-            this.challenges = new Set(snapshot?.challenges);
-            this.delivery = !!snapshot?.delivery;
-            this.wave = snapshot?.wave || 0;
-            this.waveClearedAt = snapshot?.waveClearedAt || 0;
-            this.siegeDone = !!snapshot?.siegeDone;
-            // Hostile waves cannot be saved. A checkpoint between waves resumes the intermission.
-            this.siegeSpawned = false;
-            for (const [id, label, x, y, z] of cairns) {
-                if (!this.surveyed.has(id)) m.marker({ id: 'survey:' + id, name: label, x, y, z, label: 'Record ' + label, color: 0x8af3d1 });
+            // Campus gate: a steel barrier across the opening in the south wall.
+            const gm = BO.Zone.markers.find((mk) => mk.id === 'campus_gate');
+            if (gm && !this.gateOpen) {
+                const mesh = m.mesh(new THREE.BoxGeometry(11.6, 3.2, 0.6), 0x55606a, gm.x, gm.y + 1.6, gm.z, { metalness: 0.6, roughness: 0.4 });
+                this.gate = { mesh, collider: m.solid(mesh, 11.6, 3.2, 0.6) };
             }
-            for (const [id, x, y, z] of [['camp', -58, 0, 86], ['quarry', -192, 0, -162], ['rail', 132, 0, -42]]) {
-                if (!this.caches.has(id)) m.marker({ id: 'field-cache:' + id, name: 'Field crate', x, y, z, label: 'Open field crate', color: 0xe6c485 });
+            for (const mk of m.markers) {
+                if (mk.kind === 'safehouse' && this.secured.has(mk.id)) this.markSecured(mk, true);
+                if (mk.kind === 'nest' && this.nests.has(mk.id)) { mk.alive = false; if (mk.light) mk.light.visible = false; }
             }
-            m.marker({ id: 'field-board', name: 'Expedition board', x: 10, y: 0, z: 128, label: 'Read field challenges', color: 0xa6ddd0 });
+            if (!snapshot && this.freeplay) this.step = STEPS.length - 1;
+            const mast = m.markers.find((mk) => mk.id === 'mast');
+            if (mast && this.step > STEPS.findIndex((s) => s.id === 'mast')) mast.alive = false;
         }
 
         snapshot() {
-            return {
-                surveyed: [...this.surveyed], caches: [...this.caches], challenges: [...this.challenges],
-                delivery: this.delivery, wave: this.wave, waveClearedAt: this.waveClearedAt, siegeDone: this.siegeDone
-            };
+            return { step: this.step, secured: [...this.secured], nests: [...this.nests], keycards: this.keycards, challenges: [...this.challenges], gateOpen: this.gateOpen, hasData: this.hasData };
         }
 
-        get unsafeToSave() { return this.activeWave.some((enemy) => enemy.alive); }
-
-        get progress() {
-            const m = this.mode;
-            const s = this.campaign.metrics;
-            switch (this.kind) {
-                case 'homestead': {
-                    const structures = new Set(this.campaign.placed.filter((piece) => piece.alive).map((piece) => piece.type)).size;
-                    return { ready: structures >= 6 && s.crafted >= 8 && m.clock >= 180,
-                        text: 'Homestead · structures ' + Math.min(structures, 6) + '/6 · crafted ' + Math.min(s.crafted || 0, 8) + '/8 · ' + Math.min(Math.floor(m.clock), 180) + '/180s' };
-                }
-                case 'survey': return { ready: this.campaign.visited.size >= 6 && this.surveyed.size >= 3,
-                    text: 'Survey · areas ' + Math.min(this.campaign.visited.size, 6) + '/6 · cairns ' + Math.min(this.surveyed.size, 3) + '/3' };
-                case 'salvage': return { ready: this.delivery, text: 'Deliver at Evac Ridge · ' + Object.entries(delivery).map(([key, n]) =>
-                    Math.min(m.points[key] || 0, n) + '/' + n + ' ' + BO.SurvivalItemName(key).toLowerCase()).join(' · ') };
-                case 'bounty': return { ready: !!s.sable && !!(s.frostBoss || s.cinderBoss || s.geodeBoss),
-                    text: 'Bounty · Sable ' + (s.sable ? 'defeated' : 'at large') + ' · contract boss ' + (s.frostBoss || s.cinderBoss || s.geodeBoss ? 'defeated' : 'pending') };
-                case 'siege': return { ready: this.siegeDone,
-                    text: this.activeWave.length ? 'Ridge Siege · wave ' + this.wave + '/3 · ' + this.activeWave.filter((enemy) => enemy.alive).length + ' hostiles' :
-                        this.wave ? 'Ridge Siege · wave ' + this.wave + ' cleared' : 'Go to Evac Ridge and start the three-wave siege.' };
-                case 'bloodmoon': {
-                    const moons = this.campaign.deep?.bloodMoonsSurvived || 0;
-                    const defenses = this.campaign.placed.filter((p) => p.alive).length;
-                    return { ready: moons >= 1 && defenses >= 4,
-                        text: `Blood Moon Defense · structures ${Math.min(defenses, 4)}/4 · Blood Moons survived ${Math.min(moons, 1)}/1` };
-                }
-                case 'gauntlet': {
-                    const bosses = s.bosses || 0;
-                    return { ready: bosses >= 3, text: `Zone Boss Gauntlet · bosses defeated ${Math.min(bosses, 3)}/3` };
-                }
-                case 'scavenger': {
-                    const forged = s.weaponsForged || 0;
-                    return { ready: forged >= 1 && (s.kills || 0) >= 8,
-                        text: `Zero-to-Hero · weapons forged ${Math.min(forged, 1)}/1 · kills ${Math.min(s.kills || 0, 8)}/8` };
-                }
-                case 'freeplay': return { ready: true, text: 'Free Roam · explore, trade, build, or evacuate from Evac Ridge.' };
-                default: return { ready: m.core, text: 'Recover the research core below the central ramp.' };
-            }
-        }
+        get unsafeToSave() { return false; }
 
         get objective() {
-            if (this.mode.exfil) return null;
-            if (this.progress.ready && this.kind !== 'freeplay') return 'Objective complete · call evacuation at Evac Ridge.';
-            return this.progress.text;
+            if (this.freeplay) return 'Free roam · scavenge, build and survive as long as you can.';
+            const s = this.current;
+            if (s.id === 'towers') return s.title + ' · ' + (this.campaign.activities?.relayCount || 0) + '/3';
+            if (s.id === 'keycards') return s.title + ' · ' + this.keycards + '/3';
+            return s.title;
         }
 
-        routeEvac() {
+        get actName() { return this.freeplay ? 'Free roam' : ACT_NAMES[this.current.act]; }
+        get hint() { return this.freeplay ? '' : this.current.hint; }
+        get steps() { return STEPS; }
+
+        advance(toId) {
+            const idx = STEPS.findIndex((s) => s.id === toId);
+            if (idx <= this.step) return;
+            const prevAct = this.current.act;
+            this.step = idx;
+            const s = this.current;
+            this.campaign.mark('story_' + STEPS[idx - 1].id, 1, 120);
+            if (s.act !== prevAct) BO.Events.emit('hud:banner', { title: ACT_NAMES[s.act].toUpperCase(), sub: s.title.toUpperCase(), color: '#b69cff' });
+            else this.mode.toast('New objective: ' + s.title);
+            BO.Sound?.playPerkBuy?.();
+            this.campaign.save(true);
+        }
+
+        /* --------------------------------------------------------------- safehouses */
+        safehouses() {
+            return this.mode.markers.filter((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id)).map((mk) => ({ id: mk.id, name: mk.name, x: mk.x, y: mk.y, z: mk.z }));
+        }
+
+        safehouseNear(pos, r) {
+            return this.mode.markers.some((mk) => mk.kind === 'safehouse' && this.secured.has(mk.id) && Math.hypot(mk.x - pos.x, mk.z - pos.z) < r && Math.abs(mk.y - pos.y) < 4);
+        }
+
+        travelPoints() {
+            const pts = this.safehouses().map((s) => ({ ...s, kind: 'Safehouse' }));
+            const acts = this.campaign.activities;
+            if (acts) for (const r of acts.relays.values()) if (r.powered) pts.push({ id: 'tower:' + r.id, name: r.name, x: r.x + 3, y: r.y, z: r.z + 3, kind: 'Radio tower' });
+            pts.push({ id: 'haven', name: 'Haven', x: BO.Zone.HAVEN.x, y: 0, z: BO.Zone.HAVEN.z + 8, kind: 'Settlement', locked: this.step < 5 && !this.freeplay });
+            return pts.filter((p) => !p.locked);
+        }
+
+        markSecured(mk, quiet = false) {
+            this.secured.add(mk.id);
+            mk.label = mk.name + ' · safehouse (workbench, stove, respawn)';
+            mk.secured = true;
+            if (mk.light) { mk.light.material.color.setHex(0x8fe3c8); mk.light.material.emissive.setHex(0x8fe3c8); }
+            if (!quiet) {
+                this.campaign.mark('safehouses', 1, 90);
+                BO.Events.emit('hud:banner', { title: 'SAFEHOUSE SECURED', sub: mk.name.toUpperCase() + ' · RESPAWN POINT · WORKBENCH · FAST TRAVEL', color: '#8fe3c8' });
+            }
+        }
+
+        trySecure(mk) {
             const m = this.mode;
-            if (m.exfil) return true;
-            if (!m.hostilesReleased) {
-                m.toast('Evacuation opens after the safe period.');
-                return false;
+            if (this.secured.has(mk.id)) {
+                BO.SurvivalUI.show('crafting');
+                return true;
             }
-            if (this.kind === 'salvage' && !this.delivery && m.spend(delivery)) {
-                this.delivery = true;
-                this.campaign.mark('deliveries', 1, 100);
+            const threats = [...m.zombies, ...m.bots].filter((e) => e.alive && e.team !== 0 && Math.hypot(e.pos.x - mk.x, e.pos.z - mk.z) < 25);
+            if (threats.length) {
+                m.toast(threats.length + ' hostile' + (threats.length === 1 ? '' : 's') + ' within 25 m. Clear them before you can secure this building.');
+                return true;
             }
-            if (this.kind === 'siege' && !this.siegeDone) {
-                if (!this.unsafeToSave && (!this.wave || m.clock >= this.waveClearedAt + 5)) this.startWave();
-                else m.toast('Clear the current wave and regroup before starting the next.');
-                return false;
-            }
-            if (!this.progress.ready) {
-                m.toast(this.progress.text);
-                return false;
-            }
+            this.markSecured(mk);
+            if (mk.id === 'safehouse_ranger' && this.current.id === 'secure') this.advance('mast');
+            else if (mk.id === 'safehouse_ranger' && this.step < STEPS.findIndex((s) => s.id === 'mast')) this.advance('mast');
+            this.campaign.save(true);
             return true;
         }
 
-        startWave() {
-            const m = this.mode;
-            if (!m.hostilesReleased || this.wave >= 3) return;
-            this.wave++;
-            this.siegeSpawned = true;
-            for (let i = 0; i < 4 + this.wave * 2; i++) {
-                const [x, y, z] = encounterSites[i % encounterSites.length];
-                const type = this.wave === 3 && i === 0 ? 'siegeBoss' : 'siege';
-                const spawned = m.spawnInfected(x + Math.floor(i / 5) * 1.6, y, z, type);
-                if (spawned) this.activeWave.push(spawned);
-            }
-            m.toast('Ridge Siege · wave ' + this.wave + ' inbound.');
+        /* --------------------------------------------------------------- nests */
+        burnNest(mk) {
+            if (mk.alive === false || this.nests.has(mk.id)) return;
+            this.nests.add(mk.id);
+            mk.alive = false;
+            if (mk.light) mk.light.visible = false;
+            this.campaign.mark('nests', 1, 150);
+            this.campaign.mark('nest_' + mk.id, 1, 0);
+            BO.FX.spawnExplosion?.(new THREE.Vector3(mk.x, mk.y + 1, mk.z), 4, 0xff7a1a);
+            for (let i = 0; i < 4; i++) this.mode.ignite(new THREE.Vector3(mk.x + (Math.random() - 0.5) * 6, mk.y, mk.z + (Math.random() - 0.5) * 6));
+            this.keycards++;
+            this.mode.points.keycard = (this.mode.points.keycard || 0) + 1;
+            BO.Events.emit('hud:banner', { title: 'NEST DESTROYED', sub: mk.name.toUpperCase() + ' · KEYCARD RECOVERED (' + this.keycards + '/3) · LOCAL THREAT DOWN', color: '#f2b45a' });
+            if (this.current.id === 'keycards' && this.keycards >= 3) this.advance('gate');
         }
 
-        update() {
-            if (!this.siegeSpawned || this.unsafeToSave) return;
-            this.siegeSpawned = false;
-            this.activeWave = [];
-            this.waveClearedAt = this.mode.clock;
-            this.campaign.mark('siegeWaves', 1, 68);
-            if (this.wave === 3) {
-                this.siegeDone = true;
-                this.mode.toast('Siege survived. Use Evac Ridge again to call extraction.');
-            } else this.mode.toast('Wave clear. Use the ridge beacon again after five seconds.');
+        tryBurn(mk) {
+            const m = this.mode;
+            if (!m.hostilesReleased) { m.toast('Nothing stirs here yet.'); return true; }
+            const lit = m.campaign.pack.lightUntil > m.clock || (m.points.torch || 0) > 0;
+            if ((m.points.fuel || 0) < 2 || !lit) {
+                m.toast('Burning a nest needs 2 fuel and a light (torch or lantern) — or throw a molotov or explosive into it.');
+                return true;
+            }
+            m.spend({ fuel: 2 });
+            // The nest's brood rushes out as it catches.
+            for (let i = 0; i < 4; i++) {
+                const a = Math.random() * Math.PI * 2;
+                const zb = m.spawnInfected(mk.x + Math.cos(a) * 9, null, mk.z + Math.sin(a) * 9, 'normal', null, true);
+                if (zb) { zb.zs = { state: 'hunt', seen: m.clock, home: { x: mk.x, z: mk.z }, x: mk.x, z: mk.z, until: 0, wander: 0 }; }
+            }
+            this.burnNest(mk);
+            return true;
         }
+
+        /* --------------------------------------------------------------- hooks */
+        onStoryContainer(entry) {
+            const m = this.mode;
+            if (entry.story === 'wreck') {
+                m.grant({ ammo9: 14, bandage: 2, cloth: 2, canned: 1 });
+                m.toast('You find the pilot\'s radio, still crackling: "…anyone… Relay mast is down… Haven… east of the ranger station…"');
+                this.advance('reach');
+            } else if (entry.story === 'lab_data') {
+                this.hasData = true;
+                m.points.radioParts = (m.points.radioParts || 0);
+                BO.Events.emit('hud:banner', { title: 'RESEARCH DATA RECOVERED', sub: 'PROJECT LANTERN · THE SOURCE LIES IN THE CRATER', color: '#b69cff' });
+                if (this.current.id === 'data') this.advance('lantern');
+            }
+        }
+
+        onBossKilled(entity) {
+            if (entity.survivalType && entity.survivalType !== 'warden') {
+                this.keycards = Math.min(3, this.keycards + 1);
+                this.mode.points.keycard = (this.mode.points.keycard || 0) + 1;
+                this.mode.toast('The boss carried a campus keycard (' + this.keycards + '/3).');
+                if (this.current.id === 'keycards' && this.keycards >= 3) this.advance('gate');
+            }
+        }
+
+        onNewDay() {}
 
         activate(marker) {
             const m = this.mode;
-            const [kind, id] = marker.id.split(':');
-            if (kind === 'survey') {
-                this.surveyed.add(id);
-                this.campaign.mark('cairns', 1, 30);
-                m.toast(marker.name + ' logged · +30 XP');
-            } else if (kind === 'field-cache') {
-                this.caches.add(id);
-                this.campaign.mark('fieldCaches', 1, 17);
-                const found = { camp: { rations: 1, herbs: 2, timber: 2 }, quarry: { stone: 4, coal: 2, cloth: 1 },
-                    rail: { scrap: 3, fuel: 1, rations: 1 } };
-                m.grant(found[id]);
-            } else if (marker.id === 'field-board') {
-                BO.SurvivalUI.show('objectives');
+            if (marker.kind === 'safehouse') return this.trySecure(marker);
+            if (marker.kind === 'nest') return this.tryBurn(marker);
+            if (marker.id === 'mast') {
+                if (this.step < STEPS.findIndex((s) => s.id === 'mast') && !this.freeplay) {
+                    m.toast('The transmitter is dead. Secure the ranger station first so you have somewhere to fall back to.');
+                    return true;
+                }
+                if (this.step > STEPS.findIndex((s) => s.id === 'mast')) { m.toast('The mast is broadcasting. Haven is listening.'); return true; }
+                if (!m.spend({ wire: 2, battery: 1 })) {
+                    m.toast('The transmitter needs 2 copper wire and 1 battery. Batteries turn up in desks, cars and electrical cabinets.');
+                    return true;
+                }
+                BO.Events.emit('hud:banner', { title: 'RELAY MAST ONLINE', sub: '"…this is Haven… we hear you… sandbagged camp, east of the hill…"', color: '#8fe3c8' });
+                this.campaign.mark('mastRestored', 1, 200);
+                marker.alive = false;
+                this.advance('haven');
                 return true;
-            } else return false;
-            marker.alive = false;
-            marker.light.visible = false;
-            return true;
+            }
+            if (marker.id === 'campus_gate') {
+                if (this.gateOpen) return true;
+                if (this.keycards < 3) { m.toast('The gate reader blinks red. Three campus keycards required (' + this.keycards + '/3).'); return true; }
+                this.gateOpen = true;
+                if (this.gate) { m.removeSolid(this.gate.mesh, this.gate.collider); this.gate.mesh.visible = false; }
+                BO.Events.emit('hud:banner', { title: 'CAMPUS GATE OPEN', sub: 'BLACK PINE RESEARCH CAMPUS · THREAT LEVEL SEVERE', color: '#f2b45a' });
+                if (this.current.id === 'gate') this.advance('data');
+                return true;
+            }
+            if (marker.id === 'lantern') {
+                if (this.current.id !== 'lantern' && !this.freeplay) {
+                    m.toast('The Lantern hums. You do not understand it yet — the campus labs may hold the answers.');
+                    return true;
+                }
+                BO.SurvivalUI.show('ending');
+                return true;
+            }
+            return false;
         }
 
+        decide(ending) {
+            this.step = STEPS.length - 1;
+            this.campaign.mark('ending_' + ending, 1, 600);
+            this.mode.finish(true, ending);
+        }
+
+        update() {
+            if (this.freeplay) return;
+            const p = BO.Player.pos;
+            const s = this.current;
+            if (s.id === 'reach') {
+                const st = this.mode.markers.find((mk) => mk.id === 'safehouse_ranger');
+                if (st && Math.hypot(st.x - p.x, st.z - p.z) < 14) this.advance('secure');
+            } else if (s.id === 'haven') {
+                if (Math.hypot(BO.Zone.HAVEN.x - p.x, BO.Zone.HAVEN.z - p.z) < 14) {
+                    BO.Events.emit('hud:banner', { title: 'HAVEN', sub: '"WELCOME. WE NEED THOSE TOWERS FIXED IF WE\'RE EVER FINDING THAT LIGHT."', color: '#8fe3c8' });
+                    this.advance('towers');
+                }
+            } else if (s.id === 'towers') {
+                if ((this.campaign.activities?.relayCount || 0) >= 3) this.advance('keycards');
+            } else if (s.id === 'keycards') {
+                if (this.keycards >= 3) this.advance('gate');
+            } else if (s.id === 'data') {
+                if (this.hasData) this.advance('lantern');
+            }
+        }
+
+        /** World position of the current story objective, for the compass. */
+        target() {
+            if (this.freeplay) return null;
+            const m = this.mode;
+            const p = BO.Player.pos;
+            const near = (list) => list.reduce((best, e) => (!best || Math.hypot(e.x - p.x, e.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z) ? e : best), null);
+            const mk = (id) => m.markers.find((x) => x.id === id);
+            switch (this.current.id) {
+                case 'wreck': return m.markers.find((x) => x.container?.story === 'wreck');
+                case 'reach': case 'secure': return mk('safehouse_ranger');
+                case 'mast': return mk('mast') || BO.Zone.markers.find((x) => x.id === 'mast');
+                case 'haven': return BO.Zone.HAVEN;
+                case 'towers': return near([...(this.campaign.activities?.relays.values() || [])].filter((r) => !r.powered));
+                case 'keycards': return near(m.markers.filter((x) => x.kind === 'nest' && x.alive !== false));
+                case 'gate': return mk('campus_gate');
+                case 'data': return m.markers.find((x) => x.container?.story === 'lab_data');
+                case 'lantern': return BO.Zone.LANTERN;
+                default: return null;
+            }
+        }
+
+        routeEvac() { return true; }
+
+        /* --------------------------------------------------------------- challenges */
         list() {
             return fieldChallenges.map((challenge) => ({
                 ...challenge, claimed: this.challenges.has(challenge.id),
@@ -199,4 +329,5 @@
     }
 
     BO.SurvivalObjectives = SurvivalObjectives;
+    BO.SurvivalStorySteps = STEPS;
 })(window.BO);

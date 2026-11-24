@@ -205,6 +205,8 @@
                 if (best && (!wallHit || wallHit.distance > Math.hypot(this.resources.get(best).marker.x - p.x, this.resources.get(best).marker.z - p.z) - 0.4)) nodeId = best;
             }
             if (nodeId) return this.strike(nodeId, toolId, strength);
+            const tree = this.treeInFront(aim, wallHit);
+            if (tree) return this.chop(tree, toolId, strength);
             const part = wallHit?.object ? m.structures.get(wallHit.object) : null;
             if (part && part.hp > 0) {
                 const t = toolId ? data.tools[toolId] : null;
@@ -280,6 +282,118 @@
             return true;
         }
 
+        /* ------------------------------------------------------------ Zone trees */
+        /** The standing Zone tree the swing connects with (2.6 m reach, roughly in the aim direction). */
+        treeInFront(aim, wallHit) {
+            const zone = BO.World.zone;
+            if (!zone?.trees) return null;
+            const p = BO.Player.pos;
+            const fx = aim.dir.x, fz = aim.dir.z, fl = Math.hypot(fx, fz) || 1;
+            let best = null, bestScore = Infinity;
+            for (const t of zone.trees) {
+                if (!t.alive) continue;
+                const dx = t.x - p.x, dz = t.z - p.z;
+                if (Math.abs(dx) > 3 || Math.abs(dz) > 3) continue;
+                const d = Math.hypot(dx, dz);
+                if (d > 2.6 || t.y > p.y + 2 || t.y + 4 < p.y) continue;
+                const facing = d < 0.5 ? 1 : (dx * fx + dz * fz) / (d * fl);
+                if (facing < 0.6) continue;
+                const score = d - facing;
+                if (score < bestScore) { bestScore = score; best = t; }
+            }
+            if (best && wallHit && !wallHit.object?.isInstancedMesh && wallHit.distance < Math.hypot(best.x - p.x, best.z - p.z) - 0.6) return null;
+            return best;
+        }
+
+        treeSpec(t) {
+            return data.resources[t.type === 'broad' ? 'hardwood' : 'pine'] || { name: 'Timber', tool: 'axe', tier: 1, strokes: 3, gain: { timber: 4 }, color: 0x8d684a };
+        }
+
+        /** One blow on a tree: axes fell quickly; bare hands only manage dead wood and small pines, slowly. */
+        chop(t, toolId, strength = 1) {
+            const m = this.mode;
+            const spec = this.treeSpec(t);
+            const strokes = spec.strokes * (t.type === 'dead' ? 0.7 : 1) * (0.7 + t.s * 0.4);
+            if (t.hp === undefined || t.hp > strokes || t.hp === 6) t.hp = strokes;
+            const tool = this.pickTool(spec, toolId);
+            const usingTool = tool && toolId === tool;
+            let power;
+            if (usingTool) power = data.tools[tool].power;
+            else if (spec.tier <= HAND_TIER || t.type === 'dead') power = HAND_POWER * strength;
+            else {
+                if (m.clock >= this.nextHint) { this.nextHint = m.clock + 2.5; m.toast(spec.name + ' needs ' + TOOL_NAMES.axe + ' of tier ' + spec.tier + '.'); }
+                this.lastStrike = { name: spec.name + ' · needs ' + TOOL_NAMES.axe, frac: t.hp / strokes, at: m.clock, blocked: true };
+                return true;
+            }
+            if (usingTool) { this.equipped = tool; this.wearTool(tool, 1); }
+            m.noise = Math.max(m.noise, usingTool ? 3.2 : 1.2);
+            BO.ZoneDirector?.noise?.(t.x, t.z, usingTool ? 38 : 14, 'chop');
+            t.hp = Math.max(0, t.hp - power);
+            BO.FX.spawnParticles(new THREE.Vector3(t.x, t.y + 1.1, t.z), usingTool ? 6 : 3, spec.color, 2.4, 8, 0.5);
+            this.lastStrike = { name: (t.type === 'dead' ? 'Dead tree' : spec.name) + (usingTool ? '' : ' · bare hands'), frac: t.hp / strokes, at: m.clock, hand: !usingTool };
+            if (t.hp <= 0.001) this.fellTree(t, spec);
+            return true;
+        }
+
+        setTreeVisible(t, on) {
+            const mat = new THREE.Matrix4();
+            for (const mesh of [t.trunk, t.crown]) {
+                if (!mesh) continue;
+                if (!on) {
+                    mesh.getMatrixAt(t.idx, mat);
+                    (t._mats = t._mats || {})[mesh.uuid] = mat.clone();
+                    mesh.setMatrixAt(t.idx, new THREE.Matrix4().makeScale(0, 0, 0));
+                } else if (t._mats?.[mesh.uuid]) {
+                    mesh.setMatrixAt(t.idx, t._mats[mesh.uuid]);
+                }
+                mesh.instanceMatrix.needsUpdate = true;
+            }
+            if (t.collider) { t.collider.active = on; BO.World.notifyColliderChanged?.(t.collider); }
+        }
+
+        fellTree(t, spec, quiet = false) {
+            t.alive = false;
+            t.hp = 0;
+            t.renewAt = this.mode.clock + 900;
+            this.setTreeVisible(t, false);
+            if (quiet) return;
+            const m = this.mode;
+            const big = t.type === 'broad';
+            const gain = t.type === 'dead' ? { timber: 2, resin: 1 } : { ...spec.gain };
+            const scav = 1 + (BO.SurvivalCareer.masteryRank?.('scavenger') || 0) * 0.15;
+            for (const k of Object.keys(gain)) gain[k] = Math.max(1, Math.round(gain[k] * (this.campaign.has('richLoot') ? 1.5 : 1) * scav));
+            if (!big && Math.random() < 0.35) gain.fiber = (gain.fiber || 0) + 2;
+            m.grant(gain);
+            BO.Sound.playExplosion?.(0.15);
+            BO.FX.spawnParticles(new THREE.Vector3(t.x, t.y + 3, t.z), 14, 0x4f6b3a, 4, 10, 0.8);
+            this.campaign.mark('gatheredNodes', 1, 10);
+            this.campaign.mark('treesFelled', 1, 0);
+            this.campaign.mark('harvest_' + (big ? 'hardwood' : 'pine'), 1, 0);
+        }
+
+        updateTrees() {
+            const zone = BO.World.zone;
+            if (!zone?.trees) return;
+            const m = this.mode;
+            const p = BO.Player.pos;
+            for (const t of zone.trees) {
+                if (t.alive || !t.renewAt || t.renewAt > m.clock) continue;
+                if (Math.hypot(t.x - p.x, t.z - p.z) < 40) continue;
+                t.alive = true; t.renewAt = 0; t.hp = undefined;
+                this.setTreeVisible(t, true);
+            }
+        }
+
+        /** Saved felled trees: [index, type, renewAt]. Saved clocks are meaningless after reload, so regrowth restarts. */
+        restoreTrees(list) {
+            const zone = BO.World.zone;
+            if (!zone?.trees) return;
+            for (const [idx, type] of list) {
+                const t = zone.trees.find((x) => x.idx === idx && x.type === type);
+                if (t && t.alive) this.fellTree(t, null, true);
+            }
+        }
+
         interact(marker) {
             if (!marker) return false;
             if (marker.id.startsWith('bag:')) {
@@ -331,6 +445,7 @@
             node.hp = 0;
             node.marker.alive = false;
             for (const mesh of node.geometry) mesh.visible = false;
+            node._vis = false;
             if (node.collider?.active) this.mode.removeSolid(node.geometry[0], node.collider);
         }
 
@@ -526,13 +641,23 @@
             const m = this.mode;
             const p = BO.Player;
             if (m.clock >= this.nextRenewalCheck) {
-                this.nextRenewalCheck = m.clock + 3;
+                this.nextRenewalCheck = m.clock + 1.5;
+                this.updateTrees();
+                // Distance culling: deposits are small, so beyond 120 m they cost draw calls and show nothing.
+                if (BO.World.large) {
+                    for (const node of this.resources.values()) {
+                        const near = Math.abs(p.pos.x - node.marker.x) < 120 && Math.abs(p.pos.z - node.marker.z) < 120;
+                        const vis = near && node.hp > 0;
+                        if (node._vis !== vis) { node._vis = vis; for (const mesh of node.geometry) mesh.visible = vis; }
+                    }
+                }
                 for (const node of this.resources.values()) {
                     if (!node.renewAt || node.renewAt > m.clock || Math.hypot(p.pos.x - node.marker.x, p.pos.z - node.marker.z) < 10) continue;
                     node.hp = node.spec.strokes;
                     node.renewAt = 0;
                     node.marker.alive = true;
                     node.geometry.forEach((mesh) => { mesh.visible = true; });
+                    node._vis = true;
                     if (node.collider && !node.collider.active) {
                         node.collider.active = true;
                         BO.World.worldMeshes.push(node.geometry[0]);

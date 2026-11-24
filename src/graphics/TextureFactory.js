@@ -103,6 +103,18 @@
             return tex;
         }
 
+        /** Neutral detail map multiplied over terrain vertex colours (grass, grit, pebbles). */
+        getTerrainDetailTexture() {
+            if (this.textures.__terrainDetail) return this.textures.__terrainDetail;
+            const tex = this._createNoiseTexture('terrain_detail_v2', 256, 256, '#d9d9d9', 70, 'rgba(60,60,60,0.35)', null);
+            const t = tex.clone ? tex : tex;
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            t.repeat.set(1, 1);
+            t.needsUpdate = true;
+            this.textures.__terrainDetail = t;
+            return t;
+        }
+
         getWorldMaterial(matName, worldW = 4, worldH = 4) {
             const repX = Math.max(1, Math.round(worldW / 4));
             const repY = Math.max(1, Math.round(worldH / 4));

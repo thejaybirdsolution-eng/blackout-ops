@@ -48,7 +48,11 @@
         { id: 'rail', name: 'Rail inspection', sites: ['freight', 'marsh'], labels: ['Freight repeater', 'Spillway hand pump'], reward: { fuel: 2, scrap: 3 } },
         { id: 'ridge', name: 'Ridge survey', sites: ['crest', 'west'], labels: ['Slateback Summit', 'Pinebreak cistern'], reward: { wire: 2, quartz: 2 } }
     ];
-    const dropSites = [
+    const dropSites = BO.Zone ? [
+        { x: -140, y: 0, z: 70, name: 'in the Relay meadows' },
+        { x: -60, y: 0, z: 120, name: 'by the Kessel road' },
+        { x: -150, y: 0, z: -60, name: 'at the Pinebreak treeline' }
+    ] : [
         { x: -58, y: 0, z: -55, name: 'west of the trench highway' },
         { x: -128, y: 0, z: 8, name: 'at the Pinebreak treeline' },
         { x: 146, y: 0, z: 54, name: 'south of the freight depot' },
@@ -56,7 +60,7 @@
     ];
     const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     const remaining = (seconds) => Math.max(0, Math.ceil(seconds)) + 's';
-    const activitySites = [
+    const activitySitesNow = () => [
         ...plots.map((site) => ({ ...site, category: 'Garden' })),
         ...pumps.map((site) => ({ ...site, category: 'Water' })),
         ...shore.map((site) => ({ ...site, category: 'Salvage' })),
@@ -120,13 +124,14 @@
                 plaque.rotation.x = -0.27;
                 this.surveys.set(survey.id, { ...survey, plaque, marker: this.marker('survey', survey), claimed: false });
             }
-            this.board = this.marker('board', { id: 'relay', name: 'Relay dispatch and seeds', x: -4, y: 0, z: 34.8 });
+            const bp = BO.SurvivalActivitiesData.board || { x: -4, z: 34.8 };
+            this.board = this.marker('board', { id: 'relay', name: 'Haven dispatch and seeds', x: bp.x, y: BO.World.getGroundHeight(bp.x, bp.z, 80), z: bp.z });
             this.mesh(new THREE.BoxGeometry(1.38, 0.98, 0.14), 0x778477, this.board.x, this.board.y + 1.10, this.board.z);
             this.mesh(new THREE.BoxGeometry(0.17, 0.97, 0.21), 0x8d7157, this.board.x, this.board.y + 0.48, this.board.z);
-            for (const [id, x, y, z, name] of [
+            for (const [id, x, y, z, name] of (BO.SurvivalActivitiesData.routes.length ? [
                 ['hospital', -21.8, 0, 11.8, 'Hospital dispatch seal'],
                 ['crest', -49.9, 7.2, 32.9, 'Summit dispatch seal']
-            ]) {
+            ] : [])) {
                 const post = this.marker('stamp', { id, x, y, z, name });
                 this.mesh(new THREE.BoxGeometry(0.30, 1.2, 0.12), 0xb7a16d, x, y + 0.6, z);
                 post.alive = false;
@@ -242,8 +247,9 @@
         }
 
         addDrop(state) {
-            const site = dropSites[state.site];
-            if (!site) return;
+            const raw = dropSites[state.site];
+            if (!raw) return;
+            const site = { ...raw, y: BO.World.getGroundHeight(raw.x, raw.z, 80) };
             const marker = this.marker('drop', { ...site, id: String(state.site), name: 'Weather-balloon cache' });
             const crate = this.mesh(new THREE.BoxGeometry(0.82, 0.54, 0.70), 0xc19a5b, site.x, site.y + 0.27, site.z);
             const balloon = this.mesh(new THREE.SphereGeometry(0.71, 10, 7), 0xce7853, site.x, site.y + 2.15, site.z);
@@ -470,8 +476,8 @@
         }
 
         get mapSites() {
-            return this.drop ? [...activitySites, { ...dropSites[this.drop.site], name: 'Weather-balloon cache', category: 'World event' }]
-                : activitySites;
+            return this.drop ? [...activitySitesNow(), { ...dropSites[this.drop.site], name: 'Weather-balloon cache', category: 'World event' }]
+                : activitySitesNow();
         }
 
         renderJournal() {

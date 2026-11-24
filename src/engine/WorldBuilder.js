@@ -64,6 +64,8 @@
             this.unlockedZones = new Set(['spawn']);
             this.powerOn = false;
 
+            this._setupLargeWorld();
+
             this.clearVisualFilters();
             if (this.mapData.bwUntilPower) {
                 const cv = document.getElementById('game-canvas');
@@ -100,8 +102,11 @@
             }
             scene.add(sun);
 
+            // Terrain worlds: heightfield first, then batched static geometry.
+            if (this.large) this._buildLargeWorld(scene);
+
             // Map Geometry (Boxes)
-            for (let i = 0; i < this.mapData.boxes.length; i++) {
+            for (let i = 0; i < (this.large ? 0 : this.mapData.boxes.length); i++) {
                 const b = this.mapData.boxes[i];
                 const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
                 const isSurvivalGround = this.mapData.mode === 'survival' && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
@@ -153,6 +158,8 @@
                 this._buildTdProps(scene);
             }
             this._buildMapLandmarks(scene);
+
+            if (this.large) this._finishLargeWorld(scene);
 
             // Build Waypoint Graph
             this.waypointMap.clear();
@@ -2392,7 +2399,124 @@
             this.exfilBeacon = beacon;
         }
 
+        /* ============================ LARGE TERRAIN WORLDS ============================ */
+        _setupLargeWorld() {
+            const W = BO.WorldCore;
+            this.large = !!(this.mapData.terrain && W);
+            this.terrain = null;
+            this.nav = null;
+            this.colGrid = null;
+            this.meshGrid = null;
+            this.terrainChunks = [];
+            if (!this.large) return;
+            this.colGrid = new W.SpatialGrid(8);
+            this.meshGrid = new W.SpatialGrid(12);
+            const cols = new W.TrackedArray();
+            cols.onAdd = (c) => {
+                if (!c || c.minX === undefined) return;
+                this.colGrid.insert(c, c.minX, c.minZ, c.maxX, c.maxZ);
+                if (this.nav && !c.navIgnore && this._navLive) this.nav.rebuildArea(c.minX, c.minZ, c.maxX, c.maxZ);
+            };
+            cols.onRemove = (c) => { if (c) this.colGrid.remove(c); };
+            this.colliders = cols;
+            const meshes = new W.TrackedArray();
+            const box = new THREE.Box3();
+            meshes.onAdd = (m) => {
+                if (!m || !m.isObject3D) return;
+                m.updateMatrixWorld(true);
+                box.setFromObject(m);
+                if (box.isEmpty()) return;
+                this.meshGrid.insert(m, box.min.x, box.min.z, box.max.x, box.max.z);
+            };
+            meshes.onRemove = (m) => { if (m) this.meshGrid.remove(m); };
+            this.worldMeshes = meshes;
+        }
+
+        _buildLargeWorld(scene) {
+            const W = BO.WorldCore;
+            const def = typeof this.mapData.terrain === 'function' ? this.mapData.terrain() : this.mapData.terrain;
+            this.terrain = new W.Terrain(def);
+            for (const c of def.carves || []) this.terrain.addCarve(c.minX, c.minY, c.minZ, c.maxX, c.maxY, c.maxZ);
+            const detail = BO.Textures.getTerrainDetailTexture ? BO.Textures.getTerrainDetailTexture() : null;
+            this.terrainMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, map: detail, roughness: 0.96, metalness: 0.0 });
+            this.terrainChunks = this.terrain.buildMeshes(scene, this.terrainMaterial);
+            // Static map boxes merged into one mesh per material per 64 m chunk.
+            const batchers = new Map();
+            for (const b of this.mapData.boxes) {
+                const ck = Math.floor(b.x / 64) + ':' + Math.floor(b.z / 64);
+                let bt = batchers.get(ck);
+                if (!bt) batchers.set(ck, bt = new W.BoxBatcher());
+                bt.add(b.mat || 'concrete', b.x, b.y, b.z, b.w, b.h, b.d, 4);
+                if (!b.noCollide) {
+                    this.colliders.push({ minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minY: b.y - b.h / 2, maxY: b.y + b.h / 2,
+                        minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2, enemiesOnly: !!b.enemiesOnly, navIgnore: !!b.navIgnore, active: true, mat: b.mat });
+                }
+            }
+            for (const bt of batchers.values()) {
+                for (const m of bt.build(scene, (key) => BO.Textures.getWorldMaterial(key, 4, 4))) this.worldMeshes.push(m);
+            }
+            if (typeof this.mapData.populate === 'function') this.mapData.populate(this, scene);
+        }
+
+        _finishLargeWorld() {
+            this.nav = new BO.WorldCore.NavGrid(this, this.terrain, 2);
+            this.nav.rebuild();
+            this._navLive = true;
+        }
+
+        /** Colliders overlapping a rectangle (indexed in terrain worlds). fn returns true to stop. */
+        queryColliders(minX, minZ, maxX, maxZ, fn) {
+            if (this.colGrid) return this.colGrid.query(minX, minZ, maxX, maxZ, fn);
+            for (let i = 0; i < this.colliders.length; i++) {
+                const c = this.colliders[i];
+                if (c.maxX < minX || c.minX > maxX || c.maxZ < minZ || c.minZ > maxZ) continue;
+                if (fn(c)) return;
+            }
+        }
+
+        /** Tell navigation a collider switched on/off (doors, destroyed walls). */
+        notifyColliderChanged(c) {
+            if (this.nav && c && c.minX !== undefined && !c.navIgnore) this.nav.rebuildArea(c.minX, c.minZ, c.maxX, c.maxZ);
+        }
+
+        terrainHeight(x, z) {
+            return this.terrain ? this.terrain.height(x, z) : 0;
+        }
+
+        _largeGround(x, z, curY) {
+            let maxFloor = -500;
+            const t = this.terrain;
+            if (t.inside(x, z) && !t.carved(x, curY + 0.3, z)) maxFloor = t.height(x, z);
+            this.colGrid.query(x - 0.15, z - 0.15, x + 0.15, z + 0.15, (c) => {
+                if (c.active && x >= c.minX - 0.15 && x <= c.maxX + 0.15 && z >= c.minZ - 0.15 && z <= c.maxZ + 0.15 &&
+                    c.maxY <= curY + 0.55 && c.maxY > maxFloor) maxFloor = c.maxY;
+                return false;
+            });
+            for (let i = 0; i < this.ramps.length; i++) {
+                const r = this.ramps[i];
+                const along = r.axis === 'z' ? z : x, across = r.axis === 'z' ? x : z;
+                const a1 = r.axis === 'z' ? r.z1 : r.x1, a2 = r.axis === 'z' ? r.z2 : r.x2;
+                const mid = r.axis === 'z' ? r.x : r.z;
+                if (Math.abs(across - mid) <= r.w * 0.5 + 0.1 && along >= Math.min(a1, a2) - 0.15 && along <= Math.max(a1, a2) + 0.15) {
+                    const ry = BO.Math.lerp(r.y1, r.y2, BO.Math.clamp((along - a1) / (a2 - a1), 0, 1));
+                    if (ry <= curY + 0.95 && ry > maxFloor) maxFloor = ry;
+                }
+            }
+            return maxFloor > -499 ? maxFloor : 0;
+        }
+
+        _rayCandidates(origin, dir, dist) {
+            const list = [];
+            const flat = Math.hypot(dir.x, dir.z) || 1e-6;
+            this.meshGrid.queryRay(origin.x, origin.z, dir.x / flat, dir.z / flat, dist * flat + 1, (m) => {
+                if (m.visible !== false) list.push(m);
+                return false;
+            });
+            return list;
+        }
+
         getGroundHeight(x, z, curY) {
+            if (this.large) return this._largeGround(x, z, curY);
             let maxFloor = -50;
             // Boxes below feet (allowing <= 0.55m step-up)
             for (let i = 0; i < this.colliders.length; i++) {
@@ -2429,6 +2553,18 @@
         }
 
         resolveCeiling(pos, prevY, radius, height) {
+            if (this.large) {
+                let low = Infinity;
+                const prevTop0 = prevY + height - 0.14, curTop0 = pos.y + height;
+                this.colGrid.query(pos.x - radius, pos.z - radius, pos.x + radius, pos.z + radius, (c) => {
+                    if (!c.active) return false;
+                    if (pos.x < c.minX - radius || pos.x > c.maxX + radius || pos.z < c.minZ - radius || pos.z > c.maxZ + radius) return false;
+                    if (c.minY >= prevTop0 && c.minY < curTop0 && c.minY < low) low = c.minY;
+                    return false;
+                });
+                if (low < Infinity) { pos.y = Math.min(pos.y, low - height - 0.02); return true; }
+                return false;
+            }
             let lowestCeiling = Infinity;
             const prevTop = prevY + height - 0.14;
             const curTop = pos.y + height;
@@ -2452,6 +2588,51 @@
         resolveHorizontal(pos, radius, height, isPlayer = false) {
             const footStep = pos.y + 0.45;
             const topY = pos.y + height - 0.05;
+            if (this.large) {
+                const t = this.terrain;
+                // Keep everyone inside the map.
+                pos.x = BO.Math.clamp(pos.x, t.minX + 1, t.maxX - 1);
+                pos.z = BO.Math.clamp(pos.z, t.minZ + 1, t.maxZ - 1);
+                // Steep terrain behaves like a wall when walking into it.
+                if (!t.carved(pos.x, pos.y + 0.3, pos.z)) {
+                    for (let k = 0; k < 4; k++) {
+                        const h = t.height(pos.x, pos.z);
+                        const rise = h - pos.y;
+                        if (rise <= 0.05) break;
+                        const [gx, gz] = t.gradient(pos.x, pos.z);
+                        const g = Math.hypot(gx, gz);
+                        if (g < 1.2 && rise < 0.55) break;
+                        if (g < 1e-4) break;
+                        const push = Math.min(0.35, rise / g + 0.02);
+                        pos.x -= (gx / g) * push;
+                        pos.z -= (gz / g) * push;
+                    }
+                }
+                for (let pass = 0; pass < 2; pass++) {
+                    this.colGrid.query(pos.x - radius, pos.z - radius, pos.x + radius, pos.z + radius, (c) => {
+                        if (!c.active || (c.enemiesOnly && isPlayer)) return false;
+                        if (c.maxY <= footStep || c.minY >= topY) return false;
+                        const closestX = BO.Math.clamp(pos.x, c.minX, c.maxX);
+                        const closestZ = BO.Math.clamp(pos.z, c.minZ, c.maxZ);
+                        const dx = pos.x - closestX, dz = pos.z - closestZ;
+                        const distSq = dx * dx + dz * dz;
+                        if (distSq >= radius * radius) return false;
+                        if (distSq > 0.00001) {
+                            const dist = Math.sqrt(distSq);
+                            pos.x += (dx / dist) * (radius - dist);
+                            pos.z += (dz / dist) * (radius - dist);
+                        } else {
+                            const m = Math.min(pos.x - c.minX, c.maxX - pos.x, pos.z - c.minZ, c.maxZ - pos.z);
+                            if (m === pos.x - c.minX) pos.x = c.minX - radius;
+                            else if (m === c.maxX - pos.x) pos.x = c.maxX + radius;
+                            else if (m === pos.z - c.minZ) pos.z = c.minZ - radius;
+                            else pos.z = c.maxZ + radius;
+                        }
+                        return false;
+                    });
+                }
+                return;
+            }
             for (let pass = 0; pass < 2; pass++) {
                 for (let i = 0; i < this.colliders.length; i++) {
                     const c = this.colliders[i];
@@ -2495,6 +2676,12 @@
             const dist = dir.length();
             if (dist < 0.1) return true;
             dir.divideScalar(dist);
+            if (this.large) {
+                if (this.terrain.ray(origin, dir, dist - 0.15)) return false;
+                this.raycaster.set(origin, dir);
+                this.raycaster.far = dist - 0.15;
+                return this.raycaster.intersectObjects(this._rayCandidates(origin, dir, dist), false).length === 0;
+            }
             this.raycaster.set(origin, dir);
             this.raycaster.far = dist - 0.15;
             const hits = this.raycaster.intersectObjects(this.worldMeshes, false);
@@ -2502,6 +2689,16 @@
         }
 
         raycastWorld(origin, dir, maxDist) {
+            if (this.large) {
+                const th = this.terrain.ray(origin, dir, maxDist);
+                const far = th ? th.distance : maxDist;
+                this.raycaster.set(origin, dir);
+                this.raycaster.far = far;
+                const hits = this.raycaster.intersectObjects(this._rayCandidates(origin, dir, far), false);
+                if (hits.length) return hits[0];
+                if (th) return { point: th.point, distance: th.distance, face: { normal: th.normal }, object: this.terrainChunks[0]?.near || null, terrain: true };
+                return null;
+            }
             this.raycaster.set(origin, dir);
             this.raycaster.far = maxDist;
             const hits = this.raycaster.intersectObjects(this.worldMeshes, false);
@@ -2523,6 +2720,10 @@
         }
 
         findPath(startX, startY, startZ, goalX, goalY, goalZ, respectZones = false) {
+            if (this.nav) {
+                const path = this.nav.findPath(startX, startZ, goalX, goalZ);
+                return path && path.length ? path : [{ x: goalX, y: goalY, z: goalZ }];
+            }
             const startWp = this.findNearestWaypoint(startX, startY, startZ, respectZones);
             const goalWp = this.findNearestWaypoint(goalX, goalY, goalZ, respectZones);
             if (!startWp || !goalWp) return [{ x: goalX, y: goalY, z: goalZ }];

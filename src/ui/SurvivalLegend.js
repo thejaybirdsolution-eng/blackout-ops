@@ -86,7 +86,8 @@
     const an = (w) => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
 
     function areaAt(x, y, z) {
-        if (BO.SurvivalWorld?.areaAt) return BO.SurvivalWorld.areaAt(x, y, z);
+        if (BO.Zone?.regionAt) return BO.Zone.regionAt(x, z);
+        if (BO.SurvivalWorld?.areaAt) return BO.SurvivalWorld.areaAt(x, y, z) || BO.SurvivalCampaignData.areas[0];
         const areas = BO.SurvivalCampaignData.areas;
         return areas.find((zone) => zone.id === 'relay') || areas[0];
     }

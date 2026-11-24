@@ -200,7 +200,11 @@
             return true;
         }
 
+        /** The Exclusion Zone is grounded: no runes, flask, shrines, talismans or Aether. */
+        get grounded() { return !!BO.World.large; }
+
         awardRunes(baseAmount) {
+            if (this.grounded) return;
             const mfx = this.modFx || {};
             const areaTier = this.campaign.area?.tier || 1;
             const tierMult = areaTier === 3 ? 1.75 : areaTier === 2 ? 1.35 : 1;
@@ -358,6 +362,17 @@
         useFlask() {
             const p = BO.Player;
             if (!this.mode.active || !p.alive) return false;
+            if (this.grounded) {
+                // Quick field medicine: the best item for the situation.
+                const inv = this.mode.points;
+                const pick = this.bleeding > 0 && (inv.bandage || 0) > 0 ? 'bandage'
+                    : p.hp < p.maxHp * 0.6 && (inv.medkits || 0) > 0 ? 'medkits'
+                    : (inv.bandage || 0) > 0 && p.hp < p.maxHp ? 'bandage'
+                    : (inv.medkits || 0) > 0 && p.hp < p.maxHp ? 'medkits'
+                    : this.mode.fracture && (inv.splint || 0) > 0 ? 'splint' : null;
+                if (!pick) { this.mode.toast(p.hp >= p.maxHp && this.bleeding <= 0 ? 'You are not hurt.' : 'No bandages or medkits. Craft bandages from cloth.'); return false; }
+                return this.mode.consume(pick);
+            }
             if (this.modFx?.disableFlask) {
                 this.mode.toast('Aether Flask is disabled by Hollow Chalice Vow.');
                 return false;
@@ -627,6 +642,14 @@
             const mfx = this.modFx || {};
             const baseRunes = isBoss ? 320 : isPmc ? 55 : 28;
             this.awardRunes(baseRunes);
+            if (this.grounded) {
+                if (isBoss) {
+                    this.grantTechPoints(1);
+                    BO.SurvivalCareer.awardCommendations(1);
+                    this.campaign.pack.dropBag({ scrap: 4, medkits: 1, ammo556: 20, circuit: 1 }, entity.pos);
+                }
+                return;
+            }
             if (damageKind === 'melee') {
                 if (mfx.meleeKillHeal) BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + mfx.meleeKillHeal);
                 if (mfx.meleeSiphonHyd) this.hydration = Math.min(100, this.hydration + mfx.meleeSiphonHyd);

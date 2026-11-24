@@ -9,9 +9,9 @@
     const MASTERY = {
         logistics: { name: 'Field Logistics', max: 3, cost: 2, desc: '+12% carry weight & +2 pack slots per rank.' },
         conditioning: { name: 'Combat Conditioning', max: 3, cost: 2, desc: '+15 starting max HP & faster stamina recovery per rank.' },
-        scavenger: { name: 'Zone Scavenger', max: 3, cost: 2, desc: '+15% gathering & Aether Rune yield per rank.' },
+        scavenger: { name: 'Zone Scavenger', max: 3, cost: 2, desc: '+15% gathering and tree yield per rank.' },
         armorer: { name: 'Ballistic Armorer', max: 3, cost: 2, desc: '+25 starting armor & +1 spare plate per rank.' },
-        navigator: { name: 'Valley Navigator', max: 2, cost: 3, desc: '+15% vehicle speed per rank; Rank 2 grants free fast travel.' }
+        navigator: { name: 'Valley Navigator', max: 2, cost: 3, desc: 'Rank 2 halves the time every fast travel costs.' }
     };
 
     const KITS = {
@@ -117,6 +117,13 @@
         awardCommendations(n = 1) {
             if (!n || n <= 0) return;
             this.profile.commendations += Math.round(n);
+            write(careerKey, this.profile);
+        }
+
+        /** Endings reached across all runs; the Lantern remembers. */
+        recordEnding(id) {
+            this.profile.endings = this.profile.endings || {};
+            this.profile.endings[id] = (this.profile.endings[id] || 0) + 1;
             write(careerKey, this.profile);
         }
 

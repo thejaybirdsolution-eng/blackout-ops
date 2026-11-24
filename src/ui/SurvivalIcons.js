@@ -44,6 +44,7 @@
         syringe: '<path d="M14 4l6 6M17 7l-9 9-4 1 1-4 9-9"/><path d="M9 11l2 2M4 20l2-2"/>',
         flare: '<path d="M9 21l6-6"/><path d="M13 17l-6-6 6-6 6 6z"/><path d="M15 3l1 2M19 7l2 1"/>',
         mask: '<path d="M5 9c0-3 3-5 7-5s7 2 7 5v3c0 4-3 8-7 8s-7-4-7-8z"/><circle cx="9" cy="14" r="2"/><circle cx="15" cy="14" r="2"/>',
+        key: '<circle cx="7.5" cy="12" r="4"/><path d="M11.5 12H21M17.5 12v3.5M20.5 12v2.5"/>',
         wrench: '<path d="M14 6a4 4 0 0 0 5 5l-9 9a2 2 0 0 1-3-3l9-9a4 4 0 0 1-2-2z"/>',
         torch: '<path d="M10 21l2-10 2 10z"/><path d="M12 3c2 2 3 3.5 3 5a3 3 0 0 1-6 0c0-1.5 1-3 3-5z"/>',
         lantern: '<path d="M9 4h6M12 2v2M7 7h10l-1 12H8z"/><path d="M12 10c1 1 1.6 2 1.6 3a1.6 1.6 0 0 1-3.2 0c0-1 .6-2 1.6-3z"/>',

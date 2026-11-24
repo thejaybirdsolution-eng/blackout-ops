@@ -388,7 +388,12 @@
                 const deg = Math.round(((-P.yaw * 180 / Math.PI) % 360 + 360) % 360);
                 const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
                 const label = dirs[Math.round(deg / 45) % 8];
-                this.elCompass.textContent = `${label} • ${String(deg).padStart(3, '0')}°`;
+                if (BO.State.activeMode === 'survival' && BO.SurvivalMode?.active && BO.SurvivalUI?.drawCompass) {
+                    BO.SurvivalUI.drawCompass(this.elCompass, deg, label);
+                } else {
+                    if (this.elCompass.classList.contains('sv-compass')) { this.elCompass.classList.remove('sv-compass'); if (BO.SurvivalUI) BO.SurvivalUI._cmp = null; }
+                    this.elCompass.textContent = `${label} • ${String(deg).padStart(3, '0')}°`;
+                }
             }
 
             // Vitals (HP, Armor Plates, Tac Stamina)

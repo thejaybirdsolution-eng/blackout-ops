@@ -535,7 +535,7 @@
                 return true;
             }
             if (code === kb.survFlask) {
-                BO.SurvivalMode.campaign?.deep?.useFlask();
+                BO.SurvivalMode.campaign?.deep?.useFlask(); // In the Zone this is quick field medicine.
                 return true;
             }
             if (code === kb.survLight) {
@@ -599,6 +599,15 @@
                     BO.HUD.update(dt);
                     BO.ExpansionShop.updateHud();
                     BO.SurvivalUI.updateHud();
+                } else if (!BO.State.paused && BO.SurvivalUI.open && BO.State.activeMode === 'survival' && BO.SurvivalMode.active &&
+                    !['respawn', 'briefing', 'ending'].includes(BO.SurvivalUI.section)) {
+                    // Real-time menus: the Zone keeps moving while you rummage through your pack.
+                    BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
+                    BO.World.updateAnimatedProps(dt, this.elapsed);
+                    BO.FX.update(dt);
+                    BO.SurvivalMode.update(dt);
+                    BO.HUD.update(dt);
+                    if (BO.SurvivalUI.liveRefresh) BO.SurvivalUI.liveRefresh(dt);
                 }
 
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
