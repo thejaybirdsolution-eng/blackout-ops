@@ -387,7 +387,7 @@
                     marks.push({ a, m });
                 }
                 const pips = {};
-                for (const [id, cls, glyph] of [['lantern', 'lantern', '✦'], ['objective', 'obj', '◆'], ['waypoint', 'wp', '●'], ['safe', 'safe', '⌂'], ['body', 'body', '✚']]) {
+                for (const [id, cls, glyph] of [['lantern', 'lantern', '✦'], ['objective', 'obj', '◆'], ['waypoint', 'wp', '●'], ['safe', 'safe', '⌂'], ['body', 'body', '✚'], ['event', 'event', '⚑']]) {
                     const p = document.createElement('span');
                     p.className = 'cmp-pip ' + cls;
                     p.innerHTML = `<b>${glyph}</b><small></small>`;
@@ -434,6 +434,11 @@
             place('safe', bd > 30 ? best : null);
             const body = c?.pack.bags.get('bag:body' + mode.deaths);
             place('body', body || null);
+            const evs = BO.ZoneEvents?.points() || [];
+            let ev = null, ed = Infinity;
+            for (const e of evs) { const d = Math.hypot(e.x - P.pos.x, e.z - P.pos.z); if (d < ed) { ed = d; ev = e; } }
+            place('event', ev);
+            if (ev) cmp.pips.event.style.color = ev.color;
         }
 
         /** Called every frame while the terminal is open and the world keeps running. Taking damage snaps you out. */
@@ -2005,6 +2010,14 @@
                     hit(r.x, r.z, r.name, r.powered ? 'Online. Radio towers are fast-travel points.' : 'Offline. Climb it and repair the relay with 1 copper wire and 1 fuel.', 11);
                 }
             }
+            for (const ev of BO.ZoneEvents?.points() || []) {
+                const pulseR = 10 + 6 * Math.sin(performance.now() / 300);
+                ctx.strokeStyle = ev.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(sx(ev.x), sz(ev.z), pulseR, 0, Math.PI * 2); ctx.stroke();
+                icon(ev.x, ev.z, ev.kind === 'herd' ? 'skull' : 'diamond', ev.color, 9);
+                label(ev.label, ev.x, ev.z, ev.color, 11, 26);
+                hit(ev.x, ev.z, ev.label, ev.kind === 'herd' ? 'A migrating herd. It follows a route across the Zone; noise pulls members off it.' : ev.kind === 'airdrop' ? 'High-tier military supplies — a PMC squad is coming for it too.' : 'A survivor is pinned down. Clear the infected around them in time.', 14);
+            }
             const FR = BO.ZoneFrontier;
             if (FR?.active && this.mapLayers.threats) {
                 for (const g of FR.garrisons) {
@@ -2393,6 +2406,7 @@
                 `<span>${esc(c.area?.name || '')}</span>`,
                 mode.hostilesReleased && t ? `<span class="${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t.cap} roaming</span>` : '',
                 mode.hostilesReleased && !horde?.active ? `<span class="${/tonight/.test(horde.forecast()) ? 'night' : ''}">${esc(horde.forecast())}</span>` : '',
+                ...(BO.ZoneEvents?.chips() || []).map((t) => `<span class="night">${esc(t)}</span>`),
                 deep?.stealthFactor < 0.65 ? '<span class="stealth">Hidden</span>' : '',
                 vehicle ? `<span>${esc(vehicle.name)}</span>` : ''
             ].join('');

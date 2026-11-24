@@ -961,3 +961,5 @@ button.sv-intel:hover { border-color: rgba(247,227,166,0.4); }
 .sv-intel small { grid-column: 2; font-size: 11px; color: #8fa39e; }
 .sv-intel p { grid-column: 2; margin: 8px 0 2px; font-size: 13px; line-height: 1.6; color: #e9e2cc; font-family: Georgia, 'Times New Roman', serif; white-space: normal; }
 .sv-intel.open { border-color: rgba(247,227,166,0.55); background: rgba(247,227,166,0.06); }
+
+.sv-compass .cmp-pip.event { color: #ff7b6b; }

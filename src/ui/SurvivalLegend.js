@@ -122,6 +122,9 @@
             facts: [['Reoccupation', 'Cleared garrisons stay clear for 4 days'], ['Tactic', 'Use sirens against them — let infected flank the PMCs']] });
         add({ cat: 'threat', title: 'Dynamic & regional weather', icon: icon('mask', '#9fd4ff'),
             text: 'Weather rolls across the valley and shifts by biome: Overcast, Ash Rain (increases weapon jam chance and fills lungs without a filter), Rad Fog (thick fog + 1.4× radiation), wetlands rain (makes you wet and colder), and Frostline Blizzards.' });
+        add({ cat: 'threat', title: 'World events', icon: icon('flare', '#ff7b6b'), tags: ['Every 5–9 min'],
+            text: 'The Zone acts on its own. Active events show as HUD chips, a flag on the compass and a pulsing marker on the map.',
+            lists: [{ h: 'Events', items: ['Supply airdrop: a plane drops a crate under red smoke — military loot and a weapon, but a PMC squad heads for it too. Gone after 7 minutes.', 'Infected migration: a herd of 12–22 walks a route across the Zone. Noise pulls members off the route.', 'Distress call: a survivor is pinned down at a building. Clear the infected near them within 6 minutes for supplies, and they mark an unread intel document on your map.', 'Lantern surge (day 2+): a 30-second warning, then 90 seconds of radiation outdoors. A roof or a filter protects you.'] }] });
 
         /* ---------- 4. Vitals & climate ---------- */
         for (const [t, g, d, note, fixes] of VITALS) {
@@ -204,6 +207,10 @@
         }
         add({ cat: 'archive', title: 'Stash Packing, Blueprints & Chronicle', icon: icon('chest', '#8fe3c8'),
             text: 'Bankable supplies extracted at the end of runs are stored in your Archive Stash. Before deploying, click + / − in The Archive to pack stash items directly into your drop pack. Forged weapon schematics stay permanently unlocked in your Blueprint Vault, and every run is logged in the Expedition Chronicle.' });
+        add({ cat: 'archive', title: 'Intel: the Project Lantern documents', icon: icon('scroll', '#f7e3a6'), tags: ['16 documents'],
+            text: 'Sixteen logs, letters, reports and recordings are hidden in fixed containers across nine regions; together they tell what Black Pine built and how the valley fell. Unread documents glint faintly over their container. Once found they stay in the Archive forever — read them in the Journal or The Archive. Every fourth document pays a commendation, and rescued survivors mark one on your map.' });
+        add({ cat: 'archive', title: 'Feats', icon: icon('rune', '#f2d07a'), tags: ['27 feats'],
+            text: 'Long-term goals that pay commendations once: story beats, every ending, a deathless ending, an ending before day 5, ten days survived, horde and garrison milestones, a 40-piece fortress, a third storey, all regions, hand-loading, the handcar, airdrops, rescues and the intel dossier. Progress bars in The Archive show how close you are.' });
 
         /* ---------- 11. Enemies ---------- */
         const roster = BO.ZombiesData.ORDERED_PROGRESSION || [];

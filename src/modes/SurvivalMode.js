@@ -86,6 +86,7 @@
             this.createZone();
             this.loot.setup(checkpoint?.loot);
             BO.ZoneArchive.start(this);
+            BO.ZoneEvents.start(this);
             BO.ZoneDirector.start(this);
             this.campaign = new BO.SurvivalCampaign(this, campaignOptions);
             const c = this.campaign;
@@ -124,6 +125,7 @@
             BO.ZoneFrontier?.stop();
             BO.ZoneFinale?.stop();
             BO.ZoneArchive?.stop();
+            BO.ZoneEvents?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -499,6 +501,7 @@
             BO.ZoneFrontier.update(dt);
             BO.ZoneFinale.update(dt);
             BO.ZoneArchive.update(dt);
+            BO.ZoneEvents.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -723,6 +726,7 @@
                 return;
             }
             if (BO.ZoneFrontier.activate(site)) return;
+            if (BO.ZoneEvents.activate(site)) return;
             if (this.loot.begin(site)) return;
             if (site.pickup) { this.loot.takePickup(site); return; }
             if (this.campaign?.activate(site)) return;
