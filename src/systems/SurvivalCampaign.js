@@ -66,7 +66,8 @@
 
         /** Enabled infected, weakest first. */
         get roster() {
-            return BO.ZombiesData.ORDERED_PROGRESSION.filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
+            const active = BO.ZombiesData.ORDERED_PROGRESSION.filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
+            return active.length ? active : [BO.ZombiesData.ORDERED_PROGRESSION[0]];
         }
 
         /** Enemy types allowed to spawn right now: the day's unlocked tier, flavoured by area and pool. */
@@ -75,10 +76,14 @@
             const list = this.roster;
             const threat = this.mode.threat || BO.SurvivalRules.threat(1, false, this.options, this.mode.difficultyRules, list.length);
             const allowed = list.slice(0, Math.max(1, threat.poolSize));
-            const keywordsByArea = { pine: 'wolf|hound|crawler|runner', frost: 'frost|cry|ice|wraith|ghost',
-                cinder: 'fire|hell|inferno|magma|burn', trench: 'mutant|slime|hydra|phantom|brute',
-                basin: 'acid|water|ooze|swamp|poison' };
-            const keywords = keywordsByArea[area] || data.pools[kind].keywords;
+            const keywordsByArea = {
+                pine: 'grizzly_bear|armored_warbear|bone_hound|werewolf|goblin|ratman|scarecrow|tiger|toad|crawler',
+                frost: 'frost|cry|ice|wraith|ghost|polar|yeti',
+                cinder: 'fire|hell|inferno|infernal|magma|burn|pyro|ember',
+                trench: 'mutant|slime|hydra|phantom|brute|aether|void|blob|mitosis|fracture|broodmother|twin_horror|shadow_stalker',
+                basin: 'acid|water|ooze|swamp|poison|toxic|mud|bloater|hunch_spitter|broodmother'
+            };
+            const keywords = keywordsByArea[area] || data.pools[kind]?.keywords || '';
             const preferred = keywords ? allowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
             // Area flavour only takes over once it has real variety; the newest unlocks always stay in rotation.
             if (preferred.length >= 3) return [...new Set([...preferred, ...allowed.slice(-2)])];

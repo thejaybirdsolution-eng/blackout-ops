@@ -894,6 +894,10 @@
             else if (spec.speed >= 4) tip = 'Very fast. Keep moving backward and aim slightly ahead of it.';
             else if (['acid_spit', 'fire_bolt', 'frost_shard', 'aether_bolt', 'life_drain'].includes(spec.attackType)) tip = 'Ranged attacker — break line of sight and close in, or out-shoot it from cover.';
             else if ((spec.defense || 0) >= 0.25) tip = 'Heavily armored. Use high-damage or armor-piercing weapons.';
+            else if (spec.splitCount) tip = 'Splits into ' + spec.splitCount + ' smaller enemies on death — finish it at range or clear the splits with explosives or a shotgun.';
+            else if (bs.riotShield) tip = 'Heavy front shield deflects bullets — flank it, aim for exposed edges, or use explosives.';
+            else if (spec.movementHabit === 'teleport_blink') tip = 'Blinks closer without warning — keep moving and re-acquire it immediately after each blink.';
+            else if ((spec.jumpChance || 0) >= 0.4) tip = 'Leaps erratically through the air — track its landing spot or use spread/explosive weapons.';
             else tip = 'Straightforward fighter — headshots end it fastest.';
 
             const lines = [];

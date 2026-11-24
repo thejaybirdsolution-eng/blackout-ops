@@ -272,11 +272,16 @@
             </div>`;
     }
 
-    function refreshShellInPlace(shell, mode, activeSet) {
+    function refreshShellInPlace(shell, mode, activeSet, resetBodyScroll = false) {
         if (!shell) return;
         const data = normalizeModeData(mode);
         const st = getState(mode);
         const parts = renderDeckParts(mode, data, st, activeSet);
+
+        const bodyEl = shell.querySelector('.mm-body-slot');
+        const railEl = shell.querySelector('.mm-tabs-slot');
+        const prevBodyScroll = bodyEl ? bodyEl.scrollTop : 0;
+        const prevRailScroll = railEl ? railEl.scrollTop : 0;
 
         const setHtml = (sel, html) => {
             const el = shell.querySelector(sel);
@@ -289,6 +294,8 @@
         setHtml('.mm-tray-slot', parts.trayHtml);
         setHtml('.mm-tabs-slot', parts.tabsHtml);
         setHtml('.mm-body-slot', parts.groupsHtml);
+        if (railEl) railEl.scrollTop = prevRailScroll;
+        if (bodyEl) bodyEl.scrollTop = resetBodyScroll ? 0 : prevBodyScroll;
         const onlyBtn = shell.querySelector('[data-mm-only-active]');
         if (onlyBtn) onlyBtn.classList.toggle('active', !!st.onlyActive);
         if (BO.Tooltips && BO.Tooltips.hide) BO.Tooltips.hide();
@@ -303,7 +310,7 @@
         const commitActive = (nextSet) => {
             const payload = toActivePayload(mode, nextSet);
             if (typeof opts.onChange === 'function') opts.onChange(payload, nextSet);
-            refreshShellInPlace(shell, mode, nextSet);
+            refreshShellInPlace(shell, mode, nextSet, false);
         };
 
         const searchEl = shell.querySelector('[data-mm-search]');
@@ -315,7 +322,10 @@
                 const activeSet = getActive();
                 const parts = renderDeckParts(mode, data, st, activeSet);
                 const bodyEl = shell.querySelector('.mm-body-slot');
-                if (bodyEl) bodyEl.innerHTML = parts.groupsHtml;
+                if (bodyEl) {
+                    bodyEl.innerHTML = parts.groupsHtml;
+                    bodyEl.scrollTop = 0;
+                }
             });
             searchEl.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') e.preventDefault();
@@ -345,7 +355,7 @@
             if (tabBtn) {
                 const st = getState(mode);
                 st.cat = tabBtn.dataset.mmCat || 'all';
-                refreshShellInPlace(shell, mode, getActive());
+                refreshShellInPlace(shell, mode, getActive(), true);
                 return;
             }
 
@@ -353,7 +363,7 @@
             if (tierBtn) {
                 const st = getState(mode);
                 st.tier = tierBtn.dataset.mmTier || 'all';
-                refreshShellInPlace(shell, mode, getActive());
+                refreshShellInPlace(shell, mode, getActive(), true);
                 return;
             }
 
@@ -361,7 +371,7 @@
             if (onlyBtn) {
                 const st = getState(mode);
                 st.onlyActive = !st.onlyActive;
-                refreshShellInPlace(shell, mode, getActive());
+                refreshShellInPlace(shell, mode, getActive(), true);
                 return;
             }
 
@@ -408,7 +418,7 @@
                     st.onlyActive = false;
                     st.q = '';
                     if (searchEl) searchEl.value = '';
-                    refreshShellInPlace(shell, mode, getActive());
+                    refreshShellInPlace(shell, mode, getActive(), true);
                     return;
                 }
                 if (act === 'rand3' || act === 'rand5') {

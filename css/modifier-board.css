@@ -24,8 +24,8 @@
 }
 .mm-mode-survival { --mx-accent: #8fe3c8; --mx-accent-ink: #0d1513; --mx-bg: rgba(10, 16, 14, 0.94); --mx-panel: rgba(18, 28, 25, 0.94); --mx-raise: rgba(30, 44, 40, 0.94); --mx-line: rgba(159, 224, 201, 0.12); --mx-line-2: rgba(159, 224, 201, 0.26); --mx-dim: #93a8a0; }
 .mm-mode-zombies { --mx-accent: #f87171; --mx-accent-ink: #1c0606; --mx-bg: rgba(18, 10, 12, 0.94); --mx-panel: rgba(30, 16, 18, 0.92); --mx-raise: rgba(46, 24, 27, 0.92); --mx-line: rgba(248, 113, 113, 0.13); --mx-line-2: rgba(248, 113, 113, 0.28); --mx-dim: #b59a9a; }
-.mm-mode-mp { --mx-accent: #f5a623; }
-.mm-mode-td { --mx-accent: #60b8f0; --mx-accent-ink: #061420; --mx-line: rgba(96, 184, 240, 0.13); --mx-line-2: rgba(96, 184, 240, 0.28); }
+.mm-mode-mp { --mx-accent: #38bdf8; --mx-accent-ink: #041320; --mx-bg: rgba(9, 14, 24, 0.94); --mx-panel: rgba(15, 24, 40, 0.94); --mx-raise: rgba(24, 38, 62, 0.94); --mx-line: rgba(56, 189, 248, 0.14); --mx-line-2: rgba(56, 189, 248, 0.30); --mx-dim: #94a9c4; }
+.mm-mode-td { --mx-accent: #4ade80; --mx-accent-ink: #051b0e; --mx-bg: rgba(9, 17, 13, 0.94); --mx-panel: rgba(15, 28, 21, 0.94); --mx-raise: rgba(24, 44, 33, 0.94); --mx-line: rgba(74, 222, 128, 0.14); --mx-line-2: rgba(74, 222, 128, 0.30); --mx-dim: #94b3a0; }
 .mmx button { font-family: inherit; }
 
 /* header */
@@ -58,7 +58,7 @@
 /* active loadout */
 .mmx-loadout { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--mx-line-2); background: rgba(0, 0, 0, 0.18); }
 .mmx-label { flex: none; font: 800 10px var(--font-ui); letter-spacing: 2px; text-transform: uppercase; color: var(--mx-dim); padding-top: 6px; }
-.mmx-tray { display: flex; flex-wrap: wrap; gap: 5px; max-height: 76px; overflow-y: auto; min-height: 26px; align-items: center; flex: 1; }
+.mmx-tray { display: flex; flex-wrap: wrap; gap: 5px; max-height: 76px; overflow-y: auto; min-height: 26px; align-items: center; flex: 1; scrollbar-width: thin; scrollbar-color: var(--mx-line-2) transparent; }
 .mmx-chip { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px 0 9px; border-radius: 999px; border: 1px solid var(--mx-line-2); background: var(--mx-panel); color: var(--mx-text); font-size: 11.5px; font-weight: 600; box-shadow: inset 3px 0 0 var(--tc, var(--mx-accent)); }
 .mmx-chip.t-buff { --tc: var(--mx-buff); }
 .mmx-chip.t-tactical { --tc: var(--mx-tactical); }
@@ -71,7 +71,7 @@
 
 /* body: rail + content */
 .mmx-main { display: grid; grid-template-columns: minmax(170px, 210px) minmax(0, 1fr); gap: 10px; height: clamp(360px, 60vh, 640px); }
-.mmx-rail { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; padding: 6px; border-radius: 12px; border: 1px solid var(--mx-line); background: var(--mx-bg); scrollbar-width: thin; }
+.mmx-rail { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; padding: 6px; border-radius: 12px; border: 1px solid var(--mx-line); background: var(--mx-bg); scrollbar-width: thin; scrollbar-color: var(--mx-line-2) transparent; }
 .mmx-cat { cursor: pointer; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 9px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--mx-text); font-size: 12px; font-weight: 700; text-align: left; }
 .mmx-cat:hover { background: rgba(255, 255, 255, 0.04); }
 .mmx-cat.active { background: var(--mx-raise); border-color: var(--mx-line-2); box-shadow: inset 3px 0 0 var(--c); }
@@ -102,7 +102,11 @@
 .mmx-pack em { font-style: normal; font: 700 10px var(--font-mono); color: var(--mx-dim); padding: 1px 5px; border-radius: 5px; background: rgba(255, 255, 255, 0.07); }
 .mmx-pack:hover { border-color: var(--mx-accent); }
 .mmx-pack.active { border-color: var(--mx-accent); background: color-mix(in srgb, var(--mx-accent) 16%, var(--mx-panel)); }
-.mmx-body { min-height: 0; overflow-y: auto; display: grid; gap: 12px; align-content: start; padding-right: 4px; scrollbar-width: thin; }
+.mmx-body { min-height: 0; overflow-y: auto; display: grid; gap: 12px; align-content: start; padding-right: 4px; scrollbar-width: thin; scrollbar-color: var(--mx-line-2) transparent; }
+.mmx-rail::-webkit-scrollbar, .mmx-body::-webkit-scrollbar, .mmx-tray::-webkit-scrollbar { width: 7px; height: 7px; }
+.mmx-rail::-webkit-scrollbar-track, .mmx-body::-webkit-scrollbar-track, .mmx-tray::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); border-radius: 99px; }
+.mmx-rail::-webkit-scrollbar-thumb, .mmx-body::-webkit-scrollbar-thumb, .mmx-tray::-webkit-scrollbar-thumb { background: var(--mx-line-2); border-radius: 99px; }
+.mmx-rail::-webkit-scrollbar-thumb:hover, .mmx-body::-webkit-scrollbar-thumb:hover, .mmx-tray::-webkit-scrollbar-thumb:hover { background: var(--mx-accent); }
 .mmx-group header { display: flex; align-items: center; gap: 8px; margin: 2px 0 7px; padding-bottom: 6px; border-bottom: 1px solid var(--mx-line); }
 .mmx-group-ico { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: color-mix(in srgb, var(--c) 18%, transparent); }
 .mmx-group h4 { margin: 0; font-size: 12.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--mx-text); }
@@ -130,7 +134,17 @@
 }
 
 /* =========================================================== ENEMY DOSSIER CARD */
-#bo-tooltip.is-rich { max-width: 400px !important; width: 400px; padding: 12px !important; }
+#bo-tooltip.is-rich { max-width: 400px !important; width: 400px; max-height: calc(100vh - 28px); overflow: hidden; padding: 12px !important; }
+@media (max-height: 760px) {
+    #bo-tooltip.is-rich { padding: 9px 10px !important; }
+    #bo-tooltip.is-rich .ei-card { gap: 6px; }
+    #bo-tooltip.is-rich .ei-head { grid-template-columns: 72px 1fr; gap: 10px; }
+    #bo-tooltip.is-rich .ei-portrait { width: 72px; height: 72px; }
+    #bo-tooltip.is-rich .ei-stat { padding: 4px 6px 6px; }
+    #bo-tooltip.is-rich .ei-rows { gap: 3px; }
+    #bo-tooltip.is-rich .ei-rows div { font-size: 11px; line-height: 1.3; }
+    #bo-tooltip.is-rich .ei-tip { padding: 5px 8px; font-size: 11px; }
+}
 .ei-card { display: grid; gap: 9px; font-family: var(--font-ui); }
 .ei-head { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; }
 .ei-portrait { width: 96px; height: 96px; border-radius: 12px; display: grid; place-items: center; overflow: hidden;

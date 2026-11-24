@@ -81,6 +81,7 @@
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const norm = (v) => String(v ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
     const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+    const an = (w) => (/^[aeiou]/i.test(w) ? 'an ' : 'a ') + w;
 
     function areaAt(x, y, z) {
         const areas = BO.SurvivalCampaignData.areas;
@@ -128,7 +129,7 @@
         const src = (id, text) => { if (!id) return; (sources[id] ||= new Set()).add(text); };
         const use = (id, text) => { if (!id) return; (uses[id] ||= new Set()).add(text); };
         for (const [kind, r] of Object.entries(frontier.resources)) {
-            const req = r.tool ? (r.tier <= 1 ? ' (best with a ' + TOOL_NAME[r.tool] + '; bare hands work slowly)' : ' (needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ')') : ' (by hand)';
+            const req = r.tool ? (r.tier <= 1 ? ' (best with ' + an(TOOL_NAME[r.tool]) + '; bare hands work slowly)' : ' (needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ')') : ' (by hand)';
             const where = areaList(kind);
             for (const id of Object.keys(r.gain)) src(id, 'Gather ' + r.name + req + (where.length ? ' — ' + where.join(', ') : ''));
         }
@@ -181,6 +182,16 @@
         use('relic', 'Hauler frame pack');
         use('coil', 'Coil prototype weapon');
         use('salvageLine', 'Fishing at the three waterside stations');
+        for (const sch of deep.weaponSchematics || []) {
+            for (const [id, n] of Object.entries(sch.cost || {})) use(id, 'Forge ' + sch.name + ' (' + n + ', Workbench)');
+        }
+        use('ingot', 'Weapon Mk II (2) / Mk III (3) upgrade at Workbench');
+        use('scrap', 'Weapon Mk II upgrade (3, Workbench)');
+        use('aetherShard', 'Weapon Mk III upgrade (1, Workbench)');
+        use('wire', 'Weapon Mk III upgrade (2, Workbench)');
+        use('torch', 'Press ' + key('survLight') + ' to burn for 90 s of portable light');
+        use('lantern', 'Press ' + key('survLight') + ' to illuminate for 4 min (consumes 1 fuel)');
+        use('caveMap', 'Reference notes pointing from Research Trench into Echo Cavern');
 
         /* ---------- getting started ---------- */
         const safe = rules.openingSeconds || 60;
@@ -239,11 +250,11 @@
         for (const [kind, r] of Object.entries(frontier.resources)) {
             const tierTool = r.tool ? 'Tier ' + r.tier + ' ' + TOOL_NAME[r.tool] : 'None';
             const hand = !r.tool ? '1 hit' : r.tier <= 1 ? Math.ceil(r.strokes / 0.25) + ' punches (slow)' : 'Not possible';
-            const toolHits = r.tool ? Object.values(frontier.tools).filter((t) => t.family === r.tool && t.level >= r.tier).sort((a, b) => a.level - b.level).map((t) => t.name + ': ' + Math.ceil(r.strokes / t.power) + ' hits') : [];
+            const toolHits = r.tool ? Object.values(frontier.tools).filter((t) => t.family === r.tool && t.level >= r.tier).sort((a, b) => a.level - b.level).map((t) => t.name + ': ' + plural(Math.ceil(r.strokes / t.power), 'hit')) : [];
             const locs = deposits.filter((d) => d.kind === kind);
             add({ cat: 'resources', title: r.name, icon: Ic.svg(r.tool === 'axe' ? 'log' : r.tool === 'pick' ? 'ore' : r.tool === 'shovel' ? 'clay' : kind === 'herbs' || kind === 'roots' ? 'leaf' : kind === 'stones' ? 'stone' : 'log', '#' + r.color.toString(16).padStart(6, '0'), 26),
                 tags: [r.tool ? TOOL_NAME[r.tool] : 'by hand', plural(locs.length, 'spot')],
-                text: (r.tool ? (r.tier <= 1 ? 'Best broken with a ' + TOOL_NAME[r.tool] + '. Bare hands also work, four times slower.' : 'Needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ' or better — bare hands cannot break it.') : 'Pick it up by hand: press interact or punch it.') +
+                text: (r.tool ? (r.tier <= 1 ? 'Best broken with ' + an(TOOL_NAME[r.tool]) + '. Bare hands also work, four times slower.' : 'Needs a tier ' + r.tier + ' ' + TOOL_NAME[r.tool] + ' or better — bare hands cannot break it.') : 'Pick it up by hand: press interact or punch it.') +
                     ' Depleted deposits regrow after ' + (r.tool ? '8 minutes' : 'about 3 minutes') + ' (only while you are more than 10 m away).' + (kind === 'deep' ? ' Striking it awakens the Resonant Sentinel boss; defeat it to mine the core.' : ''),
                 facts: [['Yields', amounts(r.gain)], ['Tool', tierTool], ['By hand', hand]],
                 lists: [{ h: 'Where to find it', items: areaList(kind).length ? areaList(kind) : ['Nowhere on the surface'] }, ...(toolHits.length ? [{ h: 'Hits needed', items: toolHits }] : [])],
@@ -378,7 +389,22 @@
         for (const [id, m] of Object.entries(rules.modes)) add({ cat: 'rules', title: 'Operation: ' + m.name, icon: icon('flare'), text: m.description });
         for (const [id, d] of Object.entries(rules.difficulties)) add({ cat: 'rules', title: 'Difficulty: ' + d.name, icon: icon('fire', '#f2b45a'), facts: [['Enemy health', '×' + d.hp], ['Damage taken', '×' + d.damage], ['Spawn speed', '×' + d.rate], ['Max roaming', d.enemyCap]] });
         for (const [id, p] of Object.entries(rules.presets)) add({ cat: 'rules', title: 'Preset: ' + p.name, icon: icon('chest'), text: p.description });
-        for (const [id, p] of Object.entries(campaign.pools)) add({ cat: 'rules', title: 'Enemy pool: ' + p.name, icon: icon('blade'), text: p.extra });
+        for (const [id, p] of Object.entries(campaign.pools)) {
+            const kw = p.keywords ? new RegExp(p.keywords, 'i') : null;
+            const list = kw ? BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => kw.test(z.id)) : BO.ZombiesData.ORDERED_PROGRESSION;
+            const dayOf = (z) => {
+                const idx = BO.ZombiesData.ORDERED_PROGRESSION.indexOf(z);
+                for (let d = 1; d < 40; d++) if (rules.threat(d, false, { encounterRate: 1 }, diffStd, rosterN).poolSize > idx) return d;
+                return 40;
+            };
+            const items = kw
+                ? list.map((z) => z.name + ' (day ' + dayOf(z) + ')')
+                : ['All ' + list.length + ' enabled infected (weakest on day 1, scaling up each day)', 'Standard PMC patrols from day 2 and Commander Sable on day 3'];
+            const facts = [];
+            if (id === 'horde') facts.push(['Spawn rate', '+30% faster']);
+            if (id === 'patrols') facts.push(['PMC patrols', 'Extra patrols from day 2 (up to 8)']);
+            add({ cat: 'rules', title: 'Enemy pool: ' + p.name, icon: icon('blade'), text: p.extra, facts, lists: [{ h: 'Enemies in this pool', items }] });
+        }
         for (const [id, m] of Object.entries(rules.modifiers)) add({ cat: 'rules', title: 'Modifier: ' + m.name, icon: '<span class="fg-emoji">' + esc(m.ico || '◆') + '</span>', tags: [m.tier || ''], text: m.description, keywords: id + ' modifier' });
 
         /* ---------- help ---------- */
@@ -395,9 +421,13 @@
         return out;
     }
 
-    let cached = null;
+    let cached = null, cachedKey = '';
     function entries() {
-        cached = build();
+        const k = JSON.stringify(BO.Settings.getKeybinds());
+        if (!cached || cachedKey !== k) {
+            cachedKey = k;
+            cached = build();
+        }
         return cached;
     }
 
@@ -438,7 +468,7 @@
         return `<div class="fg">
             <nav class="fg-rail sv-scroll" aria-label="Field guide sections">
                 ${CATS.map(([id, label, glyph, intro]) => `<button class="fg-cat ${!query && id === category ? 'active' : ''}" data-act="legendCat" data-arg="${id}" data-tip-title="${esc(label)}" data-tip="${esc(intro)}">
-                    ${BO.SurvivalIcons.named(glyph, id === category && !query ? '#0d1513' : '#9fd4c7', 16)}<span>${esc(label)}</span><em>${counts[id]}</em></button>`).join('')}
+                    ${BO.SurvivalIcons.named(glyph, 'currentColor', 16)}<span>${esc(label)}</span><em>${counts[id]}</em></button>`).join('')}
             </nav>
             <section class="fg-main">
                 <label class="fg-search"><span>⌕</span><input id="survival-legend-search" type="search" value="${esc(query)}" placeholder="Search ${all.length} entries: resources, items, enemies, places, systems…" autocomplete="off" spellcheck="false"></label>

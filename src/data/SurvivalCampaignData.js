@@ -78,9 +78,9 @@
 
     const pools = {
         mixed: { name: 'Mixed patrols', keywords: '', extra: 'An escalating mix of infected and PMC reinforcements.' },
-        horde: { name: 'Infected surge', keywords: 'walker|crawler|runner|infected|shambler|zombie', extra: 'More frequent infected spawns.' },
-        mutants: { name: 'Aether mutants', keywords: 'wraith|mutant|hydra|witch|venom|brute|slime', extra: 'Special infected enter the pool earlier.' },
-        patrols: { name: 'PMC occupation', keywords: 'walker|soldier|runner|zombie', extra: 'Additional PMC patrols contest surface routes.' }
+        horde: { name: 'Infected surge', keywords: 'shambler|sprinter|ankle_biter|ripper|bloater|hopper|crawler|shield_walker|ghoul|ratman|mummy|goblin|lanky|scarecrow|hunch_spitter|headless|mud_waddler|ravager|goliath', extra: 'Classic undead hordes with 30% faster spawn rates.' },
+        mutants: { name: 'Aether mutants', keywords: 'wraith|witch|slime|hydra|aether|void|blob|mitosis|sprite|gnome|shaman|vampire|broodmother|fracture|twin_horror|toxic_toad|shadow_imp|shadow_stalker|magma_brute', extra: 'Favours Aether, magical, and splitting mutant infected.' },
+        patrols: { name: 'PMC occupation', keywords: 'shambler|sprinter|ripper|headless|shield_walker|cyber_assassin|ronin|berserker|juggernaut|iron_ogre|warbear|obsidian|ratman|bone_hound|werewolf', extra: 'Additional PMC patrols contest surface routes alongside armored and feral infected.' }
     };
     const defaults = { difficulty: 'standard', pool: 'mixed', dayLength: 360, startHour: 8, survivalNeeds: true,
         weather: true, autosave: true, encounterRate: 1 };

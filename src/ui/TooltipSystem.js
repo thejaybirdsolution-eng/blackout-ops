@@ -37,7 +37,7 @@
                     if (this.activeTarget) this.hide();
                     return;
                 }
-                const target = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+                const target = e.target && e.target.closest ? e.target.closest('[data-tip], [data-tip-enemy]') : null;
                 if (target) {
                     this.show(target, e.clientX, e.clientY);
                 } else if (this.activeTarget) {
@@ -56,7 +56,7 @@
 
             document.addEventListener('mouseout', (e) => {
                 if (!this.activeTarget) return;
-                const related = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-tip]') : null;
+                const related = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-tip], [data-tip-enemy]') : null;
                 if (!related) {
                     this.hide();
                 }
@@ -69,7 +69,8 @@
         show(target, x, y) {
             if (!this.el || !target) return;
             const text = target.getAttribute('data-tip');
-            if (!text) return;
+            const enemyId = target.getAttribute('data-tip-enemy');
+            if (!text && !enemyId) return;
             if (target === this.activeTarget && !this.el.classList.contains('hidden')) {
                 this._position(x, y);
                 return;
@@ -87,7 +88,6 @@
             const subEl = this.el.querySelector('.bo-tip-sub');
 
             const richEl = this.el.querySelector('.bo-tip-rich');
-            const enemyId = target.getAttribute('data-tip-enemy');
             const spec = enemyId && BO.EnemyInfo ? BO.EnemyInfo.specById(enemyId) : null;
             this.el.classList.toggle('is-rich', !!spec);
             richEl.classList.toggle('hidden', !spec);
@@ -122,10 +122,14 @@
                 left = Math.max(pad, cx - rect.width - 16);
             }
             if (top + rect.height + pad > vh) {
-                top = Math.max(pad, cy - rect.height - 16);
+                if (cy - rect.height - 16 >= pad) {
+                    top = cy - rect.height - 16;
+                } else {
+                    top = Math.max(pad, vh - rect.height - pad);
+                }
             }
-            this.el.style.left = left + 'px';
-            this.el.style.top = top + 'px';
+            this.el.style.left = Math.round(left) + 'px';
+            this.el.style.top = Math.round(top) + 'px';
         }
 
         hide() {

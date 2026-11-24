@@ -804,7 +804,7 @@
                     inp.onchange = (e) => { this.zCustomValues[e.target.dataset.zk] = Number(e.target.value); this._lobbyBroadcast(); };
                 });
             } else {
-                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover a card for details. They stack.', this._modifiersHtml('zombies'));
+                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('zombies'));
                 this._bindModifiers(body, 'zombies');
             }
         }
@@ -955,7 +955,7 @@
                 body.innerHTML = this._section('Starting weapons', 'What you spawn with each life. "Custom Class" uses the class selected on the right.', this._protocolHtml('mp'));
                 this._bindProtocol(body, 'mp');
             } else {
-                body.innerHTML = this._section('Modifiers', 'Multiplayer modifiers change you, not the bots. They stack.', this._modifiersHtml('mp'));
+                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('mp'));
                 this._bindModifiers(body, 'mp');
             }
         }
@@ -1056,7 +1056,7 @@
                     </button>`);
                 document.getElementById('btn-td-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
             } else {
-                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover a card for details. They stack.', this._modifiersHtml('td'));
+                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('td'));
                 this._bindModifiers(body, 'td');
             }
         }
@@ -1391,7 +1391,7 @@
                 const bosses = Object.values(BO.ZombiesData.BOSSES_BY_ROUND);
                 const zombies = BO.ZombiesData.ZOMBIE_TYPES;
                 body.innerHTML = `
-                    <div class="panel-title" style="color:#f87171;">5 UNIQUE BOSS ROUNDS (ROUNDS 5, 10, 20, 25 &amp; 50)</div>
+                    <div class="panel-title" style="color:#f87171;">${bosses.length} UNIQUE BOSSES (ROUNDS 5, 10, 20, 25 &amp; 50+)</div>
                     <div class="card-grid" style="margin-bottom:14px;">
                         ${bosses.map((b) => `
                             <div class="select-card active-zombies" data-tip-enemy="${b.id}"
@@ -1402,7 +1402,7 @@
                                 <div class="card-sub"><b>${b.title}</b><br>HP: ${b.hp} • SPD: ${b.speed} • ATK: ${b.attack} • DEF: ${Math.round(b.defense * 100)}%<br>${b.weaknessText}</div>
                             </div>`).join('')}
                     </div>
-                    <div class="panel-title">20 UNIQUE ZOMBIES (1 NEW ADDED EVERY 3 ROUNDS • TOUGHER = LOWER SPAWN ODDS)</div>
+                    <div class="panel-title">${zombies.length} UNIQUE ZOMBIES (1 NEW ADDED EVERY 3 ROUNDS • TOUGHER = LOWER SPAWN ODDS)</div>
                     <div class="card-grid">
                         ${zombies.map((z) => {
                             const odds = BO.ZombiesData.getSpawnOddsPercent(z, 60);
@@ -1708,14 +1708,14 @@
                 const bosses = Object.values(BO.ZombiesData.BOSSES_BY_ROUND);
                 const zombies = BO.ZombiesData.ZOMBIE_TYPES;
                 body.innerHTML = `
-                    <div class="panel-title" style="color:#f87171;">5 UNIQUE BOSS ROUNDS (ROUNDS 5, 10, 20, 25 &amp; 50)</div>
+                    <div class="panel-title" style="color:#f87171;">${bosses.length} UNIQUE BOSSES (ROUNDS 5, 10, 20, 25 &amp; 50+)</div>
                     <table class="legend-table" style="margin-bottom:16px;">
                         <thead>
                             <tr><th>ROUND</th><th>BOSS NAME &amp; TITLE</th><th>HP</th><th>SPD</th><th>ATK</th><th>DEF</th><th>HABIT &amp; ATTACK</th><th>WEAKNESS &amp; REWARD</th></tr>
                         </thead>
                         <tbody>
                             ${bosses.map((b) => `
-                                <tr>
+                                <tr data-tip-enemy="${b.id}" data-tip="${escAttr(b.simpleDesc || b.name)}" data-tip-sub="${escAttr((b.weaknessText || 'Boss encounter') + ' · Reward: +' + (b.drops?.points || 0) + ' PTS')}">
                                     <td style="color:#f87171;font-weight:800;">ROUND ${b.bossRound}</td>
                                     <td><b>${b.name}</b><br><span style="font-size:11px;color:var(--text-dim);">${b.title}</span></td>
                                     <td style="font-family:var(--font-mono);color:#fde047;">${b.hp}</td>
@@ -1729,7 +1729,7 @@
                         </tbody>
                     </table>
 
-                    <div class="panel-title">ALL 20 UNIQUE ZOMBIE TYPES (1 NEW ADDED EVERY 3 COMPLETED ROUNDS)</div>
+                    <div class="panel-title">ALL ${zombies.length} UNIQUE ZOMBIE TYPES (1 NEW ADDED EVERY 3 COMPLETED ROUNDS)</div>
                     <table class="legend-table">
                         <thead>
                             <tr><th>#</th><th>ZOMBIE TYPE</th><th>UNLOCK RD</th><th>RNG ODDS</th><th>HP</th><th>SPD</th><th>ATK</th><th>DEF</th><th>RESISTANCES (BUL/EXP/FIR/HS)</th><th>HABIT &amp; ATTACK</th><th>DROPS</th></tr>
@@ -2032,22 +2032,22 @@
 
                 <div class="panel-title" style="color:#22c55e;">2. ADVANTAGES &amp; DISADVANTAGES (MODIFIERS)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
-                    <label class="mod-row ${cc.startAllPerks ? 'active' : ''}"><span><b>Advantage:</b> Start With All 6 Perks</span><input type="checkbox" data-chkey="startAllPerks" ${cc.startAllPerks ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.advDoubleDamage ? 'active' : ''}"><span><b>Advantage:</b> 2x Player Bullet Damage</span><input type="checkbox" data-chkey="advDoubleDamage" ${cc.advDoubleDamage ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.advInstaKill ? 'active' : ''}"><span><b>Advantage:</b> Permanent Insta-Kill</span><input type="checkbox" data-chkey="advInstaKill" ${cc.advInstaKill ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.advDoublePoints ? 'active' : ''}"><span><b>Advantage:</b> Permanent 2x Points</span><input type="checkbox" data-chkey="advDoublePoints" ${cc.advDoublePoints ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.advLowGravity ? 'active' : ''}"><span><b>Advantage:</b> Low Gravity Moon Jump</span><input type="checkbox" data-chkey="advLowGravity" ${cc.advLowGravity ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.disHeadshotsOnly ? 'active' : ''}"><span><b style="color:#ef4444;">Disadvantage:</b> Headshots Only (Body = 0 DMG)</span><input type="checkbox" data-chkey="disHeadshotsOnly" ${cc.disHeadshotsOnly ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.disHalfDamage ? 'active' : ''}"><span><b style="color:#ef4444;">Disadvantage:</b> 0.5x Player Damage</span><input type="checkbox" data-chkey="disHalfDamage" ${cc.disHalfDamage ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.disOneHp ? 'active' : ''}"><span><b style="color:#ef4444;">Disadvantage:</b> 1 HP Glass Cannon (No Armor)</span><input type="checkbox" data-chkey="disOneHp" ${cc.disOneHp ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.disNoPerks ? 'active' : ''}"><span><b style="color:#ef4444;">Disadvantage:</b> No Perks Allowed</span><input type="checkbox" data-chkey="disNoPerks" ${cc.disNoPerks ? 'checked' : ''}></label>
-                    <label class="mod-row ${cc.disTurboZombies ? 'active' : ''}"><span><b style="color:#ef4444;">Disadvantage:</b> Turbo Sprint Zombies (1.45x SPD)</span><input type="checkbox" data-chkey="disTurboZombies" ${cc.disTurboZombies ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.startAllPerks ? 'active' : ''}" data-tip-title="Start With All 6 Perks" data-tip="Deploy with all six Perk-a-Colas already active."><span><b>Advantage:</b> Start With All 6 Perks</span><input type="checkbox" data-chkey="startAllPerks" ${cc.startAllPerks ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.advDoubleDamage ? 'active' : ''}" data-tip-title="2x Player Bullet Damage" data-tip="Doubles all firearm bullet damage you deal."><span><b>Advantage:</b> 2x Player Bullet Damage</span><input type="checkbox" data-chkey="advDoubleDamage" ${cc.advDoubleDamage ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.advInstaKill ? 'active' : ''}" data-tip-title="Permanent Insta-Kill" data-tip="Every hit kills standard zombies instantly."><span><b>Advantage:</b> Permanent Insta-Kill</span><input type="checkbox" data-chkey="advInstaKill" ${cc.advInstaKill ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.advDoublePoints ? 'active' : ''}" data-tip-title="Permanent 2x Points" data-tip="Doubles all points earned from hits and kills."><span><b>Advantage:</b> Permanent 2x Points</span><input type="checkbox" data-chkey="advDoublePoints" ${cc.advDoublePoints ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.advLowGravity ? 'active' : ''}" data-tip-title="Low Gravity Moon Jump" data-tip="Reduces gravity so you jump higher and fall slower."><span><b>Advantage:</b> Low Gravity Moon Jump</span><input type="checkbox" data-chkey="advLowGravity" ${cc.advLowGravity ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.disHeadshotsOnly ? 'active' : ''}" data-tip-title="Headshots Only" data-tip="Body shots deal zero damage; only headshots hurt enemies."><span><b style="color:#ef4444;">Disadvantage:</b> Headshots Only (Body = 0 DMG)</span><input type="checkbox" data-chkey="disHeadshotsOnly" ${cc.disHeadshotsOnly ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.disHalfDamage ? 'active' : ''}" data-tip-title="0.5x Player Damage" data-tip="Cuts all player weapon damage in half."><span><b style="color:#ef4444;">Disadvantage:</b> 0.5x Player Damage</span><input type="checkbox" data-chkey="disHalfDamage" ${cc.disHalfDamage ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.disOneHp ? 'active' : ''}" data-tip-title="1 HP Glass Cannon" data-tip="Locks you at 1 max HP with no armor."><span><b style="color:#ef4444;">Disadvantage:</b> 1 HP Glass Cannon (No Armor)</span><input type="checkbox" data-chkey="disOneHp" ${cc.disOneHp ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.disNoPerks ? 'active' : ''}" data-tip-title="No Perks Allowed" data-tip="Disables buying or keeping any Perk-a-Colas."><span><b style="color:#ef4444;">Disadvantage:</b> No Perks Allowed</span><input type="checkbox" data-chkey="disNoPerks" ${cc.disNoPerks ? 'checked' : ''}></label>
+                    <label class="mod-row ${cc.disTurboZombies ? 'active' : ''}" data-tip-title="Turbo Sprint Zombies" data-tip="Increases zombie movement speed by 45%."><span><b style="color:#ef4444;">Disadvantage:</b> Turbo Sprint Zombies (1.45x SPD)</span><input type="checkbox" data-chkey="disTurboZombies" ${cc.disTurboZombies ? 'checked' : ''}></label>
                 </div>
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                     <div class="panel-title" style="margin:0;border:none;color:#38bdf8;">3. EDIT ACTIVE ZOMBIE SPAWN POOL (${cc.customZombiePool.length === 0 ? 'DEFAULT ROUND POOL' : cc.customZombiePool.length + ' CUSTOM TYPES SELECTED'})</div>
                     <div style="display:flex;gap:6px;">
-                        <button class="btn btn-sm" id="ch-pool-all">SELECT ALL 20</button>
+                        <button class="btn btn-sm" id="ch-pool-all">SELECT ALL ${zombies.length}</button>
                         <button class="btn btn-sm" id="ch-pool-reset">USE DEFAULT ROUND POOL</button>
                     </div>
                 </div>

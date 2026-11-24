@@ -398,7 +398,9 @@
                 case 'roster': {
                     const opts = { ...career.profile.options };
                     const set = new Set(opts.disabledEnemies);
-                    if (set.has(arg)) set.delete(arg); else set.add(arg);
+                    const total = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                    if (set.has(arg)) set.delete(arg);
+                    else if (set.size < total - 1) set.add(arg);
                     opts.disabledEnemies = [...set];
                     career.remember(opts);
                     return this.renderBriefing();
@@ -746,6 +748,7 @@
         poolTooltip(poolId, o) {
             const pool = data.pools[poolId];
             const roster = BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => !o.disabledEnemies.includes(z.id));
+            if (!roster.length) return pool.extra + '\n\nNo enemies are enabled in the roster.';
             const diff = rules().difficulties[o.difficulty];
             const dayOf = (i) => {
                 for (let d = 1; d < 40; d++) if (rules().threat(d, false, o, diff, roster.length).poolSize > i) return d;
@@ -757,14 +760,15 @@
             const line = ({ z, day }) => '• ' + z.name + ' (day ' + day + ')';
             let body = pool.extra + '\n\n';
             if (!kw) {
-                body += 'Draws from every enabled infected (' + roster.length + '), weakest first:\n' + indexed.slice(0, 12).map(line).join('\n') +
-                    (indexed.length > 12 ? '\n…and ' + (indexed.length - 12) + ' more, up to ' + indexed[indexed.length - 1].z.name + '.' : '');
+                body += 'Draws from every enabled infected (' + roster.length + '), weakest first:\n' + indexed.slice(0, 14).map(line).join('\n') +
+                    (indexed.length > 14 ? '\n…and ' + (indexed.length - 14) + ' more, up to ' + indexed[indexed.length - 1].z.name + '.' : '') +
+                    '\n\nStandard PMC patrols join on day 2 and Commander Sable arrives on day 3.';
             } else if (matches.length >= 3) {
-                body += 'Favours these ' + matches.length + ' infected (each still joins on its day):\n' + matches.slice(0, 18).map(line).join('\n') +
-                    (matches.length > 18 ? '\n…and ' + (matches.length - 18) + ' more.' : '') +
+                body += 'Favours these ' + matches.length + ' infected (each still joins on its day):\n' + matches.slice(0, 16).map(line).join('\n') +
+                    (matches.length > 16 ? '\n…and ' + (matches.length - 16) + ' more.' : '') +
                     '\n\nThe two newest unlocks always stay in rotation, and biomes with their own wildlife (woods, quarry, flats, marsh, trench) keep their local types.';
             } else {
-                body += 'Only ' + matches.length + ' enabled infected match this pool, so it plays like Mixed patrols:\n' + indexed.slice(0, 10).map(line).join('\n') + '\n…';
+                body += 'Only ' + matches.length + ' enabled infected ' + (matches.length === 1 ? 'matches' : 'match') + ' this pool, so it plays like Mixed patrols:\n' + indexed.slice(0, 10).map(line).join('\n') + '\n…';
             }
             if (poolId === 'patrols') body += '\n\nAlso: armed PMC patrols (rifles and SMGs) join from day 2, more each day (max 8).';
             if (poolId === 'horde') body += '\n\nSpawns 30% more often than other pools.';
@@ -817,28 +821,32 @@
                 return 30;
             };
             let lastDay = 0;
-            const rows = [];
-            // Day thresholds are computed against the full roster, matching the in-game director.
+            const onRows = [];
+            const offList = [];
+            // Day thresholds are computed against the enabled roster, matching the in-game director.
             let enabledIndex = 0;
             list.forEach((z) => {
-                const on = !disabled.has(z.id);
-                const d = on ? unlockDay(enabledIndex) : null;
-                if (on) enabledIndex++;
-                if (on && d !== lastDay) {
-                    rows.push(`<div class="sv-roster-day">Joins on day ${d}</div>`);
+                if (disabled.has(z.id)) {
+                    offList.push(z);
+                    return;
+                }
+                const d = unlockDay(enabledIndex++);
+                if (d !== lastDay) {
+                    onRows.push(`<div class="sv-roster-day">Joins on day ${d}</div>`);
                     lastDay = d;
                 }
-                rows.push(`<button class="sv-enemy ${on ? 'on' : 'off'}" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), on ? 'Enabled · joins Survival on day ' + d + ' · click to disable' : 'Disabled · click to enable')}>
-                    <span class="sv-enemy-box">${on ? '✓' : ''}</span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
+                onRows.push(`<button class="sv-enemy on" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Enabled · joins Survival on day ' + d + ' · click to disable')}>
+                    <span class="sv-enemy-box">✓</span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
             });
-            const offRows = list.filter((z) => disabled.has(z.id));
+            const offRows = offList.map((z) => `<button class="sv-enemy off" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Disabled · click to enable')}>
+                    <span class="sv-enemy-box"></span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
             return `<p class="sv-lede">Enemies unlock from weakest to strongest as days pass. Disable any you never want to meet; the rest shift earlier.</p>
                 <div class="sv-row-actions">
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="all"${tip('Enable all', 'Allow every infected variant to appear when its day comes.')}>Enable all</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="grounded"${tip('Grounded roster', 'Keep only the 25 weakest variants: no late-game monsters at all.')}>Grounded only (25 weakest)</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="noMagic"${tip('No magical infected', 'Disable every magical / Aether-powered variant.')}>No magical infected</button>
                 </div>
-                <div class="sv-roster">${rows.join('')}${offRows.length ? '<div class="sv-roster-day off">Disabled</div>' : ''}</div>`;
+                <div class="sv-roster">${onRows.join('')}${offRows.length ? `<div class="sv-roster-day off">Disabled (${offList.length})</div>` + offRows.join('') : ''}</div>`;
         }
 
         summary(o, preset) {
