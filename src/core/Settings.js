@@ -26,8 +26,90 @@
         fireMode: 'KeyB',
         inspect: 'KeyI',
         exfil: 'KeyH',
-        pause: 'KeyP'
+        pause: 'KeyP',
+        // Survival field controls
+        survInventory: 'Tab',
+        survCraft: 'KeyJ',
+        survBuild: 'KeyB',
+        survMap: 'KeyM',
+        survSkills: 'KeyK',
+        survJournal: 'KeyO',
+        survTravel: 'KeyT',
+        survLegend: 'KeyL',
+        survFlask: 'KeyX',
+        survLight: 'KeyH',
+        survPlate: 'KeyF',
+        survDodge: 'AltLeft',
+        hotbar1: 'Digit1',
+        hotbar2: 'Digit2',
+        hotbar3: 'Digit3',
+        hotbar4: 'Digit4',
+        hotbar5: 'Digit5',
+        hotbar6: 'Digit6',
+        hotbar7: 'Digit7',
+        hotbar8: 'Digit8',
+        hotbar9: 'Digit9',
+        hotbar10: 'Digit0'
     };
+
+    /* Every rebindable action, grouped for the Controls panel. `ctx` lists the modes in
+       which the binding is live; two actions only conflict when their contexts overlap. */
+    const ALL_MODES = ['zombies', 'mp', 'td', 'survival'];
+    const CONTROL_CATALOG = [
+        { group: 'movement', label: 'Movement', actions: [
+            { action: 'forward', label: 'Move forward', tip: 'Walk or run forward.', ctx: ALL_MODES },
+            { action: 'back', label: 'Move backward', tip: 'Step backward.', ctx: ALL_MODES },
+            { action: 'left', label: 'Strafe left', tip: 'Move sideways to the left.', ctx: ALL_MODES },
+            { action: 'right', label: 'Strafe right', tip: 'Move sideways to the right.', ctx: ALL_MODES },
+            { action: 'sprint', label: 'Sprint', tip: 'Hold to run. Double-tap while running for a tactical sprint.', ctx: ALL_MODES },
+            { action: 'jump', label: 'Jump / mantle', tip: 'Jump over obstacles and climb onto ledges.', ctx: ALL_MODES },
+            { action: 'crouch', label: 'Crouch / slide', tip: 'Crouch while standing; slide while sprinting. Crouching keeps you quiet in Survival.', ctx: ALL_MODES },
+            { action: 'survDodge', label: 'Dodge roll', tip: 'Roll in your movement direction with a brief moment of invulnerability. Costs stamina.', ctx: ['survival'] }
+        ] },
+        { group: 'combat', label: 'Combat', actions: [
+            { action: 'reload', label: 'Reload / clear jam', tip: 'Reload your firearm. In Survival this also clears a weapon stoppage.', ctx: ALL_MODES },
+            { action: 'melee', label: 'Melee / punch', tip: 'Quick melee strike. Works with any held item in Survival.', ctx: ALL_MODES },
+            { action: 'lethal', label: 'Throw lethal', tip: 'Throw your lethal equipment (frag, semtex, C4, molotov). Hold to cook.', ctx: ALL_MODES },
+            { action: 'tactical', label: 'Use tactical', tip: 'Use your tactical equipment (flash, stim, monkey bomb).', ctx: ALL_MODES },
+            { action: 'fireMode', label: 'Fire mode / detonate C4', tip: 'Switch fire mode, or detonate thrown C4 charges.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'inspect', label: 'Inspect weapon', tip: 'Inspect your weapon. In Survival this also reads how full the magazine is.', ctx: ALL_MODES },
+            { action: 'armor', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'special', label: 'Special power', tip: 'Activate your charged Special power.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'ultimate', label: 'Ultimate power', tip: 'Unleash your charged Ultimate.', ctx: ['zombies', 'mp', 'td'] }
+        ] },
+        { group: 'interact', label: 'Interaction', actions: [
+            { action: 'interact', label: 'Interact / gather', tip: 'Use doors, buy items, talk to contacts, open containers and gather resources.', ctx: ALL_MODES },
+            { action: 'armory', label: 'Armory / soda catalog', tip: 'Open the armory or the soda catalog beside a Zombies perk machine.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'exfil', label: 'Call exfil', tip: 'Call an extraction chopper in Zombies (round 10 and later).', ctx: ['zombies'] }
+        ] },
+        { group: 'survival', label: 'Survival field terminal', actions: [
+            { action: 'survInventory', label: 'Inventory', tip: 'Open the field terminal on your backpack, hotbar and equipment.', ctx: ['survival'] },
+            { action: 'survCraft', label: 'Crafting', tip: 'Open crafting. Recipes that need a workbench, campfire or kiln unlock when you stand at one.', ctx: ['survival'] },
+            { action: 'survBuild', label: 'Build', tip: 'Open construction to place walls, stations, storage and defenses. Detonates C4 if you have charges out.', ctx: ['survival'] },
+            { action: 'survMap', label: 'Map', tip: 'Open the field map with landmarks, contacts and your position.', ctx: ['survival'] },
+            { action: 'survTravel', label: 'Travel', tip: 'Open the map on vehicles and fast-travel routes.', ctx: ['survival'] },
+            { action: 'survSkills', label: 'Skills & tech', tip: 'Spend Tech Points and Aether Runes on research and attributes.', ctx: ['survival'] },
+            { action: 'survJournal', label: 'Journal', tip: 'See your objective, field challenges, activities and career record.', ctx: ['survival'] },
+            { action: 'survLegend', label: 'Survival guide', tip: 'Open the searchable Survival encyclopedia.', ctx: ['survival'] },
+            { action: 'survFlask', label: 'Drink Aether Flask', tip: 'Restore health from your Aether Flask. Refill it by resting at a Site of Grace.', ctx: ['survival'] },
+            { action: 'survLight', label: 'Toggle light', tip: 'Light or put out a carried torch or lantern.', ctx: ['survival'] },
+            { action: 'survPlate', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['survival'] }
+        ] },
+        { group: 'hotbar', label: 'Survival hotbar', actions: Array.from({ length: 10 }, (_, i) => ({
+            action: 'hotbar' + (i + 1), label: 'Hotbar slot ' + (i + 1), ctx: ['survival'],
+            tip: 'Select hotbar slot ' + (i + 1) + '. The mouse wheel also cycles through all ten slots.'
+        })) },
+        { group: 'system', label: 'System', actions: [
+            { action: 'pause', label: 'Pause', tip: 'Pause the match. ESC always works as well.', ctx: ALL_MODES }
+        ] }
+    ];
+    const MOUSE_CONTROLS = [
+        { label: 'Fire / punch / use held item', key: 'LMB', tip: 'Fire your weapon. In Survival: punch with bare hands, swing a held tool to gather, or use a held consumable.' },
+        { label: 'Aim down sights / guard', key: 'RMB', tip: 'Aim your weapon. With bare hands in Survival, raise a guard and time it to parry.' },
+        { label: 'Heavy punch', key: 'HOLD LMB', tip: 'Survival bare hands: hold and release for a heavy finisher.' },
+        { label: 'Cycle weapons / hotbar', key: 'WHEEL', tip: 'Switch weapons. In Survival, scroll through the ten hotbar slots.' },
+        { label: 'Scoreboard', key: 'TAB', tip: 'Hold to view the scoreboard (Multiplayer, Zombies, Tower Defense).' }
+    ];
 
     const CHEAT_DEFS = {
         infammo: { code: 'infammo', name: 'Infinite Ammo & No Reload', desc: 'Unlimited bullets, magic energy, grenades, and tacticals—never reload!' },
@@ -70,6 +152,7 @@
             if (s.dynamicLights === undefined) s.dynamicLights = true;
             if (s.wallDecals === undefined) s.wallDecals = true;
             if (s.damageNumbers === undefined) s.damageNumbers = true;
+            if (s.showControlHints === undefined) s.showControlHints = true;
             if (!s.keybinds || typeof s.keybinds !== 'object') {
                 s.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
             } else {
@@ -117,11 +200,57 @@
             BO.Events.emit('settings:changed', { key: 'keybinds', value: BO.Save.data.settings.keybinds });
         }
 
-        resetKeybinds() {
+        resetKeybinds(actions = null) {
             this._ensureDefaults();
-            BO.Save.data.settings.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
+            if (Array.isArray(actions)) {
+                for (const a of actions) if (DEFAULT_KEYBINDS[a]) BO.Save.data.settings.keybinds[a] = DEFAULT_KEYBINDS[a];
+            } else {
+                BO.Save.data.settings.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
+            }
             BO.Save.save();
             BO.Events.emit('settings:changed', { key: 'keybinds', value: BO.Save.data.settings.keybinds });
+        }
+
+        get defaultKeybinds() { return DEFAULT_KEYBINDS; }
+        get controlCatalog() { return CONTROL_CATALOG; }
+        get mouseControls() { return MOUSE_CONTROLS; }
+
+        /** Context list for an action ('all modes' when unknown). */
+        actionContexts(action) {
+            for (const g of CONTROL_CATALOG) {
+                const found = g.actions.find((a) => a.action === action);
+                if (found) return found.ctx;
+            }
+            return ALL_MODES;
+        }
+
+        /** Other actions bound to `code` whose contexts overlap `action`'s. */
+        findConflicts(action, code) {
+            const kb = this.getKeybinds();
+            const mine = this.actionContexts(action);
+            const out = [];
+            for (const g of CONTROL_CATALOG) {
+                for (const a of g.actions) {
+                    if (a.action === action || kb[a.action] !== code) continue;
+                    if (a.ctx.some((c) => mine.includes(c))) out.push(a);
+                }
+            }
+            return out;
+        }
+
+        /** Readable key-cap text for a KeyboardEvent.code. */
+        keyLabel(code) {
+            if (!code || code === 'Unbound') return '—';
+            const named = {
+                Space: 'SPACE', Tab: 'TAB', Escape: 'ESC', Enter: 'ENTER', Backspace: 'BKSP', CapsLock: 'CAPS',
+                ShiftLeft: 'L-SHIFT', ShiftRight: 'R-SHIFT', ControlLeft: 'L-CTRL', ControlRight: 'R-CTRL',
+                AltLeft: 'L-ALT', AltRight: 'R-ALT', ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
+                Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Backslash: '\\',
+                Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Delete: 'DEL', Insert: 'INS',
+                Home: 'HOME', End: 'END', PageUp: 'PGUP', PageDown: 'PGDN', MetaLeft: 'WIN'
+            };
+            if (named[code]) return named[code];
+            return String(code).replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'NUM ').toUpperCase();
         }
 
         getQualityPreset() {

@@ -7,11 +7,11 @@
         survey: { name: 'Survey Circuit', description: 'Discover six areas and record three survey cairns before calling extraction.' },
         salvage: { name: 'Salvage Run', description: 'Deliver twelve iron ore, eight sawn boards, four coal, and ten salvage to Evac Ridge.' },
         bounty: { name: 'Rival Bounty', description: 'Eliminate Commander Sable and any one Zone Boss, then return to Evac Ridge.' },
-        siege: { name: 'Ridge Siege', description: 'Trigger and survive a three-wave defense at Evac Ridge after the safe minute, then call extraction.' },
+        siege: { name: 'Ridge Siege', description: 'Trigger and survive a three-wave defense at Evac Ridge after the safe period, then call extraction.' },
         bloodmoon: { name: 'Blood Moon Defense', description: 'Fortify a homestead with traps and turrets, survive a Crimson Blood Moon night surge, then evacuate at Evac Ridge.' },
         gauntlet: { name: 'Zone Boss Gauntlet', description: 'Slay any three Zone Bosses (Apex Guardian, Pale Maul, Cinder Regent, Resonant Sentinel) and extract.' },
         scavenger: { name: 'Zero-to-Hero Scavenger', description: 'Drop barehanded with zero guns or ammo. Gather materials, unlock schematics or loot caches, forge firearms, and extract.' },
-        freeplay: { name: 'Free Roam', description: 'Explore, farm, fish, build, upgrade attributes, and unlock tech indefinitely. Evacuation opens after the safe minute.' }
+        freeplay: { name: 'Free Roam', description: 'Explore, farm, fish, build, upgrade attributes, and unlock tech indefinitely. Evacuation opens after the safe period.' }
     };
 
     const difficulties = {
@@ -31,7 +31,7 @@
         blackout: { name: 'Permanent blackout', group: 'world', tier: 'challenge', ico: '🌑', description: 'Darkness remains at midnight levels even during daytime.' },
         longDusk: { name: 'Short daylight', group: 'world', tier: 'challenge', ico: '🌆', description: 'Darkness arrives earlier in the evening and lingers longer after sunrise.' },
         brutalNights: { name: 'Relentless nights', group: 'world', tier: 'challenge', ico: '🐺', description: 'Doubles the nighttime hostile spawn rate multiplier.' },
-        bloodMoonEveryNight: { name: 'Crimson Blood Moons', group: 'hardcore', tier: 'chaos', ico: '🩸', description: 'Every night after the safe minute triggers a Crimson Blood Moon surge with bonus Aether Shard rewards.' },
+        bloodMoonEveryNight: { name: 'Crimson Blood Moons', group: 'hardcore', tier: 'chaos', ico: '🩸', description: 'Every night after the safe period triggers a Crimson Blood Moon surge with bonus Aether Shard rewards.' },
         graceExtended: { name: 'Extended safe start (120s)', group: 'grace', tier: 'buff', ico: '🛡', description: 'Doubles the enemy-free opening grace period from 60 seconds to 120 seconds.' },
 
         // Combat & Enemies
@@ -92,5 +92,33 @@
         return mods.includes('graceExtended') ? 120 : openingSeconds;
     }
 
-    BO.SurvivalRules = { modes, difficulties, modifiers, categories, bundles, presets, openingSeconds, openingSecondsFor };
+    /* ---------------- Threat director ----------------
+       Day 1 only lets the four weakest infected roam, a handful at a time. Each new day unlocks
+       more of the roster (weakest to strongest) and raises how many may roam at once. Nights
+       add a little extra pressure on top of the current day. */
+    const DAY_POOL = [4, 9, 16, 25, 36, 50];
+    function threat(day, night, options, diffRules, rosterSize = 70) {
+        const d = Math.max(1, Math.floor(day) || 1);
+        const enc = Number(options?.encounterRate) || 1;
+        const poolBase = d <= DAY_POOL.length ? DAY_POOL[d - 1] : DAY_POOL[DAY_POOL.length - 1] + (d - DAY_POOL.length) * 10;
+        const poolSize = Math.max(1, Math.min(rosterSize, poolBase + (night ? 2 : 0)));
+        const maxCap = diffRules?.enemyCap || 20;
+        const frac = Math.min(1, 0.15 + (d - 1) * 0.14);
+        const ceiling = Math.round(maxCap * Math.max(1, enc));
+        const cap = Math.max(2, Math.min(ceiling, Math.round(maxCap * frac * (night ? 1.35 : 1) * enc)));
+        return {
+            day: d,
+            night: !!night,
+            poolSize,
+            cap,
+            interval: Math.max(5, 30 - (d - 1) * 3.5 - (night ? 6 : 0)),
+            hpScale: 1 + (d - 1) * 0.07,
+            dmgScale: Math.min(1.45, 1 + (d - 1) * 0.05),
+            patrols: d >= 2,
+            commander: d >= 3,
+            mimics: d >= 3
+        };
+    }
+
+    BO.SurvivalRules = { modes, difficulties, modifiers, categories, bundles, presets, openingSeconds, openingSecondsFor, threat };
 })(window.BO);

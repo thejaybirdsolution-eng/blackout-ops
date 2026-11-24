@@ -28,7 +28,7 @@
     };
 
     const stations = {
-        hand: 'Backpack handcraft [J]',
+        hand: 'Anywhere (by hand)',
         bench: 'Relay workshop or Crafting Table',
         kiln: 'Stone kiln',
         campfire: 'Campfire'
@@ -63,49 +63,55 @@
 
     function addControls(add) {
         const keys = BO.Settings?.getKeybinds?.() || {};
-        const key = (id, fallback) => keys[id] ? readKey(keys[id]) : fallback;
+        const key = (id, fallback) => keys[id] ? (BO.Settings.keyLabel ? BO.Settings.keyLabel(keys[id]) : readKey(keys[id])) : fallback;
         const move = [['forward', 'W'], ['left', 'A'], ['back', 'S'], ['right', 'D']].map(([id, fb]) => key(id, fb)).join('/');
-        add('controls', `${move} · Move & Sprint`, `${key('sprint', 'Shift')} sprints. ${key('jump', 'Space')} jumps/mantles. ${key('crouch', 'C')} or Ctrl toggles crouch stealth (or slides while sprinting).`);
-        add('controls', 'Alt · Dodge Roll (i-frames)', 'Perform a quick directional Dodge Roll in Survival mode with 0.34s invulnerability frames to evade lunges, acid, and boss slams (costs stamina).', 'dodge roll evade invulnerable alt');
-        add('controls', '1 / 2 / 3 / Scroll · Weapon & Bare Hands', 'Press 1 for Primary weapon, 2 for Secondary, and 3 (or scroll past slot 2) for Bare Hands. No guns required to fight or gather.', 'bare hands slot 3 fists unarmed');
-        add('controls', 'Mouse · Shoot / 3-Hit Punch / Guard & Parry', 'Left-Click fires or swings a 3-hit bare-hands combo (hold >0.45s and release for a Charged Haymaker). Right-Click aims firearms OR raises your Bare-Hands Guard (within 0.28s triggers a Perfect Parry!).', 'parry block guard combo haymaker');
-        add('controls', 'X · Aether Flask Quick-Heal', 'Drink a charge from your rechargeable Aether Flask to restore 50+ HP and clear Bleeding. Refill at any Site of Grace or Homestead Beacon.', 'flask heal estus x');
-        add('controls', `${key('interact', 'E')} · Interact`, 'Harvest deposits, open chests/doors, tend gardens, pump water, cast salvage lines, talk to NPCs, kindle Sites of Grace, and mine meteors.');
-        add('controls', `${key('armory', 'J')} · Backpack & Talismans`, 'Manage inventory weight/stacks, eat food, drink perk tonics, equip tools & up to 3 Talismans, and handcraft basic items.');
-        add('controls', `${key('fireMode', 'B')} · Build & Fortifications`, 'Open Field Construction (or detonate planted C4 first). Place walls, floors, roofs, doors, spike traps, turrets, generators, and beacons.');
-        add('controls', 'K · Technology Tree & Attributes', 'Spend Tech Points across 4 tiers (zero creatures/pals — pure traps, turrets, automation & weapon schematics) and inspect Runes & Infusions.');
-        add('controls', 'O · Goals, Challenges & Field Journal', 'Track your active Mode objective, claim 7 Field Challenges for bonus XP & supplies, and monitor Gardens, Repeaters, Surveys & World Events.');
-        add('controls', 'L · Survival Legend', 'Open or close this complete Survival encyclopedia at any time. Simulation & timers pause cleanly while open.');
-        add('controls', 'M / T / H · Map, Travel & Light', 'M opens the Exclusion Zone Field Map. T opens Vehicles & Fuel Fast-Travel. H toggles carried Torch or Quartz Lantern.');
-        add('controls', `${key('reload', 'R')} / ${key('inspect', 'I')} / ${key('armor', '4')} / ${key('melee', 'V')}`, 'R reloads or clears weapon stoppages. I inspects magazine/reserve. 4 inserts spare armor plate. V executes melee / bare-hands punch.');
+        add('controls', 'Rebind anything', 'Every key can be changed: pause the game and choose Controls & Keybinds, or open Settings › Controls. Conflicting keys swap automatically.', 'keybind rebind controls remap');
+        add('controls', `${move} · Move & sprint`, `${key('sprint', 'Shift')} sprints. ${key('jump', 'Space')} jumps/mantles. ${key('crouch', 'C')} toggles crouch stealth (or slides while sprinting).`);
+        add('controls', `${key('survDodge', 'Alt')} · Dodge roll`, 'A quick directional roll with 0.34 s of invulnerability to evade lunges, acid and boss slams. Costs stamina.', 'dodge roll evade invulnerable alt');
+        add('controls', `${key('hotbar1', '1')}–${key('hotbar10', '0')} / mouse wheel · 10-slot hotbar`, 'Your hotbar holds weapons, tools and usable items. Number keys pick a slot; the wheel cycles all ten. An empty slot is bare hands. Drag items onto the hotbar in the Inventory.', 'hotbar slot bare hands fists unarmed wheel');
+        add('controls', 'Left mouse · Fire / punch / swing / use', 'Fires a held weapon, punches with bare hands (hold and release for a heavy haymaker), swings a held tool (hold to keep chopping) or uses a held consumable.', 'parry block guard combo haymaker swing tool');
+        add('controls', 'Right mouse · Aim / guard & parry', 'Aims firearms. With bare hands, raises a guard; raising it within 0.28 s of a hit is a Perfect Parry.', 'parry block guard');
+        add('controls', `${key('interact', 'E')} · Interact / gather`, 'Gather deposits (with your best tool, or slowly by hand), open chests and doors, tend gardens, pump water, talk to contacts, kindle Sites of Grace and mine meteors.');
+        add('controls', `${key('survInventory', 'Tab')} · Inventory`, 'Backpack, hotbar, equipment, tools and talismans.');
+        add('controls', `${key('survCraft', 'J')} · Crafting`, 'Every recipe in one list by category. Recipes that need a workbench, campfire or kiln unlock when you stand within 4 m of one.');
+        add('controls', `${key('survBuild', 'B')} · Build`, 'Place walls, floors, stations, storage, traps, turrets and beacons (detonates planted C4 first).');
+        add('controls', `${key('survMap', 'M')} / ${key('survTravel', 'T')} · Map & travel`, 'Field map with landmarks, contacts and resources; fast travel and vehicles live on the right-hand side.');
+        add('controls', `${key('survSkills', 'K')} · Skills`, 'Spend Tech Points on the 4-tier technology tree and Aether Runes on attributes.');
+        add('controls', `${key('survJournal', 'O')} · Journal`, 'Objective, field challenges, contracts, activities, saving and your career record.');
+        add('controls', `${key('survLegend', 'L')} · Survival guide`, 'Open this encyclopedia. The game pauses while any Survival screen is open.');
+        add('controls', `${key('survFlask', 'X')} · Aether Flask`, 'Drink a charge to restore 50+ HP and stop bleeding. Refill at any Site of Grace, Homestead Beacon or by sleeping.', 'flask heal estus');
+        add('controls', `${key('survLight', 'H')} · Light`, 'Light or put out a carried torch or lantern.');
+        add('controls', `${key('reload', 'R')} / ${key('inspect', 'I')} / ${key('survPlate', 'F')} / ${key('melee', 'V')}`, 'Reload or clear a jam · inspect your magazine · insert a spare armor plate · quick punch or tool swing with anything in hand.');
     }
 
     function addCoreSections(add, openingSeconds) {
         add('start', `Opening Grace Period (First ${openingSeconds}s — No Enemies)`, 'During the first 60 seconds (or 120s with Extended Safe Start), NO zombies, bosses, or hostile patrols spawn anywhere. Boss challenges, the Research Core, Blood Moons, and Evac Ridge stay sealed until the safe timer finishes. Opening Survival menus pauses the clock!', 'safe minute no enemies spawn grace timer');
-        add('start', 'First 60 Seconds Checklist', '1) Press [3] to test Bare Hands or gather Fallen Branches, Loose Stones & Fiber Roots around Relay. 2) Braid Cord and craft a Stone Pickaxe & Hatchet in [J]. 3) Kindle Relay Sanctuary Grace (+1 Tech Point) right by the shelter. 4) Check [K] Tech Tree to unlock Perimeter Traps or Field Logistics. 5) Check [O] for your Mode Objective.');
+        add('start', 'First minute checklist', '1) Pick up fallen branches, loose stones and fiber roots around the Relay (press interact or punch them). 2) In Crafting, braid cord and make a stone hatchet and pickaxe — they land on your hotbar automatically. 3) Kindle the Relay Sanctuary Grace by the shelter (+1 Tech Point). 4) Spend it in Skills. 5) Check the Journal for your objective.');
+        add('start', 'Days, nights & escalating threat', 'Day 1 is quiet: only the 4 weakest infected roam, about 3 at a time. Every new day (midnight) unlocks stronger infected and raises the roaming limit until the full roster is in play around day 7. Nights allow about 35% more roamers. PMC scavengers arrive on day 2 and Commander Sable on day 3.', 'day night escalation threat cap roaming difficulty');
+        add('start', 'Bare hands vs tools', 'Bare hands break branches, stones, fiber, tier-1 trees and rocks, timber walls and even standing trees — at a quarter of a stone tool\'s speed. Tier-2 deposits (copper, quartz, hardwood, buried salvage) need the right tool. Hold a tool on the hotbar and click to swing it.', 'hands punch gather harvest tool slow');
         add('start', 'Complete Survival Loop', 'Explore 9 Zones -> Harvest & Mine -> Research 16 Tech Nodes -> Build Automated Base & Turrets -> Kindle Shrines & Level Attributes -> Craft Perk Tonics & Aether Infusions -> Beat Zone Bosses & Blood Moons -> Extract at Evac Ridge.');
 
-        add('combat', 'Bare Hands Mastery: Combos, Guard & Perfect Parry', 'Equip slot [3]. Left-Click chains Jab (44 dmg) -> Cross (52 dmg) -> Heavy Uppercut (72 dmg + stagger). Holding Left-Click >0.45s unleashes a 96-dmg Charged Haymaker! Holding Right-Click blocks 68% frontal damage; raising Guard within 0.28s of impact triggers a PERFECT PARRY (0 dmg, stuns attacker 2.4s, +25% stamina, and opens a 2.8x damage Riposte counter!).', 'bare hands punch guard parry riposte combo haymaker');
+        add('combat', 'Bare Hands Mastery: Combos, Guard & Perfect Parry', 'Select an empty hotbar slot. Left-Click chains Jab (44 dmg) -> Cross (52 dmg) -> Heavy Uppercut (72 dmg + stagger). Holding Left-Click >0.45s unleashes a 96-dmg Charged Haymaker! Holding Right-Click blocks 68% frontal damage; raising Guard within 0.28s of impact triggers a PERFECT PARRY (0 dmg, stuns attacker 2.4s, +25% stamina, and opens a 2.8x damage Riposte counter!).', 'bare hands punch guard parry riposte combo haymaker');
         add('combat', 'Stealth Backstab & Dodge Roll', 'Crouch [C] when quiet to drop enemy detection radius sharply. Striking an unaware enemy from behind while crouched deals a 3.5x Stealth Takedown critical! Press Left Alt to Dodge Roll with 0.34s invulnerability frames.');
         add('combat', 'Boss Poise, Phase 2 Rage & Spoils', 'At <=50% HP, Zone Bosses erupt into Phase 2 Rage (+25% speed & damage). Defeating any boss drops a golden Boss Spoils pouch with Runes, Aether Shards, and bonus Weapon Schematics, plus +1 Tech Point.');
         add('combat', 'Apex Guardian, Pale Maul, Cinder Regent & Resonant Sentinel', 'Apex Guardian guards the Research Trench Aether Core. Challenge Pale Maul via Kestrel (Frostline) and Cinder Regent via Ember (Cinder Flats). Mining the deep geode in Echo Cavern awakens the Resonant Sentinel.');
         add('combat', 'Hostile Mimics & Commander Sable', 'Rad fog can hide Mimics mimicking distress radio calls. Commander Sable leads armed PMC squads and may retreat below 70 HP to return later with reinforced heavy guards.');
 
         add('shrines', 'Sites of Grace & Homestead Grace Beacons', '5 ancient Sites of Grace dot the map (and you can build a Homestead Grace Beacon at Tech Tier 3). Kindling a Shrine grants +1 Tech Point, +50 XP, refills HP & Aether Flask, clears Bleeding/Infection, and sets your Respawn Sanctuary.');
-        add('shrines', 'Aether Flask & Golden Aether Seeds', 'Press [X] anytime for an instant burst heal (+50 HP + 5/Arcane) that stops Bleeding. Start with 3 charges; find 3 hidden Golden Aether Seeds (Pinebreak, Spillway, Echo Cavern) to expand up to 6 charges!');
+        add('shrines', 'Aether Flask & Golden Aether Seeds', 'Press your flask key anytime for an instant burst heal (+50 HP + 5/Arcane) that stops Bleeding. Start with 3 charges; find 3 hidden Golden Aether Seeds (Pinebreak, Spillway, Echo Cavern) to expand up to 6 charges!');
         add('shrines', 'Lost Aether Echoes & Sanctuary Respawn', 'When you have a kindled Shrine or Field Bed (and Iron Expedition is off), falling drops a glowing golden Soul Echo holding your carried Runes and lets you respawn safely at Sanctuary to reclaim them.');
 
         add('activities', 'Crop Gardening (Relay Beds)', 'Collect starter seeds at the Relay Dispatch Board. Plant seeds in the 3 Relay beds, water them with Filtered Water from Hand Pumps, and harvest fresh Rations, Plant Fiber, and Bitterleaf Herbs. Rapid Hydroponics increases growth 2.5x.');
-        add('activities', 'Water Pumps & Weighted Salvage Line Fishing', 'Use Hand Pumps (Relay, Spillway, Pinebreak) for Filtered Water (hydration & recipes). Craft a Weighted Salvage Line in [J] and cast at the 3 shoreline pools — watch the float dip, then press [E] within 3.5s to haul salvage, fuel, iron, copper, and quartz!');
+        add('activities', 'Water Pumps & Weighted Salvage Line Fishing', 'Use Hand Pumps (Relay, Spillway, Pinebreak) for Filtered Water (hydration & recipes). Craft a Weighted Salvage Line in Crafting and cast at the 3 shoreline pools — watch the float dip, then press [E] within 3.5s to haul salvage, fuel, iron, copper, and quartz!');
         add('activities', 'Repeater Towers, Dispatch Routes & Weather Balloons', 'Power 3 Repeaters with Copper Wire + Fuel for faster Supply Drops & a relay reward. Accept Dispatch Routes at Relay Board to seal checkpoints for medkits, fuel & quartz. Watch for descending orange Weather Balloon crates across the map.');
-        add('activities', 'Crimson Blood Moon Nights & Aether Meteor Falls', 'After the safe minute, every 2nd night (or every night with modifier/Blood Moon mode) turns the sky crimson for a 75s Blood Moon surge — survive it for +250 Runes, +2 Aether Shards & Salvage! Periodically, purple Aether Meteors crash on the surface with 3 Aether Shards and random Weapon Schematics.');
+        add('activities', 'Crimson Blood Moon Nights & Aether Meteor Falls', 'After the safe period, every 3rd night (or every night with the modifier or Blood Moon Defense) turns the sky crimson for a 75s Blood Moon surge — survive it for +250 Runes, +2 Aether Shards & Salvage! Periodically, purple Aether Meteors crash on the surface with 3 Aether Shards and random Weapon Schematics.');
 
         add('status', 'Temperature, Hydration & Peak Condition', 'Frostline Quarry and nights drop ambient temperature; freezing drains stamina & HP unless near Campfire/Kiln/Torch/Shrine or warmed by Spiced Broth. Drink Filtered Water, Tea, or Stew to keep Hydration up. Keeping Hunger & Hydration >= 75% grants Peak Condition (+8% speed & passive HP regen).');
         add('status', 'Rested Comfort, Bleeding & Bio-Infection', 'Standing near warm campfires/shrines or sleeping in a Bed grants Rested Comfort (+18% stamina regen). Tough hits or Bio-Toxic modifier can inflict Bleeding or Infection — cure with Herbal Dressings, Antibiotic Elixir, or Aether Flask.');
         add('status', 'Weather, Radiation & Weapon Jamming', 'Rad fog reduces visibility; Ash rain can jam worn firearms (clear with R). Research Trench & Echo Cavern add radiation (slowed by Respirator Filter, Arcane rank, or Lead-Lined Charm).');
 
-        add('building', 'Base Level (Lv 1-5), Repair & Dismantle', 'Building varied pieces raises your Homestead Base Level (1 to 5). Use the Build menu [B] to rotate orientation, repair damaged fortifications for 1 Salvage, or dismantle the nearest structure within 4m to reclaim materials.');
-        add('help', 'Cannot build, craft, save, or extract?', 'Dismount vehicles and stand on level surface outside restricted enclosures. Roofs need a nearby wall. Tech-locked structures/schematics require unlocking their node in [K]. Check [O] to confirm your Mode objective and make sure the 60s safe minute has finished before challenging bosses or evacuating.');
+        add('building', 'Base Level (Lv 1-5), Repair & Dismantle', 'Building varied pieces raises your Homestead Base Level (1 to 5). Use the Build menu to rotate orientation, repair damaged fortifications for 1 Salvage, or dismantle the nearest structure within 4m to reclaim materials.');
+        add('help', 'Cannot build, craft, save, or extract?', 'Dismount vehicles and stand on level surface outside restricted enclosures. Roofs need a nearby wall. Tech-locked structures/schematics require unlocking their node in Skills. Check the Journal to confirm your Mode objective and make sure the opening safe period has finished before challenging bosses or evacuating.');
     }
 
     function addDynamicData(add, rules, deep, frontier, campaign, base, cost) {
@@ -126,7 +132,7 @@
         for (const [id, pool] of Object.entries(campaign.pools || {})) add('rules', `Pool: ${pool.name}`, pool.extra, id);
 
         for (const s of deep.shrines || []) add('shrines', s.name, `Site of Grace in ${s.area}. ${coords(s)} Kindle for +1 Tech Point, heal & set respawn.`, s.id);
-        for (const [id, attr] of Object.entries(deep.attributes || {})) add('shrines', `Attribute: ${attr.name}`, `${attr.bonus}. Spend Aether Runes at any Shrine or in [K].`, id);
+        for (const [id, attr] of Object.entries(deep.attributes || {})) add('shrines', `Attribute: ${attr.name}`, `${attr.bonus}. Spend Aether Runes at any Shrine or in Skills.`, id);
         for (const [id, tal] of Object.entries(deep.talismans || {})) add('shrines', `Talisman: ${tal.name}`, `${tal.effect} Found: ${tal.location}. Equip up to 3 in Backpack or Shrine.`, id);
         for (const seed of deep.goldenSeeds || []) add('shrines', seed.name, `Permanent +1 Aether Flask max charge (up to 6). ${coords(seed)}`, seed.id);
 
@@ -144,7 +150,7 @@
         for (const [id, [name, cat, kg]] of Object.entries(frontier.items || {})) add('storage', name, `${cat}. ${kg} kg per unit.`, id);
         for (const [id, t] of Object.entries(frontier.tools || {})) add('tools', t.name, `Tier ${t.level} ${toolFamilies[t.family] || t.family}. Power ${t.power}, durability ${t.wear}. Craft at ${stations[t.station] || t.station} for ${cost(t.cost)}.`, id);
         for (const [id, r] of Object.entries(frontier.resources || {})) {
-            const req = r.tool ? `Requires tier ${r.tier} ${toolFamilies[r.tool]} or better.` : 'Gather by hand or bare-hands punch.';
+            const req = r.tool ? (r.tier <= 1 ? `Best with a ${toolFamilies[r.tool]}; bare hands work at a quarter speed.` : `Requires a tier ${r.tier} ${toolFamilies[r.tool]} or better.`) : 'Gather by hand or punch it.';
             add('tools', r.name, `${req} Base strokes: ${r.strokes}. Yield: ${cost(r.gain)}.`, id);
         }
         for (const rec of frontier.recipes || []) add('recipes', rec.name, `${stations[rec.station] || rec.station}. Cost: ${cost(rec.cost)}. ${rec.desc}`, rec.id);

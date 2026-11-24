@@ -402,6 +402,8 @@
                 }
             };
             document.getElementById('btn-pause-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
+            const btnPauseControls = document.getElementById('btn-pause-controls');
+            if (btnPauseControls) btnPauseControls.onclick = () => { BO.Sound.playUIClick(); BO.ControlsPanel.open(); };
             document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
             document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
 
@@ -436,6 +438,7 @@
             // Modal Close buttons
             document.getElementById('btn-settings-close').onclick = () => {
                 BO.Sound.playUIClick();
+                BO.ControlsPanel?.stopListening();
                 this.isRebindingKey = false;
                 this.modalSettings.classList.add('hidden');
             };
@@ -514,6 +517,7 @@
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
             if (this.modalPause) this.modalPause.classList.toggle('hidden', !open);
+            if (!open && BO.ControlsPanel?.isOpen) BO.ControlsPanel.close();
             if (open && this.modalTdShop) this.modalTdShop.classList.add('hidden');
             if (open && this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
             if (open && this.modalMpClass) this.modalMpClass.classList.add('hidden');
@@ -2178,67 +2182,8 @@
             const s = BO.Settings.all;
 
             if (this.settingsTab === 'controls') {
-                const kb = BO.Settings.getKeybinds();
-                body.innerHTML = `
-                    <div class="panel-title">MOUSE AIM &amp; SENSITIVITY</div>
-                    <div class="setting-row" data-tip-title="Mouse Sensitivity" data-tip="How fast your camera turns when moving the mouse."><span>Mouse Look Sensitivity (<span id="lbl-sens">${s.sensitivity}</span>)</span><input type="range" id="set-sens" min="0.2" max="3.0" step="0.1" value="${s.sensitivity}"></div>
-                    <div class="setting-row" data-tip-title="ADS Aim Speed" data-tip="Slows down mouse movement while holding Right-Click so long-range shots are steadier."><span>ADS Zoom Sensitivity Multiplier (<span id="lbl-adssens">${s.adsSensitivity}</span>)</span><input type="range" id="set-adssens" min="0.3" max="1.2" step="0.05" value="${s.adsSensitivity}"></div>
-                    <div class="setting-row" data-tip-title="Invert Vertical Look" data-tip="Flips up and down mouse movement."><span>Invert Y Axis</span><input type="checkbox" id="set-inverty" ${s.invertY ? 'checked' : ''}></div>
-
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px;">
-                        <div class="panel-title" style="margin:0;border:none;">CUSTOM KEYBINDS (CLICK ANY KEY TO REBIND)</div>
-                        <button class="btn btn-sm" id="btn-reset-binds" data-tip-title="Reset Default Controls" data-tip="Restore all 19 keyboard controls back to standard Call of Duty defaults.">RESET DEFAULT KEYS</button>
-                    </div>
-                    <div class="keybind-grid">
-                        ${KEYBIND_LABELS.map((item) => `
-                            <div class="keybind-item" data-tip-title="${escAttr(item.label)}" data-tip="${escAttr(item.tip)} Click the button on the right, then press any keyboard key to rebind.">
-                                <span style="font-size:12.5px;font-weight:700;">${item.label}</span>
-                                <button class="keybind-btn ${this.rebindingAction === item.action ? 'listening' : ''}" data-bindact="${item.action}">
-                                    ${this.rebindingAction === item.action ? 'PRESS KEY...' : formatKeyCode(kb[item.action])}
-                                </button>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-                document.getElementById('set-sens').oninput = (e) => {
-                    const v = Number(e.target.value);
-                    document.getElementById('lbl-sens').textContent = v.toFixed(1);
-                    BO.Settings.set('sensitivity', v);
-                };
-                document.getElementById('set-adssens').oninput = (e) => {
-                    const v = Number(e.target.value);
-                    document.getElementById('lbl-adssens').textContent = v.toFixed(2);
-                    BO.Settings.set('adsSensitivity', v);
-                };
-                document.getElementById('set-inverty').onchange = (e) => BO.Settings.set('invertY', e.target.checked);
-                document.getElementById('btn-reset-binds').onclick = () => {
-                    BO.Sound.playUIClick();
-                    BO.Settings.resetKeybinds();
-                    this.isRebindingKey = false;
-                    this.rebindingAction = null;
-                    this.renderSettings();
-                };
-                body.querySelectorAll('[data-bindact]').forEach((btn) => {
-                    btn.onclick = () => {
-                        BO.Sound.playUIClick();
-                        const act = btn.dataset.bindact;
-                        this.isRebindingKey = true;
-                        this.rebindingAction = act;
-                        this.renderSettings();
-                        const onKey = (ev) => {
-                            ev.preventDefault();
-                            ev.stopPropagation();
-                            window.removeEventListener('keydown', onKey, true);
-                            if (ev.code !== 'Escape') {
-                                BO.Settings.setKeybind(act, ev.code);
-                            }
-                            this.isRebindingKey = false;
-                            this.rebindingAction = null;
-                            this.renderSettings();
-                        };
-                        window.addEventListener('keydown', onKey, true);
-                    };
-                });
+                body.innerHTML = '<div class="cp-embed"></div>';
+                BO.ControlsPanel.mount(body.querySelector('.cp-embed'));
             } else if (this.settingsTab === 'video') {
                 const isFs = !!document.fullscreenElement;
                 body.innerHTML = `

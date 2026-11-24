@@ -6,6 +6,10 @@
     const nameOf = (id) => data.items[id]?.[0] || data.tools[id]?.name || id;
     const amountText = (items) => Object.entries(items).filter(([, count]) => count > 0)
         .map(([id, count]) => count + ' ' + nameOf(id)).join(' · ');
+    /* Bare hands break tier-1 deposits at a quarter of a stone tool's pace; tier-2+ need the right tool. */
+    const HAND_POWER = 0.25;
+    const HAND_TIER = 1;
+    const TOOL_NAMES = { axe: 'an axe', pick: 'a pickaxe', shovel: 'a shovel' };
 
     class SurvivalPack {
         constructor(campaign) {
@@ -27,6 +31,9 @@
             this.caveVisited = false;
             this.geodeAwakened = false;
             this.nextRenewalCheck = 0;
+            this.meshToNode = new Map();
+            this.lastStrike = null;
+            this.nextHint = 0;
         }
 
         get limits() {
@@ -130,18 +137,22 @@
             }
             const marker = { id, x, y, z, name: spec.name, label: '', alive: true };
             m.markers.push(marker);
+            for (const mesh of geometry) this.meshToNode.set(mesh, id);
             this.resources.set(id, { kind, spec, hp: spec.strokes, geometry, collider, marker });
         }
 
-        pickTool(spec) {
-            if (this.equipped && this.tools[this.equipped] > 0) {
-                const active = data.tools[this.equipped];
-                if (active.family === spec.tool && active.level >= spec.tier) return this.equipped;
-            }
-            return Object.keys(this.tools)
-                .filter((id) => this.tools[id] > 0 && data.tools[id].family === spec.tool && data.tools[id].level >= spec.tier)
-                .sort((a, b) => data.tools[b].power - data.tools[a].power)[0];
+        /** Best owned tool able to work this deposit (the held hotbar tool wins when suitable). */
+        pickTool(spec, preferred = null) {
+            const fits = (id) => id && this.tools[id] > 0 && data.tools[id]?.family === spec.tool && data.tools[id].level >= spec.tier;
+            if (fits(preferred)) return preferred;
+            const held = this.campaign.hotbar?.heldTool;
+            if (fits(held)) return held;
+            if (fits(this.equipped)) return this.equipped;
+            return Object.keys(this.tools).filter(fits).sort((a, b) => data.tools[b].power - data.tools[a].power)[0];
         }
+
+        /** Can this deposit be broken without the proper tool? */
+        handBreakable(spec) { return !spec.tool || spec.tier <= HAND_TIER; }
 
         prompt(id) {
             if (id.startsWith('bag:')) return 'Collect contents of dropped pack';
@@ -149,10 +160,124 @@
             if (!node || node.hp <= 0) return '';
             const { spec } = node;
             if (!spec.tool) return 'Gather ' + spec.name.toLowerCase();
-            const tool = this.pickTool(spec);
             if (node.kind === 'deep' && this.geodeAwakened && !this.campaign.metrics.geodeBoss) return 'Defeat the Resonant Sentinel';
-            if (tool) return spec.name + ' · ' + nameOf(tool) + ' · ' + node.hp + ' left';
-            return spec.name + ' · requires ' + ({ axe: 'an axe', pick: 'a pickaxe', shovel: 'a shovel' }[spec.tool]) + (spec.tier > 1 ? ' tier ' + spec.tier : '');
+            const tool = this.pickTool(spec);
+            const left = Math.max(1, Math.ceil((node.hp / spec.strokes) * 100)) + '%';
+            if (tool) return spec.name + ' · ' + nameOf(tool) + ' · ' + left;
+            if (this.handBreakable(spec)) return spec.name + ' · bare hands (slow) · ' + left;
+            return spec.name + ' · needs ' + TOOL_NAMES[spec.tool] + (spec.tier > 1 ? ' (tier ' + spec.tier + ')' : '');
+        }
+
+        wearTool(id, amount = 1) {
+            if (!(this.tools[id] > 0)) return;
+            let step = amount * (this.campaign.has('steadyTools') ? 0.5 : 1);
+            if (this.campaign.deep?.hasInfusion('unbreaking')) step *= 0.4;
+            this.tools[id] = Math.max(0, this.tools[id] - step);
+            if (this.tools[id] === 0) {
+                this.mode.toast(nameOf(id) + ' wore out. Repair it with a field repair kit or craft a new one.');
+                this.campaign.hotbar?.apply(true);
+            }
+        }
+
+        /** A swing (punch or tool) that hit no enemy: break whatever deposit or timber is in front. */
+        swing(toolId, aim, wallHit, strength = 1) {
+            const m = this.mode;
+            if (!m.active || m.rider) return false;
+            const p = BO.Player.pos;
+            let nodeId = wallHit?.object ? this.meshToNode.get(wallHit.object) : null;
+            if (!nodeId) {
+                // Small deposits have no collider, so pick the closest one roughly in the aim direction.
+                let best = null;
+                let bestScore = Infinity;
+                for (const [id, node] of this.resources) {
+                    if (node.hp <= 0) continue;
+                    const mk = node.marker;
+                    const dx = mk.x - p.x;
+                    const dz = mk.z - p.z;
+                    const dy = (mk.y + 0.4) - (p.y + 1.0);
+                    const d = Math.hypot(dx, dz);
+                    if (d > 2.7 || Math.abs(dy) > 2.2) continue;
+                    const facing = d < 0.6 ? 1 : (dx * aim.dir.x + dz * aim.dir.z) / (d * Math.hypot(aim.dir.x, aim.dir.z) || 1);
+                    if (facing < 0.55) continue;
+                    const score = d - facing;
+                    if (score < bestScore) { bestScore = score; best = id; }
+                }
+                if (best && (!wallHit || wallHit.distance > Math.hypot(this.resources.get(best).marker.x - p.x, this.resources.get(best).marker.z - p.z) - 0.4)) nodeId = best;
+            }
+            if (nodeId) return this.strike(nodeId, toolId, strength);
+            const part = wallHit?.object ? m.structures.get(wallHit.object) : null;
+            if (part && part.hp > 0) {
+                const t = toolId ? data.tools[toolId] : null;
+                let dmg;
+                if (t && t.family === 'axe' && part.material === 'wood') dmg = 16 * t.power;
+                else if (t && t.family === 'pick' && part.material === 'brick') dmg = 12 * t.power;
+                else if (t) dmg = 7;
+                else dmg = part.material === 'wood' ? 5.5 * strength : 1.4 * strength;
+                if (t) this.wearTool(toolId, 0.5);
+                m.damagePart(part, dmg, 'melee');
+                BO.FX.spawnParticles(wallHit.point, 4, part.material === 'wood' ? 0xaa8254 : 0xbe9580, 2.2, 8, 0.35);
+                const kind = part.kind === 'tree' ? 'Tree' : part.material === 'wood' ? 'Timber' : 'Masonry';
+                const max = part.maxHp || (part.kind === 'tree' ? 125 : part.material === 'wood' ? 70 : 170);
+                this.lastStrike = { name: kind + (t ? '' : ' · bare hands'), frac: Math.max(0, part.hp) / max, at: m.clock, hand: !t };
+                if (!t && part.material === 'brick' && m.clock >= this.nextHint) {
+                    this.nextHint = m.clock + 6;
+                    m.toast('Masonry barely cracks under bare fists. A pickaxe works far better.');
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /** One hit on a resource node with a tool (or bare hands when toolId is null). */
+        strike(nodeId, toolId, strength = 1) {
+            const node = this.resources.get(nodeId);
+            const m = this.mode;
+            if (!node || node.hp <= 0) return false;
+            const { spec, marker } = node;
+            if (node.kind === 'deep' && !this.campaign.metrics.geodeBoss) {
+                if (!m.hostilesReleased) {
+                    m.toast('The deep seam stays sealed during the safe period.');
+                    return true;
+                }
+                if (!this.geodeAwakened) {
+                    this.geodeAwakened = true;
+                    m.spawnInfected(-6.6, -5, -46.5, 'geodeBoss');
+                    m.toast('The Resonant Sentinel guards this deposit.');
+                }
+                return true;
+            }
+            const tool = spec.tool ? this.pickTool(spec, toolId) : null;
+            // Only the tool actually swung counts; otherwise the swing is a bare-hand blow.
+            const usingTool = tool && (toolId === tool);
+            let power;
+            if (!spec.tool) power = 1;
+            else if (usingTool) power = data.tools[tool].power;
+            else if (this.handBreakable(spec)) power = HAND_POWER * strength;
+            else {
+                if (m.clock >= this.nextHint) {
+                    this.nextHint = m.clock + 2.5;
+                    m.toast(spec.name + ' is too hard for bare hands — it needs ' + TOOL_NAMES[spec.tool] + (spec.tier > 1 ? ' of tier ' + spec.tier + ' or better' : '') + '.');
+                }
+                this.lastStrike = { name: spec.name + ' · needs ' + TOOL_NAMES[spec.tool], frac: node.hp / spec.strokes, at: m.clock, blocked: true };
+                return true;
+            }
+            if (usingTool) {
+                this.equipped = tool;
+                this.wearTool(tool, 1);
+                m.noise = Math.max(m.noise, tool === 'miningDrill' ? 7 : 2.8);
+            } else if (spec.tool) {
+                m.noise = Math.max(m.noise, 1.2);
+            }
+            node.hp = Math.max(0, node.hp - power);
+            if (node.hp < 0.001) node.hp = 0;
+            BO.FX.spawnParticles(new THREE.Vector3(marker.x, marker.y + 0.65, marker.z), usingTool ? 6 : 3, spec.color, 2.4, 8, 0.5);
+            this.lastStrike = { name: spec.name + (spec.tool && !usingTool ? ' · bare hands' : ''), frac: node.hp / spec.strokes, at: m.clock, hand: !!spec.tool && !usingTool };
+            if (spec.tool && !usingTool && m.clock >= this.nextHint && node.hp > 0) {
+                this.nextHint = m.clock + 9;
+                m.toast('Breaking ' + spec.name.toLowerCase() + ' by hand is slow. Craft ' + TOOL_NAMES[spec.tool] + ' to work it four times faster.');
+            }
+            if (!node.hp) this.harvest(node, usingTool ? tool : null);
+            return true;
         }
 
         interact(marker) {
@@ -166,39 +291,20 @@
             if (node.hp <= 0) return true;
             const m = this.mode;
             if (m.clock < this.nextToolUse || m.rider) return true;
-            const { spec } = node;
-            const tool = spec.tool ? this.pickTool(spec) : null;
-            if (spec.tool && !tool) {
-                m.toast(this.prompt(marker.id) + '. Open the backpack to craft tools.');
-                return true;
-            }
-            if (node.kind === 'deep' && !this.campaign.metrics.geodeBoss) {
-                if (!m.hostilesReleased) {
-                    m.toast('The deep seam stays sealed during the safe minute.');
-                    return true;
-                }
-                if (!this.geodeAwakened) {
-                    this.geodeAwakened = true;
-                    m.spawnInfected(-6.6, -5, -46.5, 'geodeBoss');
-                    m.toast('The Resonant Sentinel guards this deposit.');
-                }
-                return true;
-            }
+            const tool = node.spec.tool ? this.pickTool(node.spec) : null;
             const gSpd = this.campaign.deep?.modFx?.gatherSpeedMult || 1;
-            this.nextToolUse = m.clock + (tool ? 0.42 : 0.19) / gSpd;
-            if (tool) {
-                this.equipped = tool;
-                let wearStep = this.campaign.has('steadyTools') ? 0.5 : 1;
-                if (this.campaign.deep?.hasInfusion('unbreaking')) wearStep *= 0.4;
-                this.tools[tool] = Math.max(0, this.tools[tool] - wearStep);
-                BO.Player.meleeTimer = Math.max(BO.Player.meleeTimer, 0.25);
-                BO.Sound.playMelee();
-                m.noise = Math.max(m.noise, tool === 'miningDrill' ? 7 : 2.8);
-                if (this.tools[tool] === 0) m.toast(nameOf(tool) + ' wore out.');
-            }
-            node.hp = Math.max(0, node.hp - (tool ? data.tools[tool].power : 1));
-            BO.FX.spawnParticles(new THREE.Vector3(marker.x, marker.y + 0.65, marker.z), 6, spec.color, 2.4, 8, 0.5);
-            if (!node.hp) {
+            this.nextToolUse = m.clock + (tool ? 0.42 : node.spec.tool ? 0.5 : 0.19) / gSpd;
+            BO.Player.meleeTimer = Math.max(BO.Player.meleeTimer, 0.25);
+            BO.Player.meleeDur = 0.25;
+            BO.Sound.playMelee();
+            this.strike(marker.id, tool || null, 1);
+            return true;
+        }
+
+        harvest(node, tool) {
+            const m = this.mode;
+            const { spec } = node;
+            {
                 this.deplete(node);
                 if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? 480 : 170);
                 const mfx = this.campaign.deep?.modFx || {};
@@ -213,7 +319,7 @@
                     gain.quartz = (gain.quartz || 0) + 1;
                 }
                 m.grant(gain);
-                this.campaign.mark('gatheredNodes', 1, tool ? 10 : 3);
+                this.campaign.mark('gatheredNodes', 1, spec.tool ? 10 : 3);
                 this.campaign.mark('harvest_' + node.kind, 1, 0);
                 if (spec.tool === 'pick') this.campaign.mark('oreHarvests', 1, 0);
             }
@@ -289,7 +395,8 @@
 
         canCraft(recipe) {
             if (!recipe) return false;
-            if (recipe.station !== 'hand' && recipe.station !== this.campaign.station) return false;
+            if (recipe.station !== 'hand' && !this.campaign.stationAvailable(recipe.station)) return false;
+            if (recipe.tech && this.campaign.deep && !this.campaign.deep.hasTech(recipe.tech)) return false;
             if (recipe.pack !== undefined && recipe.pack !== this.level + 1) return false;
             if (recipe.tool && this.tools[recipe.id] > 0) return false;
             if (!this.mode.canAfford(recipe.cost)) return false;
@@ -401,7 +508,7 @@
                 m.toast('Light extinguished.');
                 return;
             }
-            if (!this.use(this.inventory.lantern && this.inventory.fuel ? 'lantern' : 'torch')) m.toast('Craft a torch or lantern in the backpack.');
+            if (!this.use(this.inventory.lantern && this.inventory.fuel ? 'lantern' : 'torch')) m.toast('Craft hand torches (timber, resin, fiber) or a lantern first.');
         }
 
         get filtered() { return this.filterUntil > this.mode.clock; }
@@ -435,7 +542,7 @@
             if (inCave && !this.caveVisited) {
                 this.caveVisited = true;
                 this.campaign.mark('visitedCavern', 1, 40);
-                m.toast('Echo Cavern discovered. Press H to light a carried torch.');
+                m.toast('Echo Cavern discovered. Press ' + BO.Settings.keyLabel(BO.Settings.getKeybinds().survLight) + ' to light a carried torch.');
             }
             if (inCave && m.weatherHemi) m.weatherHemi.intensity *= 0.43;
             const lit = this.lightUntil > m.clock;

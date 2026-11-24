@@ -21,5 +21,12 @@ A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle 
   - Defend 3 see-through/shoot-through Defense Wall Layers (`250 HP` each) and the `100 HP` Castle Heart with your squad, Sentry Turrets, Armored Guard Dogs, Allied Marines, and the 30s Intermission Shopkeeper.
 - **Online PvP / Co-op & Bot Multiplayer** (`Nuketown`, `Shipment`, `Terminal`, `Rust`, `Killhouse`, `Crash Site`):
   - **Team Deathmatch**, **Free-For-All**, **Domination**, **Hardpoint**, and **Gun Game** + full Custom Game Rules and 15-second MW2 Winner Killcam.
+- **Solo Survival (Exclusion Zone)**:
+  - Guided 8-step deployment screen (quick-start presets, operation, difficulty, world & time, survival rules, modifiers, enemy roster, career) with a live summary and threat forecast. Hover any option for an explanation.
+  - **Escalating days**: day 1 lets only the 4 weakest infected roam (about 3 at once). Each new day unlocks stronger infected and raises the roaming limit; nights add ~35% more. PMC scavengers arrive on day 2, Commander Sable on day 3, Blood Moons every third night.
+  - **10-slot hotbar** (`1`–`0` or mouse wheel) for weapons, tools and usable items. An empty slot is bare hands. Drag items onto it from the inventory.
+  - **Bare hands can gather**: branches, stones, fiber, tier-1 rock and trees, timber and standing trees break by hand at a quarter of a stone tool's speed; tier-2 deposits need the right tool.
+  - **Field terminal**: Inventory (`Tab`), Crafting (`J`), Build (`B`), Map & travel (`M`/`T`), Skills (`K`), Journal (`O`), Guide (`L`). Station recipes unlock when you stand within 4 m of a workbench, campfire or kiln.
+- **Controls**: pause the game and choose **Controls & Keybinds** (also in Settings › Controls) to view every control for the current mode and rebind any key. Conflicts swap automatically.
 - **Create-a-Class & Interactive 3D Gunsmith**:
   - 10 Custom Classes, 70 Weapons (50 Firearms, 10 Melee, 10 Magic/Wonder Weapons), 5 Attachment Slots, 10 Camos, Perks, Special Powers, and Ultimate Powers.

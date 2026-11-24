@@ -422,7 +422,7 @@
                 const flame = this._mesh(new THREE.OctahedronGeometry(0.22), 0xfacc15, piece.x, piece.y + 1.98, piece.z,
                     { emissive: 0xf59e0b, emissiveIntensity: 0.8 });
                 const marker = this._marker('grace:beacon_' + piece.id, 'Homestead Grace Beacon', piece.x, piece.y, piece.z, 'Rest at Homestead Grace', 0xfacc15);
-                marker.shrineObj = { id: 'beacon_' + piece.id, name: 'Homestead Grace Beacon', x: piece.x, y: piece.y, z: pOrZ(piece), flame, marker };
+                marker.shrineObj = { id: 'beacon_' + piece.id, name: 'Homestead Grace Beacon', x: piece.x, y: piece.y, z: piece.z, flame, marker };
                 this.kindledShrines.add('beacon_' + piece.id);
                 this.lastRestPoint = { x: piece.x, y: piece.y, z: piece.z };
             } else if (piece.type === 'infuser') {
@@ -732,14 +732,14 @@
 
             const needs = this.campaign.options.survivalNeeds !== false;
             if (needs) {
-                const hydDrain = (this.campaign.has('hungry') ? 0.36 : 0.16) * (this.temp > 31 ? 1.5 : 1) * (mfx.hydDrainMult || 1);
+                const hydDrain = (this.campaign.has('hungry') ? 0.18 : 0.09) * (this.temp > 31 ? 1.5 : 1) * (mfx.hydDrainMult || 1);
                 this.hydration = Math.max(0, this.hydration - dt * hydDrain);
             }
             if (this.bleeding > 0) this.bleeding = Math.max(0, this.bleeding - dt * (mfx.bleedDecayMult || 1));
 
             if (clock >= this._lastAmbientTick + 1.0) {
                 this._lastAmbientTick = clock;
-                if (needs && this.hydration <= 0) p.takeDamage(2);
+                if (needs && this.hydration <= 0) p.takeDamage(1);
                 if (this.bleeding > 0) p.takeDamage(2);
                 if (this.infection >= 70) p.takeDamage(2);
                 if (needs && this.temp < 2 && !this.hasTalisman('rad_charm') && !mfx.coldImmune) {
@@ -812,11 +812,13 @@
             }
 
             // Crimson Blood Moon Nights
-            const totalDay = Math.floor((this.campaign.options.startHour + clock / this.campaign.options.dayLength * 24 + this.campaign.restHours) / 24);
-            const triggerNight = this.campaign.has('bloodMoonEveryNight') || this.campaign.options.gameType === 'bloodmoon' ? (totalDay >= 0) : (totalDay % 2 === 1);
-            if (!this.bloodMoonActive && this.campaign.isNight && triggerNight && this.bloodMoonNightKey !== totalDay) {
+            // Blood Moons rise on every third night (3, 6, 9...), or every night when the mode/modifier asks for it.
+            const nightNo = this.campaign.nightNumber;
+            const everyNight = this.campaign.has('bloodMoonEveryNight') || this.campaign.options.gameType === 'bloodmoon';
+            const triggerNight = nightNo >= 1 && (everyNight || nightNo % 3 === 0);
+            if (!this.bloodMoonActive && this.campaign.isNight && triggerNight && this.bloodMoonNightKey !== nightNo) {
                 this.bloodMoonActive = true;
-                this.bloodMoonNightKey = totalDay;
+                this.bloodMoonNightKey = nightNo;
                 this.bloodMoonUntil = clock + 75;
                 this.bloodMoonNextWave = clock + 3;
                 BO.Sound?.playExplosion?.(0.5);

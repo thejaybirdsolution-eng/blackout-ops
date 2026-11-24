@@ -1,5 +1,9 @@
 /* ============================================================================
-   BLACKOUT OPS — Mega Survival Briefing, Legend, Tech Tree, Shrines & HUD UI
+   BLACKOUT OPS — Survival interface
+   · Deployment screen: guided, step-by-step launch settings with live summary
+   · Field Terminal: Inventory · Crafting · Build · Map · Skills · Journal · Guide
+   · Context panels: contacts, storage, Sites of Grace, infusion altar, respawn
+   · In-match HUD: objective bar, vitals, 10-slot hotbar, harvest feedback
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -9,649 +13,1832 @@
     const frontier = BO.SurvivalFrontierData;
     const rules = () => BO.SurvivalRules || {};
     const deepData = () => BO.SurvivalDeepData || {};
+    const Icons = () => BO.SurvivalIcons;
 
-    const price = (cost) => Object.entries(cost || {}).map(([key, count]) =>
-        count + ' ' + ({ scrap: 'salvage', rations: 'ration', coil: 'MRI coil', freshWater: 'water', aetherShard: 'Aether shard' }[key] || key)).join(' + ');
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const tip = (title, body, sub) => ` data-tip-title="${esc(title)}" data-tip="${esc(body)}"${sub ? ` data-tip-sub="${esc(sub)}"` : ''}`;
+    const itemName = (id) => BO.SurvivalItemName ? BO.SurvivalItemName(id) : id;
+    const keyOf = (action) => BO.Settings.keyLabel(BO.Settings.getKeybinds()[action]);
+    const pct = (v, max = 100) => Math.max(0, Math.min(100, (v / (max || 1)) * 100));
+    const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
 
-    const select = (label, name, values, current) =>
-        `<label class="survival-option"><span>${label}</span><select name="${name}">${values.map(([id, text]) =>
-            `<option value="${id}" ${String(current) === String(id) ? 'selected' : ''}>${text}</option>`).join('')}</select></label>`;
-    const checkbox = (label, name, checked) =>
-        `<label class="survival-toggle"><input type="checkbox" name="${name}" ${checked ? 'checked' : ''}>${label}</label>`;
-    const action = (label, name, value, disabled = false) =>
-        `<button type="button" class="btn btn-sm" data-${name}="${value}" ${disabled ? 'disabled' : ''}>${label}</button>`;
-    const card = (name, desc, buttons, accent = '#a6ddd0') =>
-        `<article class="select-card expansion-shop-card" style="--item-color:${accent}">
-            <div class="card-head">${name}</div><div class="card-sub">${desc}</div>
-            <div class="chip-row">${buttons}</div>
-        </article>`;
+    /* ---------------------------------------------------------------- copy */
+    const ITEM_INFO = {
+        scrap: 'Salvaged metal parts. The common currency of the zone: trade it, build with it and craft ammunition.',
+        cloth: 'Clean fabric for dressings, packs and bedding.',
+        fuel: 'Rail and lantern fuel. Also pays for fast travel between discovered areas.',
+        rations: 'Sealed field meal. Restores 35 food. Cook it at a campfire for a hot meal.',
+        medkits: 'Trauma kit. Restores 55 health (75 with Field Medic).',
+        coil: 'Superconducting coil from an MRI unit. Powers the coil prototype weapon.',
+        timber: 'Rough timber from branches and trees. The base of most early building and tools.',
+        stone: 'Fieldstone for tools, kilns and masonry.',
+        iron: 'Iron ore. Smelt it in a kiln with coal to make iron bars.',
+        coal: 'Fuel for the kiln. Mine it, or burn timber at a campfire to make charcoal.',
+        copper: 'Copper ore. Draw it into wire at a workbench.',
+        quartz: 'Luminous quartz. Cut it into lenses or refine it into Aether shards.',
+        fiber: 'Plant fiber. Braid it into cord for tools and bindings.',
+        resin: 'Pine resin. Used for torches, filters and some brews.',
+        clay: 'Wet clay. Fire it in a kiln into bricks.',
+        herbs: 'Bitterleaf. Medicinal herb for dressings, tea and tonics.',
+        planks: 'Sawn boards. Stronger building stock and tool handles.',
+        cord: 'Braided cord. Binds tool heads and building parts.',
+        ingot: 'Iron bar. Needed for iron tools, packs, machines and weapon upgrades.',
+        brick: 'Fired brick for masonry walls and stone foundations.',
+        wire: 'Copper wire for lanterns, drills, snares and repeaters.',
+        lens: 'Quartz lens. Focuses the beam of a lantern.',
+        torch: 'Burns for 90 seconds. Use it, or press your light key, to light the way.',
+        lantern: 'Reusable light that burns for 4 minutes. Each lighting uses one fuel.',
+        bandage: 'Herbal dressing. Restores 27 health and stops bleeding.',
+        tea: 'Bitterleaf tea. Restores composure, water and clears some radiation.',
+        filter: 'Respirator filter. Cuts radiation buildup by 82% for two minutes.',
+        repair: 'Field repair kit. Restores 24 durability to your held or equipped tool.',
+        caveMap: 'Survey notes about Echo Cavern below the research trench.',
+        relic: 'The Resonant Core. Required for the Hauler frame pack.',
+        aetherShard: 'Crystallised Aether energy for high-tier tools, stims, beacons and infusions.',
+        stew: 'Hearty stew: +65 food, +35 water, +25 health and warmth.',
+        espresso: 'Field espresso: composure, water and a stamina boost.',
+        antibiotic: 'Cures bleeding and infection and clears 30% radiation.',
+        broth: 'Thermal broth: warms you by 18°C. Essential on freezing nights.',
+        aetherStim: 'Combat stim: +45 health, full stamina and +30% speed for 20 seconds.',
+        orbitalFlare: 'Calls a supply cache down from a weather balloon.',
+        jugBrew: 'Juggernaut tonic: +75 max health and damage resistance for 3 minutes.',
+        speedTonic: 'Quick-Hands tonic: faster reloads and fire rate for 3 minutes.',
+        staminElixir: 'Stamin-Up elixir: faster sprinting and less stamina drain for 3 minutes.',
+        deadshotTinc: 'Deadshot tincture: +45% headshot damage for 3 minutes.',
+        cropSeeds: 'Plant these in the Relay garden beds and water them.',
+        freshWater: 'Filtered water. Restores 50 water. Collect it at hand pumps.',
+        salvageLine: 'Weighted line for fishing material caches out of marked waterside stations.'
+    };
+    const MODE_META = {
+        expedition: { glyph: 'crystal', tags: ['Story', 'Boss'], length: 'Medium' },
+        homestead: { glyph: 'build', tags: ['Building', 'Relaxed'], length: 'Short' },
+        survey: { glyph: 'scroll', tags: ['Exploration'], length: 'Medium' },
+        salvage: { glyph: 'pick', tags: ['Gathering', 'Hauling'], length: 'Medium' },
+        bounty: { glyph: 'rifle', tags: ['Combat', 'Hunt'], length: 'Short' },
+        siege: { glyph: 'wall', tags: ['Defense', 'Waves'], length: 'Short' },
+        bloodmoon: { glyph: 'fire', tags: ['Defense', 'Night'], length: 'Medium' },
+        gauntlet: { glyph: 'blade', tags: ['Bosses', 'Hard'], length: 'Long' },
+        scavenger: { glyph: 'fist', tags: ['Unarmed start', 'Crafting'], length: 'Long' },
+        freeplay: { glyph: 'leaf', tags: ['Sandbox', 'Endless'], length: 'Endless' }
+    };
+    const DIFF_INFO = {
+        customLite: 'For learning the zone. Enemies are fragile, slow to appear and few in number.',
+        relaxed: 'Forgiving fights with breathing room between encounters.',
+        standard: 'The intended balance of scarcity and danger.',
+        hard: 'Tougher infected, harder hits and more of them.',
+        veteran: 'Punishing fights. Mistakes are costly.',
+        nightmare: 'Relentless pressure for seasoned survivors.',
+        apocalypse: 'Maximum threat. Expect to lose expeditions.'
+    };
+    const START_TIMES = [
+        [6, '06:00', 'Dawn', 'Begin at first light with a full day ahead.'],
+        [8, '08:00', 'Morning', 'The default. Plenty of daylight to gather and build before night.'],
+        [12, '12:00', 'Noon', 'Half a day of light before the first night.'],
+        [18, '18:00', 'Dusk', 'Night arrives within the hour. Find shelter fast.'],
+        [22, '22:00', 'Night', 'Start in darkness. Night brings more roaming infected.'],
+        [0, '00:00', 'Midnight', 'The hardest start: six hours of darkness.']
+    ];
+    const DAY_LENGTHS = [
+        [180, '3 min', 'A full day-night cycle every 3 real minutes. Days and threat escalate fast.'],
+        [360, '6 min', 'The default. A full day-night cycle every 6 real minutes.'],
+        [720, '12 min', 'Long days. Threat escalates slowly, leaving more time to build.']
+    ];
+    const ENCOUNTER = [
+        [0.7, 'Sparse', 'About 30% fewer roaming enemies at any time.'],
+        [1, 'Standard', 'The normal number of roaming enemies for each day.'],
+        [1.5, 'Intense', '50% more enemies may roam at once.']
+    ];
+    const STATION_NAME = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln' };
+    const STATION_TIP = {
+        hand: 'Craft anywhere, straight from your backpack.',
+        bench: 'Stand within 4 m of the Relay shelter or a crafting table you built.',
+        campfire: 'Stand within 4 m of a campfire you built (the Relay shelter stove also works).',
+        kiln: 'Stand within 4 m of a stone kiln you built.'
+    };
+    const CRAFT_CATS = [
+        ['all', 'All recipes', 'unknown'], ['tools', 'Tools', 'axe'], ['materials', 'Materials', 'ingot'],
+        ['medical', 'Medical', 'medkit'], ['food', 'Food & drink', 'cup'], ['lighting', 'Lighting', 'torch'],
+        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle']
+    ];
+    const RECIPE_CAT = {
+        braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
+        cutLens: 'materials', charcoal: 'materials', smeltAetherAlloy: 'materials',
+        splint: 'lighting', makeLantern: 'lighting',
+        dressing: 'medical', craftAntibiotic: 'medical', craftAetherStim: 'medical', makeFilter: 'medical', medkit: 'medical',
+        brewTea: 'food', cookStew: 'food', brewEspresso: 'food', brewBroth: 'food', cook: 'food',
+        brewJug: 'food', brewSpeed: 'food', brewStamin: 'food', brewDeadshot: 'food',
+        fieldRepair: 'gear', weighTheLine: 'gear', craftOrbitalFlare: 'gear', ammo: 'gear', incendiary: 'gear',
+        coilgun: 'weapons'
+    };
+    const TABS = [
+        { id: 'inventory', label: 'Inventory', bind: 'survInventory', glyph: 'chest' },
+        { id: 'crafting', label: 'Crafting', bind: 'survCraft', glyph: 'wrench' },
+        { id: 'build', label: 'Build', bind: 'survBuild', glyph: 'build' },
+        { id: 'map', label: 'Map', bind: 'survMap', glyph: 'scroll' },
+        { id: 'skills', label: 'Skills', bind: 'survSkills', glyph: 'tech' },
+        { id: 'journal', label: 'Journal', bind: 'survJournal', glyph: 'flask' },
+        { id: 'legend', label: 'Guide', bind: 'survLegend', glyph: 'rune' }
+    ];
+    const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'map', tech: 'skills', objectives: 'journal', record: 'journal' };
+    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'respawn']);
+    const STEPS = [
+        ['quick', 'Quick start', 'Pick a ready-made expedition'],
+        ['operation', 'Operation', 'What you are trying to do'],
+        ['difficulty', 'Difficulty', 'How dangerous the zone is'],
+        ['world', 'World & time', 'Clock, weather and encounters'],
+        ['rules', 'Survival rules', 'Needs and saving'],
+        ['modifiers', 'Modifiers', 'Optional twists'],
+        ['roster', 'Enemy roster', 'Which infected can appear'],
+        ['career', 'Career', 'Your record and unlocks']
+    ];
+    const TRAIN_ROUTE = [[19, -12], [43, -12], [43, -36], [-35, -36], [-35, 32], [19, 32]];
+    const RES_COLOR = {
+        pine: '#7fb07a', hardwood: '#b2a36b', boulder: '#a9b3ae', iron: '#d39a7c', coal: '#7d8191', copper: '#7cc6ad',
+        quartz: '#a8e3f5', deep: '#d6aef2', clay: '#b88b6d', buried: '#b7cf8f', kindling: '#a88a62', stones: '#b4b9b1',
+        roots: '#93b97c', herbs: '#8fc77a'
+    };
+
+    function costRows(cost, have) {
+        return Object.entries(cost || {}).map(([id, need]) => {
+            const owned = have[id] || 0;
+            const ok = owned >= need;
+            return `<li class="sv-cost ${ok ? 'ok' : 'short'}"${tip(itemName(id), ITEM_INFO[id] || 'Crafting material.', 'You have ' + owned)}>
+                <span class="sv-cost-ico">${Icons().item(id, 18)}</span><span class="sv-cost-name">${esc(itemName(id))}</span>
+                <span class="sv-cost-num"><b>${owned}</b>/${need}</span></li>`;
+        }).join('');
+    }
+    function costInline(cost, have) {
+        return Object.entries(cost || {}).map(([id, need]) =>
+            `<span class="sv-chip-cost ${((have[id] || 0) >= need) ? 'ok' : 'short'}">${Icons().item(id, 14)}${need}</span>`).join('');
+    }
+    function meter(label, value, max, cls, title, body) {
+        return `<div class="sv-vital ${cls || ''}"${tip(title || label, body || '')}>
+            <span class="sv-vital-l">${label}</span>
+            <span class="sv-vital-bar"><i style="width:${pct(value, max)}%"></i></span>
+            <span class="sv-vital-v">${Math.round(value)}</span></div>`;
+    }
 
     class SurvivalUI {
+        constructor() {
+            this.section = null;
+            this.step = 'quick';
+            this.packFilter = 'All';
+            this.packSort = 'category';
+            this.craftCat = 'all';
+            this.mapLayers = { sites: true, contacts: true, grace: true, resources: false, base: true };
+            this.scrollMemo = {};
+        }
+
         get open() { return !!this.dialog?.open; }
 
+        /* ------------------------------------------------------------ lifecycle */
         show(section, deploy, subject) {
             if (!this.dialog) this.create();
-            this.returnSection = section === 'legend' && !BO.SurvivalMode.active ? 'briefing' : null;
+            section = ALIAS[section] || section;
+            if (section === 'travel') section = 'map';
+            const fromTravel = arguments[0] === 'travel';
+            this.returnToBriefing = section === 'legend' && !BO.SurvivalMode.active;
+            if (this.section !== section) this.feedback = null;
             this.section = section;
             this.subject = subject;
-            this.deploy = deploy || this.deploy;
-            if (section !== 'briefing') {
+            if (fromTravel) this.mapFocus = 'travel';
+            if (deploy) this.deploy = deploy;
+            if (section !== 'briefing' && BO.SurvivalMode.active) {
                 BO.App._clearInputState();
                 if (document.pointerLockElement) document.exitPointerLock();
             }
+            BO.Tooltips?.hide?.();
             if (!this.open) this.dialog.showModal();
+            this.dialog.classList.toggle('sv-is-deploy', section === 'briefing' || (section === 'legend' && this.returnToBriefing));
             this.render();
         }
 
         create() {
             this.dialog = document.createElement('dialog');
-            this.dialog.className = 'expansion-shop survival-panel';
-            this.dialog.setAttribute('aria-labelledby', 'survival-title');
-            this.dialog.innerHTML = `<header class="expansion-shop-head">
-                <h2 id="survival-title"></h2><button class="btn btn-sm" data-action="close"></button>
-                </header><div class="survival-content"></div>`;
-            this.closeButton = this.dialog.querySelector('[data-action="close"]');
-            this.title = this.dialog.querySelector('h2');
-            this.content = this.dialog.querySelector('.survival-content');
+            this.dialog.className = 'sv-shell';
+            this.dialog.setAttribute('aria-label', 'Survival');
+            this.dialog.innerHTML = '<div class="sv-root"></div><div class="sv-map-tip" hidden></div>';
+            this.root = this.dialog.querySelector('.sv-root');
+            this.mapTip = this.dialog.querySelector('.sv-map-tip');
             document.body.append(this.dialog);
-            this.closeButton.onclick = () => this.resume();
+
             this.dialog.addEventListener('cancel', (event) => {
                 event.preventDefault();
-                if (this.section === 'legend' && this.returnSection === 'briefing') {
-                    this.section = 'briefing';
+                if (this.section === 'respawn') return;
+                if (this.section === 'legend' && this.returnToBriefing) { this.section = 'briefing'; this.render(); return; }
+                if (this.section === 'briefing') this.close();
+                else this.resume();
+            });
+            this.root.addEventListener('submit', (e) => e.preventDefault());
+            this.root.addEventListener('click', (e) => {
+                if (e.target.closest('.mm-shell')) return;
+                const el = e.target.closest('[data-act]');
+                if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+                this.act(el.dataset.act, el.dataset.arg, e, el);
+            });
+            this.root.addEventListener('contextmenu', (e) => {
+                const slot = e.target.closest('[data-hb-slot]');
+                if (slot && this.section === 'inventory') {
+                    e.preventDefault();
+                    BO.SurvivalMode.campaign?.hotbar.clear(Number(slot.dataset.hbSlot));
                     this.render();
-                } else {
-                    this.close();
                 }
             });
-            this.content.addEventListener('submit', (event) => event.preventDefault());
-            this.content.addEventListener('input', (event) => {
-                if (event.target.id === 'survival-legend-search') {
-                    this.legendQuery = event.target.value;
-                    const res = this.content.querySelector('#survival-legend-results');
+            this.root.addEventListener('input', (e) => {
+                if (e.target.id === 'survival-legend-search') {
+                    this.legendQuery = e.target.value;
+                    const res = this.root.querySelector('#survival-legend-results');
                     if (res && BO.SurvivalLegend) res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery, this.legendCat || 'all');
                 }
             });
-            this.content.onchange = (event) => {
-                if (event.target.id === 'survival-legend-category') {
-                    this.legendCat = event.target.value;
-                    const res = this.content.querySelector('#survival-legend-results');
+            this.root.addEventListener('change', (e) => {
+                if (e.target.id === 'survival-legend-category') {
+                    this.legendCat = e.target.value;
+                    const res = this.root.querySelector('#survival-legend-results');
                     if (res && BO.SurvivalLegend) res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery || '', this.legendCat);
-                    return;
                 }
-                if (this.section !== 'briefing' || (!event.target.name && !event.target.matches('[data-mod]'))) return;
-                const options = this.readOptions();
-                if (event.target.matches('[data-enemy]') && !options.disabledEnemies.includes(event.target.value)) event.target.checked = true;
-                this._refreshBriefingHints(options);
-            };
-            this.content.onclick = (event) => {
-                if (event.target.closest('.mm-shell')) return;
-                const button = event.target.closest('button');
-                if (!button) return;
-                this.dispatch(button.dataset);
-            };
-        }
-
-        _refreshBriefingHints(options) {
-            const r = rules();
-            const pEl = this.content.querySelector('.survival-pool-detail');
-            if (pEl) pEl.textContent = data.pools[options.pool]?.extra || '';
-            const mEl = this.content.querySelector('.survival-mode-detail');
-            if (mEl) mEl.textContent = r.modes?.[options.gameType]?.description || '';
-            const dEl = this.content.querySelector('.survival-diff-detail');
-            const diff = r.difficulties?.[options.difficulty];
-            if (dEl && diff) dEl.textContent = `${diff.hp}x Enemy HP · ${diff.damage}x Damage · ${diff.rate}x Spawn Rate · Max ${diff.enemyCap}`;
-            const modCount = this.content.querySelector('.survival-mod-count');
-            if (modCount) modCount.textContent = `${options.modifiers.length} active`;
-            const safeEl = this.content.querySelector('.survival-safe-secs');
-            if (safeEl && r.openingSecondsFor) safeEl.textContent = `${r.openingSecondsFor(options)}`;
-        }
-
-        readOptions() {
-            const form = this.content.querySelector('form');
-            if (!form) return career.profile.options;
-            const value = Object.fromEntries(new FormData(form));
-            for (const key of ['weather', 'survivalNeeds', 'autosave']) value[key] = !!form.elements[key]?.checked;
-            value.modifiers = [...form.querySelectorAll('[data-mod]:checked')].map((input) => input.value);
-            value.disabledEnemies = [...form.querySelectorAll('[data-enemy]:not(:checked)')].map((input) => input.value);
-            return career.remember(value);
-        }
-
-        dispatch(ds) {
-            const { deploy, craft, use, panel, build, rotate, ride, travel, reward, trade, special, save,
-                packFilter, handcraft, itemUse, equipTool, drop, transfer, preset,
-                unlockTech, forge, upgradeGun, upgradeAttr, equipTalisman, infuse, shrineTravel,
-                sleepDawn, dismantle, repairBase, claimChallenge, respawn, finishRun, useFlask } = ds;
-            const mode = BO.SurvivalMode;
-            const campaign = mode.campaign;
-            if (preset) {
-                const p = rules().presets?.[preset];
-                if (p) {
-                    const merged = { ...data.defaults, modifiers: [], ...p.settings };
-                    career.remember(merged);
-                    this.activePreset = preset;
-                    this.render();
+            });
+            // Drag & drop onto the hotbar.
+            this.root.addEventListener('dragstart', (e) => {
+                const el = e.target.closest('[data-drag]');
+                if (!el) return;
+                e.dataTransfer.setData('text/plain', el.dataset.drag);
+                e.dataTransfer.effectAllowed = 'move';
+                this.root.classList.add('sv-dragging');
+            });
+            this.root.addEventListener('dragend', () => {
+                this.root.classList.remove('sv-dragging');
+                this.root.querySelectorAll('.is-drop').forEach((n) => n.classList.remove('is-drop'));
+            });
+            this.root.addEventListener('dragover', (e) => {
+                const slot = e.target.closest('[data-hb-slot], [data-drop-clear]');
+                if (!slot) return;
+                e.preventDefault();
+                this.root.querySelectorAll('.is-drop').forEach((n) => n !== slot && n.classList.remove('is-drop'));
+                slot.classList.add('is-drop');
+            });
+            this.root.addEventListener('drop', (e) => {
+                const slot = e.target.closest('[data-hb-slot], [data-drop-clear]');
+                if (!slot) return;
+                e.preventDefault();
+                const payload = e.dataTransfer.getData('text/plain');
+                const hotbar = BO.SurvivalMode.campaign?.hotbar;
+                if (!hotbar || !payload) return;
+                const [kind, ...rest] = payload.split(':');
+                const id = rest.join(':');
+                if (slot.dataset.dropClear !== undefined) {
+                    if (kind === 'slot') hotbar.clear(Number(id));
+                } else {
+                    const to = Number(slot.dataset.hbSlot);
+                    if (kind === 'slot') hotbar.move(Number(id), to);
+                    else this.assignToHotbar(to, kind, id);
                 }
-                return;
-            }
-            if (panel) {
-                if (panel === 'legend' && !mode.active) this.returnSection = 'briefing';
-                this.section = panel;
                 this.render();
-                return;
-            }
-            if (deploy === 'new' || deploy === 'resume') {
-                const callback = this.deploy;
-                const options = deploy === 'new' ? this.readOptions() : career.checkpoint?.options;
-                if (!options || !callback) return;
-                const resume = deploy === 'resume' ? career.checkpoint : undefined;
-                this.close();
-                callback({ mode: 'survival', mapId: 'exclusion_zone', ...options, ...(resume ? { resume } : {}) });
-                return;
-            }
-            if (!mode.active || !campaign) return;
-            const deep = campaign.deep;
-            if (packFilter) this.packFilter = packFilter;
-            else if (handcraft) campaign.pack.craft(handcraft);
-            else if (itemUse) campaign.pack.use(itemUse);
-            else if (equipTool && campaign.pack.tools[equipTool] > 0) campaign.pack.equipped = equipTool;
-            else if (drop) { const [id, amount] = drop.split(':'); campaign.pack.drop(id, amount); }
-            else if (transfer) { const [dir, id, amt] = transfer.split(':'); campaign.pack.transfer(this.subject, id, amt, dir === 'store'); }
-            else if (craft) mode.craft(craft);
-            else if (use) mode.useItem(use);
-            else if (rotate) campaign.buildRotation = 1 - campaign.buildRotation;
-            else if (build && campaign.build(build)) return this.resume();
-            else if (dismantle) deep?.dismantleNearest();
-            else if (repairBase) deep?.repairBase();
-            else if (unlockTech) deep?.unlockTech(unlockTech);
-            else if (forge) deep?.forgeWeapon(forge);
-            else if (upgradeGun) deep?.upgradeEquippedWeapon();
-            else if (upgradeAttr) deep?.upgradeAttribute(upgradeAttr);
-            else if (equipTalisman) deep?.equipTalisman(equipTalisman);
-            else if (infuse) deep?.applyInfusion(infuse);
-            else if (sleepDawn) campaign.sleepUntilDawn();
-            else if (useFlask) deep?.useFlask();
-            else if (claimChallenge) campaign.objectives.claim(claimChallenge);
-            else if (shrineTravel) {
-                const dest = deep?.allShrines.find((s) => s.id === shrineTravel);
-                if (dest && campaign.canSave()) {
-                    BO.Player.pos.set(dest.x, dest.y, dest.z);
-                    BO.Player.vel.set(0, 0, 0);
-                    deep.lastRestPoint = { x: dest.x, y: dest.y, z: dest.z };
-                    mode.toast('Warped to ' + dest.name + '.');
-                    return this.resume();
-                } else mode.toast('Cannot warp while enemies are nearby.');
-            } else if (respawn) {
-                deep?.respawnAtGrace();
-                return this.resume();
-            } else if (finishRun) {
-                this.close();
-                mode.finish(false);
-                return;
-            }
-            else if (ride && campaign.ride(ride === 'off' ? null : ride)) return this.resume();
-            else if (travel && campaign.travel(travel)) return this.resume();
-            else if (reward) campaign.reward(this.subject);
-            else if (trade) campaign.trade(this.subject, trade);
-            else if (special && campaign.special(this.subject)) return this.resume();
-            else if (save) {
-                const ok = campaign.save();
-                this.feedback = ok ? 'Checkpoint saved.' : 'Save unavailable here. Clear nearby enemies first.';
-            }
-            this.render();
+            });
+            this.root.addEventListener('mousemove', (e) => {
+                if (e.target.id === 'sv-map-canvas') this.mapHover(e);
+                else if (!this.mapTip.hidden) this.mapTip.hidden = true;
+            });
+            this.root.addEventListener('mouseleave', () => { this.mapTip.hidden = true; });
         }
 
         resume() {
-            if (this.section === 'legend' && this.returnSection === 'briefing') {
-                this.section = 'briefing';
-                this.returnSection = null;
-                this.render();
-                return;
-            }
-            const playing = this.section !== 'briefing';
+            if (this.section === 'respawn') return;
+            const playing = BO.SurvivalMode.active && this.section !== 'briefing';
             this.close();
             if (playing) BO.App._safePointerLock();
         }
 
         close() {
             if (!this.open) return;
-            const playing = this.section !== 'briefing';
+            const playing = BO.SurvivalMode.active && this.section !== 'briefing';
+            BO.Tooltips?.hide?.();
+            this.mapTip.hidden = true;
             this.dialog.close();
             this.feedback = null;
+            this.selItem = null;
             if (playing) BO.App._clearInputState();
         }
 
-        get careerLine() {
-            const xp = career.profile.xp;
-            return `<p class="survival-career"><b>Level ${career.level} · ${career.rank}</b> <span>${xp.toLocaleString()} XP${career.level < 50 ? ' / ' + career.nextXP.toLocaleString() + ' to next level' : ''}</span></p>`;
+        /** Keyboard while the terminal is open (called from the global key handler). */
+        handleKey(e) {
+            if (!this.open || this.section === 'briefing' || this.section === 'respawn') return;
+            const kb = BO.Settings.getKeybinds();
+            const code = e.code;
+            for (const t of TABS) {
+                if (code === kb[t.bind]) {
+                    e.preventDefault();
+                    if (this.section === t.id || (t.id === 'map' && code === kb.survTravel)) this.resume();
+                    else this.switchTab(t.id);
+                    return;
+                }
+            }
+            if (code === kb.survTravel) {
+                e.preventDefault();
+                if (this.section === 'map') this.resume();
+                else { this.mapFocus = 'travel'; this.switchTab('map'); }
+                return;
+            }
+            if (this.section === 'inventory' && this.selItem) {
+                for (let i = 0; i < 10; i++) {
+                    if (code === kb['hotbar' + (i + 1)]) {
+                        e.preventDefault();
+                        const s = this.selItem;
+                        this.assignToHotbar(i, s.kind, s.id);
+                        this.render();
+                        return;
+                    }
+                }
+            }
         }
 
-        renderBriefing() {
-            const options = career.profile.options;
-            const checkpoint = career.checkpoint;
+        switchTab(id) {
+            this.section = id;
+            this.subject = null;
+            this.feedback = null;
+            this.render();
+        }
+
+        /* ------------------------------------------------------------ actions */
+        act(name, arg, event, el) {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            BO.Sound?.playUIClick?.();
+            switch (name) {
+                // ----- deployment
+                case 'step': this.step = arg; return this.renderBriefing(true);
+                case 'opt': {
+                    const opts = { ...career.profile.options };
+                    const key = el.dataset.key;
+                    opts[key] = ['startHour', 'dayLength', 'encounterRate'].includes(key) ? Number(arg) : arg;
+                    career.remember(opts);
+                    this.activePreset = null;
+                    return this.renderBriefing();
+                }
+                case 'toggle': {
+                    const opts = { ...career.profile.options };
+                    opts[arg] = !opts[arg];
+                    career.remember(opts);
+                    this.activePreset = null;
+                    return this.renderBriefing();
+                }
+                case 'preset': {
+                    const p = rules().presets?.[arg];
+                    if (!p) return;
+                    career.remember({ ...data.defaults, gameType: 'expedition', modifiers: [], disabledEnemies: career.profile.options.disabledEnemies, ...p.settings });
+                    this.activePreset = arg;
+                    return this.renderBriefing();
+                }
+                case 'roster': {
+                    const opts = { ...career.profile.options };
+                    const set = new Set(opts.disabledEnemies);
+                    if (set.has(arg)) set.delete(arg); else set.add(arg);
+                    opts.disabledEnemies = [...set];
+                    career.remember(opts);
+                    return this.renderBriefing();
+                }
+                case 'rosterBulk': {
+                    const opts = { ...career.profile.options };
+                    const ids = BO.ZombiesData.ORDERED_PROGRESSION.map((z) => z.id);
+                    opts.disabledEnemies = arg === 'all' ? [] : arg === 'noMagic'
+                        ? BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.isMagical).map((z) => z.id)
+                        : ids.slice(25);
+                    career.remember(opts);
+                    return this.renderBriefing();
+                }
+                case 'deploy': {
+                    const callback = this.deploy;
+                    const resume = arg === 'resume' ? career.checkpoint : null;
+                    const options = resume ? resume.options : career.profile.options;
+                    if (!options || !callback) return;
+                    this.close();
+                    callback({ mode: 'survival', mapId: 'exclusion_zone', ...options, ...(resume ? { resume } : {}) });
+                    return;
+                }
+                case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
+                case 'backToBrief': this.section = 'briefing'; return this.render();
+                case 'closeBrief': return this.close();
+            }
+            if (!mode.active || !c) return;
+            const deep = c.deep;
+            const pack = c.pack;
+            const hotbar = c.hotbar;
+            switch (name) {
+                case 'tab': return this.switchTab(arg);
+                case 'close': return this.resume();
+                case 'selItem': {
+                    const [kind, ...rest] = arg.split(':');
+                    this.selItem = { kind, id: rest.join(':') };
+                    this.selSide = el.dataset.side || null;
+                    if (this.section === 'chest' && kind === 'item' && el.dataset.side) {
+                        const dir = el.dataset.side === 'pack' ? 'store' : 'take';
+                        if (event.shiftKey || event.detail >= 2) pack.transfer(this.subject, this.selItem.id, event.shiftKey ? 'all' : 'one', dir === 'store');
+                    }
+                    break;
+                }
+                case 'filter': this.packFilter = arg; break;
+                case 'sort': this.packSort = arg; break;
+                case 'hbPut': {
+                    const s = this.selItem;
+                    if (s) this.assignToHotbar(Number(arg), s.kind, s.id);
+                    break;
+                }
+                case 'hbSlot': {
+                    const i = Number(arg);
+                    const s = this.selItem;
+                    const entry = hotbar.slots[i];
+                    if (s && this.section === 'inventory' && el.closest('.sv-assign-mode')) this.assignToHotbar(i, s.kind, s.id);
+                    else if (entry) this.selItem = { kind: entry.kind, id: entry.kind === 'weapon' ? String(entry.ref) : entry.id };
+                    else { hotbar.select(i); this.feedback = 'Slot ' + (i + 1) + ' selected: bare hands.'; }
+                    break;
+                }
+                case 'hbActive': hotbar.select(Number(arg)); break;
+                case 'hbClear': hotbar.clear(Number(arg)); break;
+                case 'use': {
+                    const ok = mode.consume(arg);
+                    if (!ok && !(pack.inventory[arg] > 0)) this.feedback = 'None left.';
+                    break;
+                }
+                case 'drop': { const [id, amt] = arg.split(':'); pack.drop(id, amt); break; }
+                case 'transfer': { const [dir, id, amt] = arg.split(':'); pack.transfer(this.subject, id, amt, dir === 'store'); break; }
+                case 'equipTool': {
+                    if (pack.tools[arg] > 0) pack.equipped = arg;
+                    const idx = hotbar.indexOf({ kind: 'tool', id: arg });
+                    if (idx >= 0) hotbar.select(idx);
+                    break;
+                }
+                case 'repairTool': {
+                    const prev = pack.equipped;
+                    pack.equipped = arg;
+                    if (!pack.use('repair')) { pack.equipped = prev; this.feedback = 'This tool is already in top condition.'; }
+                    break;
+                }
+                case 'plate': BO.Player.insertArmorPlate(); break;
+                case 'light': pack.shortcut(); break;
+                case 'flask': deep?.useFlask(); break;
+                case 'talisman': deep?.equipTalisman(arg); break;
+                case 'craftCat': this.craftCat = arg; break;
+                case 'recipe': this.selRecipe = arg; break;
+                case 'craft': this.craftRecipe(arg, Number(el.dataset.times) || 1); break;
+                case 'buildSel': this.selBuild = arg; break;
+                case 'place': if (c.build(arg)) return this.resume(); break;
+                case 'rotate': c.buildRotation = 1 - c.buildRotation; break;
+                case 'repairBase': deep?.repairBase(); break;
+                case 'dismantle': deep?.dismantleNearest(); break;
+                case 'layer': this.mapLayers[arg] = !this.mapLayers[arg]; break;
+                case 'travel': if (c.travel(arg)) return this.resume(); this.feedback = 'Fast travel is not possible right now.'; break;
+                case 'ride': if (c.ride(arg === 'off' ? null : arg)) return this.resume(); break;
+                case 'unlockTech': deep?.unlockTech(arg); break;
+                case 'attr': deep?.upgradeAttribute(arg); break;
+                case 'claim': c.objectives.claim(arg); break;
+                case 'save': this.feedback = c.save() ? 'Checkpoint saved in this browser.' : 'You can only save when no enemies are within 9 m (and not during a siege, evacuation or Iron run).'; break;
+                case 'reward': c.reward(this.subject); break;
+                case 'trade': if (!c.trade(this.subject, arg)) this.feedback = 'You cannot afford that trade (or your pack is full).'; break;
+                case 'special': if (c.special(this.subject)) return this.resume(); break;
+                case 'sleep': c.sleepUntilDawn(); break;
+                case 'warp': {
+                    const dest = deep?.allShrines.find((s) => s.id === arg);
+                    if (dest && c.canSave()) {
+                        BO.Player.pos.set(dest.x, dest.y, dest.z);
+                        BO.Player.vel.set(0, 0, 0);
+                        deep.lastRestPoint = { x: dest.x, y: dest.y, z: dest.z };
+                        mode.toast('Warped to ' + dest.name + '.');
+                        return this.resume();
+                    }
+                    this.feedback = 'You cannot warp while enemies are nearby.';
+                    break;
+                }
+                case 'infuse': deep?.applyInfusion(arg); break;
+                case 'respawn': deep?.respawnAtGrace(); this.section = 'map'; return this.resume();
+                case 'endRun': this.close(); mode.finish(false); return;
+                case 'upgradeGun': {
+                    const ref = Number(arg);
+                    if (BO.Player.weapons[ref]) {
+                        BO.Player.equipSurvivalSlot(ref, null, true);
+                        hotbar.reconcile();
+                        deep?.upgradeEquippedWeapon();
+                    }
+                    break;
+                }
+                default: return;
+            }
+            this.render();
+        }
+
+        assignToHotbar(index, kind, id) {
+            const c = BO.SurvivalMode.campaign;
+            const hotbar = c?.hotbar;
+            if (!hotbar) return;
+            let entry = null;
+            if (kind === 'weapon') entry = { kind: 'weapon', ref: Number(id) };
+            else if (kind === 'tool') entry = { kind: 'tool', id };
+            else if (kind === 'item') {
+                if (!BO.SurvivalHotbar.usable.has(id)) {
+                    this.feedback = itemName(id) + ' cannot be held. Only weapons, tools and usable items fit on the hotbar.';
+                    return;
+                }
+                entry = { kind: 'item', id };
+            }
+            if (entry && hotbar.assign(index, entry)) this.feedback = hotbar.label(entry) + ' placed in slot ' + (index + 1) + '.';
+        }
+
+        /* ------------------------------------------------------------ render root */
+        render() {
+            if (!this.dialog) return;
+            this.rememberScroll();
+            const s = this.section;
+            this.dialog.classList.toggle('sv-is-deploy', s === 'briefing' || (s === 'legend' && this.returnToBriefing));
+            if (s === 'briefing') return this.renderBriefing(true);
+            if (s === 'legend' && this.returnToBriefing) {
+                this.root.innerHTML = `<div class="sv-deploy-frame sv-legend-solo">
+                    <header class="sv-dhead"><div class="sv-dhead-title"><span class="sv-kicker">Survival</span><h2>Field guide</h2></div>
+                    <button class="sv-btn" data-act="backToBrief"${tip('Back', 'Return to the deployment screen.')}>← Back to deployment</button></header>
+                    <div class="sv-scroll" data-scroll="legend">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'all') : ''}</div></div>`;
+                return this.restoreScroll();
+            }
+            const mode = BO.SurvivalMode;
+            if (!mode.active || !mode.campaign) return;
+            this.root.innerHTML = this.renderTerminal();
+            if (s === 'map') this.drawMap();
+            this.restoreScroll();
+        }
+
+        rememberScroll() {
+            this.root?.querySelectorAll('[data-scroll]').forEach((n) => { this.scrollMemo[(this.section || '') + ':' + n.dataset.scroll] = n.scrollTop; });
+        }
+        restoreScroll() {
+            this.root?.querySelectorAll('[data-scroll]').forEach((n) => {
+                const v = this.scrollMemo[(this.section || '') + ':' + n.dataset.scroll];
+                if (v) n.scrollTop = v;
+            });
+        }
+
+        /* ================================================================
+           DEPLOYMENT SCREEN
+        ================================================================ */
+        renderBriefing(full = false) {
+            this.rememberScroll();
+            const o = career.profile.options;
             const r = rules();
-            const modesList = Object.entries(r.modes || {}).map(([id, m]) => [id, m.name]);
-            const diffList = Object.entries(r.difficulties || {}).map(([id, d]) => [id, d.name]);
-            const presetsList = Object.entries(r.presets || {});
-            const groups = { world: 'World & Time', combat: 'Combat & Enemies', survival: 'Vitals & Hazards', economy: 'Resources & Tech', challenge: 'Hardcore & Travel' };
-            const diff = r.difficulties?.[options.difficulty] || {};
-            this.title.textContent = 'Survival deployment';
-            return `${this.careerLine}
-                <p>Exclusion Zone · Solo Expedition. Zero enemies spawn for the first <span class="survival-safe-secs">${r.openingSecondsFor ? r.openingSecondsFor(options) : 60}</span>s! Press <kbd>L</kbd> anytime for the full Survival Legend.</p>
-                <div class="survival-presets-bar">
-                    ${presetsList.map(([id, p]) => `<button type="button" class="btn btn-sm ${this.activePreset === id ? 'btn-primary' : ''}" data-preset="${id}" title="${p.description}">${p.name}</button>`).join('')}
-                </div>
-                <form class="survival-lobby" aria-label="Survival deployment options">
-                    ${select('Operation Mode', 'gameType', modesList, options.gameType)}
-                    ${select('Difficulty', 'difficulty', diffList, options.difficulty)}
-                    ${select('Enemy pool', 'pool', Object.entries(data.pools).map(([key, pool]) => [key, pool.name]), options.pool)}
-                    ${select('Starting time', 'startHour', [[0, '00:00 · Midnight'], [6, '06:00 · Dawn'], [8, '08:00 · Morning'], [12, '12:00 · Noon'], [18, '18:00 · Dusk'], [22, '22:00 · Night']], options.startHour)}
-                    ${select('Day length', 'dayLength', [[180, '3 minutes'], [360, '6 minutes'], [720, '12 minutes']], options.dayLength)}
-                    ${select('Encounter rate', 'encounterRate', [[0.7, 'Sparse'], [1, 'Standard'], [1.5, 'Intense']], options.encounterRate)}
-                    <div class="survival-toggles">
-                        ${checkbox('Survival needs (hunger, water, temp, rad)', 'survivalNeeds', options.survivalNeeds)}
-                        ${checkbox('Dynamic weather', 'weather', options.weather)}
-                        ${checkbox('Autosave when safe', 'autosave', options.autosave)}
+            const presetMatch = this.activePreset || this.matchPreset(o);
+            const stepIndex = STEPS.findIndex(([id]) => id === this.step);
+            const body = {
+                quick: () => this.stepQuick(presetMatch),
+                operation: () => this.stepOperation(o),
+                difficulty: () => this.stepDifficulty(o),
+                world: () => this.stepWorld(o),
+                rules: () => this.stepRules(o),
+                modifiers: () => this.stepModifiers(o),
+                roster: () => this.stepRoster(o),
+                career: () => this.record()
+            }[this.step]();
+            const xp = career.profile.xp;
+            const lvlBase = (career.level - 1) ** 2 * 110;
+            const lvlPct = career.level >= 50 ? 100 : pct(xp - lvlBase, career.nextXP - lvlBase);
+            this.root.innerHTML = `<div class="sv-deploy-frame">
+                <header class="sv-dhead">
+                    <div class="sv-dhead-title">
+                        <span class="sv-kicker">Solo expedition · Exclusion Zone</span>
+                        <h2>Survival</h2>
                     </div>
-                    <details class="survival-roster survival-mods-details" open><summary>Modifiers Command Deck (<span class="survival-mod-count">${options.modifiers.length} active</span> / ${Object.keys(r.modifiers || {}).length} total)</summary>
-                        <div id="survival-mod-menu-host">${BO.ModifierMenuUI
-                            ? BO.ModifierMenuUI.renderHtml({ mode: 'survival', active: options.modifiers })
-                            : `<div class="survival-mod-groups">${Object.entries(r.modifiers || {}).map(([id, mod]) =>
-                                `<label class="survival-toggle" title="${mod.description}"><input type="checkbox" data-mod value="${id}" ${options.modifiers.includes(id) ? 'checked' : ''}><span><b>${mod.name}</b> — ${mod.description}</span></label>`).join('')}</div>`}</div>
-                    </details>
-                    <details class="survival-roster"><summary>Customize the infected roster</summary>
-                        <div class="survival-roster-list">${BO.ZombiesData.ORDERED_PROGRESSION.map((enemy) =>
-                            `<label class="survival-toggle"><input type="checkbox" data-enemy name="enemyRoster" value="${enemy.id}" ${options.disabledEnemies.includes(enemy.id) ? '' : 'checked'}>${enemy.name}</label>`).join('')}</div>
-                    </details>
-                </form>
-                <p class="survival-mode-detail">${r.modes?.[options.gameType]?.description || ''}</p>
-                <p class="survival-diff-detail">${diff.hp || 1}x Enemy HP · ${diff.damage || 1}x Damage · ${diff.rate || 1}x Spawn Rate · Max ${diff.enemyCap || 20}</p>
-                <p class="survival-pool-detail">${data.pools[options.pool]?.extra || ''}</p>
-                <div class="chip-row">
-                    <button class="btn btn-primary" data-deploy="new" type="button">DEPLOY</button>
-                    ${action('📖 SURVIVAL LEGEND', 'panel', 'legend')}
-                    ${checkpoint ? action('RESUME CHECKPOINT', 'deploy', 'resume') : ''}
+                    <div class="sv-career-chip"${tip('Survival career', 'Your survival level carries across expeditions. Levels unlock vehicles and the locked biomes (Frostline Quarry at 3, Cinder Flats at 5).', xp.toLocaleString() + ' XP total')}>
+                        <span class="sv-lvl">${career.level}</span>
+                        <span class="sv-career-meta"><b>${esc(career.rank)}</b><span class="sv-xpbar"><i style="width:${lvlPct}%"></i></span>
+                        <small>${career.level >= 50 ? 'Max level' : (career.nextXP - xp).toLocaleString() + ' XP to level ' + (career.level + 1)}</small></span>
+                    </div>
+                    <div class="sv-dhead-actions">
+                        <button class="sv-btn ghost" data-act="legendFromBrief"${tip('Field guide', 'Searchable encyclopedia of every survival system, item, structure and enemy.')}>Field guide</button>
+                        <button class="sv-btn ghost" data-act="closeBrief"${tip('Back', 'Return to the main menu. Your settings are remembered.')}>✕ Back</button>
+                    </div>
+                </header>
+                <div class="sv-deploy-grid">
+                    <nav class="sv-steps" aria-label="Deployment steps">
+                        ${STEPS.map(([id, label, sub], i) => `<button class="sv-step ${id === this.step ? 'active' : ''}" data-act="step" data-arg="${id}"${tip(label, sub + '.')}>
+                            <span class="sv-step-n">${String(i + 1).padStart(2, '0')}</span>
+                            <span class="sv-step-t"><b>${label}</b><small>${this.stepValue(id, o, presetMatch)}</small></span></button>`).join('')}
+                    </nav>
+                    <main class="sv-step-body sv-scroll" data-scroll="step-${this.step}">
+                        <div class="sv-step-head"><span class="sv-kicker">Step ${stepIndex + 1} of ${STEPS.length}</span><h3>${STEPS[stepIndex][1]}</h3><p>${STEPS[stepIndex][2]}.</p></div>
+                        ${body}
+                        <div class="sv-step-nav">
+                            ${stepIndex > 0 ? `<button class="sv-btn ghost" data-act="step" data-arg="${STEPS[stepIndex - 1][0]}">← ${STEPS[stepIndex - 1][1]}</button>` : '<span></span>'}
+                            ${stepIndex < STEPS.length - 1 ? `<button class="sv-btn" data-act="step" data-arg="${STEPS[stepIndex + 1][0]}">${STEPS[stepIndex + 1][1]} →</button>` : ''}
+                        </div>
+                    </main>
+                    <aside class="sv-summary sv-scroll" data-scroll="summary">${this.summary(o, presetMatch)}</aside>
                 </div>
-                ${checkpoint ? `<p>Checkpoint at ${BO.Math.formatTime(checkpoint.clock)} · deploying new replaces this save.</p>` : ''}
-                <details class="survival-record"><summary>Career stats and unlocks</summary>${this.record()}</details>`;
+            </div>`;
+            if (this.step === 'modifiers') this.bindModifiers();
+            this.restoreScroll();
+        }
+
+        matchPreset(o) {
+            const presets = rules().presets || {};
+            for (const [id, p] of Object.entries(presets)) {
+                const want = BO.SurvivalCampaignOptions({ ...data.defaults, gameType: 'expedition', modifiers: [], ...p.settings });
+                const same = ['gameType', 'difficulty', 'pool', 'dayLength', 'startHour', 'encounterRate', 'survivalNeeds', 'weather']
+                    .every((k) => String(want[k]) === String(o[k])) &&
+                    want.modifiers.length === o.modifiers.length && want.modifiers.every((m) => o.modifiers.includes(m));
+                if (same) return id;
+            }
+            return null;
+        }
+
+        stepValue(id, o, preset) {
+            const r = rules();
+            switch (id) {
+                case 'quick': return preset ? esc(r.presets[preset].name) : 'Custom setup';
+                case 'operation': return esc(r.modes[o.gameType]?.name);
+                case 'difficulty': return esc(r.difficulties[o.difficulty]?.name);
+                case 'world': return START_TIMES.find(([h]) => h === o.startHour)?.[1] + ' · ' + DAY_LENGTHS.find(([d]) => d === o.dayLength)?.[1] + ' days';
+                case 'rules': return (o.survivalNeeds ? 'Needs on' : 'Needs off') + ' · ' + (o.autosave ? 'autosave' : 'manual saves');
+                case 'modifiers': return o.modifiers.length ? plural(o.modifiers.length, 'active modifier') : 'None';
+                case 'roster': {
+                    const total = BO.ZombiesData.ORDERED_PROGRESSION.length;
+                    return (total - o.disabledEnemies.length) + ' of ' + total + ' enabled';
+                }
+                case 'career': return 'Level ' + career.level + ' · ' + esc(career.rank);
+            }
+            return '';
+        }
+
+        stepQuick(preset) {
+            const r = rules();
+            const presets = Object.entries(r.presets || {});
+            return `<p class="sv-lede">Start from a curated expedition, then fine-tune anything in the steps on the left. Hover a card for details.</p>
+                <div class="sv-card-grid presets">${presets.map(([id, p]) => {
+                    const s = { ...data.defaults, gameType: 'expedition', modifiers: [], ...p.settings };
+                    const mode = r.modes[s.gameType];
+                    const diff = r.difficulties[s.difficulty];
+                    const meta = MODE_META[s.gameType] || {};
+                    return `<button class="sv-card ${preset === id ? 'selected' : ''}" data-act="preset" data-arg="${id}"${tip(p.name, p.description, mode.name + ' · ' + diff.name + ' · ' + plural(s.modifiers.length, 'modifier'))}>
+                        <span class="sv-card-ico">${Icons().named(meta.glyph || 'unknown', '#9fe0c9', 26)}</span>
+                        <span class="sv-card-main"><b>${esc(p.name)}</b><small>${esc(p.description)}</small>
+                        <span class="sv-tags"><i>${esc(mode.name)}</i><i>${esc(diff.name)}</i>${s.modifiers.length ? `<i>${s.modifiers.length} mods</i>` : ''}</span></span>
+                        ${preset === id ? '<span class="sv-check">✓</span>' : ''}</button>`;
+                }).join('')}</div>`;
+        }
+
+        stepOperation(o) {
+            const r = rules();
+            return `<p class="sv-lede">Your operation decides the win condition. Every operation shares the same zone, crafting and day-night threat escalation.</p>
+                <div class="sv-card-grid modes">${Object.entries(r.modes).map(([id, m]) => {
+                    const meta = MODE_META[id] || {};
+                    return `<button class="sv-card ${o.gameType === id ? 'selected' : ''}" data-act="opt" data-key="gameType" data-arg="${id}"${tip(m.name, m.description, 'Length: ' + (meta.length || '—'))}>
+                        <span class="sv-card-ico">${Icons().named(meta.glyph || 'unknown', '#9fe0c9', 26)}</span>
+                        <span class="sv-card-main"><b>${esc(m.name)}</b><small>${esc(m.description)}</small>
+                        <span class="sv-tags">${(meta.tags || []).map((t) => `<i>${esc(t)}</i>`).join('')}<i class="dim">${esc(meta.length || '')}</i></span></span>
+                        ${o.gameType === id ? '<span class="sv-check">✓</span>' : ''}</button>`;
+                }).join('')}</div>`;
+        }
+
+        stepDifficulty(o) {
+            const r = rules();
+            const all = Object.entries(r.difficulties);
+            const maxOf = (k) => Math.max(...all.map(([, d]) => d[k]));
+            const bar = (label, v, k, unit, body) => `<span class="sv-statbar"${tip(label, body)}><span>${label}</span><span class="sv-statbar-track"><i style="width:${pct(v, maxOf(k))}%"></i></span><b>${unit(v)}</b></span>`;
+            return `<p class="sv-lede">Difficulty scales enemy toughness, damage and spawn speed, and caps how many may roam once the zone reaches full escalation.</p>
+                <div class="sv-diff-list">${all.map(([id, d]) => `<button class="sv-diff ${o.difficulty === id ? 'selected' : ''}" data-act="opt" data-key="difficulty" data-arg="${id}"${tip(d.name, DIFF_INFO[id] || '')}>
+                    <span class="sv-diff-name"><b>${esc(d.name)}</b><small>${esc(DIFF_INFO[id] || '')}</small></span>
+                    <span class="sv-diff-bars">
+                        ${bar('Enemy health', d.hp, 'hp', (v) => '×' + v.toFixed(2), 'Multiplies the health of every infected and PMC.')}
+                        ${bar('Damage taken', d.damage, 'damage', (v) => '×' + v.toFixed(2), 'Multiplies the damage enemies deal to you.')}
+                        ${bar('Spawn speed', d.rate, 'rate', (v) => '×' + v.toFixed(2), 'How quickly new roamers replace the ones you clear.')}
+                        ${bar('Max roaming', d.enemyCap, 'enemyCap', (v) => String(v), 'The most roaming enemies allowed once the zone is fully escalated (around day 7). Day 1 allows about 15% of this.')}
+                    </span>${o.difficulty === id ? '<span class="sv-check">✓</span>' : ''}</button>`).join('')}</div>`;
+        }
+
+        segmented(key, value, items) {
+            return `<div class="sv-seg" role="radiogroup">${items.map(([v, label, sub, body]) =>
+                `<button class="sv-seg-btn ${String(value) === String(v) ? 'selected' : ''}" role="radio" aria-checked="${String(value) === String(v)}" data-act="opt" data-key="${key}" data-arg="${v}"${tip(label + (sub && body ? ' · ' + sub : ''), body || sub || '')}>
+                    <b>${esc(label)}</b>${sub && body ? `<small>${esc(sub)}</small>` : ''}</button>`).join('')}</div>`;
+        }
+
+        toggle(key, value, title, body) {
+            return `<button class="sv-switch ${value ? 'on' : ''}" role="switch" aria-checked="${!!value}" data-act="toggle" data-arg="${key}"${tip(title, body, value ? 'Currently ON' : 'Currently OFF')}>
+                <span class="sv-switch-track"><i></i></span><span class="sv-switch-t"><b>${esc(title)}</b><small>${esc(body)}</small></span></button>`;
+        }
+
+        stepWorld(o) {
+            return `<div class="sv-field"><div class="sv-field-h"><b>Starting time</b><small>When on the 24-hour clock you deploy. Night runs 19:00–06:00 and raises the roaming limit.</small></div>
+                    ${this.segmented('startHour', o.startHour, START_TIMES)}</div>
+                <div class="sv-field"><div class="sv-field-h"><b>Day length</b><small>Real time for one full day-night cycle. Threat escalates once per in-game day.</small></div>
+                    ${this.segmented('dayLength', o.dayLength, DAY_LENGTHS.map(([v, l, b]) => [v, l, '', b]))}</div>
+                <div class="sv-field"><div class="sv-field-h"><b>Encounter rate</b><small>Scales how many enemies may roam at once on top of the day's limit.</small></div>
+                    ${this.segmented('encounterRate', o.encounterRate, ENCOUNTER.map(([v, l, b]) => [v, l, '', b]))}</div>
+                <div class="sv-field"><div class="sv-field-h"><b>Enemy pool</b><small>Flavours which unlocked infected appear and whether PMC patrols join in (from day 2).</small></div>
+                    <div class="sv-card-grid pools">${Object.entries(data.pools).map(([id, p]) => `<button class="sv-card compact ${o.pool === id ? 'selected' : ''}" data-act="opt" data-key="pool" data-arg="${id}"${tip(p.name, p.extra)}>
+                        <span class="sv-card-main"><b>${esc(p.name)}</b><small>${esc(p.extra)}</small></span>${o.pool === id ? '<span class="sv-check">✓</span>' : ''}</button>`).join('')}</div></div>
+                <div class="sv-field">${this.toggle('weather', o.weather, 'Dynamic weather', 'Overcast, ash rain and radiation fog roll through. Ash rain can jam worn weapons; fog thickens and raises radiation.')}</div>`;
+        }
+
+        stepRules(o) {
+            const safe = rules().openingSecondsFor ? rules().openingSecondsFor(o) : 60;
+            return `<div class="sv-field">${this.toggle('survivalNeeds', o.survivalNeeds, 'Survival needs', 'Food, water, body temperature and radiation drain over time and hurt you when depleted. Turn off for a pure building and combat run.')}</div>
+                <div class="sv-field">${this.toggle('autosave', o.autosave, 'Autosave when safe', 'Saves a checkpoint every 45 seconds whenever no enemies are within 9 m. You can always save manually from the Journal.')}</div>
+                <div class="sv-info-card"${tip('Safe period', 'No enemies can spawn during the opening safe period. Add the Extended Safe Start modifier to double it.')}>
+                    ${Icons().named('plate', '#9fe0c9', 22)}<div><b>${safe} second safe period</b><small>Nothing hostile spawns at the start. Use it to gather branches, stones and fiber and craft your first tools.</small></div></div>
+                <div class="sv-info-card"${tip('Day-by-day escalation', 'Day 1 only lets the 4 weakest infected roam, a few at a time. Each new day unlocks stronger infected and raises the roaming limit. PMC patrols arrive on day 2 and Commander Sable on day 3.')}>
+                    ${Icons().named('fire', '#f2b45a', 22)}<div><b>Escalating threat</b><small>Day 1 is quiet. Every dawn brings tougher infected and more of them. Blood Moons rise every third night.</small></div></div>`;
+        }
+
+        stepModifiers(o) {
+            const total = Object.keys(rules().modifiers || {}).length;
+            return `<p class="sv-lede">${o.modifiers.length} of ${total} modifiers active. Modifiers stack; hover any card to read its exact effect.</p>
+                <div id="sv-mod-host">${BO.ModifierMenuUI ? BO.ModifierMenuUI.renderHtml({ mode: 'survival', active: o.modifiers }) : ''}</div>`;
+        }
+
+        bindModifiers() {
+            const host = this.root.querySelector('#sv-mod-host');
+            if (!host || !BO.ModifierMenuUI) return;
+            BO.ModifierMenuUI.bindContainer(host, {
+                mode: 'survival',
+                getActive: () => career.profile.options.modifiers || [],
+                onChange: (next) => {
+                    career.remember({ ...career.profile.options, modifiers: next });
+                    this.activePreset = null;
+                    const o = career.profile.options;
+                    const aside = this.root.querySelector('.sv-summary');
+                    if (aside) aside.innerHTML = this.summary(o, this.matchPreset(o));
+                    const lede = this.root.querySelector('.sv-step-body .sv-lede');
+                    if (lede) lede.textContent = `${o.modifiers.length} of ${Object.keys(rules().modifiers || {}).length} modifiers active. Modifiers stack; hover any card to read its exact effect.`;
+                    const stepV = this.root.querySelector('.sv-step[data-arg="modifiers"] small');
+                    if (stepV) stepV.textContent = this.stepValue('modifiers', o);
+                    const quickV = this.root.querySelector('.sv-step[data-arg="quick"] small');
+                    if (quickV) quickV.innerHTML = this.stepValue('quick', o, this.matchPreset(o));
+                }
+            });
+        }
+
+        stepRoster(o) {
+            const list = BO.ZombiesData.ORDERED_PROGRESSION;
+            const disabled = new Set(o.disabledEnemies);
+            const unlockDay = (i) => {
+                for (let d = 1; d < 30; d++) if (rules().threat(d, false, o, rules().difficulties[o.difficulty], 999).poolSize > i) return d;
+                return 30;
+            };
+            let lastDay = 0;
+            const rows = [];
+            // Day thresholds are computed against the full roster, matching the in-game director.
+            let enabledIndex = 0;
+            list.forEach((z) => {
+                const on = !disabled.has(z.id);
+                const d = on ? unlockDay(enabledIndex) : null;
+                if (on) enabledIndex++;
+                if (on && d !== lastDay) {
+                    rows.push(`<div class="sv-roster-day">Joins on day ${d}</div>`);
+                    lastDay = d;
+                }
+                rows.push(`<button class="sv-enemy ${on ? 'on' : 'off'}" data-act="roster" data-arg="${z.id}"${tip(z.name, (z.simpleDesc || z.desc || 'Infected variant.'), (on ? 'Enabled' : 'Disabled') + ' · ' + z.hp + ' HP · speed ' + z.speed)}>
+                    <span class="sv-enemy-box">${on ? '✓' : ''}</span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
+            });
+            const offRows = list.filter((z) => disabled.has(z.id));
+            return `<p class="sv-lede">Enemies unlock from weakest to strongest as days pass. Disable any you never want to meet; the rest shift earlier.</p>
+                <div class="sv-row-actions">
+                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="all"${tip('Enable all', 'Allow every infected variant to appear when its day comes.')}>Enable all</button>
+                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="grounded"${tip('Grounded roster', 'Keep only the 25 weakest variants: no late-game monsters at all.')}>Grounded only (25 weakest)</button>
+                    <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="noMagic"${tip('No magical infected', 'Disable every magical / Aether-powered variant.')}>No magical infected</button>
+                </div>
+                <div class="sv-roster">${rows.join('')}${offRows.length ? '<div class="sv-roster-day off">Disabled</div>' : ''}</div>`;
+        }
+
+        summary(o, preset) {
+            const r = rules();
+            const mode = r.modes[o.gameType];
+            const diff = r.difficulties[o.difficulty];
+            const rosterSize = BO.ZombiesData.ORDERED_PROGRESSION.length - o.disabledEnemies.length;
+            const days = [1, 2, 3, 4, 5, 6, 7].map((d) => r.threat(d, false, o, diff, rosterSize));
+            const maxCap = Math.max(...days.map((t) => t.cap), 1);
+            const safe = r.openingSecondsFor ? r.openingSecondsFor(o) : 60;
+            const start = START_TIMES.find(([h]) => h === o.startHour);
+            const mods = o.modifiers.map((id) => r.modifiers[id]).filter(Boolean);
+            const checkpoint = career.checkpoint;
+            return `<div class="sv-sum-head"><span class="sv-kicker">Deployment</span><h3>${esc(mode?.name)}</h3><p>${esc(mode?.description)}</p></div>
+                <dl class="sv-facts">
+                    <div${tip('Difficulty', DIFF_INFO[o.difficulty] || '')}><dt>Difficulty</dt><dd>${esc(diff?.name)}</dd></div>
+                    <div${tip('Start', start?.[3] || '')}><dt>Start</dt><dd>${esc(start?.[1])} · ${esc(start?.[2])}</dd></div>
+                    <div${tip('Day length', 'One full day-night cycle in real time.')}><dt>Day length</dt><dd>${o.dayLength / 60} min</dd></div>
+                    <div${tip('Safe period', 'Seconds before anything hostile can spawn.')}><dt>Safe period</dt><dd>${safe}s</dd></div>
+                    <div${tip('Survival needs', 'Food, water, temperature and radiation.')}><dt>Needs</dt><dd>${o.survivalNeeds ? 'On' : 'Off'}</dd></div>
+                    <div${tip('Preset', 'The curated expedition these settings match, if any.')}><dt>Preset</dt><dd>${preset ? esc(r.presets[preset].name) : 'Custom'}</dd></div>
+                </dl>
+                <div class="sv-threat"${tip('Threat forecast', 'How many infected may roam at once (bar) and how many enemy types are unlocked (number) on each day. Nights allow about 35% more.')}>
+                    <div class="sv-threat-h"><b>Threat forecast</b><small>Roaming limit by day</small></div>
+                    <div class="sv-threat-bars">${days.map((t) => `<div class="sv-tbar"><span class="sv-tbar-v">${t.cap}</span><i style="height:${Math.max(8, pct(t.cap, maxCap))}%"></i><span class="sv-tbar-d">D${t.day}</span><span class="sv-tbar-p">${t.poolSize}</span></div>`).join('')}</div>
+                    <div class="sv-threat-legend"><span><i class="bar"></i>Max roaming</span><span><b>n</b> enemy types</span></div>
+                </div>
+                <div class="sv-sum-mods"><div class="sv-threat-h"><b>Modifiers</b><small>${mods.length ? mods.length + ' active' : 'None'}</small></div>
+                    <div class="sv-modchips">${mods.length ? mods.slice(0, 14).map((m) => `<span class="sv-modchip"${tip(m.name, m.description || m.desc || '')}>${esc(m.ico || '◆')} ${esc(m.name)}</span>`).join('') + (mods.length > 14 ? `<span class="sv-modchip dim">+${mods.length - 14} more</span>` : '') : '<span class="sv-muted">Standard rules.</span>'}</div></div>
+                <div class="sv-deploy-actions">
+                    <button class="sv-btn primary big" data-act="deploy" data-arg="new"${tip('Deploy', 'Start a new expedition with these settings.' + (checkpoint ? ' This replaces your saved checkpoint once you save again.' : ''))}>Deploy</button>
+                    ${checkpoint ? `<button class="sv-btn big" data-act="deploy" data-arg="resume"${tip('Resume checkpoint', 'Continue your saved expedition with the settings it was started with.', 'Saved at ' + BO.Math.formatTime(checkpoint.clock) + ' of play · ' + esc(r.modes[checkpoint.options?.gameType]?.name || ''))}>Resume checkpoint <small>${BO.Math.formatTime(checkpoint.clock)}</small></button>` : ''}
+                </div>`;
         }
 
         record() {
             const stats = career.profile.stats;
-            let record = 0;
-            try { record = Number(localStorage.getItem('boSurvivalFastest')) || 0; } catch (_) {}
+            let fastest = 0;
+            try { fastest = Number(localStorage.getItem('boSurvivalFastest')) || 0; } catch (_) { /* storage disabled */ }
             const numbers = [
                 ['Expeditions', stats.runs], ['Extractions', stats.extracts], ['Eliminations', stats.kills],
                 ['Bosses defeated', stats.bosses], ['Shrines kindled', stats.shrinesKindled], ['Tech unlocked', stats.techUnlocked],
                 ['Weapons forged', stats.weaponsForged], ['Blood Moons survived', stats.bloodMoons], ['Contracts claimed', stats.quests],
                 ['Items crafted', stats.crafted], ['Structures built', stats.built], ['Salvage collected', stats.salvaged]
             ];
-            const unlocks = [...data.vehicles, ...data.areas.filter((area) => area.level > 1)];
-            return `<dl class="survival-stats">${numbers.map(([label, count]) => `<div><dt>${label}</dt><dd>${count || 0}</dd></div>`).join('')}
-                ${record ? `<div><dt>Fastest extraction</dt><dd>${BO.Math.formatTime(record)}</dd></div>` : ''}</dl>
-                <ul class="survival-unlocks">${unlocks.map(({ name, level }) =>
-                    `<li><strong>${name}</strong> <span>${career.level >= level ? 'Unlocked' : 'Level ' + level}</span></li>`).join('')}</ul>`;
+            const unlocks = [...data.vehicles.map((v) => ({ ...v, kind: 'Vehicle' })), ...data.areas.filter((a) => a.level > 1).map((a) => ({ ...a, kind: 'Area', detail: 'Locked biome behind a gate.' }))]
+                .sort((a, b) => a.level - b.level);
+            return `<div class="sv-stats">${numbers.map(([label, n]) => `<div class="sv-stat"><b>${(n || 0).toLocaleString()}</b><small>${label}</small></div>`).join('')}
+                    ${fastest ? `<div class="sv-stat"><b>${BO.Math.formatTime(fastest)}</b><small>Fastest extraction</small></div>` : ''}</div>
+                <h4 class="sv-sub">Level unlocks</h4>
+                <div class="sv-unlocks">${unlocks.map((u) => `<div class="sv-unlock ${career.level >= u.level ? 'got' : ''}"${tip(u.name, u.detail || '', u.kind + ' · level ' + u.level)}>
+                    <span class="sv-unlock-l">LV ${u.level}</span><b>${esc(u.name)}</b><small>${u.kind} · ${career.level >= u.level ? 'Unlocked' : 'Locked'}</small></div>`).join('')}</div>`;
         }
 
-        render() {
+        /* ================================================================
+           FIELD TERMINAL
+        ================================================================ */
+        renderTerminal() {
             const mode = BO.SurvivalMode;
-            const campaign = mode.campaign;
-            this.closeButton.textContent = this.section === 'briefing' ? 'BACK' : (this.section === 'legend' && this.returnSection === 'briefing' ? 'BACK TO BRIEFING' : 'RESUME');
-            if (this.section === 'briefing') {
-                this.content.innerHTML = this.renderBriefing();
-                const modHost = this.content.querySelector('#survival-mod-menu-host');
-                if (modHost && BO.ModifierMenuUI) {
-                    BO.ModifierMenuUI.bindContainer(modHost, {
-                        mode: 'survival',
-                        getActive: () => career.profile.options.modifiers || [],
-                        onChange: (nextArr) => {
-                            const updated = { ...career.profile.options, modifiers: nextArr };
-                            career.remember(updated);
-                            this._refreshBriefingHints(updated);
-                        }
-                    });
-                }
-                return;
-            }
-            if (this.section === 'legend') {
-                this.title.textContent = 'Survival legend & encyclopedia';
-                const nav = campaign ? this.navBar() : '';
-                this.content.innerHTML = nav + (BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'all') : '<p>Legend loading...</p>');
-                return;
-            }
-            if (!campaign) return;
-            const deep = campaign.deep;
-            if (this.section === 'respawn') {
-                this.title.textContent = 'You fell in the Exclusion Zone';
-                this.content.innerHTML = `<p>Your Aether Soul Echo dropped at your last location${deep?.lostEcho ? ` holding <b>${deep.lostEcho.runes} Aether Runes</b>` : ''}.</p>
-                    <p>You can return safely to your Sanctuary Grace or Field Bed with full health and refilled Aether Flask, or end this expedition now.</p>
-                    <div class="chip-row">
-                        <button class="btn btn-primary" data-respawn="yes" type="button">RESPAWN AT SANCTUARY</button>
-                        <button class="btn" data-finish-run="yes" type="button">END EXPEDITION</button>
-                    </div>`;
-                return;
-            }
-
+            const c = mode.campaign;
+            const deep = c.deep;
             const p = BO.Player;
-            const supplies = mode.points;
-            const openSec = mode.openingSeconds || 60;
-            const safeLeft = Math.max(0, Math.ceil(openSec - mode.clock));
-            const graceNote = !mode.hostilesReleased ? `<p class="survival-safe-pill">🛡 OPENING SAFE PERIOD: ${safeLeft}s remaining — No enemies can spawn yet.</p>` : '';
-            const stats = `<p class="survival-vitals">${campaign.clockFace} · Day ${Math.floor((campaign.options.startHour + mode.clock / campaign.options.dayLength * 24 + campaign.restHours) / 24) + 1} · HP ${Math.ceil(p.hp)}/${p.maxHp} · Hunger ${Math.floor(mode.hunger)}% · Water ${Math.floor(deep?.hydration ?? 100)}% · Temp ${Math.round(deep?.temp ?? 20)}°C · Rad ${Math.floor(mode.radiation)}% · Flask ${deep?.flaskCharges ?? 0}/${deep?.flaskMax ?? 3} [X]</p>`;
-            const inventory = `<p class="survival-supplies">Runes: <b>${deep?.runes ?? 0}</b> · Tech Pts: <b>${deep?.techPoints ?? 0}</b> · Base Lv <b>${deep?.baseLevel ?? 1}</b> · Salvage ${supplies.scrap} · Ingots ${supplies.ingot || 0} · Quartz ${supplies.quartz || 0} · Aether Shards ${supplies.aetherShard || 0}</p>`;
-            const feedback = this.feedback ? `<p role="status">${this.feedback}</p>` : '';
-            const actions = `<div class="chip-row">
-                ${action(`USE FLASK (${deep?.flaskCharges ?? 0}) [X]`, 'use-flask', 'yes', !(deep?.flaskCharges > 0))}
-                ${action('USE TRAUMA KIT', 'use', 'medkits', !(supplies.medkits && p.hp < p.maxHp))}
-                ${action('EAT RATION', 'use', 'rations', !(supplies.rations && mode.hunger < 100))}
-                ${action('DRINK WATER', 'item-use', 'freshWater', !(supplies.freshWater))}
-                ${action('SAVE CHECKPOINT', 'save', 'yes', !campaign.canSave())}
-                ${career.checkpoint ? action('LOAD CHECKPOINT', 'deploy', 'resume') : ''}
+            const s = this.section;
+            const ctx = CONTEXT.has(s);
+            const activeTab = ctx ? null : s;
+            let body = '';
+            let title = '';
+            switch (s) {
+                case 'inventory': body = this.tabInventory(); break;
+                case 'crafting': body = this.tabCrafting(); break;
+                case 'build': body = this.tabBuild(); break;
+                case 'map': body = this.tabMap(); break;
+                case 'skills': body = this.tabSkills(); break;
+                case 'journal': body = this.tabJournal(); break;
+                case 'legend': body = `<div class="sv-scroll sv-pad" data-scroll="legend">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'all') : ''}</div>`; break;
+                case 'chest': title = 'Storage chest'; body = this.ctxChest(); break;
+                case 'npc': body = this.ctxNpc(); title = c.contact(this.subject)?.name || 'Contact'; break;
+                case 'shrine': title = 'Site of Grace'; body = this.ctxShrine(); break;
+                case 'infuser': title = 'Aether infusion altar'; body = this.ctxInfuser(); break;
+                case 'respawn': title = 'You fell'; body = this.ctxRespawn(); break;
+                default: body = this.tabMap();
+            }
+            const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - mode.clock));
+            const t = mode.threat;
+            const kb = BO.Settings.getKeybinds();
+            const tabs = s === 'respawn' ? '' : TABS.map((tab) => `<button class="sv-tab ${activeTab === tab.id ? 'active' : ''}" data-act="tab" data-arg="${tab.id}"${tip(tab.label, ({
+                inventory: 'Backpack, hotbar, equipment and talismans.',
+                crafting: 'Every recipe in one place, filtered by category. Station recipes need you nearby.',
+                build: 'Place walls, stations, storage, traps and machines in front of you.',
+                map: 'Field map, fast travel and vehicles.',
+                skills: 'Technology tree, attributes and talismans.',
+                journal: 'Objective, challenges, contracts, activities and career.',
+                legend: 'Searchable encyclopedia of everything in Survival.'
+            })[tab.id], 'Hotkey: ' + BO.Settings.keyLabel(kb[tab.bind]))}>
+                ${Icons().named(tab.glyph, activeTab === tab.id ? '#0d1513' : '#9fd4c7', 16)}<span>${tab.label}</span><kbd>${BO.Settings.keyLabel(kb[tab.bind])}</kbd></button>`).join('');
+            const hp = p.hp;
+            const vitals = `<div class="sv-vitals">
+                ${meter('HP', hp, p.maxHp, hp < p.maxHp * 0.35 ? 'danger' : 'hp', 'Health', Math.ceil(hp) + ' / ' + p.maxHp + '. Regenerates slowly while food and water are both above 75%.')}
+                ${c.options.survivalNeeds ? meter('FOOD', mode.hunger, 100, mode.hunger < 25 ? 'danger' : 'food', 'Food', 'Drains over time. At 0 you lose health. Eat rations, stew or cooked meals.') : ''}
+                ${c.options.survivalNeeds ? meter('H2O', deep?.hydration ?? 100, 100, (deep?.hydration ?? 100) < 25 ? 'danger' : 'water', 'Water', 'Drains faster in heat. At 0 you lose health. Drink filtered water from pumps.') : ''}
+                ${meter('RAD', mode.radiation, 100, mode.radiation > 60 ? 'danger' : 'rad', 'Radiation', 'Builds up underground and in flood water. Above 75 it hurts. Filters, tea and antibiotics reduce it.')}
+                <div class="sv-vital temp"${tip('Body temperature', 'Cold below 2°C drains stamina and below -3°C hurts. Fires, shelters and broth warm you.')}><span class="sv-vital-l">TEMP</span><b>${Math.round(deep?.temp ?? 20)}°C</b></div>
+                <div class="sv-vital chip"${tip('Aether Flask', 'Press ' + keyOf('survFlask') + ' to heal. Refill at a Site of Grace or by sleeping.')}>${Icons().named('flask', '#9be3a6', 15)}<b>${deep?.flaskCharges ?? 0}/${deep?.flaskMax ?? 3}</b></div>
+                <div class="sv-vital chip"${tip('Aether Runes', 'Spend at Sites of Grace or in Skills to raise attributes.')}>${Icons().named('rune', '#f2d07a', 15)}<b>${(deep?.runes ?? 0).toLocaleString()}</b></div>
+                <div class="sv-vital chip"${tip('Tech Points', 'Earned from levels, shrines and bosses. Spend them in Skills.')}>${Icons().named('tech', '#9fd4ff', 15)}<b>${deep?.techPoints ?? 0}</b></div>
+                <div class="sv-vital chip"${tip('Armor', 'Armor absorbs damage. Insert spare plates with ' + keyOf('survPlate') + '.')}>${Icons().named('plate', '#c7d3dc', 15)}<b>${Math.round(p.armor)} · ${p.armorReservePlates}</b></div>
             </div>`;
-            const nav = this.navBar();
-            let html = '';
+            const status = `<div class="sv-clock"${tip('Time & threat', 'Day ' + c.day + (c.isNight ? ' (night)' : '') + '. ' + (t ? 'Up to ' + t.cap + ' infected may roam right now, drawn from the ' + t.poolSize + ' weakest types.' : 'Hostiles are not active yet.'))}>
+                <b>Day ${c.day}</b><span>${c.clockFace}</span><span>${esc(mode.weather)}</span>${mode.hostilesReleased ? `<span class="sv-threat-pill ${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t?.cap ?? '-'} roaming</span>` : `<span class="sv-threat-pill safe">Safe ${safeLeft}s</span>`}</div>`;
+            return `<div class="sv-frame">
+                <header class="sv-thead">
+                    <div class="sv-brand"><span class="sv-kicker">Field terminal</span><b>${esc(c.area?.name || 'Exclusion Zone')}</b></div>
+                    <nav class="sv-tabs">${tabs}</nav>
+                    ${status}
+                    ${s === 'respawn' ? '' : `<button class="sv-close" data-act="close"${tip('Close', 'Return to the game (ESC, or press the tab hotkey again).')}>✕</button>`}
+                </header>
+                ${vitals}
+                ${!mode.hostilesReleased ? `<div class="sv-banner safe">Safe period: ${safeLeft}s until hostiles can spawn. Gather branches, stones and fiber by hand and craft your first tools.</div>` : ''}
+                ${deep?.bloodMoonActive ? `<div class="sv-banner danger">Blood Moon: ${Math.max(0, Math.ceil(deep.bloodMoonUntil - mode.clock))}s of surging infected remain.</div>` : ''}
+                ${ctx && title ? `<div class="sv-ctx-title"><h2>${esc(title)}</h2></div>` : ''}
+                <section class="sv-body sv-body-${s}">${body}</section>
+                <footer class="sv-foot">${this.feedback ? `<span class="sv-feedback" role="status">${esc(this.feedback)}</span>` : `<span class="sv-hints">${this.footHints(s)}</span>`}</footer>
+            </div>`;
+        }
 
-            if (this.section === 'pack') {
-                this.title.textContent = 'Field backpack & talismans';
-                html = this.pack(campaign);
-            } else if (this.section === 'chest') {
-                this.title.textContent = 'Storage chest';
-                html = this.chest(campaign);
-            } else if (this.section === 'tech') {
-                this.title.textContent = 'Technology tree & attributes [K]';
-                html = this.techPanel(campaign);
-            } else if (this.section === 'objectives') {
-                this.title.textContent = 'Goals, challenges & field journal [O]';
-                html = this.objectivesPanel(campaign);
-            } else if (this.section === 'shrine') {
-                this.title.textContent = 'Site of Grace · Sanctuary';
-                html = this.shrinePanel(campaign);
-            } else if (this.section === 'infuser') {
-                this.title.textContent = 'Aether Infusion Altar';
-                html = this.infuserPanel(campaign);
-            } else if (this.section === 'workshop') {
-                html = this.workshopPanel(campaign, mode);
-            } else if (this.section === 'build') {
-                html = this.buildPanel(campaign, mode);
-            } else if (this.section === 'travel') {
-                this.title.textContent = 'Transport and routes';
-                html = this.cards(data.vehicles.map((item) => card(item.name, item.detail, campaign.vehicle === item.id
-                    ? action('DISMOUNT', 'ride', 'off')
-                    : action(campaign.hasVehicle(item.id) ? 'EQUIP' : 'LEVEL ' + item.level, 'ride', item.id, !campaign.hasVehicle(item.id)))));
-                html += `<h3>Fast travel (1 Fuel)</h3><div class="chip-row">${data.areas.filter((area) => area.y >= 0 && campaign.visited.has(area.id)).map((area) =>
-                    action(area.name, 'travel', area.id, !supplies.fuel || area.id === campaign.area?.id || !campaign.canSave())).join('')}</div>`;
-            } else if (this.section === 'record') {
-                this.title.textContent = 'Survival career';
-                html = this.record();
-            } else if (this.section === 'npc') {
-                html = this.npc(campaign, mode);
-            } else {
-                this.title.textContent = 'Exclusion Zone map';
-                html = `<p>${mode.objective}</p>${this.map(mode, p)}<p><kbd>3</kbd> Bare Hands · <kbd>L</kbd> Legend · <kbd>K</kbd> Tech · <kbd>O</kbd> Goals · <kbd>J</kbd> Pack · <kbd>B</kbd> Build · <kbd>X</kbd> Flask</p>`;
+        footHints(s) {
+            const k = (a) => `<kbd>${keyOf(a)}</kbd>`;
+            switch (s) {
+                case 'inventory': return 'Drag items onto the hotbar · select an item and press 1–0 to place it · right-click a slot to clear it · <kbd>ESC</kbd> close';
+                case 'chest': return 'Click to inspect · double-click moves one · shift-click moves the whole stack · <kbd>ESC</kbd> close';
+                case 'crafting': return 'Recipes that need a station unlock when you stand within 4 m of it · ' + k('survCraft') + ' or <kbd>ESC</kbd> close';
+                case 'build': return 'Pieces are placed 2.6 m in front of you on the half-metre grid · ' + k('survBuild') + ' or <kbd>ESC</kbd> close';
+                case 'map': return 'Hover markers for details · toggle layers on the right · ' + k('survMap') + ' or <kbd>ESC</kbd> close';
+                case 'respawn': return 'Choose how to continue.';
+                case 'npc': return 'Trades use materials from your backpack · <kbd>ESC</kbd> close';
+                default: return 'Switch tabs with their hotkeys · <kbd>ESC</kbd> close';
             }
-            this.content.innerHTML = this.careerLine + nav + graceNote + stats + inventory + html + actions + feedback;
         }
 
-        navBar() {
-            return `<div class="chip-row survival-nav">${[
-                ['map', 'MAP'], ['pack', 'BACKPACK'], ['build', 'BUILD'], ['tech', 'TECH & STATS'],
-                ['objectives', 'GOALS & JOURNAL'], ['travel', 'TRAVEL'], ['legend', '📖 LEGEND'], ['record', 'CAREER']
-            ].map(([name, label]) => action(label, 'panel', name, this.section === name)).join('')}</div>`;
+        /* ---------------------------------------------------------- inventory */
+        hotbarStrip(assignMode) {
+            const c = BO.SurvivalMode.campaign;
+            const hb = c.hotbar;
+            const kb = BO.Settings.getKeybinds();
+            return `<div class="sv-hotbar-edit ${assignMode ? 'sv-assign-mode' : ''}">
+                <div class="sv-hb-head"><b>Hotbar</b><small>${assignMode ? 'Click a slot to place the selected item there.' : 'Drag weapons, tools and usable items here. Empty slots are bare hands.'}</small></div>
+                <div class="sv-hb-row">${hb.slots.map((e, i) => {
+                    const label = hb.label(e);
+                    return `<button class="sv-hb ${i === hb.selected ? 'active' : ''} ${e ? '' : 'empty'}" data-act="hbSlot" data-arg="${i}" data-hb-slot="${i}" ${e ? `draggable="true" data-drag="slot:${i}"` : ''}${tip('Slot ' + (i + 1) + ' · ' + label, e ? 'Click to inspect. Drag to rearrange. Right-click to clear.' : 'Empty slot: selecting it in game gives you bare hands.', 'Key: ' + BO.Settings.keyLabel(kb['hotbar' + (i + 1)]))}>
+                        <span class="sv-hb-key">${BO.Settings.keyLabel(kb['hotbar' + (i + 1)])}</span>${this.entryIcon(e, 26)}${this.entryBadge(e)}</button>`;
+                }).join('')}<div class="sv-hb-clear" data-drop-clear${tip('Remove from hotbar', 'Drop a hotbar slot here to clear it.')}>✕</div></div></div>`;
         }
 
-        techPanel(campaign) {
-            const deep = campaign.deep;
+        entryIcon(e, size = 24) {
+            const I = Icons();
+            if (!e) return `<span class="sv-ico-fist">${I.fist(size)}</span>`;
+            if (e.kind === 'weapon') return I.weapon(BO.Player.weapons[e.ref], size);
+            if (e.kind === 'tool') return I.tool(e.id, size);
+            return I.item(e.id, size);
+        }
+
+        entryBadge(e) {
+            if (!e) return '';
+            const c = BO.SurvivalMode.campaign;
+            if (e.kind === 'item') return `<span class="sv-hb-n">${c.pack.inventory[e.id] || 0}</span>`;
+            if (e.kind === 'tool') {
+                const t = frontier.tools[e.id];
+                const d = c.pack.tools[e.id] || 0;
+                return `<span class="sv-dura"><i style="width:${pct(d, t.wear)}%" class="${d / t.wear < 0.25 ? 'low' : ''}"></i></span>`;
+            }
+            const w = BO.Player.weapons[e.ref];
+            return w && w.stats.kind !== 'melee' ? `<span class="sv-hb-n">${w.mag}</span>` : '';
+        }
+
+        tabInventory() {
+            const c = BO.SurvivalMode.campaign;
+            const pack = c.pack;
+            const p = BO.Player;
+            const deep = c.deep;
             const dd = deepData();
-            const tiers = [1, 2, 3, 4].map((tier) => {
-                const nodes = (dd.techTree || []).filter((n) => n.tier === tier);
-                return `<h4>Tier ${tier}</h4>` + this.cards(nodes.map((n) => {
-                    const owned = deep.hasTech(n.id);
-                    const reqOk = !n.req || deep.hasTech(n.req);
-                    const label = owned ? 'UNLOCKED' : (!reqOk ? 'LOCKED' : `UNLOCK (${n.cost} TP)`);
-                    return card(n.name, n.desc, action(label, 'unlock-tech', n.id, owned || !reqOk || deep.techPoints < n.cost), owned ? '#4ade80' : '#a6ddd0');
-                }));
+            const inv = pack.inventory;
+            const lim = pack.limits;
+            const weight = pack.weight();
+            const cats = ['All', 'Raw materials', 'Components', 'Consumables', 'Lighting', 'Tools', 'Keys'];
+            const order = Object.keys(frontier.items);
+            let items = Object.entries(inv).filter(([id, n]) => n > 0 && frontier.items[id] && (this.packFilter === 'All' || frontier.items[id][1] === this.packFilter));
+            const sorters = {
+                category: (a, b) => cats.indexOf(frontier.items[a[0]][1]) - cats.indexOf(frontier.items[b[0]][1]) || order.indexOf(a[0]) - order.indexOf(b[0]),
+                name: (a, b) => itemName(a[0]).localeCompare(itemName(b[0])),
+                weight: (a, b) => frontier.items[b[0]][2] * b[1] - frontier.items[a[0]][2] * a[1],
+                count: (a, b) => b[1] - a[1]
+            };
+            items.sort(sorters[this.packSort] || sorters.category);
+            const used = pack.slots();
+            const empties = this.packFilter === 'All' ? Math.max(0, lim.slots - used) : 0;
+            const sel = this.selItem;
+            const tiles = items.map(([id, n]) => {
+                const [name, cat, kg] = frontier.items[id];
+                const usable = BO.SurvivalHotbar.usable.has(id);
+                return `<button class="sv-tile ${sel?.kind === 'item' && sel.id === id ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" ${usable ? `draggable="true" data-drag="item:${id}"` : ''}${tip(name + ' ×' + n, ITEM_INFO[id] || cat, cat + ' · ' + (kg * n).toFixed(1) + ' kg' + (usable ? ' · usable, can go on the hotbar' : ''))}>
+                    ${Icons().item(id, 30)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(name)}</span>${usable ? '<span class="sv-tile-use"></span>' : ''}</button>`;
+            }).join('') + Array.from({ length: Math.min(empties, 40) }, () => '<span class="sv-tile empty"></span>').join('');
+
+            const weapons = p.weapons.map((w, ref) => `<button class="sv-eq ${sel?.kind === 'weapon' && sel.id === String(ref) ? 'selected' : ''}" data-act="selItem" data-arg="weapon:${ref}" draggable="true" data-drag="weapon:${ref}"${tip(w.stats.name || w.stats.shortName, w.stats.kind === 'melee' ? 'Melee weapon.' : 'Magazine ' + w.mag + '/' + w.stats.magSize + ' · ' + w.reserve + ' in reserve.', 'Drag onto the hotbar')}>
+                ${Icons().weapon(w, 26)}<span class="sv-eq-t"><b>${esc(w.stats.shortName || w.stats.name)}${w.survivalMk > 1 ? ' <em>Mk ' + w.survivalMk + '</em>' : ''}</b><small>${w.stats.kind === 'melee' ? 'Melee' : w.mag + ' / ' + w.reserve}</small></span></button>`).join('');
+            const tools = Object.entries(pack.tools).map(([id, d]) => {
+                const t = frontier.tools[id];
+                return `<button class="sv-eq ${sel?.kind === 'tool' && sel.id === id ? 'selected' : ''} ${d > 0 ? '' : 'broken'}" data-act="selItem" data-arg="tool:${id}" draggable="true" data-drag="tool:${id}"${tip(t.name, 'Tier ' + t.level + ' ' + t.family + ' · gathering power ' + t.power + '.', Math.ceil(d) + ' / ' + t.wear + ' durability')}>
+                    ${Icons().tool(id, 26)}<span class="sv-eq-t"><b>${esc(t.name)}</b><span class="sv-dura wide"><i style="width:${pct(d, t.wear)}%" class="${d / t.wear < 0.25 ? 'low' : ''}"></i></span></span></button>`;
+            }).join('') || '<p class="sv-muted sm">No tools yet. Craft a stone hatchet or pickaxe from timber, stone and braided cord.</p>';
+            const talSlots = [0, 1, 2].map((i) => {
+                const id = deep?.equippedTalismans?.[i];
+                const t = id ? dd.talismans?.[id] : null;
+                return `<button class="sv-tal ${t ? 'on' : ''}" ${t ? `data-act="talisman" data-arg="${id}"` : ''}${tip(t ? t.name : 'Empty talisman slot', t ? t.effect + ' Click to unequip.' : 'Find talismans at landmarks or from bosses, then equip them here.')}>${t ? Icons().named('beacon', t.color || '#f2d07a', 20) : '<span class="sv-muted">+</span>'}</button>`;
             }).join('');
-            const attrCost = deep.attributeCost();
-            const attrs = this.cards(Object.entries(dd.attributes || {}).map(([id, a]) =>
-                card(`${a.name} · Rank ${deep.attributes[id] || 0}`, a.bonus,
-                    action(`LEVEL UP (${attrCost} Runes)`, 'upgrade-attr', id, deep.runes < attrCost), a.color)));
-            return `<h3>Technology Tree · ${deep.techPoints} Tech Point(s) Available (Zero Creatures)</h3>${tiers}
-                <h3>Attributes · ${deep.runes} Aether Runes</h3>${attrs}`;
-        }
-
-        objectivesPanel(campaign) {
-            const challenges = campaign.objectives.list();
-            const cHtml = this.cards(challenges.map((ch) =>
-                card(`${ch.name} (${ch.claimed ? 'Claimed' : ch.progress})`, `${ch.info} Reward: ${price(ch.reward)} + ${ch.xp} XP`,
-                    action(ch.claimed ? 'CLAIMED' : (ch.ready ? 'CLAIM REWARD' : ch.progress), 'claim-challenge', ch.id, ch.claimed || !ch.ready),
-                    ch.claimed ? '#4ade80' : (ch.ready ? '#facc15' : '#a6ddd0'))));
-            return `<h3>Active Mode Objective</h3><p>${this.modeObjectiveText()}</p>
-                <h3>Field Challenges</h3>${cHtml}
-                ${campaign.activities ? campaign.activities.renderJournal() : ''}`;
-        }
-
-        modeObjectiveText() {
-            return BO.SurvivalMode?.objective || '';
-        }
-
-        shrinePanel(campaign) {
-            const deep = campaign.deep;
-            const dd = deepData();
-            const cost = deep.attributeCost();
-            const attrs = this.cards(Object.entries(dd.attributes || {}).map(([id, a]) =>
-                card(`${a.name} · Rank ${deep.attributes[id] || 0}`, a.bonus, action(`UPGRADE (${cost} Runes)`, 'upgrade-attr', id, deep.runes < cost), a.color)));
-            const tals = deep.foundTalismans.size ? this.cards([...deep.foundTalismans].map((id) => {
+            const spare = [...(deep?.foundTalismans || [])].filter((id) => !deep.equippedTalismans.includes(id)).map((id) => {
                 const t = dd.talismans[id];
-                const eq = deep.equippedTalismans.includes(id);
-                return card(t.name, t.effect, action(eq ? 'EQUIPPED (REMOVE)' : 'EQUIP', 'equip-talisman', id), eq ? '#facc15' : '#a6ddd0');
-            })) : '<p>Find Talismans in the Exclusion Zone or defeat Zone Bosses to unlock Talisman slots.</p>';
-            const warps = deep.allShrines.filter((s) => deep.kindledShrines.has(s.id)).map((s) =>
-                action(s.name, 'shrine-travel', s.id, s.id === this.subject)).join('');
-            return `<p>Aether Flask refilled (${deep.flaskCharges}/${deep.flaskMax}), Health restored, Bleeding & Infection cured!</p>
-                <div class="chip-row">${action('SLEEP UNTIL MORNING', 'sleep-dawn', 'yes', !campaign.canSave())}</div>
-                <h3>Level Up Attributes · ${deep.runes} Aether Runes</h3>${attrs}
-                <h3>Talismans (${deep.equippedTalismans.length}/3 Equipped)</h3>${tals}
-                <h3>Grace Fast-Travel (Free)</h3><div class="chip-row">${warps || '<p>Kindle another Site of Grace to fast-travel between shrines.</p>'}</div>`;
+                return `<button class="sv-chip-btn" data-act="talisman" data-arg="${id}"${tip(t.name, t.effect + ' Click to equip.')}>${esc(t.name)}</button>`;
+            }).join('');
+            const lit = pack.lightUntil > BO.SurvivalMode.clock;
+            return `<div class="sv-inv">
+                <aside class="sv-inv-eq sv-scroll" data-scroll="eq">
+                    <h4 class="sv-sub">Weapons</h4>${weapons}
+                    <h4 class="sv-sub">Tools</h4>${tools}
+                    <h4 class="sv-sub">Talismans <small>${deep?.equippedTalismans?.length || 0}/3</small></h4><div class="sv-tal-row">${talSlots}</div>${spare ? `<div class="sv-chip-row">${spare}</div>` : ''}
+                    <h4 class="sv-sub">Field kit</h4>
+                    <div class="sv-kit">
+                        <button class="sv-btn sm ${p.armorReservePlates ? '' : 'dis'}" data-act="plate" ${p.armorReservePlates && p.armor < p.maxArmor ? '' : 'disabled'}${tip('Insert armor plate', 'Spend a spare plate to restore armor. Hotkey: ' + keyOf('survPlate'))}>${Icons().named('plate', '#c7d3dc', 16)} Plate (${p.armorReservePlates})</button>
+                        <button class="sv-btn sm" data-act="light"${tip(lit ? 'Put out light' : 'Light torch / lantern', 'Hotkey: ' + keyOf('survLight') + '. A lantern needs one fuel per lighting.')}>${Icons().named(lit ? 'lantern' : 'torch', '#ffc46e', 16)} ${lit ? 'Light off' : 'Light'}</button>
+                        <button class="sv-btn sm" data-act="flask" ${deep?.flaskCharges > 0 ? '' : 'disabled'}${tip('Aether Flask', 'Heal 50+ health and cure bleeding. Hotkey: ' + keyOf('survFlask'))}>${Icons().named('flask', '#9be3a6', 16)} Flask (${deep?.flaskCharges ?? 0})</button>
+                    </div>
+                    ${pack.filtered ? `<p class="sv-muted sm">Respirator filter active · ${Math.ceil(pack.filterUntil - BO.SurvivalMode.clock)}s</p>` : ''}
+                </aside>
+                <section class="sv-inv-pack">
+                    <div class="sv-pack-head">
+                        <div class="sv-pack-cap"${tip(lim.name, 'Carry weight and unique stacks are both limited. Craft a bigger pack at a workbench.', weight.toFixed(1) + ' / ' + lim.weight + ' kg · ' + used + ' / ' + lim.slots + ' stacks')}>
+                            <b>${esc(lim.name)}</b>
+                            <span class="sv-cap-bar"><i style="width:${pct(weight, lim.weight)}%" class="${weight / lim.weight > 0.9 ? 'full' : ''}"></i></span>
+                            <small>${weight.toFixed(1)} / ${lim.weight} kg · ${used}/${lim.slots} stacks</small>
+                        </div>
+                        <div class="sv-pack-tools">
+                            <div class="sv-filter">${cats.map((cat) => `<button class="${cat === this.packFilter ? 'active' : ''}" data-act="filter" data-arg="${cat}"${tip(cat, cat === 'All' ? 'Show everything in your pack.' : 'Show only ' + cat.toLowerCase() + '.')}>${cat === 'Raw materials' ? 'Raw' : cat}</button>`).join('')}</div>
+                            <label class="sv-sort"${tip('Sort', 'Change the order of your backpack.')}><span>Sort</span>${['category', 'name', 'weight', 'count'].map((k) => `<button class="${this.packSort === k ? 'active' : ''}" data-act="sort" data-arg="${k}">${k}</button>`).join('')}</label>
+                        </div>
+                    </div>
+                    <div class="sv-grid sv-scroll" data-scroll="grid" data-drop-clear>${tiles || '<p class="sv-muted">Nothing here yet.</p>'}</div>
+                    ${this.hotbarStrip(!!sel && (sel.kind !== 'item' || BO.SurvivalHotbar.usable.has(sel.id)))}
+                </section>
+                <aside class="sv-detail sv-scroll" data-scroll="detail">${this.detailPanel(sel)}</aside>
+            </div>`;
         }
 
-        infuserPanel(campaign) {
-            const deep = campaign.deep;
-            const dd = deepData();
-            return `<p>Active Aether Infusions (${deep.infusions.length}/2 max): <b>${deep.infusions.map((id) => dd.infusions[id]?.name).join(', ') || 'None'}</b></p>
-                ${this.cards(Object.entries(dd.infusions || {}).map(([id, inf]) => {
-                    const active = deep.hasInfusion(id);
-                    return card(inf.name, inf.desc, action(active ? 'ACTIVE' : '2 Quartz + 1 Shard + 120 Runes', 'infuse', id, active || !this.canAffordInfuse(deep)), active ? '#c084fc' : '#a6ddd0');
-                }))}`;
-        }
-
-        canAffordInfuse(deep) {
-            return deep.runes >= 120 && BO.SurvivalMode.canAfford({ quartz: 2, aetherShard: 1 });
-        }
-
-        workshopPanel(campaign, mode) {
-            const station = campaign.station;
-            this.title.textContent = { campfire: 'Campfire cooking', kiln: 'Stone kiln' }[station] || 'Survival workshop';
-            const oldRecipes = BO.SurvivalData.recipes.filter((recipe) => station === 'bench' || (station === 'campfire' && recipe.id === 'cook'));
-            let html = this.cards(oldRecipes.map((recipe) =>
-                card(recipe.name, recipe.detail, action(price(recipe.cost), 'craft', recipe.id, !mode.canAfford(recipe.cost))))) +
-                this.frontierRecipes(campaign, station);
-            if (station === 'bench') {
-                const deep = campaign.deep;
-                const w = BO.Player.activeWeapon;
-                const mk = w?.survivalMk || 1;
-                const upCost = mk === 1 ? { ingot: 2, scrap: 3 } : { ingot: 3, aetherShard: 1, wire: 2 };
-                html += `<h3>Upgrade Active Firearm (${w && w.stats.kind !== 'melee' ? `${w.stats.shortName} Mk ${mk}` : 'Hold a gun'})</h3>`;
-                html += this.cards([card('Upgrade Weapon Tier', 'Boosts damage & magazine capacity up to Mk III.',
-                    action(mk >= 3 ? 'MAX MK III' : `UPGRADE (${BO.SurvivalItemAmounts(upCost)})`, 'upgrade-gun', 'yes', !w || w.stats.kind === 'melee' || mk >= 3 || !deep?.hasTech('t2_gunsmith') || !mode.canAfford(upCost)))]);
-                html += `<h3>Forge Weapon Schematics</h3>`;
-                html += this.cards((deepData().weaponSchematics || []).map((sch) => {
-                    const unlocked = deep?.hasTech(sch.tech) || deep?.unlockedSchematics.has(sch.id);
-                    return card(sch.name, unlocked ? `Equip straight into your active weapon slot.` : `Locked — unlock in Tech Tree [K] or loot Boss/Meteor schematic.`,
-                        action(unlocked ? BO.SurvivalItemAmounts(sch.cost) : 'LOCKED', 'forge', sch.id, !unlocked || !mode.canAfford(sch.cost)), unlocked ? '#fde047' : '#64748b');
-                }));
+        detailPanel(sel) {
+            const c = BO.SurvivalMode.campaign;
+            const pack = c.pack;
+            const hb = c.hotbar;
+            const I = Icons();
+            if (!sel) {
+                return `<div class="sv-empty-detail">${I.named('chest', '#5f7f75', 44)}<b>Select an item</b><p>Click anything in your backpack, equipment or hotbar to see what it does and what you can do with it.</p>
+                    <ul class="sv-howto"><li><b>Bare hands</b> break branches, stones, fiber, and tier-1 trees and rocks — slowly.</li><li><b>Tools</b> gather four times faster and reach tier-2 deposits.</li><li>Hold a tool on the hotbar and click to swing it.</li></ul></div>`;
             }
-            return html;
+            const slotButtons = (kind, id) => `<div class="sv-put"><small>Put on hotbar</small><div class="sv-put-row">${hb.slots.map((e, i) =>
+                `<button class="${hb.indexOf(kind === 'weapon' ? { kind, ref: Number(id) } : { kind, id }) === i ? 'here' : ''} ${e ? 'used' : ''}" data-act="hbPut" data-arg="${i}"${tip('Slot ' + (i + 1), e ? 'Replaces ' + hb.label(e) + ' (it moves to this item\'s old slot).' : 'Empty slot.')}>${BO.Settings.keyLabel(BO.Settings.getKeybinds()['hotbar' + (i + 1)])}</button>`).join('')}</div></div>`;
+            if (sel.kind === 'item') {
+                const id = sel.id;
+                const n = pack.inventory[id] || 0;
+                const info = frontier.items[id];
+                if (!info) return '';
+                const usable = BO.SurvivalHotbar.usable.has(id);
+                const chestOpen = this.section === 'chest';
+                return `<div class="sv-detail-head">${I.item(id, 44)}<div><h3>${esc(info[0])}</h3><small>${esc(info[1])} · ${info[2]} kg each</small></div></div>
+                    <p class="sv-detail-text">${esc(ITEM_INFO[id] || 'Crafting material.')}</p>
+                    <dl class="sv-kv"><div><dt>Carried</dt><dd>${n}</dd></div><div><dt>Weight</dt><dd>${(info[2] * n).toFixed(2)} kg</dd></div></dl>
+                    <div class="sv-actions">
+                        ${usable ? `<button class="sv-btn primary" data-act="use" data-arg="${id}" ${n ? '' : 'disabled'}${tip('Use', 'Consume one now.')}>Use</button>` : ''}
+                        ${chestOpen ? `<button class="sv-btn" data-act="transfer" data-arg="store:${id}:one" ${n ? '' : 'disabled'}>Store 1</button><button class="sv-btn" data-act="transfer" data-arg="store:${id}:all" ${n ? '' : 'disabled'}>Store all</button>` : ''}
+                        <button class="sv-btn ghost" data-act="drop" data-arg="${id}:one" ${n ? '' : 'disabled'}${tip('Drop one', 'Drops one on the ground in a bag you can pick up again.')}>Drop 1</button>
+                        ${n > 1 ? `<button class="sv-btn ghost" data-act="drop" data-arg="${id}:all"${tip('Drop stack', 'Drops the whole stack in a bag on the ground.')}>Drop all</button>` : ''}
+                    </div>
+                    ${usable && n ? slotButtons('item', id) : ''}`;
+            }
+            if (sel.kind === 'tool') {
+                const t = frontier.tools[sel.id];
+                const d = pack.tools[sel.id] ?? 0;
+                const targets = Object.values(frontier.resources).filter((r) => r.tool === t.family && r.tier <= t.level).map((r) => r.name);
+                return `<div class="sv-detail-head">${I.tool(sel.id, 44)}<div><h3>${esc(t.name)}</h3><small>Tier ${t.level} ${t.family}</small></div></div>
+                    <div class="sv-dura big"><i style="width:${pct(d, t.wear)}%" class="${d / t.wear < 0.25 ? 'low' : ''}"></i></div>
+                    <dl class="sv-kv"><div><dt>Durability</dt><dd>${Math.ceil(d)} / ${t.wear}</dd></div><div><dt>Power</dt><dd>${t.power} per swing</dd></div><div><dt>Vs. hands</dt><dd>${Math.round(t.power / 0.25)}× faster</dd></div></dl>
+                    <p class="sv-detail-text">Works: ${esc(targets.join(', ') || '—')}.</p>
+                    <div class="sv-actions">
+                        <button class="sv-btn primary" data-act="equipTool" data-arg="${sel.id}" ${d > 0 ? '' : 'disabled'}${tip('Hold', 'Select this tool on the hotbar.')}>Hold</button>
+                        <button class="sv-btn" data-act="repairTool" data-arg="${sel.id}" ${(pack.inventory.repair || 0) > 0 && d < t.wear ? '' : 'disabled'}${tip('Repair', 'Uses one field repair kit: +24 durability.', 'Kits: ' + (pack.inventory.repair || 0))}>Repair</button>
+                    </div>${slotButtons('tool', sel.id)}`;
+            }
+            if (sel.kind === 'weapon') {
+                const ref = Number(sel.id);
+                const w = BO.Player.weapons[ref];
+                if (!w) return '';
+                const st = w.stats;
+                return `<div class="sv-detail-head">${I.weapon(w, 44)}<div><h3>${esc(st.name || st.shortName)}${w.survivalMk > 1 ? ' Mk ' + w.survivalMk : ''}</h3><small>${st.kind === 'melee' ? 'Melee weapon' : esc(w.fireMode || st.fireMode || '').toUpperCase()}</small></div></div>
+                    <dl class="sv-kv">${st.kind === 'melee' ? `<div><dt>Damage</dt><dd>${st.damage}</dd></div>` : `
+                        <div><dt>Damage</dt><dd>${st.damage}</dd></div><div><dt>Magazine</dt><dd>${w.mag} / ${st.magSize}</dd></div>
+                        <div><dt>Reserve</dt><dd>${w.reserve} / ${st.reserveMax}</dd></div><div><dt>Condition</dt><dd>${Math.max(0, 100 - Math.round((w.wear || 0) / 1.2))}%</dd></div>`}</dl>
+                    <p class="sv-detail-text">${st.kind === 'melee' ? 'Swing with the fire button.' : 'Craft field cartridges at a workbench to refill ammunition. Upgrade it to Mk II/III after researching the Gunsmith bench.'}</p>
+                    ${slotButtons('weapon', ref)}`;
+            }
+            return '';
         }
 
-        buildPanel(campaign, mode) {
-            this.title.textContent = `Field construction · Homestead Base Lv ${campaign.deep?.baseLevel ?? 1}/5`;
-            const target = campaign.buildTarget('wall');
-            return `<p>Places in front at grid ${target.x}, ${target.z}. Roofs need a nearby wall. Doors toggle with [E].</p>
-                <div class="chip-row">
-                    ${action('ROTATE PLACEMENT', 'rotate', 'yes')}
-                    ${action('REPAIR NEARBY (1 Salvage)', 'repair-base', 'yes', !mode.canAfford({ scrap: 1 }))}
-                    ${action('DISMANTLE NEAREST (<4m)', 'dismantle', 'yes')}
-                </div>
-                ${this.cards(data.build.map((item) => {
-                    const cost = typeof item.cost === 'number' ? { scrap: item.cost } : item.cost;
-                    const techOk = !item.tech || campaign.deep?.hasTech(item.tech);
-                    return card(item.name, item.detail,
-                        action(techOk ? ('PLACE · ' + BO.SurvivalItemAmounts(cost)) : 'TECH LOCKED [K]', 'build', item.id, !techOk || !mode.canAfford(cost) || !campaign.canBuild),
-                        techOk ? '#a6ddd0' : '#64748b');
-                }))}`;
-        }
-
-        pack(campaign) {
-            const pack = campaign.pack;
-            const deep = campaign.deep;
-            const dd = deepData();
-            const filter = this.packFilter || 'All';
-            const categories = ['All', 'Raw materials', 'Components', 'Consumables', 'Lighting', 'Keys'];
-            const open = Object.entries(pack.inventory).filter(([id, count]) => count > 0 && frontier.items[id] &&
-                (filter === 'All' || filter === frontier.items[id][1]));
-            const toolRows = Object.entries(pack.tools).map(([id, durability]) => {
-                const tool = frontier.tools[id];
-                return card(tool.name, (durability ? Math.ceil(durability) + ' / ' + tool.wear + ' durability' : 'Worn out') + ' · Tier ' + tool.level,
-                    action(pack.equipped === id ? 'EQUIPPED' : 'EQUIP', 'equip-tool', id, pack.equipped === id || durability <= 0));
-            });
-            const talRows = [...(deep?.foundTalismans || [])].map((id) => {
-                const t = dd.talismans[id];
-                const eq = deep.equippedTalismans.includes(id);
-                return card(t.name, t.effect, action(eq ? 'EQUIPPED (REMOVE)' : 'EQUIP', 'equip-talisman', id), eq ? '#facc15' : '#a6ddd0');
-            });
-            const filterBar = categories.map((category) => action(category, 'pack-filter', category, category === filter)).join('');
-            const usable = new Set(['torch', 'lantern', 'tea', 'bandage', 'repair', 'filter', 'freshWater', 'stew', 'espresso', 'antibiotic', 'broth', 'aetherStim', 'orbitalFlare', 'jugBrew', 'speedTonic', 'staminElixir', 'deadshotTinc']);
-            return `<div class="frontier-pack-bar">
-                    <strong>${pack.limits.name}</strong>
-                    <span>${pack.weight().toFixed(1)} / ${pack.limits.weight} kg</span>
-                    <span>${pack.slots()} / ${pack.limits.slots} stacks</span>
-                    <meter min="0" max="${pack.limits.weight}" value="${pack.weight()}" aria-label="Pack weight"></meter>
-                </div>
-                <div class="chip-row frontier-categories">${filterBar}</div>
-                ${open.length ? this.cards(open.map(([id, count]) => {
-                    const [name, category, kg] = frontier.items[id];
-                    return card(name + ' ×' + count, category + ' · ' + (kg * count).toFixed(2) + ' kg',
-                        (usable.has(id) ? action('USE', 'item-use', id) : '') +
-                        action('DROP ONE', 'drop', id + ':one') + (count > 1 ? action('DROP STACK', 'drop', id + ':all') : ''));
-                })) : '<p>No items in this category.</p>'}
-                <h3>Talismans (${deep?.equippedTalismans?.length || 0}/3 Equipped)</h3>
-                ${talRows.length ? this.cards(talRows) : '<p>Explore landmarks or defeat bosses to collect Talismans.</p>'}
-                <h3>Tools</h3>
-                ${toolRows.length ? this.cards(toolRows) : '<p>Gather fallen branches, loose stones, and fiber roots by hand. Braid cord for your first tools.</p>'}
-                <h3>Hand crafting</h3>${this.frontierRecipes(campaign, 'hand')}`;
-        }
-
-        frontierRecipes(campaign, station) {
-            const pack = campaign.pack;
-            const toolRecipes = Object.keys(frontier.tools).map((id) => pack.recipe(id));
-            const available = [...frontier.recipes, ...toolRecipes].filter((entry) => entry.station === station);
-            return this.cards(available.map((entry) => {
-                const description = entry.tool ? 'Tier ' + entry.tool.level + ' · ' + entry.tool.wear + ' durability' : entry.desc;
-                return card(entry.name, description, action(BO.SurvivalItemAmounts(entry.cost), 'handcraft', entry.id, !pack.canCraft(entry)));
-            }));
-        }
-
-        chest(campaign) {
-            const pack = campaign.pack;
+        ctxChest() {
+            const c = BO.SurvivalMode.campaign;
+            const pack = c.pack;
             const stored = pack.chests.get(this.subject) || {};
-            const inventory = (items, direction) => Object.entries(items).filter(([id, count]) => frontier.items[id] && count > 0)
-                .map(([id, count]) => card(frontier.items[id][0] + ' ×' + count, (frontier.items[id][2] * count).toFixed(2) + ' kg',
-                    action(direction === 'store' ? 'STORE ONE' : 'TAKE ONE', 'transfer', direction + ':' + id + ':one') +
-                    (count > 1 ? action(direction === 'store' ? 'STORE STACK' : 'TAKE STACK', 'transfer', direction + ':' + id + ':all') : '')));
-            return `<div class="frontier-chest">
-                <section><h3>Backpack · ${pack.weight().toFixed(1)} kg</h3>${this.cards(inventory(pack.inventory, 'store'))}</section>
-                <section><h3>Chest · ${pack.weight(stored).toFixed(1)} / 54 kg · ${pack.slots(stored)} / 18 stacks</h3>
-                    ${pack.slots(stored) ? this.cards(inventory(stored, 'take')) : '<p>The chest is empty.</p>'}</section>
-                </div>`;
+            const sel = this.selItem;
+            const grid = (items, side) => Object.entries(items).filter(([id, n]) => frontier.items[id] && n > 0).map(([id, n]) => `
+                <button class="sv-tile ${sel?.kind === 'item' && sel.id === id && this.selSide === side ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" data-side="${side}"${tip(itemName(id) + ' ×' + n, ITEM_INFO[id] || '', 'Double-click moves one · shift-click moves the stack')}>
+                ${Icons().item(id, 30)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(itemName(id))}</span></button>`).join('');
+            const chestW = pack.weight(stored);
+            const selStored = sel?.kind === 'item' ? stored[sel.id] || 0 : 0;
+            return `<div class="sv-chest">
+                <section><div class="sv-pack-cap"><b>Backpack</b><span class="sv-cap-bar"><i style="width:${pct(pack.weight(), pack.limits.weight)}%"></i></span><small>${pack.weight().toFixed(1)} / ${pack.limits.weight} kg</small></div>
+                    <div class="sv-grid sv-scroll" data-scroll="pgrid">${grid(pack.inventory, 'pack') || '<p class="sv-muted">Your pack is empty.</p>'}</div></section>
+                <section><div class="sv-pack-cap"><b>Chest</b><span class="sv-cap-bar"><i style="width:${pct(chestW, 54)}%"></i></span><small>${chestW.toFixed(1)} / 54 kg · ${pack.slots(stored)}/18 stacks</small></div>
+                    <div class="sv-grid sv-scroll" data-scroll="cgrid">${grid(stored, 'chest') || '<p class="sv-muted">The chest is empty.</p>'}</div></section>
+                <aside class="sv-detail">${sel?.kind === 'item' ? `${this.detailPanel(sel)}
+                    ${selStored ? `<div class="sv-actions"><button class="sv-btn" data-act="transfer" data-arg="take:${sel.id}:one">Take 1</button><button class="sv-btn" data-act="transfer" data-arg="take:${sel.id}:all">Take all (${selStored})</button></div>` : ''}` : '<div class="sv-empty-detail"><b>Select an item</b><p>Pick anything on either side to move it between your pack and the chest.</p></div>'}</aside>
+            </div>`;
         }
 
-        cards(items) {
-            return '<div class="expansion-shop-items">' + items.join('') + '</div>';
+        /* ---------------------------------------------------------- crafting */
+        recipes() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const pack = c.pack;
+            const deep = c.deep;
+            const inv = pack.inventory;
+            const out = [];
+            const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
+            const status = (r) => {
+                if (r.owned) return 'owned';
+                if (r.lock) return 'locked';
+                if (!c.stationAvailable(r.station)) return 'station';
+                if (!mode.canAfford(r.cost)) return 'missing';
+                if (r.blocked) return 'blocked';
+                return 'ready';
+            };
+            for (const r of frontier.recipes) {
+                if (r.pack !== undefined && r.pack <= pack.level) continue;
+                const entry = { key: 'f:' + r.id, id: r.id, name: r.name, desc: r.desc, station: r.station, cost: r.cost,
+                    gain: r.gain, cat: r.pack !== undefined ? 'gear' : (RECIPE_CAT[r.id] || 'materials') };
+                if (r.tech && deep && !deep.hasTech(r.tech)) entry.lock = 'Research “' + techName(r.tech) + '” in Skills.';
+                if (r.pack !== undefined && r.pack !== pack.level + 1) entry.lock = 'Craft the previous pack first.';
+                if (r.pack !== undefined) entry.glyph = 'chest';
+                if (!entry.lock && mode.canAfford(r.cost) && c.stationAvailable(r.station) && !pack.canCraft(r)) entry.blocked = 'Not enough pack room for the result.';
+                out.push(entry);
+            }
+            for (const [id, t] of Object.entries(frontier.tools)) {
+                const owned = pack.tools[id] > 0;
+                out.push({ key: 't:' + id, id, name: t.name, station: t.station, cost: t.cost, cat: 'tools', tool: true,
+                    desc: 'Tier ' + t.level + ' ' + t.family + ' · ' + t.wear + ' durability · power ' + t.power + '. ' +
+                        (t.family === 'axe' ? 'Fells trees and breaks timber.' : t.family === 'pick' ? 'Mines stone and ore.' : 'Digs clay and buried salvage.'),
+                    owned, ownedText: owned ? Math.ceil(pack.tools[id]) + ' / ' + t.wear + ' durability' : null });
+            }
+            for (const r of BO.SurvivalData.recipes) {
+                const station = r.id === 'cook' ? 'campfire' : 'bench';
+                out.push({ key: 'l:' + r.id, id: r.id, name: r.name, desc: r.detail + (r.id === 'coilgun' ? ' Replaces your secondary weapon.' : ''), station,
+                    cost: r.cost, cat: RECIPE_CAT[r.id] || 'gear', legacy: true, glyph: { ammo: 'rifle', medkit: 'medkit', cook: 'bowl', incendiary: 'fire', coilgun: 'coilgun' }[r.id] });
+            }
+            for (const sch of deepData().weaponSchematics || []) {
+                const unlocked = deep?.hasTech(sch.tech) || deep?.unlockedSchematics.has(sch.id);
+                const spec = BO.WeaponsData.get(sch.id);
+                out.push({ key: 'w:' + sch.id, id: sch.id, name: sch.name, cost: sch.cost, station: 'bench', cat: 'weapons', glyph: spec?.kind === 'melee' ? 'blade' : 'rifle',
+                    desc: 'Forge a ' + (spec?.name || sch.name) + ' and equip it' + (sch.ammo > 1 ? ' with ' + sch.ammo + ' rounds' : '') + '. Replaces the weapon in your active slot when both are full.',
+                    lock: unlocked ? null : 'Research “' + techName(sch.tech) + '” or find its schematic.', forge: true });
+            }
+            BO.Player.weapons.forEach((w, ref) => {
+                if (w.stats.kind === 'melee' || w.survivalCoil) return;
+                const mk = w.survivalMk || 1;
+                const base = mk === 1 ? { ingot: 2, scrap: 3 } : { ingot: 3, aetherShard: 1, wire: 2 };
+                const uMult = deep?.modFx?.upgradeCostMult || 1;
+                const cost = uMult < 1 ? Object.fromEntries(Object.entries(base).map(([k, v]) => [k, Math.max(1, Math.round(v * uMult))])) : base;
+                out.push({ key: 'u:' + ref, id: String(ref), name: 'Upgrade ' + (w.stats.shortName || w.stats.name) + ' to Mk ' + (mk + 1), cost, station: 'bench', cat: 'weapons', glyph: 'rifle',
+                    desc: 'More damage, a larger magazine and faster reloads.', owned: mk >= 3, ownedText: 'Already Mk III',
+                    lock: deep?.hasTech('t2_gunsmith') ? null : 'Research “Weapon Mk II / III Bench” in Skills.', upgrade: true });
+            });
+            for (const r of out) {
+                r.status = status(r);
+                r.canCraft = r.status === 'ready';
+                r.have = inv;
+            }
+            return out;
         }
 
-        npc(campaign, mode) {
-            const npc = campaign.contact(this.subject);
+        craftRecipe(key, times = 1) {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const [kind, id] = [key.slice(0, 1), key.slice(2)];
+            let made = 0;
+            for (let i = 0; i < times; i++) {
+                let ok = false;
+                if (kind === 'f' || kind === 't') ok = c.pack.craft(id);
+                else if (kind === 'l') ok = mode.craft(id);
+                else if (kind === 'w') ok = c.deep?.forgeWeapon(id);
+                else if (kind === 'u') {
+                    const ref = Number(id);
+                    BO.Player.equipSurvivalSlot(ref, null, true);
+                    c.hotbar.reconcile();
+                    ok = c.deep?.upgradeEquippedWeapon();
+                }
+                if (!ok) break;
+                made++;
+            }
+            c.hotbar.reconcile();
+            const label = this.recipes().find((r) => r.key === key)?.name || 'Item';
+            if (made > 1) this.feedback = label + ' crafted ×' + made + '.';
+            else if (made === 1) this.feedback = label + (kind === 'u' ? ' complete.' : kind === 'w' ? ' forged and equipped.' : ' crafted.');
+            else if (!made) this.feedback = 'Cannot craft that right now.';
+        }
+
+        tabCrafting() {
+            const c = BO.SurvivalMode.campaign;
+            const all = this.recipes();
+            const rank = { ready: 0, missing: 1, blocked: 2, station: 3, locked: 4, owned: 5 };
+            const list = all.filter((r) => this.craftCat === 'all' || r.cat === this.craftCat)
+                .sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name));
+            if (!this.selRecipe || !all.some((r) => r.key === this.selRecipe)) this.selRecipe = list[0]?.key;
+            const sel = all.find((r) => r.key === this.selRecipe);
+            const here = c.stations;
+            const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
+            const statusText = { ready: 'Ready', missing: 'Missing materials', station: 'Needs ' + '', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
+            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
+            const cats = CRAFT_CATS.map(([id, label, glyph]) => {
+                const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
+                return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;
+            }).join('');
+            const rows = list.map((r) => `<button class="sv-rec ${r.key === this.selRecipe ? 'selected' : ''} st-${r.status}" data-act="recipe" data-arg="${r.key}"${tip(r.name, r.desc || '', r.status === 'station' ? 'Needs ' + STATION_NAME[r.station] : statusText[r.status])}>
+                <span class="sv-rec-ico">${icon(r, 24)}</span><span class="sv-rec-t"><b>${esc(r.name)}</b><small>${STATION_NAME[r.station]}${r.status === 'owned' && r.ownedText ? ' · ' + esc(r.ownedText) : ''}</small></span>
+                <span class="sv-rec-st">${r.status === 'ready' ? '●' : r.status === 'locked' ? '🔒' : r.status === 'owned' ? '✓' : ''}</span></button>`).join('') || '<p class="sv-muted">No recipes in this category.</p>';
+            let detail = '<div class="sv-empty-detail"><b>Select a recipe</b></div>';
+            if (sel) {
+                const reason = sel.status === 'locked' ? sel.lock : sel.status === 'station' ? 'Stand within 4 m of a ' + STATION_NAME[sel.station].toLowerCase() + '.' :
+                    sel.status === 'missing' ? 'Gather the missing materials.' : sel.status === 'owned' ? (sel.ownedText || 'Already owned.') : sel.status === 'blocked' ? sel.blocked : '';
+                const gainList = sel.gain && Object.keys(sel.gain).length ? Object.entries(sel.gain).map(([id, n]) => `<span class="sv-gain">${Icons().item(id, 18)} ${n} × ${esc(itemName(id))}</span>`).join('') : '';
+                const repeatable = (sel.key.startsWith('f:') && !sel.key.includes('Pack') && frontier.recipes.find((r) => r.id === sel.id)?.pack === undefined) || sel.key === 'l:ammo' || sel.key === 'l:medkit';
+                detail = `<div class="sv-detail-head">${icon(sel, 44)}<div><h3>${esc(sel.name)}</h3><small>${STATION_NAME[sel.station]}</small></div></div>
+                    <p class="sv-detail-text">${esc(sel.desc || '')}</p>
+                    ${gainList ? `<div class="sv-gains"><small>Produces</small>${gainList}</div>` : ''}
+                    <h4 class="sv-sub">Ingredients</h4><ul class="sv-costs">${costRows(sel.cost, sel.have)}</ul>
+                    <div class="sv-req ${c.stationAvailable(sel.station) ? 'ok' : 'short'}"${tip(STATION_NAME[sel.station], STATION_TIP[sel.station])}>${c.stationAvailable(sel.station) ? '✓' : '✕'} ${STATION_NAME[sel.station]}${sel.station === 'hand' ? '' : c.stationAvailable(sel.station) ? ' in reach' : ' not in reach'}</div>
+                    ${sel.lock ? `<div class="sv-req short">🔒 ${esc(sel.lock)}</div>` : ''}
+                    <div class="sv-actions">
+                        <button class="sv-btn primary" data-act="craft" data-arg="${sel.key}" ${sel.canCraft ? '' : 'disabled'}${tip('Craft', sel.canCraft ? 'Craft one now.' : reason)}>${sel.forge ? 'Forge' : sel.upgrade ? 'Upgrade' : 'Craft'}</button>
+                        ${repeatable ? `<button class="sv-btn" data-act="craft" data-arg="${sel.key}" data-times="5" ${sel.canCraft ? '' : 'disabled'}${tip('Craft up to 5', 'Repeats the recipe until you run out of materials or room (max 5).')}>×5</button>` : ''}
+                    </div>${!sel.canCraft && reason ? `<p class="sv-reason">${esc(reason)}</p>` : ''}`;
+            }
+            return `<div class="sv-craft">
+                <nav class="sv-cats">${stationBar}${cats}</nav>
+                <section class="sv-rec-list sv-scroll" data-scroll="recipes-${this.craftCat}">${rows}</section>
+                <aside class="sv-detail sv-scroll" data-scroll="rdetail">${detail}</aside>
+            </div>`;
+        }
+
+        /* ---------------------------------------------------------- build */
+        tabBuild() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const deep = c.deep;
+            const inv = mode.points;
+            const pieces = data.build;
+            if (!this.selBuild || !pieces.some((b) => b.id === this.selBuild)) this.selBuild = pieces[0].id;
+            const costOf = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
+            const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
+            const cards = pieces.map((b) => {
+                const techOk = !b.tech || deep?.hasTech(b.tech);
+                const afford = mode.canAfford(costOf(b));
+                return `<button class="sv-bcard ${b.id === this.selBuild ? 'selected' : ''} ${!techOk ? 'locked' : afford ? 'ready' : ''}" data-act="buildSel" data-arg="${b.id}"${tip(b.name, b.detail, techOk ? (afford ? 'You can afford this' : 'Missing materials') : 'Locked: research ' + techName(b.tech))}>
+                    ${Icons().build(b.id, 30)}<b>${esc(b.name)}</b><span class="sv-bcost">${costInline(costOf(b), inv)}</span>${!techOk ? '<span class="sv-lock">🔒</span>' : ''}</button>`;
+            }).join('');
+            const b = pieces.find((x) => x.id === this.selBuild);
+            const cost = costOf(b);
+            const techOk = !b.tech || deep?.hasTech(b.tech);
+            const can = techOk && mode.canAfford(cost) && c.canBuild;
+            const why = !techOk ? 'Research “' + techName(b.tech) + '” in Skills first.' : !c.canBuild ? 'Stand on open ground (not riding, not during evacuation).' : !mode.canAfford(cost) ? 'Gather the missing materials.' : '';
+            const built = c.placed.filter((x) => x.alive).length;
+            return `<div class="sv-build">
+                <section class="sv-bgrid sv-scroll" data-scroll="bgrid">${cards}</section>
+                <aside class="sv-detail sv-scroll" data-scroll="bdetail">
+                    <div class="sv-detail-head">${Icons().build(b.id, 44)}<div><h3>${esc(b.name)}</h3><small>${b.size.map((v) => v.toFixed(1)).join(' × ')} m</small></div></div>
+                    <p class="sv-detail-text">${esc(b.detail)}</p>
+                    <h4 class="sv-sub">Materials</h4><ul class="sv-costs">${costRows(cost, inv)}</ul>
+                    ${b.tech ? `<div class="sv-req ${techOk ? 'ok' : 'short'}">${techOk ? '✓' : '🔒'} ${esc(techName(b.tech))}</div>` : ''}
+                    <div class="sv-actions"><button class="sv-btn primary" data-act="place" data-arg="${b.id}" ${can ? '' : 'disabled'}${tip('Place', can ? 'Places it 2.6 m in front of you and closes the terminal.' : why)}>Place in front</button></div>
+                    ${why ? `<p class="sv-reason">${esc(why)}</p>` : ''}
+                    <h4 class="sv-sub">Base</h4>
+                    <dl class="sv-kv"><div${tip('Base level', 'Rises with the variety of structure types you have standing (every 3 types).')}><dt>Base level</dt><dd>${deep?.baseLevel ?? 1} / 5</dd></div><div><dt>Structures</dt><dd>${built} / 80</dd></div>
+                        <div${tip('Orientation', 'Walls and floors snap to your facing; rotate turns them 90°.')}><dt>Rotation</dt><dd>${c.buildRotation ? 'Turned 90°' : 'Facing you'}</dd></div></dl>
+                    <div class="sv-actions wrap">
+                        <button class="sv-btn sm" data-act="rotate"${tip('Rotate', 'Turn the next placement by 90°.')}>Rotate 90°</button>
+                        <button class="sv-btn sm" data-act="repairBase" ${mode.canAfford({ scrap: 1 }) ? '' : 'disabled'}${tip('Repair all', 'Restore every damaged structure for 1 salvage.')}>Repair all (1 salvage)</button>
+                        <button class="sv-btn sm ghost" data-act="dismantle"${tip('Dismantle nearest', 'Remove your closest structure within 4 m for a partial refund.')}>Dismantle nearest</button>
+                    </div>
+                </aside></div>`;
+        }
+
+        /* ---------------------------------------------------------- map */
+        tabMap() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const fuel = mode.points.fuel || 0;
+            const freeTravel = !!c.deep?.modFx?.freeTravel;
+            const areas = data.areas.filter((a) => a.y >= 0 && a.id !== 'trench');
+            const travel = areas.map((a) => {
+                const visited = c.visited.has(a.id);
+                const locked = c.gates.get(a.id)?.collider.active;
+                const here = c.area?.id === a.id;
+                const why = here ? 'You are here.' : !visited ? 'Discover this area on foot first.' : locked ? 'Unlock its gate first.' : c.has('footOnly') ? 'On Foot Only modifier.' :
+                    !c.canSave() ? 'Not while enemies are within 9 m.' : (!freeTravel && fuel < 1) ? 'Needs 1 fuel.' : '';
+                return `<button class="sv-trow" data-act="travel" data-arg="${a.id}" ${why ? 'disabled' : ''}${tip(a.name, why || 'Travel here instantly for ' + (freeTravel ? 'free' : '1 fuel') + '. One hour passes.')}>
+                    <span class="sv-dot" style="background:#${a.color.toString(16).padStart(6, '0')}"></span><b>${esc(a.name)}</b><small>${why || (freeTravel ? 'Free' : '1 fuel')}</small></button>`;
+            }).join('');
+            const vehicles = data.vehicles.map((v) => {
+                const owned = c.hasVehicle(v.id);
+                const on = c.vehicle === v.id;
+                return `<button class="sv-trow ${on ? 'on' : ''}" data-act="ride" data-arg="${on ? 'off' : v.id}" ${owned ? '' : 'disabled'}${tip(v.name, v.detail, owned ? (on ? 'Click to dismount' : 'Click to ride') : 'Unlocks at survival level ' + v.level + ' or by trading')}>
+                    ${Icons().named(v.id === 'glider' ? 'flare' : v.id === 'mount' ? 'leaf' : 'gear', owned ? '#9fd4c7' : '#56645f', 16)}<b>${esc(v.name)}</b><small>${on ? 'Riding · dismount' : owned ? 'Road ×' + v.speed + ' · off-road ×' + v.offroad : 'Level ' + v.level}</small></button>`;
+            }).join('');
+            const layers = [['sites', 'Landmarks'], ['contacts', 'Contacts'], ['grace', 'Sites of Grace'], ['resources', 'Resources'], ['base', 'Your base']]
+                .map(([id, label]) => `<button class="sv-layer ${this.mapLayers[id] ? 'on' : ''}" data-act="layer" data-arg="${id}"${tip(label, 'Show or hide ' + label.toLowerCase() + ' on the map.')}><i></i>${label}</button>`).join('');
+            const focusTravel = this.mapFocus === 'travel';
+            this.mapFocus = null;
+            return `<div class="sv-map-wrap">
+                <div class="sv-map-stage"><canvas id="sv-map-canvas" width="1120" height="1000" aria-label="Exclusion Zone map"></canvas>
+                    <div class="sv-map-compass">N</div></div>
+                <aside class="sv-map-side sv-scroll" data-scroll="mapside">
+                    <div class="sv-objective"><span class="sv-kicker">Objective</span><p>${esc(mode.objective)}</p></div>
+                    <h4 class="sv-sub">Layers</h4><div class="sv-layers">${layers}</div>
+                    <h4 class="sv-sub ${focusTravel ? 'flash' : ''}">Fast travel ${freeTravel ? '' : `<small>${fuel} fuel</small>`}</h4><div class="sv-tlist">${travel}</div>
+                    <h4 class="sv-sub">Vehicles</h4><div class="sv-tlist">${vehicles}</div>
+                </aside></div>`;
+        }
+
+        drawMap() {
+            const canvas = this.root.querySelector('#sv-map-canvas');
+            if (!canvas) return;
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const deep = c.deep;
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width;
+            const H = canvas.height;
+            const X0 = -56, X1 = 56, Z0 = -56, Z1 = 44;
+            const sx = (x) => ((x - X0) / (X1 - X0)) * W;
+            const sz = (z) => ((z - Z0) / (Z1 - Z0)) * H;
+            const hex = (n, a = 1) => {
+                const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+                return `rgba(${r},${g},${b},${a})`;
+            };
+            this.mapHits = [];
+            ctx.clearRect(0, 0, W, H);
+            const bg = ctx.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1b2a25');
+            bg.addColorStop(1, '#16221e');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = 'rgba(160,210,190,0.07)';
+            ctx.lineWidth = 1;
+            for (let x = -50; x <= 50; x += 10) { ctx.beginPath(); ctx.moveTo(sx(x), 0); ctx.lineTo(sx(x), H); ctx.stroke(); }
+            for (let z = -50; z <= 40; z += 10) { ctx.beginPath(); ctx.moveTo(0, sz(z)); ctx.lineTo(W, sz(z)); ctx.stroke(); }
+            // Biome washes
+            for (const a of data.areas) {
+                if (a.id === 'trench' || a.id === 'cavern') continue;
+                if (a.bounds) {
+                    const [l, r, n, s] = a.bounds;
+                    ctx.fillStyle = hex(a.color, 0.22);
+                    ctx.fillRect(sx(l), sz(n), sx(r) - sx(l), sz(s) - sz(n));
+                    ctx.strokeStyle = hex(a.color, c.gates.get(a.id)?.collider.active ? 0.9 : 0.5);
+                    ctx.setLineDash(c.gates.get(a.id)?.collider.active ? [8, 6] : []);
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(sx(l), sz(n), sx(r) - sx(l), sz(s) - sz(n));
+                    ctx.setLineDash([]);
+                } else {
+                    const g = ctx.createRadialGradient(sx(a.x), sz(a.z), 0, sx(a.x), sz(a.z), 150);
+                    g.addColorStop(0, hex(a.color, 0.30));
+                    g.addColorStop(1, hex(a.color, 0));
+                    ctx.fillStyle = g;
+                    ctx.beginPath(); ctx.arc(sx(a.x), sz(a.z), 150, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            // Research trench
+            ctx.fillStyle = 'rgba(120,90,160,0.28)';
+            ctx.fillRect(sx(-12), sz(-56), sx(12) - sx(-12), sz(-29) - sz(-56));
+            ctx.strokeStyle = 'rgba(190,160,230,0.45)';
+            ctx.strokeRect(sx(-12), sz(-56), sx(12) - sx(-12), sz(-29) - sz(-56));
+            if (mode.flooded) {
+                ctx.fillStyle = 'rgba(80,150,180,0.38)';
+                ctx.fillRect(sx(24.5), sz(-29), sx(51.5) - sx(24.5), sz(-1) - sz(-29));
+            }
+            // Buildings
+            ctx.fillStyle = 'rgba(190,200,195,0.22)';
+            for (const b of BO.SurvivalData.map.boxes) {
+                if (b.y < 0.3 || b.w > 20 || b.d > 20 || b.h < 1.2) continue;
+                ctx.fillRect(sx(b.x - b.w / 2), sz(b.z - b.d / 2), Math.max(2, sx(b.x + b.w / 2) - sx(b.x - b.w / 2)), Math.max(2, sz(b.z + b.d / 2) - sz(b.z - b.d / 2)));
+            }
+            // Road and rail
+            ctx.fillStyle = 'rgba(150,150,140,0.35)';
+            ctx.fillRect(sx(-4), sz(-1), sx(4) - sx(-4), sz(30) - sz(-1));
+            ctx.strokeStyle = 'rgba(214,190,140,0.55)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 6]);
+            ctx.beginPath();
+            TRAIN_ROUTE.forEach(([x, z], i) => (i ? ctx.lineTo(sx(x), sz(z)) : ctx.moveTo(sx(x), sz(z))));
+            ctx.closePath();
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // Perimeter
+            ctx.strokeStyle = 'rgba(160,210,190,0.35)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, W - 2, H - 2);
+            const label = (text, x, z, color = 'rgba(226,240,233,0.85)', size = 15) => {
+                ctx.font = `600 ${size}px Bahnschrift, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(8,14,12,0.75)';
+                const w = ctx.measureText(text).width;
+                ctx.fillRect(sx(x) - w / 2 - 5, sz(z) - size + 1, w + 10, size + 6);
+                ctx.fillStyle = color;
+                ctx.fillText(text, sx(x), sz(z) + 2);
+            };
+            const hit = (x, z, title, body, r = 12) => this.mapHits.push({ x: sx(x), y: sz(z), r, title, body });
+            // Area names
+            for (const a of data.areas) {
+                const lockedLvl = BO.SurvivalCareer.level < a.level;
+                const visited = c.visited.has(a.id);
+                label(a.name.toUpperCase() + (lockedLvl ? ' · LV ' + a.level : ''), a.x, a.z + (a.id === 'trench' ? 0 : -5), visited ? 'rgba(226,240,233,0.95)' : 'rgba(170,190,182,0.6)', 14);
+                hit(a.x, a.z - 5, a.name, (visited ? 'Discovered.' : 'Not yet discovered.') + (lockedLvl ? ' Unlocks at survival level ' + a.level + '.' : ''), 40);
+            }
+            // Resources
+            if (this.mapLayers.resources) {
+                for (const node of c.pack.resources.values()) {
+                    if (node.hp <= 0) continue;
+                    ctx.fillStyle = RES_COLOR[node.kind] || '#ccc';
+                    ctx.beginPath(); ctx.arc(sx(node.marker.x), sz(node.marker.z), 4, 0, Math.PI * 2); ctx.fill();
+                    hit(node.marker.x, node.marker.z, node.spec.name, node.spec.tool ? 'Needs ' + ({ axe: 'an axe', pick: 'a pickaxe', shovel: 'a shovel' }[node.spec.tool]) + (node.spec.tier > 1 ? ' (tier ' + node.spec.tier + ')' : ' or slow bare hands') : 'Gather by hand.', 6);
+                }
+            }
+            // Base
+            if (this.mapLayers.base) {
+                ctx.fillStyle = 'rgba(159,224,201,0.9)';
+                for (const piece of c.placed) {
+                    if (!piece.alive) continue;
+                    ctx.fillRect(sx(piece.x) - 3, sz(piece.z) - 3, 6, 6);
+                }
+                const any = c.placed.find((x) => x.alive);
+                if (any) hit(any.x, any.z, 'Your base', c.placed.filter((x) => x.alive).length + ' structures.', 14);
+                for (const bag of c.pack.bags.values()) {
+                    ctx.fillStyle = '#e8e08a';
+                    ctx.fillRect(sx(bag.x) - 3, sz(bag.z) - 3, 6, 6);
+                    hit(bag.x, bag.z, 'Dropped bag', BO.SurvivalItemAmounts(bag.items) || 'Empty', 8);
+                }
+            }
+            const diamond = (x, z, color, size = 8, done = false) => {
+                ctx.save();
+                ctx.translate(sx(x), sz(z));
+                ctx.rotate(Math.PI / 4);
+                ctx.fillStyle = done ? 'rgba(90,100,96,0.9)' : color;
+                ctx.strokeStyle = 'rgba(8,14,12,0.9)';
+                ctx.lineWidth = 2;
+                ctx.fillRect(-size / 2, -size / 2, size, size);
+                ctx.strokeRect(-size / 2, -size / 2, size, size);
+                ctx.restore();
+            };
+            if (this.mapLayers.sites) {
+                for (const site of BO.SurvivalData.sites) {
+                    const done = mode.completed.has(site.id) && !['lookout', 'train', 'shelter'].includes(site.id);
+                    const pos = site.id === 'train' ? mode.train.pos : site;
+                    diamond(pos.x, pos.z, '#' + site.color.toString(16).padStart(6, '0'), 13, done);
+                    label(site.name, pos.x, pos.z + 4.2, done ? 'rgba(170,180,176,0.7)' : 'rgba(240,248,244,0.95)', 13);
+                    hit(pos.x, pos.z, site.name, site.label + (done ? ' (done)' : ''), 12);
+                }
+                BO.SurvivalData.stashes.forEach(([x, , z], i) => {
+                    const done = mode.completed.has('stash' + i);
+                    diamond(x, z, '#9caa83', 8, done);
+                    hit(x, z, 'Salvage cache', done ? 'Already searched.' : 'Search it for supplies.', 8);
+                });
+                if (deep?.meteor) {
+                    diamond(deep.meteor.x, deep.meteor.z, '#c084fc', 14);
+                    label('Aether meteor', deep.meteor.x, deep.meteor.z + 4.2, '#e9d5ff', 13);
+                    hit(deep.meteor.x, deep.meteor.z, 'Aether meteor', 'Mine it for Aether shards and a schematic.', 12);
+                }
+                if (deep?.lostEcho) {
+                    diamond(deep.lostEcho.x, deep.lostEcho.z, '#fde047', 12);
+                    hit(deep.lostEcho.x, deep.lostEcho.z, 'Lost Aether Echo', 'Reclaim ' + deep.lostEcho.runes + ' runes where you fell.', 12);
+                }
+            }
+            if (this.mapLayers.grace) {
+                for (const s of deep?.allShrines || []) {
+                    const lit = deep.kindledShrines.has(s.id);
+                    ctx.fillStyle = lit ? '#fde047' : 'rgba(253,224,71,0.35)';
+                    ctx.beginPath();
+                    for (let i = 0; i < 10; i++) {
+                        const r = i % 2 ? 4 : 9;
+                        const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                        const px = sx(s.x) + Math.cos(a) * r;
+                        const py = sz(s.z) + Math.sin(a) * r;
+                        if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    hit(s.x, s.z, s.name, lit ? 'Kindled: rest, refill your flask and warp here.' : 'Not kindled yet. Visit it to kindle.', 10);
+                }
+            }
+            if (this.mapLayers.contacts) {
+                for (const n of c.npcs) {
+                    const npc = n.npc;
+                    if (npc.y < -1) continue;
+                    ctx.fillStyle = '#8eea9d';
+                    ctx.strokeStyle = 'rgba(8,14,12,0.9)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(sx(npc.x), sz(npc.z), 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                    const q = npc.quest;
+                    const claimed = q && c.claims[npc.id + ':quest'];
+                    hit(npc.x, npc.z, npc.name, npc.hint.trim() + (q ? ' Contract: ' + q[0] + (claimed ? ' (claimed)' : ' ' + Math.min(c.metrics[q[1]] || 0, q[2]) + '/' + q[2]) : ''), 8);
+                }
+            }
+            // Player
+            const p = BO.Player;
+            const f = p.getMoveDirectionVectors().forward;
+            const ang = Math.atan2(f.z, f.x);
+            ctx.save();
+            ctx.translate(sx(p.pos.x), sz(p.pos.z));
+            ctx.rotate(ang);
+            ctx.fillStyle = 'rgba(242,180,90,0.22)';
+            ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 46, -0.5, 0.5); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#f2b45a';
+            ctx.strokeStyle = '#1a120a';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-8, 8); ctx.lineTo(-4, 0); ctx.lineTo(-8, -8); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.restore();
+            hit(p.pos.x, p.pos.z, 'You', (c.area?.name || '') + ' · ' + Math.round(p.pos.x) + ', ' + Math.round(p.pos.z), 14);
+        }
+
+        mapHover(e) {
+            const canvas = e.target;
+            const rect = canvas.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * canvas.width;
+            const y = ((e.clientY - rect.top) / rect.height) * canvas.height;
+            let best = null;
+            let bestD = Infinity;
+            for (const h of this.mapHits || []) {
+                const d = Math.hypot(h.x - x, h.y - y);
+                const scale = canvas.width / rect.width;
+                if (d < Math.max(h.r, 9) * scale && d < bestD && !(h.r >= 40 && best)) { best = h; bestD = d; }
+            }
+            if (!best) { this.mapTip.hidden = true; return; }
+            this.mapTip.innerHTML = `<b>${esc(best.title)}</b><span>${esc(best.body)}</span>`;
+            this.mapTip.hidden = false;
+            const tw = this.mapTip.offsetWidth;
+            const th = this.mapTip.offsetHeight;
+            let left = e.clientX + 16;
+            let top = e.clientY + 16;
+            if (left + tw > window.innerWidth - 10) left = e.clientX - tw - 16;
+            if (top + th > window.innerHeight - 10) top = e.clientY - th - 16;
+            this.mapTip.style.left = left + 'px';
+            this.mapTip.style.top = top + 'px';
+        }
+
+        /* ---------------------------------------------------------- skills */
+        tabSkills() {
+            const c = BO.SurvivalMode.campaign;
+            const deep = c.deep;
+            const dd = deepData();
+            if (!deep) return '<p class="sv-muted">Skills are unavailable.</p>';
+            const nameOf = (id) => dd.techTree.find((t) => t.id === id)?.name || id;
+            const offGrid = !!deep.modFx?.noAutomation;
+            const tiers = [1, 2, 3, 4].map((tier) => `<div class="sv-tier"><div class="sv-tier-h">Tier ${tier}</div>${dd.techTree.filter((n) => n.tier === tier).map((n) => {
+                const owned = deep.hasTech(n.id);
+                const reqOk = !n.req || deep.hasTech(n.req);
+                const afford = deep.techPoints >= n.cost;
+                const st = owned ? 'owned' : !reqOk ? 'locked' : afford ? 'ready' : 'short';
+                return `<div class="sv-node st-${st}"${tip(n.name, n.desc, owned ? 'Researched' : !reqOk ? 'Requires ' + nameOf(n.req) : n.cost + ' Tech Point(s)')}>
+                    <b>${esc(n.name)}</b><small>${esc(n.desc)}</small>
+                    ${n.req ? `<span class="sv-node-req">${deep.hasTech(n.req) ? '✓' : '🔒'} ${esc(nameOf(n.req))}</span>` : ''}
+                    <button class="sv-btn sm ${st === 'ready' ? 'primary' : ''}" data-act="unlockTech" data-arg="${n.id}" ${st === 'ready' ? '' : 'disabled'}>${owned ? 'Researched' : !reqOk ? 'Locked' : 'Research · ' + n.cost + ' TP'}</button></div>`;
+            }).join('')}</div>`).join('');
+            const cost = deep.attributeCost();
+            const attrs = Object.entries(dd.attributes).map(([id, a]) => {
+                const rank = deep.attributes[id] || 0;
+                return `<div class="sv-attr"${tip(a.name, a.bonus, 'Rank ' + rank + ' · next rank ' + cost + ' runes')}>
+                    <span class="sv-attr-dot" style="background:${a.color}"></span><span class="sv-attr-t"><b>${esc(a.name)}</b><small>${esc(a.bonus)}</small></span>
+                    <span class="sv-pips">${Array.from({ length: 10 }, (_, i) => `<i class="${i < rank ? 'on' : ''}" style="--c:${a.color}"></i>`).join('')}${rank > 10 ? `<em>+${rank - 10}</em>` : ''}</span>
+                    <button class="sv-btn sm" data-act="attr" data-arg="${id}" ${deep.runes >= cost ? '' : 'disabled'}>+1 · ${cost}</button></div>`;
+            }).join('');
+            const infusions = deep.infusions.length ? deep.infusions.map((id) => `<span class="sv-modchip">${esc(dd.infusions[id]?.name)}</span>`).join('') : '<span class="sv-muted sm">None. Build an Aether infusion altar to imbue your gear.</span>';
+            return `<div class="sv-skills">
+                <section class="sv-tech sv-scroll" data-scroll="tech">
+                    <div class="sv-sec-h"><h3>Technology</h3><span class="sv-pill">${deep.techPoints} Tech Point${deep.techPoints === 1 ? '' : 's'}</span>${offGrid ? '<span class="sv-pill warn">Automation disabled by modifier</span>' : ''}</div>
+                    <p class="sv-muted sm">Earn Tech Points by levelling up, kindling Sites of Grace and defeating bosses.</p>
+                    <div class="sv-tiers">${tiers}</div>
+                </section>
+                <aside class="sv-attrs sv-scroll" data-scroll="attrs">
+                    <div class="sv-sec-h"><h3>Attributes</h3><span class="sv-pill gold">${deep.runes.toLocaleString()} runes</span></div>
+                    <p class="sv-muted sm">Runes drop from every kill. Each rank costs more.</p>
+                    ${attrs}
+                    <h4 class="sv-sub">Active infusions <small>${deep.infusions.length}/2</small></h4><div class="sv-modchips">${infusions}</div>
+                </aside></div>`;
+        }
+
+        /* ---------------------------------------------------------- journal */
+        tabJournal() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const r = rules();
+            const challenges = c.objectives.list().map((ch) => {
+                const frac = ch.criteria.reduce((a, [k, n]) => a + Math.min(1, (c.metrics[k] || 0) / n), 0) / ch.criteria.length;
+                return `<div class="sv-chal ${ch.claimed ? 'claimed' : ch.ready ? 'ready' : ''}"${tip(ch.name, ch.info, 'Reward: ' + (BO.SurvivalItemAmounts(ch.reward) || '—') + ' · ' + ch.xp + ' XP')}>
+                    <div class="sv-chal-t"><b>${esc(ch.name)}</b><small>${esc(ch.info)}</small></div>
+                    <div class="sv-prog"><i style="width:${ch.claimed ? 100 : Math.round(frac * 100)}%"></i></div>
+                    <div class="sv-chal-f"><small>${ch.claimed ? 'Claimed' : esc(ch.progress)}</small>
+                    <button class="sv-btn sm ${ch.ready && !ch.claimed ? 'primary' : ''}" data-act="claim" data-arg="${ch.id}" ${ch.ready && !ch.claimed ? '' : 'disabled'}>${ch.claimed ? '✓' : ch.ready ? 'Claim' : ch.xp + ' XP'}</button></div></div>`;
+            }).join('');
+            const contracts = data.contacts.filter((n) => n.quest).map((n) => {
+                const [name, key, need, xp] = n.quest;
+                const have = Math.min(c.metrics[key] || 0, need);
+                const done = c.claims[n.id + ':quest'];
+                return `<div class="sv-contract ${done ? 'claimed' : have >= need ? 'ready' : ''}"${tip(name, n.hint.trim(), 'Given by ' + n.name + (done ? ' · claimed' : have >= need ? ' · return to claim' : ''))}>
+                    <b>${esc(name)}</b><small>${esc(n.name)}</small><span class="sv-prog sm"><i style="width:${pct(have, need)}%"></i></span><em>${done ? '✓' : have + '/' + need}</em></div>`;
+            }).join('');
+            const checkpoint = career.checkpoint;
+            return `<div class="sv-journal sv-scroll" data-scroll="journal">
+                <div class="sv-jhero">
+                    <div><span class="sv-kicker">${esc(r.modes[c.options.gameType]?.name)} · ${esc(r.difficulties[c.options.difficulty]?.name)}</span><h3>${esc(mode.objective)}</h3><p>${esc(r.modes[c.options.gameType]?.description)}</p></div>
+                    <div class="sv-jstats">
+                        <div><b>${c.day}</b><small>Day</small></div><div><b>${mode.kills}</b><small>Kills</small></div>
+                        <div><b>${mode.salvaged}</b><small>Salvaged</small></div><div><b>${BO.Math.formatTime(mode.clock)}</b><small>Time</small></div>
+                    </div>
+                    <div class="sv-jsave">
+                        <button class="sv-btn" data-act="save" ${c.canSave() ? '' : 'disabled'}${tip('Save checkpoint', 'Saves this expedition in your browser. Only possible with no enemies within 9 m.')}>Save checkpoint</button>
+                        <small>${checkpoint ? 'Last save at ' + BO.Math.formatTime(checkpoint.clock) : 'No checkpoint yet'}${c.options.autosave ? ' · autosave on' : ''}</small>
+                    </div>
+                </div>
+                <div class="sv-jcols">
+                    <section><h4 class="sv-sub">Field challenges</h4>${challenges}</section>
+                    <section><h4 class="sv-sub">Contracts</h4><p class="sv-muted sm">Complete the task, then talk to the contact to claim.</p><div class="sv-contracts">${contracts}</div>
+                        ${c.activities ? `<div class="sv-activities">${c.activities.renderJournal()}</div>` : ''}</section>
+                    <section><h4 class="sv-sub">Career</h4>${this.record()}</section>
+                </div></div>`;
+        }
+
+        /* ---------------------------------------------------------- contexts */
+        ctxNpc() {
+            const mode = BO.SurvivalMode;
+            const c = mode.campaign;
+            const npc = c.contact(this.subject);
             if (!npc) return '';
-            this.title.textContent = npc.name;
-            const gift = npc.gift && !campaign.claims[npc.id + ':gift'];
-            const quest = npc.quest;
-            const progress = quest ? campaign.metrics[quest[1]] || 0 : 0;
-            const complete = campaign.claims[npc.id + ':quest'];
-            const claim = gift || (quest && progress >= quest[2] && !complete);
-            return `<p>${npc.hint.trim()}</p>${quest ? `<p>${quest[0]} · ${complete ? 'Claimed' : Math.min(progress, quest[2]) + '/' + quest[2] + ' · ' + quest[3] + ' XP'}</p>` : ''}
-                <div class="chip-row">${claim ? action(gift ? 'COLLECT SUPPLIES' : 'CLAIM CONTRACT', 'reward', 'yes') : ''}
-                    ${npc.special && !campaign.claims[npc.id + ':special'] ? action(npc.special === 'helper' ? 'RECRUIT' : 'CHALLENGE BOSS', 'special', 'yes') : ''}</div>
-                ${this.cards(npc.shop.map((id) => {
-                    const item = data.stock[id];
-                    const owned = item.vehicle && campaign.hasVehicle(item.vehicle);
-                    return card(item.name, price(item.cost), action(owned ? 'AVAILABLE IN TRAVEL' : 'TRADE', 'trade', id, owned || !mode.canAfford(item.cost)));
-                }))}`;
+            const gift = npc.gift && !c.claims[npc.id + ':gift'];
+            const q = npc.quest;
+            const have = q ? Math.min(c.metrics[q[1]] || 0, q[2]) : 0;
+            const done = q && c.claims[npc.id + ':quest'];
+            const claimable = gift || (q && have >= q[2] && !done);
+            const area = data.areas.find((a) => a.id === npc.area);
+            const shop = npc.shop.map((id) => {
+                const item = data.stock[id];
+                const owned = item.vehicle && c.hasVehicle(item.vehicle);
+                const afford = mode.canAfford(item.cost);
+                const gives = item.gain ? BO.SurvivalItemAmounts(item.gain) : item.ammo ? item.ammo + ' rounds for each weapon' : item.plates ? item.plates + ' armor plate' : item.vehicle ? 'Vehicle (ride it from the map)' : '';
+                return `<div class="sv-shop ${owned ? 'owned' : ''}"${tip(item.name, 'You get: ' + gives + '.', 'Costs ' + BO.SurvivalItemAmounts(item.cost))}>
+                    ${item.gain ? Icons().item(Object.keys(item.gain)[0], 28) : Icons().named(item.plates ? 'plate' : item.ammo ? 'rifle' : item.vehicle === 'glider' ? 'flare' : 'gear', '#cfe3da', 28)}<span class="sv-shop-t"><b>${esc(item.name)}</b><small>${esc(gives)}</small></span>
+                    <span class="sv-bcost">${costInline(item.cost, mode.points)}</span>
+                    <button class="sv-btn sm ${afford && !owned ? 'primary' : ''}" data-act="trade" data-arg="${id}" ${owned || !afford ? 'disabled' : ''}>${owned ? 'Owned' : 'Trade'}</button></div>`;
+            }).join('');
+            return `<div class="sv-npc">
+                <section class="sv-npc-card">
+                    <span class="sv-kicker">${esc(area?.name || '')}</span>
+                    <blockquote>“${esc(npc.hint.trim())}”</blockquote>
+                    ${q ? `<div class="sv-contract big ${done ? 'claimed' : have >= q[2] ? 'ready' : ''}"><b>Contract · ${esc(q[0])}</b><span class="sv-prog"><i style="width:${pct(have, q[2])}%"></i></span><small>${done ? 'Claimed' : have + ' / ' + q[2] + ' · ' + q[3] + ' XP + supplies'}</small></div>` : ''}
+                    <div class="sv-actions wrap">
+                        ${claimable ? `<button class="sv-btn primary" data-act="reward"${tip(gift ? 'Collect supplies' : 'Claim contract', gift ? 'A one-time gift from this contact: ' + BO.SurvivalItemAmounts(npc.gift) : 'Claim your contract reward.')}>${gift ? 'Collect supplies' : 'Claim contract'}</button>` : ''}
+                        ${npc.special && !c.claims[npc.id + ':special'] ? `<button class="sv-btn ${npc.special === 'helper' ? '' : 'danger'}" data-act="special"${tip(npc.special === 'helper' ? 'Recruit' : 'Challenge boss', npc.special === 'helper' ? 'This contact joins you and fights at your side.' : 'Summon this area\'s Zone Boss right here. Be ready.')}>${npc.special === 'helper' ? 'Recruit' : 'Challenge boss'}</button>` : ''}
+                    </div>
+                </section>
+                <section class="sv-npc-shop sv-scroll" data-scroll="shop"><h4 class="sv-sub">Trades</h4>${shop || '<p class="sv-muted">This contact has nothing to trade.</p>'}</section>
+            </div>`;
         }
 
-        map(mode, player) {
-            const locate = (x, z) => `--east:${Math.max(3, Math.min(97, (x + 56) / 112 * 100))}%;--south:${Math.max(3, Math.min(97, (z + 56) / 100 * 100))}%`;
+        ctxShrine() {
+            const c = BO.SurvivalMode.campaign;
+            const deep = c.deep;
+            const dd = deepData();
+            const warps = deep.allShrines.filter((s) => deep.kindledShrines.has(s.id) && s.id !== this.subject)
+                .map((s) => `<button class="sv-trow" data-act="warp" data-arg="${s.id}"${tip(s.name, 'Warp there instantly. Free, but not while enemies are near.')}>${Icons().named('beacon', '#fde047', 16)}<b>${esc(s.name)}</b><small>Warp</small></button>`).join('');
+            const cost = deep.attributeCost();
+            return `<div class="sv-shrine">
+                <section class="sv-npc-card">
+                    <p class="sv-good">Health restored, Aether Flask refilled (${deep.flaskCharges}/${deep.flaskMax}), bleeding and infection cured.</p>
+                    <div class="sv-actions wrap"><button class="sv-btn primary" data-act="sleep" ${c.canSave() ? '' : 'disabled'}${tip('Sleep until morning', 'Skip to 06:00, fully recover and save. Not possible with enemies nearby.')}>Sleep until morning</button></div>
+                    <h4 class="sv-sub">Warp</h4><div class="sv-tlist">${warps || '<p class="sv-muted sm">Kindle another Site of Grace to warp between them.</p>'}</div>
+                </section>
+                <section class="sv-attrs sv-scroll" data-scroll="sattrs"><div class="sv-sec-h"><h3>Level up</h3><span class="sv-pill gold">${deep.runes.toLocaleString()} runes</span></div>
+                    ${Object.entries(dd.attributes).map(([id, a]) => `<div class="sv-attr"${tip(a.name, a.bonus)}><span class="sv-attr-dot" style="background:${a.color}"></span><span class="sv-attr-t"><b>${esc(a.name)} · ${deep.attributes[id] || 0}</b><small>${esc(a.bonus)}</small></span>
+                        <button class="sv-btn sm" data-act="attr" data-arg="${id}" ${deep.runes >= cost ? '' : 'disabled'}>+1 · ${cost}</button></div>`).join('')}
+                </section></div>`;
+        }
+
+        ctxInfuser() {
+            const mode = BO.SurvivalMode;
             const deep = mode.campaign.deep;
-            const shrines = (deep?.allShrines || []).map((s) => `<span class="map-shrine" style="${locate(s.x, s.z)}">${deep.kindledShrines.has(s.id) ? '✦' : '✧'} ${s.name.split(' ')[0]}</span>`).join('');
-            const meteor = deep?.meteor ? `<span class="map-meteor" style="${locate(deep.meteor.x, deep.meteor.z)}">☄ Meteor</span>` : '';
-            return `<div class="survival-map ${mode.flooded ? 'is-flooded' : ''}" role="img" aria-label="Exclusion Zone field map">
-                ${data.areas.map((area) => `<span style="${locate(area.x, area.z)}"${mode.campaign.visited.has(area.id) ? ' class="visited"' : ''}>
-                    ${area.name}${career.level < area.level ? ' · LV ' + area.level : ''}</span>`).join('')}
-                ${shrines}${meteor}<strong style="${locate(player.pos.x, player.pos.z)}">YOU</strong></div>`;
+            const dd = deepData();
+            const afford = deep.runes >= 120 && mode.canAfford({ quartz: 2, aetherShard: 1 });
+            return `<div class="sv-npc-shop sv-scroll" data-scroll="inf"><p class="sv-muted">Infusions last the whole expedition. Up to two can be active. Each costs 2 quartz, 1 Aether shard and 120 runes.</p>
+                ${Object.entries(dd.infusions || {}).map(([id, inf]) => {
+                    const on = deep.hasInfusion(id);
+                    return `<div class="sv-shop ${on ? 'owned' : ''}"${tip(inf.name, inf.desc)}>${Icons().named('crystal', '#c79bff', 28)}<span class="sv-shop-t"><b>${esc(inf.name)}</b><small>${esc(inf.desc)}</small></span>
+                        <button class="sv-btn sm ${!on && afford ? 'primary' : ''}" data-act="infuse" data-arg="${id}" ${on || !afford || deep.infusions.length >= 2 ? 'disabled' : ''}>${on ? 'Active' : 'Infuse'}</button></div>`;
+                }).join('')}</div>`;
+        }
+
+        ctxRespawn() {
+            const deep = BO.SurvivalMode.campaign.deep;
+            return `<div class="sv-respawn">
+                ${Icons().named('beacon', '#fde047', 54)}
+                <h3>The zone claimed you — but not for good.</h3>
+                <p>${deep?.lostEcho ? `Your Aether Echo with <b>${deep.lostEcho.runes} runes</b> waits where you fell. Reclaim it before you die again.` : 'You can return to your last Site of Grace or field bed.'}</p>
+                <div class="sv-actions center">
+                    <button class="sv-btn primary big" data-act="respawn"${tip('Respawn', 'Return to your last rest point with full health and a refilled flask.')}>Respawn at rest point</button>
+                    <button class="sv-btn big ghost" data-act="endRun"${tip('End expedition', 'Finish this run now and see your results.')}>End expedition</button>
+                </div></div>`;
+        }
+
+        /* ================================================================
+           IN-MATCH HUD
+        ================================================================ */
+        ensureHud() {
+            if (this.hud) return this.hud;
+            const layer = document.getElementById('hud-layer');
+            const top = document.getElementById('hud-survival');
+            top.innerHTML = '<div class="svh-obj"><b></b><span></span></div><div class="svh-chips"></div>';
+            const wrap = document.createElement('div');
+            wrap.id = 'sv-hud';
+            wrap.innerHTML = `<div class="svh-vitals"></div><div class="svh-hotbar"><div class="svh-hb-name"></div><div class="svh-hb-row"></div></div>
+                <div class="svh-harvest" hidden><b></b><span><i></i></span></div><div class="svh-hints"></div>`;
+            layer.append(wrap);
+            this.hud = {
+                top, wrap,
+                obj: top.querySelector('.svh-obj b'), objSub: top.querySelector('.svh-obj span'), chips: top.querySelector('.svh-chips'),
+                vitals: wrap.querySelector('.svh-vitals'), hbName: wrap.querySelector('.svh-hb-name'), hbRow: wrap.querySelector('.svh-hb-row'),
+                harvest: wrap.querySelector('.svh-harvest'), harvestName: wrap.querySelector('.svh-harvest b'), harvestBar: wrap.querySelector('.svh-harvest i'),
+                hints: wrap.querySelector('.svh-hints')
+            };
+            return this.hud;
         }
 
         updateHud() {
             const mode = BO.SurvivalMode;
-            const hud = document.getElementById('hud-survival');
-            hud.hidden = !(mode.active && BO.State.activeMode === 'survival');
-            if (hud.hidden) return;
-            const campaign = mode.campaign;
-            const deep = campaign.deep;
-            const vehicle = data.vehicles.find((item) => item.id === campaign.vehicle);
-            const boss = mode.zombies.find((unit) => unit.alive && unit.bossLabel && unit.pos.distanceTo(BO.Player.pos) < 26);
-            const openSec = mode.openingSeconds || 60;
-            const safeLeft = Math.max(0, Math.ceil(openSec - mode.clock));
-
-            let headline = boss ? `${boss.bossLabel} · ${Math.ceil(boss.hp)} HP` : mode.objective;
-            if (!mode.hostilesReleased) {
-                headline = `🛡 SAFE PREP: ${safeLeft}s (NO ENEMIES) · ${mode.objective}`;
-            } else if (deep?.bloodMoonActive) {
-                const bmLeft = Math.max(0, Math.ceil(deep.bloodMoonUntil - mode.clock));
-                headline = `🌑 CRIMSON BLOOD MOON: ${bmLeft}s · ${headline}`;
+            const show = mode.active && BO.State.activeMode === 'survival' && !!mode.campaign;
+            const topEl = document.getElementById('hud-survival');
+            topEl.hidden = !show;
+            if (this.hud) this.hud.wrap.hidden = !show;
+            document.getElementById('hud-layer')?.classList.toggle('is-survival', show);
+            if (!show) return;
+            const h = this.ensureHud();
+            const c = mode.campaign;
+            const deep = c.deep;
+            const p = BO.Player;
+            const now = mode.clock;
+            // ---- top objective bar
+            const boss = mode.zombies.find((u) => u.alive && u.bossLabel && u.pos.distanceTo(p.pos) < 26);
+            const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - now));
+            let headline = mode.objective;
+            let sub = '';
+            if (!mode.hostilesReleased) { headline = 'Safe period · ' + safeLeft + 's'; sub = mode.objective; }
+            else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = mode.objective; }
+            else if (deep?.bloodMoonActive) { headline = 'Blood Moon · ' + Math.max(0, Math.ceil(deep.bloodMoonUntil - now)) + 's'; sub = mode.objective; }
+            topEl.classList.toggle('is-safe-prep', !mode.hostilesReleased);
+            topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive);
+            topEl.classList.toggle('is-night', c.isNight);
+            if (h.obj.textContent !== headline) h.obj.textContent = headline;
+            if (h.objSub.textContent !== sub) h.objSub.textContent = sub;
+            const vehicle = data.vehicles.find((v) => v.id === c.vehicle);
+            const t = mode.threat;
+            const chips = [
+                `<span><b>DAY ${c.day}</b> ${c.clockFace}</span>`,
+                `<span>${esc(mode.weather)}</span>`,
+                `<span>${esc(c.area?.name || '')}</span>`,
+                mode.hostilesReleased && t ? `<span class="${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t.cap} roaming</span>` : '',
+                deep?.stealthFactor < 0.65 ? '<span class="stealth">Hidden</span>' : '',
+                vehicle ? `<span>${esc(vehicle.name)}</span>` : ''
+            ].join('');
+            if (h.chipsHtml !== chips) { h.chips.innerHTML = chips; h.chipsHtml = chips; }
+            // ---- vitals
+            const needs = c.options.survivalNeeds !== false;
+            const v = (cls, label, val, max, warn) => `<div class="svh-v ${cls} ${warn ? 'warn' : ''}"><span>${label}</span><i><b style="width:${pct(val, max)}%"></b></i></div>`;
+            const temp = Math.round(deep?.temp ?? 20);
+            const vit = (needs ? v('food', 'FOOD', mode.hunger, 100, mode.hunger < 25) + v('water', 'H2O', deep?.hydration ?? 100, 100, (deep?.hydration ?? 100) < 25) : '') +
+                v('rad', 'RAD', mode.radiation, 100, mode.radiation > 60) +
+                `<div class="svh-v temp ${temp < 2 ? 'cold' : temp > 31 ? 'hot' : ''}"><span>TEMP</span><em>${temp}°C</em></div>` +
+                `<div class="svh-v flask"><span>FLASK</span><em>${deep?.flaskCharges ?? 0}/${deep?.flaskMax ?? 3}</em></div>` +
+                (deep?.bleeding > 0 ? '<div class="svh-v status">BLEEDING</div>' : '') + ((deep?.infection || 0) >= 40 ? '<div class="svh-v status">INFECTED</div>' : '') +
+                (c.pack.filtered ? '<div class="svh-v status ok">FILTER</div>' : '');
+            if (h.vitHtml !== vit) { h.vitals.innerHTML = vit; h.vitHtml = vit; }
+            // ---- hotbar
+            const hb = c.hotbar;
+            const kb = BO.Settings.getKeybinds();
+            const sig = hb.version + '|' + hb.selected + '|' + hb.slots.map((e) => {
+                if (!e) return '-';
+                if (e.kind === 'item') return e.id + (c.pack.inventory[e.id] || 0);
+                if (e.kind === 'tool') return e.id + Math.ceil(c.pack.tools[e.id] || 0);
+                const w = p.weapons[e.ref];
+                return 'w' + e.ref + (w ? w.cfg.id + w.mag : '');
+            }).join(',') + kb.hotbar1 + kb.hotbar10;
+            if (h.hbSig !== sig) {
+                h.hbSig = sig;
+                h.hbRow.innerHTML = hb.slots.map((e, i) => `<div class="svh-slot ${i === hb.selected ? 'active' : ''} ${e ? '' : 'empty'}">
+                    <span class="svh-k">${BO.Settings.keyLabel(kb['hotbar' + (i + 1)])}</span>${e ? this.entryIcon(e, 26) : ''}${this.entryBadge(e)}</div>`).join('');
+                h.hbName.textContent = hb.label(hb.held);
+                h.hbName.classList.remove('fade');
+                void h.hbName.offsetWidth;
+                h.hbName.classList.add('fade');
             }
-            const detail = [
-                campaign.area?.name, campaign.clockFace, mode.weather,
-                `TEMP ${Math.round(deep?.temp ?? 20)}°C`,
-                `H2O ${Math.floor(deep?.hydration ?? 100)}%`,
-                `RAD ${Math.floor(mode.radiation)}%`,
-                `FLASK[X] ${deep?.flaskCharges ?? 0}/${deep?.flaskMax ?? 3}`,
-                `RUNES ${deep?.runes ?? 0}`,
-                deep?.stealthFactor < 0.65 ? 'STEALTH' : null,
-                vehicle ? vehicle.name : null,
-                `${campaign.pack.weight().toFixed(1)}kg`
-            ].filter(Boolean).join(' · ');
-
-            hud.classList.toggle('is-safe-prep', !mode.hostilesReleased);
-            hud.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive);
-            hud.querySelector('strong').textContent = headline;
-            hud.querySelector('span').textContent = detail;
-
+            // ---- harvest feedback
+            const ls = c.pack.lastStrike;
+            const showH = ls && now - ls.at < 1.6;
+            h.harvest.hidden = !showH;
+            if (showH) {
+                h.harvestName.textContent = ls.name;
+                h.harvestBar.style.width = Math.round((1 - ls.frac) * 100) + '%';
+                h.harvest.classList.toggle('blocked', !!ls.blocked);
+                h.harvest.classList.toggle('hand', !!ls.hand);
+            }
+            // ---- control hints
+            const showHints = BO.Settings.get('showControlHints') !== false;
+            const hintsHtml = showHints ? ['survInventory', 'survCraft', 'survBuild', 'survMap'].map((a) => `<span><kbd>${keyOf(a)}</kbd>${({ survInventory: 'Inventory', survCraft: 'Craft', survBuild: 'Build', survMap: 'Map' })[a]}</span>`).join('') : '';
+            if (h.hintsHtml !== hintsHtml) { h.hints.innerHTML = hintsHtml; h.hintsHtml = hintsHtml; }
+            // ---- interaction prompt
             const prompt = BO.HUD.elPrompt;
-            const key = BO.Settings.getKeybinds().interact.replace(/^(Key|Digit)/, '');
             if (prompt) {
                 prompt.classList.toggle('hidden', !mode.prompt);
-                prompt.textContent = mode.prompt ? '[' + key + '] ' + mode.prompt : '';
+                const text = mode.prompt ? '[' + keyOf('interact') + '] ' + mode.prompt : '';
+                if (prompt.textContent !== text) prompt.textContent = text;
                 prompt.style.color = '#e6f4ee';
-                prompt.style.borderColor = '#a6ddd0';
+                prompt.style.borderColor = '#8fe3c8';
             }
         }
     }

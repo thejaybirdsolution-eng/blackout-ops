@@ -29,8 +29,10 @@
             document.body.appendChild(box);
             this.el = box;
 
+            const inGameBlocked = (e) => BO.State && BO.State.screen === 'playing' && !BO.State.paused &&
+                !(e.target && e.target.closest && e.target.closest('dialog[open], .ui-modal:not(.hidden)'));
             document.addEventListener('mouseover', (e) => {
-                if (BO.State && BO.State.screen === 'playing' && !BO.State.paused) {
+                if (inGameBlocked(e)) {
                     if (this.activeTarget) this.hide();
                     return;
                 }
@@ -43,7 +45,7 @@
             });
 
             document.addEventListener('mousemove', (e) => {
-                if (BO.State && BO.State.screen === 'playing' && !BO.State.paused) return;
+                if (inGameBlocked(e)) return;
                 this.lastX = e.clientX;
                 this.lastY = e.clientY;
                 if (this.activeTarget && !this.el.classList.contains('hidden')) {
@@ -68,6 +70,9 @@
             const text = target.getAttribute('data-tip');
             if (!text) return;
             this.activeTarget = target;
+            // Modal <dialog>s render in the top layer: the tooltip must live inside them to be visible.
+            const host = target.closest('dialog[open]') || document.body;
+            if (this.el.parentNode !== host) host.appendChild(this.el);
 
             const title = target.getAttribute('data-tip-title') || '';
             const sub = target.getAttribute('data-tip-sub') || '';

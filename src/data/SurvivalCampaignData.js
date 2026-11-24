@@ -22,13 +22,13 @@
         { id: 'rover', name: 'Salvage rover', level: 6, speed: 2.05, offroad: 1.65, color: 0x8394a4, detail: 'Fast transport. Bulky and loud when moving.' }
     ];
     const build = [
-        { id: 'wall', name: 'Timber wall', size: [2.8, 2.6, 0.24], cost: 2, color: 0x8d694b, detail: 'Solid cover that can be shot apart.' },
-        { id: 'floor', name: 'Raised floor', size: [2.8, 0.24, 2.8], cost: 2, color: 0x966f48, detail: 'A flat foundation for shelter pieces.' },
-        { id: 'roof', name: 'Shelter roof', size: [2.8, 0.23, 2.8], cost: 3, color: 0x5c7666, detail: 'Requires a nearby wall. Climb above it with a ladder.' },
-        { id: 'bed', name: 'Field bed', size: [1.8, 0.40, 0.9], cost: 3, color: 0x7f8c65, detail: 'Rest, recover composure and save the expedition.' },
-        { id: 'bench', name: 'Crafting table', size: [1.2, 0.85, 0.75], cost: 4, color: 0xa18257, detail: 'Craft the same recipes as the Relay workshop.' },
-        { id: 'ladder', name: 'Ladder', size: [0.66, 2.7, 0.20], cost: 2, color: 0xc2a672, detail: 'Climb to a nearby roof or dismount to the ground.' },
-        { id: 'campfire', name: 'Campfire', size: [0.65, 0.27, 0.65], cost: 2, color: 0xcf8061, detail: 'Cook at this site or eat a hot ration.' }
+        { id: 'wall', name: 'Timber wall', size: [2.8, 2.6, 0.24], cost: { timber: 4 }, color: 0x8d694b, detail: 'Solid cover that can be shot apart.' },
+        { id: 'floor', name: 'Raised floor', size: [2.8, 0.24, 2.8], cost: { timber: 4 }, color: 0x966f48, detail: 'A flat foundation for shelter pieces.' },
+        { id: 'roof', name: 'Shelter roof', size: [2.8, 0.23, 2.8], cost: { timber: 3, fiber: 2 }, color: 0x5c7666, detail: 'Requires a nearby wall. Climb above it with a ladder.' },
+        { id: 'bed', name: 'Field bed', size: [1.8, 0.40, 0.9], cost: { timber: 3, cloth: 2 }, color: 0x7f8c65, detail: 'Rest, recover composure and save the expedition.' },
+        { id: 'bench', name: 'Crafting table', size: [1.2, 0.85, 0.75], cost: { timber: 4, stone: 2, scrap: 1 }, color: 0xa18257, detail: 'A workbench: unlocks bench recipes, tool upgrades and weapon forging nearby.' },
+        { id: 'ladder', name: 'Ladder', size: [0.66, 2.7, 0.20], cost: { timber: 3, cord: 1 }, color: 0xc2a672, detail: 'Climb to a nearby roof or dismount to the ground.' },
+        { id: 'campfire', name: 'Campfire', size: [0.65, 0.27, 0.65], cost: { timber: 2, stone: 3 }, color: 0xcf8061, detail: 'Cook meals, brew tea and tonics, and keep warm at night.' }
     ];
     const stock = {
         ration: { name: 'Field ration', cost: { scrap: 1 }, gain: { rations: 1 } },

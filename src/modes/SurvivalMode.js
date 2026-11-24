@@ -68,6 +68,11 @@
             this.rider = false;
             this.near = null;
             this.train = { pos: new THREE.Vector3(19, 0, -12), next: 1, running: false };
+            this.threat = null;
+            this.lastDay = 1;
+            this.lastNight = 0;
+            this.patrolsDeployed = false;
+            this.commanderDeployed = false;
             this.weatherLight = this.scene.children.find((item) => item.isDirectionalLight);
             this.weatherHemi = this.scene.children.find((item) => item.isHemisphereLight);
 
@@ -76,6 +81,8 @@
                 secondary: { id: 'combat_knife', camo: 'default', attachments: {} },
                 lethal: 'c4', tactical: 'monkey_bomb', perks: []
             };
+            BO.Player.survivalProp = null;
+            BO.Player.survivalPropKey = '';
             BO.Player.initForMatch('survival', data.map.playerSpawn, loadout, false);
             BO.Player.lethalCount = 2;
             BO.Player.tacticalCount = 1;
@@ -114,9 +121,13 @@
             if (!checkpoint && campaignOptions.gameType === 'scavenger') {
                 this.grant({ timber: 3, stone: 3, fiber: 3, scrap: 2 });
             }
+            this.threat = BO.SurvivalRules.threat(this.campaign.day, this.campaign.isNight, this.campaign.options, this.difficultyRules, this.campaign.roster.length);
             this.refreshTargets();
-            const safeMsg = this.openingSeconds === 120 ? 'No enemies for the first 2 minutes.' : 'No enemies for the first minute.';
-            this.toast(this.hostilesReleased ? 'Expedition restored.' : `${safeMsg} Press [L] for Survival Legend, [3] for Bare Hands.`);
+            const kb = BO.Settings.getKeybinds();
+            const key = (a) => BO.Settings.keyLabel(kb[a]);
+            const safeMsg = this.openingSeconds === 120 ? 'You have 2 minutes before anything hostile appears.' : 'You have 1 minute before anything hostile appears.';
+            this.toast(this.hostilesReleased ? 'Expedition restored.' :
+                `${safeMsg} Gather wood and stone by hand, then craft tools [${key('survCraft')}]. Hotbar: 1-0 or mouse wheel.`);
             return this.scene;
         }
 
@@ -357,21 +368,64 @@
             const openSec = this.openingSeconds || BO.SurvivalRules.openingSeconds;
             if (this.hostilesReleased || this.clock < openSec) return;
             this.hostilesReleased = true;
-            this.toast('The opening grace period is over — hostiles are active!');
-            const p = BO.Player.pos;
-            for (const [x, y, z, weapon] of [[27, 0, 0, 'mp5'], [33, 0, -9, 'm1911']]) {
-                if (distance(p, { x, y, z }) > 10) this.spawnBot(x, y, z, weapon);
-            }
-            if (!this.campaign.has('noPatrols') || this.campaign.options.gameType === 'bounty') {
-                this.commander = this.spawnBot(37, 0, -20, 'ak47', 225, 1, true);
-                this.commander.name = 'Commander Sable';
-            }
+            this.lastDay = this.campaign.day;
+            this.lastNight = this.campaign.isNight ? this.campaign.nightNumber : 0;
+            const t = this.updateThreat();
             const type = this.campaign.options.gameType;
-            for (const [x, y, z] of [[-20, 0, 17], [-32, 0, -7], [11, 0, 11], [13, 0, -28], [7, -5, -47]]) {
-                if (distance(p, { x, y, z }) > 9) this.spawnInfected(x, y, z);
-            }
+            BO.Events.emit('hud:banner', {
+                title: 'HOSTILES ACTIVE · DAY ' + t.day,
+                sub: 'WEAK INFECTED ROAM THE ZONE · UP TO ' + t.cap + ' AT ONCE',
+                color: '#f2b45a'
+            });
+            this.toast('The safe period is over. Each new day brings tougher infected and more of them.');
+            // Rival Bounty needs Sable from the start; everywhere else he arrives on day 3.
+            if (type === 'bounty') this.deployCommander(true);
+            for (let i = 0; i < Math.min(2, t.cap); i++) this.spawnRoamer(true);
             if (type === 'expedition' && !this.core && !this.campaign.metrics.apex) this.spawnInfected(-6, -5, -50, 'apex');
             this.refreshTargets();
+        }
+
+        /** Recomputes the day/night threat profile and refreshes the spawn pool. */
+        updateThreat() {
+            const c = this.campaign;
+            this.threat = BO.SurvivalRules.threat(c.day, c.isNight, c.options, this.difficultyRules, c.roster.length);
+            this.pressure = Math.min(11, (this.threat.day - 1) * 2 + (this.threat.night ? 1 : 0) + (this.exfil ? 3 : 0));
+            c.selectedEnemies = c.getPool(c.area?.id || 'relay');
+            return this.threat;
+        }
+
+        /** Surface spawn point out of sight range, never inside a locked biome. */
+        spawnPoint(minDist = 20) {
+            const p = BO.Player.pos;
+            const locked = BO.SurvivalCampaignData.areas.filter((a) => a.bounds && this.campaign.gates.get(a.id)?.collider.active);
+            const inLocked = (x, z) => locked.some((a) => x >= a.bounds[0] - 1 && x <= a.bounds[1] + 1 && z >= a.bounds[2] - 1 && z <= a.bounds[3] + 1);
+            const points = data.map.waypoints.filter((w) => w.y === 0)
+                .map((w) => ({ x: w.x + (Math.random() - 0.5) * 3, y: 0, z: w.z + (Math.random() - 0.5) * 3 }))
+                .filter((w) => !inLocked(w.x, w.z) && Math.hypot(w.x - p.x, w.z - p.z) >= minDist);
+            if (!points.length) return null;
+            points.sort((a, b) => Math.hypot(a.x - p.x, a.z - p.z) - Math.hypot(b.x - p.x, b.z - p.z));
+            // Prefer the nearer half so roamers actually find the player, but never right on top of them.
+            return BO.Math.pick(points.slice(0, Math.max(1, Math.ceil(points.length / 2))));
+        }
+
+        get roamingCount() {
+            return this.zombies.filter((z) => z.alive && !z.bossLabel && z.survivalType !== 'siege').length;
+        }
+
+        spawnRoamer(ignoreCap = false) {
+            const t = this.threat || this.updateThreat();
+            if (!ignoreCap && this.roamingCount >= t.cap) return null;
+            const point = this.spawnPoint();
+            return point ? this.spawnInfected(point.x, point.y, point.z) : null;
+        }
+
+        deployCommander(required = false) {
+            if (this.commanderDeployed) return;
+            this.commanderDeployed = true;
+            if (!required && this.campaign.has('noPatrols')) return;
+            this.commander = this.spawnBot(37, 0, -20, 'ak47', 225, 1, true);
+            if (this.commander) this.commander.name = 'Commander Sable';
+            if (!required) this.toast("Commander Sable's PMC unit has entered the zone.");
         }
 
         spawnInfected(x, y, z, type = 'normal', savedSpec = null, required = false) {
@@ -384,12 +438,12 @@
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) :
                 boss ? bosses[({ frostBoss: 1, geodeBoss: 2, cinderBoss: 3, siegeBoss: 1 })[type] || 0] :
                 type === 'mimic' ? candidates.find((item) => /wraith|phantom/.test(item.id)) || candidates[0] :
-                candidates[(this.nextEnemy + this.pressure) % Math.min(6 + this.pressure * 2, candidates.length)];
+                BO.Math.pick(candidates);
             const mfx = this.campaign?.deep?.modFx || {};
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y, z, round: 1,
-                hp: Math.round(this.difficultyRules.hp * (boss ? (({ frostBoss: 720, cinderBoss: 980, geodeBoss: 820, siegeBoss: 690 })[type] || 580) * (mfx.bossHpMult || 1) : Math.min(230, spec.hp * 0.75 + this.pressure * 5))),
+                hp: Math.round(this.difficultyRules.hp * (boss ? (({ frostBoss: 720, cinderBoss: 980, geodeBoss: 820, siegeBoss: 690 })[type] || 580) * (mfx.bossHpMult || 1) : Math.min(320, spec.hp * 0.75 * (this.threat?.hpScale || 1)))),
                 speed: (type === 'mimic' ? 5.4 : boss ? 2.5 : Math.min(4.9, spec.speed)) * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
-                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage * (mfx.enemyDmgMult || 1)) });
+                damage: Math.round((boss ? 32 : 13 * (this.threat?.dmgScale || 1)) * this.difficultyRules.damage * (mfx.enemyDmgMult || 1)) });
             entity.survivalType = type;
             if (type === 'apex') entity.bossLabel = 'Apex Guardian';
             if (type === 'frostBoss') entity.bossLabel = 'Pale Maul';
@@ -544,6 +598,7 @@
             if (this.weatherHemi) this.weatherHemi.intensity = 1.12 - darkness * 0.50;
             this.noise = Math.max(0, this.noise - dt);
             this.coilHeat = Math.max(0, this.coilHeat - dt);
+            this.updateCycle();
             this.updateFactions(dt);
             this.updateTrain(dt);
             this.updateHazards(dt, darkness);
@@ -557,23 +612,50 @@
             else if (this.exfil && this.clock >= this.exfil.readyAt && distance(p.pos, this.exfil.site) < 4) this.finish(true);
         }
 
+        /** Announces new days and nightfall, and escalates the threat profile. */
+        updateCycle() {
+            const c = this.campaign;
+            if (!c || !this.hostilesReleased) return;
+            const day = c.day;
+            const nightNo = c.isNight ? c.nightNumber : 0;
+            if (day !== this.lastDay) {
+                const before = this.threat?.poolSize || 0;
+                this.lastDay = day;
+                const t = this.updateThreat();
+                const fresh = c.roster.slice(before, t.poolSize).map((z) => z.name);
+                BO.Events.emit('hud:banner', {
+                    title: 'DAY ' + day,
+                    sub: (fresh.length ? 'NEW THREATS: ' + fresh.slice(0, 3).join(', ').toUpperCase() + (fresh.length > 3 ? ' +' + (fresh.length - 3) : '') + ' · ' : '') + 'UP TO ' + t.cap + ' ROAMING',
+                    color: '#f2b45a'
+                });
+                BO.Sound?.playRoundStart?.(day);
+            } else if (nightNo && nightNo !== this.lastNight) {
+                this.lastNight = nightNo;
+                const t = this.updateThreat();
+                this.toast('Night falls. The infected grow bolder: up to ' + t.cap + ' may roam until dawn. Stay near fire or shelter.');
+            } else if (!nightNo && this.threat?.night) {
+                const t = this.updateThreat();
+                this.toast('Dawn breaks. Roaming limit back to ' + t.cap + '.');
+            }
+        }
+
         updateHazards(dt, darkness) {
             const p = BO.Player;
             const deluge = this.flooded && p.pos.x > 24 && p.pos.z < -1 && p.pos.z > -29 && p.pos.y < 0.6;
             const survivalNeeds = this.campaign?.options.survivalNeeds !== false;
             const deep = this.campaign?.deep;
             const fx = deep?.modFx;
-            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * (this.campaign.has('hungry') ? 0.44 : 0.22) * (fx?.hungerDrainMult || 1));
+            if (survivalNeeds) this.hunger = Math.max(0, this.hunger - dt * (this.campaign.has('hungry') ? 0.22 : 0.11) * (fx?.hungerDrainMult || 1));
             const arcMit = Math.max(0.4, 1 - (deep?.attributes?.arcane || 0) * 0.08) * (deep?.hasTalisman('rad_charm') ? 0.6 : 1);
             const weatherRad = (this.weather && this.weather !== 'Clear') ? (fx?.weatherRadMult || 1) : 1;
             const shielding = (this.campaign.pack.filtered ? 0.18 : 1) * (survivalNeeds && this.campaign.has('irradiated') ? 1.8 : 1) * arcMit * (fx?.radGainMult || 1) * weatherRad;
-            this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 2.4 * shielding : deluge ? 1.3 * shielding : -0.7), 0, 100);
+            this.radiation = BO.Math.clamp(this.radiation + dt * (p.pos.y < -2 ? 1.5 * shielding : deluge ? 1.0 * shielding : -0.9), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;
             this.hazardClock -= dt;
             if (this.hazardClock <= 0) {
                 this.hazardClock = 1;
-                const damage = survivalNeeds ? (this.radiation >= 75 ? 4 : 0) + (this.hunger <= 0 ? 3 : 0) : 0;
+                const damage = survivalNeeds ? (this.radiation >= 75 ? 2 : 0) + (this.hunger <= 0 ? 1 : 0) : 0;
                 if (damage) p.takeDamage(damage);
                 if (deluge) p.tacStamina = Math.max(0, p.tacStamina - 0.14);
             }
@@ -613,22 +695,31 @@
 
         updateSpawns() {
             if (!this.hostilesReleased) return;
-            const p = BO.Player;
-            this.pressure = Math.min(11, Math.floor(this.clock / 35) + (this.exfil ? 3 : 0));
+            const campaign = this.campaign;
+            const t = this.threat || this.updateThreat();
             if (this.clock >= this.nextSpawn) {
-                const campaign = this.campaign;
                 campaign.selectedEnemies = campaign.getPool(campaign.area?.id || 'relay');
-                const frequency = campaign.options.encounterRate * this.difficultyRules.rate * (campaign.options.pool === 'horde' ? 1.3 : 1) *
-                    (campaign.isNight || campaign.has('blackout') ? (campaign.has('brutalNights') ? 2.66 : 1.33) : 1);
-                this.nextSpawn = this.clock + Math.max(4, (21 - this.pressure - this.noise) / frequency);
-                const points = [[-45, 0, 18], [43, 0, 18], [-42, 0, -39], [43, 0, -38], [12, 0, -32]];
-                const candidates = points.filter(([x, y, z]) => distance(p.pos, { x, y, z }) > 18);
-                if (candidates.length && this.zombies.filter((z) => z.alive).length < this.difficultyRules.enemyCap) {
-                    this.spawnInfected(...BO.Math.pick(candidates));
-                    if (this.pressure >= 4 && this.noise > 0) this.spawnInfected(...BO.Math.pick(candidates));
+                const frequency = this.difficultyRules.rate * (campaign.options.pool === 'horde' ? 1.3 : 1) *
+                    (campaign.isNight || campaign.has('blackout') ? (campaign.has('brutalNights') ? 2 : 1.25) : 1);
+                this.nextSpawn = this.clock + Math.max(4, (t.interval - Math.min(6, this.noise)) / frequency);
+                if (BO.Player.pos.y > -1.5) {
+                    this.spawnRoamer();
+                    // Loud players draw a second roamer once the zone has escalated a little.
+                    if (t.day >= 2 && this.noise > 2) this.spawnRoamer();
                 }
             }
-            if (this.clock >= this.nextMimic && this.weather === 'Rad fog') {
+            if (t.patrols && !this.patrolsDeployed) {
+                this.patrolsDeployed = true;
+                if (!campaign.has('noPatrols')) {
+                    const p = BO.Player.pos;
+                    for (const [x, y, z, weapon] of [[27, 0, 0, 'mp5'], [33, 0, -9, 'm1911']]) {
+                        if (distance(p, { x, y, z }) > 14) this.spawnBot(x, y, z, weapon);
+                    }
+                    this.toast('PMC scavengers have moved into Freight Works.');
+                }
+            }
+            if (t.commander && !this.commanderDeployed && campaign.options.gameType !== 'bounty') this.deployCommander(false);
+            if (t.mimics && this.clock >= this.nextMimic && this.weather === 'Rad fog') {
                 this.nextMimic = this.clock + 120;
                 this.spawnInfected(12, 0, -32, 'mimic');
             }
@@ -678,7 +769,9 @@
                 if (marker.alive === false) return best;
                 if (this.completed.has(marker.id) && !['lookout', 'train', 'shelter'].includes(marker.id)) return best;
                 const d = distance(p, marker);
-                return d <= 3.05 && (!best || d < distance(p, best)) ? marker : best;
+                // People and mission sites win ties over resource nodes standing next to them.
+                const score = (mk) => distance(p, mk) + (mk.id.startsWith('node:') ? 0.9 : 0);
+                return d <= 3.05 && (!best || score(marker) < score(best)) ? marker : best;
             }, null);
         }
 
@@ -736,7 +829,7 @@
                 return this.toast(this.objective);
             }
             if (site.id === 'bunker') {
-                if (!this.hostilesReleased) return this.toast('Core access is sealed for the safe minute.');
+                if (!this.hostilesReleased) return this.toast('Core access stays sealed during the safe period.');
                 if (this.zombies.some((z) => z.alive && z.survivalType === 'apex')) return this.toast('Defeat the Apex guardian first.');
                 this.core = true;
                 this.campaign?.mark('core', 1, 100);
@@ -802,9 +895,9 @@
 
         craft(id) {
             const recipe = data.recipes.find((item) => item.id === id);
-            const station = this.campaign?.station;
-            if (!this.active || !['bench', 'campfire'].includes(station) ||
-                (station === 'campfire' && id !== 'cook') || !recipe || !this.spend(recipe.cost)) return false;
+            const c = this.campaign;
+            const ok = id === 'cook' ? (c?.stationAvailable('campfire') || c?.stationAvailable('bench')) : c?.stationAvailable('bench');
+            if (!this.active || !ok || !recipe || !this.spend(recipe.cost)) return false;
             const p = BO.Player;
             if (id === 'ammo') {
                 for (const w of p.weapons) w.reserve = Math.min(w.stats.reserveMax, w.reserve + Math.ceil(w.stats.reserveMax * 0.5));
@@ -836,17 +929,40 @@
         }
 
         useItem(id) {
-            if (!this.active || !BO.Player.alive) return;
+            if (!this.active || !BO.Player.alive) return false;
             const p = BO.Player;
             if (id === 'medkits' && p.hp < p.maxHp && this.points.medkits > 0) {
                 this.points.medkits--;
                 const restored = Math.min(p.maxHp - p.hp, this.campaign.has('fieldMedic') ? 75 : 55);
                 p.hp += restored;
                 this.campaign?.mark('healed', Math.ceil(restored), 0);
-            } else if (id === 'rations' && this.hunger < 100 && this.points.rations > 0) {
+                this.toast('Trauma kit applied (+' + Math.ceil(restored) + ' HP).');
+                return true;
+            }
+            if (id === 'rations' && this.hunger < 100 && this.points.rations > 0) {
                 this.points.rations--;
                 this.hunger = Math.min(100, this.hunger + 35);
+                this.toast('Ate a field ration (+35 food).');
+                return true;
             }
+            if (id === 'medkits') this.toast(p.hp >= p.maxHp ? 'Health is already full.' : 'No trauma kits left.');
+            if (id === 'rations') this.toast(this.hunger >= 100 ? 'You are not hungry.' : 'No rations left.');
+            return false;
+        }
+
+        /** Use any consumable from the pack or hotbar. */
+        consume(id) {
+            if (!this.active || !BO.Player.alive || !this.campaign) return false;
+            if (id === 'medkits' || id === 'rations') return this.useItem(id);
+            const before = this.points[id] || 0;
+            const ok = this.campaign.pack.use(id);
+            if (!ok && before > 0) {
+                const p = BO.Player;
+                const why = id === 'bandage' && p.hp >= p.maxHp ? 'Health is already full.' :
+                    id === 'repair' ? 'Hold or equip a worn tool to repair it.' : null;
+                if (why) this.toast(why);
+            }
+            return !!ok;
         }
 
         inspect() {

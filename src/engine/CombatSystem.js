@@ -74,6 +74,16 @@
             if (P.swapTimer > 0 || P.meleeTimer > 0) return;
 
             if (P.usingBareHands) {
+                const held = P.survivalProp;
+                if (held?.kind === 'tool') {
+                    // Tools swing on hold, like an axe chopping in rhythm.
+                    if (pressed) this._survivalToolSwing(held.id);
+                    return;
+                }
+                if (held?.kind === 'item') {
+                    if (pressed && justPressed) BO.SurvivalMode?.campaign?.hotbar?.useSelected();
+                    return;
+                }
                 if (pressed && justPressed) {
                     this.fistCharging = true;
                     this.fistChargeTime = 0;
@@ -1530,12 +1540,9 @@
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
             const hit = hits.find((result) => result.object.userData.entity?.alive);
             if (!hit || !this.onHitEnemy) {
-                // Punching near hand-gatherable natural deposits harvests them!
+                // No enemy in reach: bare hands still break deposits, trees and timber (slowly).
                 const m = BO.SurvivalMode;
-                if (m?.active && m.near?.id?.startsWith('node:')) {
-                    const node = m.campaign?.pack?.resources?.get(m.near.id);
-                    if (node && !node.spec.tool) m.campaign.pack.interact(m.near);
-                }
+                if (m?.active) m.campaign?.pack?.swing(null, aim, wall, isFinisher ? 1.35 : 1);
                 return;
             }
 
@@ -1581,10 +1588,53 @@
             BO.Events.emit('hud:hitmarker', { isHeadshot: critHit, isKill: killed });
         }
 
+        /** Survival: swing a held tool. Hits enemies first, otherwise gathers what is in front. */
+        _survivalToolSwing(toolId) {
+            const P = BO.Player;
+            const m = BO.SurvivalMode;
+            if (!P.alive || !m?.active || P.swapTimer > 0 || P.meleeTimer > 0 || P.fireCooldown > 0 || !this.camera) return;
+            const pack = m.campaign?.pack;
+            const tool = BO.SurvivalFrontierData.tools[toolId];
+            if (!pack || !tool) return;
+            const broken = !(pack.tools[toolId] > 0);
+            const gSpd = m.campaign.deep?.modFx?.gatherSpeedMult || 1;
+            const cadence = (tool.family === 'pick' && toolId === 'miningDrill' ? 0.34 : 0.5) / gSpd;
+            P.fireCooldown = cadence;
+            P.meleeTimer = Math.min(0.34, cadence * 0.9);
+            P.meleeDur = P.meleeTimer;
+            BO.Sound.playMelee();
+            const aim = P.getAimRay(this.camera);
+            const reach = 2.5;
+            const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
+            this.raycaster.set(aim.origin, aim.dir);
+            this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
+            const hit = this.raycaster.intersectObjects(this.targetPool, false).find((r) => r.object.userData.entity?.alive);
+            if (hit && this.onHitEnemy) {
+                const deep = m.campaign.deep;
+                const base = { axe: 58, pick: 52, shovel: 40 }[tool.family] || 45;
+                let dmg = (broken ? 30 : base + (tool.level - 1) * 14) * (1 + (deep?.attributes?.strength || 0) * 0.12);
+                if (deep?.hasTalisman('claw_talisman')) dmg *= 1.2;
+                if (!broken) pack.wearTool(toolId, 0.5);
+                if (BO.Settings.get('bloodLevel') !== 'off') BO.FX.spawnParticles(hit.point, 5, 0x991b1b, 2.8, 9, 0.25, 0.7);
+                const ent = hit.object.userData.entity;
+                const killed = this.onHitEnemy(ent, Math.round(dmg), 'torso', hit.distance, { id: 'survival_tool', stats: { kind: 'melee' } }, hit.point, aim.dir);
+                if (!ent.isBoss) ent.stunTimer = Math.max(ent.stunTimer || 0, 0.25);
+                BO.Sound.playHitmarker(false, killed);
+                BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: killed });
+                return;
+            }
+            pack.swing(broken ? null : toolId, aim, wall, 1);
+        }
+
         meleeAttack() {
             const P = BO.Player;
             if (!P.alive || P.meleeTimer > 0 || !this.camera) return;
             if (P.usingBareHands) {
+                if (P.survivalProp?.kind === 'tool') {
+                    P.fireCooldown = 0;
+                    this._survivalToolSwing(P.survivalProp.id);
+                    return;
+                }
                 this._survivalPunch();
                 return;
             }

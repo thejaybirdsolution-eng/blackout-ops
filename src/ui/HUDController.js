@@ -410,17 +410,35 @@
 
             // Weapon & Gear
             const infAmmo = BO.Cheats && BO.Cheats.isActive('infammo');
-            if (P.usingBareHands) {
+            if (P.usingBareHands && P.survivalProp && BO.SurvivalMode?.campaign) {
+                const prop = P.survivalProp;
+                const pack = BO.SurvivalMode.campaign.pack;
+                if (prop.kind === 'tool') {
+                    const t = BO.SurvivalFrontierData.tools[prop.id];
+                    const d = Math.ceil(pack.tools[prop.id] || 0);
+                    if (this.elWeaponName) { this.elWeaponName.textContent = (t?.name || 'TOOL').toUpperCase(); this.elWeaponName.style.color = d > 0 ? '#9fe0c9' : '#ef6b6b'; }
+                    if (this.elFireMode) this.elFireMode.textContent = 'TIER ' + (t?.level || 1) + ' ' + String(t?.family || '').toUpperCase() + ' · HOLD LMB TO SWING';
+                    if (this.elAmmoMag) { this.elAmmoMag.textContent = String(d); this.elAmmoMag.style.color = d <= (t?.wear || 1) * 0.25 ? '#ef6b6b' : '#f8fafc'; }
+                    if (this.elAmmoRes) this.elAmmoRes.textContent = '/ ' + (t?.wear || 0);
+                } else {
+                    const n = pack.inventory[prop.id] || 0;
+                    if (this.elWeaponName) { this.elWeaponName.textContent = String(BO.SurvivalItemName(prop.id)).toUpperCase(); this.elWeaponName.style.color = '#9be3a6'; }
+                    if (this.elFireMode) this.elFireMode.textContent = 'LMB TO USE · ' + BO.Settings.keyLabel(BO.Settings.getKeybinds().melee) + ' TO PUNCH';
+                    if (this.elAmmoMag) { this.elAmmoMag.textContent = String(n); this.elAmmoMag.style.color = '#f8fafc'; }
+                    if (this.elAmmoRes) this.elAmmoRes.textContent = 'LEFT';
+                }
+            } else if (P.usingBareHands) {
+                const kbH = BO.Settings.getKeybinds();
                 if (this.elWeaponName) {
-                    this.elWeaponName.textContent = 'BARE HANDS [3]';
+                    this.elWeaponName.textContent = 'BARE HANDS';
                     this.elWeaponName.style.color = '#facc15';
                 }
-                if (this.elFireMode) this.elFireMode.textContent = 'GUARD/PARRY [RMB] · DODGE [ALT]';
+                if (this.elFireMode) this.elFireMode.textContent = 'RMB GUARD/PARRY · ' + BO.Settings.keyLabel(kbH.survDodge) + ' DODGE';
                 if (this.elAmmoMag) {
                     this.elAmmoMag.textContent = P.parryFeedbackTimer > 0 ? 'PARRY!' : P.guardingWithHands ? 'GUARD' : (P.bareComboWindow > 0 ? `HIT ${P.bareComboStep + 1}` : 'FISTS');
                     this.elAmmoMag.style.color = P.parryFeedbackTimer > 0 ? '#facc15' : '#a6ddd0';
                 }
-                if (this.elAmmoRes) this.elAmmoRes.textContent = 'PUNCH [LMB]';
+                if (this.elAmmoRes) this.elAmmoRes.textContent = 'LMB PUNCH';
             } else if (w) {
                 const isMeleeW = w.stats.kind === 'melee';
                 if (this.elWeaponName) {
@@ -430,9 +448,9 @@
                 }
                 if (this.elFireMode) this.elFireMode.textContent = (w.fireMode || 'auto').toUpperCase() + (w.stats.altFireMode ? ' [B]' : '');
                 if (this.elAmmoMag) {
-                    if (mode === 'survival' && !isMeleeW) {
-                        this.elAmmoMag.textContent = P.reloading ? 'RLD' : 'CHECK';
-                        this.elAmmoMag.style.color = '#a6ddd0';
+                    if (mode === 'survival' && !isMeleeW && BO.SurvivalMode?.jammed === w) {
+                        this.elAmmoMag.textContent = 'JAM';
+                        this.elAmmoMag.style.color = '#ef6b6b';
                     } else if (isMeleeW) {
                         this.elAmmoMag.textContent = 'BLADE';
                         this.elAmmoMag.style.color = '#f5a623';
@@ -445,7 +463,7 @@
                     }
                 }
                 if (this.elAmmoRes) {
-                    this.elAmmoRes.textContent = mode === 'survival' ? '' : (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
+                    this.elAmmoRes.textContent = (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
                 }
             }
             if (this.elLethalInfo) {
@@ -455,6 +473,18 @@
             if (this.elTacticalInfo) {
                 const tName = (BO.AttachmentsData.TACTICALS[P.tacticalId]?.id || 'tac').toUpperCase().slice(0, 4);
                 this.elTacticalInfo.textContent = `${tName} x${infAmmo ? '∞' : P.tacticalCount}`;
+            }
+            {
+                const kbG = BO.Settings.getKeybinds();
+                const gearKeys = [[this.elLethalInfo, kbG.lethal], [this.elTacticalInfo, kbG.tactical], [this.elFieldInfo, kbG.special], [this.elUltInfo, kbG.ultimate]];
+                for (const [el, code] of gearKeys) {
+                    const tag = el?.parentElement?.querySelector('span');
+                    const text = '[' + BO.Settings.keyLabel(code) + ']';
+                    if (tag && tag.textContent !== text) tag.textContent = text;
+                }
+                const hideSuper = mode === 'survival';
+                this.elFieldInfo?.parentElement?.classList.toggle('hidden', hideSuper);
+                this.elUltInfo?.parentElement?.classList.toggle('hidden', hideSuper);
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0

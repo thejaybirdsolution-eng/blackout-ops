@@ -422,6 +422,7 @@
             this.muzzleFlashTimer = 0;
             if (this.usingBareHands) {
                 this.fistRig ??= this._buildFistRig();
+                this._attachSurvivalProp();
                 this.vmAnchor.add(this.fistRig.root);
                 this._updateFistPose();
                 return;
@@ -517,9 +518,36 @@
             this.swayY = BO.Math.clamp(this.swayY + dy * 0.00018, -0.025, 0.025);
         }
 
+        /** Survival hotbar: equip a weapon index, or bare hands holding an optional tool/item prop. */
+        equipSurvivalSlot(ref, prop = null, force = false) {
+            const propKey = prop ? prop.kind + ':' + prop.id + (prop.broken ? ':x' : '') : '';
+            const nextSlot = ref >= 0 && this.weapons[ref] ? ref : -1;
+            if (!force && nextSlot === this.activeSlot && propKey === (this.survivalPropKey || '')) return;
+            if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
+            const changedSlot = nextSlot !== this.activeSlot || propKey !== (this.survivalPropKey || '');
+            this.activeSlot = nextSlot;
+            this.survivalProp = nextSlot === -1 ? prop : null;
+            this.survivalPropKey = nextSlot === -1 ? propKey : '';
+            this.reloading = false;
+            this.burstRemaining = 0;
+            if (changedSlot) this.swapTimer = Math.max(this.swapTimer, 0.22);
+            if (nextSlot === -1) {
+                this.adsAlpha = 0;
+                this.inspectTimer = 0;
+                this._wasGuarding = false;
+            }
+            this.rebuildViewmodel();
+            if (BO.Mods && BO.Mods.onSwapWeapon) BO.Mods.onSwapWeapon();
+        }
+
         switchWeapon(targetSlot = null) {
             if (this.swapTimer > 0) return;
             const isSurvival = BO.State.activeMode === 'survival';
+            const hotbar = isSurvival ? BO.SurvivalMode?.campaign?.hotbar : null;
+            if (hotbar && targetSlot === null) {
+                hotbar.cycle(1);
+                return;
+            }
             if (targetSlot === null && !isSurvival && this.weapons.length < 2) return;
             let next = targetSlot;
             if (next === null) {
@@ -1243,10 +1271,116 @@
             return { root, hands };
         }
 
+        /** Builds (and caches) the tool or item mesh held in the right hand. */
+        _buildSurvivalProp(prop) {
+            const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.15, ...extra });
+            const group = new THREE.Group();
+            const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
+                const m = new THREE.Mesh(geo, mat);
+                m.position.set(x, y, z);
+                m.rotation.set(rx, ry, rz);
+                group.add(m);
+                return m;
+            };
+            if (prop.kind === 'tool') {
+                const t = BO.SurvivalFrontierData?.tools?.[prop.id] || {};
+                const lvl = t.level || 1;
+                const headColor = prop.broken ? 0x5a504a : lvl >= 4 ? 0x9b6bff : lvl >= 2 ? 0x9aa4ad : 0x8b8478;
+                const headMat = std(headColor, lvl >= 4 ? { emissive: 0x5b21b6, emissiveIntensity: 0.55, metalness: 0.4 } : { metalness: lvl >= 2 ? 0.6 : 0.05 });
+                const wood = std(0x7a5536, { roughness: 0.85 });
+                const bind = std(0xcdbb92, { roughness: 0.95 });
+                const handleLen = prop.id === 'miningDrill' ? 0.0 : 0.44;
+                if (handleLen) add(new THREE.CylinderGeometry(0.012, 0.014, handleLen, 8), wood, 0, 0.13, 0);
+                const top = 0.13 + handleLen / 2;
+                if (t.family === 'axe' && prop.id !== 'saw') {
+                    add(new THREE.BoxGeometry(0.035, 0.05, 0.03), bind, 0, top - 0.02, 0);
+                    add(new THREE.BoxGeometry(0.02, 0.075, 0.12), headMat, 0, top - 0.02, -0.06);
+                    add(new THREE.BoxGeometry(0.012, 0.11, 0.035), headMat, 0, top - 0.02, -0.125);
+                } else if (prop.id === 'saw') {
+                    add(new THREE.TorusGeometry(0.11, 0.008, 6, 18, Math.PI), std(0x8c949b, { metalness: 0.7 }), 0, top - 0.11, -0.01, 0, Math.PI / 2, 0);
+                    add(new THREE.BoxGeometry(0.004, 0.012, 0.22), std(0xd6dadf, { metalness: 0.8 }), 0, top - 0.11, -0.01, Math.PI / 2, 0, 0);
+                } else if (t.family === 'pick') {
+                    if (prop.id === 'miningDrill') {
+                        add(new THREE.BoxGeometry(0.07, 0.09, 0.16), std(0xb38a2e, { metalness: 0.35 }), 0, 0.05, -0.02);
+                        add(new THREE.CylinderGeometry(0.016, 0.004, 0.16, 10), std(0x9aa4ad, { metalness: 0.8 }), 0, 0.05, -0.18, Math.PI / 2, 0, 0);
+                        add(new THREE.BoxGeometry(0.03, 0.07, 0.03), std(0x2b2f33), 0, -0.02, 0.03);
+                    } else {
+                        add(new THREE.BoxGeometry(0.034, 0.04, 0.034), bind, 0, top - 0.01, 0);
+                        // Double-ended pick head across the top of the haft, tips curving down.
+                        add(new THREE.BoxGeometry(0.024, 0.03, 0.15), headMat, 0, top, 0);
+                        add(new THREE.ConeGeometry(0.014, 0.075, 6), headMat, 0, top - 0.018, -0.1, -Math.PI / 2 - 0.45, 0, 0);
+                        add(new THREE.ConeGeometry(0.014, 0.075, 6), headMat, 0, top - 0.018, 0.1, Math.PI / 2 + 0.45, 0, 0);
+                    }
+                } else if (t.family === 'shovel') {
+                    add(new THREE.BoxGeometry(0.11, 0.13, 0.008), headMat, 0, top + 0.05, -0.005);
+                    add(new THREE.BoxGeometry(0.07, 0.016, 0.016), wood, 0, -0.1, 0);
+                } else {
+                    add(new THREE.BoxGeometry(0.06, 0.06, 0.06), headMat, 0, top, 0);
+                }
+                group.rotation.set(-0.35, 0.15, 0.1);
+                group.scale.setScalar(0.52);
+            } else {
+                const id = prop.id;
+                const tint = {
+                    medkits: 0xd94a4a, bandage: 0xeee4cc, rations: 0x6f7d52, freshWater: 0x5aa9d6, tea: 0x8a6a4a,
+                    espresso: 0x4a3426, stew: 0x9a6a3a, broth: 0xb5733d, antibiotic: 0xbfe8da, aetherStim: 0xb08cff,
+                    orbitalFlare: 0xff5a3a, jugBrew: 0xff7a7a, speedTonic: 0x7ab8ff, staminElixir: 0x8be07a,
+                    deadshotTinc: 0xffc95a, filter: 0x5d6b62, repair: 0x8d939b, torch: 0x7a5536, lantern: 0xb38a2e
+                }[id] || 0x9aa4ad;
+                const mat = std(tint);
+                if (id === 'torch') {
+                    add(new THREE.CylinderGeometry(0.012, 0.016, 0.34, 8), mat, 0, 0.1, 0);
+                    add(new THREE.ConeGeometry(0.035, 0.09, 8), std(0xffa12e, { emissive: 0xff7a18, emissiveIntensity: 1.2 }), 0, 0.31, 0);
+                } else if (id === 'lantern') {
+                    add(new THREE.BoxGeometry(0.08, 0.1, 0.08), std(0xffe08a, { emissive: 0xffc04a, emissiveIntensity: 0.9, transparent: true, opacity: 0.85 }), 0, 0.09, -0.02);
+                    add(new THREE.BoxGeometry(0.095, 0.015, 0.095), mat, 0, 0.15, -0.02);
+                    add(new THREE.BoxGeometry(0.095, 0.015, 0.095), mat, 0, 0.035, -0.02);
+                } else if (['freshWater', 'antibiotic', 'jugBrew', 'speedTonic', 'staminElixir', 'deadshotTinc', 'aetherStim'].includes(id)) {
+                    add(new THREE.CylinderGeometry(0.03, 0.032, 0.12, 12), std(tint, { transparent: true, opacity: 0.88, emissive: tint, emissiveIntensity: 0.18 }), 0, 0.07, -0.02);
+                    add(new THREE.CylinderGeometry(0.012, 0.012, 0.03, 8), std(0x2b2f33), 0, 0.145, -0.02);
+                } else if (['tea', 'espresso', 'stew', 'broth', 'rations'].includes(id)) {
+                    add(new THREE.CylinderGeometry(0.04, 0.034, 0.07, 14), mat, 0, 0.05, -0.02);
+                } else if (id === 'medkits') {
+                    add(new THREE.BoxGeometry(0.11, 0.075, 0.05), mat, 0, 0.055, -0.02);
+                    add(new THREE.BoxGeometry(0.045, 0.012, 0.052), std(0xffffff), 0, 0.055, -0.02);
+                    add(new THREE.BoxGeometry(0.012, 0.045, 0.052), std(0xffffff), 0, 0.055, -0.02);
+                } else if (id === 'bandage') {
+                    add(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 14), mat, 0, 0.05, -0.02, 0, 0, Math.PI / 2);
+                } else {
+                    add(new THREE.BoxGeometry(0.07, 0.07, 0.07), mat, 0, 0.05, -0.02);
+                }
+                group.rotation.set(-0.2, 0, 0);
+                group.scale.setScalar(0.62);
+            }
+            return group;
+        }
+
+        _attachSurvivalProp() {
+            const hand = this.fistRig?.hands?.[1];
+            if (!hand) return;
+            if (this.fistRig.prop) {
+                hand.remove(this.fistRig.prop);
+                this.fistRig.prop = null;
+            }
+            const prop = this.survivalProp;
+            if (!prop || BO.State.activeMode !== 'survival') return;
+            this._propCache ??= new Map();
+            const key = this.survivalPropKey;
+            if (!this._propCache.has(key)) this._propCache.set(key, this._buildSurvivalProp(prop));
+            const mesh = this._propCache.get(key);
+            mesh.position.set(0, 0.0, -0.035);
+            hand.add(mesh);
+            this.fistRig.prop = mesh;
+        }
+
         _updateFistPose() {
             this.vmAnchor.visible = true;
             this.vmAnchor.position.set(this.swayX, this.swayY, 0);
             this.vmAnchor.rotation.set(0, 0, this.sliding ? 0.16 : 0);
+            if (this.fistRig.prop && this.survivalProp) {
+                this._updateHeldPropPose();
+                return;
+            }
             const movement = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / 6.5);
             const guard = this.guardingWithHands ? 1 : 0;
             const charging = BO.Combat?.fistCharging ? Math.min(1, (BO.Combat.fistChargeTime || 0) / 0.45) : 0;
@@ -1261,6 +1395,30 @@
                     -0.36 - guard * 0.04 - extension * 0.26 + pullback);
                 hand.rotation.set(0.23 - guard * 0.24 - extension * (this.bareComboStep === 2 ? 0.45 : 0.27), side * (0.18 - extension * 0.18), side * (0.10 + guard * 0.15));
             });
+        }
+
+        /** Right hand grips the held tool/item; swings arc overhead and strike forward. */
+        _updateHeldPropPose() {
+            const movement = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / 6.5);
+            const dur = this.meleeDur || 0.32;
+            const s = this.meleeTimer > 0 ? BO.Math.clamp(1 - this.meleeTimer / dur, 0, 1) : 0;
+            const isTool = this.survivalProp?.kind === 'tool';
+            const wind = s > 0 && s < 0.3 ? Math.sin((s / 0.3) * Math.PI * 0.5) : (s >= 0.3 ? Math.max(0, 1 - (s - 0.3) / 0.25) : 0);
+            const strike = s >= 0.3 ? Math.sin(Math.PI * Math.min(1, (s - 0.3) / 0.7)) : 0;
+            const swap = Math.max(0, this.swapTimer) * 0.5;
+            const [left, right] = this.fistRig.hands;
+            const bob = Math.sin(this.bobPhase) * 0.012 * movement;
+            const bob2 = Math.sin(this.bobPhase + Math.PI) * 0.012 * movement;
+            if (isTool) {
+                right.position.set(0.19 - strike * 0.06, -0.2 + wind * 0.07 - strike * 0.02 + bob - swap, -0.36 - strike * 0.14);
+                right.rotation.set(-0.1 - wind * 0.75 + strike * 1.25, 0.12 - strike * 0.12, 0.18 + strike * 0.25);
+            } else {
+                const use = s > 0 ? Math.sin(Math.PI * s) : 0;
+                right.position.set(0.15 - use * 0.06, -0.19 + use * 0.08 + bob - swap, -0.33 + use * 0.06);
+                right.rotation.set(0.15 - use * 0.9, -0.2 - use * 0.3, 0.1);
+            }
+            left.position.set(-0.21, -0.25 + bob2 - swap, -0.34);
+            left.rotation.set(0.32, -0.2, -0.16);
         }
 
         _updateViewmodel(dt) {

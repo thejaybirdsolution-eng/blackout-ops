@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=mega2">
+    <link rel="stylesheet" href="css/styles.css?v=polish1">
     <link rel="stylesheet" href="css/expansion.css">
-    <link rel="stylesheet" href="css/survival.css?v=mega2">
+    <link rel="stylesheet" href="css/survival.css?v=polish1">
+    <link rel="stylesheet" href="css/survival-ui.css?v=polish1">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -15,7 +16,7 @@
     <!-- Core -->
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
     <script defer src="src/core/SaveSystem.js?v=20261124a"></script>
-    <script defer src="src/core/Settings.js?v=mega2"></script>
+    <script defer src="src/core/Settings.js?v=polish1"></script>
     <script defer src="src/net/NetworkManager.js?v=20261124a"></script>
 
     <!-- Game Data -->
@@ -27,12 +28,12 @@
     <script defer src="src/data/MapsData.js?v=20261124a"></script>
     <script defer src="src/data/ModeModifiersCatalog.js?v=mega2"></script>
     <script defer src="src/data/SurvivalData.js?v=mega1"></script>
-    <script defer src="src/data/SurvivalCampaignData.js?v=mega1"></script>
+    <script defer src="src/data/SurvivalCampaignData.js?v=polish1"></script>
     <script defer src="src/data/SurvivalFrontierData.js?v=mega1"></script>
     <script defer src="src/data/SurvivalFrontierTerrain.js?v=mega1"></script>
     <script defer src="src/data/SurvivalModifiersCatalog.js?v=mega2"></script>
-    <script defer src="src/data/SurvivalRules.js?v=mega2"></script>
-    <script defer src="src/data/SurvivalDeepData.js?v=mega1"></script>
+    <script defer src="src/data/SurvivalRules.js?v=polish1"></script>
+    <script defer src="src/data/SurvivalDeepData.js?v=polish1"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=20261124a"></script>
@@ -49,8 +50,8 @@
 
     <!-- Engine & Entities -->
     <script defer src="src/engine/WorldBuilder.js?v=survival1"></script>
-    <script defer src="src/engine/PlayerController.js?v=mega2"></script>
-    <script defer src="src/engine/CombatSystem.js?v=mega2"></script>
+    <script defer src="src/engine/PlayerController.js?v=polish1"></script>
+    <script defer src="src/engine/CombatSystem.js?v=polish1"></script>
     <script defer src="src/entities/ZombieEntity.js?v=expansion1"></script>
     <script defer src="src/entities/BotAI.js?v=expansion1"></script>
 
@@ -59,24 +60,27 @@
     <script defer src="src/modes/MultiplayerMode.js?v=mega2"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=mega2"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=mega2"></script>
-    <script defer src="src/systems/SurvivalPack.js?v=mega2"></script>
-    <script defer src="src/systems/SurvivalObjectives.js?v=mega1"></script>
+    <script defer src="src/systems/SurvivalPack.js?v=polish1"></script>
+    <script defer src="src/systems/SurvivalObjectives.js?v=polish1"></script>
     <script defer src="src/systems/SurvivalActivities.js?v=mega2"></script>
-    <script defer src="src/systems/SurvivalDeepSystems.js?v=mega2"></script>
-    <script defer src="src/systems/SurvivalCampaign.js?v=mega2"></script>
-    <script defer src="src/modes/SurvivalMode.js?v=mega2"></script>
+    <script defer src="src/systems/SurvivalDeepSystems.js?v=polish1"></script>
+    <script defer src="src/systems/SurvivalHotbar.js?v=polish1"></script>
+    <script defer src="src/systems/SurvivalCampaign.js?v=polish1"></script>
+    <script defer src="src/modes/SurvivalMode.js?v=polish1"></script>
 
     <!-- UI & Bootstrap -->
-    <script defer src="src/ui/TooltipSystem.js?v=20261124a"></script>
-    <script defer src="src/ui/HUDController.js?v=mega1"></script>
+    <script defer src="src/ui/TooltipSystem.js?v=polish1"></script>
+    <script defer src="src/ui/HUDController.js?v=polish1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
-    <script defer src="src/ui/ModifierMenuUI.js?v=mega2"></script>
-    <script defer src="src/ui/MenuController.js?v=mega2"></script>
+    <script defer src="src/ui/ModifierMenuUI.js?v=polish1"></script>
+    <script defer src="src/ui/MenuController.js?v=polish1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js"></script>
-    <script defer src="src/ui/SurvivalLegend.js?v=mega2"></script>
-    <script defer src="src/ui/SurvivalUI.js?v=mega2"></script>
-    <script defer src="src/main.js?v=mega1"></script>
+    <script defer src="src/ui/SurvivalLegend.js?v=polish1"></script>
+    <script defer src="src/ui/SurvivalIcons.js?v=polish1"></script>
+    <script defer src="src/ui/SurvivalUI.js?v=polish1"></script>
+    <script defer src="src/ui/ControlsPanel.js?v=polish1"></script>
+    <script defer src="src/main.js?v=polish1"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -374,6 +378,7 @@
         <div class="modal-box" style="width:430px;text-align:center;display:flex;flex-direction:column;gap:10px;">
             <h2 style="margin:0;letter-spacing:3px;color:var(--amber);">MATCH PAUSED</h2>
             <button class="btn btn-primary" id="btn-pause-resume" data-tip-title="Resume Game" data-tip="Jump right back into the action.">RESUME COMBAT</button>
+            <button class="btn" id="btn-pause-controls" style="border-color:#8fe3c8;color:#8fe3c8;" data-tip-title="Controls" data-tip="See every control for this mode and rebind any key the way you like. Changes save automatically.">CONTROLS &amp; KEYBINDS</button>
             <button class="btn" id="btn-pause-invite" style="border-color:#22c55e;color:#4ade80;" data-tip-title="Invite Friends to Match" data-tip="Copies your online room link! Friends who open the link will join your lobby and hot-join this match!">🔗 COPY FRIEND INVITE LINK</button>
             <button class="btn hidden" id="btn-pause-change-class" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Change Class In Battle" data-tip="Pick another Custom Class — your new weapons, attachments & perks take effect cleanly after your next death!">CHANGE CLASS [M] (ON RESPAWN)</button>
             <button class="btn hidden" id="btn-pause-modmenu" style="border-color:#fde047;color:#fde047;" data-tip-title="Zombies Mod Menu" data-tip="Turn any Zombies cheat ON or OFF with checkboxes right in the middle of your match!">★ MOD MENU (CHEATS)</button>

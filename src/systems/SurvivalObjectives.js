@@ -111,7 +111,7 @@
             const m = this.mode;
             if (m.exfil) return true;
             if (!m.hostilesReleased) {
-                m.toast('Evacuation opens after the safe minute.');
+                m.toast('Evacuation opens after the safe period.');
                 return false;
             }
             if (this.kind === 'salvage' && !this.delivery && m.spend(delivery)) {

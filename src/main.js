@@ -366,13 +366,16 @@
 
             window.addEventListener('wheel', (e) => {
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
+                if (BO.SurvivalUI.open || BO.ExpansionShop.open) return;
                 if (Math.abs(e.deltaY) > 4) {
                     const w = P.activeWeapon;
                     if (w && w.stats && w.stats.variableZoom && (P.adsHeld || P.adsAlpha > 0.35)) {
                         P.adjustScopeZoom(e.deltaY < 0 ? 1 : -1);
                         return;
                     }
-                    P.switchWeapon();
+                    const hotbar = BO.State.activeMode === 'survival' ? BO.SurvivalMode.campaign?.hotbar : null;
+                    if (hotbar) hotbar.cycle(e.deltaY > 0 ? 1 : -1);
+                    else P.switchWeapon();
                 }
             }, { passive: true });
 
@@ -382,16 +385,21 @@
                 if (BO.State.screen !== 'playing') return;
                 if (BO.ExpansionShop.open) return;
                 if (BO.SurvivalUI.open) {
-                    if (e.code === 'KeyL' || e.code === 'KeyK' || e.code === 'KeyO' || e.code === 'KeyM' || e.code === 'KeyT' || e.code === 'KeyJ') {
-                        BO.SurvivalUI.resume();
-                    }
+                    BO.SurvivalUI.handleKey(e);
                     return;
                 }
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
+                const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
 
                 if (code === 'Escape' || code === kb.pause) {
                     e.preventDefault();
+                    // ESC backs out of an open sub-panel before unpausing.
+                    if (BO.State.paused && code === 'Escape') {
+                        if (BO.ControlsPanel?.isOpen) { BO.ControlsPanel.close(); return; }
+                        const settings = document.getElementById('modal-settings');
+                        if (settings && !settings.classList.contains('hidden')) { BO.ControlsPanel?.stopListening(); settings.classList.add('hidden'); return; }
+                    }
                     BO.Menus.setPauseOpen(!BO.State.paused);
                     return;
                 }
@@ -409,26 +417,13 @@
                 const firstDown = !P.keys[code];
                 P.keys[code] = true;
 
-                if (code === 'Tab') {
+                // Survival field controls take priority over shared bindings (all rebindable).
+                if (survival && firstDown && this._handleSurvivalKey(code, kb, e)) return;
+                if (survival && (code === 'Tab' || code === 'AltLeft')) e.preventDefault();
+
+                if (code === 'Tab' && !survival) {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
-                } else if (code === kb.fireMode && firstDown && BO.State.activeMode === 'survival' && !BO.Combat.c4Charges.length) {
-                    BO.SurvivalUI.show('build');
-                } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalUI.show('travel');
-                } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalUI.show('map');
-                } else if (code === 'KeyL' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalUI.show('legend');
-                } else if (code === 'KeyK' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalUI.show('tech');
-                } else if (code === 'KeyO' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalUI.show('objectives');
-                } else if (code === 'KeyX' && firstDown && BO.State.activeMode === 'survival') {
-                    BO.SurvivalMode.campaign?.deep?.useFlask();
-                } else if (code === 'AltLeft' && firstDown && BO.State.activeMode === 'survival') {
-                    e.preventDefault();
-                    P.tryDodgeRoll();
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {
                     BO.Menus.openChangeClassModal();
                 } else if (code === 'KeyT' && firstDown && BO.State.activeMode === 'td') {
@@ -446,18 +441,17 @@
                     P.tryCrouchOrSlide();
                 } else if (code === kb.reload && firstDown) {
                     if (BO.State.activeMode !== 'survival' || !BO.SurvivalMode.clearJam()) P.startReload();
-                } else if (code === 'Digit1' && firstDown) {
+                } else if (code === 'Digit1' && firstDown && !survival) {
                     P.switchWeapon(0);
-                } else if (code === 'Digit2' && firstDown) {
+                } else if (code === 'Digit2' && firstDown && !survival) {
                     P.switchWeapon(1);
-                } else if (code === 'Digit3' && firstDown) {
-                    if (BO.State.activeMode === 'survival') P.switchWeapon(-1);
-                    else P.switchWeapon(2);
+                } else if (code === 'Digit3' && firstDown && !survival) {
+                    P.switchWeapon(2);
                 } else if ((code === 'Equal' || code === 'NumpadAdd' || code === 'BracketRight') && firstDown) {
                     P.adjustScopeZoom(1);
                 } else if ((code === 'Minus' || code === 'NumpadSubtract' || code === 'BracketLeft') && firstDown) {
                     P.adjustScopeZoom(-1);
-                } else if (code === kb.fireMode && firstDown) {
+                } else if (code === kb.fireMode && firstDown && !survival) {
                     if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
                     else P.toggleFireMode();
                 } else if (code === kb.melee && firstDown) {
@@ -474,21 +468,19 @@
                     this.c4LastTapTime = now;
                 } else if (code === kb.tactical && firstDown) {
                     BO.Combat.throwTactical();
-                } else if (code === kb.special && firstDown) {
+                } else if (code === kb.special && firstDown && !survival) {
                     BO.Combat.activateFieldUpgrade();
-                } else if ((code === kb.ultimate || code === 'KeyZ') && firstDown) {
+                } else if ((code === kb.ultimate || code === 'KeyZ') && firstDown && !survival) {
                     BO.Combat.activateUltimate();
-                } else if (code === kb.armory && firstDown) {
-                    if (BO.State.activeMode === 'survival') BO.SurvivalUI.show('pack');
-                    else BO.ExpansionShop.show();
+                } else if (code === kb.armory && firstDown && !survival) {
+                    BO.ExpansionShop.show();
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
                     else if (BO.State.activeMode === 'survival') BO.SurvivalMode.interact();
-                } else if (code === kb.exfil && firstDown) {
+                } else if (code === kb.exfil && firstDown && !survival) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.startExfil();
-                    else if (BO.State.activeMode === 'survival') BO.SurvivalMode.campaign.pack.shortcut();
-                } else if (code === kb.armor && firstDown) {
+                } else if (code === kb.armor && firstDown && !survival) {
                     P.insertArmorPlate();
                 } else if (code === kb.inspect && firstDown) {
                     P.inspectTimer = 1.8;
@@ -504,6 +496,7 @@
 
             window.addEventListener('keyup', (e) => {
                 if (BO.ExpansionShop.open) return;
+                if (BO.State.activeMode === 'survival' && e.code === 'Tab') e.preventDefault();
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
                 P.keys[code] = false;
@@ -513,6 +506,52 @@
                     BO.Combat.throwLethal(false, true);
                 }
             });
+        }
+
+        /** Survival-only bindings. Returns true when the key was consumed. */
+        _handleSurvivalKey(code, kb, e) {
+            const P = BO.Player;
+            const hotbar = BO.SurvivalMode.campaign?.hotbar;
+            for (let i = 0; i < 10; i++) {
+                if (code === kb['hotbar' + (i + 1)]) {
+                    hotbar?.select(i);
+                    return true;
+                }
+            }
+            const tabs = {
+                survInventory: 'inventory', survCraft: 'crafting', survMap: 'map', survTravel: 'travel',
+                survSkills: 'skills', survJournal: 'journal', survLegend: 'legend'
+            };
+            for (const [action, tab] of Object.entries(tabs)) {
+                if (code === kb[action]) {
+                    e.preventDefault();
+                    BO.SurvivalUI.show(tab);
+                    return true;
+                }
+            }
+            if (code === kb.survBuild) {
+                if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
+                else BO.SurvivalUI.show('build');
+                return true;
+            }
+            if (code === kb.survFlask) {
+                BO.SurvivalMode.campaign?.deep?.useFlask();
+                return true;
+            }
+            if (code === kb.survLight) {
+                BO.SurvivalMode.campaign?.pack.shortcut();
+                return true;
+            }
+            if (code === kb.survPlate) {
+                P.insertArmorPlate();
+                return true;
+            }
+            if (code === kb.survDodge) {
+                e.preventDefault();
+                P.tryDodgeRoll();
+                return true;
+            }
+            return false;
         }
 
         _loop(now) {

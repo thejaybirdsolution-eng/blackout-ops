@@ -11,6 +11,7 @@
             this.mode = mode;
             this.pack = new BO.SurvivalPack(this);
             this.options = BO.SurvivalCampaignOptions(options);
+            this.hotbar = new BO.SurvivalHotbar(this);
             this.objectives = new BO.SurvivalObjectives(this);
             this.activities = BO.SurvivalActivities ? new BO.SurvivalActivities(this) : null;
             this.deep = BO.SurvivalDeepSystems ? new BO.SurvivalDeepSystems(this) : null;
@@ -35,9 +36,20 @@
 
         has(modifier) { return this.options.modifiers.includes(modifier); }
 
-        get hour() {
-            return ((this.options.startHour + this.mode.clock / this.options.dayLength * 24 + this.restHours) % 24 + 24) % 24;
+        /** Hours elapsed since midnight of day 1 (start hour included). */
+        get totalHours() {
+            return this.options.startHour + this.mode.clock / this.options.dayLength * 24 + this.restHours;
         }
+
+        get hour() {
+            return ((this.totalHours % 24) + 24) % 24;
+        }
+
+        /** Day 1 is the deployment day; a new day begins at midnight. */
+        get day() { return Math.max(1, Math.floor(this.totalHours / 24) + 1); }
+
+        /** Night 1 is the first evening (19:00) after deployment; a night spans 19:00-06:00. */
+        get nightNumber() { return Math.floor((this.totalHours + 5) / 24); }
 
         get clockFace() {
             const whole = Math.floor(this.hour);
@@ -52,18 +64,39 @@
             return this.has('blackout') ? 1 : 1 - BO.Math.clamp((sun + (this.has('longDusk') ? 0.05 : 0.32)) * 1.05, 0, 1);
         }
 
+        /** Enabled infected, weakest first. */
+        get roster() {
+            return BO.ZombiesData.ORDERED_PROGRESSION.filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
+        }
+
+        /** Enemy types allowed to spawn right now: the day's unlocked tier, flavoured by area and pool. */
         getPool(area) {
             const kind = this.options.pool;
-            const list = BO.ZombiesData.ORDERED_PROGRESSION.filter((enemy) => !this.options.disabledEnemies.includes(enemy.id));
-            const keywords = data.pools[kind].keywords;
+            const list = this.roster;
+            const threat = this.mode.threat || BO.SurvivalRules.threat(1, false, this.options, this.mode.difficultyRules, list.length);
+            const allowed = list.slice(0, Math.max(1, threat.poolSize));
             const keywordsByArea = { pine: 'wolf|hound|crawler|runner', frost: 'frost|cry|ice|wraith|ghost',
                 cinder: 'fire|hell|inferno|magma|burn', trench: 'mutant|slime|hydra|phantom|brute',
                 basin: 'acid|water|ooze|swamp|poison' };
-            const preferred = keywordsByArea[area] || keywords;
-            let candidates = preferred ? list.filter((z) => new RegExp(preferred, 'i').test(z.id)) : list;
-            if (!candidates.length) candidates = list;
-            const variety = kind === 'mutants' ? 12 : 6;
-            return candidates.slice(0, Math.min(candidates.length, variety + Math.floor(this.mode.pressure / 2)));
+            const keywords = keywordsByArea[area] || data.pools[kind].keywords;
+            const preferred = keywords ? allowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
+            // Area flavour only takes over once it has real variety; the newest unlocks always stay in rotation.
+            if (preferred.length >= 3) return [...new Set([...preferred, ...allowed.slice(-2)])];
+            return allowed;
+        }
+
+        /** Is a crafting station within reach? The Relay shelter doubles as workbench and stove. */
+        stationAvailable(type) {
+            if (type === 'hand') return true;
+            const p = BO.Player.pos;
+            const reach = 4.2;
+            const shelter = this.mode.markers.find((mk) => mk.id === 'shelter');
+            if (shelter && (type === 'bench' || type === 'campfire') && near(p, shelter, reach)) return true;
+            return this.placed.some((piece) => piece.alive && piece.type === type && near(p, piece, reach));
+        }
+
+        get stations() {
+            return ['hand', 'bench', 'campfire', 'kiln'].filter((type) => this.stationAvailable(type));
         }
 
         setup(checkpoint) {
@@ -77,6 +110,7 @@
             this.deep?.setup();
             this.mark('runs', 1, 0);
             if (checkpoint) this.restore(checkpoint);
+            this.hotbar.setup(checkpoint?.hotbar);
             this.updateLocation();
         }
 
@@ -179,6 +213,7 @@
         update(dt) {
             this.updateLocation();
             this.pack.update();
+            this.hotbar.reconcile();
             this.activities?.update(dt);
             this.deep?.update(dt);
             const m = this.mode;
@@ -187,9 +222,9 @@
                 this.save(true);
             }
             this.objectives.update();
-            if (this.options.pool === 'patrols' && m.hostilesReleased && !this.has('noPatrols') && m.clock >= this.nextPatrol) {
+            if (this.options.pool === 'patrols' && m.hostilesReleased && !this.has('noPatrols') && this.day >= 2 && m.clock >= this.nextPatrol) {
                 this.nextPatrol = m.clock + 38;
-                if (m.bots.filter((unit) => unit.alive && unit.team === 1).length < 8 && BO.Player.pos.y > -1) {
+                if (m.bots.filter((unit) => unit.alive && unit.team === 1).length < Math.min(8, this.day * 2) && BO.Player.pos.y > -1) {
                     const pos = BO.Player.pos;
                     const x = pos.x > 0 ? -27 : 25;
                     m.spawnBot(x, 0, -15, 'mp5', 105);
@@ -276,7 +311,9 @@
         get station() {
             const id = this.mode.near?.id || '';
             if (id === 'shelter') return 'bench';
-            return id.startsWith('build:') ? this.placed.find((entry) => entry.alive && id === 'build:' + entry.id)?.type : null;
+            const placed = id.startsWith('build:') ? this.placed.find((entry) => entry.alive && id === 'build:' + entry.id)?.type : null;
+            if (placed) return placed;
+            return ['bench', 'campfire', 'kiln'].find((type) => this.stationAvailable(type)) || null;
         }
 
         get canBuild() {
@@ -303,7 +340,7 @@
             if (!target || !spec || !this.canBuild) return this.mode.toast('Stand on stable ground to build.');
             if (spec.tech && this.deep && !this.deep.hasTech(spec.tech)) {
                 const techNode = BO.SurvivalDeepData?.techTree.find((t) => t.id === spec.tech);
-                return m.toast(`Research “${techNode?.name || spec.tech}” in Tech Tree [K] first.`);
+                return m.toast(`Research “${techNode?.name || spec.tech}” in Skills first.`);
             }
             const { x, y, z, size } = target;
             if (this.placed.length >= 80) return m.toast('Structure limit reached for this expedition.');
@@ -434,7 +471,7 @@
             const m = this.mode;
             if (!npc?.special || m.near?.id !== 'npc:' + id || this.claims[id + ':special']) return false;
             if (npc.special !== 'helper' && !m.hostilesReleased) {
-                m.toast('Boss challenges open after the safe minute.');
+                m.toast('Boss challenges open after the safe period.');
                 return false;
             }
             this.claims[id + ':special'] = true;
@@ -585,7 +622,8 @@
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,
                 points: m.points, hp: p.hp, armor: p.armor, plates: p.armorReservePlates, lethal: p.lethalCount,
-                tactical: p.tacticalCount, slot: p.activeSlot,
+                tactical: p.tacticalCount, slot: p.activeSlot, hotbar: this.hotbar.snapshot(),
+                threat: { patrols: !!m.patrolsDeployed, commander: !!m.commanderDeployed, lastDay: m.lastDay || 1, lastNight: m.lastNight || 0 },
                 weapons: p.weapons.map((w) => ({ cfg: w.cfg, mag: w.mag, reserve: w.reserve, coil: !!w.survivalCoil, wear: w.wear || 0, mk: w.survivalMk || 1 })),
                 core: m.core, flooded: m.flooded, kills: m.kills, salvaged: m.salvaged, breaches: m.breaches,
                 hunger: m.hunger, radiation: m.radiation, composure: m.composure, mealUntil: m.mealUntil, ember: m.ember,
@@ -628,6 +666,10 @@
                 m[key] = save[key];
             }
             m.commanderReturnAt = save.commanderReturnAt ?? Infinity;
+            m.patrolsDeployed = save.threat ? !!save.threat.patrols : true;
+            m.commanderDeployed = save.threat ? !!save.threat.commander : true;
+            m.lastDay = save.threat?.lastDay || this.day;
+            m.lastNight = save.threat?.lastNight || 0;
             m.points = { ...m.points, ...save.points };
             m.completed = new Set(save.completed);
             m.water.visible = m.flooded;

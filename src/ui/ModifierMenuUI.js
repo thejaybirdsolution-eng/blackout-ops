@@ -161,7 +161,7 @@
                     <span class="mm-active-lbl">ACTIVE</span>
                     <span class="mm-rating-badge mm-rating-${stats.rating.toLowerCase()}">${stats.rating}</span>
                 </div>
-                <div class="mm-meter-wrap" title="Impact Distribution across active modifiers">
+                <div class="mm-meter-wrap" data-tip="Impact Distribution across active modifiers">
                     <div class="mm-meter">
                         <span class="mm-seg-buff" style="width:${pct('buff')}%"></span>
                         <span class="mm-seg-tactical" style="width:${pct('tactical')}%"></span>
@@ -176,8 +176,8 @@
                     </div>
                 </div>
                 <div class="mm-deck-actions">
-                    <button type="button" class="mm-act-btn" data-mm-act="rand3" title="Pick 3 random modifiers">🎲 Random 3</button>
-                    <button type="button" class="mm-act-btn" data-mm-act="rand5" title="Pick 5 random modifiers">⚡ Random 5</button>
+                    <button type="button" class="mm-act-btn" data-mm-act="rand3" data-tip="Pick 3 random modifiers">🎲 Random 3</button>
+                    <button type="button" class="mm-act-btn" data-mm-act="rand5" data-tip="Pick 5 random modifiers">⚡ Random 5</button>
                     <button type="button" class="mm-act-btn mm-act-danger" data-mm-act="clear" ${stats.totalActive ? '' : 'disabled'}>✕ Clear All</button>
                 </div>
             </div>`;
@@ -199,7 +199,7 @@
                 <div class="mm-bundle-list">
                     ${bundles.map((b) => {
                         const allOn = b.mods.length > 0 && b.mods.every((k) => activeSet.has(k));
-                        return `<button type="button" class="mm-bundle-btn${allOn ? ' active' : ''}" data-mm-bundle="${esc(b.id)}" title="${esc(b.desc)}">
+                        return `<button type="button" class="mm-bundle-btn${allOn ? ' active' : ''}" data-mm-bundle="${esc(b.id)}" data-tip="${esc(b.desc)}">
                             <span class="mm-bundle-ico">${esc(b.ico)}</span>
                             <span class="mm-bundle-name">${esc(b.name)}</span>
                             <span class="mm-bundle-cnt">${b.mods.length}</span>
@@ -212,7 +212,7 @@
             <div class="mm-tray-items">
                 ${stats.activeDefs.map((d) => {
                     const cat = catMap[d.cat] || { color: '#38bdf8' };
-                    return `<button type="button" class="mm-chip mm-chip-${d.tier}" style="--cat-color:${cat.color}" data-mm-remove="${esc(d.key)}" title="Click to disable ${esc(d.label)}">
+                    return `<button type="button" class="mm-chip mm-chip-${d.tier}" style="--cat-color:${cat.color}" data-mm-remove="${esc(d.key)}" data-tip="Click to disable ${esc(d.label)}">
                         <span>${esc(d.ico)}</span>
                         <span>${esc(d.label)}</span>
                         <span class="mm-chip-x">×</span>
@@ -255,12 +255,12 @@
                     ${items.map((d) => {
                         const on = activeSet.has(d.key);
                         const tm = TIER_META[d.tier] || TIER_META.tactical;
-                        return `<button type="button" class="mm-card${on ? ' active' : ''}${d.exclusive ? ' exclusive' : ''}" data-mm-key="${esc(d.key)}" data-mm-tier="${esc(d.tier)}" aria-pressed="${on ? 'true' : 'false'}">
+                        return `<button type="button" class="mm-card${on ? ' active' : ''}${d.exclusive ? ' exclusive' : ''}" data-mm-key="${esc(d.key)}" data-mm-tier="${esc(d.tier)}" aria-pressed="${on ? 'true' : 'false'}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc)}" data-tip-sub="${esc((tm.label || '') + ' · click to turn ' + (on ? 'OFF' : 'ON'))}">
                             <div class="mm-card-top">
                                 <span class="mm-card-ico">${esc(d.ico)}</span>
                                 <span class="mm-card-lbl">${esc(d.label)}</span>
                                 <span class="mm-card-badges">
-                                    ${d.exclusive ? '<span class="mm-spec-badge" title="Mode-Exclusive Modifier">★ SPECIAL</span>' : ''}
+                                    ${d.exclusive ? '<span class="mm-spec-badge" data-tip="Mode-Exclusive Modifier">★ SPECIAL</span>' : ''}
                                     <span class="mm-tier-badge mm-tb-${esc(d.tier)}">${tm.label}</span>
                                 </span>
                                 <span class="mm-toggle-pill">${on ? 'ON' : 'OFF'}</span>

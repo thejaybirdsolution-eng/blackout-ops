@@ -31,14 +31,14 @@
     frontier.recipes.push(
         { id: 'cookStew', name: 'Hearty stew', station: 'campfire', cost: { rations: 1, herbs: 2, freshWater: 1 }, gain: { stew: 1 }, desc: 'Restores +65 hunger, +35 hydration, +25 HP & grants Warmth.' },
         { id: 'brewEspresso', name: 'Field espresso', station: 'campfire', cost: { freshWater: 1, coal: 1, herbs: 1 }, gain: { espresso: 2 }, desc: 'Restores +25 composure, +20 hydration, and +25s stamina boost.' },
-        { id: 'brewBroth', name: 'Thermal spiced broth', station: 'campfire', cost: { freshWater: 1, herbs: 2, resin: 1 }, gain: { broth: 1 }, desc: 'Warms body temperature by +18°C and protects against freezing nights.' },
-        { id: 'craftAntibiotic', name: 'Antibiotic elixir', station: 'bench', cost: { herbs: 3, freshWater: 1, cloth: 1 }, gain: { antibiotic: 2 }, desc: 'Cures Bio-Infection & Bleeding and clears 30% radiation.' },
+        { id: 'brewBroth', tech: 't1_alchemy', name: 'Thermal spiced broth', station: 'campfire', cost: { freshWater: 1, herbs: 2, resin: 1 }, gain: { broth: 1 }, desc: 'Warms body temperature by +18°C and protects against freezing nights.' },
+        { id: 'craftAntibiotic', tech: 't1_alchemy', name: 'Antibiotic elixir', station: 'bench', cost: { herbs: 3, freshWater: 1, cloth: 1 }, gain: { antibiotic: 2 }, desc: 'Cures Bio-Infection & Bleeding and clears 30% radiation.' },
         { id: 'craftAetherStim', name: 'Aether combat stim', station: 'bench', cost: { aetherShard: 1, herbs: 2, scrap: 1 }, gain: { aetherStim: 1 }, desc: 'Restores +45 HP, full stamina, and +30% speed for 20s.' },
         { id: 'craftOrbitalFlare', name: 'Orbital supply flare', station: 'bench', cost: { aetherShard: 1, wire: 2, fuel: 2, scrap: 3 }, gain: { orbitalFlare: 1 }, desc: 'Use from Backpack to call down an instant Supply Drop Crate nearby.' },
-        { id: 'brewJug', name: 'Juggernaut tonic', station: 'campfire', cost: { aetherShard: 1, herbs: 2, freshWater: 1 }, gain: { jugBrew: 1 }, desc: 'Grants +75 Max HP & +25% damage resistance for 3 minutes.' },
-        { id: 'brewSpeed', name: 'Quick-Hands tonic', station: 'campfire', cost: { quartz: 1, herbs: 2, freshWater: 1 }, gain: { speedTonic: 1 }, desc: 'Grants +40% faster weapon reload & fire rate for 3 minutes.' },
-        { id: 'brewStamin', name: 'Stamin-Up elixir', station: 'campfire', cost: { resin: 2, herbs: 2, freshWater: 1 }, gain: { staminElixir: 1 }, desc: 'Grants +22% sprint speed & halved stamina drain for 3 minutes.' },
-        { id: 'brewDeadshot', name: 'Deadshot tincture', station: 'campfire', cost: { copper: 2, quartz: 1, freshWater: 1 }, gain: { deadshotTinc: 1 }, desc: 'Grants +45% headshot & critical damage for 3 minutes.' },
+        { id: 'brewJug', tech: 't2_tonics', name: 'Juggernaut tonic', station: 'campfire', cost: { aetherShard: 1, herbs: 2, freshWater: 1 }, gain: { jugBrew: 1 }, desc: 'Grants +75 Max HP & +25% damage resistance for 3 minutes.' },
+        { id: 'brewSpeed', tech: 't2_tonics', name: 'Quick-Hands tonic', station: 'campfire', cost: { quartz: 1, herbs: 2, freshWater: 1 }, gain: { speedTonic: 1 }, desc: 'Grants +40% faster weapon reload & fire rate for 3 minutes.' },
+        { id: 'brewStamin', tech: 't2_tonics', name: 'Stamin-Up elixir', station: 'campfire', cost: { resin: 2, herbs: 2, freshWater: 1 }, gain: { staminElixir: 1 }, desc: 'Grants +22% sprint speed & halved stamina drain for 3 minutes.' },
+        { id: 'brewDeadshot', tech: 't2_tonics', name: 'Deadshot tincture', station: 'campfire', cost: { copper: 2, quartz: 1, freshWater: 1 }, gain: { deadshotTinc: 1 }, desc: 'Grants +45% headshot & critical damage for 3 minutes.' },
         { id: 'smeltAetherAlloy', name: 'Refine Aether shard', station: 'kiln', cost: { quartz: 3, coal: 2, iron: 2 }, gain: { aetherShard: 1 }, desc: 'Crystallize Zone minerals into a high-energy Aether Shard.' }
     );
 
