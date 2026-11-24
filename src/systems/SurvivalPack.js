@@ -83,13 +83,26 @@
         setup(snapshot) {
             const m = this.mode;
             data.deposits.forEach((deposit, i) => this.createDeposit('node:' + i, deposit));
+            // Batch the world's deposits into one draw call per cell; nearby ones stay live meshes.
+            this.batch = BO.NodeBatch ? new BO.NodeBatch(m.scene) : null;
+            if (this.batch) for (const node of this.resources.values()) this.batch.add(node);
             this.lamp = new THREE.PointLight(0xffbc75, 0, 15, 1.9);
             this.lamp.visible = false;
             m.scene.add(this.lamp);
             if (snapshot) this.restore(snapshot);
+            this.batch?.flushAll();
+        }
+
+        /** Show or hide a deposit's meshes, through the batch when it is batched. */
+        showNode(node, shown) {
+            node._vis = shown;
+            if (this.batch && node._batch) this.batch.setShown(node, shown);
+            else for (const mesh of node.geometry) mesh.visible = shown;
         }
 
         stop() {
+            this.batch?.dispose();
+            this.batch = null;
             this.lamp?.removeFromParent();
             for (const light of this.lights) light.removeFromParent();
         }
@@ -446,8 +459,7 @@
         deplete(node) {
             node.hp = 0;
             node.marker.alive = false;
-            for (const mesh of node.geometry) mesh.visible = false;
-            node._vis = false;
+            this.showNode(node, false);
             if (node.collider?.active) this.mode.removeSolid(node.geometry[0], node.collider);
         }
 
@@ -650,6 +662,7 @@
                 // Distance culling: deposits are small, so beyond 120 m they cost draw calls and show nothing.
                 if (BO.World.large) {
                     for (const node of this.resources.values()) {
+                        if (node._batch) continue;
                         const near = Math.abs(p.pos.x - node.marker.x) < 120 && Math.abs(p.pos.z - node.marker.z) < 120;
                         const vis = near && node.hp > 0;
                         if (node._vis !== vis) { node._vis = vis; for (const mesh of node.geometry) mesh.visible = vis; }
@@ -660,14 +673,14 @@
                     node.hp = node.spec.strokes;
                     node.renewAt = 0;
                     node.marker.alive = true;
-                    node.geometry.forEach((mesh) => { mesh.visible = true; });
-                    node._vis = true;
+                    this.showNode(node, true);
                     if (node.collider && !node.collider.active) {
                         node.collider.active = true;
                         BO.World.worldMeshes.push(node.geometry[0]);
                     }
                 }
             }
+            this.batch?.update(p.pos.x, p.pos.z, m.clock);
             const inCave = p.pos.y < -2.5 && p.pos.x < -4.6 && p.pos.z < -43;
             if (inCave && !this.caveVisited) {
                 this.caveVisited = true;
