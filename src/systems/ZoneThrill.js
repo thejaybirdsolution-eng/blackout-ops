@@ -192,6 +192,7 @@
             P.takeDamage = function (amount, ...rest) {
                 if (BO.State.activeMode === 'survival' && self.active && this.alive) {
                     amount *= self.damageTakenMult();
+                    if (self.campaign?.has('sv_god_mode')) amount = 0;
                     if (self.rank('laststand') && !self.lastStandUsed && amount >= this.hp && !this.inLastStand && !(this.invulnTimer > 0)) {
                         self.lastStandUsed = true;
                         amount = Math.max(0, this.hp - 1);
@@ -249,6 +250,7 @@
             mul('turretDmgMult', 1 + 0.3 * r('turrets'));
             mul('trapDmgMult', 1 + 0.3 * r('turrets'));
             mul('recoilMult', 1 - 0.2 * r('steady'));
+            BO.ZoneSandbox?.fx(out);
         }
 
         /** Re-derive everything perks touch: modFx, max HP, weapon stats. */
@@ -270,8 +272,8 @@
             return m;
         }
 
-        lootMult() { return 1 + 0.2 * this.rank('lucky'); }
-        searchMult() { return Math.max(0.4, 1 - 0.25 * this.rank('quicksearch')); }
+        lootMult() { return (1 + 0.2 * this.rank('lucky')) * (this.campaign?.has('sv_double_loot') ? 2 : 1); }
+        searchMult() { return this.campaign?.has('sv_no_cooldowns') ? 0.02 : Math.max(0.4, 1 - 0.25 * this.rank('quicksearch')); }
         hearMult() {
             const p = BO.Player;
             if (this.rank('ghost') && p.crouching) return 0;
@@ -285,7 +287,7 @@
 
         xp(n, label, quiet) {
             if (!this.active || !(n > 0)) return;
-            n = Math.round(n * (this.mode_.tierSpec?.xp || 1));
+            n = Math.round(n * (this.mode_.tierSpec?.xp || 1) * (this.campaign?.has('sv_xp_boost') && !quiet ? 3 : 1));
             this.xpTotal += n;
             this.xpInto += n;
             if (!quiet || n >= 20) this.tick('+' + n + ' XP' + (label ? ' · ' + label : ''), label ? '#ffd27a' : '#e8edf2');
@@ -464,7 +466,7 @@
             const next = {
                 dmg: r.dmg * (t('hollow') ? 1.15 : 1),
                 mag: melee ? 1 : (t('extended') ? 1.4 : 1) * (1 + 0.2 * this.rank('bigmags')),
-                rl: melee ? 1 : (t('speedload') ? 0.7 : 1) * (1 - 0.15 * this.rank('quickhands')),
+                rl: melee ? 1 : (t('speedload') ? 0.7 : 1) * (1 - 0.15 * this.rank('quickhands')) * (this.campaign?.has('sv_no_cooldowns') ? 0.1 : 1),
                 rpm: melee ? 1 : (t('hair') ? 1.15 : 1) * (1 + 0.08 * this.rank('trigger'))
             };
             const prev = w._fit || { dmg: 1, mag: 1, rl: 1, rpm: 1 };
@@ -536,6 +538,7 @@
                 }
             }
             if (entity.champion) entity.champion.lastHit = this.mode_.clock;
+            if (this.campaign?.has('sv_one_hit')) amount = Math.max(amount, (entity.hp || 0) + 1);
             return amount;
         }
 
@@ -564,6 +567,10 @@
             const heal = (n) => { if (n > 0 && p.alive) p.hp = Math.min(p.maxHp, p.hp + n); };
             const head = hitbox === 'head';
             if (head) this.stats.headshots++;
+            const c = m.campaign;
+            if (entity.spec?.id && entity.survivalType) c.mark('kill_' + entity.spec.id, 1, 0);
+            if (kind === 'melee') c.mark('meleeKills', 1, 0);
+            if (kind === 'explosive' || kind === 'fire') c.mark('explosiveKills', 1, 0);
             heal(3 * r('bloodlust'));
             if (kind === 'melee') heal(5 * r('brawler'));
             if (head && r('vampire')) heal(10);

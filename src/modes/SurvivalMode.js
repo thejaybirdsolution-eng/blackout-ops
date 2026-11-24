@@ -106,6 +106,11 @@
             BO.ZoneThrill?.start(this, checkpoint?.thrill);
             BO.ZoneInfest?.start(this, checkpoint?.infest);
             BO.ZoneContracts?.start(this, checkpoint?.contracts);
+            BO.ZoneWild?.start(this, checkpoint?.wild);
+            BO.ZoneDungeons?.start(this, checkpoint?.dungeons);
+            BO.ZoneLegends?.start(this, checkpoint?.legends);
+            BO.ZoneQuests?.start(this, checkpoint?.quests);
+            BO.ZoneSandbox?.start(this, !!checkpoint);
             BO.ZoneFinale.stop();
             BO.ZoneFinale.applySaved(c.objectives);
             BO.ZoneBuild.falling.length = 0;
@@ -130,6 +135,11 @@
             BO.ZoneArchive?.stop();
             BO.ZoneEvents?.stop();
             BO.ZoneContracts?.stop();
+            BO.ZoneQuests?.stop();
+            BO.ZoneLegends?.stop();
+            BO.ZoneDungeons?.stop();
+            BO.ZoneWild?.stop();
+            BO.ZoneSandbox?.stop();
             BO.ZoneInfest?.stop();
             BO.ZoneThrill?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
@@ -390,6 +400,7 @@
 
         hit(entity, amount, hitbox, dir, damageKind, agent = null) {
             if (!entity.alive || entity.team === 0 && !agent) return false;
+            if (entity.animal) return BO.ZoneWild.hitAnimal(entity, amount, hitbox, dir, damageKind, agent);
             const deep = this.campaign?.deep;
             if (!agent) {
                 const mfx = deep?.modFx || {};
@@ -432,7 +443,7 @@
         }
 
         refreshTargets() {
-            BO.Combat.setTargetPool([...this.zombies, ...this.bots].filter((unit) => unit.alive && unit.team !== 0).flatMap((unit) => unit.getHitboxMeshes()));
+            BO.Combat.setTargetPool([...this.zombies, ...this.bots, ...(BO.ZoneWild?.animals || [])].filter((unit) => unit.alive && unit.team !== 0).flatMap((unit) => unit.getHitboxMeshes()));
         }
 
         updateFactions(dt) {
@@ -518,6 +529,11 @@
             BO.ZoneInfest?.update(dt);
             BO.ZoneContracts?.update(dt);
             BO.ZoneThrill?.update(dt);
+            BO.ZoneWild?.update(dt);
+            BO.ZoneDungeons?.update(dt);
+            BO.ZoneLegends?.update(dt);
+            BO.ZoneQuests?.update(dt);
+            BO.ZoneSandbox?.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -533,9 +549,10 @@
             const c = this.campaign;
             const darkness = c?.darkness ?? 0;
             const phase = this.clock % 300;
-            this.weather = !c?.options.weather ? 'Clear' : phase < 90 ? 'Overcast' : phase < 150 ? 'Ash rain' : phase < 225 ? 'Rad fog' : 'Clearing';
+            this.weather = !c?.options.weather || c?.has('sv_no_weather') ? 'Clear' : c?.has('sv_no_sun') ? 'Overcast' : phase < 90 ? 'Overcast' : phase < 150 ? 'Ash rain' : phase < 225 ? 'Rad fog' : 'Clearing';
             const FR = BO.ZoneFrontier;
             this.localWeather = FR?.active ? FR.localize(this.weather) : this.weather;
+            if (c?.has('sv_no_rain') && /rain|blizzard|storm|snow/i.test(this.localWeather)) this.localWeather = 'Overcast';
             const fog = this.scene.fog;
             const nearbyFire = this.fire.some((f) => f.pos.distanceTo(p.pos) < 6);
             const regionFog = BO.Zone.regionAt(p.pos.x, p.pos.z).threat >= 5 ? 0.006 : 0;
@@ -599,7 +616,7 @@
                 const v = -this.fallPeak;
                 this.wasAirborne = false;
                 this.fallPeak = 0;
-                if (v > 14.5 && !BO.Player.isFlying) {
+                if (v > 14.5 && !BO.Player.isFlying && !this.campaign.has('sv_no_fall')) {
                     const dmg = Math.round((v - 14.5) * 7);
                     p.takeDamage(dmg);
                     BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.12);
@@ -741,6 +758,7 @@
                 BO.Sound?.playFootstep?.(true);
                 return;
             }
+            if (BO.ZoneDungeons?.activate(site) || BO.ZoneLegends?.activate(site) || BO.ZoneWild?.activate(site)) return;
             if (BO.ZoneFrontier.activate(site)) return;
             if (BO.ZoneEvents.activate(site)) return;
             if (BO.ZoneInfest?.activate(site)) return;
@@ -843,6 +861,8 @@
 
         consume(id) {
             if (!this.active || !BO.Player.alive || !this.campaign) return false;
+            const wild = BO.ZoneWild?.consume(id);
+            if (wild !== undefined) return wild;
             if (['medkits', 'rations', 'canned', 'splint', 'painkillers', 'gunkit'].includes(id)) return this.useItem(id);
             const before = this.points[id] || 0;
             const ok = this.campaign.pack.use(id);

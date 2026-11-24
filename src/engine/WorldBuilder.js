@@ -2588,7 +2588,9 @@
         resolveHorizontal(pos, radius, height, isPlayer = false) {
             const footStep = pos.y + 0.45;
             const topY = pos.y + height - 0.05;
-            if (this.large) {
+            // Sealed spaces (dungeons, the arena) are built far beyond the map edge and reached only by teleport.
+            const offMap = this.large && (Math.abs(pos.x) > this.terrain.maxX + 200 || Math.abs(pos.z) > this.terrain.maxZ + 200);
+            if (this.large && !offMap) {
                 const t = this.terrain;
                 // Keep everyone inside the map.
                 pos.x = BO.Math.clamp(pos.x, t.minX + 1, t.maxX - 1);

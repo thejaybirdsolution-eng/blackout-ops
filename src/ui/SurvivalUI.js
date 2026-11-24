@@ -108,17 +108,18 @@
         [1, 'Standard', 'The normal number of roaming enemies for each day.'],
         [1.5, 'Intense', '50% more enemies may roam at once.']
     ];
-    const STATION_NAME = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln' };
+    const STATION_NAME = { hand: 'By hand', bench: 'Workbench', campfire: 'Campfire', kiln: 'Kiln', cookstation: 'Cooking station' };
     const STATION_TIP = {
         hand: 'Craft anywhere, straight from your backpack.',
         bench: 'Stand within 4 m of the Relay shelter or a crafting table you built.',
         campfire: 'Stand within 4 m of a campfire you built (the Relay shelter stove also works).',
-        kiln: 'Stand within 4 m of a stone kiln you built.'
+        kiln: 'Stand within 4 m of a stone kiln you built.',
+        cookstation: 'Stand within 4 m of a cooking station you built. It also counts as a campfire.'
     };
     const CRAFT_CATS = [
         ['all', 'All recipes', 'unknown'], ['tools', 'Tools', 'axe'], ['materials', 'Materials', 'ingot'],
         ['medical', 'Medical', 'medkit'], ['food', 'Food & drink', 'cup'], ['lighting', 'Lighting', 'torch'],
-        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle']
+        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'gear']
     ];
     const RECIPE_CAT = {
         braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
@@ -373,7 +374,7 @@
          */
         drawCompass(el, deg, label) {
             const PX = 2.1; // pixels per degree
-            const hidden = !!BO.SurvivalMode.campaign?.has('sv_no_map_gps');
+            const hidden = !!BO.SurvivalMode.campaign?.has('sv_no_map_gps') || !!BO.SurvivalMode.campaign?.has('sv_no_compass');
             el.style.visibility = hidden ? 'hidden' : '';
             if (hidden) return;
             if (!this._cmp || this._cmp.el !== el || !el.classList.contains('sv-compass')) {
@@ -738,6 +739,8 @@
                     break;
                 case 'travel': if (c.travel(arg)) return this.resume(); this.feedback = 'Fast travel is not possible right now.'; break;
                 case 'ride': if (c.ride(arg === 'off' ? null : arg)) return this.resume(); break;
+                case 'questTrack': BO.ZoneQuests?.accept(arg); break;
+                case 'questDrop': BO.ZoneQuests?.drop(arg); break;
                 case 'unlockTech': deep?.unlockTech(arg); break;
                 case 'attr': deep?.upgradeAttribute(arg); break;
                 case 'claim': c.objectives.claim(arg); break;
@@ -1427,7 +1430,7 @@
             const inv = pack.inventory;
             const lim = pack.limits;
             const weight = pack.weight();
-            const cats = ['All', 'Ammunition', 'Raw materials', 'Components', 'Consumables', 'Equipment', 'Lighting', 'Tools', 'Keys'];
+            const cats = ['All', 'Food', 'Ammunition', 'Raw materials', 'Components', 'Consumables', 'Equipment', 'Lighting', 'Tools', 'Keys'];
             const order = Object.keys(frontier.items);
             let items = Object.entries(inv).filter(([id, n]) => n > 0 && frontier.items[id] && (this.packFilter === 'All' || frontier.items[id][1] === this.packFilter));
             const sorters = {
@@ -1591,7 +1594,7 @@
             for (const r of frontier.recipes) {
                 if (r.pack !== undefined && r.pack <= pack.level) continue;
                 const entry = { key: 'f:' + r.id, id: r.id, name: r.name, desc: r.desc, station: r.station, cost: r.cost,
-                    gain: r.gain, cat: r.pack !== undefined ? 'gear' : (RECIPE_CAT[r.id] || 'materials') };
+                    gain: r.gain, cat: r.pack !== undefined ? 'gear' : (RECIPE_CAT[r.id] || r.cat || 'materials') };
                 if (r.tech && deep && !deep.hasTech(r.tech)) entry.lock = 'Research “' + techName(r.tech) + '” in Skills.';
                 if (r.pack !== undefined && r.pack !== pack.level + 1) entry.lock = 'Craft the previous pack first.';
                 if (r.pack !== undefined) entry.glyph = 'chest';
@@ -1672,7 +1675,7 @@
             const here = c.stations;
             const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
             const statusText = { ready: 'Ready', missing: 'Missing materials', station: 'Needs ' + '', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
-            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
+            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
             const cats = CRAFT_CATS.map(([id, label, glyph]) => {
                 const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
                 return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;
@@ -2057,6 +2060,27 @@
                     hit(g.x, g.z, 'PMC garrison · ' + g.name, st === 'cleared' ? 'Cleared. Reoccupied in ' + back + ' day' + (back === 1 ? '' : 's') + '.' : 'Held by about ' + (g.left ?? g.size) + ' armed operators. Shooting raises their alarm: the siren draws infected and reinforcements arrive in 30 s. Clearing it drops a supply cache.', 10);
                 }
             }
+            {
+                const master = c.has('sv_master_map');
+                for (const e of BO.ZoneDungeons?.entrances || []) {
+                    if (!master && !c.visited.has(BO.Zone.regionAt(e.x, e.z).id)) continue;
+                    const st = BO.ZoneDungeons.st(e.d.id);
+                    icon(e.x, e.z, 'house', st.cleared ? '#8fe3c8' : '#c8a2ff', 8, st.cleared);
+                    if (zoom >= 1.5) label(e.d.name, e.x, e.z, '#e2d4ff', 10, 18);
+                    hit(e.x, e.z, e.d.name + ' · ' + e.d.size + ' dungeon', e.d.blurb + (st.cleared ? ' (Cleared.)' : ''), 10);
+                }
+                for (const mk of mode.markers) {
+                    if (!mk.alive) continue;
+                    if (mk.pit) { icon(mk.x, mk.z, 'star', '#ffb43a', 9); if (zoom >= 1.5) label(mk.name, mk.x, mk.z, '#ffd9a0', 10, 18); hit(mk.x, mk.z, mk.name, 'Offers arena boss duels.', 10); }
+                    else if (mk.vehicle && mk.id.startsWith('veh:') && (master || c.visited.has(BO.Zone.regionAt(mk.x, mk.z).id))) { icon(mk.x, mk.z, 'circle', '#9fd4ff', 7); hit(mk.x, mk.z, mk.name, 'A parked vehicle. Walk up and claim it.', 9); }
+                    else if (mk.masterbox) { icon(mk.x, mk.z, 'star', '#b46bff', 10); hit(mk.x, mk.z, 'Box of Wonders', 'Unlimited items, weapons and vehicles.', 10); }
+                }
+                if (master) {
+                    for (const pk of mode.loot.pickups.values()) { const col = pk.roll ? (BO.ZoneThrill.RARITY.find((r) => r.id === pk.roll.rarity)?.css || '#ccc') : '#ccc'; icon(pk.x, pk.z, 'diamond', col, 4); hit(pk.x, pk.z, pk.marker.name, 'Weapon on the ground.', 6); }
+                    for (const z of mode.zombies) if (z.alive && (z.bossLabel || z.champion)) { icon(z.pos.x, z.pos.z, 'skull', z.bossLabel ? '#ff4a4a' : '#ffb43a', z.bossLabel ? 10 : 6); hit(z.pos.x, z.pos.z, z.bossLabel || z.champion.name, z.bossLabel ? 'Boss' : 'Champion', 8); }
+                    for (const k of BO.ZoneContracts?.list || []) if (k.kind === 'cache') { icon(k.sx, k.sz, 'star', '#ffb43a', 8); }
+                }
+            }
             if (FR?.car && this.mapLayers.sites) {
                 icon(FR.car.position.x, FR.car.position.z, 'circle', '#d6be8c', 7);
                 hit(FR.car.position.x, FR.car.position.z, 'Freight handcar', 'Ride it along the rail line: W/S to pump, up to ~45 km/h. Loud.', 9);
@@ -2255,6 +2279,12 @@
                         ${c.activities ? `<div class="sv-activities">${c.activities.renderJournal()}</div>` : ''}</section>
                     <section><h4 class="sv-sub">Intel <small>${BO.ZoneArchive?.summary().intel || 0}/16</small></h4>${BO.ZoneArchive ? BO.ZoneArchive.intelHtml(esc, this.intelOpen) : ''}
                         <h4 class="sv-sub">Career</h4>${this.record()}</section>
+                </div>
+                <div class="sv-jcols zt-jcols">
+                    <section class="zt-jwide"><h4 class="sv-sub">Quest log</h4>${BO.ZoneQuests ? BO.ZoneQuests.journalHtml(tip) : ''}</section>
+                    <section><h4 class="sv-sub">Legendary hunts</h4><div class="zt-legs">${(BO.ZoneLegends?.legendStatus() || []).map((L) => `<div class="zt-leg s-${L.s}"${tip(L.name, L.how, L.s === 'dead' ? 'Slain' : L.s === 'locked' ? 'Not yet awakened' : 'Hunting you')}><b>${L.s === 'dead' ? '✓ ' : ''}${esc(L.name)}</b><small>${esc(L.how)}</small><span class="sv-prog sm"><i style="width:${pct(L.cur, L.need)}%"></i></span><em>${L.s === 'dead' ? 'Slain' : L.s === 'locked' ? L.cur + '/' + L.need : 'AWAKE'}</em></div>`).join('')}</div>
+                        <h4 class="sv-sub">Dungeons</h4><div class="zt-legs">${(BO.ZoneDungeons?.list() || []).map((d) => `<div class="zt-leg ${d.st.cleared ? 's-dead' : ''}"${tip(d.name, d.blurb, d.size + ' · ' + d.rooms.length + ' rooms · entrance beside the ' + d.near.replace(/_/g, ' '))}><b>${d.st.cleared ? '✓ ' : ''}${esc(d.name)}</b><small>${esc(d.size)} · ${d.rooms.length} rooms${d.rooms.some((r) => r.puzzle) ? ' · puzzle' : ''}${d.rooms.some((r) => r.boss) ? ' · boss' : ''}</small><em>${d.st.cleared ? 'Cleared' : d.st.visits ? 'Visited' : '—'}</em></div>`).join('')}</div>
+                        <h4 class="sv-sub">Arena ladder</h4><p class="sv-muted sm">${BO.ZoneLegends?.ladder || 0}/10 bosses beaten. Talk to a Pit Master (Haven, Hollow Town pharmacy, Spillway boathouse) to fight.</p></section>
                 </div></div>`;
         }
 
@@ -2422,6 +2452,7 @@
             let sub = '';
             const horde = BO.ZoneHorde;
             if (!mode.hostilesReleased) { headline = 'Safe period · ' + safeLeft + 's'; sub = mode.objective; }
+            else if (BO.ZoneDungeons?.inside || BO.ZoneLegends?.arena) { const ds = BO.ZoneDungeons?.status() || BO.ZoneLegends.status(); headline = ds.headline; sub = ds.sub; }
             else if (BO.ZoneFinale?.active) { const fs = BO.ZoneFinale.status(); headline = fs.headline; sub = fs.sub; }
             else if (horde?.active) { headline = horde.forecast(); sub = horde.target?.base ? 'Defend your base until the waves are dead or dawn breaks' : 'Survive until the waves are dead or dawn breaks'; }
             else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = mode.objective; }

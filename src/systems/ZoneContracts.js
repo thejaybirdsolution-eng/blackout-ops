@@ -288,7 +288,7 @@
 
         /** Located contracts for compass and map. */
         points() {
-            return this.list.filter((k) => k.x !== undefined).map((k) => ({ x: k.x, z: k.z, label: k.title, kind: k.kind, area: k.area || 0 }));
+            return this.list.filter((k) => k.x !== undefined).map((k) => ({ x: k.x, z: k.z, label: k.title, kind: k.kind, area: k.area || 0 })).concat(BO.ZoneQuests?.points?.() || []);
         }
 
         /* ------------------------------------------------------------ HUD */
@@ -305,14 +305,15 @@
 
         renderHud() {
             if (!this.hud) return;
-            const show = BO.State.screen === 'playing' && !BO.SurvivalUI.open && this.list.length;
+            const qh = BO.ZoneQuests?.hudHtml?.() || '';
+            const show = BO.State.screen === 'playing' && !BO.SurvivalUI.open && (this.list.length || qh);
             this.hud.classList.toggle('dim', !show);
             const p = BO.Player.pos;
             const html = this.list.length ? '<header>CONTRACTS</header>' + this.list.map((k) => {
                 const pr = this.progress(k);
                 const d = k.x !== undefined ? Math.round(Math.hypot(k.x - p.x, k.z - p.z) / 5) * 5 : null;
                 return `<div class="zt-k k-${k.kind}"><em>${ICON[k.kind] || '◆'}</em><b>${k.title}</b><small>${pr ? pr[0] + '/' + pr[1] + ' · ' : ''}${d !== null ? d + ' m · ' : ''}+${k.xp} XP</small>${pr ? `<i><u style="width:${(pr[0] / pr[1] * 100).toFixed(0)}%"></u></i>` : ''}</div>`;
-            }).join('') : '';
+            }).join('') + qh : qh;
             if (html !== this.html) { this.hud.innerHTML = html; this.html = html; }
         }
 

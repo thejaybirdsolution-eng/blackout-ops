@@ -297,7 +297,7 @@
             this.clock = 0.5;
             const c = m.campaign;
             if (c.day !== this.day) { this.day = c.day; this.reinfest(); }
-            if (!m.hostilesReleased || c.has('noRoamers')) return;
+            if (!m.hostilesReleased || c.has('noRoamers') || c.has('sv_no_infest') || BO.ZoneDungeons?.inside || BO.ZoneLegends?.arena) return;
             const p = BO.Player.pos;
             let live = 0;
             for (const s of this.sites) {
@@ -382,7 +382,7 @@
         /** Sites the player knows about (seen, in a visited region, or everything with Treasure Hunter). */
         known() {
             const c = this.campaign;
-            const all = BO.ZoneThrill?.rank?.('treasure') > 0;
+            const all = BO.ZoneThrill?.rank?.('treasure') > 0 || c?.has('sv_master_map');
             return this.sites.filter((s) => all || s.seen || s.cleared || c?.visited.has(s.region));
         }
 

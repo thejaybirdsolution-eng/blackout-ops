@@ -234,7 +234,7 @@
                 const piece = this.placed.find((entry) => entry.id === id && entry.alive);
                 if (!piece) return true;
                 if (piece.type === 'chest') BO.SurvivalUI.show('chest', null, piece.id);
-                else if (['bench', 'campfire', 'kiln'].includes(piece.type)) BO.SurvivalUI.show('workshop');
+                else if (['bench', 'campfire', 'kiln', 'firepit', 'cookstation', 'tanrack', 'smoker'].includes(piece.type)) BO.SurvivalUI.show('workshop');
                 else if (piece.type === 'bed') {
                     if (!this.canSave()) this.mode.toast('Clear nearby enemies before resting.');
                     else {
@@ -257,7 +257,7 @@
             const id = this.mode.near?.id || '';
             const placed = id.startsWith('build:') ? this.placed.find((entry) => entry.alive && id === 'build:' + entry.id)?.type : null;
             if (placed) return placed;
-            return ['bench', 'campfire', 'kiln'].find((type) => this.stationAvailable(type)) || null;
+            return ['cookstation', 'bench', 'campfire', 'kiln'].find((type) => this.stationAvailable(type)) || null;
         }
 
         get canBuild() {
@@ -337,6 +337,7 @@
                 mesh = m.mesh(new THREE.BoxGeometry(w, h, d), spec.color, piece.x, midY, piece.z,
                     piece.type === 'campfire' ? { emissive: 0xd76218, emissiveIntensity: 0.64 } : {});
                 piece.mesh = mesh;
+                BO.ZoneWild?.decorate(piece);
                 if (['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'platform'].includes(piece.type)) {
                     const stone = piece.type.startsWith('stone') || piece.type === 'door';
                     const part = m.addStructure(mesh, w, h, d, stone ? 'brick' : 'wood');
@@ -349,9 +350,9 @@
             }
             if (piece.type === 'wallTorch') this.pack.addLight(piece.id, piece);
             if (piece.type === 'chest' && !this.pack.chests.has(piece.id)) this.pack.chests.set(piece.id, {});
-            if (['bed', 'bench', 'ladder', 'campfire', 'chest', 'kiln'].includes(piece.type)) {
+            if (['bed', 'bench', 'ladder', 'campfire', 'chest', 'kiln', 'firepit', 'cookstation', 'tanrack', 'smoker'].includes(piece.type)) {
                 m.markers.push({ ...piece, id: 'build:' + piece.id, name: spec.name,
-                    label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire', chest: 'Open storage chest', kiln: 'Use stone kiln' }[piece.type] });
+                    label: { bed: 'Rest and save', bench: 'Use crafting table', ladder: 'Climb ladder', campfire: 'Cook at campfire', chest: 'Open storage chest', kiln: 'Use stone kiln', firepit: 'Cook at the fire camp', cookstation: 'Use the cooking station', tanrack: 'Use the tanning rack', smoker: 'Use the smokehouse' }[piece.type] });
                 if (piece.type === 'ladder') m.markers.push({ ...piece, y: piece.y + 2.86, id: 'build:' + piece.id, name: spec.name, label: 'Climb down' });
             }
             this.deep?.registerBuild(piece);
@@ -601,6 +602,7 @@
                 trees: BO.World.zone ? BO.World.zone.trees.filter((t) => !t.alive).map((t) => [t.idx, t.type, t.renewAt || 0]) : [], at: Date.now(), options: this.options, pack: this.pack.snapshot(),
                 objectives: this.objectives.snapshot(), activities: this.activities?.snapshot(), deep: this.deep?.snapshot(), frontier: BO.ZoneFrontier?.snapshot(),
                 thrill: BO.ZoneThrill?.snapshot(), infest: BO.ZoneInfest?.snapshot(), contracts: BO.ZoneContracts?.snapshot(),
+                wild: BO.ZoneWild?.snapshot(), dungeons: BO.ZoneDungeons?.snapshot(), legends: BO.ZoneLegends?.snapshot(), quests: BO.ZoneQuests?.snapshot(),
                 hostilesReleased: m.hostilesReleased,
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,
@@ -613,7 +615,7 @@
                 completed: [...m.completed],
                 placed: this.placed.map(({ id, x, y, z, type, size, alive, part }) => ({ id, x, y, z, type, size, alive, hp: part?.hp })),
                 // Infested packs and bounty targets are stored by their own systems.
-                enemies: m.zombies.filter((z) => z.alive && !z.infest && !z.contract).map((z) => ({
+                enemies: m.zombies.filter((z) => z.alive && !z.infest && !z.contract && !z.dungeon && !z.legend && !z.arena).map((z) => ({
                     type: z.survivalType, pos: z.pos.toArray(), hp: z.hp, spec: z.spec.id
                 })),
                 patrols: m.bots.filter((b) => b.alive).map((b) => ({

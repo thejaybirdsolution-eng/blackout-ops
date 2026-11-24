@@ -98,3 +98,69 @@
 .zt-perklist small { font-size: 11.5px; color: #9fb8ae; }
 
 @media (max-width: 900px) { .zt-cards { grid-template-columns: 1fr; } .zt-card { min-height: 0; } #zt-contracts { top: 120px; width: 200px; } }
+
+/* ==========================================================================
+   Box of Wonders, Pit Master dialog, quest log, sandbox HUD switches, journal
+   ========================================================================== */
+.zt-box { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(4, 7, 6, .82); backdrop-filter: blur(3px); font-family: var(--font-ui, sans-serif); color: #e8f1ed; }
+.zt-box-in { width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 14px; background: #0d1412; border: 1px solid rgba(178, 107, 255, .4); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+.zt-box-in header { display: flex; align-items: center; gap: 12px; }
+.zt-box-in header b { font: 800 22px var(--font-ui, sans-serif); letter-spacing: .14em; color: #d9b8ff; }
+.zt-box-in header span { flex: 1; font-size: 13px; color: #a9c0b7; }
+.zt-box-in button { cursor: pointer; font: 600 13px var(--font-ui, sans-serif); color: #e8f1ed; background: rgba(20, 30, 27, .95); border: 1px solid rgba(159, 224, 201, .2); border-radius: 8px; padding: 8px 12px; }
+.zt-box-in button:hover:not([disabled]) { border-color: #b26bff; }
+.zt-box-in button[disabled] { opacity: .4; cursor: default; }
+.zt-box-in nav { display: flex; gap: 6px; align-items: center; }
+.zt-box-in nav button.on { border-color: #b26bff; color: #e6d2ff; }
+.zt-box-in nav input { margin-left: auto; width: 220px; padding: 7px 10px; border-radius: 8px; border: 1px solid rgba(159, 224, 201, .2); background: #0a100e; color: #e8f1ed; }
+.zt-box-grid { overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; padding-right: 4px; }
+.zt-box-grid button { text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.zt-box-grid small { color: #8aa69b; font-size: 11px; }
+.zt-dlg .zt-box-in { border-color: rgba(255, 180, 58, .45); width: min(720px, 94vw); }
+.zt-dlg header b { color: #ffd27a; }
+.zt-ladder { display: grid; gap: 6px; overflow: auto; }
+.zt-ladder button { display: grid; grid-template-columns: 34px 1fr; column-gap: 10px; text-align: left; align-items: center; }
+.zt-ladder em { grid-row: span 2; font: 800 18px var(--font-mono, monospace); font-style: normal; color: #ffb43a; text-align: center; }
+.zt-ladder small { color: #a9c0b7; }
+.zt-ladder .beaten { border-color: rgba(143, 227, 200, .4); }
+.zt-confirm .zt-line { font-size: 17px; line-height: 1.45; margin: 4px 0; }
+.zt-yesno { display: flex; gap: 10px; margin-top: 6px; }
+.zt-yesno button:first-child { border-color: #ffb43a; color: #ffe2a8; }
+
+/* quest tracker header in the right-hand panel */
+#zt-contracts .zt-qh { margin-top: 6px; color: #c8a2ff; }
+.zt-k.k-quest { border-left-color: #c8a2ff; } .zt-k.k-quest em { color: #c8a2ff; } .zt-k.k-quest i u { background: #c8a2ff; }
+
+/* journal: quest log, hunts, dungeons */
+.zt-jcols { grid-template-columns: 2fr 1fr !important; margin-top: 12px; }
+.zt-qcat { border: 1px solid rgba(159, 224, 201, .12); border-radius: 10px; margin-bottom: 6px; background: rgba(255, 255, 255, .02); }
+.zt-qcat summary { cursor: pointer; padding: 8px 10px; font-weight: 700; }
+.zt-qcat summary small { color: #8aa69b; margin-left: 6px; }
+.zt-q { display: grid; grid-template-columns: 1fr auto auto; column-gap: 8px; align-items: center; padding: 6px 10px; border-top: 1px solid rgba(159, 224, 201, .07); }
+.zt-q b { font-size: 13px; } .zt-q small { grid-column: 1; font-size: 11.5px; color: #9fb8ae; } .zt-q em { grid-row: 1; grid-column: 2; font-style: normal; color: #ffd27a; font-size: 11px; }
+.zt-q span, .zt-q button { grid-row: span 2; grid-column: 3; font-size: 12px; }
+.zt-q.done { opacity: .55; } .zt-q.on { background: rgba(200, 162, 255, .07); }
+.zt-legs { display: grid; gap: 5px; margin-bottom: 10px; }
+.zt-leg { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(159, 224, 201, .08); }
+.zt-leg b { font-size: 13px; } .zt-leg small { grid-column: 1; font-size: 11px; color: #9fb8ae; } .zt-leg em { grid-row: 1; grid-column: 2; font-style: normal; font-size: 11px; color: #ffb43a; }
+.zt-leg .sv-prog { grid-column: 1 / 3; }
+.zt-leg.s-dead { opacity: .6; } .zt-leg.s-met em, .zt-leg.s-spawned em { color: #ff6b5b; }
+
+/* sandbox HUD switches */
+body.sv-hide-hud #hud-layer, body.sv-hide-hud #sv-hud, body.sv-hide-hud #hud-survival, body.sv-hide-hud #zt-hud > :not(.zt-pick), body.sv-hide-hud #zt-contracts { visibility: hidden !important; }
+body.sv-hide-vitals #sv-hud .svh-vitals { display: none !important; }
+body.sv-hide-hotbar #sv-hud .svh-hotbar { visibility: hidden !important; }
+body.sv-hide-objective #hud-survival .svh-obj, body.sv-hide-objective #hud-survival .svh-chips { display: none !important; }
+body.sv-hide-tracker #zt-contracts { display: none !important; }
+body.sv-hide-xp #zt-hud .zt-xp, body.sv-hide-xp #zt-hud .zt-pops, body.sv-hide-xp #zt-hud .zt-ticks { display: none !important; }
+body.sv-hide-plates #zt-hud .zt-plates { display: none !important; }
+body.sv-no-compass .sv-compass { visibility: hidden !important; }
+
+/* start-menu Survival Journal */
+#sv-journal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; background: rgba(3, 6, 5, .86); backdrop-filter: blur(4px); }
+#sv-journal .svj-in { width: min(1280px, 96vw); height: min(860px, 92vh); display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; border-radius: 16px; background: var(--sv-bg, #090e0d); border: 1px solid var(--sv-line-2, rgba(159, 224, 201, .22)); color: var(--sv-text, #e3efe9); }
+#sv-journal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+#sv-journal header h2 { margin: 2px 0 4px; font: 800 28px var(--font-ui, sans-serif); letter-spacing: .04em; }
+#sv-journal header p { margin: 0; color: #9fb8ae; font-size: 13px; }
+#sv-journal .svj-body { flex: 1; min-height: 0; display: flex; }
+#sv-journal .fg { width: 100%; }

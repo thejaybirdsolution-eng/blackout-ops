@@ -175,7 +175,7 @@
 
         nearbyCount(radius = 135) {
             const p = BO.Player.pos;
-            return this.mode.zombies.filter((zb) => zb.alive && !zb.bossLabel && !zb.infest && !zb.contract && Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) < radius).length;
+            return this.mode.zombies.filter((zb) => zb.alive && !zb.bossLabel && !zb.infest && !zb.contract && !zb.dungeon && !zb.arena && Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) < radius).length;
         }
 
         cap() {
@@ -203,7 +203,7 @@
             const p = BO.Player.pos;
             // Despawn far, unaware infected so the population follows the player.
             for (const zb of m.zombies) {
-                if (!zb.alive || zb.bossLabel || zb.horde || zb.herd || zb.distress || zb.infest || zb.contract || zb.zs?.state === 'hunt') continue;
+                if (!zb.alive || zb.bossLabel || zb.horde || zb.herd || zb.distress || zb.infest || zb.contract || zb.dungeon || zb.legend || zb.arena || zb.zs?.state === 'hunt') continue;
                 if (Math.hypot(zb.pos.x - p.x, zb.pos.z - p.z) > 155) {
                     zb.alive = false;
                     zb.despawned = true;

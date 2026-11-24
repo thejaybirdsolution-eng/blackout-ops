@@ -15,6 +15,9 @@
         ['start', 'Getting started', 'flare', 'The crash, Acts 1–3, the Lantern mystery, and how to survive day one.'],
         ['controls', 'Controls', 'fist', 'Every key and mouse action. Rebind any key from the pause menu.'],
         ['threat', 'Senses, hordes & events', 'fire', 'Sight/hearing/smell AI, noise ring, horde nights, PMC garrisons and weather.'],
+        ['wild', 'Animals, hunting & cooking', 'bowl', 'Every animal, where it lives and what it drops; raw vs cooked food; campfires, fire camps and cooking stations; every meal.'],
+        ['dungeons', 'Dungeons, bosses & arena', 'key', 'All nine dungeons and their puzzles, the twelve legendary bosses and what wakes them, and the Pit Master arena.'],
+        ['quests', 'Quests', 'scroll', 'The quest log: chapters, how tracking works, every quest and its reward.'],
         ['thrill', 'Levels, loot & contracts', 'rune', 'Survivor levels and perk cards, weapon rarity and traits, champions, infested sites, contracts and caches.'],
         ['vitals', 'Vitals, injuries & climate', 'flask', 'Health, bleeding, fractures, hunger, water, cold, toxic ash and radiation.'],
         ['map', 'Zone regions', 'scroll', 'Every region of the 500 × 450 m Exclusion Zone: threat, climate and resources.'],
@@ -193,6 +196,72 @@
             text: 'Champions sometimes carry coordinates. A gold beam marks the cache 110–230 m away, and it shows in the contracts list, on the compass and on the map. When you get close, a guard pack led by a champion rises around it. Clear the guards and open it for a military supply roll, a medkit and an Epic weapon, with a 25% chance of Legendary. Up to two caches can be marked at once.' });
         add({ cat: 'thrill', title: 'Kill streaks & multi-kills', icon: icon('fire', '#ffd27a'),
             text: 'Kills within 2.6 s of each other are multi-kills (Double, Triple, Quad, Massacre). Kills with no more than 8 s between them build a streak: Killing Spree (5), Rampage (10), Unstoppable (15), Zone Reaper (25), Lantern\'s Wrath (40), Extinction Event (60). Each pays bonus XP. Ordinary infected also drop a few rounds for your gun now and then.' });
+
+        /* ---------- 3c. Animals, hunting & cooking ---------- */
+        const W = BO.ZoneWild;
+        if (W) {
+            const biomeNames = { meadow: 'meadows', forest: 'forests', town: 'towns', wetland: 'wetlands', alpine: 'mountains', ash: 'ash wastes' };
+            for (const [k, s] of Object.entries(W.SPECIES)) {
+                add({ cat: 'wild', title: s.name, icon: icon('blade', s.temper === 'flee' ? '#8fe3c8' : '#ff8a6b'), tags: [{ flee: 'Prey · flees', defend: 'Fights back when hurt', hunt: 'Predator · hunts at night', territorial: 'Territorial · attacks if close' }[s.temper]],
+                    text: s.name + ' lives in ' + Object.keys(s.biomes).filter((b) => s.biomes[b] > 0).map((b) => biomeNames[b] || b).join(', ') + '. ' + (s.temper === 'flee' ? 'It runs from you and from loud noises — crouch to get close.' : s.temper === 'defend' ? 'It charges when hurt.' : s.temper === 'hunt' ? 'Wolves hunt in packs of 2–4, attack on sight at night and up close by day.' : 'Leave it alone or bring a big gun; it attacks anyone who comes within about 15 m.'),
+                    facts: [['Health', String(s.hp)], ['Speed', s.speed + ' m/s'], ['XP', String(s.xp)], ['Damage', s.dmg ? String(s.dmg) : '—']],
+                    lists: [{ h: 'Drops (a bag to collect)', items: Object.entries(s.drops).map(([id, [lo, hi]]) => name(id) + ' ×' + (lo === hi ? lo : lo + '–' + hi)) }] });
+            }
+            add({ cat: 'wild', title: 'Raw vs cooked food', icon: icon('bowl', '#ffd27a'), tags: ['Cooked = 3× raw'],
+                text: 'Meat, eggs and mushrooms can be eaten raw, but restore little and carry a 30% chance of food poisoning (infection and thirst). Cook them at a campfire, fire camp, smokehouse or cooking station and they restore three times as much food and health, with no risk. Put food on the hotbar and use it like any item.',
+                lists: [{ h: 'Every food (food / health)', items: Object.entries(W.FOOD).map(([id, f]) => name(id) + ': ' + f.f + ' / ' + (f.h || 0) + (f.w ? ' · +' + f.w + ' water' : '') + (f.regen ? ' · regenerates for ' + f.regen + ' s' : '') + (f.raw ? ' · raw' : '')) }] });
+            add({ cat: 'wild', title: 'Cooking stations & fire camps', icon: icon('fire', '#ff8a6b'),
+                text: 'Build them from the Build menu. A campfire cooks meat and brews tea. A fire camp is a bigger ringed fire: it cooks, warms and lights a wide area. A cooking station (stove, pot and grill) cooks everything a campfire can plus the big meals: hunter\'s stew, meat pie, omelette, mushroom soup, berry pie, honey-glazed ham, survivor\'s feast and the golden ration. A smokehouse counts as a campfire, and food eaten within 8 m of it restores 25% more. A tanning rack counts as a crafting table for leatherwork.',
+                facts: [['Fire camp', '4 timber, 6 stone'], ['Cooking station', '6 stone, 1 iron bar, 2 bricks, 2 timber'], ['Smokehouse', '4 boards, 4 stone, 2 clay'], ['Tanning rack', '4 timber, 2 cord']] });
+            add({ cat: 'wild', title: 'New resources', icon: icon('wrench', '#d9c48f'),
+                text: 'Sand bars (shovel, wetlands) → glass and bottles. Flint gravel (by hand). Sulfur vents (pickaxe, ash wastes) → gunpowder. Gold veins (iron pickaxe, mountains) → gold bars for the golden ration, spyglass and engines. Salt crusts (pickaxe, wetlands) → jerky and leather. Berry bushes, mushroom rings and wild beehives (by hand) → food. Obsidian (drill, the Crater).' });
+        }
+
+        /* ---------- 3d. Dungeons, bosses & arena ---------- */
+        const DG = BO.ZoneDungeons;
+        if (DG) {
+            add({ cat: 'dungeons', title: 'How dungeons work', icon: icon('blade', '#c8a2ff'), tags: ['9 dungeons'],
+                text: 'Each dungeon has a stone doorway with two lamps beside a building in the world (shown on the map once you have been to that region). Step inside and you are sealed in. Each room\'s far door stays locked until you kill everything in the room and solve its puzzle. Notes on the walls hold the clues (codes, lever orders, valve settings). The last room has a chest and a portal home; a portal at the entrance takes you out at any time. You cannot save inside. Cleared dungeons stay cleared.' });
+            for (const d of DG.DUNGEONS) {
+                add({ cat: 'dungeons', title: d.name, icon: icon('blade', d.rooms.some((r) => r.boss) ? '#ff6b5b' : '#c8a2ff'), tags: [d.size, d.rooms.length + ' rooms'],
+                    text: d.blurb + ' Entrance: beside the ' + d.near.replace(/_/g, ' ') + '.',
+                    lists: [{ h: 'Rooms', items: d.rooms.map((r, i) => 'Room ' + (i + 1) + ': ' + [r.enemies ? r.enemies + '+ infected' : '', r.champ ? r.champ + ' champion' + (r.champ > 1 ? 's' : '') : '', r.puzzle ? r.puzzle.type + ' puzzle' : '', r.boss ? 'BOSS — ' + r.bossName : '', r.hazard ? 'fire jets' : '', r.dark ? 'no lights' : '', r.ore ? r.ore + ' ore deposits' : '', r.chest ? 'reward chest (tier ' + r.chest + ')' : ''].filter(Boolean).join(', ')) }] });
+            }
+            add({ cat: 'dungeons', title: 'Dungeon puzzles', icon: icon('tech', '#8fe3c8'),
+                lists: [{ h: 'Types', items: ['Levers: pull the four symbol levers in the order written on a note. A wrong pull resets them and wakes something.', 'Braziers: light all four within 25 s of lighting the first.', 'Valves: read the gauge panel and turn each valve to its setting (1→2→3→4→1).', 'Fuses: find the fuses hidden around the rooms and refit the lift panel.', 'Keypad: find the code on a note, set the three dials and press ENTER. A wrong code sounds the alarm.', 'Timed vault: an alarm gives you 75 s to reach the vault before lockdown floods it with infected.', 'Dark maze: no lights. Bring a torch or a lantern.'] }] });
+        }
+        const LG = BO.ZoneLegends;
+        if (LG) {
+            add({ cat: 'dungeons', title: 'Legendary hunts', icon: icon('blade', '#ff6b5b'), tags: ['12 bosses'],
+                text: 'Twelve legendary bosses only appear once you have met their condition. When one wakes, a banner warns you, and about 20 s later it arrives near you and hunts you down. Kill it for 400 XP, a bag of rare supplies and a Legendary weapon. If you escape it, it comes back later. Track progress in the Journal.',
+                lists: [{ h: 'What wakes each one', items: LG.LEGENDS.map((L) => L.name + ': ' + L.how) }] });
+            add({ cat: 'dungeons', title: 'Pit Masters & the arena', icon: icon('rifle', '#ffb43a'),
+                text: 'Three Pit Masters (at Haven, by the Hollow Town pharmacy and by the Spillway boathouse) offer boss duels. Pick a boss and say yes, and you are taken to the arena. The fight starts after 3 s. Win and a portal home opens with a reward chest (an Epic or better weapon, gold and a perk reroll) and 90 s to loot before it closes. The ladder has ten bosses; each one unlocks the next. Step into the portal early to forfeit.' });
+            add({ cat: 'enemies', title: 'The full roster by day', icon: icon('blade', '#f2b45a'),
+                text: 'All 70 infected types roam the Zone. Day 1 has the 8 easiest; about 6 more join each day (more in dangerous regions) until everything is in play around day 11. Each region favours its own kinds. A toast at dawn names the newcomers. The "Full roster from day one" option skips the wait.' });
+        }
+
+        /* ---------- 3e. Quests ---------- */
+        const QS = BO.ZoneQuests;
+        if (QS) {
+            const all = [...QS.CATALOG];
+            add({ cat: 'quests', title: 'How the quest log works', icon: icon('scroll', '#c8a2ff'), tags: [all.length + '+ quests'],
+                text: 'The quest log holds hundreds of different quests in eight chapters. Four are tracked at a time: they show on the right of the HUD, and quests with a place show on the compass and map. Choose which to track in the Journal (Track / Untrack); when one finishes the log picks the next easiest for you. Each quest completes once per expedition. Rewards grow with difficulty (★): XP and supplies, a weapon from ★★★, and a perk reroll from ★★★★.' });
+            for (const [id, label] of QS.CHAPTERS) {
+                add({ cat: 'quests', title: label + ' quests', icon: icon('scroll', '#c8a2ff'), lists: [{ h: label, items: all.filter((x) => x.cat === id).map((x) => x.title + ' (' + '★'.repeat(x.d) + '): ' + x.text) }] });
+            }
+            add({ cat: 'quests', title: 'Cull quests', icon: icon('blade', '#c8a2ff'), text: 'Seventeen more quests ask you to kill a number of one specific infected type, spread from the first shamblers to the last horrors that join the roster around day 11.' });
+        }
+
+        /* ---------- 3f. Vehicles & sandbox ---------- */
+        for (const v of BO.SurvivalCampaignData.vehicles) {
+            add({ cat: 'travel', title: v.name, icon: icon('gear', '#9fd4ff'), tags: [v.build ? 'Build-only' : 'Find it'],
+                text: v.detail + (v.build ? ' Build it at a crafting table (Crafting → Vehicles).' : ' Parked beside the ' + String(v.found).replace(/_/g, ' ') + ' — walk up and claim it.') + ' Press ' + key('survRide') + ' to ride your fastest vehicle or get off.',
+                facts: [['Road speed', '×' + v.speed], ['Off-road', '×' + v.offroad], ['Noise', v.noise >= 5 ? 'Very loud' : v.noise >= 3 ? 'Loud' : v.noise >= 1 ? 'Some' : 'Silent']].concat(v.build ? [['Cost', amounts(v.build)]] : []) });
+        }
+        add({ cat: 'rules', title: 'Sandbox & custom rules', icon: icon('tech', '#8fe3c8'),
+            text: 'On the deploy screen, the modifier board has a Sandbox category of on/off switches that shape your own run. Hover any switch for its exact effect.',
+            lists: [{ h: 'Switches', items: Object.entries(BO.SurvivalRules.modifiers).filter(([, m]) => m.group === 'sandbox').map(([, m]) => m.name + ': ' + m.description) }] });
 
         /* ---------- 4. Vitals & climate ---------- */
         for (const [t, g, d, note, fixes] of VITALS) {

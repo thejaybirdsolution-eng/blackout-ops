@@ -36,6 +36,7 @@
         survJournal: 'KeyO',
         survTravel: 'KeyT',
         survLegend: 'KeyL',
+        survRide: 'KeyN',
         survFlask: 'KeyX',
         survLight: 'KeyH',
         survPlate: 'KeyF',
@@ -91,6 +92,7 @@
             { action: 'survSkills', label: 'Skills & tech', tip: 'Spend Tech Points and Aether Runes on research and attributes.', ctx: ['survival'] },
             { action: 'survJournal', label: 'Journal', tip: 'See your objective, field challenges, activities and career record.', ctx: ['survival'] },
             { action: 'survLegend', label: 'Survival guide', tip: 'Open the searchable Survival encyclopedia.', ctx: ['survival'] },
+            { action: 'survRide', label: 'Ride / dismount', tip: 'Mount your fastest vehicle (or the last one you rode), or get off.', ctx: ['survival'] },
             { action: 'survFlask', label: 'Quick heal', tip: 'Use the best medical item you carry: a bandage when bleeding, a medkit when badly hurt, a splint for a fracture.', ctx: ['survival'] },
             { action: 'survLight', label: 'Toggle light', tip: 'Light or put out a carried torch or lantern.', ctx: ['survival'] },
             { action: 'survPlate', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['survival'] }
