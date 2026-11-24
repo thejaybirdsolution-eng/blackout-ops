@@ -430,7 +430,8 @@
                 piece.mesh.castShadow = piece.mesh.receiveShadow = true;
             }
             part.collider.structure = true;
-            const base = Math.round((HP[piece.type] || 200) * (this.campaign.deep?.modFx?.structureHpMult || 1));
+            const fortMult = 1 + (BO.SurvivalCareer?.masteryRank?.('fortifier') || 0) * 0.2;
+            const base = Math.round((HP[piece.type] || 200) * (this.campaign.deep?.modFx?.structureHpMult || 1) * fortMult);
             part.maxHp = base;
             if (fresh) part.hp = base;
             else part.hp = Math.min(base, part.hp);

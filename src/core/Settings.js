@@ -153,6 +153,10 @@
             if (s.wallDecals === undefined) s.wallDecals = true;
             if (s.damageNumbers === undefined) s.damageNumbers = true;
             if (s.showControlHints === undefined) s.showControlHints = true;
+            if (!s.colorBlindMode) s.colorBlindMode = 'none'; // 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia'
+            if (s.subtitles === undefined) s.subtitles = true;
+            if (s.reducedMotion === undefined) s.reducedMotion = false;
+            this.applyAccessibility();
             if (!s.keybinds || typeof s.keybinds !== 'object') {
                 s.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
             } else {
@@ -185,7 +189,16 @@
             this._ensureDefaults();
             BO.Save.data.settings[key] = value;
             BO.Save.save();
+            if (key === 'colorBlindMode' || key === 'reducedMotion') this.applyAccessibility();
             BO.Events.emit('settings:changed', { key, value, settings: BO.Save.data.settings });
+        }
+
+        applyAccessibility() {
+            if (typeof document === 'undefined' || !document.body) return;
+            const s = BO.Save?.data?.settings || {};
+            document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
+            if (s.colorBlindMode && s.colorBlindMode !== 'none') document.body.classList.add('cb-' + s.colorBlindMode);
+            if (s.reducedMotion) document.body.classList.add('sv-reduced-motion');
         }
 
         getKeybinds() {

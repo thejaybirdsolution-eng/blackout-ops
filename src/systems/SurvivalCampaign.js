@@ -123,6 +123,13 @@
                     if (kit.items && Object.keys(kit.items).length) this.pack.receive(kit.items, false);
                     if (kit.vehicle) this.vehicles.add(kit.vehicle);
                     if (kit.ammo && BO.Player.activeWeapon) BO.Player.activeWeapon.reserve += kit.ammo;
+                    if (kit.techPoints && this.deep) this.deep.grantTechPoints(kit.techPoints);
+                }
+                const bpRank = career.masteryRank('blueprint_cache');
+                if (bpRank > 0 && this.deep) this.deep.grantTechPoints(bpRank);
+                const packed = career.consumePackedStash?.(this.pack);
+                if (packed && Object.keys(packed).length) {
+                    this.mode.toast('Archive drop packed: ' + BO.SurvivalItemAmounts(packed));
                 }
                 const armRank = career.masteryRank('armorer');
                 if (armRank > 0) {
@@ -592,7 +599,8 @@
             this.metrics.seconds = Math.max(this.metrics.seconds || 0, Math.floor(m.clock));
             career.tick(this.run, 'seconds', this.metrics.seconds, 0);
             const checkpoint = {
-                version: 2, run: this.run, loot: m.loot.snapshot(), fracture: m.fracture, deaths: m.deaths, lastBody: m.lastBody || null,
+                version: 2, run: this.run, seed: m.seed || this.options.seed || '', zoneTier: m.zoneTier || this.options.zoneTier || 1,
+                loot: m.loot.snapshot(), fracture: m.fracture, deaths: m.deaths, lastBody: m.lastBody || null,
                 trees: BO.World.zone ? BO.World.zone.trees.filter((t) => !t.alive).map((t) => [t.idx, t.type, t.renewAt || 0]) : [], at: Date.now(), options: this.options, pack: this.pack.snapshot(),
                 objectives: this.objectives.snapshot(), activities: this.activities?.snapshot(), deep: this.deep?.snapshot(), frontier: BO.ZoneFrontier?.snapshot(),
                 hostilesReleased: m.hostilesReleased,

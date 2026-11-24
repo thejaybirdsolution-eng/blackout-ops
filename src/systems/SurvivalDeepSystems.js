@@ -302,12 +302,18 @@
                 this.mode.toast('Firearms are sealed by the Melee & Bare-Hands Honor modifier.');
                 return false;
             }
-            if (!this.hasTech(sch.tech) && !this.unlockedSchematics.has(sch.id)) {
+            const archived = BO.SurvivalCareer?.hasBlueprint?.(sch.id);
+            if (!this.hasTech(sch.tech) && !this.unlockedSchematics.has(sch.id) && !archived) {
                 this.mode.toast('Unlock this schematic in the Tech Tree or find its blueprint first.');
                 return false;
             }
-            if (!this.mode.spend(sch.cost)) {
-                this.mode.toast('Required: ' + BO.SurvivalItemAmounts(sch.cost));
+            let cost = sch.cost;
+            if (archived && (BO.SurvivalCareer?.masteryRank?.('blueprint_cache') || 0) > 0) {
+                cost = {};
+                for (const [k, v] of Object.entries(sch.cost)) cost[k] = Math.max(1, Math.floor(v * 0.75));
+            }
+            if (!this.mode.spend(cost)) {
+                this.mode.toast('Required: ' + BO.SurvivalItemAmounts(cost));
                 return false;
             }
             const p = BO.Player;

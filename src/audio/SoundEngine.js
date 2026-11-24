@@ -71,6 +71,155 @@
             return Math.pow(1 - d / maxDist, 1.5);
         }
 
+        _spatialMetrics(sourcePos, maxDist = 65) {
+            const p = BO.Player;
+            if (!sourcePos || !p?.pos) return { gain: 1, pan: 0, dir: '' };
+            const dx = sourcePos.x - p.pos.x;
+            const dz = sourcePos.z - p.pos.z;
+            const dy = (sourcePos.y ?? p.pos.y) - p.pos.y;
+            const d = Math.hypot(dx, dy, dz);
+            if (d >= maxDist) return { gain: 0, pan: 0, dir: '' };
+            const gain = Math.pow(1 - d / maxDist, 1.35);
+            const yaw = p.yaw || 0;
+            // Player right vector in Three.js yaw space
+            const rx = Math.cos(yaw), rz = -Math.sin(yaw);
+            const hd = Math.hypot(dx, dz) || 1;
+            const pan = BO.Math.clamp((dx * rx + dz * rz) / hd, -0.95, 0.95);
+            const deg = ((Math.atan2(dx, -dz) * 180 / Math.PI) + 360) % 360;
+            const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+            const dir = dirs[Math.round(deg / 45) % 8];
+            return { gain, pan, dir, dist: d };
+        }
+
+        _connectDest(node, pan = 0, dest = 'sfx') {
+            const target = dest === 'music' ? this.musicGain : this.sfxGain;
+            if (Math.abs(pan) > 0.02 && typeof this.ctx.createStereoPanner === 'function') {
+                const panner = this.ctx.createStereoPanner();
+                panner.pan.value = pan;
+                node.connect(panner);
+                panner.connect(target);
+            } else {
+                node.connect(target);
+            }
+        }
+
+        playSpatialTone(freqStart, freqEnd, dur, type = 'sine', vol = 0.25, pan = 0, delay = 0) {
+            const ctx = this.ensureContext();
+            if (!ctx || vol <= 0.002) return;
+            const t = ctx.currentTime + delay;
+            const osc = ctx.createOscillator();
+            const g = ctx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(Math.max(20, freqStart), t);
+            if (freqEnd !== freqStart) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freqEnd), t + dur);
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.linearRampToValueAtTime(vol, t + Math.min(0.015, dur * 0.15));
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            osc.connect(g);
+            this._connectDest(g, pan, 'sfx');
+            osc.start(t);
+            osc.stop(t + dur + 0.02);
+        }
+
+        playSpatialNoise(dur, filterFreq, filterType = 'bandpass', q = 1.2, vol = 0.3, pan = 0, delay = 0) {
+            const ctx = this.ensureContext();
+            if (!ctx || !this.noiseBuffer || vol <= 0.002) return;
+            const t = ctx.currentTime + delay;
+            const src = ctx.createBufferSource();
+            src.buffer = this.noiseBuffer;
+            const filt = ctx.createBiquadFilter();
+            filt.type = filterType;
+            filt.frequency.setValueAtTime(filterFreq, t);
+            filt.Q.setValueAtTime(q, t);
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(vol, t);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(filt);
+            filt.connect(g);
+            this._connectDest(g, pan, 'sfx');
+            src.start(t, Math.random() * 0.4, dur + 0.02);
+        }
+
+        /** Positional infected vocal cue + optional directional subtitle. */
+        playSpatialInfected(profile = 'groan_mid', sourcePos = null, label = '') {
+            const m = this._spatialMetrics(sourcePos, 70);
+            if (m.gain <= 0.04) return;
+            const v = m.gain;
+            const p = m.pan;
+            switch (profile) {
+                case 'brute':
+                case 'roar_deep':
+                case 'roar_hollow':
+                    this.playSpatialTone(68, 38, 0.65, 'sawtooth', 0.25 * v, p);
+                    this.playSpatialNoise(0.45, 380, 'lowpass', 1.1, 0.18 * v, p);
+                    break;
+                case 'wraith':
+                case 'wail_void':
+                case 'wail_ice':
+                    this.playSpatialTone(520, 180, 0.55, 'sine', 0.18 * v, p);
+                    this.playSpatialTone(780, 310, 0.45, 'triangle', 0.10 * v, p, 0.08);
+                    break;
+                case 'shriek_fast':
+                case 'screamer':
+                    this.playSpatialTone(620 + Math.random() * 140, 290, 0.34, 'sawtooth', 0.17 * v, p);
+                    break;
+                case 'hiss_toxic':
+                case 'spitter':
+                    this.playSpatialNoise(0.36, 2600, 'highpass', 1.3, 0.18 * v, p);
+                    this.playSpatialTone(150, 75, 0.28, 'sine', 0.12 * v, p);
+                    break;
+                case 'hound_bark':
+                case 'hellhound':
+                    this.playSpatialTone(240 + Math.random() * 50, 95, 0.22, 'sawtooth', 0.20 * v, p);
+                    this.playSpatialNoise(0.16, 900, 'bandpass', 1.4, 0.14 * v, p);
+                    break;
+                default: {
+                    const base = 112 + Math.random() * 44;
+                    this.playSpatialTone(base, base * 0.66, 0.38, 'sawtooth', 0.15 * v, p);
+                    this.playSpatialNoise(0.28, 520, 'bandpass', 2.2, 0.11 * v, p);
+                }
+            }
+            if (m.dist && m.dist < 42 && label) {
+                BO.Events.emit('survival:subtitle', { tag: m.dir, text: label, kind: 'cue', dur: 2.2 });
+            }
+        }
+
+        playLanternCharge() {
+            this.playTone(95, 420, 2.7, 'sine', 0.22, 0);
+            this.playTone(48, 120, 2.7, 'sawtooth', 0.14, 0);
+            this.playNoise(2.5, 620, 'bandpass', 3.0, 0.10, 0.1);
+            BO.Events.emit('survival:subtitle', { tag: 'CRATER', text: 'Lantern core charging — take cover behind a monolith!', kind: 'warn', dur: 3.1 });
+        }
+
+        playLanternPulse() {
+            this.playTone(130, 32, 0.9, 'sawtooth', 0.32, 0);
+            this.playTone(880, 220, 0.65, 'sine', 0.16, 0.04);
+            this.playNoise(0.75, 340, 'lowpass', 0.8, 0.30, 0);
+            BO.Events.emit('survival:subtitle', { tag: 'CRATER', text: 'Lantern shockwave pulse detonated.', kind: 'warn', dur: 2.4 });
+        }
+
+        playGeigerTick(intensity = 0.5) {
+            const v = BO.Math.clamp(0.05 + intensity * 0.12, 0.04, 0.18);
+            this.playNoise(0.016, 3800 + Math.random() * 1400, 'bandpass', 4.5, v);
+        }
+
+        playRadioChirp(kind = 'in') {
+            this.playNoise(0.09, 1900, 'bandpass', 2.4, 0.09, 0);
+            this.playTone(kind === 'warn' ? 880 : 1240, kind === 'warn' ? 660 : 1480, 0.08, 'sine', 0.10, 0.05);
+        }
+
+        playHeartbeat(intensity = 0.6) {
+            const v = BO.Math.clamp(0.10 + intensity * 0.14, 0.08, 0.24);
+            this.playTone(62, 38, 0.14, 'sine', v, 0);
+            this.playTone(54, 34, 0.16, 'sine', v * 0.85, 0.20);
+        }
+
+        playWeatherGust(kind = 'wind') {
+            if (kind === 'blizzard') this.playNoise(1.4, 780, 'bandpass', 1.6, 0.07);
+            else if (kind === 'ash') this.playNoise(1.1, 1450, 'highpass', 1.0, 0.045);
+            else this.playNoise(1.2, 520, 'lowpass', 1.2, 0.05);
+        }
+
         _createGain(vol, dest = 'sfx') {
             const g = this.ctx.createGain();
             g.gain.value = vol;

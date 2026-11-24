@@ -208,10 +208,12 @@
             if (!entry) return false;
             if (this.searched.has(entry.i)) return true;
             if (this.search) return true;
-            const dur = (SEARCH_TIME[entry.type] || 1.2) * (this.mode.campaign?.has('fastLoot') ? 0.6 : 1);
+            const scavRank = BO.SurvivalCareer?.masteryRank?.('scavenger') || 0;
+            const ghostRank = BO.SurvivalCareer?.masteryRank?.('ghost') || 0;
+            const dur = (SEARCH_TIME[entry.type] || 1.2) * (this.mode.campaign?.has('fastLoot') ? 0.6 : 1) * Math.max(0.5, 1 - scavRank * 0.15);
             this.search = { entry, t: 0, dur, pos: BO.Player.pos.clone() };
             const noise = SEARCH_NOISE[entry.type];
-            if (noise) BO.ZoneDirector?.noise(entry.x, entry.z, noise, 'search');
+            if (noise) BO.ZoneDirector?.noise(entry.x, entry.z, noise * Math.max(0.5, 1 - ghostRank * 0.12), 'search');
             BO.Sound?.playUIClick?.();
             return true;
         }
@@ -244,8 +246,12 @@
                 m.campaign.objectives.onStoryContainer(entry);
                 return;
             }
-            const R = Math.random;
+            const R = BO.ZoneSeed && m.seed ? BO.ZoneSeed.rng(m.seed, 'loot:' + entry.i) : Math.random;
             const { items, weapon } = roll(entry.type, entry.tier || 1, R);
+            const lootMult = (m.tierSpec?.loot || 1) * (1 + (BO.SurvivalCareer?.masteryRank?.('scavenger') || 0) * 0.10);
+            if (lootMult > 1.01) {
+                for (const k of Object.keys(items)) items[k] = Math.max(1, Math.round(items[k] * lootMult));
+            }
             const bonus = BO.ZoneFrontier?.regionBonus(entry);
             if (bonus && bonus.id !== '__weapon') items[bonus.id] = (items[bonus.id] || 0) + bonus.n;
             if (Object.keys(items).length) m.grant(items);

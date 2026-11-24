@@ -66,8 +66,10 @@
             let sight = night ? (lit ? 46 : 15) : 32;
             sight *= Math.min(1.25, stealth / 0.85);
             const fm = BO.ZoneFinale?.detectMult ?? 1;
-            sight *= fm;
-            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm;
+            const ghostMult = Math.max(0.55, 1 - (BO.SurvivalCareer?.masteryRank?.('ghost') || 0) * 0.12);
+            const kitStealth = (c.day === 1 && BO.SurvivalCareer?.profile?.kit === 'keeper') ? 0.72 : (BO.SurvivalCareer?.profile?.kit === 'signal_ghost' ? 0.82 : 1);
+            sight *= fm * kitStealth;
+            const hear = (p.crouching ? 2.5 : speed > 5.2 ? 17 : speed > 1 ? 8 : 3) * fm * ghostMult * kitStealth;
             const smell = (c.deep?.bleeding || 0) > 0 ? 15 : 0;
             return { sight, hear, smell, night };
         }
@@ -93,7 +95,9 @@
                 }
                 if (detect && p.alive) {
                     if (s.state !== 'hunt' && zb.spec?.attackType !== 'suicide_blast') {
-                        BO.Sound?.playZombieGroan?.(zb.spec?.soundProfile || 'groan_mid', 0.55);
+                        const label = zb.bossLabel ? zb.bossLabel + ' roar' : (zb.spec?.name || 'Infected') + ' alerted';
+                        if (BO.Sound?.playSpatialInfected) BO.Sound.playSpatialInfected(zb.spec?.soundProfile || 'groan_mid', zb.pos, label);
+                        else BO.Sound?.playZombieGroan?.(zb.spec?.soundProfile || 'groan_mid', 0.55);
                     }
                     s.state = 'hunt';
                     s.seen = m.clock;
@@ -177,7 +181,8 @@
             const p = BO.Player.pos;
             const rf = REGION_FACTOR[this.regionThreat(p.x, p.z)] || 1;
             const breather = this.tension < 0.35 ? 0.55 : this.tension > 0.8 ? 1.15 : 1;
-            return Math.max(1, Math.round(t.cap * rf * breather * (BO.ZoneFinale?.spawnMult ?? 1)));
+            const tierCap = m.tierSpec?.cap || 1;
+            return Math.max(1, Math.round(t.cap * rf * breather * tierCap * (BO.ZoneFinale?.spawnMult ?? 1)));
         }
 
         update(dt) {

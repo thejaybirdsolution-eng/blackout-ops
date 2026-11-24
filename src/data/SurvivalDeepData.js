@@ -15,17 +15,17 @@
         espresso: ['Field espresso', 'Consumables', 0.18],
         antibiotic: ['Antibiotic elixir', 'Consumables', 0.22],
         broth: ['Thermal spiced broth', 'Consumables', 0.35],
-        aetherStim: ['Aether combat stim', 'Consumables', 0.20],
-        orbitalFlare: ['Orbital supply flare', 'Consumables', 0.50],
-        jugBrew: ['Juggernaut tonic', 'Consumables', 0.40],
-        speedTonic: ['Quick-Hands tonic', 'Consumables', 0.40],
-        staminElixir: ['Stamin-Up elixir', 'Consumables', 0.40],
-        deadshotTinc: ['Deadshot tincture', 'Consumables', 0.40]
+        aetherStim: ['Resonance combat stim', 'Consumables', 0.20],
+        orbitalFlare: ['Balloon supply flare', 'Consumables', 0.50],
+        jugBrew: ['Heavy combat stim', 'Consumables', 0.40],
+        speedTonic: ['Adrenaline auto-injector', 'Consumables', 0.40],
+        staminElixir: ['Endurance serum', 'Consumables', 0.40],
+        deadshotTinc: ['Ballistic focus drop', 'Consumables', 0.40]
     });
 
     Object.assign(frontier.tools, {
-        aetherPick: { name: 'Aether crystal pick', family: 'pick', level: 4, wear: 140, power: 4, cost: { ingot: 3, quartz: 3, aetherShard: 2 }, station: 'bench' },
-        aetherAxe: { name: 'Aether cleaver axe', family: 'axe', level: 4, wear: 140, power: 4, cost: { ingot: 3, planks: 3, aetherShard: 2 }, station: 'bench' }
+        aetherPick: { name: 'Resonance alloy pick', family: 'pick', level: 4, wear: 140, power: 4, cost: { ingot: 3, quartz: 3, aetherShard: 2 }, station: 'bench' },
+        aetherAxe: { name: 'Resonance breaching axe', family: 'axe', level: 4, wear: 140, power: 4, cost: { ingot: 3, planks: 3, aetherShard: 2 }, station: 'bench' }
     });
 
     frontier.recipes.push(
@@ -33,12 +33,12 @@
         { id: 'brewEspresso', name: 'Field espresso', station: 'campfire', cost: { freshWater: 1, coal: 1, herbs: 1 }, gain: { espresso: 2 }, desc: 'Restores +25 composure, +20 hydration, and +25s stamina boost.' },
         { id: 'brewBroth', tech: 't1_alchemy', name: 'Thermal spiced broth', station: 'campfire', cost: { freshWater: 1, herbs: 2, resin: 1 }, gain: { broth: 1 }, desc: 'Warms body temperature by +18°C and protects against freezing nights.' },
         { id: 'craftAntibiotic', tech: 't1_alchemy', name: 'Antibiotic elixir', station: 'bench', cost: { herbs: 3, freshWater: 1, cloth: 1 }, gain: { antibiotic: 2 }, desc: 'Cures Bio-Infection & Bleeding and clears 30% radiation.' },
-        { id: 'craftAetherStim', name: 'Aether combat stim', station: 'bench', cost: { aetherShard: 1, herbs: 2, scrap: 1 }, gain: { aetherStim: 1 }, desc: 'Restores +45 HP, full stamina, and +30% speed for 20s.' },
-        { id: 'craftOrbitalFlare', name: 'Orbital supply flare', station: 'bench', cost: { aetherShard: 1, wire: 2, fuel: 2, scrap: 3 }, gain: { orbitalFlare: 1 }, desc: 'Use from Backpack to call down an instant Supply Drop Crate nearby.' },
-        { id: 'brewJug', tech: 't2_tonics', name: 'Juggernaut tonic', station: 'campfire', cost: { aetherShard: 1, herbs: 2, freshWater: 1 }, gain: { jugBrew: 1 }, desc: 'Grants +75 Max HP & +25% damage resistance for 3 minutes.' },
-        { id: 'brewSpeed', tech: 't2_tonics', name: 'Quick-Hands tonic', station: 'campfire', cost: { quartz: 1, herbs: 2, freshWater: 1 }, gain: { speedTonic: 1 }, desc: 'Grants +40% faster weapon reload & fire rate for 3 minutes.' },
-        { id: 'brewStamin', tech: 't2_tonics', name: 'Stamin-Up elixir', station: 'campfire', cost: { resin: 2, herbs: 2, freshWater: 1 }, gain: { staminElixir: 1 }, desc: 'Grants +22% sprint speed & halved stamina drain for 3 minutes.' },
-        { id: 'brewDeadshot', tech: 't2_tonics', name: 'Deadshot tincture', station: 'campfire', cost: { copper: 2, quartz: 1, freshWater: 1 }, gain: { deadshotTinc: 1 }, desc: 'Grants +45% headshot & critical damage for 3 minutes.' },
+        { id: 'craftAetherStim', name: 'Resonance combat stim', station: 'bench', cost: { aetherShard: 1, herbs: 2, scrap: 1 }, gain: { aetherStim: 1 }, desc: 'Restores +45 HP, full stamina, and +30% speed for 20s.' },
+        { id: 'craftOrbitalFlare', name: 'Balloon supply flare', station: 'bench', cost: { aetherShard: 1, wire: 2, fuel: 2, scrap: 3 }, gain: { orbitalFlare: 1 }, desc: 'Use from Backpack to signal a high-altitude supply drop nearby.' },
+        { id: 'brewJug', tech: 't2_tonics', name: 'Heavy combat stim', station: 'campfire', cost: { aetherShard: 1, herbs: 2, freshWater: 1 }, gain: { jugBrew: 1 }, desc: 'Grants +75 Max HP & +25% damage resistance for 3 minutes.' },
+        { id: 'brewSpeed', tech: 't2_tonics', name: 'Adrenaline auto-injector', station: 'campfire', cost: { quartz: 1, herbs: 2, freshWater: 1 }, gain: { speedTonic: 1 }, desc: 'Grants +40% faster weapon reload & fire rate for 3 minutes.' },
+        { id: 'brewStamin', tech: 't2_tonics', name: 'Endurance serum', station: 'campfire', cost: { resin: 2, herbs: 2, freshWater: 1 }, gain: { staminElixir: 1 }, desc: 'Grants +22% sprint speed & halved stamina drain for 3 minutes.' },
+        { id: 'brewDeadshot', tech: 't2_tonics', name: 'Ballistic focus drop', station: 'campfire', cost: { copper: 2, quartz: 1, freshWater: 1 }, gain: { deadshotTinc: 1 }, desc: 'Grants +45% headshot & critical damage for 3 minutes.' },
         { id: 'smeltAetherAlloy', name: 'Refine Aether shard', station: 'kiln', cost: { quartz: 3, coal: 2, iron: 2 }, gain: { aetherShard: 1 }, desc: 'Crystallize Zone minerals into a high-energy Aether Shard.' }
     );
 
@@ -52,8 +52,8 @@
         { id: 'hydro', name: 'Hydro-collector', size: [0.95, 1.45, 0.95], cost: { scrap: 4, planks: 3, cloth: 2 }, color: 0x52889b, tech: 't2_automation', detail: 'Condenses clean Filtered Water automatically every 45s. Press [E] to collect.' },
         { id: 'turret', name: 'Scrap sentry turret', size: [0.85, 1.40, 0.85], cost: { ingot: 4, wire: 3, scrap: 5 }, color: 0x50695b, tech: 't3_turrets', detail: 'Automated tripod turret that locks onto hostiles within 18m and fires live tracer bursts!' },
         { id: 'generator', name: 'Field power generator', size: [1.25, 1.15, 0.95], cost: { ingot: 5, wire: 4, fuel: 3 }, color: 0xc29346, tech: 't3_power', detail: 'Powers base floodlights, doubles Auto-Smelter output, and boosts nearby Turret fire rate by +30%.' },
-        { id: 'beacon', name: 'Homestead grace beacon', size: [0.75, 1.85, 0.75], cost: { quartz: 3, ingot: 3, aetherShard: 1 }, color: 0x7bdcb5, tech: 't3_tactical', detail: 'Player-built Site of Grace: rest, refill Aether Flask, level attributes, and respawn/fast-travel.' },
-        { id: 'infuser', name: 'Aether infusion altar', size: [1.2, 1.05, 1.2], cost: { brick: 4, quartz: 3, aetherShard: 2 }, color: 0xa584e6, tech: 't4_infusion', detail: 'Press [E] to imbue your weapons and tools with Minecraft-style Aether Infusions.' }
+        { id: 'beacon', name: 'Field relay beacon', size: [0.75, 1.85, 0.75], cost: { quartz: 3, ingot: 3, aetherShard: 1 }, color: 0x7bdcb5, tech: 't3_tactical', detail: 'Player-built frontier safehouse beacon: rest, save, and set your forward respawn point.' },
+        { id: 'infuser', name: 'Resonance mod bench', size: [1.2, 1.05, 1.2], cost: { brick: 4, quartz: 3, aetherShard: 2 }, color: 0xa584e6, tech: 't4_infusion', detail: 'Press [E] to apply Black Pine resonance mods to your weapons and field tools.' }
     ];
     frontier.buildings.push(...deepBuildings);
     BO.SurvivalCampaignData.build.push(...deepBuildings);
@@ -110,20 +110,20 @@
         { id: 't1_alchemy', tier: 1, cost: 1, name: 'Field Rations & Medicine', desc: 'Boosts campfire cooking & unlocks Antibiotic Elixir and Thermal Broth.' },
         { id: 't1_scavenge', tier: 1, cost: 1, name: 'Field Logistics', desc: 'Grants +8 kg bonus carry weight immediately and +15% salvage haul loot.' },
         // Tier 2
-        { id: 't2_armory', tier: 2, cost: 1, name: 'Field Armory Schematics', req: 't1_fortifications', desc: 'Forge MP5, R870 Pump, Kar98k, and Desert Eagle at your Workbench.' },
+        { id: 't2_armory', tier: 2, cost: 1, name: 'Field Armory Schematics', req: 't1_fortifications', desc: 'Fabricate field-grade SMGs, shotguns, bolt rifles and sidearms at your Workbench.' },
         { id: 't2_automation', tier: 2, cost: 1, name: 'Automated Base Machines', req: 't1_doors', desc: 'Unlocks passive Auto-Smelter and Hydro-Collector stations.' },
-        { id: 't2_tonics', tier: 2, cost: 1, name: 'Zombies Perk Tonics', req: 't1_alchemy', desc: 'Allows brewing Juggernaut, Quick-Hands, Stamin-Up & Deadshot tonics.' },
+        { id: 't2_tonics', tier: 2, cost: 1, name: 'Field Chem-Stims', req: 't1_alchemy', desc: 'Synthesize Heavy Combat Stim, Adrenaline Auto-Injector, Endurance Serum & Ballistic Focus.' },
         { id: 't2_gunsmith', tier: 2, cost: 1, name: 'Weapon Mk II / III Bench', req: 't1_scavenge', desc: 'Upgrade equipped firearms at any Workbench up to Mk III (+45% DMG).' },
         // Tier 3
         { id: 't3_turrets', tier: 3, cost: 2, name: 'Automated Sentry Turrets', req: 't2_automation', desc: 'Unlocks automated Scrap Sentry Turrets that track & shoot threats.' },
         { id: 't3_power', tier: 3, cost: 2, name: 'Field Power Grid', req: 't2_automation', desc: 'Unlocks Field Power Generator (2x smelter speed & +30% turret fire rate).' },
-        { id: 't3_heavy_arms', tier: 3, cost: 2, name: 'Heavy Weapon Schematics', req: 't2_armory', desc: 'Forge M4A1, AK-47, SPAS-12, and Shadow Carbon Katana at Workbench.' },
-        { id: 't3_tactical', tier: 3, cost: 2, name: 'Homestead Grace & Stealth', req: 't2_tonics', desc: 'Unlocks buildable Homestead Grace Beacon and +25% crouch stealth reduction.' },
+        { id: 't3_heavy_arms', tier: 3, cost: 2, name: 'Heavy Weapon Schematics', req: 't2_armory', desc: 'Fabricate M4A1, AK-47, SPAS-12, and Carbon Breaching Blade at Workbench.' },
+        { id: 't3_tactical', tier: 3, cost: 2, name: 'Field Relay & Stealth', req: 't2_tonics', desc: 'Unlocks buildable Field Relay Beacon and -25% crouch detection.' },
         // Tier 4
-        { id: 't4_infusion', tier: 4, cost: 2, name: 'Aether Infusion Altar', req: 't3_power', desc: 'Unlocks Aether Infusion Altar for Minecraft-style Fortune, Fire Aspect, Vampiric & Overclock.' },
-        { id: 't4_elite_arms', tier: 4, cost: 2, name: 'Elite & Wonder Armory', req: 't3_heavy_arms', desc: 'Forge Intervention .408, SCAR-H, M249 SAW, and Ray Gun Prototype!' },
-        { id: 't4_orbital', tier: 4, cost: 2, name: 'Orbital Supply Support', req: 't3_turrets', desc: 'Craft Orbital Supply Flares and double all Auto-Turret magazine efficiency.' },
-        { id: 't4_mastery', tier: 4, cost: 2, name: 'Aether Master Tools', req: 't2_gunsmith', desc: 'Unlocks Tier 4 Aether Pick/Axe and grants +50 permanent max Armor capacity.' }
+        { id: 't4_infusion', tier: 4, cost: 2, name: 'Resonance Mod Bench', req: 't3_power', desc: 'Unlocks Resonance Mod Bench for Yield, Overcharge, Incendiary, Siphon & Unbreaking mods.' },
+        { id: 't4_elite_arms', tier: 4, cost: 2, name: 'Black Pine Prototype Armory', req: 't3_heavy_arms', desc: 'Fabricate Intervention .408, SCAR-H, M249 SAW, and Black Pine Resonance Emitter.' },
+        { id: 't4_orbital', tier: 4, cost: 2, name: 'Balloon Supply Support', req: 't3_turrets', desc: 'Craft Balloon Supply Flares and double all Auto-Turret magazine efficiency.' },
+        { id: 't4_mastery', tier: 4, cost: 2, name: 'Resonance Alloy Tools', req: 't2_gunsmith', desc: 'Unlocks Tier 4 Resonance Pick/Axe and grants +50 permanent max Armor capacity.' }
     ];
 
     // 7 Minecraft-Style Aether Infusions (Up to 2 Active Simultaneously)

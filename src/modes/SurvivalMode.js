@@ -32,8 +32,14 @@
             this.scene = BO.World.build(MAP_ID);
             this.camera = camera;
             this.active = true;
-            this.difficulty = BO.SurvivalCampaignOptions(campaignOptions).difficulty;
+            const normOpts = BO.SurvivalCampaignOptions(campaignOptions);
+            this.difficulty = normOpts.difficulty;
             this.difficultyRules = BO.SurvivalRules.difficulties[this.difficulty];
+            this.zoneTier = normOpts.zoneTier || 1;
+            this.tierSpec = BO.SurvivalMeta?.tierSpec ? BO.SurvivalMeta.tierSpec(this.zoneTier) : { tier: 1, name: 'Quarantine Perimeter', hp: 1, dmg: 1, cap: 1, rad: 1, loot: 1, xp: 1, bonusComm: 0 };
+            this.seed = checkpoint?.seed || normOpts.seed || (BO.ZoneSeed ? BO.ZoneSeed.randomSeed() : 'ZONE-001');
+            campaignOptions.seed = this.seed;
+            campaignOptions.zoneTier = this.zoneTier;
             Object.assign(this, {
                 hostilesReleased: false, clock: 0, weather: 'Overcast', pressure: 0, composure: 100, radiation: 0, hunger: 100,
                 mealUntil: 0, ember: 0, shotEmber: false, jammed: null, noise: 0, noiseRing: 0, kills: 0, salvaged: 0, breaches: 0,
@@ -279,14 +285,15 @@
                 this.toast('Misfire. This weapon is falling apart — repair it.');
                 return false;
             }
-            const jamChance = weapon.cond < 45 ? (45 - weapon.cond) / 45 * 0.05 * (this.weather === 'Ash rain' ? 1.6 : 1) : 0;
+            const deadeyeMult = Math.max(0.4, 1 - (BO.SurvivalCareer?.masteryRank?.('deadeye') || 0) * 0.15);
+            const jamChance = weapon.cond < 45 ? (45 - weapon.cond) / 45 * 0.05 * (this.weather === 'Ash rain' ? 1.6 : 1) * deadeyeMult : 0;
             if (Math.random() < jamChance) {
                 this.jammed = weapon;
                 p.fireCooldown = 0.35;
                 this.toast('Stoppage! Press reload to clear it.');
                 return false;
             }
-            const wearMult = this.campaign?.deep?.hasInfusion?.('unbreaking') ? 0.4 : 1;
+            const wearMult = (this.campaign?.deep?.hasInfusion?.('unbreaking') ? 0.4 : 1) * deadeyeMult;
             weapon.cond = Math.max(0, weapon.cond - 0.22 * wearMult);
             this.shotEmber = this.ember > 0;
             if (this.shotEmber) this.ember--;
@@ -347,11 +354,12 @@
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) : boss ? BO.ZoneBosses.spec(type) : BO.Math.pick(candidates);
             if (!spec) return null;
             const mfx = this.campaign?.deep?.modFx || {};
+            const ts = this.tierSpec || { hp: 1, dmg: 1 };
             const groundY = y ?? BO.World.getGroundHeight(x, z, 80);
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y: groundY, z, round: 1,
-                hp: Math.round(this.difficultyRules.hp * (boss ? BO.ZoneBosses.hp(type) * (mfx.bossHpMult || 1) : Math.min(340, spec.hp * 0.75 * (this.threat?.hpScale || 1)))),
+                hp: Math.round(this.difficultyRules.hp * ts.hp * (boss ? BO.ZoneBosses.hp(type) * (mfx.bossHpMult || 1) : Math.min(340, spec.hp * 0.75 * (this.threat?.hpScale || 1)))),
                 speed: (boss ? 2.6 : Math.min(4.9, spec.speed)) * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
-                damage: Math.round((boss ? 32 : 13 * (this.threat?.dmgScale || 1)) * this.difficultyRules.damage * (mfx.enemyDmgMult || 1)) });
+                damage: Math.round((boss ? 32 : 13 * (this.threat?.dmgScale || 1)) * this.difficultyRules.damage * ts.dmg * (mfx.enemyDmgMult || 1)) });
             entity.survivalType = type;
             if (boss) entity.bossLabel = BO.ZoneBosses.label(type);
             this.zombies.push(entity);
@@ -619,7 +627,8 @@
             const region = BO.Zone.regionAt(p.pos.x, p.pos.z);
             const underground = BO.World.terrain && p.pos.y < BO.World.terrainHeight(p.pos.x, p.pos.z) - 2.5;
             const radSource = region.threat >= 5 ? 2.2 : region.threat >= 4 ? 0.7 : underground ? 1.2 : 0;
-            const shielding = (c.pack.filtered ? 0.18 : 1) * (needs && c.has('irradiated') ? 1.8 : 1) * (fx?.radGainMult || 1) * (this.weather === 'Rad fog' ? 1.4 : 1);
+            const resMult = Math.max(0.4, 1 - (BO.SurvivalCareer?.masteryRank?.('resonance') || 0) * 0.15);
+            const shielding = (c.pack.filtered ? 0.18 : 1) * (needs && c.has('irradiated') ? 1.8 : 1) * (fx?.radGainMult || 1) * (this.weather === 'Rad fog' ? 1.4 : 1) * (this.tierSpec?.rad || 1) * resMult;
             this.radiation = BO.Math.clamp(this.radiation + dt * (radSource ? radSource * shielding : -0.9), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;
@@ -628,6 +637,17 @@
                 this.hazardClock = 1;
                 const damage = needs ? (this.radiation >= 75 ? 2 : 0) + (this.hunger <= 0 ? 1 : 0) : 0;
                 if (damage) p.takeDamage(damage);
+                // M6 ambient survival audio: Geiger ticks, low-HP heartbeat, subtle weather gusts
+                if (this.radiation > 12 || radSource > 0) {
+                    const intensity = Math.min(1, Math.max(this.radiation / 80, radSource / 2.2));
+                    if (Math.random() < 0.35 + intensity * 0.55) BO.Sound?.playGeigerTick?.(intensity);
+                }
+                if (p.alive && p.hp > 0 && p.hp / p.maxHp < 0.3) {
+                    BO.Sound?.playHeartbeat?.(1 - (p.hp / p.maxHp) / 0.3);
+                }
+                if ((this.weather === 'Ash rain' || this.weather === 'Rad fog' || BO.ZoneFrontier?.local === 'Blizzard') && Math.random() < 0.14) {
+                    BO.Sound?.playWeatherGust?.(BO.ZoneFrontier?.local === 'Blizzard' ? 'blizzard' : this.weather === 'Ash rain' ? 'ash' : 'wind');
+                }
             }
             this.fireClock -= dt;
             const pulse = this.fireClock <= 0;
@@ -750,7 +770,8 @@
             const deep = this.campaign.deep;
             if (id === 'medkits' && p.hp < p.maxHp && this.points.medkits > 0) {
                 this.points.medkits--;
-                const restored = Math.min(p.maxHp - p.hp, this.campaign.has('fieldMedic') ? 75 : 55);
+                const traumaBonus = 1 + (BO.SurvivalCareer?.masteryRank?.('trauma') || 0) * 0.15;
+                const restored = Math.min(p.maxHp - p.hp, Math.round((this.campaign.has('fieldMedic') ? 75 : 55) * traumaBonus));
                 p.hp += restored;
                 if (deep) deep.bleeding = 0;
                 this.campaign.mark('healed', Math.ceil(restored), 0);
@@ -854,18 +875,43 @@
             this.active = false;
             BO.SurvivalUI.close();
             const c = this.campaign;
-            if (victory && awarded) c?.mark('extracts', 1, 300);
-            else if (victory) {
+            const tier = this.zoneTier || 1;
+            const tierBonus = this.tierSpec?.bonusComm || 0;
+            let earnedComm = 0;
+            if (victory && awarded) {
                 c?.mark('extracts', 1, 300);
-                BO.SurvivalCareer.awardCommendations?.(ending ? 5 : 3);
+                earnedComm = (BO.ZoneFinale?.endingCommendations?.(ending) || 5) + tierBonus;
+            } else if (victory) {
+                c?.mark('extracts', 1, 300);
+                earnedComm = (ending ? 5 : 3) + tierBonus;
+                BO.SurvivalCareer.awardCommendations?.(earnedComm);
                 BO.SurvivalCareer.bankExtraction?.(this.points);
-                if (ending) BO.SurvivalCareer.recordEnding?.(ending);
+                if (ending) BO.SurvivalCareer.recordEnding?.(ending, tier);
             }
             BO.SurvivalCareer.tick(c.run, 'seconds', Math.floor(this.clock), 0);
+            BO.SurvivalCareer.recordRun?.({
+                id: c?.run,
+                victory,
+                ending,
+                tier,
+                seed: this.seed || '',
+                daily: !!c?.options?.daily,
+                difficulty: this.difficulty,
+                gameType: c?.options?.gameType || 'expedition',
+                kit: BO.SurvivalCareer?.profile?.kit || 'standard',
+                days: c?.day || 1,
+                kills: this.kills,
+                regions: c?.visited?.size || 1,
+                hordes: c?.metrics?.hordesSurvived || 0,
+                bosses: c?.metrics?.bosses || 0,
+                deaths: this.deaths || 0,
+                time: this.clock,
+                commendations: earnedComm
+            });
             BO.SurvivalCareer.discard(c?.run);
             const titles = { extract: 'EXTRACTED WITH THE DATA', seal: 'THE LANTERN IS SEALED', seize: 'THE LANTERN IS YOURS' };
             const stats = { mode: 'survival', victory, title: victory ? (titles[ending] || 'EXPEDITION COMPLETE') : 'EXPEDITION LOST',
-                mapName: BO.Zone.map.name, time: BO.Math.formatTime(this.clock), kills: this.kills, salvaged: this.salvaged,
+                mapName: BO.Zone.map.name + ' · Tier ' + tier + (this.seed ? ' (' + this.seed + ')' : ''), time: BO.Math.formatTime(this.clock), kills: this.kills, salvaged: this.salvaged,
                 breaches: this.breaches, recoveredCore: !!ending };
             BO.Menus.showAAR(stats);
         }

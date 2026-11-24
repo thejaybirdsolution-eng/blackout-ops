@@ -82,7 +82,8 @@
             const w = m.spawnInfected(x, BO.World.getGroundHeight(x, z, c.y), z, 'warden', null, true);
             if (!w) { this.active = false; return; }
             const diff = { easy: 0.75, normal: 1, hard: 1.25, veteran: 1.4, nightmare: 1.6, apocalypse: 1.9 }[this.campaign.options.difficulty] || 1;
-            w.maxHp = w.hp = Math.round(2200 * diff);
+            const tierHp = m.tierSpec?.hp || 1;
+            w.maxHp = w.hp = Math.round(2200 * diff * tierHp);
             w.baseSpeed = w.speed;
             w.baseDamage = w.damage;
             w.zs = { state: 'hunt', seen: m.clock, home: { x: c.x, z: c.z }, x: c.x, z: c.z, until: 0, wander: 0 };
@@ -166,16 +167,20 @@
                 const left = this.pulseAt - m.clock;
                 if (!this.charging && left <= 3) {
                     this.charging = true;
-                    BO.Sound?.playZombieGroan?.('wraith', 0.8);
+                    if (BO.Sound?.playLanternCharge) BO.Sound.playLanternCharge();
+                    else BO.Sound?.playZombieGroan?.('wraith', 0.8);
                 }
                 if (left <= 0) {
                     this.charging = false;
                     this.pulseAt = m.clock + (phase === 3 ? 9 : 14);
                     BO.FX.spawnExplosion?.(new THREE.Vector3(c.x, c.y, c.z), 6, 0xff6b5b);
-                    P.cameraShake = Math.max(P.cameraShake || 0, 0.18);
+                    BO.Sound?.playLanternPulse?.();
+                    const shakeScale = BO.Settings?.get?.('reducedMotion') ? 0.35 : 1;
+                    P.cameraShake = Math.max(P.cameraShake || 0, 0.18 * shakeScale);
                     if (this.exposed()) {
-                        P.takeDamage(phase === 3 ? 45 : 32);
-                        m.radiation = Math.min(100, m.radiation + 20);
+                        const resMult = Math.max(0.55, 1 - (BO.SurvivalCareer?.masteryRank?.('resonance') || 0) * 0.12);
+                        P.takeDamage(Math.round((phase === 3 ? 45 : 32) * resMult));
+                        m.radiation = Math.min(100, m.radiation + Math.round(20 * resMult));
                         m.toast('The pulse tore through you. Keep a monolith between you and the Lantern!');
                     }
                     // The pulse also scorches exposed brood.
@@ -226,6 +231,10 @@
             setTimeout(() => { if (m.active && BO.Player.alive) BO.SurvivalUI.show('ending'); }, 2600);
         }
 
+        endingCommendations(ending) {
+            return ENDINGS[ending]?.commendations || 0;
+        }
+
         /* ------------------------------------------------------------ endings */
         decide(ending) {
             const spec = ENDINGS[ending];
@@ -237,13 +246,14 @@
             o.step = o.steps.length - 1;
             c.mark('ending_' + ending, 1, 600);
             const career = BO.SurvivalCareer;
-            career.awardCommendations?.(spec.commendations);
-            career.recordEnding?.(ending);
+            const tier = this.mode.zoneTier || 1;
+            const tierBonus = this.mode.tierSpec?.bonusComm || 0;
+            career.awardCommendations?.(spec.commendations + tierBonus);
+            career.recordEnding?.(ending, tier);
             if (ending === 'extract') {
                 career.bankExtraction?.(this.mode.points);
                 career.bankExtraction?.(this.mode.points); // the research buys a second share
             }
-            if (ending === 'seize') career.unlockKit?.('keeper');
             this.applyEffect(ending);
             BO.SurvivalUI.show('epilogue', null, ending);
         }

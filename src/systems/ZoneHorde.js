@@ -95,7 +95,9 @@
             if (!c.isNight && hordeNight === c.nightNumber + 1 && c.hour >= 16.5 && this.warnedNight !== hordeNight) {
                 this.warnedNight = hordeNight;
                 BO.Events.emit('hud:banner', { title: 'HORDE TONIGHT', sub: 'THE LANTERN IS PULSING · FORTIFY YOUR BASE OR FIND HIGH GROUND', color: '#ff7b6b' });
+                BO.Sound?.playRadioChirp?.('warn');
                 BO.Sound?.playZombieGroan?.('brute', 0.9);
+                BO.Events.emit('survival:subtitle', { tag: 'RADIO', text: 'Warning: Lantern surge detected. Horde night begins at 20:00.', kind: 'warn', dur: 4.5 });
             }
             if (!this.active && c.isNight && c.nightNumber === hordeNight && this.doneNight !== hordeNight && (c.hour >= 20 || c.hour < 6)) {
                 this.begin(hordeNight);

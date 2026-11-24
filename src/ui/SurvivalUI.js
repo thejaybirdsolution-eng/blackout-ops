@@ -150,7 +150,7 @@
         ['rules', 'Survival rules', 'Needs and saving'],
         ['modifiers', 'Modifiers', 'Optional twists'],
         ['roster', 'Enemy roster', 'Which infected can appear'],
-        ['career', 'Career & Kits', 'Mastery, kits, blueprints and record']
+        ['career', 'The Archive', 'Mastery tree, kits, stash packing, blueprints and chronicle']
     ];
     const RES_COLOR = {
         pine: '#7fb07a', hardwood: '#b2a36b', boulder: '#a9b3ae', iron: '#d39a7c', coal: '#7d8191', copper: '#7cc6ad',
@@ -249,6 +249,13 @@
                 }
             });
             this.root.addEventListener('input', (e) => {
+                if (e.target.id === 'sv-seed-input') {
+                    const clean = String(e.target.value || '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
+                    career.remember({ ...career.profile.options, seed: clean, daily: false });
+                    const tag = this.root.querySelector('#sv-sum-seed');
+                    if (tag) tag.textContent = clean || 'Random';
+                    return;
+                }
                 if (e.target.id === 'survival-legend-search') {
                     this.legendQuery = e.target.value;
                     const res = this.root.querySelector('#survival-legend-results');
@@ -564,9 +571,65 @@
                 case 'buyMastery':
                     career.buyMastery(arg);
                     return this.renderBriefing();
+                case 'respecMastery': {
+                    const refunded = career.respecMastery();
+                    if (refunded > 0) BO.Events.emit('hud:toast', { text: 'Mastery reset: +' + refunded + ' commendations refunded.', color: '#a6ddd0' });
+                    return this.renderBriefing();
+                }
                 case 'setKit':
                     career.setKit(arg);
                     return this.renderBriefing();
+                case 'setTier': {
+                    const t = Math.max(1, Math.min(career.maxTier, Number(arg) || 1));
+                    career.remember({ ...career.profile.options, zoneTier: t });
+                    return this.renderBriefing();
+                }
+                case 'rollSeed': {
+                    const nextSeed = BO.ZoneSeed ? BO.ZoneSeed.randomSeed() : 'ZONE-001';
+                    career.remember({ ...career.profile.options, seed: nextSeed, daily: false });
+                    return this.renderBriefing();
+                }
+                case 'clearSeed': {
+                    career.remember({ ...career.profile.options, seed: '', daily: false });
+                    return this.renderBriefing();
+                }
+                case 'dailyRun': {
+                    if (!BO.ZoneSeed) return;
+                    const d = BO.ZoneSeed.daily();
+                    career.remember({ ...career.profile.options, gameType: 'expedition', difficulty: d.difficulty, startHour: d.startHour, modifiers: d.modifiers, seed: d.seed, daily: true });
+                    this.activePreset = null;
+                    return this.renderBriefing();
+                }
+                case 'packStash': {
+                    const [itemId, deltaStr] = String(arg || '').split(':');
+                    career.adjustPackedStash?.(itemId, Number(deltaStr) || 0);
+                    return this.renderBriefing();
+                }
+                case 'clearPacked':
+                    career.clearPackedStash?.();
+                    return this.renderBriefing();
+                case 'resetCareer': {
+                    if (!this._confirmReset) {
+                        this._confirmReset = true;
+                        setTimeout(() => { this._confirmReset = false; }, 5000);
+                        return this.renderBriefing();
+                    }
+                    this._confirmReset = false;
+                    career.resetCareer?.();
+                    return this.renderBriefing();
+                }
+                case 'a11yColor': {
+                    BO.Settings?.set?.('colorBlindMode', arg || 'none');
+                    return this.section === 'briefing' ? this.renderBriefing() : this.render();
+                }
+                case 'a11ySub': {
+                    BO.Settings?.set?.('subtitles', !BO.Settings?.get?.('subtitles'));
+                    return this.section === 'briefing' ? this.renderBriefing() : this.render();
+                }
+                case 'a11yMotion': {
+                    BO.Settings?.set?.('reducedMotion', !BO.Settings?.get?.('reducedMotion'));
+                    return this.section === 'briefing' ? this.renderBriefing() : this.render();
+                }
             }
             if (!mode.active || !c) return;
             const deep = c.deep;
@@ -828,8 +891,8 @@
             switch (id) {
                 case 'quick': return preset ? esc(r.presets[preset].name) : 'Custom setup';
                 case 'operation': return esc(r.modes[o.gameType]?.name);
-                case 'difficulty': return esc(r.difficulties[o.difficulty]?.name);
-                case 'world': return START_TIMES.find(([h]) => h === o.startHour)?.[1] + ' · ' + DAY_LENGTHS.find(([d]) => d === o.dayLength)?.[1] + ' days';
+                case 'difficulty': return 'Tier ' + (o.zoneTier || 1) + ' · ' + esc(r.difficulties[o.difficulty]?.name);
+                case 'world': return (o.daily ? 'Daily · ' : o.seed ? esc(o.seed) + ' · ' : '') + START_TIMES.find(([h]) => h === o.startHour)?.[1];
                 case 'rules': return (o.survivalNeeds ? 'Needs on' : 'Needs off') + ' · ' + (o.autosave ? 'autosave' : 'manual saves');
                 case 'modifiers': return o.modifiers.length ? plural(o.modifiers.length, 'active modifier') : 'None';
                 case 'roster': {
@@ -876,7 +939,21 @@
             const all = Object.entries(r.difficulties);
             const maxOf = (k) => Math.max(...all.map(([, d]) => d[k]));
             const bar = (label, v, k, unit, body) => `<span class="sv-statbar"${tip(label, body)}><span>${label}</span><span class="sv-statbar-track"><i style="width:${pct(v, maxOf(k))}%"></i></span><b>${unit(v)}</b></span>`;
-            return `<p class="sv-lede">Difficulty scales enemy toughness, damage and spawn speed, and caps how many may roam once the zone reaches full escalation.</p>
+            const tiers = BO.SurvivalMeta?.ZONE_TIERS || [];
+            const curTier = o.zoneTier || 1;
+            const maxTier = career.maxTier || 1;
+            const ts = BO.SurvivalMeta?.tierSpec ? BO.SurvivalMeta.tierSpec(curTier) : tiers[0];
+            const tierHtml = tiers.length ? `<div class="sv-field sv-tier-box">
+                <div class="sv-field-h"><b>Zone Tier (${curTier} / ${tiers.length}) · ${esc(ts?.name || '')}</b><small>Complete any ending at your highest unlocked tier to unlock the next. Higher tiers multiply threat, radiation, loot, XP and bonus commendations.</small></div>
+                <div class="sv-ztier-strip">${tiers.map((t) => {
+                    const locked = t.tier > maxTier;
+                    const active = t.tier === curTier;
+                    return `<button class="sv-ztier-btn ${active ? 'selected' : ''} ${locked ? 'locked' : ''}" data-act="setTier" data-arg="${t.tier}" ${locked ? 'disabled' : ''}${tip('Tier ' + t.tier + ' · ' + t.name, t.desc, locked ? 'Locked — clear Tier ' + (t.tier - 1) + ' first' : 'HP ×' + t.hp.toFixed(2) + ' · DMG ×' + t.dmg.toFixed(2) + ' · Loot ×' + t.loot.toFixed(2) + ' · +' + t.bonusComm + ' Comm.')}>
+                        <b>T${t.tier}</b><small>${locked ? '🔒' : '×' + t.loot.toFixed(1)}</small></button>`;
+                }).join('')}</div>
+                ${ts ? `<div class="sv-ztier-meta"><span>HP <b>×${ts.hp.toFixed(2)}</b></span><span>Damage <b>×${ts.dmg.toFixed(2)}</b></span><span>Roam Cap <b>×${ts.cap.toFixed(2)}</b></span><span>Rad <b>×${ts.rad.toFixed(2)}</b></span><span>Loot <b>×${ts.loot.toFixed(2)}</b></span><span>XP <b>×${ts.xp.toFixed(2)}</b></span><span class="gold">+${ts.bonusComm} Comm.</span></div>` : ''}
+            </div>` : '';
+            return `${tierHtml}<p class="sv-lede">Difficulty scales enemy toughness, damage and spawn speed, and caps how many may roam once the zone reaches full escalation.</p>
                 <div class="sv-diff-list">${all.map(([id, d]) => `<button class="sv-diff ${o.difficulty === id ? 'selected' : ''}" data-act="opt" data-key="difficulty" data-arg="${id}"${tip(d.name, DIFF_INFO[id] || '')}>
                     <span class="sv-diff-name"><b>${esc(d.name)}</b><small>${esc(DIFF_INFO[id] || '')}</small></span>
                     <span class="sv-diff-bars">
@@ -899,7 +976,22 @@
         }
 
         stepWorld(o) {
-            return `<div class="sv-field"><div class="sv-field-h"><b>Starting time</b><small>When on the 24-hour clock you deploy. Night runs 19:00–06:00 and raises the roaming limit.</small></div>
+            const daily = BO.ZoneSeed ? BO.ZoneSeed.daily() : null;
+            const dailyDone = daily && career.profile.dailyCompleted === daily.date;
+            const seedBlock = `<div class="sv-field sv-seed-box">
+                <div class="sv-field-h"><b>World seed & Daily Expedition</b><small>Seeds deterministically shape container loot rolls, rare weapon finds and zone variation. Share a seed to replay the exact same Zone.</small></div>
+                <div class="sv-seed-row">
+                    <input id="sv-seed-input" class="sv-seed-input" type="text" maxlength="20" placeholder="Random seed (e.g. KESTREL-409)" value="${esc(o.seed || '')}" />
+                    <button class="sv-btn sm" data-act="rollSeed"${tip('Roll seed', 'Generate a new callsign seed.')}>Roll</button>
+                    ${o.seed ? `<button class="sv-btn sm ghost" data-act="clearSeed"${tip('Clear seed', 'Use a fresh random seed on deploy.')}>Clear</button>` : ''}
+                </div>
+                ${daily ? `<div class="sv-daily-card ${o.daily ? 'active' : ''}">
+                    <div><b>Daily Expedition · ${esc(daily.seed)}</b>
+                    <small>${esc(rules().difficulties[daily.difficulty]?.name || daily.difficulty)} · ${daily.modifiers.map((m) => rules().modifiers[m]?.name || m).join(', ')} · ${dailyDone ? '✓ Completed today' : '+' + daily.bonusCommendations + ' Bonus Commendations'}</small></div>
+                    <button class="sv-btn sm ${o.daily ? 'primary' : ''}" data-act="dailyRun">${o.daily ? 'Active' : 'Load Daily'}</button>
+                </div>` : ''}
+            </div>`;
+            return `${seedBlock}<div class="sv-field"><div class="sv-field-h"><b>Starting time</b><small>When on the 24-hour clock you deploy. Night runs 19:00–06:00 and raises the roaming limit.</small></div>
                     ${this.segmented('startHour', o.startHour, START_TIMES)}</div>
                 <div class="sv-field"><div class="sv-field-h"><b>Day length</b><small>Real time for one full day-night cycle. Threat escalates once per in-game day.</small></div>
                     ${this.segmented('dayLength', o.dayLength, DAY_LENGTHS.map(([v, l, b]) => [v, l, '', b]))}</div>
@@ -942,9 +1034,22 @@
             return body;
         }
 
+        a11yBar() {
+            const cb = BO.Settings?.get?.('colorBlindMode') || 'none';
+            const sub = BO.Settings?.get?.('subtitles') !== false;
+            const red = !!BO.Settings?.get?.('reducedMotion');
+            const modes = [['none', 'Standard'], ['protanopia', 'Protanopia'], ['deuteranopia', 'Deuteranopia'], ['tritanopia', 'Tritanopia']];
+            return `<div class="sv-a11y-bar">
+                <b>Accessibility</b>
+                ${modes.map(([id, label]) => `<button class="sv-btn xs ${cb === id ? 'primary' : 'ghost'}" data-act="a11yColor" data-arg="${id}"${tip('Color-vision filter', 'Adjusts Zone palette and danger/safe hues for ' + label.toLowerCase() + '.')}>${label}</button>`).join('')}
+                <button class="sv-btn xs ${sub ? 'primary' : 'ghost'}" data-act="a11ySub"${tip('Radio & Audio Subtitles', 'Shows live closed captions for radio alerts, Warden pulses, horde warnings and directional threat cues.')}>Subtitles: ${sub ? 'ON' : 'OFF'}</button>
+                <button class="sv-btn xs ${red ? 'primary' : 'ghost'}" data-act="a11yMotion"${tip('Reduced Shake & Flash', 'Tones down camera shake and Lantern pulse screen flashes.')}>Reduced Shake: ${red ? 'ON' : 'OFF'}</button>
+            </div>`;
+        }
+
         stepRules(o) {
             const safe = rules().openingSecondsFor ? rules().openingSecondsFor(o) : 60;
-            return `<div class="sv-field">${this.toggle('survivalNeeds', o.survivalNeeds, 'Survival needs', 'Food, water, body temperature and radiation drain over time and hurt you when depleted. Turn off for a pure building and combat run.')}</div>
+            return `${this.a11yBar()}<div class="sv-field">${this.toggle('survivalNeeds', o.survivalNeeds, 'Survival needs', 'Food, water, body temperature and radiation drain over time and hurt you when depleted. Turn off for a pure building and combat run.')}</div>
                 <div class="sv-field">${this.toggle('autosave', o.autosave, 'Autosave when safe', 'Saves a checkpoint every 45 seconds whenever no enemies are within 9 m. You can always save manually from the Journal.')}</div>
                 <div class="sv-info-card"${tip('Safe period', 'No enemies can spawn during the opening safe period. Add the Extended Safe Start modifier to double it.')}>
                     ${Icons().named('plate', '#9fe0c9', 22)}<div><b>${safe} second safe period</b><small>Nothing hostile spawns at the start. Use it to gather branches, stones and fiber and craft your first tools.</small></div></div>
@@ -1027,15 +1132,18 @@
             const start = START_TIMES.find(([h]) => h === o.startHour);
             const mods = o.modifiers.map((id) => r.modifiers[id]).filter(Boolean);
             const checkpoint = career.checkpoint;
-            return `<div class="sv-sum-head"><span class="sv-kicker">Deployment</span><h3>${esc(mode?.name)}</h3><p>${esc(mode?.description)}</p></div>
+            const packedCount = Object.values(career.profile.packedStash || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+            const zTier = BO.SurvivalMeta?.tierSpec ? BO.SurvivalMeta.tierSpec(o.zoneTier || 1) : null;
+            return `<div class="sv-sum-head"><span class="sv-kicker">Deployment${o.daily ? ' · DAILY EXPEDITION' : ''}</span><h3>${esc(mode?.name)}</h3><p>${esc(mode?.description)}</p></div>
                 <dl class="sv-facts">
+                    <div${tip('Zone Tier', zTier?.desc || '')}><dt>Zone Tier</dt><dd>Tier ${o.zoneTier || 1}${zTier ? ' · ' + esc(zTier.name) : ''}</dd></div>
                     <div${tip('Difficulty', DIFF_INFO[o.difficulty] || '')}><dt>Difficulty</dt><dd>${esc(diff?.name)}</dd></div>
+                    <div${tip('World seed', 'Deterministic seed for loot tables and zone rolls.')}><dt>Seed</dt><dd id="sv-sum-seed">${o.seed ? esc(o.seed) : 'Random'}</dd></div>
                     <div${tip('Start', start?.[3] || '')}><dt>Start</dt><dd>${esc(start?.[1])} · ${esc(start?.[2])}</dd></div>
                     <div${tip('Day length', 'One full day-night cycle in real time.')}><dt>Day length</dt><dd>${o.dayLength / 60} min</dd></div>
                     <div${tip('Safe period', 'Seconds before anything hostile can spawn.')}><dt>Safe period</dt><dd>${safe}s</dd></div>
                     <div${tip('Survival needs', 'Food, water, temperature and radiation.')}><dt>Needs</dt><dd>${o.survivalNeeds ? 'On' : 'Off'}</dd></div>
-                    <div${tip('Preset', 'The curated expedition these settings match, if any.')}><dt>Preset</dt><dd>${preset ? esc(r.presets[preset].name) : 'Custom'}</dd></div>
-                    <div${tip('Deployment kit', BO.SurvivalMeta?.KITS?.[career.profile.kit]?.desc || 'Standard balanced kit.')}><dt>Kit</dt><dd>${esc(BO.SurvivalMeta?.KITS?.[career.profile.kit]?.name || 'Standard')}</dd></div>
+                    <div${tip('Deployment kit', BO.SurvivalMeta?.KITS?.[career.profile.kit]?.desc || 'Standard balanced kit.')}><dt>Kit</dt><dd>${esc(BO.SurvivalMeta?.KITS?.[career.profile.kit]?.name || 'Standard')}${packedCount ? ' · +' + packedCount + ' stash' : ''}</dd></div>
                 </dl>
                 <div class="sv-threat"${tip('Threat forecast', 'How many infected may roam at once (bar) and how many enemy types are unlocked (number) on each day. Nights allow about 35% more.')}>
                     <div class="sv-threat-h"><b>Threat forecast</b><small>Roaming limit by day</small></div>
@@ -1053,64 +1161,115 @@
         record(interactive = false) {
             const p = career.profile;
             const stats = p.stats || {};
-            const meta = BO.SurvivalMeta || { MASTERY: {}, KITS: {} };
+            const meta = BO.SurvivalMeta || { MASTERY: {}, MASTERY_BRANCHES: {}, KITS: {} };
             let fastest = 0;
             try { fastest = Number(localStorage.getItem('boSurvivalFastest')) || 0; } catch (_) { /* storage disabled */ }
             const numbers = [
                 ['Expeditions', stats.runs], ['Extractions', stats.extracts], ['Eliminations', stats.kills],
-                ['Bosses defeated', stats.bosses], ['Shrines kindled', stats.shrinesKindled], ['Tech unlocked', stats.techUnlocked],
-                ['Weapons forged', stats.weaponsForged], ['Blood Moons survived', stats.bloodMoons], ['Contracts claimed', stats.quests],
-                ['Items crafted', stats.crafted], ['Structures built', stats.built], ['Salvage collected', stats.salvaged]
+                ['Bosses defeated', stats.bosses], ['Hordes survived', stats.hordesSurvived], ['Garrisons cleared', stats.garrisons],
+                ['Weapons forged', stats.weaponsForged], ['Items crafted', stats.crafted], ['Structures built', stats.built]
             ];
             const comm = p.commendations || 0;
-            const masteryHtml = Object.entries(meta.MASTERY || {}).map(([id, m]) => {
-                const rank = career.masteryRank(id);
-                const maxed = rank >= m.max;
-                const afford = !maxed && comm >= m.cost;
-                const pips = Array.from({ length: m.max }, (_, i) => `<i class="${i < rank ? 'on' : ''}"></i>`).join('');
-                return `<div class="sv-mastery-card ${maxed ? 'maxed' : ''}"${tip(m.name, m.desc, 'Rank ' + rank + ' / ' + m.max + ' · Cost: ' + m.cost + ' Commendation(s)')}>
-                    <div class="sv-mastery-h"><b>${esc(m.name)}</b><small>${rank}/${m.max}</small></div>
-                    <small>${esc(m.desc)}</small>
-                    <div class="sv-mastery-pips">${pips}</div>
-                    ${interactive ? `<button class="sv-btn sm ${afford ? 'primary' : ''}" data-act="buyMastery" data-arg="${id}" ${maxed || !afford ? 'disabled' : ''}>${maxed ? 'Maxed' : 'Upgrade · ' + m.cost + ' Comm.'}</button>` : ''}
-                </div>`;
+            const spent = career.spentCommendations ? career.spentCommendations() : 0;
+            const endings = p.endings || {};
+            const endingMedals = [
+                ['seal', 'Lantern Sealed', '#8fe3c8', 'Overloaded the Lantern core. Unlocks Signal Ghost kit.'],
+                ['extract', 'Data Extracted', '#9fd4ff', 'Carried Black Pine research out. Unlocks Zone Archivist kit.'],
+                ['seize', 'Lantern Seized', '#f2b45a', 'Claimed the anomaly. Unlocks Lantern Keeper kit.']
+            ].map(([id, label, col, desc]) => {
+                const cnt = endings[id] || 0;
+                return `<div class="sv-medal ${cnt > 0 ? 'got' : ''}" style="--mc:${col}"${tip(label, desc, cnt > 0 ? 'Completed ' + cnt + '×' : 'Not yet reached')}>
+                    <b>${cnt > 0 ? '✦' : '◇'} ${esc(label)}</b><small>${cnt > 0 ? cnt + '× cleared' : 'Unclaimed'}</small></div>`;
             }).join('');
+
+            const branches = meta.MASTERY_BRANCHES || { logistics: { name: 'Logistics', color: '#8fe3c8' }, combat: { name: 'Combat', color: '#f2b45a' }, anomaly: { name: 'Anomaly', color: '#c59bff' } };
+            const masterySections = Object.entries(branches).map(([bId, bSpec]) => {
+                const nodes = Object.entries(meta.MASTERY || {}).filter(([, m]) => (m.branch || 'logistics') === bId);
+                if (!nodes.length) return '';
+                return `<div class="sv-mbranch"><div class="sv-mbranch-h" style="--bc:${bSpec.color}"><i></i><b>${esc(bSpec.name)}</b></div>
+                    <div class="sv-meta-grid">${nodes.map(([id, m]) => {
+                        const rank = career.masteryRank(id);
+                        const maxed = rank >= m.max;
+                        const afford = !maxed && comm >= m.cost;
+                        const pips = Array.from({ length: m.max }, (_, i) => `<i class="${i < rank ? 'on' : ''}"></i>`).join('');
+                        return `<div class="sv-mastery-card ${maxed ? 'maxed' : ''}"${tip(m.name, m.desc, 'Rank ' + rank + ' / ' + m.max + ' · Cost: ' + m.cost + ' Commendation(s)')}>
+                            <div class="sv-mastery-h"><b>${esc(m.name)}</b><small>${rank}/${m.max}</small></div>
+                            <small>${esc(m.desc)}</small>
+                            <div class="sv-mastery-pips">${pips}</div>
+                            ${interactive ? `<button class="sv-btn sm ${afford ? 'primary' : ''}" data-act="buyMastery" data-arg="${id}" ${maxed || !afford ? 'disabled' : ''}>${maxed ? 'Maxed' : 'Upgrade · ' + m.cost + ' Comm.'}</button>` : ''}
+                        </div>`;
+                    }).join('')}</div></div>`;
+            }).join('');
+
             const curKit = p.kit || 'standard';
             const kitHtml = Object.entries(meta.KITS || {}).map(([id, k]) => {
                 const unlocked = career.level >= k.level && (career.kitUnlocked ? career.kitUnlocked(id) : true);
                 const selected = curKit === id;
-                const loadText = [BO.SurvivalItemAmounts(k.items), k.ammo ? k.ammo + ' ammo' : '', k.vehicle || ''].filter(Boolean).join(' · ') || 'Standard rifle load';
-                return `<button class="sv-kit-card ${selected ? 'selected' : ''}" ${interactive && unlocked ? `data-act="setKit" data-arg="${id}"` : ''} ${unlocked && interactive ? '' : 'disabled'}${tip(k.name, k.desc, 'Unlocks at Level ' + k.level + ' · ' + loadText)}>
-                    <b>${esc(k.name)}<em>${unlocked ? (selected ? 'ACTIVE' : 'LV ' + k.level) : k.unlock ? '🔒 SEIZE THE LANTERN' : '🔒 LV ' + k.level}</em></b>
+                const loadText = [BO.SurvivalItemAmounts(k.items), k.ammo ? k.ammo + ' ammo' : '', k.vehicle || '', k.techPoints ? '+' + k.techPoints + ' TP' : ''].filter(Boolean).join(' · ') || 'Standard rifle load';
+                return `<button class="sv-kit-card ${selected ? 'selected' : ''}" ${interactive && unlocked ? `data-act="setKit" data-arg="${id}"` : ''} ${unlocked && interactive ? '' : 'disabled'}${tip(k.name, k.desc, (k.unlock ? 'Ending unlock: ' + (k.unlockLabel || k.unlock) : 'Unlocks at Level ' + k.level) + ' · ' + loadText)}>
+                    <b>${esc(k.name)}<em>${unlocked ? (selected ? 'ACTIVE' : 'LV ' + k.level) : k.unlock ? '🔒 ' + (k.unlockLabel || k.unlock.toUpperCase()) : '🔒 LV ' + k.level}</em></b>
                     <small>${esc(k.desc)}</small>
                     <span class="sv-kit-items">${esc(loadText)}</span>
                 </button>`;
             }).join('');
+
             const bpSet = new Set(p.blueprints || []);
+            const bpDiscount = career.masteryRank('blueprint_cache') > 0;
             const bpHtml = (deepData().weaponSchematics || []).map((sch) => {
                 const got = bpSet.has(sch.id);
-                return `<span class="sv-modchip ${got ? '' : 'dim'}"${tip(sch.name + ' Blueprint', got ? 'Permanently unlocked across runs — craftable immediately at any Workbench.' : 'Unlock by forging in-run, mining an Aether meteor, or claiming boss spoils.')}>${got ? '✓ ' : '🔒 '}${esc(sch.name)}</span>`;
+                return `<span class="sv-modchip ${got ? '' : 'dim'}"${tip(sch.name + ' Blueprint', got ? 'Permanently unlocked across runs — craftable immediately at any Workbench' + (bpDiscount ? ' (-25% cost from Blueprint Archivist).' : '.') : 'Unlock by forging in-run or claiming boss spoils.')}>${got ? '✓ ' : '🔒 '}${esc(sch.name)}</span>`;
             }).join('');
+
             const stashEntries = Object.entries(p.stash || {}).filter(([id, n]) => frontier.items[id] && n > 0);
+            const packed = p.packedStash || {};
+            const packedTotal = Object.values(packed).reduce((a, b) => a + (Number(b) || 0), 0);
             const stashHtml = stashEntries.length
-                ? stashEntries.map(([id, n]) => `<span class="sv-modchip"${tip(itemName(id) + ' ×' + n, 'Stored in your Safe-House Stash from past extractions. Withdraw at Relay Sanctuary.')}>${esc(itemName(id))} ×${n}</span>`).join('')
-                : '<span class="sv-muted sm">Empty — extract items at Evac Ridge to bank supplies for future deployments.</span>';
-            const unlocks = [...data.vehicles.map((v) => ({ ...v, kind: 'Vehicle' })), ...data.areas.filter((a) => a.level > 1).map((a) => ({ ...a, kind: 'Area', detail: 'Locked biome — opens at Level ' + a.level + ' or via early gate breach.' }))]
-                .sort((a, b) => a.level - b.level);
+                ? stashEntries.map(([id, n]) => {
+                    const pk = packed[id] || 0;
+                    if (!interactive) return `<span class="sv-modchip"${tip(itemName(id) + ' ×' + n, 'Stored in your Archive Stash from past extractions.')}>${esc(itemName(id))} ×${n}</span>`;
+                    return `<div class="sv-stash-item ${pk > 0 ? 'packed' : ''}"${tip(itemName(id), 'Click + to pack from your Archive Stash into your drop pack for the next expedition.')}>
+                        <span><b>${esc(itemName(id))}</b><small>${n} in stash${pk ? ' · ' + pk + ' packed' : ''}</small></span>
+                        <span class="sv-stash-ctl">
+                            <button class="sv-btn xs ghost" data-act="packStash" data-arg="${id}:-1" ${pk <= 0 ? 'disabled' : ''}>−</button>
+                            <em>${pk}</em>
+                            <button class="sv-btn xs" data-act="packStash" data-arg="${id}:1" ${pk >= n ? 'disabled' : ''}>+</button>
+                        </span></div>`;
+                }).join('')
+                : '<span class="sv-muted sm">Empty — complete expeditions or extract supplies to bank items for future runs.</span>';
+
+            const history = p.history || [];
+            const historyHtml = history.length
+                ? `<div class="sv-chronicle">${history.slice(0, 12).map((h) => {
+                    const endLabel = h.ending ? ({ seal: 'Sealed', extract: 'Extracted', seize: 'Seized' }[h.ending] || h.ending) : h.victory ? 'Cleared' : 'Lost';
+                    return `<div class="sv-chron-row ${h.victory ? 'win' : 'loss'}">
+                        <span class="sv-chron-badge">${esc(endLabel)}</span>
+                        <span class="sv-chron-main"><b>Tier ${h.tier || 1} · ${esc(rules().difficulties[h.difficulty]?.name || h.difficulty)}</b>
+                        <small>${esc(h.date || '')}${h.seed ? ' · ' + esc(h.seed) : ''}${h.daily ? ' (Daily)' : ''} · ${esc(meta.KITS?.[h.kit]?.name || h.kit)}</small></span>
+                        <span class="sv-chron-stats"><b>D${h.days || 1}</b><b>${h.kills || 0} kills</b><b>${BO.Math.formatTime(h.time || 0)}</b>${h.commendations ? `<b class="gold">+${h.commendations}c</b>` : ''}</span>
+                    </div>`;
+                }).join('')}</div>`
+                : '<p class="sv-muted sm">No completed expeditions recorded yet. Finish a run to log it in the Chronicle.</p>';
+
             return `<div class="sv-stats">${numbers.map(([label, n]) => `<div class="sv-stat"><b>${(n || 0).toLocaleString()}</b><small>${label}</small></div>`).join('')}
+                    <div class="sv-stat"><b>Tier ${career.maxTier}/10</b><small>Max Zone Tier</small></div>
                     <div class="sv-stat"><b>${comm}</b><small>Commendations</small></div>
-                    ${fastest ? `<div class="sv-stat"><b>${BO.Math.formatTime(fastest)}</b><small>Fastest extraction</small></div>` : ''}</div>
-                <div class="sv-meta-bar"><div><b>Persistent Mastery</b><small>Permanent upgrades carried into every deployment. Earned from level-ups, bosses, Blood Moons and extractions.</small></div><b>${comm} Commendation${comm === 1 ? '' : 's'}</b></div>
-                <div class="sv-meta-grid">${masteryHtml}</div>
-                <h4 class="sv-sub">Deployment kits ${interactive ? '<small>Choose your starting loadout</small>' : `<small>Active: ${esc(meta.KITS?.[curKit]?.name || 'Standard')}</small>`}</h4>
+                    ${fastest ? `<div class="sv-stat"><b>${BO.Math.formatTime(fastest)}</b><small>Fastest victory</small></div>` : ''}</div>
+                <div class="sv-medals">${endingMedals}</div>
+                <div class="sv-meta-bar">
+                    <div><b>Archive Mastery Tree</b><small>Permanent perks across all expeditions. Earned from level-ups, bosses, hordes, dailies and endings.</small></div>
+                    <div class="sv-meta-bar-r"><b>${comm} Commendation${comm === 1 ? '' : 's'}</b>
+                    ${interactive && spent > 0 ? `<button class="sv-btn sm ghost" data-act="respecMastery"${tip('Respec Mastery', 'Refund all ' + spent + ' spent commendations and reset your mastery tree for free.')}>Respec (+${spent})</button>` : ''}</div>
+                </div>
+                ${masterySections}
+                <h4 class="sv-sub">Deployment kits ${interactive ? '<small>Choose your starting loadout (8 kits)</small>' : `<small>Active: ${esc(meta.KITS?.[curKit]?.name || 'Standard')}</small>`}</h4>
                 <div class="sv-kit-grid">${kitHtml}</div>
-                <h4 class="sv-sub">Permanent blueprints <small>${bpSet.size}/${(deepData().weaponSchematics || []).length}</small></h4>
+                <h4 class="sv-sub">Archive Stash <small>Cap ${career.stashCap ? career.stashCap() : 25}/stack${interactive && packedTotal ? ' · ' + packedTotal + ' packed for drop' : ''}</small>${interactive && packedTotal ? ` <button class="sv-btn xs ghost" data-act="clearPacked">Clear packed</button>` : ''}</h4>
+                <div class="${interactive && stashEntries.length ? 'sv-stash-grid' : 'sv-modchips'}">${stashHtml}</div>
+                <h4 class="sv-sub">Permanent Blueprint Vault <small>${bpSet.size}/${(deepData().weaponSchematics || []).length}${bpDiscount ? ' · -25% forge cost' : ''}</small></h4>
                 <div class="sv-modchips">${bpHtml}</div>
-                <h4 class="sv-sub">Safe-house stash <small>Withdrawable at Relay</small></h4>
-                <div class="sv-modchips">${stashHtml}</div>
-                <h4 class="sv-sub">Level unlocks</h4>
-                <div class="sv-unlocks">${unlocks.map((u) => `<div class="sv-unlock ${career.level >= u.level ? 'got' : ''}"${tip(u.name, u.detail || '', u.kind + ' · level ' + u.level)}>
-                    <span class="sv-unlock-l">LV ${u.level}</span><b>${esc(u.name)}</b><small>${u.kind} · ${career.level >= u.level ? 'Unlocked' : 'Locked'}</small></div>`).join('')}</div>`;
+                <h4 class="sv-sub">Expedition Chronicle <small>${history.length} logged</small></h4>
+                ${historyHtml}
+                ${interactive ? `<div class="sv-archive-foot"><button class="sv-btn sm ghost danger" data-act="resetCareer">${this._confirmReset ? 'Click again to wipe Archive & Career' : 'Reset Archive Career'}</button></div>` : ''}`;
         }
 
         /* ================================================================
@@ -2023,6 +2182,7 @@
             }).join('');
             const checkpoint = career.checkpoint;
             return `<div class="sv-journal sv-scroll" data-scroll="journal">
+                ${this.a11yBar()}
                 <div class="sv-jhero">
                     <div><span class="sv-kicker">${esc(r.modes[c.options.gameType]?.name)} · ${esc(r.difficulties[c.options.difficulty]?.name)}</span><h3>${esc(mode.objective)}</h3><p>${esc(r.modes[c.options.gameType]?.description)}</p></div>
                     <div class="sv-jstats">
@@ -2119,8 +2279,8 @@
                 <h3>The light is louder down here.</h3>
                 <p>The research data ${o.hasData ? 'in your pack names it' : 'would have named it'}: <b>Project Lantern</b>, a resonance engine that was meant to power the valley and instead drew the infection to it like moths. Haven is listening on the relay. Whatever you choose, the Zone will remember.</p>
                 <div class="sv-ending-grid">
-                    ${card('seal', 'Seal it', 'beacon', '#8fe3c8', 'Overload the core and bury the Crater. The infected lose their beacon and scatter — slowly, the Zone can heal.', '+6 commendations. The beam goes dark: fewer infected everywhere and no more horde nights.')}
-                    ${card('extract', 'Extract the data', 'flask', '#9fd4ff', 'Leave the Lantern running and walk out with the research. Someone outside will pay for this — or weaponise it.', '+4 commendations. Banks two shares of your pack into the Archive stash. The world stays as it is.')}
+                    ${card('seal', 'Seal it', 'beacon', '#8fe3c8', 'Overload the core and bury the Crater. The infected lose their beacon and scatter — slowly, the Zone can heal.', '+6 commendations. The beam goes dark: fewer infected everywhere, no more horde nights, and unlocks the Signal Ghost kit.')}
+                    ${card('extract', 'Extract the data', 'flask', '#9fd4ff', 'Leave the Lantern running and walk out with the research. Someone outside will pay for this — or weaponise it.', '+4 commendations. Banks two shares of your pack into the Archive stash and unlocks the Zone Archivist kit.')}
                     ${card('seize', 'Seize it', 'rune', '#f2b45a', 'Take control of the resonance. The infected bend toward you now. Haven will never trust you again.', '+5 commendations. Infected barely notice you. Unlocks the Lantern Keeper kit for future runs.')}
                 </div>
                 <div class="sv-actions center"><button class="sv-btn ghost" data-act="close"${tip('Not yet', 'Step back from the Lantern. You can return and decide later.')}>Not yet</button></div>
@@ -2143,6 +2303,30 @@
            IN-MATCH HUD
         ================================================================ */
         ensureHud() {
+            if (!this._subBound) {
+                this._subBound = true;
+                this._subHost = document.getElementById('sv-subtitles');
+                if (!this._subHost) {
+                    this._subHost = document.createElement('div');
+                    this._subHost.id = 'sv-subtitles';
+                    this._subHost.setAttribute('aria-live', 'polite');
+                    document.body.append(this._subHost);
+                }
+                const pushSub = (payload) => {
+                    if (!BO.SurvivalMode?.active || BO.Settings?.get?.('subtitles') === false || !payload?.text) return;
+                    const line = document.createElement('div');
+                    line.className = 'sv-sub-line ' + (payload.kind || '');
+                    line.innerHTML = (payload.tag ? `<em>[${esc(payload.tag)}]</em>` : '') + esc(payload.text);
+                    this._subHost.append(line);
+                    while (this._subHost.children.length > 3) this._subHost.firstChild.remove();
+                    setTimeout(() => line.remove(), Math.max(1500, (payload.dur || 3.2) * 1000));
+                };
+                BO.Events.on('survival:subtitle', pushSub);
+                BO.Events.on('hud:banner', (b) => {
+                    if (!BO.SurvivalMode?.active || !b?.title) return;
+                    pushSub({ tag: 'RADIO', text: b.title + (b.sub ? ' — ' + b.sub : ''), kind: 'radio', dur: 4.2 });
+                });
+            }
             if (this.hud) return this.hud;
             const layer = document.getElementById('hud-layer');
             const top = document.getElementById('hud-survival');
