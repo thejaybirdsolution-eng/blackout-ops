@@ -711,6 +711,7 @@
             }
             if (BO.Mods) amount *= BO.Mods.incomingDamageMult();
             if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus) amount *= BO.ZoneWorldPlus.incomingDamageMult();
+            if (BO.State.activeMode === 'survival' && BO.GM?.active) amount *= BO.GM.incomingDamageMult();
             if (this.mpPerks.includes('bulwark') && this.crouching && Math.hypot(this.vel.x, this.vel.z) < 0.3) amount *= 0.78;
             if (BO.State.activeMode === 'zombies' && amount > 0) {
                 const mode = BO.ZombiesMode;
@@ -1114,7 +1115,7 @@
                 this.tacSprinting = false;
                 if (!(this.usingBareHands && this.adsHeld)) {
                     const deep = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.deep : null;
-                    const recMult = (deep?.hasTalisman('turtle_emblem') ? 1.40 : 1) * (deep?.comfortUntil > BO.SurvivalMode?.clock ? 1.18 : 1) * (deep?.activeTonics?.espresso > BO.SurvivalMode?.clock ? 1.35 : 1) * (deep?.modFx?.staminaRegenMult || 1);
+                    const recMult = (deep?.hasTalisman('turtle_emblem') ? 1.40 : 1) * (deep?.comfortUntil > BO.SurvivalMode?.clock ? 1.18 : 1) * (deep?.activeTonics?.espresso > BO.SurvivalMode?.clock ? 1.35 : 1) * (deep?.modFx?.staminaRegenMult || 1) * (deep ? (BO.GM?.active ? BO.GM.product('staminaRegenMult') : 1) : 1);
                     this.tacStamina = Math.min(1.0, this.tacStamina + (this.mpPerks.includes('sprinter_recovery') ? 0.50 : 0.25) * recMult * dt);
                 }
             }

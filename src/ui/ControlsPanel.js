@@ -99,6 +99,7 @@
                         </div>
                         <div class="cp-card"><h4>Display</h4>
                             <button class="cp-toggle ${s.showControlHints !== false ? 'on' : ''}" data-cp-toggle="showControlHints"${tip('On-screen key hints', 'Show a small strip of key reminders on the HUD (Survival inventory, crafting, build and map keys).')}><i></i>Show key hints on HUD</button>
+                            <button class="cp-toggle ${s.contextualHud !== false ? 'on' : ''}" data-cp-toggle="contextualHud"${tip('Contextual survival HUD', 'Hide food, water, radiation, temperature and noise meters while they are comfortable; they fade back in when they matter.')}><i></i>Contextual survival HUD</button>
                         </div>
                         <div class="cp-card"><h4>Reset</h4>
                             <p class="cp-muted">Restore every key to its default. ESC always pauses, whatever you bind.</p>
@@ -147,7 +148,7 @@
             }
             if (t.dataset.cpToggle) {
                 const key = t.dataset.cpToggle;
-                const current = key === 'showControlHints' ? BO.Settings.get(key) !== false : !!BO.Settings.get(key);
+                const current = (key === 'showControlHints' || key === 'contextualHud') ? BO.Settings.get(key) !== false : !!BO.Settings.get(key);
                 BO.Settings.set(key, !current);
                 return this.render();
             }

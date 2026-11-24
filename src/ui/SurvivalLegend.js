@@ -13,10 +13,11 @@
 
     const CATS = [
         ['start', 'Getting started', 'flare', 'The crash, Acts 1–3, the Lantern mystery, and how to survive day one.'],
+        ['v10', 'Survival 1.0 systems', 'beacon', 'Hot loot & hauls, corpse runs, light claims, the behaviour ladder, power grids, outposts, vehicles, settlers, weather fronts, food and the seven final bosses.'],
         ['controls', 'Controls', 'fist', 'Every key and mouse action. Rebind any key from the pause menu.'],
         ['threat', 'Senses, hordes & events', 'fire', 'Sight/hearing/smell AI, noise ring, horde nights, PMC garrisons and weather.'],
         ['wild', 'Animals, hunting & cooking', 'bowl', 'Every animal, where it lives and what it drops; raw vs cooked food; campfires, fire camps and cooking stations; every meal.'],
-        ['dungeons', 'Dungeons, bosses & arena', 'key', 'All nine dungeons and their puzzles, the twelve legendary bosses and what wakes them, and the Pit Master arena.'],
+        ['dungeons', 'Dungeons', 'key', 'All nine dungeons and their puzzles. (Legendary hunts and Pit Master duels were replaced by the seven final bosses in 1.0.)'],
         ['quests', 'Quests', 'scroll', 'The quest log: chapters, how tracking works, every quest and its reward.'],
         ['thrill', 'Levels, loot & contracts', 'rune', 'Survivor levels and perk cards, weapon rarity and traits, champions, infested sites, contracts and caches.'],
         ['vitals', 'Vitals, injuries & climate', 'flask', 'Health, bleeding, fractures, hunger, water, cold, toxic ash and radiation.'],
@@ -87,6 +88,7 @@
         const amounts = (c) => Object.entries(typeof c === 'number' ? { scrap: c } : (c || {})).filter(([, n]) => n > 0).map(([id, n]) => n + ' ' + name(id)).join(', ');
         const out = [];
         const add = (e) => { out.push({ tags: [], facts: [], lists: [], ...e }); };
+        for (const e of (typeof BO.GMGuide === 'function' ? BO.GMGuide() : [])) add(e);
         const icon = (glyph, color) => Ic.named(glyph, color || '#9fe0c9', 26);
 
         /* ---------- Where everything comes from (computed from the live world and tables) ---------- */

@@ -539,13 +539,15 @@
                     return true;
                 }
             }
+            if (code === kb.survQuickStack && BO.GM?.active) { BO.GM.get('storage')?.quickStack(); return true; }
+            if (code === kb.survRide && BO.GM?.get('vehicles')?.onRideKey(!!e.shiftKey)) return true;
             if (code === kb.survRide && BO.ZoneWild) { BO.ZoneWild.toggleRide(!!e.shiftKey); return true; }
             if (code === kb.survCompanion && BO.ZoneCompanions) { BO.ZoneCompanions.cycleStance(); return true; }
             // A pending perk card takes the Skills key.
             if (code === kb.survSkills && BO.ZoneThrill?.pending && BO.ZoneThrill.openPick(true)) return true;
             const tabs = {
                 survInventory: 'inventory', survCraft: 'crafting', survMap: 'map', survTravel: 'travel',
-                survSkills: 'skills', survJournal: 'journal', survLegend: 'legend'
+                survSkills: 'skills', survJournal: 'journal', survLegend: 'legend', survBase: 'base'
             };
             for (const [action, tab] of Object.entries(tabs)) {
                 if (code === kb[action]) {

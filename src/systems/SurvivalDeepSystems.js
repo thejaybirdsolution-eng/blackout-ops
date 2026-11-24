@@ -801,7 +801,9 @@
             }
 
             // Update Automated Base Machines (Turrets, Smelters, Hydro, Spikes, Wire)
-            const hasGenerator = this.machines.some((e) => e.piece.alive && e.kind === 'generator');
+            // 1.0: the GM power grid decides what is powered; turrets are run by gm/GMBase.js.
+            const gmBase = BO.GM?.active ? BO.GM.get('base') : null;
+            const hasGenerator = gmBase ? false : this.machines.some((e) => e.piece.alive && e.kind === 'generator');
             const turretBoost = (hasGenerator ? 0.76 : 1) * (this.campaign.has('turretMaster') ? 0.65 : 1);
             const smelterSpeed = (hasGenerator ? 2 : 1) * (mfx.smelterSpeedMult || 1) * (hasGenerator && mfx.powerBoostMult ? mfx.powerBoostMult : 1);
             const hydroSpeed = mfx.hydroSpeedMult || 1;
@@ -810,12 +812,12 @@
             for (const entry of this.machines) {
                 if (!entry.piece.alive) continue;
                 if (entry.kind === 'smelter' && clock >= entry.readyAt) {
-                    entry.readyAt = clock + 30 / smelterSpeed;
+                    entry.readyAt = clock + 30 / (smelterSpeed * (gmBase?.isPowered(entry.piece) ? 2 : 1));
                     entry.buffer = Math.min(8, entry.buffer + 1);
                 } else if (entry.kind === 'hydro' && clock >= entry.readyAt) {
                     entry.readyAt = clock + 45 / hydroSpeed;
                     entry.buffer = Math.min(6, entry.buffer + 1);
-                } else if (entry.kind === 'turret' && m.hostilesReleased && clock >= entry.fireAt) {
+                } else if (entry.kind === 'turret' && !gmBase && m.hostilesReleased && clock >= entry.fireAt) {
                     const target = [...m.zombies, ...m.bots].find((u) => u.alive && u.team !== 0 && dist3(u.pos, entry.piece) <= 18);
                     if (target) {
                         entry.fireAt = clock + 0.58 * turretBoost;

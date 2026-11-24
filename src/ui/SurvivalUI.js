@@ -231,12 +231,13 @@
         { id: 'crafting', label: 'Crafting', bind: 'survCraft', glyph: 'wrench' },
         { id: 'build', label: 'Build', bind: 'survBuild', glyph: 'build' },
         { id: 'map', label: 'Map', bind: 'survMap', glyph: 'scroll' },
+        { id: 'base', label: 'Base', bind: 'survBase', glyph: 'build' },
         { id: 'skills', label: 'Skills', bind: 'survSkills', glyph: 'tech' },
         { id: 'journal', label: 'Journal', bind: 'survJournal', glyph: 'flask' },
         { id: 'legend', label: 'Guide', bind: 'survLegend', glyph: 'rune' }
     ];
     const ALIAS = { pack: 'inventory', workshop: 'crafting', travel: 'fasttravel', tech: 'skills', objectives: 'journal', record: 'journal' };
-    const CONTEXT = new Set(['chest', 'npc', 'shrine', 'infuser', 'fasttravel', 'respawn', 'ending', 'epilogue']);
+    const CONTEXT = new Set(['gmRespawn', 'gmPanel', 'chest', 'npc', 'shrine', 'infuser', 'fasttravel', 'respawn', 'ending', 'epilogue']);
     const COMPACT_SECTIONS = new Set(['inventory', 'crafting', 'build', 'chest', 'npc', 'shrine', 'infuser', 'fasttravel']);
     const STEPS = [
         ['quick', 'Quick start', 'Pick a ready-made expedition'],
@@ -297,6 +298,7 @@
         show(section, deploy, subject) {
             if (!this.dialog) this.create();
             section = ALIAS[section] || section;
+            if (BO.GM?.get('loot')?.pendingRespawn && BO.SurvivalMode.active) section = 'gmRespawn'; // the fallen choose a bed first
             this.returnToBriefing = section === 'legend' && !BO.SurvivalMode.active;
             if (this.section !== section) this.feedback = null;
             this.section = section;
@@ -326,14 +328,14 @@
 
             this.dialog.addEventListener('cancel', (event) => {
                 event.preventDefault();
-                if (this.section === 'respawn') return;
+                if (this.section === 'respawn' || this.section === 'gmRespawn') return;
                 if (this.section === 'legend' && this.returnToBriefing) { this.section = 'briefing'; this.render(); return; }
                 if (this.section === 'briefing') this.close();
                 else this.resume();
             });
             this.dialog.addEventListener('mousedown', (event) => {
                 if (event.target !== this.dialog) return;
-                if (this.section === 'respawn' || this.section === 'ending' || this.section === 'epilogue' || this.section === 'briefing') return;
+                if (this.section === 'respawn' || this.section === 'gmRespawn' || this.section === 'ending' || this.section === 'epilogue' || this.section === 'briefing') return;
                 BO.Sound?.playUIClick?.();
                 this.resume();
             });
@@ -566,7 +568,7 @@
 
         resume() {
             this._hpSeen = undefined;
-            if (this.section === 'respawn') return;
+            if (this.section === 'respawn' || (this.section === 'gmRespawn' && BO.GM?.get('loot')?.pendingRespawn)) return;
             const playing = BO.SurvivalMode.active && this.section !== 'briefing';
             this.close();
             if (playing) BO.App._safePointerLock();
@@ -585,7 +587,7 @@
 
         /** Keyboard while the terminal is open (called from the global key handler). */
         handleKey(e) {
-            if (!this.open || this.section === 'briefing' || this.section === 'respawn') return;
+            if (!this.open || this.section === 'briefing' || this.section === 'respawn' || this.section === 'gmRespawn') return;
             const kb = BO.Settings.getKeybinds();
             const code = e.code;
             for (const t of TABS) {
@@ -918,6 +920,12 @@
                         hotbar.reconcile();
                         deep?.upgradeEquippedWeapon();
                     }
+                    break;
+                }
+                case 'gm': {
+                    const handled = BO.GM?.ui?.act(arg, el, event);
+                    if (handled === 'close') return this.resume();
+                    if (!BO.GM?.get('loot')?.pendingRespawn && this.section === 'gmRespawn') return;
                     break;
                 }
                 default: return;
@@ -1467,16 +1475,19 @@
                 case 'respawn': title = 'You fell'; body = this.ctxRespawn(); break;
                 case 'ending': title = 'The Lantern'; body = this.ctxEnding(); break;
                 case 'epilogue': title = ''; body = BO.ZoneFinale.epilogue(this.subject || c.objectives.ending); break;
-                default: body = this.tabMap();
+                case 'gmRespawn': title = 'You fell'; body = BO.GM?.get('loot')?.renderRespawn() || ''; break;
+                case 'gmPanel': title = BO.GM?.ui?.title(this.subject) || ''; body = BO.GM?.ui?.render(this.subject) || ''; break;
+                default: body = BO.GM?.ui?.renderTab?.(s) ?? this.tabMap();
             }
             const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - mode.clock));
             const t = mode.threat;
             const kb = BO.Settings.getKeybinds();
-            const tabs = s === 'respawn' || s === 'ending' || s === 'epilogue' ? '' : TABS.map((tab) => `<button class="sv-tab ${activeTab === tab.id ? 'active' : ''}" data-act="tab" data-arg="${tab.id}"${tip(tab.label, ({
+            const tabs = s === 'respawn' || s === 'gmRespawn' || s === 'ending' || s === 'epilogue' ? '' : TABS.map((tab) => `<button class="sv-tab ${activeTab === tab.id ? 'active' : ''}" data-act="tab" data-arg="${tab.id}"${tip(tab.label, ({
                 inventory: 'Backpack, hotbar, weapons, tools and field kit.',
                 crafting: 'Every recipe in one place, filtered by category. Station recipes need you nearby.',
                 build: 'Place walls, stations, storage, traps and machines in front of you.',
                 map: 'Field map, fast travel and vehicles.',
+                base: 'Power grid, territory, settlers, outposts, hauls, threat ladder and the weather forecast.',
                 skills: 'Technology tree, story progress and Archive mastery.',
                 journal: 'Objective, challenges, contracts, activities and career.',
                 legend: 'Searchable encyclopedia of everything in Survival.'
@@ -1505,7 +1516,7 @@
                     <div class="sv-brand"><span class="sv-kicker">Field terminal</span><b>${esc(c.area?.name || 'Exclusion Zone')}</b></div>
                     <nav class="sv-tabs">${tabs}</nav>
                     ${status}
-                    ${s === 'respawn' ? '' : `<button class="sv-close" data-act="close"${tip('Close', 'Return to the game (ESC, or press the tab hotkey again).')}>✕</button>`}
+                    ${s === 'respawn' || s === 'gmRespawn' ? '' : `<button class="sv-close" data-act="close"${tip('Close', 'Return to the game (ESC, or press the tab hotkey again).')}>✕</button>`}
                 </header>
                 ${vitals}
                 ${!mode.hostilesReleased ? `<div class="sv-banner safe">Safe period: ${safeLeft}s until hostiles can spawn. Gather branches, stones and fiber by hand and craft your first tools.</div>` : ''}
@@ -1739,7 +1750,7 @@
             const c = mode.campaign;
             const pack = c.pack;
             const deep = c.deep;
-            const inv = pack.inventory;
+            const inv = BO.GM?.get('storage')?.available?.() || pack.inventory;
             const out = [];
             const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
             const status = (r) => {
@@ -1871,22 +1882,23 @@
             const mode = BO.SurvivalMode;
             const c = mode.campaign;
             const deep = c.deep;
-            const inv = mode.points;
+            const inv = BO.GM?.get('storage')?.available?.() || mode.points;
             const pieces = data.build;
             if (!this.selBuild || !pieces.some((b) => b.id === this.selBuild)) this.selBuild = pieces[0].id;
             const costOf = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
             const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
             const cards = pieces.map((b) => {
-                const techOk = !b.tech || deep?.hasTech(b.tech);
+                const techOk = (!b.tech || deep?.hasTech(b.tech)) && !BO.GM?.get('base')?.buildBlock?.(b.id);
                 const afford = mode.canAfford(costOf(b));
                 return `<button class="sv-bcard ${b.id === this.selBuild ? 'selected' : ''} ${!techOk ? 'locked' : afford ? 'ready' : ''}" data-act="buildSel" data-arg="${b.id}"${tip(b.name, b.detail, techOk ? (afford ? 'You can afford this' : 'Missing materials') : 'Locked: research ' + techName(b.tech))}>
                     ${Icons().build(b.id, 30)}<b>${esc(b.name)}</b><span class="sv-bcost">${costInline(costOf(b), inv)}</span>${!techOk ? '<span class="sv-lock">🔒</span>' : ''}</button>`;
             }).join('');
             const b = pieces.find((x) => x.id === this.selBuild);
             const cost = costOf(b);
-            const techOk = !b.tech || deep?.hasTech(b.tech);
+            const gmWhy = BO.GM?.get('base')?.buildBlock?.(b.id) || '';
+            const techOk = (!b.tech || deep?.hasTech(b.tech)) && !gmWhy;
             const can = techOk && mode.canAfford(cost);
-            const why = !techOk ? 'Research “' + techName(b.tech) + '” in Skills first.' : !mode.canAfford(cost) ? 'Gather the missing materials.' : '';
+            const why = gmWhy ? gmWhy : !techOk ? 'Research “' + techName(b.tech) + '” in Skills first.' : !mode.canAfford(cost) ? 'Gather the missing materials.' : '';
             const built = c.placed.filter((x) => x.alive).length;
             const structural = BO.ZoneBuild.isStruct(b.id);
             const parts = c.placed.filter((x) => x.alive && BO.ZoneBuild.isStruct(x.type));
@@ -2287,6 +2299,7 @@
             if (this.mapLayers.sites || this.mapLayers.contacts) {
                 BO.ZoneWorldPlus?.drawMapMarkers?.(ctx, sx, sz, hit, label, zoom);
             }
+            BO.GM?.get('hud')?.drawMap?.(ctx, sx, sz, ppm, hit, label);
             // Waypoint
             const p = BO.Player;
             if (this.mapWaypoint) {
@@ -2644,7 +2657,7 @@
             const p = BO.Player;
             const now = mode.clock;
             // ---- top objective bar
-            const boss = mode.zombies.find((u) => u.alive && u.bossLabel && u.pos.distanceTo(p.pos) < 26);
+            const boss = [...mode.zombies, ...mode.bots].find((u) => u.alive && u.bossLabel && u.pos.distanceTo(p.pos) < 26);
             const safeLeft = Math.max(0, Math.ceil((mode.openingSeconds || 60) - now));
             let headline = mode.objective;
             let sub = '';
@@ -2653,7 +2666,7 @@
             else if (BO.ZoneDungeons?.inside || BO.ZoneLegends?.arena) { const ds = BO.ZoneDungeons?.status() || BO.ZoneLegends.status(); headline = ds.headline; sub = ds.sub; }
             else if (BO.ZoneFinale?.active) { const fs = BO.ZoneFinale.status(); headline = fs.headline; sub = fs.sub; }
             else if (horde?.active) { headline = horde.forecast(); sub = horde.target?.base ? 'Defend your base until the waves are dead or dawn breaks' : 'Survive until the waves are dead or dawn breaks'; }
-            else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = mode.objective; }
+            else if (boss) { headline = boss.bossLabel + ' · ' + Math.ceil(boss.hp) + ' HP'; sub = (boss.gmBoss && BO.GM?.get('bosses')?.hint?.()) || mode.objective; }
             else if (deep?.bloodMoonActive) { headline = 'Blood Moon · ' + Math.max(0, Math.ceil(deep.bloodMoonUntil - now)) + 's'; sub = mode.objective; }
             topEl.classList.toggle('is-safe-prep', !mode.hostilesReleased);
             topEl.classList.toggle('is-blood-moon', !!deep?.bloodMoonActive || !!horde?.active || !!BO.ZoneFinale?.status()?.danger);
@@ -2679,10 +2692,13 @@
             const needs = c.options.survivalNeeds !== false;
             const v = (cls, label, val, max, warn) => `<div class="svh-v ${cls} ${warn ? 'warn' : ''}"><span>${label}</span><i><b style="width:${pct(val, max)}%"></b></i></div>`;
             const temp = Math.round(deep?.temp ?? 20);
-            const vit = (needs ? v('food', 'FOOD', mode.hunger, 100, mode.hunger < 25) + v('water', 'H2O', deep?.hydration ?? 100, 100, (deep?.hydration ?? 100) < 25) : '') +
-                v('rad', 'RAD', mode.radiation, 100, mode.radiation > 60) +
-                `<div class="svh-v temp ${temp < 2 ? 'cold' : temp > 31 ? 'hot' : ''}"><span>TEMP</span><em>${temp}°C</em></div>` +
-                v('noise ' + (mode.noise > 5 ? 'loud' : ''), 'NOISE', Math.min(9, mode.noise || 0), 9, mode.noise > 5) +
+            // 1.0 contextual HUD: comfortable meters stay hidden and fade in when they matter.
+            const ctxHud = BO.Settings.get('contextualHud') !== false;
+            const hyd = deep?.hydration ?? 100;
+            const vit = (needs ? ((!ctxHud || mode.hunger < 45) ? v('food', 'FOOD', mode.hunger, 100, mode.hunger < 25) : '') + ((!ctxHud || hyd < 45) ? v('water', 'H2O', hyd, 100, hyd < 25) : '') : '') +
+                ((!ctxHud || mode.radiation > 0.5) ? v('rad', 'RAD', mode.radiation, 100, mode.radiation > 60) : '') +
+                ((!ctxHud || temp < 8 || temp > 28) ? `<div class="svh-v temp ${temp < 2 ? 'cold' : temp > 31 ? 'hot' : ''}"><span>TEMP</span><em>${temp}°C</em></div>` : '') +
+                ((!ctxHud || (mode.noise || 0) > 0.4) ? v('noise ' + (mode.noise > 5 ? 'loud' : ''), 'NOISE', Math.min(9, mode.noise || 0), 9, mode.noise > 5) : '') +
                 ((BO.ZoneFrontier?.tox || 0) > 1 ? v('tox', 'TOX', BO.ZoneFrontier.tox, 100, BO.ZoneFrontier.tox > 40) : '') +
                 (temp < -3 ? '<div class="svh-v status">FREEZING</div>' : temp < 2 ? '<div class="svh-v status">COLD</div>' : '') +
                 ((BO.ZoneFrontier?.wet || 0) > 30 ? '<div class="svh-v status wet">WET</div>' : '') +

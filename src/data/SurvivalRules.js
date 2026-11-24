@@ -112,8 +112,8 @@
             poolSize,
             cap,
             interval: Math.max(5, 30 - (d - 1) * 3.5 - (night ? 6 : 0)),
-            hpScale: 1 + (d - 1) * 0.07,
-            dmgScale: Math.min(1.45, 1 + (d - 1) * 0.05),
+            hpScale: 1,
+            dmgScale: 1,
             patrols: d >= 2,
             commander: d >= 3,
             mimics: d >= 3

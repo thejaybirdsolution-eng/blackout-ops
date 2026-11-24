@@ -182,6 +182,7 @@
                 const dp = Math.hypot(x - p.x, z - p.z);
                 if (dp < 24 || dp > maxD + 22) continue;
                 if (BO.ZoneInfest?.isSafe(x, z)) continue; // secured ground stays quiet
+                if (BO.GM && !BO.GM.canSpawnAt(x, z)) continue; // lit, claimed ground stays quiet
                 if (BO.ZoneWorldPlus?.isInsideUnlockedFort?.(x, z)) continue;
                 if (BO.World.hasLineOfSight(p.x, p.y + 1.6, p.z, x, y + 1.4, z) && dp < 76) continue;
                 return { x, y, z };

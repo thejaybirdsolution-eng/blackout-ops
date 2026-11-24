@@ -361,6 +361,7 @@
             BO.ZoneWorldPlus?.decoratePlacedPiece?.(piece, spec);
             this.deep?.registerBuild(piece);
             this.placed.push(piece);
+            BO.GM?.call('onBuild', piece, spec);
         }
 
         sleepUntilDawn() {
@@ -534,6 +535,7 @@
                 if (this.mode.hunger >= 75 && deep.hydration >= 75) mult *= 1.08;
             }
             mult *= (BO.ZoneWorldPlus?.speedMult?.() || 1);
+            mult *= (BO.GM?.speedMult?.() || 1);
             if (this.mode.fracture && !(this.mode.painUntil > this.mode.clock)) mult *= 0.68;
             const pack = this.pack;
             const load = pack.weight() / Math.max(1, pack.limits.weight);
@@ -612,6 +614,7 @@
                 thrill: BO.ZoneThrill?.snapshot(), infest: BO.ZoneInfest?.snapshot(), contracts: BO.ZoneContracts?.snapshot(),
                 wild: BO.ZoneWild?.snapshot(), companions: BO.ZoneCompanions?.snapshot(), armory: BO.ZoneArmory?.snapshot(), dungeons: BO.ZoneDungeons?.snapshot(), legends: BO.ZoneLegends?.snapshot(), quests: BO.ZoneQuests?.snapshot(),
                 worldPlus: BO.ZoneWorldPlus?.snapshot(),
+                gm: BO.GM?.active ? BO.GM.snapshot() : null,
                 hostilesReleased: m.hostilesReleased,
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,

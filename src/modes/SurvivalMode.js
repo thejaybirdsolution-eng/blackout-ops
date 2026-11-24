@@ -114,6 +114,7 @@
             BO.ZoneQuests?.start(this, checkpoint?.quests);
             BO.ZoneWorldPlus?.start(this, checkpoint?.worldPlus);
             BO.ZoneSandbox?.start(this, !!checkpoint);
+            BO.GM?.start(this, checkpoint?.gm || null);
             BO.ZoneFinale.stop();
             BO.ZoneFinale.applySaved(c.objectives);
             BO.ZoneBuild.falling.length = 0;
@@ -131,6 +132,7 @@
         }
 
         stop() {
+            BO.GM?.stop();
             if (this.campaign) BO.ZoneBuild.end(true);
             BO.ZoneHorde?.stop();
             BO.ZoneFrontier?.stop();
@@ -249,6 +251,7 @@
             if (part.buildPiece) {
                 part.buildPiece.alive = false;
                 BO.ZoneBuild?.onPieceLost(part.buildPiece);
+                BO.GM?.call('onPieceLost', part.buildPiece);
             }
         }
 
@@ -382,16 +385,17 @@
             const spec = savedSpec ? BO.ZombiesData.get(savedSpec) : boss ? BO.ZoneBosses.spec(type) : BO.Math.pick(candidates);
             if (!spec) return null;
             const mfx = this.campaign?.deep?.modFx || {};
-            const ts = this.tierSpec || { hp: 1, dmg: 1 };
             const groundY = y ?? BO.World.getGroundHeight(x, z, 80);
             const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y: groundY, z, round: 1,
-                hp: Math.round(this.difficultyRules.hp * ts.hp * (boss ? BO.ZoneBosses.hp(type) * (mfx.bossHpMult || 1) : Math.min(340, spec.hp * 0.75 * (this.threat?.hpScale || 1)))),
+                // 1.0: no calendar or tier HP inflation. Escalation comes from the Behaviour Ladder (gm/GMThreat.js).
+                hp: Math.round(this.difficultyRules.hp * (boss ? BO.ZoneBosses.hp(type) : Math.min(340, spec.hp * 0.75))),
                 speed: (boss ? 2.6 : Math.min(4.9, spec.speed)) * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
-                damage: Math.round((boss ? 32 : 13 * (this.threat?.dmgScale || 1)) * this.difficultyRules.damage * ts.dmg * (mfx.enemyDmgMult || 1)) });
+                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage) });
             entity.survivalType = type;
             if (boss) entity.bossLabel = BO.ZoneBosses.label(type);
             this.zombies.push(entity);
             BO.ZoneThrill?.onSpawn(entity, type, required);
+            BO.GM?.call('onSpawn', entity, type, required);
             return entity;
         }
 
@@ -415,6 +419,8 @@
                 if (mfx.flatDmgMult) amount *= mfx.flatDmgMult;
                 if (deep?.training) amount *= deep.trainingDamageMult(damageKind);
                 amount *= (BO.ZoneWorldPlus?.damageMult?.() || 1);
+                if (BO.GM?.active) amount *= BO.GM.product('outgoingDamageMult', entity, damageKind);
+                if (!entity.survivalType && !entity.animal) entity.gmProvoked = true;
                 // Run perks, weapon traits and champion armour (reads awareness before the hit reveals you).
                 if (BO.ZoneThrill) amount = BO.ZoneThrill.modifyHit(entity, amount, hitbox, damageKind);
                 // A hit always makes the target aware of you.
@@ -436,6 +442,7 @@
                 deep?.onKill?.(entity, damageKind);
                 BO.ZoneThrill?.onKill(entity, hitbox, damageKind);
                 BO.ZoneWorldPlus?.onEnemyKilled?.(entity, hitbox, damageKind);
+                BO.GM?.call('onKill', entity, hitbox, damageKind);
                 BO.Progression?.registerCombatKill?.({
                     mode: 'survival',
                     isHeadshot: hitbox === 'head',
@@ -512,7 +519,10 @@
             const context = {
                 playerAlive: p.alive, playerPos: p.pos, playerTeam: 0, bots,
                 modeType: 'survival', objectivePos: null,
-                onBotShootPlayer: (bot, dmg) => { p.takeDamage(dmg * 0.78, bot.pos, false); D.onPlayerHurt(); }
+                onBotShootPlayer: (bot, dmg) => {
+                    if (bot.team === 1 && !bot.gmProvoked && BO.GM?.get('bosses')?.hasReward?.('codebook')) return;
+                    p.takeDamage(dmg * 0.78, bot.pos, false); D.onPlayerHurt();
+                }
             };
             for (const bot of bots) {
                 const step = D.lodTick(bot, dt);
@@ -532,6 +542,7 @@
 
         /* ================================================================ frame */
         update(dt) {
+            if (BO.GM?.get('loot')?.pendingRespawn) { if (this.active && !BO.SurvivalUI.open) BO.SurvivalUI.show('gmRespawn'); return; }
             if (!this.active || this.campaign?.deep?.pendingRespawn) return;
             const p = BO.Player;
             this.clock += dt;
@@ -559,6 +570,7 @@
             BO.ZoneQuests?.update(dt);
             BO.ZoneWorldPlus?.update(dt);
             BO.ZoneSandbox?.update(dt);
+            BO.GM?.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
@@ -574,7 +586,8 @@
             const c = this.campaign;
             const darkness = c?.darkness ?? 0;
             const phase = this.clock % 300;
-            this.weather = !c?.options.weather || c?.has('sv_no_weather') ? 'Clear' : c?.has('sv_no_sun') ? 'Overcast' : phase < 90 ? 'Overcast' : phase < 150 ? 'Ash rain' : phase < 225 ? 'Rad fog' : 'Clearing';
+            const gmWeather = BO.GM?.active ? BO.GM.get('weather')?.globalName?.() : null;
+            this.weather = gmWeather ? gmWeather : !c?.options.weather || c?.has('sv_no_weather') ? 'Clear' : c?.has('sv_no_sun') ? 'Overcast' : phase < 90 ? 'Overcast' : phase < 150 ? 'Ash rain' : phase < 225 ? 'Rad fog' : 'Clearing';
             const FR = BO.ZoneFrontier;
             this.localWeather = FR?.active ? FR.localize(this.weather) : this.weather;
             if (c?.has('sv_no_rain') && /rain|blizzard|storm|snow/i.test(this.localWeather)) this.localWeather = 'Overcast';
@@ -776,6 +789,8 @@
 
         interact() {
             if (!this.active || !BO.Player.alive) return;
+            const veh = BO.GM?.active ? BO.GM.get('vehicles') : null;
+            if (veh?.riding) { veh.exit(); return; } // Interact always gets you out of a vehicle
             const site = this.near;
             if (!site) return;
             if (site.to) {
@@ -784,6 +799,7 @@
                 BO.Sound?.playFootstep?.(true);
                 return;
             }
+            if (BO.GM?.interact(site)) return;
             if (BO.ZoneWorldPlus?.activateMarker?.(site)) return;
             if (BO.ZoneDungeons?.activate(site) || BO.ZoneLegends?.activate(site) || BO.ZoneCompanions?.activate(site) || BO.ZoneArmory?.activate(site) || BO.ZoneWild?.activate(site)) return;
             if (BO.ZoneFrontier.activate(site)) return;
@@ -914,6 +930,7 @@
 
         /* ================================================================ death */
         handleDeath() {
+            if (BO.GM?.active && BO.GM.get('loot')?.handleDeath()) return;
             const c = this.campaign;
             const p = BO.Player;
             if (c.has('ironRun')) return this.finish(false);

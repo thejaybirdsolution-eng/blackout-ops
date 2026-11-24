@@ -1730,8 +1730,10 @@
         }
 
         decoratePlacedPiece(piece, spec) {
-            const m = this.mode;
-            const c = m.campaign;
+            // Restores run before this system starts, so fall back to the live mode.
+            const m = this.mode || BO.SurvivalMode;
+            const c = m?.campaign;
+            if (!c) return;
             const pack = c.pack;
             const [w, h, d] = piece.size;
 

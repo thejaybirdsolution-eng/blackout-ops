@@ -37,6 +37,8 @@
         survTravel: 'KeyT',
         survLegend: 'KeyL',
         survRide: 'KeyN',
+        survBase: 'KeyU',
+        survQuickStack: 'KeyZ',
         survCompanion: 'KeyY',
         survFlask: 'KeyX',
         survLight: 'KeyH',
@@ -96,6 +98,8 @@
             { action: 'survRide', label: 'Ride / dismount', tip: 'Mount your fastest vehicle (or the last one you rode), or get off. Hold Shift to cycle vehicles.', ctx: ['survival'] },
             { action: 'survCompanion', label: 'Companion orders', tip: 'Cycle your tamed beast or Vanguard companion between Follow & Fight, Heel / Stealth, and Guard Post.', ctx: ['survival'] },
             { action: 'survFlask', label: 'Quick heal', tip: 'Use the best medical item you carry: a bandage when bleeding, a medkit when badly hurt, a splint for a fracture.', ctx: ['survival'] },
+            { action: 'survBase', label: 'Base & territory', tip: 'Open the Base screen: power grid, territory, settlers, outposts, hauls, threat ladder and weather forecast.', ctx: ['survival'] },
+            { action: 'survQuickStack', label: 'Quick-stack', tip: 'Deposit every item you already store into your base storage within 10 m (not while hunted).', ctx: ['survival'] },
             { action: 'survLight', label: 'Toggle light', tip: 'Light or put out a carried torch or lantern.', ctx: ['survival'] },
             { action: 'survPlate', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['survival'] }
         ] },
@@ -157,6 +161,7 @@
             if (s.wallDecals === undefined) s.wallDecals = true;
             if (s.damageNumbers === undefined) s.damageNumbers = true;
             if (s.showControlHints === undefined) s.showControlHints = true;
+            if (s.contextualHud === undefined) s.contextualHud = true;
             if (!s.colorBlindMode) s.colorBlindMode = 'none'; // 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia'
             if (s.subtitles === undefined) s.subtitles = true;
             if (s.reducedMotion === undefined) s.reducedMotion = false;
