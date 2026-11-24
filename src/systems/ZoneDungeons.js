@@ -52,7 +52,7 @@
     class Space {
         constructor(mode, ox, oz, color) {
             this.mode = mode; this.ox = ox; this.oz = oz; this.color = color;
-            this.meshes = []; this.cols = []; this.markers = [];
+            this.meshes = []; this.worldRegistered = []; this.cols = []; this.markers = []; this.doors = []; this.portals = [];
         }
         mat(c, opts = {}) { return new THREE.MeshStandardMaterial({ color: new THREE.Color(c).convertSRGBToLinear(), roughness: 0.9, ...opts }); }
         box(x, y, z, w, h, d, c, collide = true, opts) {
@@ -64,7 +64,10 @@
             if (collide) {
                 const col = { minX: x - w / 2, maxX: x + w / 2, minY: y - h / 2, maxY: y + h / 2, minZ: z - d / 2, maxZ: z + d / 2, active: true, navIgnore: true };
                 BO.World.colliders.push(col);
+                BO.World.worldMeshes.push(mesh);
+                mesh.updateMatrixWorld();
                 this.cols.push(col);
+                this.worldRegistered.push(mesh);
                 mesh.userData.col = col;
             }
             return mesh;
@@ -83,19 +86,59 @@
                 this.box(cx + gap / 2 + seg / 2, h / 2, z, seg, h, t, c);
                 this.box(cx, h - 0.4, z, gap, 0.8, t, c);
             }
+            // Corner stone pillars for architectural depth & cover.
+            for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+                this.box(cx + sx * (w / 2 - 0.22), h / 2, cz + sz * (d / 2 - 0.22), 0.44, h, 0.44, new THREE.Color(c).multiplyScalar(0.82).getHex());
+            }
             // Wall lamps.
             return [-1, 1].map((side) => this.box(cx + side * (w / 2 - 0.05), h * 0.7, cz, 0.08, 0.3, 0.6, 0xffe2a8, false, { emissive: new THREE.Color(0xffc870), emissiveIntensity: 1.4 }));
         }
         door(x, z, w, h) {
             const mesh = this.box(x, h / 2, z, w, h, 0.3, 0x3a3a3a, true, { metalness: 0.6 });
-            return { mesh, open: () => { mesh.visible = false; mesh.userData.col.active = false; BO.Sound?.playWallBreak?.(); } };
+            const dObj = {
+                mesh, h, opening: false,
+                open: () => {
+                    if (dObj.opening) return;
+                    dObj.opening = true;
+                    mesh.userData.col.active = false;
+                    const idx = BO.World.worldMeshes.indexOf(mesh);
+                    if (idx >= 0) BO.World.worldMeshes.splice(idx, 1);
+                    BO.Sound?.playWallBreak?.();
+                }
+            };
+            this.doors.push(dObj);
+            return dObj;
+        }
+        tick(dt, clock) {
+            for (const d of this.doors) {
+                if (d.opening && d.mesh.visible) {
+                    d.mesh.position.y += dt * 4.5;
+                    if (d.mesh.position.y > d.h * 1.45) d.mesh.visible = false;
+                }
+            }
+            for (const p of this.portals) {
+                p.ring.rotation.z = clock * 1.4;
+                p.disc.material.opacity = 0.45 + Math.sin(clock * 3.2) * 0.16;
+            }
         }
         marker(mk) { mk.alive = true; this.mode.markers.push(mk); this.markers.push(mk); return mk; }
         dispose() {
-            for (const m of this.meshes) { m.removeFromParent(); m.geometry.dispose(); m.material.dispose(); }
-            for (const c of this.cols) c.active = false;
-            for (const mk of this.markers) mk.alive = false;
-            this.meshes = []; this.cols = []; this.markers = [];
+            for (const wm of this.worldRegistered) {
+                const idx = BO.World.worldMeshes.indexOf(wm);
+                if (idx >= 0) BO.World.worldMeshes.splice(idx, 1);
+            }
+            for (const m of this.meshes) { m.removeFromParent(); m.geometry?.dispose?.(); m.material?.dispose?.(); }
+            for (const c of this.cols) {
+                c.active = false;
+                const idx = BO.World.colliders.indexOf(c);
+                if (idx >= 0) BO.World.colliders.splice(idx, 1);
+            }
+            for (const mk of this.markers) {
+                mk.alive = false;
+                const idx = this.mode.markers.indexOf(mk);
+                if (idx >= 0) this.mode.markers.splice(idx, 1);
+            }
+            this.meshes = []; this.worldRegistered = []; this.cols = []; this.markers = []; this.doors = []; this.portals = [];
         }
     }
 
@@ -148,13 +191,13 @@
         /* ------------------------------------------------------------ entering */
         enter(id) {
             const m = this.mode;
-            const d = DUNGEONS.find((x) => x.id === id);
+            const d = typeof id === 'object' && id ? id : DUNGEONS.find((x) => x.id === id);
             if (!d || this.inside) return;
-            const ent = this.entrances.find((e) => e.d.id === id);
+            const ent = this.entrances.find((e) => e.d.id === d.id) || { x: BO.Player.pos.x, y: BO.Player.pos.y, z: BO.Player.pos.z };
             const idx = DUNGEONS.indexOf(d);
             const ox = 2200 + idx * 500, oz = 0;
             const sp = new Space(m, ox, oz, d.theme);
-            const s = this.st(id);
+            const s = this.st(d.id);
             s.visits++;
             const run = { d, sp, rooms: [], ret: { x: ent.x, y: ent.y, z: ent.z + 2.5 }, timer: null, done: s.cleared };
             const H = 4.2;
@@ -202,13 +245,30 @@
             disc.position.set(x, 1.3, z);
             this.mode.scene.add(ring, disc);
             sp.meshes.push(ring, disc);
+            sp.portals.push({ ring, disc });
             sp.marker({ id: 'dgnexit:' + x.toFixed(1) + ':' + z.toFixed(1), x, y: 0, z, name: 'Portal', label, dgnExit: true, reach: 2.2 });
         }
 
-        /** Notes, puzzles, ore and the chest for a room (enemies spawn on entry). */
+        /** Notes, puzzles, ore, fire grates and the chest for a room (enemies spawn on entry). */
         dress(run, room) {
             const sp = run.sp, r = room.r, d = run.d, s = this.st(d.id);
             const x0 = room.x0, z0 = room.z0;
+            if (r.hazard === 'fire') {
+                room.fireGrates = [];
+                room.fireCones = [];
+                for (let gz = z0 + 1; gz < room.z1 - 0.8; gz += 4) {
+                    const grate = sp.box(room.cx, 0.03, gz, r.w - 1.6, 0.06, 1.7, 0x3a261e, false, { metalness: 0.75, emissive: new THREE.Color(0xff4a00), emissiveIntensity: 0.12 });
+                    room.fireGrates.push(grate);
+                    for (const ox of [-r.w * 0.28, 0, r.w * 0.28]) {
+                        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.5, 7), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff6a1a).convertSRGBToLinear(), transparent: true, opacity: 0.78 }));
+                        cone.position.set(room.cx + ox, 1.25, gz);
+                        cone.visible = false;
+                        this.mode.scene.add(cone);
+                        sp.meshes.push(cone);
+                        room.fireCones.push(cone);
+                    }
+                }
+            }
             if (r.note) {
                 let text = r.note;
                 if (text === 'CODE') { run.code = run.code || [1 + Math.floor(Math.random() * 9), Math.floor(Math.random() * 10), Math.floor(Math.random() * 10)]; text = 'A torn duty roster. Scrawled on the back: "Armoury code ' + run.code.join('-') + '. Burn this."'; }
@@ -218,9 +278,12 @@
             }
             if (r.ore) {
                 const kinds = ['iron', 'coal', 'copper', 'gold', 'quartz', 'sulfur'];
+                run.deposits = run.deposits || [];
                 for (let k = 0; k < r.ore; k++) {
                     const ox = x0 + 1.2 + Math.random() * (r.w - 2.4), oz = z0 + 1.5 + Math.random() * (r.d - 3);
-                    this.campaign.pack.createDeposit?.('dnode:' + d.id + ':' + room.i + ':' + k + ':' + s.visits, { kind: kinds[(k + room.i) % kinds.length], x: ox, y: 0, z: oz });
+                    const depId = 'dnode:' + d.id + ':' + room.i + ':' + k + ':' + s.visits;
+                    this.campaign.pack.createDeposit?.(depId, { kind: kinds[(k + room.i) % kinds.length], x: ox, y: 0, z: oz });
+                    run.deposits.push(depId);
                 }
             }
             if (r.puzzle && !s.cleared) this.buildPuzzle(run, room);
@@ -407,6 +470,7 @@
             if (!p.alive) return;
             if (Math.abs(p.pos.x - run.sp.ox) > 120 || p.pos.y < -30) { if (p.pos.y < -30) { p.pos.set(run.spawn.x, 0.2, run.spawn.z); p.vel.set(0, 0, 0); } else { this.leave(true); return; } }
             this.light.position.set(p.pos.x, p.pos.y + 2.2, p.pos.z);
+            run.sp.tick(dt, m.clock);
             m.localWeather = 'Clear'; // underground: no rain, snow or ash
             const s = this.st(run.d.id);
             for (const room of run.rooms) {
@@ -426,10 +490,19 @@
                     for (let k = 0; k < room.pz.lit.length; k++) room.pz['fire' + k].visible = false;
                     m.toast('The braziers gutter out. Try again — faster.');
                 }
-                if (room.r.hazard === 'fire' && inRoom && !s.cleared) {
+                if (room.r.hazard === 'fire' && !s.cleared) {
                     room.fireT = (room.fireT || 0) + dt;
                     const phase = room.fireT % 6;
-                    if (phase > 4.5 && phase < 5.5 && ((p.pos.z - room.z0) % 4) < 2) { p.takeDamage(14 * dt * 3, null, true); if (Math.random() < 0.2) BO.FX.spawnParticles(p.pos.clone(), 4, 0xff6a1a, 2, 3, 0.4); }
+                    const warn = phase > 3.3 && phase <= 4.5;
+                    const active = phase > 4.5 && phase < 5.6;
+                    if (room.fireGrates) for (const g of room.fireGrates) g.material.emissiveIntensity = active ? 1.5 : warn ? 0.55 + Math.sin(room.fireT * 18) * 0.35 : 0.12;
+                    if (room.fireCones) for (const c of room.fireCones) { c.visible = active; if (active) c.scale.y = 0.82 + Math.sin(room.fireT * 26) * 0.22; }
+                    if (active && inRoom && ((p.pos.z - room.z0) % 4) < 2) {
+                        p.takeDamage(14 * dt * 3, null, true);
+                        if (Math.random() < 0.25) BO.FX.spawnParticles(p.pos.clone(), 4, 0xff6a1a, 2, 3, 0.4);
+                    }
+                } else if (room.fireCones) {
+                    for (const c of room.fireCones) c.visible = false;
                 }
                 if (room.boss && !room.boss.alive && room.boss.hp <= 0 && !s.boss) {
                     s.boss = true;
@@ -503,6 +576,29 @@
             if (!run) return;
             const m = this.mode;
             for (const room of run.rooms) for (const z of room.enemies) if (z.alive) { z.alive = false; z.despawned = true; z.deathTimer = 0; if (z.parts?.root) z.parts.root.visible = false; }
+            const pack = m.campaign?.pack;
+            for (const depId of run.deposits || []) {
+                const node = pack?.resources?.get(depId);
+                if (!node) continue;
+                for (const mesh of node.geometry || []) {
+                    pack.meshToNode?.delete(mesh);
+                    const wi = BO.World.worldMeshes?.indexOf(mesh) ?? -1;
+                    if (wi >= 0) BO.World.worldMeshes.splice(wi, 1);
+                    m.disposeOwned(mesh);
+                }
+                if (node.collider) {
+                    node.collider.active = false;
+                    BO.World.notifyColliderChanged?.(node.collider);
+                    const ci = BO.World.colliders?.indexOf(node.collider) ?? -1;
+                    if (ci >= 0) BO.World.colliders.splice(ci, 1);
+                }
+                if (node.marker) {
+                    node.marker.alive = false;
+                    const mi = m.markers.indexOf(node.marker);
+                    if (mi >= 0) m.markers.splice(mi, 1);
+                }
+                pack.resources.delete(depId);
+            }
             run.sp.dispose();
             this.light?.removeFromParent();
             this.inside = null;

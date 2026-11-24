@@ -299,6 +299,10 @@
                     P.mouseDragging = true;
                     BO.Combat.handleFireInput(true, true);
                 } else if (e.button === 2) {
+                    if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassOpen) {
+                        BO.ZoneWild.setSpyglass(false);
+                        return;
+                    }
                     P.adsHeld = true;
                 }
             });
@@ -373,6 +377,10 @@
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
                 if (BO.SurvivalUI.open || BO.ExpansionShop.open) return;
                 if (Math.abs(e.deltaY) > 4) {
+                    if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) {
+                        BO.ZoneWild.adjustSpyglassZoom(e.deltaY < 0 ? 1 : -1);
+                        return;
+                    }
                     const w = P.activeWeapon;
                     if (w && w.stats && w.stats.variableZoom && (P.adsHeld || P.adsAlpha > 0.35)) {
                         P.adjustScopeZoom(e.deltaY < 0 ? 1 : -1);
@@ -391,6 +399,7 @@
                 if (BO.ExpansionShop.open) return;
                 if (BO.ZoneThrill?.picking) { BO.ZoneThrill.handleKey(e); return; }
                 if (BO.ZoneWild?.boxOpen) { BO.ZoneWild.handleKey(e); return; }
+                if (BO.ZoneArmory?.uiOpen) { BO.ZoneArmory.handleKey(e); return; }
                 if (BO.ZoneLegends?.dialog) { BO.ZoneLegends.handleKey(e); return; }
                 if (BO.SurvivalUI.open) {
                     BO.SurvivalUI.handleKey(e);
@@ -400,6 +409,7 @@
                 const kb = BO.Settings.getKeybinds();
                 const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
 
+                if (code === 'Escape' && BO.ZoneWild?.spyglassOpen) { e.preventDefault(); BO.ZoneWild.setSpyglass(false); return; }
                 if (code === 'Escape' && BO.ZoneBuild?.active) { e.preventDefault(); BO.ZoneBuild.end(); return; }
                 if (code === 'Escape' || code === kb.pause) {
                     e.preventDefault();
@@ -529,7 +539,8 @@
                     return true;
                 }
             }
-            if (code === kb.survRide && BO.ZoneWild) { BO.ZoneWild.toggleRide(); return true; }
+            if (code === kb.survRide && BO.ZoneWild) { BO.ZoneWild.toggleRide(!!e.shiftKey); return true; }
+            if (code === kb.survCompanion && BO.ZoneCompanions) { BO.ZoneCompanions.cycleStance(); return true; }
             // A pending perk card takes the Skills key.
             if (code === kb.survSkills && BO.ZoneThrill?.pending && BO.ZoneThrill.openPick(true)) return true;
             const tabs = {
@@ -580,7 +591,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);

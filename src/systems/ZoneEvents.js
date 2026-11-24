@@ -302,6 +302,7 @@
             if (i >= 0) m.bots.splice(i, 1);
             this.campaign.mark('rescues', 1, 150);
             m.grant({ canned: 2, bandage: 2, ammo9: 18 });
+            const joined = BO.ZoneCompanions?.onDistressRescued?.(s.pos);
             // They know where something worth reading is hidden.
             const A = BO.ZoneArchive;
             let hint = '';

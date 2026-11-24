@@ -271,7 +271,8 @@
                 sp.box(x, 5.3, z, 0.6, 0.6, 0.6, 0xff8a20, false, { emissive: new THREE.Color(0xff7a10), emissiveIntensity: 1.6 });
             }
             const p = BO.Player;
-            this.arena = { rank, b, sp, ret: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, start: m.clock + 3, boss: null, won: false, portalAt: 0 };
+            const wait = m.campaign.has('sv_no_cooldowns') ? 0.3 : 3;
+            this.arena = { rank, b, sp, ret: { x: p.pos.x, y: p.pos.y, z: p.pos.z }, start: m.clock + wait, boss: null, won: false, portalAt: 0 };
             this.light = this.light || new THREE.PointLight(0xffc890, 1.2, 40, 1.4);
             this.light.position.set(ox, 9, oz);
             m.scene.add(this.light);
@@ -285,6 +286,7 @@
         updateArena(dt) {
             const A = this.arena, m = this.mode;
             if (!A) return;
+            A.sp.tick?.(dt, m.clock);
             const p = BO.Player;
             if (!p.alive) return;
             if (Math.abs(p.pos.x - A.sp.ox) > 60) { this.leaveArena(true); return; }
@@ -313,7 +315,7 @@
                 const sp = A.sp;
                 const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.15, 8, 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8fe3c8).convertSRGBToLinear() }));
                 ring.position.set(sp.ox, 1.6, sp.oz);
-                m.scene.add(ring); sp.meshes.push(ring);
+                m.scene.add(ring); sp.meshes.push(ring); sp.portals?.push(ring);
                 sp.marker({ id: 'arenaportal', x: sp.ox, y: 0, z: sp.oz, name: 'Portal home', label: 'Step through the portal home', arenaExit: true, reach: 2.2 });
                 sp.box(sp.ox + 4, 0.45, sp.oz, 1.5, 0.9, 1, 0x8a6a2a, true, { emissive: new THREE.Color(0xffb43a), emissiveIntensity: 0.4 });
                 sp.marker({ id: 'arenachest', x: sp.ox + 4, y: 0, z: sp.oz - 1, name: 'Arena reward chest', label: 'Open the reward chest', arenaChest: true, reach: 2.2 });

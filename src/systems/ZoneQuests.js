@@ -177,6 +177,15 @@
     q('warrior', 'streak25', 'Zone Reaper', 'Reach a 25-kill streak.', { t: 'streak', n: 25 }, 4);
     q('warrior', 'pmc10', 'Sable Problem', 'Kill 10 PMC operators.', M('pmc', 10), 3);
     q('warrior', 'legendaryGun', 'Legendary', 'Hold a Legendary weapon.', { t: 'legendary' }, 4);
+    q('warrior', 'roadkill5', 'Road Warrior', 'Ram and kill 5 infected at speed with a vehicle.', M('roadkills', 5), 2);
+    q('warrior', 'roadkill20', 'Highway Reaper', 'Crush 20 infected under your wheels.', M('roadkills', 20), 4);
+    q('hunter', 'angler3', 'Reservoir Angler', 'Catch 3 fresh fish with a weighted salvage line.', M('fishCaught', 3), 1);
+    q('hunter', 'angler12', 'Master Fisherman', 'Catch 12 fish from waterside stations or the reservoir.', M('fishCaught', 12), 3);
+    q('hunter', 'tame1', 'Pack Bond', 'Tame a wild wolf, boar or bear, or recruit a Haven Vanguard.', M('companionsTamed', 1), 2);
+    q('crafter', 'gunmod1', 'Custom Piece', 'Fit a 3D attachment, core, or rarity upgrade in the Gunsmith.', M('gunsmithMods', 1), 2);
+    q('crafter', 'gunmod5', 'Master Gunsmith', 'Complete 5 Gunsmith attachments, cores or rarity upgrades.', M('gunsmithMods', 5), 4);
+    q('crafter', 'obsidian1', 'Volcanic Steel', 'Forge an Obsidian Trauma Rig or Obsidian Reaper.', M('obsidianForged', 1), 5);
+    q('builder', 'waystone1', 'Home Beacon', 'Build a Resonance Waystone at your homestead.', M('waystonesBuilt', 1), 4);
 
     /* ---------------- Legend */
     q('legend', 'arena1', 'First Blood', 'Win an arena duel.', M('arenaWins', 1), 3);

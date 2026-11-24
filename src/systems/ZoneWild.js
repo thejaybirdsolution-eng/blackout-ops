@@ -154,6 +154,12 @@
             this.claimed = new Set(saved?.claimed || []);
             this.weaponsTaken = new Set(saved?.weaponsTaken || []);
             this.boxOpen = false;
+            this.spyglassOpen = false;
+            this.spyglassZoom = 0;
+            this.spyglassTargetZoom = 4.5;
+            this.ramCd = new Map();
+            this.noiseTick = 0;
+            BO.Player._survGrenades = saved?.grenades ? { ...saved.grenades } : { frag: BO.Player.lethalCount || 0, napalm: 0 };
             this.placeVehicles();
             this.placeWeapons();
             if (mode.campaign.has('sv_master_box')) this.placeMasterBox();
@@ -166,10 +172,16 @@
             for (const o of this.objects || []) o.removeFromParent?.();
             this.objects = [];
             this.closeBox();
+            this.setSpyglass(false);
+            this.spyEl?.remove();
+            this.spyEl = null;
             this.mode = null;
         }
 
-        snapshot() { return { claimed: [...this.claimed], weaponsTaken: [...this.weaponsTaken] }; }
+        snapshot() {
+            const g = BO.Player?._survGrenades || { frag: 0, napalm: 0 };
+            return { claimed: [...this.claimed], weaponsTaken: [...this.weaponsTaken], grenades: { frag: g.frag || 0, napalm: g.napalm || 0 } };
+        }
 
         installOnce() {
             if (this._installed) return;
@@ -199,11 +211,11 @@
                     return ok;
                 };
             }
-            // Vehicle models for the new kinds.
+            // Vehicle models for the new kinds (mounted = true keeps roofs/cabs clear of 1st-person eye height).
             const build = C.buildVehicleModel;
             C.buildVehicleModel = function (id) {
                 const spec = BO.SurvivalCampaignData.vehicles.find((v) => v.id === id);
-                if (spec?.kind && !['bike', 'horse'].includes(spec.kind) && !(spec.kind === 'car' && id === 'rover')) return BO.ZoneWild.vehicleModel(this.mode, spec);
+                if (spec?.kind && !['bike', 'horse'].includes(spec.kind) && !(spec.kind === 'car' && id === 'rover')) return BO.ZoneWild.vehicleModel(this.mode, spec, true);
                 return build.call(this, id === 'mule' ? 'mount' : id);
             };
         }
@@ -253,6 +265,9 @@
             if (!m || !m.active) return;
             const p = BO.Player;
             if (this.regenUntil > m.clock && p.alive && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + 2 * dt);
+            this.syncGrenadeBelt(p);
+            this.updateVehiclePhysics(dt, m, p);
+            this.updateSpyglass(dt, m, p);
             this.spawnClock -= dt;
             if (this.spawnClock <= 0) {
                 this.spawnClock = 4;
@@ -410,29 +425,45 @@
             }
             const take = () => { if (!(pts[id] > 0)) return false; pts[id]--; return true; };
             switch (id) {
-                case 'leather_armor': case 'hide_armor': {
-                    if (p.armor >= p.maxArmor) { m.toast('Your armour is already full.'); return false; }
+                case 'leather_armor': case 'hide_armor': case 'obsidian_armor': {
+                    const maxA = id === 'obsidian_armor' ? 180 : Math.max(p.maxArmor || 150, 150);
+                    if (p.armor >= maxA) { m.toast('Your armour is already full.'); return false; }
                     if (!take()) return false;
-                    p.armor = Math.min(p.maxArmor || 150, (p.armor || 0) + (id === 'leather_armor' ? 60 : 100));
-                    m.toast('Armour on (+' + (id === 'leather_armor' ? 60 : 100) + ').');
+                    p.maxArmor = maxA;
+                    const gain = id === 'leather_armor' ? 60 : id === 'hide_armor' ? 100 : 140;
+                    p.armor = Math.min(maxA, (p.armor || 0) + gain);
+                    m.toast((id === 'obsidian_armor' ? 'Obsidian trauma rig fitted' : 'Armour on') + ' (+' + gain + ').');
                     return true;
                 }
-                case 'frag_grenade': case 'molotov':
+                case 'frag_grenade': case 'molotov': {
                     if (!take()) return false;
-                    p.lethalId = p.lethalId || 'frag';
-                    p.lethalCount = (p.lethalCount || 0) + 1;
-                    m.toast('+1 ' + (id === 'molotov' ? 'fire grenade' : 'frag grenade') + ' (' + BO.Settings.keyLabel(BO.Settings.getKeybinds().lethal) + ' to throw).');
+                    const kind = id === 'molotov' ? 'napalm' : 'frag';
+                    const belt = (p._survGrenades = p._survGrenades || { frag: p.lethalCount || 0, napalm: 0 });
+                    // If held in hand in 3D (terminal closed), hurl it immediately! Otherwise arm onto lethal belt.
+                    if (!BO.SurvivalUI?.open && p.survivalProp?.id === id && BO.Combat?._spawnGrenade) {
+                        const spec = BO.AttachmentsData.LETHALS[kind];
+                        if (spec) {
+                            BO.Combat._spawnGrenade(kind, spec.fuseTime || 2.2, spec);
+                            BO.Sound?.playMelee?.();
+                            return true;
+                        }
+                    }
+                    belt[kind] = (belt[kind] || 0) + 1;
+                    p.lethalId = kind;
+                    p.lethalCount = belt[kind];
+                    m.toast('Armed ' + (id === 'molotov' ? 'firebomb' : 'frag grenade') + ' (' + belt[kind] + ' on belt · press ' + BO.Settings.keyLabel(BO.Settings.getKeybinds().lethal) + ' to throw).');
                     return true;
+                }
                 case 'candle':
                     if (!take()) return false;
+                    this.campaign.pack.lightKind = 'candle';
                     this.campaign.pack.lightUntil = Math.max(this.campaign.pack.lightUntil, m.clock) + 240;
                     m.toast('Candle lit for 4 minutes.');
                     return true;
                 case 'spyglass': {
                     if (!(pts.spyglass > 0)) return false;
-                    let n = 0;
-                    for (const s of BO.ZoneInfest?.sites || []) if (!s.seen && Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 250) { s.seen = true; n++; }
-                    m.toast('Through the spyglass: ' + n + ' new site' + (n === 1 ? '' : 's') + ' marked, ' + this.animals.filter((a) => a.alive).length + ' animals nearby.');
+                    if (BO.SurvivalUI?.open) BO.SurvivalUI.close();
+                    this.setSpyglass(!this.spyglassOpen);
                     return true;
                 }
                 case 'bedroll': {
@@ -478,8 +509,151 @@
             }
         }
 
+        /* ------------------------------------------------------------ belt, spyglass & vehicle physics */
+        syncGrenadeBelt(p) {
+            const belt = (p._survGrenades = p._survGrenades || { frag: p.lethalCount || 0, napalm: 0 });
+            const cur = p.lethalId === 'napalm' ? 'napalm' : 'frag';
+            if (p.lethalId !== 'frag' && p.lethalId !== 'napalm') p.lethalId = 'frag';
+            if ((p.lethalCount || 0) !== belt[cur]) {
+                // Player threw a grenade via [G] (or picked up grenades from Box of Wonders)
+                belt[cur] = Math.max(0, p.lethalCount || 0);
+            }
+            if (belt[cur] <= 0) {
+                const other = cur === 'frag' ? 'napalm' : 'frag';
+                if (belt[other] > 0) {
+                    p.lethalId = other;
+                    p.lethalCount = belt[other];
+                }
+            }
+        }
+
+        setSpyglass(on) {
+            const m = this.mode;
+            if (!m) return;
+            this.spyglassOpen = !!on;
+            if (!on) {
+                this.spyglassZoom = 0;
+                if (this.spyEl) this.spyEl.hidden = true;
+                return;
+            }
+            this.spyglassTargetZoom = this.spyglassTargetZoom || 4.5;
+            this.spyglassZoom = this.spyglassTargetZoom;
+            const p = BO.Player;
+            let marked = 0;
+            for (const s of BO.ZoneInfest?.sites || []) if (!s.seen && Math.hypot(s.x - p.pos.x, s.z - p.pos.z) < 280) { s.seen = true; marked++; }
+            if (marked > 0) m.toast('Spyglass recon: marked ' + marked + ' infested site' + (marked === 1 ? '' : 's') + ' on map.');
+            BO.Sound?.playUIClick?.();
+        }
+
+        adjustSpyglassZoom(dir) {
+            if (!this.spyglassZoom) return false;
+            this.spyglassTargetZoom = BO.Math.clamp(Number(((this.spyglassTargetZoom || 4.5) + dir * 1.0).toFixed(1)), 2.5, 10.0);
+            this.spyglassZoom = this.spyglassTargetZoom;
+            return true;
+        }
+
+        updateSpyglass(dt, m, p) {
+            const holdingSpyglass = p.usingBareHands && p.survivalProp?.id === 'spyglass' && (m.points.spyglass || 0) > 0;
+            const wantAds = holdingSpyglass && p.adsHeld;
+            if (this.spyglassOpen && (!p.alive || m.rider || BO.SurvivalUI?.open || !(m.points.spyglass > 0))) {
+                this.spyglassOpen = false;
+            }
+            const active = this.spyglassOpen || wantAds;
+            if (!active) {
+                this.spyglassZoom = 0;
+                if (this.spyEl && !this.spyEl.hidden) this.spyEl.hidden = true;
+                return;
+            }
+            this.spyglassZoom = this.spyglassTargetZoom || 4.5;
+            if (!this.spyEl) {
+                this.spyEl = document.createElement('div');
+                this.spyEl.className = 'zt-spyglass';
+                this.spyEl.innerHTML = `<div class="zt-spy-ring"><div class="zt-spy-cross"></div><div class="zt-spy-ticks"></div></div>
+                    <div class="zt-spy-readout"><b class="zt-spy-tgt">SCANNING HORIZON</b><span class="zt-spy-sub">4.5× OPTIC · WHEEL TO ZOOM · ESC / RMB TO LOWER</span></div>`;
+                document.body.appendChild(this.spyEl);
+            }
+            this.spyEl.hidden = false;
+            if (m.camera) {
+                const aim = p.getAimRay(m.camera);
+                const worldHit = BO.World.raycastWorld(aim.origin, aim.dir, 420);
+                let dist = worldHit ? Math.round(worldHit.distance) : null;
+                let label = '';
+                let bestDot = 0.985;
+                const checkTarget = (x, y, z, text) => {
+                    const dx = x - aim.origin.x, dy = y - aim.origin.y, dz = z - aim.origin.z;
+                    const d = Math.hypot(dx, dy, dz);
+                    if (d < 2 || d > 360) return;
+                    const dot = (dx * aim.dir.x + dy * aim.dir.y + dz * aim.dir.z) / d;
+                    if (dot > bestDot) { bestDot = dot; dist = Math.round(d); label = text; }
+                };
+                for (const z of m.zombies) if (z.alive) checkTarget(z.pos.x, z.pos.y + 1.1, z.pos.z, (z.bossLabel || z.champName || z.spec?.name || 'Infected') + ' · ' + Math.ceil(z.hp) + ' HP');
+                for (const a of this.animals) if (a.alive) checkTarget(a.pos.x, a.pos.y + a.height * 0.6, a.pos.z, a.spec.name + (a.kind === 'wolf' || a.kind === 'boar' || a.kind === 'bear' ? ' · Tameable' : ''));
+                for (const mk of m.markers) if (mk.alive !== false && (mk.dungeon || mk.vehicle || mk.kind === 'tower' || mk.pit)) checkTarget(mk.x, (mk.y || 0) + 1.4, mk.z, mk.name);
+                if (!label) {
+                    for (const poi of BO.Zone.pois) {
+                        const dx = poi.x - aim.origin.x, dz = poi.z - aim.origin.z;
+                        const d = Math.hypot(dx, dz);
+                        if (d < 400 && (dx * aim.dir.x + dz * aim.dir.z) / Math.max(1, d) > 0.97) {
+                            label = (poi.name || poi.type.replace(/_/g, ' ')) + ' (Tier ' + (poi.tier || 1) + ')';
+                            if (dist == null) dist = Math.round(d);
+                            break;
+                        }
+                    }
+                }
+                const tgtEl = this.spyEl.querySelector('.zt-spy-tgt');
+                const subEl = this.spyEl.querySelector('.zt-spy-sub');
+                const head = (label || BO.Zone.regionAt(p.pos.x, p.pos.z).name) + (dist != null ? ' · ' + dist + ' m' : '');
+                const sub = this.spyglassZoom.toFixed(1) + '× RECON · ' + this.animals.filter((a) => a.alive && a.pos.distanceTo(p.pos) < 160).length + ' WILDLIFE NEARBY · WHEEL ZOOM';
+                if (tgtEl.textContent !== head) tgtEl.textContent = head.toUpperCase();
+                if (subEl.textContent !== sub) subEl.textContent = sub;
+            }
+        }
+
+        updateVehiclePhysics(dt, m, p) {
+            const c = this.campaign;
+            if (!c?.vehicle || !p.alive) return;
+            const spec = BO.SurvivalCampaignData.vehicles.find((v) => v.id === c.vehicle);
+            if (!spec) return;
+            const horiz = Math.hypot(p.vel.x, p.vel.z);
+            this.noiseTick -= dt;
+            if (horiz > 2.2 && spec.noise > 0 && this.noiseTick <= 0) {
+                this.noiseTick = 0.45;
+                m.noise = Math.max(m.noise || 0, Math.min(9, spec.noise * 1.15));
+                BO.ZoneDirector?.noise?.(p.pos.x, p.pos.z, 18 + spec.noise * 18, 'vehicle');
+            }
+            // Vehicle ramming: hitting infected at speed knocks them down and crushes them based on vehicle mass!
+            if (horiz < 6.2) return;
+            const heavy = ['truck', 'apc', 'tractor', 'car'].includes(spec.kind);
+            const med = ['quad', 'moto', 'sled', 'mono', 'kart'].includes(spec.kind);
+            const ramRadius = heavy ? 1.85 : med ? 1.35 : 1.05;
+            const massMult = heavy ? 11.5 : med ? 7.0 : 4.2;
+            const fwd = p.getMoveDirectionVectors().forward;
+            for (const zb of m.zombies) {
+                if (!zb.alive) continue;
+                const lastHit = this.ramCd.get(zb) ?? -99;
+                if (m.clock - lastHit < 0.75) continue;
+                const dx = zb.pos.x - p.pos.x, dz = zb.pos.z - p.pos.z;
+                const d = Math.hypot(dx, dz);
+                if (d > ramRadius + (zb.radius || 0.45) || Math.abs(zb.pos.y - p.pos.y) > 2.0) continue;
+                if (d > 0.3 && (dx * fwd.x + dz * fwd.z) / d < 0.25) continue;
+                this.ramCd.set(zb, m.clock);
+                const dmg = Math.round(horiz * massMult);
+                const killed = m.hit(zb, dmg, 'torso', fwd, 'melee', null);
+                if (zb.alive) {
+                    zb.pos.x += fwd.x * (heavy ? 2.4 : 1.4);
+                    zb.pos.z += fwd.z * (heavy ? 2.4 : 1.4);
+                    zb.stunTimer = Math.max(zb.stunTimer || 0, heavy ? 1.2 : 0.6);
+                } else if (killed) {
+                    c.mark('roadkills', 1, 12);
+                }
+                p.cameraShake = Math.max(p.cameraShake || 0, heavy ? 0.04 : 0.025);
+                BO.Sound?.playMeleeHit?.();
+                BO.FX?.spawnParticles?.(zb.pos.clone().setY(zb.pos.y + 0.9), 8, 0x991b1b, 3.5, 8, 0.4);
+            }
+        }
+
         /* ------------------------------------------------------------ vehicles */
-        vehicleModel(m, spec) {
+        vehicleModel(m, spec, mounted = false) {
             const g = new THREE.Group();
             const c = spec.color;
             const box = (w, h, d, col, x, y, z) => { const mesh = m.mesh(new THREE.BoxGeometry(w, h, d), col, x, y, z); g.add(mesh); return mesh; };
@@ -487,14 +661,54 @@
             switch (spec.kind) {
                 case 'moto': wheel(0.32, 0.12, 0, 0.32, -0.7); wheel(0.32, 0.12, 0, 0.32, 0.55); box(0.28, 0.3, 1.1, c, 0, 0.62, -0.05); box(0.6, 0.06, 0.06, 0x333333, 0, 0.98, -0.6); break;
                 case 'quad': for (const sx of [-1, 1]) for (const z of [-0.6, 0.55]) wheel(0.3, 0.25, sx * 0.5, 0.3, z); box(0.8, 0.35, 1.4, c, 0, 0.62, 0); box(0.7, 0.06, 0.06, 0x333333, 0, 1.0, -0.6); break;
-                case 'car': for (const sx of [-1, 1]) for (const z of [-0.95, 0.95]) wheel(0.36, 0.22, sx * 0.85, 0.36, z); box(1.7, 0.6, 3.2, c, 0, 0.75, 0); box(1.5, 0.5, 1.4, new THREE.Color(c).multiplyScalar(0.8).getHex(), 0, 1.3, 0.2); break;
-                case 'truck': for (const sx of [-1, 1]) for (const z of [-1.3, 1.2]) wheel(0.42, 0.26, sx * 0.95, 0.42, z); box(1.9, 0.8, 3.9, c, 0, 0.95, 0); box(1.8, 0.7, 1.3, c, 0, 1.7, -0.95); break;
-                case 'apc': for (const sx of [-1, 1]) for (const z of [-1.3, 0, 1.3]) wheel(0.45, 0.3, sx * 1.05, 0.45, z); box(2.0, 1.2, 4.2, c, 0, 1.2, 0); box(0.6, 0.35, 0.6, 0x2a2a2a, 0, 2.0, 0.2); box(0.1, 0.1, 1.2, 0x2a2a2a, 0, 2.05, -0.6); break;
+                case 'car':
+                    for (const sx of [-1, 1]) for (const z of [-0.95, 0.95]) wheel(0.36, 0.22, sx * 0.85, 0.36, z);
+                    box(1.7, 0.52, 3.2, c, 0, 0.68, 0);
+                    if (!mounted) box(1.5, 0.5, 1.4, new THREE.Color(c).multiplyScalar(0.8).getHex(), 0, 1.3, 0.2);
+                    else box(1.4, 0.08, 0.35, 0x262c30, 0, 0.98, -0.82);
+                    break;
+                case 'truck':
+                    for (const sx of [-1, 1]) for (const z of [-1.3, 1.2]) wheel(0.42, 0.26, sx * 0.95, 0.42, z);
+                    box(1.9, 0.66, 3.9, c, 0, 0.8, 0);
+                    if (!mounted) box(1.8, 0.7, 1.3, c, 0, 1.7, -0.95);
+                    else box(1.6, 0.1, 0.42, 0x262c30, 0, 1.12, -1.05);
+                    break;
+                case 'apc':
+                    for (const sx of [-1, 1]) for (const z of [-1.3, 0, 1.3]) wheel(0.45, 0.3, sx * 1.05, 0.45, z);
+                    if (!mounted) {
+                        box(2.0, 1.2, 4.2, c, 0, 1.2, 0);
+                        box(0.6, 0.35, 0.6, 0x2a2a2a, 0, 2.0, 0.2);
+                        box(0.1, 0.1, 1.2, 0x2a2a2a, 0, 2.05, -0.6);
+                    } else {
+                        box(2.0, 0.68, 4.2, c, 0, 0.76, 0);
+                        box(0.12, 0.12, 1.1, 0x2a2a2a, 0.55, 1.12, -1.35);
+                    }
+                    break;
                 case 'sled': box(0.8, 0.4, 1.8, c, 0, 0.5, 0); box(0.12, 0.06, 2.0, 0x222222, 0.35, 0.12, 0); box(0.12, 0.06, 2.0, 0x222222, -0.35, 0.12, 0); box(0.6, 0.06, 0.06, 0x333333, 0, 0.98, -0.6); break;
-                case 'tractor': wheel(0.6, 0.3, 0.7, 0.6, 0.5); wheel(0.6, 0.3, -0.7, 0.6, 0.5); wheel(0.32, 0.2, 0.55, 0.32, -0.9); wheel(0.32, 0.2, -0.55, 0.32, -0.9); box(0.8, 0.6, 1.8, c, 0, 0.9, -0.2); box(0.9, 0.9, 0.8, 0x222222, 0, 1.6, 0.4); break;
-                case 'cart': for (const sx of [-1, 1]) for (const z of [-0.7, 0.7]) wheel(0.22, 0.14, sx * 0.55, 0.22, z); box(1.1, 0.3, 1.9, c, 0, 0.45, 0); box(1.1, 0.05, 1.1, c, 0, 1.6, 0.1); for (const sx of [-1, 1]) box(0.05, 1.1, 0.05, 0x888888, sx * 0.5, 1.05, -0.4); break;
+                case 'tractor':
+                    wheel(0.6, 0.3, 0.7, 0.6, 0.5); wheel(0.6, 0.3, -0.7, 0.6, 0.5); wheel(0.32, 0.2, 0.55, 0.32, -0.9); wheel(0.32, 0.2, -0.55, 0.32, -0.9);
+                    box(0.8, 0.55, 1.8, c, 0, 0.85, -0.2);
+                    if (!mounted) box(0.9, 0.9, 0.8, 0x222222, 0, 1.6, 0.4);
+                    break;
+                case 'cart':
+                    for (const sx of [-1, 1]) for (const z of [-0.7, 0.7]) wheel(0.22, 0.14, sx * 0.55, 0.22, z);
+                    box(1.1, 0.3, 1.9, c, 0, 0.45, 0);
+                    if (!mounted) {
+                        box(1.1, 0.05, 1.1, c, 0, 1.6, 0.1);
+                        for (const sx of [-1, 1]) box(0.05, 1.1, 0.05, 0x888888, sx * 0.5, 1.05, -0.4);
+                    }
+                    break;
                 case 'kart': for (const sx of [-1, 1]) for (const z of [-0.6, 0.6]) wheel(0.2, 0.18, sx * 0.55, 0.2, z); box(0.9, 0.18, 1.6, c, 0, 0.28, 0); box(0.5, 0.3, 0.4, 0x333333, 0, 0.5, 0.45); break;
-                case 'mono': { const w = wheel(0.95, 0.25, 0, 0.95, 0); w.rotation.z = Math.PI / 2; box(0.3, 0.3, 0.3, c, 0, 0.75, 0); break; }
+                case 'mono': {
+                    if (!mounted) {
+                        const w = wheel(0.95, 0.25, 0, 0.95, 0); w.rotation.z = Math.PI / 2;
+                        box(0.3, 0.3, 0.3, c, 0, 0.75, 0);
+                    } else {
+                        for (const sx of [-0.36, 0.36]) wheel(0.52, 0.12, sx, 0.52, -0.2);
+                        box(0.62, 0.22, 0.9, c, 0, 0.55, 0);
+                    }
+                    break;
+                }
                 case 'board': box(0.5, 0.06, 1.3, c, 0, 0.35, 0).material.emissive = new THREE.Color(c); box(0.35, 0.03, 0.9, 0xffffff, 0, 0.3, 0).material.emissive = new THREE.Color(0x8fe3c8); break;
                 case 'sledge': box(0.9, 0.2, 2.0, c, 0, 0.25, 0); box(0.08, 0.6, 0.08, 0x6a4a2a, 0.4, 0.6, -0.9); box(0.08, 0.6, 0.08, 0x6a4a2a, -0.4, 0.6, -0.9); break;
                 default: box(0.8, 0.4, 1.4, c, 0, 0.5, 0);
@@ -538,16 +752,22 @@
             c.ride(marker.vehicle);
         }
 
-        /** Ride key: dismount, or mount the fastest vehicle you own. */
-        toggleRide() {
+        /** Ride key: dismount, or mount the fastest vehicle you own. Shift + Ride cycles owned vehicles! */
+        toggleRide(cycle = false) {
             const c = this.campaign;
             if (!c) return false;
+            const owned = BO.SurvivalCampaignData.vehicles.filter((v) => c.hasVehicle(v.id));
+            if (cycle && owned.length > 1) {
+                const curIdx = owned.findIndex((v) => v.id === (c.vehicle || this.lastRide));
+                const next = owned[(curIdx + 1) % owned.length];
+                if (c.ride(next.id)) { this.lastRide = next.id; this.mode.toast('Switched ride: ' + next.name + '.'); }
+                return true;
+            }
             if (c.vehicle) { c.ride(null); this.mode.toast('Dismounted.'); return true; }
             if (c.has('footOnly') || c.has('sv_no_vehicles')) { this.mode.toast('Vehicles are disabled for this expedition.'); return true; }
-            const owned = BO.SurvivalCampaignData.vehicles.filter((v) => c.hasVehicle(v.id));
             if (!owned.length) { this.mode.toast('You have no vehicle yet. Claim parked ones (map) or build them at a crafting table.'); return true; }
-            const pref = owned.find((v) => v.id === this.lastRide) || owned.sort((a, b) => b.offroad + b.speed - a.offroad - a.speed)[0];
-            if (c.ride(pref.id)) { this.lastRide = pref.id; this.mode.toast('Riding the ' + pref.name + '.'); }
+            const pref = owned.find((v) => v.id === this.lastRide) || [...owned].sort((a, b) => b.offroad + b.speed - a.offroad - a.speed)[0];
+            if (c.ride(pref.id)) { this.lastRide = pref.id; this.mode.toast('Riding the ' + pref.name + (owned.length > 1 ? ' (Shift+' + BO.Settings.keyLabel(BO.Settings.getKeybinds().survRide) + ' to cycle).' : '.')); }
             return true;
         }
 
@@ -632,7 +852,9 @@
             } else {
                 body = ['<button data-box-gear="armor"><b>Full armour</b><small>150 armour + 3 plates</small></button>', '<button data-box-gear="grenades"><b>Grenades</b><small>+5 frags, +5 flashbangs</small></button>',
                     '<button data-box-gear="heal"><b>Full restore</b><small>Health, food, water, radiation, bleeding</small></button>', '<button data-box-gear="ammo"><b>Ammunition</b><small>500 of every calibre</small></button>',
-                    '<button data-box-gear="tools"><b>Every tool</b><small>All axes, picks, spades, the drill</small></button>', '<button data-box-gear="pack"><b>Biggest backpack</b><small>Hauler frame</small></button>'].join('');
+                    '<button data-box-gear="tools"><b>Every tool</b><small>All axes, picks, spades, the drill</small></button>', '<button data-box-gear="pack"><b>Biggest backpack</b><small>Hauler frame</small></button>',
+                    '<button data-box-comp="wolf"><b>Companion: Zone Hound</b><small>Tamed tracker wolf</small></button>', '<button data-box-comp="boar"><b>Companion: Tusk Charger</b><small>+12 kg saddle & knockdown</small></button>',
+                    '<button data-box-comp="bear"><b>Companion: Apex War-Bear</b><small>Heavy boss-tank grizzly</small></button>', '<button data-box-comp="ranger"><b>Companion: Haven Vanguard</b><small>Suppressed rifle scout</small></button>'].join('');
             }
             this.boxEl.innerHTML = `<div class="zt-box-in"><header><b>BOX OF WONDERS</b><span>Everything, without limit. Click to take.</span><button data-box-close>Close · Esc</button></header>
                 <nav>${['items', 'weapons', 'vehicles', 'gear'].map((t) => `<button data-box-tab="${t}" class="${st.tab === t ? 'on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}<input placeholder="Search…" value="${esc(st.q)}"></nav>
@@ -656,6 +878,7 @@
                 return;
             }
             if (d.boxVehicle) { this.campaign.vehicles.add(d.boxVehicle); this.closeBox(); this.campaign.ride(d.boxVehicle); return; }
+            if (d.boxComp && BO.ZoneCompanions) { this.closeBox(); BO.ZoneCompanions.spawnCompanion(d.boxComp, { x: p.pos.x + 2, y: p.pos.y, z: p.pos.z + 2 }); this.campaign.mark('companionsTamed', 1, 80); return; }
             if (d.boxGear === 'armor') { p.maxArmor = Math.max(p.maxArmor || 150, 150); p.armor = p.maxArmor; p.armorReservePlates = 3; }
             if (d.boxGear === 'grenades') { p.lethalCount = (p.lethalCount || 0) + 5; p.tacticalCount = (p.tacticalCount || 0) + 5; }
             if (d.boxGear === 'heal') { p.hp = p.maxHp; m.hunger = 100; m.radiation = 0; const dp = this.campaign.deep; if (dp) { dp.hydration = 100; dp.bleeding = 0; dp.infection = 0; } m.fracture = false; }

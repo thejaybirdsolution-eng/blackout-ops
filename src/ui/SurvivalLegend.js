@@ -214,7 +214,19 @@
                 text: 'Build them from the Build menu. A campfire cooks meat and brews tea. A fire camp is a bigger ringed fire: it cooks, warms and lights a wide area. A cooking station (stove, pot and grill) cooks everything a campfire can plus the big meals: hunter\'s stew, meat pie, omelette, mushroom soup, berry pie, honey-glazed ham, survivor\'s feast and the golden ration. A smokehouse counts as a campfire, and food eaten within 8 m of it restores 25% more. A tanning rack counts as a crafting table for leatherwork.',
                 facts: [['Fire camp', '4 timber, 6 stone'], ['Cooking station', '6 stone, 1 iron bar, 2 bricks, 2 timber'], ['Smokehouse', '4 boards, 4 stone, 2 clay'], ['Tanning rack', '4 timber, 2 cord']] });
             add({ cat: 'wild', title: 'New resources', icon: icon('wrench', '#d9c48f'),
-                text: 'Sand bars (shovel, wetlands) → glass and bottles. Flint gravel (by hand). Sulfur vents (pickaxe, ash wastes) → gunpowder. Gold veins (iron pickaxe, mountains) → gold bars for the golden ration, spyglass and engines. Salt crusts (pickaxe, wetlands) → jerky and leather. Berry bushes, mushroom rings and wild beehives (by hand) → food. Obsidian (drill, the Crater).' });
+                text: 'Sand bars (shovel, wetlands) → glass and bottles. Flint gravel (by hand). Sulfur vents (pickaxe, ash wastes) → gunpowder. Gold veins (iron pickaxe, mountains) → gold bars for the golden ration, spyglass and engines. Salt crusts (pickaxe, wetlands) → jerky and leather. Berry bushes, mushroom rings and wild beehives (by hand) → food. Obsidian (drill, the Crater) → Obsidian blast walls, trauma rigs and weapon cores.' });
+            add({ cat: 'wild', title: 'Fishing & baited lines', icon: icon('fish', '#7cc6e8'), tags: ['Reservoir & stations'],
+                text: 'Craft a Weighted Salvage Line (1 scrap, 1 cord) to catch fresh reservoir trout and sunken salvage at marked waterside stations — or equip the line on your hotbar and cast directly into the Spillway Reservoir! Carrying Fishing Bait automatically spends 1 bait to cut bite time nearly in half and double your fish and salvage haul.' });
+            add({ cat: 'wild', title: 'Taming beasts & Vanguard companions', icon: icon('paw', '#8fe3c8'), tags: ['Rank I–V', 'Orders'],
+                text: 'Approach wild Grey Wolves, Wild Boars or Brown Bears with their favourite food in your pack and press ' + key('interact') + ' to feed and tame them — or recruit a Haven Vanguard scout at Haven (or by rescuing a survivor at a Distress Call). Press ' + key('survCompanion') + ' to cycle orders between Follow & Fight, Heel / Stealth, and Guard Post. Companions earn XP up to Rank V and never permanently die (revive with a bandage or wait 22 s).',
+                lists: [{ h: 'Companions', items: [
+                    'Zone Hound (Grey Wolf — feed bone or venison): fast tracker that pings nearby unsearched military/lab crates every 18 s.',
+                    'Tusk Charger (Wild Boar — feed berries or mushrooms): knockdown ramming charge and +12 kg Pack Saddle carry capacity.',
+                    'Apex War-Bear (Brown Bear — feed honey or fish): 580+ HP boss-tanking grizzly with cleaving paw swipes.',
+                    'Haven Vanguard (Haven or Distress rescue): fires suppressed 5.56 bursts from 26 m without alerting the Zone.'
+                ] }] });
+            add({ cat: 'wild', title: 'Optical spyglass', icon: icon('spyglass', '#d9b56c'), tags: ['2.5×–10× zoom'],
+                text: 'Use a Brass Spyglass (or hold RMB while holding it on the hotbar) to look through a variable-zoom rangefinding scope (scroll Mouse Wheel between 2.5× and 10×). Automatically marks unseen infested sites within 280 m and reads exact distance, POI tier, wildlife and enemy HP.' });
         }
 
         /* ---------- 3d. Dungeons, bosses & arena ---------- */
@@ -294,6 +306,10 @@
         }
 
         /* ---------- 7. Scavenging & crafting ---------- */
+        add({ cat: 'crafting', title: 'Gunsmith & Resonance Anvil', icon: icon('scope', '#8fe3c8'), tags: ['3D Attachments', 'Elemental Cores'],
+            text: 'Build an Armory & Gunsmith Anvil (or click Gunsmith on any weapon in Inventory while standing near a workbench) to fit real 3D Optics, Suppressors, Foregrips, Extended/Drum Magazines, Stocks and Camos onto your firearms. On the Resonance Anvil tab, temper any weapon\'s rarity all the way up to Legendary, reroll weapon traits, and socket Obsidian Razor, Cryo Frost, Arc Volt or Solar Napalm cores!' });
+        add({ cat: 'building', title: 'Homestead planters, rain barrels & waystones', icon: icon('build', '#8fe3c8'), tags: ['Self-sufficient base'],
+            text: 'Build Homestead Crop Planters anywhere at your base (apply Bone Meal to surge growth +75% and harvest +50% yield), Rainwater Collectors that passively filter clean water (3× faster in rain), 1,400 HP Obsidian Blast Walls, and a Resonance Waystone to unlock direct Fast Travel and Respawn right at your homestead.' });
         add({ cat: 'crafting', title: 'Weapon condition, jams & 4 ammo calibres', icon: icon('wrench', '#f2b45a'),
             text: 'Firearms wear down as you shoot. Below 45% condition they can jam (press ' + key('reload') + ' to clear), especially in Ash Rain. Repair guns with Weapon Repair Kits. Ammunition is tracked in four pack calibres: 9mm, 5.56mm, 7.62mm, and 12-gauge shells, all hand-loadable from spent brass, powder and primers at a Workbench.',
             facts: [['Spent brass', '45% chance to recover brass per shot'], ['Deadeye Reflex', '-15% wear & jam risk per Archive rank']] });

@@ -602,7 +602,7 @@
                 trees: BO.World.zone ? BO.World.zone.trees.filter((t) => !t.alive).map((t) => [t.idx, t.type, t.renewAt || 0]) : [], at: Date.now(), options: this.options, pack: this.pack.snapshot(),
                 objectives: this.objectives.snapshot(), activities: this.activities?.snapshot(), deep: this.deep?.snapshot(), frontier: BO.ZoneFrontier?.snapshot(),
                 thrill: BO.ZoneThrill?.snapshot(), infest: BO.ZoneInfest?.snapshot(), contracts: BO.ZoneContracts?.snapshot(),
-                wild: BO.ZoneWild?.snapshot(), dungeons: BO.ZoneDungeons?.snapshot(), legends: BO.ZoneLegends?.snapshot(), quests: BO.ZoneQuests?.snapshot(),
+                wild: BO.ZoneWild?.snapshot(), companions: BO.ZoneCompanions?.snapshot(), armory: BO.ZoneArmory?.snapshot(), dungeons: BO.ZoneDungeons?.snapshot(), legends: BO.ZoneLegends?.snapshot(), quests: BO.ZoneQuests?.snapshot(),
                 hostilesReleased: m.hostilesReleased,
                 metrics: this.metrics, claims: this.claims, visited: [...this.visited], vehicles: [...this.vehicles],
                 restHours: this.restHours, transport: this.vehicle, clock: m.clock, position: p.pos.toArray(), yaw: p.yaw,

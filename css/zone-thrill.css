@@ -164,3 +164,22 @@ body.sv-no-compass .sv-compass { visibility: hidden !important; }
 #sv-journal header p { margin: 0; color: #9fb8ae; font-size: 13px; }
 #sv-journal .svj-body { flex: 1; min-height: 0; display: flex; }
 #sv-journal .fg { width: 100%; }
+
+/* ---- Brass Recon Spyglass Optic ---- */
+.zt-spyglass { position: fixed; inset: 0; z-index: 28; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, transparent 31%, rgba(16, 12, 8, 0.35) 33%, rgba(6, 8, 10, 0.96) 44%); }
+.zt-spyglass[hidden] { display: none !important; }
+.zt-spy-ring { position: relative; width: min(64vh, 64vw); height: min(64vh, 64vw); border-radius: 50%; border: 3px solid rgba(212, 168, 86, 0.72); box-shadow: inset 0 0 36px rgba(14, 24, 22, 0.55), 0 0 0 6px rgba(28, 22, 14, 0.85); }
+.zt-spy-cross::before, .zt-spy-cross::after { content: ""; position: absolute; background: rgba(235, 214, 168, 0.62); }
+.zt-spy-cross::before { left: 10%; right: 10%; top: 50%; height: 1px; }
+.zt-spy-cross::after { top: 10%; bottom: 10%; left: 50%; width: 1px; }
+.zt-spy-ticks { position: absolute; left: 50%; top: 50%; width: 140px; height: 60px; transform: translate(-50%, 0); background: repeating-linear-gradient(90deg, rgba(235, 214, 168, 0.55) 0 1px, transparent 1px 14px); height: 6px; margin-top: -3px; }
+.zt-spy-readout { margin-top: 18px; padding: 7px 16px; border-radius: 6px; background: rgba(10, 14, 13, 0.86); border: 1px solid rgba(212, 168, 86, 0.45); text-align: center; font: 600 12px/1.35 system-ui, sans-serif; letter-spacing: 0.07em; color: #f3dfb2; }
+.zt-spy-readout b { display: block; font-size: 13px; color: #8fe3c8; }
+.zt-spy-readout span { font-size: 10.5px; color: #9eb3aa; }
+
+/* ---- Armory & Gunsmith Anvil ---- */
+.zt-arm-body { overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 4px; max-height: 62vh; }
+.zt-arm-group h4 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.08em; color: #8fe3c8; display: flex; justify-content: space-between; align-items: center; }
+.zt-arm-group h4 small { color: #8ea59d; font-weight: 500; letter-spacing: 0; }
+.zt-armory .zt-box-grid button.equipped { border-color: #8fe3c8; background: rgba(45, 212, 191, 0.14); }
+.zt-armory .zt-box-grid button:disabled { opacity: 0.42; cursor: not-allowed; }

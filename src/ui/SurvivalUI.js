@@ -65,9 +65,90 @@
         speedTonic: 'Quick-Hands tonic: faster reloads and fire rate for 3 minutes.',
         staminElixir: 'Stamin-Up elixir: faster sprinting and less stamina drain for 3 minutes.',
         deadshotTinc: 'Deadshot tincture: +45% headshot damage for 3 minutes.',
-        cropSeeds: 'Plant these in the Relay garden beds and water them.',
-        freshWater: 'Filtered water. Restores 50 water. Collect it at hand pumps.',
-        salvageLine: 'Weighted line for fishing material caches out of marked waterside stations.'
+        cropSeeds: 'Plant these in the Relay garden beds or homestead planters and water them.',
+        freshWater: 'Filtered water. Restores 50 water. Collect it at hand pumps or rain barrels.',
+        salvageLine: 'Weighted line for catching fresh fish and salvage at waterside stations or along the Spillway Reservoir shore.',
+        ammo9: '9×19mm handgun and submachine gun ammunition.',
+        ammo556: '5.56×45mm intermediate rifle ammunition.',
+        ammo762: '7.62mm full-power rifle, marksman and machine-gun ammunition.',
+        ammo12: '12-gauge buckshot shells for shotguns.',
+        brass: 'Spent cartridge casings. Hand-load into live ammunition at a workbench.',
+        powder: 'Smokeless and black propellant for hand-loading ammunition and explosives.',
+        primers: 'Boxer primers required to reload spent brass.',
+        gunkit: 'Weapon repair kit. Restores 35% condition to a worn firearm and clears active jams.',
+        splint: 'Field splint. Sets a broken leg after a hard fall so you stop limping.',
+        painkillers: 'Analgesic tablets: +10 HP, +20 composure, and suppresses fracture limping for 90 seconds.',
+        canned: 'Sealed canned food (+30 food, +8 water). Safe to eat cold.',
+        battery: 'High-drain cell scavenged from electronics, radios and lab gear.',
+        radioParts: 'Transceiver module used to repair radio towers and build field electronics.',
+        circuit: 'Printed circuit board for turrets, optics and resonance devices.',
+        keycard: 'Black Pine Campus security keycard.',
+        thermals: 'Insulated thermal underlayer: grants +12°C cold protection passively while carried.',
+        raw_venison: 'Fresh deer meat (+10 food raw, risk of sickness). Roast it for +30 food and +6 HP.',
+        cooked_venison: 'Char-seared venison steak (+30 food, +6 HP).',
+        raw_pork: 'Raw wild boar meat (+10 food raw, risk of sickness). Cook before eating.',
+        cooked_pork: 'Roasted boar chop (+30 food, +6 HP).',
+        raw_rabbit: 'Lean rabbit meat (+7 food raw, risk of sickness). Roast for +21 food.',
+        cooked_rabbit: 'Spit-roasted rabbit (+21 food, +3 HP).',
+        raw_fowl: 'Plucked pheasant (+7 food raw, risk of sickness). Roast for +21 food.',
+        cooked_fowl: 'Crisp roast pheasant (+21 food, +3 HP).',
+        raw_mutton: 'Mountain goat meat (+9 food raw, risk of sickness). Roast for +27 food.',
+        cooked_mutton: 'Herb-seared mutton (+27 food, +6 HP).',
+        raw_bear: 'Dense bear meat (+13 food raw, risk of sickness). Roast for a massive +39 food and +9 HP.',
+        cooked_bear: 'Thick bear steak (+39 food, +9 HP).',
+        raw_wolf: 'Stringy wolf meat (+6 food raw, risk of sickness). Better roasted (+18 food) or fed to a companion.',
+        cooked_wolf: 'Charred wolf meat (+18 food, +3 HP).',
+        raw_beef: 'Prime cattle cut (+12 food raw, risk of sickness). Roast for +36 food and +9 HP.',
+        cooked_beef: 'Prime rib roast (+36 food, +9 HP).',
+        raw_fish: 'Fresh reservoir trout (+8 food raw, risk of sickness). Catch with a salvage line; fry for +24 food.',
+        cooked_fish: 'Pan-fried reservoir trout (+24 food, +6 HP).',
+        egg: 'Wild pheasant egg (+4 food raw). Fry at a fire or whip into an omelette.',
+        fried_egg: 'Sunny-side camp egg (+12 food, +3 HP).',
+        mushroom: 'Woodland cap (+3 food raw). Roast at a campfire or simmer into soup.',
+        roast_mushroom: 'Fire-toasted mushrooms (+9 food, +3 HP).',
+        berries: 'Sweet forest berries (+5 food, +3 water). Also prized by wild boars.',
+        honey: 'Wild golden honeycomb (+8 food, +4 HP). Never spoils; loved by brown bears.',
+        jerky: 'Smoke-cured meat strips (+18 food, +2 HP). Ultralight trail ration.',
+        hunter_stew: 'Rich venison, mushroom and herb stew (+70 food, +35 water, +30 HP, lasting warmth).',
+        meat_pie: 'Baked crust packed with roast pork and egg (+45 food, +15 HP).',
+        omelette: 'Three-egg mushroom omelette (+35 food, +20 HP, instant stamina surge).',
+        mushroom_soup: 'Hot woodland broth (+30 food, +30 water, +10 HP, warms the core).',
+        berry_pie: 'Warm forest berry tart (+40 food, +10 HP, +30 composure).',
+        honey_ham: 'Honey-glazed boar roast (+55 food, +20 HP, 60 s health regeneration).',
+        survivor_feast: 'Grand banquet (+100 food, +50 water, +50 HP, +50 composure, 2 min regeneration).',
+        golden_ration: 'Gold-infused combat delicacy (+20 food, +60 HP, 30 s rapid regeneration).',
+        hide: 'Untanned animal pelt. Cure it into cured leather at a crafting table or tanning rack.',
+        leather: 'Supple cured leather for armour vests, bedrolls and heavy gear.',
+        wool: 'Thick mountain fleece for warm bedding and winter insulation.',
+        bone: 'Sturdy animal bone. Grind into bone meal fertiliser, reinforce armour, or toss to tame a lone wolf.',
+        fat: 'Rendered animal tallow for candles, molotov fuel and cooking.',
+        feather: 'Stiff flight feathers from wild fowl.',
+        antler: 'Dense stag antler trophy used in bonecraft and trades.',
+        bonemeal: 'Crushed bone fertiliser: apply to a growing crop bed to surge growth by 75% and boost harvest yield by 50%.',
+        obsidian: 'Volcanic Crater glass. Extremely hard — forge Obsidian blast walls, Obsidian plate armour, and weapon cores.',
+        gold_ore: 'Raw gold-bearing mountain ore. Smelt it in a stone kiln into pure gold bars.',
+        gold: 'High-purity gold bar smelted from Frostline veins. Used in precision optics, resonance circuits and golden rations.',
+        sand: 'Fine river sand dug from Spillway wetlands. Fire in a kiln to blow clear glass.',
+        glass: 'Clear fired glass pane for bottles, spyglasses and optical lenses.',
+        bottle: 'Blown glass bottle used to pack incendiary molotov cocktails.',
+        flint: 'Sharp-edged chert nodule gathered from gravel beds for flint tools and strikers.',
+        sulfur: 'Yellow volcanic brimstone mined from ash vents; essential for gunpowder and fireworks.',
+        salt: 'Crystalline rock salt for curing jerky and tanning raw hides into leather.',
+        candle: 'Tallow candle: burns for 4 minutes of warm handheld light when lit.',
+        leather_armor: 'Stitched leather vest: restores +60 armour.',
+        hide_armor: 'Bone-reinforced heavy coat: restores +100 armour.',
+        obsidian_armor: 'Volcanic glass & alloy trauma rig: raises max armour to 180 and restores +140 armour.',
+        frag_grenade: 'Fragmentation grenade. Use from pack to arm on your belt, or hold on hotbar and throw directly.',
+        molotov: 'Incendiary firebomb. Detonates in a 6 m carpet of flame that burns infected and clears nests.',
+        spyglass: '4.5× brass recon optic. Use to look through a rangefinding scope and mark nearby sites, threats and dungeons.',
+        bedroll: 'Portable wool-and-hide roll. Sleep rough anywhere safe to skip night or recover composure.',
+        fishing_bait: 'Scented bait: automatically used when casting a salvage line to cut bite wait nearly in half and double your fish & salvage catch.',
+        scrap_wheel: 'Reinforced rubber-and-iron wheel for building custom vehicles.',
+        engine_parts: 'Rebuilt small-block engine assembly for custom Zone vehicles.',
+        fireworks: 'Signal skyrocket: calls an immediate supply airdrop, but alerts every infected within 200 m.',
+        optic_kit: 'Precision lens & rail kit crafted at an Armory bench for mounting rifle scopes and sights.',
+        suppressor_kit: 'Baffled muzzle suppressor kit that cuts gunshot noise down to 22 m.',
+        mag_kit: 'High-tension spring & extended magazine housing kit.'
     };
     const MODE_META = {
         expedition: { glyph: 'crystal', tags: ['Story', 'Boss'], length: 'Medium' },
@@ -117,18 +198,20 @@
         cookstation: 'Stand within 4 m of a cooking station you built. It also counts as a campfire.'
     };
     const CRAFT_CATS = [
-        ['all', 'All recipes', 'unknown'], ['tools', 'Tools', 'axe'], ['materials', 'Materials', 'ingot'],
+        ['all', 'All recipes', 'grid'], ['tools', 'Tools', 'axe'], ['materials', 'Materials', 'ingot'],
         ['medical', 'Medical', 'medkit'], ['food', 'Food & drink', 'cup'], ['lighting', 'Lighting', 'torch'],
-        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'gear']
+        ['gear', 'Gear & supplies', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'wheel']
     ];
     const RECIPE_CAT = {
         braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
-        cutLens: 'materials', charcoal: 'materials', smeltAetherAlloy: 'materials',
+        cutLens: 'materials', charcoal: 'materials', smeltAetherAlloy: 'materials', makePowder: 'materials', salvageRadio: 'materials',
         splint: 'lighting', makeLantern: 'lighting',
-        dressing: 'medical', craftAntibiotic: 'medical', craftAetherStim: 'medical', makeFilter: 'medical', medkit: 'medical',
+        dressing: 'medical', craftAntibiotic: 'medical', craftAetherStim: 'medical', makeFilter: 'medical', medkit: 'medical', makeSplint: 'medical',
         brewTea: 'food', cookStew: 'food', brewEspresso: 'food', brewBroth: 'food', cook: 'food',
         brewJug: 'food', brewSpeed: 'food', brewStamin: 'food', brewDeadshot: 'food',
         fieldRepair: 'gear', weighTheLine: 'gear', craftOrbitalFlare: 'gear', ammo: 'gear', incendiary: 'gear',
+        makeGunkit: 'gear', makeThermals: 'gear',
+        reload9: 'weapons', reload556: 'weapons', reload762: 'weapons', reload12: 'weapons',
         coilgun: 'weapons'
     };
     BO.SurvivalItemInfo = ITEM_INFO;
@@ -698,6 +781,23 @@
                     const prev = pack.equipped;
                     pack.equipped = arg;
                     if (!pack.use('repair')) { pack.equipped = prev; this.feedback = 'This tool is already in top condition.'; }
+                    break;
+                }
+                case 'repairGun': {
+                    const ref = Number(arg);
+                    const w = BO.Player.weapons[ref];
+                    if (!w || w.stats.kind === 'melee') break;
+                    if (!(mode.points.gunkit > 0) && !c.has('sv_free_craft')) { this.feedback = 'No weapon repair kits in pack.'; break; }
+                    if ((w.cond ?? 100) >= (w.maxCond ?? 100) - 1) { this.feedback = 'This firearm is already in top condition.'; break; }
+                    if (!c.has('sv_free_craft')) mode.points.gunkit--;
+                    w.maxCond = Math.max(40, (w.maxCond ?? 100) - 5);
+                    w.cond = Math.min(w.maxCond, (w.cond ?? 50) + 35);
+                    if (mode.jammed === w) mode.jammed = null;
+                    this.feedback = (w.stats.shortName || w.stats.name || 'Weapon') + ' repaired to ' + Math.round(w.cond) + '%.';
+                    break;
+                }
+                case 'openGunsmith': {
+                    if (BO.ZoneArmory) { this.close(); BO.ZoneArmory.open(Number(arg)); return; }
                     break;
                 }
                 case 'plate': BO.Player.insertArmorPlate(); break;
@@ -1544,11 +1644,23 @@
                 const w = BO.Player.weapons[ref];
                 if (!w) return '';
                 const st = w.stats;
-                return `<div class="sv-detail-head">${I.weapon(w, 44)}<div><h3>${esc(st.name || st.shortName)}${w.survivalMk > 1 ? ' Mk ' + w.survivalMk : ''}</h3><small>${st.kind === 'melee' ? 'Melee weapon' : esc(w.fireMode || st.fireMode || '').toUpperCase()}</small></div></div>
+                const rar = w.cfg?.rarity && BO.ZoneThrill ? BO.ZoneThrill.describe({ rarity: w.cfg.rarity, perks: w.cfg.perks || [], title: w.cfg.title }, st.name || st.shortName) : null;
+                const cond = Math.round(w.cond ?? 100), maxCond = Math.round(w.maxCond ?? 100);
+                const atts = Object.values(w.cfg?.attachments || {}).filter(Boolean).map((id) => BO.AttachmentsData?.ATTACHMENTS?.[id]?.name || id);
+                const core = w.cfg?.survCore ? BO.ZoneArmory?.CORES?.[w.cfg.survCore]?.name : null;
+                const canRepair = st.kind !== 'melee' && ((pack.inventory.gunkit || 0) > 0 || BO.SurvivalMode.campaign?.has('sv_free_craft')) && cond < maxCond - 1;
+                const atBench = BO.SurvivalMode.campaign?.stationAvailable('bench') || BO.SurvivalMode.campaign?.stationAvailable('armoryBench');
+                return `<div class="sv-detail-head">${I.weapon(w, 44)}<div><h3>${esc(rar ? rar.title : (st.name || st.shortName))}${w.survivalMk > 1 ? ' Mk ' + w.survivalMk : ''}</h3><small>${rar ? `<span style="color:${rar.rarity.color};font-weight:700">${esc(rar.rarity.name)}</span> · ` : ''}${st.kind === 'melee' ? 'Melee weapon' : esc(w.fireMode || st.fireMode || '').toUpperCase()}${st.suppressed ? ' · SUPPRESSED' : ''}</small></div></div>
+                    ${rar?.traits?.length ? `<p class="sv-detail-text" style="color:${rar.rarity.color}">Traits: <b>${esc(rar.traits.join(' · '))}</b></p>` : ''}
+                    ${atts.length || core ? `<p class="sv-detail-text">Fitted: ${esc([...atts, ...(core ? [core] : [])].join(', '))}</p>` : ''}
                     <dl class="sv-kv">${st.kind === 'melee' ? `<div><dt>Damage</dt><dd>${st.damage}</dd></div>` : `
                         <div><dt>Damage</dt><dd>${st.damage}</dd></div><div><dt>Magazine</dt><dd>${w.mag} / ${st.magSize}</dd></div>
-                        <div><dt>Reserve</dt><dd>${w.reserve} / ${st.reserveMax}</dd></div><div><dt>Condition</dt><dd>${Math.max(0, 100 - Math.round((w.wear || 0) / 1.2))}%</dd></div>`}</dl>
-                    <p class="sv-detail-text">${st.kind === 'melee' ? 'Swing with the fire button.' : 'Craft field cartridges at a workbench to refill ammunition. Upgrade it to Mk II/III after researching the Gunsmith bench.'}</p>
+                        <div><dt>Reserve</dt><dd>${w.reserve}</dd></div><div><dt>Condition</dt><dd>${cond}%${maxCond < 100 ? ` <small>(max ${maxCond}%)</small>` : ''}</dd></div>`}</dl>
+                    <p class="sv-detail-text">${st.kind === 'melee' ? 'Swing with the fire button.' : 'Reload from matching calibre rounds in your pack, repair wear with weapon repair kits, and fit 3D optics, suppressors & elemental cores at a workbench.'}</p>
+                    <div class="sv-actions">
+                        ${st.kind !== 'melee' ? `<button class="sv-btn" data-act="repairGun" data-arg="${ref}" ${canRepair ? '' : 'disabled'}${tip('Repair firearm', 'Uses 1 weapon repair kit (+35% condition, clears jams).', 'Kits: ' + (pack.inventory.gunkit || 0))}>Repair</button>` : ''}
+                        ${BO.ZoneArmory ? `<button class="sv-btn primary" data-act="openGunsmith" data-arg="${ref}" ${atBench ? '' : 'disabled'}${tip('Gunsmith & Anvil', atBench ? 'Fit 3D scopes, suppressors, extended mags, camos and Resonance cores.' : 'Stand near a crafting table or Armory bench to customize this weapon.')}>Gunsmith</button>` : ''}
+                    </div>
                     ${slotButtons('weapon', ref)}`;
             }
             return '';
@@ -1675,7 +1787,7 @@
             const here = c.stations;
             const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
             const statusText = { ready: 'Ready', missing: 'Missing materials', station: 'Needs ' + '', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
-            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
+            const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation'].map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st], STATION_TIP[st], here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove' }[st], here.includes(st) ? '#9fe0c9' : '#56645f', 16)}${STATION_NAME[st]}</span>`).join('')}</div>`;
             const cats = CRAFT_CATS.map(([id, label, glyph]) => {
                 const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
                 return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;
@@ -2473,7 +2585,8 @@
                 ...(BO.ZoneEvents?.chips() || []).map((t) => `<span class="night">${esc(t)}</span>`),
                 BO.ZoneInfest?.chip() ? `<span class="held">${esc(BO.ZoneInfest.chip())}</span>` : '',
                 deep?.stealthFactor < 0.65 ? '<span class="stealth">Hidden</span>' : '',
-                vehicle ? `<span>${esc(vehicle.name)}</span>` : ''
+                BO.ZoneCompanions?.hudChip?.() ? `<span class="held">${esc(BO.ZoneCompanions.hudChip())}</span>` : '',
+                vehicle ? `<span class="held">${esc(vehicle.name)} · ${Math.round(Math.hypot(p.vel.x, p.vel.z) * 3.6)} KM/H</span>` : ''
             ].join('');
             if (h.chipsHtml !== chips) { h.chips.innerHTML = chips; h.chipsHtml = chips; }
             // ---- vitals

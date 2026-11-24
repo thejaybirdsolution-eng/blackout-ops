@@ -505,10 +505,13 @@
             const sens = BO.Settings.get('sensitivity') || 1.0;
             const adsSens = BO.Settings.get('adsSensitivity') || 0.65;
             const w = this.activeWeapon;
-            const varZoomDamp = (w && w.stats && w.stats.variableZoom && this.adsAlpha > 0.35)
-                ? (1 / Math.sqrt(Math.max(1, this.scopeZoom)))
-                : 1.0;
-            const fovFactor = this.adsAlpha > 0.2 ? BO.Math.lerp(1.0, adsSens * varZoomDamp, this.adsAlpha) : 1.0;
+            const spyZoom = (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) ? BO.ZoneWild.spyglassZoom : 0;
+            const varZoomDamp = spyZoom
+                ? (1 / Math.sqrt(spyZoom))
+                : ((w && w.stats && w.stats.variableZoom && this.adsAlpha > 0.35)
+                    ? (1 / Math.sqrt(Math.max(1, this.scopeZoom)))
+                    : 1.0);
+            const fovFactor = spyZoom ? (adsSens * varZoomDamp) : (this.adsAlpha > 0.2 ? BO.Math.lerp(1.0, adsSens * varZoomDamp, this.adsAlpha) : 1.0);
             const scale = 0.0021 * sens * fovFactor;
             const inv = BO.Settings.get('invertY') ? -1 : 1;
 
@@ -920,9 +923,12 @@
             const effAdsFov = (w && w.stats.variableZoom)
                 ? BO.Math.clamp(baseFov / Math.max(1.0, this.scopeZoom), 4.2, baseFov)
                 : (w ? w.stats.adsFov : baseFov);
-            const targetFov = w
+            const spyFov = (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1)
+                ? BO.Math.clamp(baseFov / BO.ZoneWild.spyglassZoom, 8, baseFov)
+                : null;
+            const targetFov = spyFov ?? (w
                 ? BO.Math.lerp(baseFov + sprintFovBonus, effAdsFov, this.adsAlpha)
-                : baseFov;
+                : baseFov + sprintFovBonus);
             if (Math.abs(worldCamera.fov - targetFov) > 0.05) {
                 worldCamera.fov = BO.Math.damp(worldCamera.fov, targetFov, 16, dt);
                 worldCamera.updateProjectionMatrix();
@@ -1344,7 +1350,42 @@
                     add(new THREE.BoxGeometry(0.11, 0.075, 0.05), mat, 0, 0.055, -0.02);
                     add(new THREE.BoxGeometry(0.045, 0.012, 0.052), std(0xffffff), 0, 0.055, -0.02);
                     add(new THREE.BoxGeometry(0.012, 0.045, 0.052), std(0xffffff), 0, 0.055, -0.02);
-                } else if (id === 'bandage') {
+                } else if (id === 'candle') {
+                    add(new THREE.CylinderGeometry(0.015, 0.017, 0.14, 10), std(0xf2e7c9, { roughness: 0.55 }), 0, 0.08, -0.02);
+                    add(new THREE.ConeGeometry(0.018, 0.045, 8), std(0xffb43a, { emissive: 0xff8a18, emissiveIntensity: 1.5 }), 0, 0.17, -0.02);
+                } else if (id === 'spyglass') {
+                    add(new THREE.CylinderGeometry(0.018, 0.022, 0.13, 12), std(0xc89a45, { metalness: 0.75, roughness: 0.3 }), 0, 0.06, -0.04, Math.PI / 2, 0, 0);
+                    add(new THREE.CylinderGeometry(0.024, 0.027, 0.11, 12), std(0x3b352e, { roughness: 0.6 }), 0, 0.06, -0.14, Math.PI / 2, 0, 0);
+                    add(new THREE.CylinderGeometry(0.025, 0.025, 0.012, 12), std(0x7ee8fa, { emissive: 0x38bdf8, emissiveIntensity: 0.35, metalness: 0.9 }), 0, 0.06, -0.198, Math.PI / 2, 0, 0);
+                } else if (id === 'frag_grenade') {
+                    add(new THREE.SphereGeometry(0.038, 10, 8), std(0x4b5b3e, { roughness: 0.6, metalness: 0.35 }), 0, 0.055, -0.02);
+                    add(new THREE.CylinderGeometry(0.012, 0.014, 0.026, 8), std(0x8a9298, { metalness: 0.8 }), 0, 0.098, -0.02);
+                } else if (id === 'molotov') {
+                    add(new THREE.CylinderGeometry(0.026, 0.03, 0.12, 10), std(0x7a4220, { transparent: true, opacity: 0.86 }), 0, 0.065, -0.02);
+                    add(new THREE.CylinderGeometry(0.01, 0.012, 0.04, 8), std(0x7a4220), 0, 0.14, -0.02);
+                    add(new THREE.ConeGeometry(0.02, 0.055, 7), std(0xff7a1a, { emissive: 0xff5500, emissiveIntensity: 1.3 }), 0, 0.18, -0.02, 0.25, 0, 0);
+                } else if (id === 'salvageLine') {
+                    add(new THREE.TorusGeometry(0.04, 0.009, 7, 16), std(0xc9b486), 0, 0.06, -0.02, 0, Math.PI / 2, 0);
+                    add(new THREE.SphereGeometry(0.018, 8, 6), std(0xee9136, { emissive: 0xd97706, emissiveIntensity: 0.4 }), 0, 0.02, -0.05);
+                } else if (id === 'raw_fish' || id === 'cooked_fish') {
+                    const fCol = id === 'cooked_fish' ? 0xb56b35 : 0x6ea4b8;
+                    const body = add(new THREE.SphereGeometry(0.038, 10, 8), std(fCol, { roughness: 0.45 }), 0, 0.06, -0.03);
+                    body.scale.set(0.55, 0.8, 1.9);
+                    add(new THREE.ConeGeometry(0.026, 0.045, 4), std(fCol), 0, 0.06, 0.055, -Math.PI / 2, 0, 0);
+                } else if (id.startsWith('raw_') || id.startsWith('cooked_') || id === 'jerky' || id === 'honey_ham') {
+                    const mCol = id.startsWith('raw_') ? 0xb83b3b : 0x8d4c28;
+                    add(new THREE.BoxGeometry(0.075, 0.032, 0.095), std(mCol, { roughness: 0.65 }), 0, 0.055, -0.025, 0.1, 0.2, 0);
+                    add(new THREE.CylinderGeometry(0.009, 0.009, 0.11, 7), std(0xeae2cf), 0, 0.055, -0.02, Math.PI / 2, 0, 0);
+                } else if (['hunter_stew', 'mushroom_soup', 'omelette', 'meat_pie', 'berry_pie', 'survivor_feast', 'golden_ration'].includes(id)) {
+                    const bCol = id === 'golden_ration' ? 0xf2c94c : id === 'berry_pie' ? 0x9b3b6a : 0xa86434;
+                    add(new THREE.CylinderGeometry(0.048, 0.034, 0.045, 14), std(0x5c4634), 0, 0.048, -0.025);
+                    add(new THREE.CylinderGeometry(0.043, 0.043, 0.012, 14), std(bCol, id === 'golden_ration' ? { metalness: 0.7, emissive: 0xd97706, emissiveIntensity: 0.35 } : {}), 0, 0.071, -0.025);
+                } else if (id === 'leather_armor' || id === 'hide_armor' || id === 'obsidian_armor') {
+                    const aCol = id === 'obsidian_armor' ? 0x2d1f3d : id === 'hide_armor' ? 0x7c6a56 : 0x8f5b38;
+                    add(new THREE.BoxGeometry(0.11, 0.12, 0.045), std(aCol, id === 'obsidian_armor' ? { metalness: 0.6, emissive: 0x6d28d9, emissiveIntensity: 0.3 } : {}), 0, 0.07, -0.025);
+                } else if (id === 'bedroll') {
+                    add(new THREE.CylinderGeometry(0.034, 0.034, 0.14, 12), std(0x8a6d4b, { roughness: 0.9 }), 0, 0.06, -0.025, 0, 0, Math.PI / 2);
+                } else if (id === 'bandage' || id === 'splint') {
                     add(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 14), mat, 0, 0.05, -0.02, 0, 0, Math.PI / 2);
                 } else {
                     add(new THREE.BoxGeometry(0.07, 0.07, 0.07), mat, 0, 0.05, -0.02);
@@ -1374,6 +1415,10 @@
         }
 
         _updateFistPose() {
+            if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) {
+                this.vmAnchor.visible = false;
+                return;
+            }
             this.vmAnchor.visible = true;
             this.vmAnchor.position.set(this.swayX, this.swayY, 0);
             this.vmAnchor.rotation.set(0, 0, this.sliding ? 0.16 : 0);

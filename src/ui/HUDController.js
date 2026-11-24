@@ -678,8 +678,15 @@
                 }
             }
 
-            if (this.elMinimap) this.elMinimap.classList.toggle('hidden', mode === 'survival');
+            const hideSurvMap = mode === 'survival' && (
+                !BO.SurvivalMode?.active ||
+                BO.SurvivalMode.campaign?.has('sv_no_map_gps') ||
+                BO.SurvivalMode.campaign?.has('sv_no_compass') ||
+                BO.SurvivalMode.campaign?.has('sv_hide_hud')
+            );
+            if (this.elMinimap) this.elMinimap.classList.toggle('hidden', mode === 'survival' ? hideSurvMap : false);
             if (mode !== 'survival') this._drawMinimap();
+            else if (!hideSurvMap) this._drawSurvivalMinimap();
             if (this.scoreboardOpen) this._renderScoreboard();
         }
 
@@ -855,6 +862,119 @@
             ctx.moveTo(CX, CY - 6);
             ctx.lineTo(CX + 5, CY + 5);
             ctx.lineTo(CX - 5, CY + 5);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        _drawSurvivalMinimap() {
+            const ctx = this.mmCtx;
+            const sm = BO.SurvivalMode;
+            const Z = BO.Zone;
+            if (!ctx || !sm?.active || !Z) return;
+            const W = 148, H = 148, CX = 74, CY = 74;
+            const P = BO.Player;
+            const inDgn = !!(BO.ZoneDungeons?.inside || BO.ZoneLegends?.arena);
+            const scale = inDgn ? 2.1 : 1.05;
+
+            ctx.clearRect(0, 0, W, H);
+            ctx.fillStyle = inDgn ? 'rgba(12, 10, 18, 0.92)' : 'rgba(9, 15, 13, 0.90)';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.strokeStyle = 'rgba(143, 227, 200, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(CX, CY, 44, 0, Math.PI * 2); ctx.stroke();
+
+            ctx.save();
+            ctx.translate(CX, CY);
+            ctx.rotate(P.yaw);
+
+            if (!inDgn) {
+                ctx.strokeStyle = 'rgba(195, 185, 160, 0.28)';
+                for (const rd of Z.roads || []) {
+                    ctx.lineWidth = Math.max(1.5, (rd.w || 5) * scale * 0.65);
+                    ctx.beginPath();
+                    let started = false;
+                    for (const [rx, rz] of rd.pts || []) {
+                        const dx = (rx - P.pos.x) * scale, dz = (rz - P.pos.z) * scale;
+                        if (!started) { ctx.moveTo(dx, dz); started = true; }
+                        else ctx.lineTo(dx, dz);
+                    }
+                    ctx.stroke();
+                }
+                ctx.fillStyle = 'rgba(148, 175, 165, 0.30)';
+                for (const poi of Z.pois || []) {
+                    if (!poi.w || Math.abs(poi.x - P.pos.x) > 95 || Math.abs(poi.z - P.pos.z) > 95) continue;
+                    const rx = (poi.x - P.pos.x) * scale, rz = (poi.z - P.pos.z) * scale;
+                    const rw = poi.w * scale, rd = poi.d * scale;
+                    ctx.fillRect(rx - rw * 0.5, rz - rd * 0.5, rw, rd);
+                }
+                ctx.fillStyle = '#8fe3c8';
+                for (const b of sm.campaign?.placed || []) {
+                    if (!b.alive || Math.abs(b.x - P.pos.x) > 85 || Math.abs(b.z - P.pos.z) > 85) continue;
+                    ctx.fillRect((b.x - P.pos.x) * scale - 2, (b.z - P.pos.z) * scale - 2, 4, 4);
+                }
+                for (const mk of sm.markers || []) {
+                    if (mk.alive === false || Math.abs(mk.x - P.pos.x) > 80 || Math.abs(mk.z - P.pos.z) > 80) continue;
+                    if (mk.dungeon) {
+                        ctx.fillStyle = '#c084fc';
+                        ctx.fillRect((mk.x - P.pos.x) * scale - 2.5, (mk.z - P.pos.z) * scale - 2.5, 5, 5);
+                    } else if (mk.id?.startsWith('bag:body')) {
+                        ctx.fillStyle = '#f87171';
+                        ctx.beginPath(); ctx.arc((mk.x - P.pos.x) * scale, (mk.z - P.pos.z) * scale, 3.5, 0, Math.PI * 2); ctx.fill();
+                    }
+                }
+                ctx.fillStyle = 'rgba(163, 230, 53, 0.75)';
+                for (const a of BO.ZoneWild?.animals || []) {
+                    if (!a.alive || a.pos.distanceTo(P.pos) > 55) continue;
+                    ctx.beginPath(); ctx.arc((a.pos.x - P.pos.x) * scale, (a.pos.z - P.pos.z) * scale, 2, 0, Math.PI * 2); ctx.fill();
+                }
+                const wp = BO.SurvivalUI?.mapWaypoint;
+                if (wp) {
+                    ctx.strokeStyle = 'rgba(126, 232, 250, 0.65)';
+                    ctx.lineWidth = 1.4;
+                    ctx.setLineDash([4, 4]);
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo((wp.x - P.pos.x) * scale, (wp.z - P.pos.z) * scale); ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            } else {
+                const sp = BO.ZoneDungeons?.inside?.sp || BO.ZoneLegends?.arena?.sp;
+                ctx.fillStyle = 'rgba(192, 132, 252, 0.28)';
+                for (const c of sp?.colliders || []) {
+                    if (!c.active || (c.maxY - c.minY) < 1.0) continue;
+                    const cx = ((c.minX + c.maxX) * 0.5 - P.pos.x) * scale;
+                    const cz = ((c.minZ + c.maxZ) * 0.5 - P.pos.z) * scale;
+                    ctx.fillRect(cx - (c.maxX - c.minX) * scale * 0.5, cz - (c.maxZ - c.minZ) * scale * 0.5, (c.maxX - c.minX) * scale, (c.maxZ - c.minZ) * scale);
+                }
+            }
+
+            const comp = BO.ZoneCompanions?.comp;
+            if (comp && comp.alive) {
+                ctx.fillStyle = comp.downed > 0 ? '#facc15' : '#2dd4bf';
+                ctx.beginPath(); ctx.arc((comp.pos.x - P.pos.x) * scale, (comp.pos.z - P.pos.z) * scale, 3.2, 0, Math.PI * 2); ctx.fill();
+            }
+
+            for (const z of sm.zombies || []) {
+                if (!z.alive) continue;
+                const d = z.pos.distanceTo(P.pos);
+                if (d > 68) continue;
+                if (!inDgn && d > 24 && z.zs?.state !== 'hunt' && !z.bossLabel && !z.champ) continue;
+                ctx.fillStyle = z.bossLabel ? '#f43f5e' : z.champ ? '#fb923c' : '#ef4444';
+                ctx.beginPath(); ctx.arc((z.pos.x - P.pos.x) * scale, (z.pos.z - P.pos.z) * scale, z.bossLabel ? 4 : 2.5, 0, Math.PI * 2); ctx.fill();
+            }
+            for (const b of sm.bots || []) {
+                if (!b.alive || b.team === 0 || b.pos.distanceTo(P.pos) > 65) continue;
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath(); ctx.arc((b.pos.x - P.pos.x) * scale, (b.pos.z - P.pos.z) * scale, 2.8, 0, Math.PI * 2); ctx.fill();
+            }
+
+            ctx.restore();
+
+            ctx.fillStyle = '#f2b45a';
+            ctx.beginPath();
+            ctx.moveTo(CX, CY - 5.5);
+            ctx.lineTo(CX - 4.2, CY + 4.5);
+            ctx.lineTo(CX, CY + 2.2);
+            ctx.lineTo(CX + 4.2, CY + 4.5);
             ctx.closePath();
             ctx.fill();
         }

@@ -156,8 +156,8 @@
 
         addPlot(plot) {
             const { x, y, z, color } = plot;
-            this.mesh(new THREE.BoxGeometry(1.42, 0.23, 1.22), 0x6d5840, x, y + 0.11, z);
-            this.mesh(new THREE.BoxGeometry(1.19, 0.10, 1.01), 0x4b382a, x, y + 0.23, z);
+            const rim = this.mesh(new THREE.BoxGeometry(1.42, 0.23, 1.22), 0x6d5840, x, y + 0.11, z);
+            const soil = this.mesh(new THREE.BoxGeometry(1.19, 0.10, 1.01), 0x4b382a, x, y + 0.23, z);
             const plants = [];
             for (const a of [-0.38, 0, 0.38]) {
                 for (const b of [-0.30, 0.30]) {
@@ -166,13 +166,44 @@
                     plants.push(shoot);
                 }
             }
-            this.garden.set(plot.id, { ...plot, marker: this.marker('plot', plot), plants, stage: 'empty', growth: 0 });
+            const entry = { ...plot, marker: this.marker('plot', plot), meshes: [rim, soil, ...plants], plants, stage: 'empty', growth: 0, fertilized: false };
+            this.garden.set(plot.id, entry);
+            return entry;
+        }
+
+        addCustomPlot(piece) {
+            const id = 'planter:' + piece.id;
+            if (this.garden.has(id)) return this.garden.get(id);
+            const crops = [
+                { name: 'Homestead crop bed', color: 0x7cb868, grow: 52, loot: { rations: 2, herbs: 2, berries: 2, cropSeeds: 2 } },
+                { name: 'Homestead herb planter', color: 0x6fb290, grow: 48, loot: { herbs: 4, mushroom: 2, cropSeeds: 2 } }
+            ];
+            const idx = Math.abs(parseInt(String(piece.id).replace(/\D+/g, ''), 10) || 0) % crops.length;
+            const pick = crops[idx];
+            return this.addPlot({ id, name: pick.name, x: piece.x, y: piece.y, z: piece.z, color: pick.color, grow: pick.grow, loot: pick.loot, custom: true });
+        }
+
+        removeCustomPlot(pieceId) {
+            const id = 'planter:' + pieceId;
+            const plot = this.garden.get(id);
+            if (!plot) return;
+            for (const mesh of plot.meshes || []) {
+                this.owned.delete(mesh);
+                this.mode.disposeOwned(mesh);
+            }
+            if (plot.marker) {
+                this.ownMarkers.delete(plot.marker);
+                const idx = this.mode.markers.indexOf(plot.marker);
+                if (idx !== -1) this.mode.markers.splice(idx, 1);
+            }
+            this.garden.delete(id);
         }
 
         update(dt) {
+            const noCd = this.campaign.has('sv_no_cooldowns');
             for (const plot of this.garden.values()) {
                 if (plot.stage === 'growing') {
-                    const rate = (this.campaign.isNight ? 0.67 : 1) * (this.mode.weather === 'Ash rain' ? 0.85 : 1) * (this.campaign.has('fastGrow') ? 2.5 : 1);
+                    const rate = (this.campaign.isNight ? 0.67 : 1) * (this.mode.weather === 'Ash rain' ? 0.85 : 1) * (this.campaign.has('fastGrow') ? 2.5 : 1) * (noCd ? 25 : 1);
                     plot.growth += Math.max(0, dt) * rate;
                     if (plot.growth >= plot.grow) plot.stage = 'ready';
                 }
@@ -196,8 +227,10 @@
         plotLabel(plot) {
             if (plot.stage === 'empty') return 'Plant crop seed · ' + plot.name;
             if (plot.stage === 'dry') return 'Water seedling · ' + plot.name;
-            if (plot.stage === 'ready') return 'Harvest · ' + plot.name;
-            return plot.name + ' · ' + Math.floor(Math.min(100, plot.growth / plot.grow * 100)) + '% grown';
+            if (plot.stage === 'ready') return 'Harvest' + (plot.fertilized ? ' (fertilized)' : '') + ' · ' + plot.name;
+            const pct = Math.floor(Math.min(100, plot.growth / plot.grow * 100));
+            if (!plot.fertilized && (this.mode.points.bonemeal || 0) > 0) return 'Fertilize with bone meal · ' + plot.name + ' (' + pct + '%)';
+            return plot.name + ' · ' + pct + '% grown' + (plot.fertilized ? ' · fertilized' : '');
         }
 
         updateShore() {
@@ -206,9 +239,24 @@
                 const site = this.shore.get(this.cast.id);
                 if (distance(site, BO.Player.pos) > 4.1 || clock > this.cast.bite + 3.5) {
                     this.cast = null;
-                    site.readyAt = clock + 7;
+                    site.readyAt = this.campaign.has('sv_no_cooldowns') ? 0 : clock + 7;
                     site.float.visible = false;
                     this.mode.toast('The salvage float slipped free. Recast in a few seconds.');
+                }
+            }
+            if (this.openCast) {
+                const oc = this.openCast;
+                if (Math.hypot(oc.origin.x - BO.Player.pos.x, oc.origin.z - BO.Player.pos.z) > 4.8 || clock > oc.bite + 4.0) {
+                    this.clearOpenCast();
+                    this.mode.toast('The fish spat the hook. Cast your salvage line again.');
+                } else if (oc.float) {
+                    oc.float.position.y = oc.waterY + (clock >= oc.bite ? -0.06 : 0.11) + Math.sin(clock * 4.5) * 0.04;
+                    if (clock >= oc.bite && !oc.notified) {
+                        oc.notified = true;
+                        BO.Sound?.playUIClick?.();
+                        BO.FX?.spawnParticles?.(new THREE.Vector3(oc.x, oc.waterY + 0.08, oc.z), 8, 0xbfe3ef, 2.2, 5, 0.45);
+                        this.mode.toast('A fish struck the line! Use your salvage line again to reel it in!');
+                    }
                 }
             }
             for (const site of this.shore.values()) {
@@ -216,11 +264,20 @@
                 site.float.visible = !!cast;
                 if (cast) {
                     site.float.position.y = site.y + (clock >= cast.bite ? 0.05 : 0.19) + Math.sin(clock * 4) * 0.044;
-                    site.marker.label = clock >= cast.bite ? 'Reel in now · ' + site.name : 'Watch the salvage float';
+                    site.marker.label = clock >= cast.bite ? 'Reel in fish & salvage · ' + site.name : 'Watch the fishing float';
                 } else if (clock < site.readyAt) {
                     site.marker.label = site.name + ' · ' + remaining(site.readyAt - clock);
-                } else site.marker.label = 'Cast salvage line · ' + site.name;
+                } else site.marker.label = 'Cast fishing & salvage line' + ((this.mode.points.fishing_bait || 0) > 0 ? ' (baited)' : '') + ' · ' + site.name;
             }
+        }
+
+        clearOpenCast() {
+            if (!this.openCast) return;
+            if (this.openCast.float) {
+                this.owned.delete(this.openCast.float);
+                this.mode.disposeOwned(this.openCast.float);
+            }
+            this.openCast = null;
         }
 
         updateDrop() {
@@ -306,20 +363,29 @@
             const plot = this.garden.get(id);
             const m = this.mode;
             if (plot.stage === 'empty') {
-                if (!m.spend({ cropSeeds: 1 })) return m.toast('Collect starter seeds at Relay dispatch or harvest an existing crop.');
+                if (!m.spend({ cropSeeds: 1 })) return m.toast('Collect starter seeds at Haven dispatch or harvest an existing crop.');
                 plot.stage = 'dry';
                 plot.growth = 0;
+                plot.fertilized = false;
                 m.toast('Seed planted. Use filtered water on the bed.');
             } else if (plot.stage === 'dry') {
-                if (!m.spend({ freshWater: 1 })) return m.toast('Draw filtered water from a hand pump.');
+                if (!m.spend({ freshWater: 1 })) return m.toast('Draw filtered water from a hand pump or rain barrel.');
                 plot.stage = 'growing';
-                m.toast('Bed watered. Come back when the crop is mature.');
+                m.toast('Bed watered. Come back when the crop is mature (or add bone meal to accelerate).');
+            } else if (plot.stage === 'growing' && !plot.fertilized && m.spend({ bonemeal: 1 })) {
+                plot.fertilized = true;
+                plot.growth = Math.min(plot.grow, plot.growth + plot.grow * 0.75);
+                if (plot.growth >= plot.grow) plot.stage = 'ready';
+                BO.FX?.spawnParticles?.(new THREE.Vector3(plot.x, plot.y + 0.5, plot.z), 10, 0x8fe388, 2.2, 4, 0.55);
+                m.toast('Bone meal applied — crop surged forward (+50% harvest yield)!');
             } else if (plot.stage === 'ready') {
+                const fertBonus = plot.fertilized ? 1.5 : 1;
                 plot.stage = 'empty';
                 plot.growth = 0;
+                plot.fertilized = false;
                 this.campaign.mark('cropsHarvested', 1, 16);
-                const cMult = this.campaign.deep?.modFx?.cropYieldMult || 1;
-                const loot = cMult > 1 ? Object.fromEntries(Object.entries(plot.loot).map(([k, v]) => [k, v * cMult])) : plot.loot;
+                const cMult = (this.campaign.deep?.modFx?.cropYieldMult || 1) * fertBonus * (this.campaign.has('sv_double_loot') ? 2 : 1);
+                const loot = cMult > 1 ? Object.fromEntries(Object.entries(plot.loot).map(([k, v]) => [k, Math.max(1, Math.round(v * cMult))])) : plot.loot;
                 m.grant(loot);
             } else m.toast(this.plotLabel(plot) + '.');
             plot.marker.label = this.plotLabel(plot);
@@ -332,7 +398,7 @@
             if (clock < pump.readyAt) return this.mode.toast(pump.name + ' is refilling.');
             if (this.campaign.pack.room('freshWater', 1) < 1) return this.mode.toast('Leave room for filtered water in your pack.');
             const pSpd = this.campaign.deep?.modFx?.pumpSpeedMult || 1;
-            pump.readyAt = clock + 24 / pSpd;
+            pump.readyAt = this.campaign.has('sv_no_cooldowns') ? 0 : clock + 24 / pSpd;
             this.mode.grant({ freshWater: 1 });
             this.campaign.mark('waterDrawn', 1, 2);
         }
@@ -341,20 +407,25 @@
             const m = this.mode;
             const clock = m.clock;
             const site = this.shore.get(id);
+            const noCd = this.campaign.has('sv_no_cooldowns');
             if (this.cast?.id === id) {
                 if (clock < this.cast.bite) return m.toast('Wait until the float dips.');
                 if (clock > this.cast.bite + 3.5) {
                     this.updateShore();
                     return;
                 }
+                const baited = !!this.cast.baited;
                 this.cast = null;
                 site.float.visible = false;
-                site.readyAt = clock + 33;
-                const fMult = this.campaign.deep?.modFx?.fishBonus || 1;
-                const haul = site.loot[site.hauled % site.loot.length];
-                m.grant(fMult > 1 ? Object.fromEntries(Object.entries(haul).map(([k, v]) => [k, v * fMult])) : haul);
+                site.readyAt = noCd ? 0 : clock + 33;
+                const fMult = (this.campaign.deep?.modFx?.fishBonus || 1) * (baited ? 2 : 1) * (this.campaign.has('sv_double_loot') ? 2 : 1);
+                const baseHaul = { ...site.loot[site.hauled % site.loot.length], raw_fish: 1 + (site.hauled % 2) };
+                const grantObj = Object.fromEntries(Object.entries(baseHaul).map(([k, v]) => [k, Math.max(1, Math.round(v * fMult))]));
+                m.grant(grantObj);
                 site.hauled++;
                 this.campaign.mark('salvageHauls', 1, 21);
+                this.campaign.mark('fishCaught', grantObj.raw_fish || 1, 10);
+                if (baited) m.toast('Baited catch hauled in: ' + BO.SurvivalItemAmounts(grantObj) + '!');
                 if (id === 'west') this.checkIn('west');
                 return;
             }
@@ -362,9 +433,62 @@
             if (clock < site.readyAt) return m.toast(site.name + ' needs time to settle.');
             if (!m.points.salvageLine) return m.toast('Craft a weighted salvage line in your backpack.');
             if (this.cast) return m.toast('Reel in your line at the other station first.');
-            const waitMult = (this.campaign.has('fastGrow') ? 0.5 : 1) / (this.campaign.deep?.modFx?.fishSpeedMult || 1);
-            this.cast = { id, bite: clock + (5.5 + (site.hauled % 3) * 1.25) * waitMult };
-            m.toast('Line cast. Interact when the float dips.');
+            const baited = (m.points.fishing_bait || 0) > 0 && m.spend({ fishing_bait: 1 });
+            const waitMult = (this.campaign.has('fastGrow') ? 0.5 : 1) * (baited ? 0.55 : 1) / (this.campaign.deep?.modFx?.fishSpeedMult || 1);
+            this.cast = { id, baited, bite: clock + (noCd ? 0.35 : (5.5 + (site.hauled % 3) * 1.25) * waitMult) };
+            m.toast(baited ? 'Baited line cast! Watch the float closely.' : 'Line cast. Interact when the float dips.');
+        }
+
+        castOpenWater() {
+            const m = this.mode;
+            const p = BO.Player;
+            const clock = m.clock;
+            const noCd = this.campaign.has('sv_no_cooldowns');
+            if (this.openCast) {
+                if (clock < this.openCast.bite) {
+                    m.toast('Steady... wait for the bobber to plunge under.');
+                    return false;
+                }
+                const baited = !!this.openCast.baited;
+                const wx = this.openCast.x, wy = this.openCast.waterY, wz = this.openCast.z;
+                this.clearOpenCast();
+                const mult = (baited ? 2 : 1) * (this.campaign.has('sv_double_loot') ? 2 : 1) * (this.campaign.deep?.modFx?.fishBonus || 1);
+                const fish = Math.max(1, Math.round((1 + (Math.random() < 0.4 ? 1 : 0)) * mult));
+                const haul = { raw_fish: fish };
+                if (Math.random() < 0.35) haul.clay = Math.max(1, Math.round(mult));
+                else if (Math.random() < 0.2) haul.scrap = Math.max(1, Math.round(mult));
+                BO.FX?.spawnParticles?.(new THREE.Vector3(wx, wy + 0.12, wz), 12, 0xbfe3ef, 3, 6, 0.5);
+                m.grant(haul);
+                this.campaign.mark('fishCaught', fish, 10);
+                this.campaign.mark('salvageHauls', 1, 14);
+                m.toast('Reeled in ' + BO.SurvivalItemAmounts(haul) + (baited ? ' (baited ×2!)' : '') + '!');
+                return true;
+            }
+            const Z = BO.Zone;
+            if (!Z) return false;
+            const fwd = p.getMoveDirectionVectors().forward;
+            let hitX = null, hitZ = null;
+            for (const d of [3.2, 4.8, 6.4, 2.0]) {
+                const tx = p.pos.x + fwd.x * d, tz = p.pos.z + fwd.z * d;
+                if (Z.inReservoir(tx, tz) && BO.World.terrainHeight(tx, tz) < Z.WATER - 0.35) {
+                    hitX = tx; hitZ = tz; break;
+                }
+            }
+            if (hitX === null) {
+                // Also check if standing near a marked shore station
+                const nearShore = [...this.shore.values()].find((s) => distance(s, p.pos) <= 4.0);
+                if (nearShore) { this.useShore(nearShore.id); return true; }
+                m.toast('Face reservoir water or a waterside fishing station to cast your line.');
+                return false;
+            }
+            const baited = (m.points.fishing_bait || 0) > 0 && m.spend({ fishing_bait: 1 });
+            const waterY = Z.WATER + 0.05;
+            const float = this.mesh(new THREE.SphereGeometry(0.13, 8, 6), 0xf3bd66, hitX, waterY + 0.1, hitZ, { emissive: 0xee9136, emissiveIntensity: 0.55 });
+            BO.FX?.spawnParticles?.(new THREE.Vector3(hitX, waterY, hitZ), 8, 0xbfe3ef, 2, 5, 0.4);
+            const wait = noCd ? 0.35 : (4.2 + Math.random() * 2.6) * (baited ? 0.55 : 1);
+            this.openCast = { x: hitX, z: hitZ, waterY, float, baited, bite: clock + wait, origin: { x: p.pos.x, z: p.pos.z }, notified: false };
+            m.toast(baited ? 'Cast baited line into the reservoir — reel in when the bobber plunges!' : 'Cast line into the reservoir — use again when the bobber plunges!');
+            return true;
         }
 
         powerRelay(id) {
@@ -458,6 +582,7 @@
         }
 
         useItem(id) {
+            if (id === 'salvageLine') return this.castOpenWater();
             if (id !== 'freshWater' || !this.mode.spend({ freshWater: 1 })) return false;
             this.mode.composure = Math.min(100, this.mode.composure + 15);
             this.mode.radiation = Math.max(0, this.mode.radiation - 5);
@@ -496,7 +621,7 @@
         snapshot() {
             return {
                 seedIssued: !!this.seedIssued, signalClaimed: this.signalClaimed,
-                garden: [...this.garden].map(([id, plot]) => [id, { stage: plot.stage, growth: plot.growth }]),
+                garden: [...this.garden].map(([id, plot]) => [id, { stage: plot.stage, growth: plot.growth, fertilized: !!plot.fertilized }]),
                 pumps: [...this.pumps].map(([id, site]) => [id, site.readyAt]),
                 shore: [...this.shore].map(([id, site]) => [id, { hauled: site.hauled, readyAt: site.readyAt }]),
                 relays: [...this.relays].filter(([, site]) => site.powered).map(([id]) => id),
@@ -526,6 +651,7 @@
         }
 
         stop() {
+            this.clearOpenCast();
             for (const mesh of this.owned) this.mode.disposeOwned(mesh);
             this.owned.clear();
             for (const marker of this.ownMarkers) {

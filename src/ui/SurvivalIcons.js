@@ -1,12 +1,14 @@
 /* ============================================================================
    BLACKOUT OPS — Survival item, tool & weapon iconography.
    Hand-drawn 24×24 line glyphs, tinted per category, shared by the hotbar,
-   inventory, crafting and build screens.
+   inventory, crafting and build screens. Every item, tool and buildable has a
+   dedicated glyph and tint — zero placeholder question marks.
 ============================================================================ */
 (function (BO) {
     'use strict';
 
     const G = {
+        grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
         fist: '<path d="M7 11V7.5a1.5 1.5 0 0 1 3 0V10m0-2.5V6.5a1.5 1.5 0 0 1 3 0V10m0-2.5a1.5 1.5 0 0 1 3 0V11m0-1.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1.5A5.5 5.5 0 0 1 5 14.5V12a1.5 1.5 0 0 1 2-1"/>',
         pistol: '<path d="M3 7h15l1 3h-6l-1 2h-3l-1.5 6H4l1.6-6.4L3 10z"/><path d="M10 12l.7 2.2"/>',
         rifle: '<path d="M2 10h13l2-2h4v3l-4 1-1 2h-3l-1 5H9l1-5H6L4 13H2z"/><path d="M7 10V8h4v2"/>',
@@ -74,15 +76,53 @@
         machine: '<path d="M4 6h16v13H4z"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 3v3M16 3v3"/>',
         snare: '<path d="M2 14c2-3 4-3 5 0s3 3 5 0 3-3 5 0 3 3 5 0"/><path d="M5 10l1 1M10 9l1 1M15 10l1 1"/>',
         platform: '<path d="M3 9h18v3H3zM5 12v9M19 12v9M12 12v9"/>',
+        // Wild Zone, Ammunition, Food, Dungeon & Armory glyphs
+        ammo: '<path d="M7 20V10l2.5-6 2.5 6v10zM14.5 20v-8l2-5 2 5v8z"/><path d="M6 16h7M14 16h5"/>',
+        shell: '<rect x="7" y="5" width="10" height="15" rx="1.5"/><path d="M7 15h10M9 5V3h6v2"/>',
+        powder: '<path d="M6 18c1-5 3.5-9 6-9s5 4 6 9z"/><circle cx="9" cy="15" r=".7"/><circle cx="13" cy="13" r=".7"/><circle cx="14.5" cy="16" r=".7"/>',
+        chip: '<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+        battery: '<rect x="6" y="6" width="12" height="15" rx="2"/><path d="M9.5 3h5v3h-5zM12 10l-2 3.5h4L12 17"/>',
+        card: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4M15 14h2"/>',
+        splint: '<path d="M7 3v18M17 3v18M5 8h14M5 12h14M5 16h14"/>',
+        pill: '<rect x="4" y="9" width="16" height="6" rx="3" transform="rotate(-35 12 12)"/><path d="M10 10l4 4"/>',
+        meat: '<path d="M6 8c3-4 10-4 12 1s-1 10-6 10c-4 0-8-3-8-7 0-1.5.7-2.8 2-4z"/><circle cx="13.5" cy="11" r="2"/>',
+        roast: '<path d="M6 10c3-4 10-4 12 1s-1 9-6 9c-4 0-8-3-8-6.5 0-1.5.7-2.5 2-3.5z"/><circle cx="13.5" cy="12.5" r="1.8"/><path d="M9 5c0-1.5 1.5-1.5 1.5-3M14 5c0-1.5 1.5-1.5 1.5-3"/>',
+        fish: '<path d="M3 12c3-4.5 8-5.5 13-2l5-3-1.5 5 1.5 5-5-3c-5 3.5-10 2.5-13-2z"/><circle cx="7.5" cy="11.5" r=".8"/>',
+        egg: '<path d="M12 3c4 0 7 5.5 7 10.5A7 7 0 0 1 5 13.5C5 8.5 8 3 12 3z"/>',
+        mushroom: '<path d="M4 12a8 7 0 0 1 16 0z"/><path d="M10 12v7a2 2 0 0 0 4 0v-7"/><circle cx="9" cy="9" r=".9"/><circle cx="14" cy="8.5" r=".9"/>',
+        berries: '<circle cx="9" cy="14" r="3"/><circle cx="15" cy="14" r="3"/><circle cx="12" cy="18" r="3"/><path d="M12 11V5c2-1 4-1 5 1"/>',
+        honey: '<path d="M7 7h10l1.5 4v8a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-8z"/><path d="M8 4h8v3H8zM6 12h12"/>',
+        pie: '<path d="M3 14l2-4c4-2 10-2 14 0l2 4z"/><path d="M3 14c0 3 4 5 9 5s9-2 9-5"/><path d="M9 11l1.5 2M15 11l-1.5 2"/>',
+        pelt: '<path d="M6 4l3 2h6l3-2 2 4-2 3 1 5-3 4h-8l-3-4 1-5-2-3z"/>',
+        feather: '<path d="M20 4C13 4 7 9 5 17l-2 3 3-2c8-2 13-8 14-14z"/><path d="M4 19L16 7"/>',
+        bone: '<path d="M7 5a2.2 2.2 0 1 0-2 3.2L15.8 19a2.2 2.2 0 1 0 3.2-2L8.2 6.2A2.2 2.2 0 0 0 7 5z"/>',
+        antler: '<path d="M12 21v-7M12 14L6 8V4M12 14l6-6V4M8 10V6M16 10V6M4 7h2M18 7h2"/>',
+        candle: '<rect x="9" y="10" width="6" height="11" rx="1"/><path d="M12 3c1.5 1.8 2.2 3 2.2 4.2a2.2 2.2 0 0 1-4.4 0C9.8 6 10.5 4.8 12 3z"/><path d="M6 21h12"/>',
+        vest: '<path d="M6 4l3 3h6l3-3 3 4-2 4v8H5v-8L3 8z"/><path d="M9 12h6M9 16h6"/>',
+        grenade: '<ellipse cx="12" cy="14" rx="5.5" ry="6.5"/><path d="M10 7.5V5h4v2.5M14 5l3 2v3"/><path d="M7 14h10M12 8v12"/>',
+        molotov: '<path d="M9 9h6l2 3.5V20a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20v-7.5z"/><path d="M10.5 6h3v3h-3z"/><path d="M12 6c0-2 2-3 4-3-1 1.5-.5 3 1 3.5"/>',
+        spyglass: '<path d="M3 16l6-3 9-6 3 4.5-9 6-5.5 2.5z"/><path d="M9 13l2.5 3.8M15 9l2.8 4.2"/>',
+        bedroll: '<ellipse cx="7" cy="13" rx="3.5" ry="5"/><path d="M7 8h11a3.5 5 0 0 1 0 10H7"/><path d="M12 8v10M16 8v10"/>',
+        wheel: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 4v5.5M12 14.5V20M4 12h5.5M14.5 12H20M6.3 6.3l3.9 3.9M13.8 13.8l3.9 3.9M17.7 6.3l-3.9 3.9M10.2 13.8l-3.9 3.9"/>',
+        stove: '<rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M6 9V6h6v3M17 9V4"/><circle cx="8.5" cy="15" r="2"/><path d="M14 13h4v5h-4z"/>',
+        smoker: '<path d="M5 10L12 4l7 6v11H5z"/><path d="M9 21v-6h6v6M12 4V2m3 1c0-1 1.5-1 1.5-2"/>',
+        rack: '<path d="M4 4v17M20 4v17M4 6h16M4 19h16"/><path d="M8 8l2 2h4l2-2-1 8H9z"/>',
+        scope: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',
+        suppressor: '<rect x="2" y="9" width="14" height="6" rx="1.5"/><path d="M16 10.5h6v3h-6zM6 9v6M10 9v6"/>',
+        paw: '<ellipse cx="12" cy="15.5" rx="4.2" ry="3.5"/><circle cx="6.5" cy="10.5" r="1.7"/><circle cx="10" cy="8" r="1.7"/><circle cx="14" cy="8" r="1.7"/><circle cx="17.5" cy="10.5" r="1.7"/>',
+        portal: '<ellipse cx="12" cy="12" rx="7" ry="9"/><ellipse cx="12" cy="12" rx="3.5" ry="5"/><path d="M12 3v2M12 19v2"/>',
+        skull: '<path d="M12 3a7 7 0 0 0-7 7c0 2.6 1.3 4.6 3 5.7V19h8v-3.3c1.7-1.1 3-3.1 3-5.7a7 7 0 0 0-7-7z"/><circle cx="9.5" cy="11" r="1.3"/><circle cx="14.5" cy="11" r="1.3"/><path d="M10 19v2M14 19v2"/>',
         unknown: '<rect x="5" y="5" width="14" height="14" rx="3"/><path d="M10 10a2 2 0 1 1 3 1.7c-.7.4-1 .8-1 1.3M12 16h.01"/>'
     };
 
     const CAT_COLOR = {
-        weapon: '#f8d17a', tool: '#9fd4c7', 'Raw materials': '#c9b28f', Components: '#a9b8c9',
-        Consumables: '#9be3a6', Lighting: '#ffc46e', Keys: '#e2c7ff', Tools: '#9fd4c7', build: '#b7d3c3'
+        weapon: '#f8d17a', tool: '#9fd4c7', Food: '#f4b97a', Ammunition: '#9fd4ff', Equipment: '#b5d6c6',
+        'Raw materials': '#c9b28f', Components: '#a9b8c9', Consumables: '#9be3a6',
+        Lighting: '#ffc46e', Keys: '#e2c7ff', Tools: '#9fd4c7', build: '#b7d3c3'
     };
 
     const ITEM_GLYPH = {
+        // Core & Frontier
         scrap: 'gear', cloth: 'cloth', fuel: 'fuel', rations: 'can', medkits: 'medkit', coil: 'coil',
         timber: 'log', stone: 'stone', iron: 'ore', coal: 'ore', copper: 'ore', quartz: 'crystal',
         fiber: 'leaf', resin: 'drop', clay: 'clay', herbs: 'leaf', planks: 'planks', cord: 'cord',
@@ -90,21 +130,80 @@
         bandage: 'bandage', tea: 'cup', filter: 'mask', repair: 'wrench', caveMap: 'scroll', relic: 'crystal',
         aetherShard: 'crystal', stew: 'bowl', espresso: 'cup', antibiotic: 'vial', broth: 'bowl',
         aetherStim: 'syringe', orbitalFlare: 'flare', jugBrew: 'vial', speedTonic: 'vial',
-        staminElixir: 'vial', deadshotTinc: 'vial', cropSeeds: 'seed', freshWater: 'bottle', salvageLine: 'hook'
+        staminElixir: 'vial', deadshotTinc: 'vial', cropSeeds: 'seed', freshWater: 'bottle', salvageLine: 'hook',
+        thermals: 'vest',
+        // ZoneLoot ammunition, reloading & electronics
+        ammo9: 'ammo', ammo556: 'ammo', ammo762: 'ammo', ammo12: 'shell',
+        brass: 'ammo', powder: 'powder', primers: 'powder',
+        gunkit: 'wrench', splint: 'splint', painkillers: 'pill', canned: 'can',
+        battery: 'battery', radioParts: 'machine', circuit: 'chip', keycard: 'card',
+        // Wild Zone raw & cooked food + cooking-station meals
+        raw_venison: 'meat', cooked_venison: 'roast',
+        raw_pork: 'meat', cooked_pork: 'roast',
+        raw_rabbit: 'meat', cooked_rabbit: 'roast',
+        raw_fowl: 'meat', cooked_fowl: 'roast',
+        raw_mutton: 'meat', cooked_mutton: 'roast',
+        raw_bear: 'meat', cooked_bear: 'roast',
+        raw_wolf: 'meat', cooked_wolf: 'roast',
+        raw_beef: 'meat', cooked_beef: 'roast',
+        raw_fish: 'fish', cooked_fish: 'fish',
+        egg: 'egg', fried_egg: 'egg',
+        mushroom: 'mushroom', roast_mushroom: 'mushroom',
+        berries: 'berries', honey: 'honey', jerky: 'roast',
+        hunter_stew: 'bowl', meat_pie: 'pie', omelette: 'pie', mushroom_soup: 'bowl',
+        berry_pie: 'pie', honey_ham: 'roast', survivor_feast: 'bowl', golden_ration: 'roast',
+        // Wild Zone materials & crafted gear
+        hide: 'pelt', leather: 'pelt', feather: 'feather', bone: 'bone', bonemeal: 'powder',
+        fat: 'drop', wool: 'cloth', antler: 'antler',
+        sand: 'powder', glass: 'lens', bottle: 'bottle', flint: 'stone',
+        sulfur: 'ore', salt: 'crystal', gold_ore: 'ore', gold: 'ingot', obsidian: 'crystal',
+        candle: 'candle', leather_armor: 'vest', hide_armor: 'vest', obsidian_armor: 'vest',
+        frag_grenade: 'grenade', molotov: 'molotov', spyglass: 'spyglass',
+        bedroll: 'bedroll', fishing_bait: 'hook', fireworks: 'flare',
+        scrap_wheel: 'wheel', engine_parts: 'machine',
+        // Armory attachment kits
+        optic_kit: 'scope', suppressor_kit: 'suppressor', mag_kit: 'ammo', grip_kit: 'wrench'
     };
+
     const ITEM_TINT = {
         iron: '#d39a7c', coal: '#8d93a6', copper: '#7cc6ad', quartz: '#a8e3f5', relic: '#d6aef2',
         aetherShard: '#c79bff', medkits: '#ff8a8a', bandage: '#f1e6cf', jugBrew: '#ff9a9a',
         speedTonic: '#9ad0ff', staminElixir: '#a8f0a0', deadshotTinc: '#ffd27a', antibiotic: '#bff0e1',
-        freshWater: '#8fd3ff', fuel: '#ffb36b', torch: '#ffb35c', lantern: '#ffe08a', coil: '#9fe2ff'
+        freshWater: '#8fd3ff', fuel: '#ffb36b', torch: '#ffb35c', lantern: '#ffe08a', coil: '#9fe2ff',
+        // New tints
+        ammo9: '#ffd88a', ammo556: '#9fd4ff', ammo762: '#ffb07a', ammo12: '#ff7a6b',
+        brass: '#e2b95b', powder: '#9aa0a8', primers: '#d4c39a', gunkit: '#9fd4c7',
+        splint: '#d8c39e', painkillers: '#9fe0ff', canned: '#b5cf98', battery: '#7ee8a8',
+        radioParts: '#9fc5d8', circuit: '#6ad49a', keycard: '#ffd27a', thermals: '#9fd4ff',
+        raw_venison: '#e07a7a', raw_pork: '#eb8f8f', raw_rabbit: '#e5958e', raw_fowl: '#ebb09a',
+        raw_mutton: '#df7d7d', raw_bear: '#c95f5f', raw_wolf: '#c46c6c', raw_beef: '#d96666', raw_fish: '#7ec8e3',
+        cooked_venison: '#d98a4e', cooked_pork: '#e09658', cooked_rabbit: '#dba065', cooked_fowl: '#e5ac67',
+        cooked_mutton: '#d4874c', cooked_bear: '#b8683c', cooked_wolf: '#be7648', cooked_beef: '#c97842', cooked_fish: '#e8a864',
+        egg: '#f5ecd4', fried_egg: '#ffe07a', mushroom: '#d4b48c', roast_mushroom: '#c98d55',
+        berries: '#e06388', honey: '#ffbe42', jerky: '#b5633c',
+        hunter_stew: '#e59a54', meat_pie: '#e2ad6b', omelette: '#ffd86b', mushroom_soup: '#d4b185',
+        berry_pie: '#df7aa0', honey_ham: '#f09c4f', survivor_feast: '#ffd27a', golden_ration: '#ffe066',
+        hide: '#b08968', leather: '#9c6644', feather: '#e6eef2', bone: '#ede8dc', bonemeal: '#f2efe4',
+        fat: '#f2dfb3', wool: '#f0ece1', antler: '#d6c3a5',
+        sand: '#e6d19c', glass: '#bceeff', bottle: '#a8e4f7', flint: '#8c929c',
+        sulfur: '#ebe04b', salt: '#f4f1ea', gold_ore: '#ebb844', gold: '#ffd24a', obsidian: '#9b6bff',
+        candle: '#ffd98a', leather_armor: '#b87d52', hide_armor: '#c9b496', obsidian_armor: '#b48cff',
+        frag_grenade: '#8fb87a', molotov: '#ff8a47', spyglass: '#e8c468',
+        bedroll: '#8fc2a9', fishing_bait: '#eb9486', fireworks: '#ff7ad9',
+        scrap_wheel: '#9aa4ad', engine_parts: '#b5c4d4',
+        optic_kit: '#7ee8fa', suppressor_kit: '#9fd4c7', mag_kit: '#ffd27a', grip_kit: '#c7d3dc'
     };
+
     const TOOL_GLYPH = { axe: 'axe', pick: 'pick', shovel: 'shovel' };
     const TOOL_SPECIAL = { saw: 'saw', miningDrill: 'drill' };
     const BUILD_GLYPH = {
-        wall: 'wall', stoneWall: 'wall', floor: 'floor', stoneFloor: 'floor', roof: 'roof', bed: 'bed',
-        bench: 'bench', ladder: 'ladder', campfire: 'fire', chest: 'chest', wallTorch: 'torch', kiln: 'kiln',
+        wall: 'wall', stoneWall: 'wall', obsidianWall: 'wall', floor: 'floor', stoneFloor: 'floor', roof: 'roof',
+        bed: 'bed', bench: 'bench', ladder: 'ladder', campfire: 'fire', firepit: 'fire',
+        cookstation: 'stove', tanrack: 'rack', smoker: 'smoker',
+        chest: 'chest', wallTorch: 'torch', kiln: 'kiln',
         spikes: 'spikes', wire: 'snare', door: 'door', platform: 'platform', smelter: 'machine', hydro: 'bottle',
-        turret: 'turret', generator: 'generator', beacon: 'beacon', infuser: 'altar'
+        turret: 'turret', generator: 'generator', beacon: 'beacon', infuser: 'altar',
+        planter: 'seed', rainbarrel: 'drop', waystone: 'portal', armoryBench: 'scope'
     };
 
     function svg(glyph, color, size = 24) {
@@ -125,7 +224,7 @@
         svg,
         item(id, size) {
             const cat = BO.SurvivalFrontierData?.items?.[id]?.[1];
-            return svg(ITEM_GLYPH[id] || 'unknown', ITEM_TINT[id] || CAT_COLOR[cat] || '#cfd8d3', size);
+            return svg(ITEM_GLYPH[id] || 'gear', ITEM_TINT[id] || CAT_COLOR[cat] || '#cfd8d3', size);
         },
         tool(id, size) {
             const t = BO.SurvivalFrontierData?.tools?.[id];
@@ -134,9 +233,14 @@
             return svg(glyph, tint, size);
         },
         weapon(weapon, size) {
-            return svg(weaponGlyph(weapon), weapon?.isPaP ? '#c084fc' : (weapon?.survivalMk > 1 ? '#fde68a' : CAT_COLOR.weapon), size);
+            const rarCol = BO.ZoneThrill?.rarityOf?.(weapon)?.css;
+            const col = weapon?.isPaP ? '#c084fc' : (rarCol && rarCol !== '#c9cdd2' ? rarCol : (weapon?.survivalMk > 1 ? '#fde68a' : CAT_COLOR.weapon));
+            return svg(weaponGlyph(weapon), col, size);
         },
-        build(id, size) { return svg(BUILD_GLYPH[id] || 'build', CAT_COLOR.build, size); },
+        build(id, size) {
+            const tint = id === 'obsidianWall' || id === 'waystone' ? '#b48cff' : id === 'cookstation' || id === 'firepit' || id === 'smoker' ? '#ffb07a' : CAT_COLOR.build;
+            return svg(BUILD_GLYPH[id] || 'build', tint, size);
+        },
         fist(size) { return svg('fist', '#e7d9c4', size); },
         named(glyph, color = '#cfe3da', size) { return svg(glyph, color, size); },
         categoryColor(cat) { return CAT_COLOR[cat] || '#cfd8d3'; }

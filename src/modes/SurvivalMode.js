@@ -107,6 +107,8 @@
             BO.ZoneInfest?.start(this, checkpoint?.infest);
             BO.ZoneContracts?.start(this, checkpoint?.contracts);
             BO.ZoneWild?.start(this, checkpoint?.wild);
+            BO.ZoneCompanions?.start(this, checkpoint?.companions);
+            BO.ZoneArmory?.start(this, checkpoint?.armory);
             BO.ZoneDungeons?.start(this, checkpoint?.dungeons);
             BO.ZoneLegends?.start(this, checkpoint?.legends);
             BO.ZoneQuests?.start(this, checkpoint?.quests);
@@ -138,6 +140,8 @@
             BO.ZoneQuests?.stop();
             BO.ZoneLegends?.stop();
             BO.ZoneDungeons?.stop();
+            BO.ZoneArmory?.stop();
+            BO.ZoneCompanions?.stop();
             BO.ZoneWild?.stop();
             BO.ZoneSandbox?.stop();
             BO.ZoneInfest?.stop();
@@ -459,12 +463,15 @@
                     const H = BO.ZoneHorde;
                     if (z.breach) { const br = H.breachTarget(z); if (br) return br; }
                     if (z.horde) return H.targetFor(z);
+                    const compTgt = BO.ZoneCompanions?.targetForZombie?.(z);
+                    if (compTgt) return compTgt;
                     const bot = closest(bots, z.pos, 11);
                     if (bot && (!z.zs || z.zs.state !== 'hunt' || bot.pos.distanceTo(z.pos) < p.pos.distanceTo(z.pos))) return { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true };
                     return D.getTarget(z);
                 },
                 onAttackCustomTarget: (z, ct) => {
                     if (ct?.structure) BO.ZoneHorde.strike(z, ct.structure);
+                    else if (ct?.companion) BO.ZoneCompanions?.damageCompanion(z.damage);
                     else if (ct?.target) this.hit(ct.target, z.damage, 'torso', null, 'melee', z);
                 },
                 onMeleePlayer: (z) => {
@@ -530,6 +537,8 @@
             BO.ZoneContracts?.update(dt);
             BO.ZoneThrill?.update(dt);
             BO.ZoneWild?.update(dt);
+            BO.ZoneCompanions?.update(dt);
+            BO.ZoneArmory?.update(dt);
             BO.ZoneDungeons?.update(dt);
             BO.ZoneLegends?.update(dt);
             BO.ZoneQuests?.update(dt);
@@ -667,7 +676,8 @@
             const underground = BO.World.terrain && p.pos.y < BO.World.terrainHeight(p.pos.x, p.pos.z) - 2.5;
             const radSource = region.threat >= 5 ? 2.2 : region.threat >= 4 ? 0.7 : underground ? 1.2 : 0;
             const resMult = Math.max(0.4, 1 - (BO.SurvivalCareer?.masteryRank?.('resonance') || 0) * 0.15);
-            const shielding = (c.pack.filtered ? 0.18 : 1) * (needs && c.has('irradiated') ? 1.8 : 1) * (fx?.radGainMult || 1) * (this.weather === 'Rad fog' ? 1.4 : 1) * (this.tierSpec?.rad || 1) * resMult;
+            const obsidianShield = (p.maxArmor || 150) >= 180 ? 0.75 : 1;
+            const shielding = (c.pack.filtered ? 0.18 : 1) * obsidianShield * (needs && c.has('irradiated') ? 1.8 : 1) * (fx?.radGainMult || 1) * (this.weather === 'Rad fog' ? 1.4 : 1) * (this.tierSpec?.rad || 1) * resMult;
             this.radiation = BO.Math.clamp(this.radiation + dt * (radSource ? radSource * shielding : -0.9), 0, 100);
             this.composure = BO.Math.clamp(this.composure + dt * (this.mealUntil > this.clock ? 1.6 : -darkness * 0.42), 0, 100);
             if (this.composure < 30) p.swayX += Math.sin(this.clock * 7) * 0.00045;
@@ -758,7 +768,7 @@
                 BO.Sound?.playFootstep?.(true);
                 return;
             }
-            if (BO.ZoneDungeons?.activate(site) || BO.ZoneLegends?.activate(site) || BO.ZoneWild?.activate(site)) return;
+            if (BO.ZoneDungeons?.activate(site) || BO.ZoneLegends?.activate(site) || BO.ZoneCompanions?.activate(site) || BO.ZoneArmory?.activate(site) || BO.ZoneWild?.activate(site)) return;
             if (BO.ZoneFrontier.activate(site)) return;
             if (BO.ZoneEvents.activate(site)) return;
             if (BO.ZoneInfest?.activate(site)) return;
@@ -890,16 +900,27 @@
             if (c.has('ironRun')) return this.finish(false);
             this.deaths++;
             c.mark('deaths', 1, 0);
-            // Everything you carried stays in a body bag where you fell.
+            // If you fell inside a sealed dungeon or arena space, exit cleanly and drop your pack at the threshold so it is never stranded off-map.
+            let dropPos = { x: p.pos.x, y: p.pos.y, z: p.pos.z };
+            if (BO.ZoneDungeons?.inside) {
+                const ret = BO.ZoneDungeons.inside.ret;
+                dropPos = { x: ret.x, y: BO.World.getGroundHeight(ret.x, ret.z, (ret.y || 0) + 2), z: ret.z };
+                BO.ZoneDungeons.leave(true);
+            } else if (BO.ZoneLegends?.arena) {
+                const ret = BO.ZoneLegends.arena.ret;
+                dropPos = { x: ret.x, y: BO.World.getGroundHeight(ret.x, ret.z, (ret.y || 0) + 2), z: ret.z };
+                BO.ZoneLegends.leaveArena(true);
+            }
+            // Everything you carried stays in a body bag where you fell (or right outside the doorway).
             const items = { ...this.points };
             for (const k of Object.keys(items)) if (!(items[k] > 0) || !BO.SurvivalFrontierData.items[k]) delete items[k];
             if (Object.keys(items).length) {
-                c.pack.dropBag(items, p.pos, 'bag:body' + this.deaths);
+                c.pack.dropBag(items, dropPos, 'bag:body' + this.deaths);
                 const bag = c.pack.bags.get('bag:body' + this.deaths);
                 if (bag) { bag.marker.label = 'Recover your gear'; bag.body = true; bag.mesh.material.color.setHex(0xc84b3c); }
                 for (const k of Object.keys(items)) this.points[k] = 0;
             }
-            this.lastBody = { x: p.pos.x, y: p.pos.y, z: p.pos.z };
+            this.lastBody = { x: dropPos.x, y: dropPos.y, z: dropPos.z };
             const respawn = c.respawnPoint();
             c.restHours += 6;
             this.radiation = Math.min(this.radiation, 20);

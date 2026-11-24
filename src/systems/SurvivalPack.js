@@ -265,11 +265,12 @@
             }
             if (usingTool) {
                 this.equipped = tool;
-                this.wearTool(tool, 1);
+                if (!this.campaign.has('sv_no_wear')) this.wearTool(tool, 1);
                 m.noise = Math.max(m.noise, tool === 'miningDrill' ? 7 : 2.8);
             } else if (spec.tool) {
                 m.noise = Math.max(m.noise, 1.2);
             }
+            if (this.campaign.has('sv_no_cooldowns')) power = 999;
             node.hp = Math.max(0, node.hp - power);
             if (node.hp < 0.001) node.hp = 0;
             BO.FX.spawnParticles(new THREE.Vector3(marker.x, marker.y + 0.65, marker.z), usingTool ? 6 : 3, spec.color, 2.4, 8, 0.5);
@@ -325,7 +326,8 @@
                 this.lastStrike = { name: spec.name + ' · needs ' + TOOL_NAMES.axe, frac: t.hp / strokes, at: m.clock, blocked: true };
                 return true;
             }
-            if (usingTool) { this.equipped = tool; this.wearTool(tool, 1); }
+            if (usingTool) { this.equipped = tool; if (!this.campaign.has('sv_no_wear')) this.wearTool(tool, 1); }
+            if (this.campaign.has('sv_no_cooldowns')) power = 999;
             m.noise = Math.max(m.noise, usingTool ? 3.2 : 1.2);
             BO.ZoneDirector?.noise?.(t.x, t.z, usingTool ? 38 : 14, 'chop');
             t.hp = Math.max(0, t.hp - power);
@@ -360,7 +362,7 @@
             const m = this.mode;
             const big = t.type === 'broad';
             const gain = t.type === 'dead' ? { timber: 2, resin: 1 } : { ...spec.gain };
-            const scav = 1 + (BO.SurvivalCareer.masteryRank?.('scavenger') || 0) * 0.15;
+            const scav = (1 + (BO.SurvivalCareer.masteryRank?.('scavenger') || 0) * 0.15) * (this.campaign.has('sv_double_loot') ? 2 : 1);
             for (const k of Object.keys(gain)) gain[k] = Math.max(1, Math.round(gain[k] * (this.campaign.has('richLoot') ? 1.5 : 1) * scav));
             if (!big && Math.random() < 0.35) gain.fiber = (gain.fiber || 0) + 2;
             m.grant(gain);
@@ -424,7 +426,7 @@
                 const mfx = this.campaign.deep?.modFx || {};
                 const extraLoot = this.campaign.has('richLoot') || this.campaign.deep?.hasInfusion('fortune');
                 const scavMult = 1 + BO.SurvivalCareer.masteryRank('scavenger') * 0.15;
-                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1) * scavMult;
+                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1) * scavMult * (this.campaign.has('sv_double_loot') ? 2 : 1);
                 const gain = Object.fromEntries(Object.entries(spec.gain).map(([id, count]) => {
                     if (id === 'relic') return [id, count];
                     let amt = extraLoot ? count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5)) : count;
@@ -549,8 +551,8 @@
             const p = BO.Player;
             const m = this.mode;
             const deep = this.campaign.deep;
-            if (id === 'freshWater' && this.campaign.activities) {
-                return this.campaign.activities.useItem('freshWater');
+            if ((id === 'freshWater' || id === 'salvageLine') && this.campaign.activities) {
+                return this.campaign.activities.useItem(id);
             } else if (id === 'bandage' && p.hp < p.maxHp) {
                 const hp = Math.min((this.campaign.has('fieldMedic') ? 40 : 27) * (deep?.modFx?.healItemMult || 1), p.maxHp - p.hp);
                 p.hp += hp;

@@ -11,7 +11,7 @@
     const USABLE = new Set([
         'medkits', 'rations', 'bandage', 'freshWater', 'tea', 'stew', 'espresso', 'antibiotic', 'broth',
         'aetherStim', 'orbitalFlare', 'jugBrew', 'speedTonic', 'staminElixir', 'deadshotTinc',
-        'filter', 'repair', 'torch', 'lantern'
+        'filter', 'repair', 'torch', 'lantern', 'salvageLine', 'splint', 'painkillers', 'canned', 'gunkit'
     ]);
 
     const same = (a, b) => !!a && !!b && a.kind === b.kind && (a.kind === 'weapon' ? a.ref === b.ref : a.id === b.id);

@@ -17,11 +17,12 @@
     const STRUCT = {
         floor: { kind: 'floor', mat: 'wood' }, stoneFloor: { kind: 'floor', mat: 'stone' },
         roof: { kind: 'floor', mat: 'wood', roof: true }, platform: { kind: 'block', mat: 'wood' },
-        wall: { kind: 'wall', mat: 'wood' }, stoneWall: { kind: 'wall', mat: 'stone' }, door: { kind: 'wall', mat: 'stone', door: true }
+        wall: { kind: 'wall', mat: 'wood' }, stoneWall: { kind: 'wall', mat: 'stone' },
+        obsidianWall: { kind: 'wall', mat: 'stone' }, door: { kind: 'wall', mat: 'stone', door: true }
     };
     const LOSS = { wood: { v: 0.12, h: 0.3 }, stone: { v: 0.06, h: 0.2 } };
-    /** Structural hit points: a timber wall holds a few minutes of clawing, masonry much longer. */
-    const HP = { floor: 260, wall: 220, roof: 160, platform: 300, stoneFloor: 640, stoneWall: 560, door: 420 };
+    /** Structural hit points: a timber wall holds a few minutes of clawing, masonry much longer, obsidian holds against anything. */
+    const HP = { floor: 260, wall: 220, roof: 160, platform: 300, stoneFloor: 640, stoneWall: 560, obsidianWall: 1400, door: 420 };
     const E = 0.08;
 
     const tmpV = new THREE.Vector3();
@@ -134,6 +135,7 @@
             }
             const marker = m.markers.find((mk) => mk.id === 'build:' + piece.id);
             if (marker) marker.alive = false;
+            BO.ZoneArmory?.onPieceRemoved?.(piece);
             const mesh = piece.mesh;
             if (mesh) {
                 this.falling.push({ mesh, vy: 0, spin: (Math.random() - 0.5) * 3, t: 0 });
@@ -143,7 +145,9 @@
 
         /** Called by SurvivalMode when a build piece is destroyed by damage. */
         onPieceLost(piece) {
-            if (!piece || !STRUCT[piece.type]) return;
+            if (!piece) return;
+            BO.ZoneArmory?.onPieceRemoved?.(piece);
+            if (!STRUCT[piece.type]) return;
             this.settle();
         }
 
