@@ -98,7 +98,7 @@
             { action: 'survLegend', label: 'Survival guide', tip: 'Open the searchable Survival encyclopedia.', ctx: ['survival'] },
             { action: 'survRide', label: 'Ride / dismount', tip: 'Mount your fastest vehicle (or the last one you rode), or get off. Hold Shift to cycle vehicles.', ctx: ['survival'] },
             { action: 'survCompanion', label: 'Companion orders', tip: 'Cycle your tamed beast or Vanguard companion between Follow & Fight, Heel / Stealth, and Guard Post.', ctx: ['survival'] },
-            { action: 'survFlask', label: 'Quick heal', tip: 'Use the best medical item you carry: a bandage when bleeding, a medkit when badly hurt, a splint for a fracture.', ctx: ['survival'] },
+            { action: 'survFlask', label: 'Quick heal / quick wheel', tip: 'Tap: use the best medical item you carry. Hold: open the quick wheel (eat, heal, drink, torch, campfire, quick-stack, repair, throw); flick the mouse toward a slice and release.', ctx: ['survival'] },
             { action: 'survCatalogue', label: 'Field Catalogue', tip: 'Open the Field Catalogue: discoveries, missing finds and set bonuses.', ctx: ['survival'] },
             { action: 'survBase', label: 'Base & territory', tip: 'Open the Base screen: power grid, territory, settlers, outposts, hauls, threat ladder and weather forecast.', ctx: ['survival'] },
             { action: 'survQuickStack', label: 'Quick-stack', tip: 'Deposit every item you already store into your base storage within 10 m (not while hunted).', ctx: ['survival'] },

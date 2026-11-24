@@ -521,6 +521,7 @@
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
                 P.keys[code] = false;
+                if (code === kb.survFlask && BO.State.activeMode === 'survival' && BO.GM?.active) BO.GM.get('baselife')?.keyRelease?.();
                 if (code === 'Tab') {
                     BO.HUD.setScoreboardOpen(false);
                 } else if (code === kb.lethal && BO.State.screen === 'playing') {
@@ -563,7 +564,10 @@
                 return true;
             }
             if (code === kb.survFlask) {
-                BO.SurvivalMode.campaign?.deep?.useFlask(); // In the Zone this is quick field medicine.
+                // Tap = quick field medicine; hold = quick wheel (gm/GMBaseLife.js).
+                const wheel = BO.GM?.active ? BO.GM.get('baselife') : null;
+                if (wheel?.keyPress) return wheel.keyPress();
+                BO.SurvivalMode.campaign?.deep?.useFlask();
                 return true;
             }
             if (code === kb.survLight) {
