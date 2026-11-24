@@ -241,6 +241,7 @@
         complete(entry) {
             const m = this.mode;
             this.markSearched(entry);
+            BO.ZoneArchive?.onSearched(entry);
             m.campaign.mark('containers', 1, 4);
             if (entry.story) {
                 m.campaign.objectives.onStoryContainer(entry);

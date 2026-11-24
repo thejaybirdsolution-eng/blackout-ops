@@ -200,7 +200,9 @@
                 endings: { ...(saved?.endings || {}) },
                 maxTier: Math.max(1, Math.min(ZONE_TIERS.length, Number(saved?.maxTier) || 1)),
                 history: Array.isArray(saved?.history) ? saved.history.slice(0, 30) : [],
-                dailyCompleted: saved?.dailyCompleted || ''
+                dailyCompleted: saved?.dailyCompleted || '',
+                intel: Array.isArray(saved?.intel) ? [...new Set(saved.intel)] : [],
+                feats: { ...(saved?.feats || {}) }
             };
             // Clamp selected zoneTier to maxTier
             if (this.profile.options.zoneTier > this.profile.maxTier) {
@@ -462,7 +464,9 @@
                 endings: {},
                 maxTier: 1,
                 history: [],
-                dailyCompleted: ''
+                dailyCompleted: '',
+                intel: [],
+                feats: {}
             };
             this.checkpoint = null;
             write(careerKey, this.profile);

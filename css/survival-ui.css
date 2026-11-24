@@ -940,3 +940,24 @@ body.cb-tritanopia { --sv-danger: #ff4f7a; --sv-safe: #52e5c2; }
 
 .sv-a11y-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); margin-bottom: 12px; }
 .sv-a11y-bar b { font-size: 12px; color: #eef7f3; margin-right: 6px; }
+
+/* ---- Archive: feats & intel ---- */
+.sv-feats { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.sv-feat { position: relative; display: grid; gap: 3px; padding: 9px 11px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); opacity: 0.8; }
+.sv-feat b { font-size: 12.5px; color: #c9d6d2; }
+.sv-feat small { font-size: 11px; color: #8fa39e; line-height: 1.35; }
+.sv-feat.done { opacity: 1; border-color: rgba(242,208,122,0.45); background: linear-gradient(180deg, rgba(242,208,122,0.08), rgba(0,0,0,0.1)); }
+.sv-feat.done b { color: #f2d07a; }
+.sv-feat-f { display: flex; justify-content: space-between; font: 600 10.5px var(--font-mono, monospace); color: #a9c6bb; }
+.sv-feat-f em { font-style: normal; color: #f2d07a; }
+.sv-feat-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.sv-feat-bar > i { display: block; height: 100%; background: #f2d07a; }
+.sv-intel-list { display: grid; gap: 5px; margin-bottom: 14px; }
+.sv-intel { display: grid; grid-template-columns: 28px 1fr; column-gap: 8px; align-items: baseline; text-align: left; padding: 8px 10px; border-radius: 7px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); color: #dbe8e3; font: inherit; cursor: pointer; }
+button.sv-intel:hover { border-color: rgba(247,227,166,0.4); }
+.sv-intel.locked { cursor: default; opacity: 0.55; }
+.sv-intel-n { grid-row: span 2; font: 700 12px var(--font-mono, monospace); color: #f7e3a6; }
+.sv-intel b { font-size: 12.5px; }
+.sv-intel small { grid-column: 2; font-size: 11px; color: #8fa39e; }
+.sv-intel p { grid-column: 2; margin: 8px 0 2px; font-size: 13px; line-height: 1.6; color: #e9e2cc; font-family: Georgia, 'Times New Roman', serif; white-space: normal; }
+.sv-intel.open { border-color: rgba(247,227,166,0.55); background: rgba(247,227,166,0.06); }

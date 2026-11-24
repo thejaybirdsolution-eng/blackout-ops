@@ -85,6 +85,7 @@
             this.loot = new BO.ZoneLoot.ContainerField(this);
             this.createZone();
             this.loot.setup(checkpoint?.loot);
+            BO.ZoneArchive.start(this);
             BO.ZoneDirector.start(this);
             this.campaign = new BO.SurvivalCampaign(this, campaignOptions);
             const c = this.campaign;
@@ -122,6 +123,7 @@
             BO.ZoneHorde?.stop();
             BO.ZoneFrontier?.stop();
             BO.ZoneFinale?.stop();
+            BO.ZoneArchive?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
             this.campaign?.stop();
@@ -496,6 +498,7 @@
             BO.ZoneBuild.update(dt);
             BO.ZoneFrontier.update(dt);
             BO.ZoneFinale.update(dt);
+            BO.ZoneArchive.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);

@@ -571,6 +571,9 @@
                 case 'buyMastery':
                     career.buyMastery(arg);
                     return this.renderBriefing();
+                case 'intelOpen':
+                    this.intelOpen = this.intelOpen === arg ? null : arg;
+                    return this.renderBriefing();
                 case 'respecMastery': {
                     const refunded = career.respecMastery();
                     if (refunded > 0) BO.Events.emit('hud:toast', { text: 'Mastery reset: +' + refunded + ' commendations refunded.', color: '#a6ddd0' });
@@ -727,6 +730,7 @@
                 case 'unlockTech': deep?.unlockTech(arg); break;
                 case 'attr': deep?.upgradeAttribute(arg); break;
                 case 'claim': c.objectives.claim(arg); break;
+                case 'intelOpen': this.intelOpen = this.intelOpen === arg ? null : arg; break;
                 case 'save': this.feedback = c.save() ? 'Checkpoint saved in this browser.' : 'You can only save when no enemies are within 9 m (and not during a siege, evacuation or Iron run).'; break;
                 case 'reward': c.reward(this.subject); break;
                 case 'trade': if (!c.trade(this.subject, arg)) this.feedback = 'You cannot afford that trade (or your pack is full).'; break;
@@ -1255,6 +1259,11 @@
                     <div class="sv-stat"><b>${comm}</b><small>Commendations</small></div>
                     ${fastest ? `<div class="sv-stat"><b>${BO.Math.formatTime(fastest)}</b><small>Fastest victory</small></div>` : ''}</div>
                 <div class="sv-medals">${endingMedals}</div>
+                ${BO.ZoneArchive ? (() => { const s = BO.ZoneArchive.summary(); return `
+                <h4 class="sv-sub">Feats <small>${s.feats}/${s.featsTotal} unlocked · each pays commendations once</small></h4>
+                ${BO.ZoneArchive.featsHtml(esc)}
+                <h4 class="sv-sub">Intel · Project Lantern <small>${s.intel}/${s.intelTotal} documents recovered · every 4th pays a commendation</small></h4>
+                ${BO.ZoneArchive.intelHtml(esc, this.intelOpen)}`; })() : ''}
                 <div class="sv-meta-bar">
                     <div><b>Archive Mastery Tree</b><small>Permanent perks across all expeditions. Earned from level-ups, bosses, hordes, dailies and endings.</small></div>
                     <div class="sv-meta-bar-r"><b>${comm} Commendation${comm === 1 ? '' : 's'}</b>
@@ -2199,7 +2208,8 @@
                     <section><h4 class="sv-sub">Field challenges</h4>${challenges}</section>
                     <section><h4 class="sv-sub">Contracts</h4><p class="sv-muted sm">Complete the task, then talk to the contact to claim.</p><div class="sv-contracts">${contracts}</div>
                         ${c.activities ? `<div class="sv-activities">${c.activities.renderJournal()}</div>` : ''}</section>
-                    <section><h4 class="sv-sub">Career</h4>${this.record()}</section>
+                    <section><h4 class="sv-sub">Intel <small>${BO.ZoneArchive?.summary().intel || 0}/16</small></h4>${BO.ZoneArchive ? BO.ZoneArchive.intelHtml(esc, this.intelOpen) : ''}
+                        <h4 class="sv-sub">Career</h4>${this.record()}</section>
                 </div></div>`;
         }
 
@@ -2424,7 +2434,7 @@
             }
             // ---- harvest feedback
             const ls = c.pack.lastStrike;
-            const search = mode.loot?.progress?.();
+            const search = mode.loot?.progress;
             const showH = search || (ls && now - ls.at < 1.6);
             h.harvest.hidden = !showH;
             if (search) {
