@@ -73,6 +73,7 @@
         recipe('dressing', 'Herbal dressings', 'hand', { cloth: 1, herbs: 2 }, { bandage: 2 }, 'Restore a small amount of health.'),
         recipe('fieldRepair', 'Field repair kit', 'hand', { scrap: 2, cord: 1 }, { repair: 1 }, 'Restores the equipped tool’s durability.'),
         recipe('sawBoards', 'Sawn boards', 'bench', { timber: 2 }, { planks: 3 }, 'Efficient building stock and handles.'),
+        recipe('weaveCloth', 'Weave cloth', 'bench', { fiber: 4 }, { cloth: 1 }, 'Loom plant fiber into rough cloth for beds, dressings and packs.'),
         recipe('smelt', 'Smelt iron', 'kiln', { iron: 3, coal: 1 }, { ingot: 2 }, 'Forge parts for stronger tools.'),
         recipe('fireBricks', 'Fire bricks', 'kiln', { clay: 3, coal: 1 }, { brick: 3 }, 'Masonry for stronger walls and raised foundations.'),
         recipe('drawWire', 'Draw copper wire', 'bench', { copper: 2 }, { wire: 3 }, 'Conductive parts for the lamp and drill.'),

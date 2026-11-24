@@ -168,3 +168,34 @@
 .gm-feed-line .nm { color: #e2e8f0; font-weight: 600; }
 .gm-feed-line.bump { animation: gm-feed-bump 0.22s ease-out; }
 @keyframes gm-feed-bump { 0% { transform: translateX(-10px) scale(1.12); } 100% { transform: none; } }
+
+/* ---------- Survival Gold: First Night tracker ---------- */
+.gm-fn {
+    position: fixed;
+    z-index: 37;
+    top: 112px;
+    right: 14px;
+    width: 250px;
+    padding: 9px 12px 10px;
+    border-radius: 10px;
+    background: rgba(8, 12, 18, 0.8);
+    border: 1px solid rgba(134, 239, 172, 0.35);
+    border-left: 3px solid #86efac;
+    color: #e2e8f0;
+    font: 500 12px/1.4 'Rajdhani', 'Segoe UI', sans-serif;
+    text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+}
+.gm-fn.hidden { display: none; }
+.gm-fn header { display: flex; justify-content: space-between; font-weight: 700; font-size: 11px; letter-spacing: 0.12em; color: #86efac; }
+.gm-fn header .dusk { color: #fbbf24; letter-spacing: 0.04em; }
+.gm-fn .pips { display: flex; gap: 4px; margin: 6px 0 7px; }
+.gm-fn .pips i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); }
+.gm-fn .pips i.ok { background: #86efac; }
+.gm-fn .pips i.cur { background: #fbbf24; animation: gm-fn-pulse 1.2s ease-in-out infinite; }
+@keyframes gm-fn-pulse { 50% { opacity: 0.45; } }
+.gm-fn b { display: block; font-size: 14px; color: #f8fafc; }
+.gm-fn p { margin: 2px 0 5px; color: #cbd5e1; }
+.gm-fn .prog { font-weight: 700; color: #fde68a; }
+.gm-fn .prog i { font-style: normal; font-weight: 600; color: #a7f3d0; }
+body.gm-fn-on #zt-contracts { display: none !important; }
