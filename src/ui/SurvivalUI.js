@@ -212,6 +212,23 @@
         ['medical', 'Medical', 'medkit'], ['potions', 'Alchemy', 'flask'], ['food', 'Food & drink', 'cup'],
         ['lighting', 'Lighting', 'torch'], ['gear', 'Gear & gadgets', 'chest'], ['weapons', 'Weapons', 'rifle'], ['vehicles', 'Vehicles', 'wheel']
     ];
+    const BUILD_TABS = [
+        ['shelter', 'Shelter', 'roof'], ['craft', 'Workshop', 'bench'], ['light', 'Light & fire', 'torch'], ['storage', 'Storage', 'chest'],
+        ['farm', 'Farm & water', 'seed'], ['defence', 'Defence', 'spikes'], ['power', 'Power', 'battery']
+    ];
+    const BUILD_TAB_OF = {};
+    for (const [tab, ids] of Object.entries({
+        shelter: ['wall', 'floor', 'roof', 'door', 'woodDoor', 'ironDoor', 'doubleGate', 'ladder', 'bed', 'platform', 'woodStairs', 'stoneStairs', 'obsidianStairs',
+            'stoneWall', 'stoneFloor', 'halfWall', 'stoneHalfWall', 'windowWall', 'archway', 'catwalk', 'railing', 'pillar', 'concreteWall', 'obsidianWall', 'outpost'],
+        craft: ['bench', 'kiln', 'smelter', 'armoryBench', 'tanrack', 'smoker', 'cookstation', 'alchemyStand', 'arcaneTable', 'infuser'],
+        light: ['campfire', 'firepit', 'wallTorch', 'lanternPost', 'floodlight', 'searchlight', 'beacon'],
+        storage: ['chest', 'supplyCrate', 'ironVault', 'quantumChest', 'autoCollector', 'stashUplink'],
+        farm: ['planter', 'rainbarrel', 'compostBin', 'wellPump', 'hydro', 'purifier', 'growLamp'],
+        defence: ['spikes', 'wire', 'barbedWire', 'spikeWall', 'sandbagWall', 'watchtower', 'turret', 'eFence', 'alarm'],
+        power: ['generator', 'solarPanel', 'batteryBank', 'windTurbine', 'pylon']
+    })) for (const id of ids) BUILD_TAB_OF[id] = tab;
+    /** Blueprints retired from the build menu (kept in data so old saves still load). */
+    const BUILD_HIDDEN = new Set();
     const RECIPE_CAT = {
         braid: 'materials', sawBoards: 'materials', smelt: 'materials', fireBricks: 'materials', drawWire: 'materials',
         cutLens: 'materials', charcoal: 'materials', smeltAetherAlloy: 'materials', makePowder: 'materials', salvageRadio: 'materials',
@@ -360,6 +377,12 @@
                     career.remember({ ...career.profile.options, seed: clean, daily: false });
                     const tag = this.root.querySelector('#sv-sum-seed');
                     if (tag) tag.textContent = clean || 'Random';
+                    return;
+                }
+                if (e.target.id === 'sv-craft-search') {
+                    this.craftQuery = e.target.value;
+                    const host = this.root.querySelector('#sv-rec-rows');
+                    if (host) { host.innerHTML = this.craftRows(this.craftList().all).rows; host.scrollTop = 0; }
                     return;
                 }
                 if (e.target.id === 'survival-legend-search') {
@@ -557,7 +580,11 @@
         /** Called every frame while the terminal is open and the world keeps running. Taking damage snaps you out. */
         liveRefresh() {
             const hp = BO.Player.hp;
-            if (this._hpSeen !== undefined && hp < this._hpSeen - 0.5 && BO.Player.alive) {
+            // Only a real attacker closes the menu: bleeding, hunger, cold and radiation ticks do not.
+            const sm = BO.SurvivalMode;
+            const pp = BO.Player.pos;
+            const attacker = [...(sm.zombies || []), ...(sm.bots || [])].some((e) => e.alive && e.team !== 0 && Math.hypot(e.pos.x - pp.x, e.pos.z - pp.z) < 7);
+            if (this._hpSeen !== undefined && hp < this._hpSeen - 0.5 && BO.Player.alive && attacker) {
                 this._hpSeen = undefined;
                 this.resume();
                 BO.SurvivalMode.toast('You are under attack!');
@@ -850,6 +877,7 @@
                     break;
                 }
                 case 'craftCat': this.craftCat = arg; break;
+                case 'buildTab': this.buildTab = arg; break;
                 case 'recipe':
                     this.selRecipe = arg;
                     if (event?.shiftKey || event?.detail >= 2) this.craftRecipe(arg, event?.ctrlKey ? 5 : 1);
@@ -1834,28 +1862,61 @@
             else if (!made) this.feedback = 'Cannot craft that right now.';
         }
 
+        /** Recipes the player has discovered, with "almost" (one ingredient short) flagged. */
+        craftList() {
+            const RM = BO.GM?.active ? BO.GM.get('recipes') : null;
+            const raw = this.recipes();
+            const all = RM ? raw.filter((r) => RM.recipeVisible(r)) : raw;
+            for (const r of all) {
+                if (r.status !== 'missing') continue;
+                const short = Object.entries(r.cost || {}).filter(([id, n]) => (r.have[id] || 0) < n).map(([id, n]) => [id, n - (r.have[id] || 0)]);
+                if (short.length === 1) { r.status = 'almost'; r.short = short[0]; }
+            }
+            return { all, hidden: raw.length - all.length };
+        }
+
+        craftRows(all) {
+            const rank = { ready: 0, almost: 1, missing: 2, blocked: 3, station: 4, locked: 5, owned: 6 };
+            const groups = { ready: 'Craftable now', almost: 'One ingredient away', missing: 'Missing materials', blocked: 'Pack full', station: 'Needs a station', locked: 'Locked', owned: 'Owned' };
+            const q = String(this.craftQuery || '').trim().toLowerCase();
+            const match = (r) => !q || r.name.toLowerCase().includes(q) || String(r.desc || '').toLowerCase().includes(q) ||
+                Object.keys(r.cost || {}).some((id) => itemName(id).toLowerCase().includes(q)) || Object.keys(r.gain || {}).some((id) => itemName(id).toLowerCase().includes(q));
+            const list = all.filter((r) => (q || this.craftCat === 'all' || r.cat === this.craftCat) && match(r))
+                .sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name));
+            const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
+            const statusText = { ready: 'Ready', almost: 'One ingredient short', missing: 'Missing materials', station: 'Needs a station', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
+            const pack = BO.SurvivalMode.campaign.pack.inventory;
+            let lastGroup = null;
+            const rows = list.map((r) => {
+                const head = r.status !== lastGroup ? `<div class="sv-rec-group g-${r.status}">${groups[r.status]}</div>` : '';
+                lastGroup = r.status;
+                const fromStore = Object.entries(r.cost || {}).some(([id, n]) => (pack[id] || 0) < n && (r.have[id] || 0) >= n);
+                const sub = r.status === 'almost' ? 'Need ' + r.short[1] + ' × ' + esc(itemName(r.short[0]))
+                    : STATION_NAME[r.station] + (r.status === 'owned' && r.ownedText ? ' · ' + esc(r.ownedText) : '') + (fromStore && r.status === 'ready' ? ' · uses base storage' : '');
+                return head + `<button class="sv-rec ${r.key === this.selRecipe ? 'selected' : ''} st-${r.status}" data-act="recipe" data-arg="${r.key}"${tip(r.name, r.desc || '', r.status === 'station' ? 'Needs ' + STATION_NAME[r.station] : statusText[r.status])}>
+                <span class="sv-rec-ico">${icon(r, 24)}</span><span class="sv-rec-t"><b>${esc(r.name)}</b><small>${sub}</small></span>
+                <span class="sv-rec-st">${r.status === 'ready' ? '●' : r.status === 'almost' ? '◐' : r.status === 'locked' ? '🔒' : r.status === 'owned' ? '✓' : ''}</span></button>`;
+            }).join('') || `<p class="sv-muted">${q ? 'No discovered recipe matches “' + esc(q) + '”.' : 'No recipes in this category yet.'}</p>`;
+            return { list, rows };
+        }
+
         tabCrafting() {
             const c = BO.SurvivalMode.campaign;
-            const all = this.recipes();
-            const rank = { ready: 0, missing: 1, blocked: 2, station: 3, locked: 4, owned: 5 };
-            const list = all.filter((r) => this.craftCat === 'all' || r.cat === this.craftCat)
-                .sort((a, b) => rank[a.status] - rank[b.status] || a.name.localeCompare(b.name));
+            const { all, hidden } = this.craftList();
+            const { list, rows } = this.craftRows(all);
             if (!this.selRecipe || !all.some((r) => r.key === this.selRecipe)) this.selRecipe = list[0]?.key;
             const sel = all.find((r) => r.key === this.selRecipe);
             const here = c.stations;
             const icon = (r, size) => r.tool ? Icons().tool(r.id, size) : r.glyph ? Icons().named(r.glyph, '#cfe3da', size) : Icons().item(Object.keys(r.gain || {})[0] || r.id, size);
-            const statusText = { ready: 'Ready', missing: 'Missing materials', station: 'Needs ' + '', locked: 'Locked', owned: 'Owned', blocked: 'Pack full' };
             const stationBar = `<div class="sv-stations">${['hand', 'bench', 'campfire', 'kiln', 'cookstation', 'alchemy', 'arcane'].filter((st) => st === 'hand' || st === 'bench' || st === 'campfire' || st === 'kiln' || here.includes(st) || all.some((r) => r.station === st)).map((st) => `<span class="sv-station ${here.includes(st) ? 'on' : ''}"${tip(STATION_NAME[st] || st, STATION_TIP[st] || '', here.includes(st) ? 'Available here' : 'Not in reach')}>${Icons().named({ hand: 'fist', bench: 'bench', campfire: 'fire', kiln: 'kiln', cookstation: 'stove', alchemy: 'flask', arcane: 'rune' }[st] || 'wrench', here.includes(st) ? '#9fe0c9' : '#56645f', 15)}${STATION_NAME[st] || st}</span>`).join('')}</div>`;
             const cats = CRAFT_CATS.map(([id, label, glyph]) => {
                 const n = all.filter((r) => (id === 'all' || r.cat === id) && r.status === 'ready').length;
                 return `<button class="sv-cat ${this.craftCat === id ? 'active' : ''}" data-act="craftCat" data-arg="${id}"${tip(label, n + ' recipe(s) you can craft right now.')}>${Icons().named(glyph, this.craftCat === id ? '#0d1513' : '#9fd4c7', 16)}<span>${label}</span>${n ? `<em>${n}</em>` : ''}</button>`;
             }).join('');
-            const rows = list.map((r) => `<button class="sv-rec ${r.key === this.selRecipe ? 'selected' : ''} st-${r.status}" data-act="recipe" data-arg="${r.key}"${tip(r.name, r.desc || '', r.status === 'station' ? 'Needs ' + STATION_NAME[r.station] : statusText[r.status])}>
-                <span class="sv-rec-ico">${icon(r, 24)}</span><span class="sv-rec-t"><b>${esc(r.name)}</b><small>${STATION_NAME[r.station]}${r.status === 'owned' && r.ownedText ? ' · ' + esc(r.ownedText) : ''}</small></span>
-                <span class="sv-rec-st">${r.status === 'ready' ? '●' : r.status === 'locked' ? '🔒' : r.status === 'owned' ? '✓' : ''}</span></button>`).join('') || '<p class="sv-muted">No recipes in this category.</p>';
             let detail = '<div class="sv-empty-detail"><b>Select a recipe</b></div>';
             if (sel) {
                 const reason = sel.status === 'locked' ? sel.lock : sel.status === 'station' ? 'Stand within 4 m of a ' + STATION_NAME[sel.station].toLowerCase() + '.' :
+                    sel.status === 'almost' ? 'Only ' + sel.short[1] + ' × ' + itemName(sel.short[0]) + ' short.' :
                     sel.status === 'missing' ? 'Gather the missing materials.' : sel.status === 'owned' ? (sel.ownedText || 'Already owned.') : sel.status === 'blocked' ? sel.blocked : '';
                 const gainList = sel.gain && Object.keys(sel.gain).length ? Object.entries(sel.gain).map(([id, n]) => `<span class="sv-gain">${Icons().item(id, 18)} ${n} × ${esc(itemName(id))}</span>`).join('') : '';
                 const repeatable = (sel.key.startsWith('f:') && !sel.key.includes('Pack') && frontier.recipes.find((r) => r.id === sel.id)?.pack === undefined) || sel.key === 'l:ammo' || sel.key === 'l:medkit';
@@ -1872,7 +1933,11 @@
             }
             return `<div class="sv-craft">
                 <nav class="sv-cats">${stationBar}${cats}</nav>
-                <section class="sv-rec-list sv-scroll" data-scroll="recipes-${this.craftCat}">${rows}</section>
+                <div class="sv-rec-col">
+                    <input id="sv-craft-search" class="sv-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search recipes or ingredients…" value="${esc(this.craftQuery || '')}"${tip('Search', 'Filters every discovered recipe by name, ingredient or result.')} />
+                    <section id="sv-rec-rows" class="sv-rec-list sv-scroll" data-scroll="recipes-${this.craftCat}">${rows}</section>
+                    ${hidden ? `<p class="sv-undiscovered">${hidden} recipe${hidden === 1 ? '' : 's'} still to discover · pick up new materials to reveal them</p>` : ''}
+                </div>
                 <aside class="sv-detail sv-scroll" data-scroll="rdetail">${detail}</aside>
             </div>`;
         }
@@ -1883,7 +1948,23 @@
             const c = mode.campaign;
             const deep = c.deep;
             const inv = BO.GM?.get('storage')?.available?.() || mode.points;
-            const pieces = data.build;
+            const RM = BO.GM?.active ? BO.GM.get('recipes') : null;
+            const listed = data.build.filter((b) => !BUILD_HIDDEN.has(b.id));
+            const known = listed.filter((b) => !RM || RM.buildVisible(b));
+            const hidden = listed.length - known.length;
+            const tabOf = (b) => BUILD_TAB_OF[b.id] || 'craft';
+            const costOfB = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
+            if (!this.buildTab || !BUILD_TABS.some(([id]) => id === this.buildTab)) this.buildTab = 'shelter';
+            const pieces = known.filter((b) => tabOf(b) === this.buildTab);
+            const tabs = BUILD_TABS.map(([id, label, glyph]) => {
+                const n = known.filter((b) => tabOf(b) === id).length;
+                const ready = known.filter((b) => tabOf(b) === id && mode.canAfford(costOfB(b))).length;
+                return `<button class="sv-btab ${this.buildTab === id ? 'active' : ''}" data-act="buildTab" data-arg="${id}" ${n ? '' : 'disabled'}${tip(label, n ? n + ' known blueprint(s), ' + ready + ' affordable.' : 'No blueprints discovered here yet.')}>${Icons().named(glyph, this.buildTab === id ? '#0d1513' : '#9fd4c7', 15)}<span>${label}</span>${ready ? `<em>${ready}</em>` : ''}</button>`;
+            }).join('');
+            const undiscovered = hidden ? `<p class="sv-undiscovered">${hidden} blueprint${hidden === 1 ? '' : 's'} still to discover · hold every material once to reveal one</p>` : '';
+            if (!pieces.length) {
+                return `<div class="sv-build"><div class="sv-bcol"><nav class="sv-btabs">${tabs}</nav><section class="sv-bgrid sv-scroll" data-scroll="bgrid-${this.buildTab}"><p class="sv-muted">No blueprints discovered in this tab yet.</p></section>${undiscovered}</div><aside class="sv-detail"><p class="sv-muted">Pick a tab with blueprints.</p></aside></div>`;
+            }
             if (!this.selBuild || !pieces.some((b) => b.id === this.selBuild)) this.selBuild = pieces[0].id;
             const costOf = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
             const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
@@ -1906,7 +1987,8 @@
             const weakest = parts.length ? Math.round(Math.min(...parts.map((x) => x.support ?? 1)) * 100) : null;
             const H = BO.ZoneHorde;
             return `<div class="sv-build">
-                <section class="sv-bgrid sv-scroll" data-scroll="bgrid">${cards}</section>
+                <div class="sv-bcol"><nav class="sv-btabs">${tabs}</nav>
+                <section class="sv-bgrid sv-scroll" data-scroll="bgrid-${this.buildTab}">${cards}</section>${undiscovered}</div>
                 <aside class="sv-detail sv-scroll" data-scroll="bdetail">
                     <div class="sv-detail-head">${Icons().build(b.id, 44)}<div><h3>${esc(b.name)}</h3><small>${b.size.map((v) => v.toFixed(1)).join(' × ')} m</small></div></div>
                     <p class="sv-detail-text">${esc(b.detail)}</p>

@@ -402,11 +402,16 @@
                 g.material.color.copy(col);
             }
             const cost = typeof this.spec.cost === 'number' ? { scrap: this.spec.cost } : this.spec.cost;
-            const afford = Object.entries(cost).every(([id, n]) => (m.points[id] || 0) >= n);
+            const have = BO.GM?.active ? (BO.GM.get('storage')?.available?.() || m.points) : m.points;
+            const afford = Object.entries(cost).every(([id, n]) => (have[id] || 0) >= n);
+            const costRows = Object.entries(cost).map(([id, n]) => {
+                const h = Math.floor(have[id] || 0);
+                return '<span class="' + (h >= n ? 'ok' : 'short') + '">' + Math.min(h, 999) + '/' + n + ' ' + (BO.SurvivalItemName ? BO.SurvivalItemName(id) : id) + '</span>';
+            }).join('');
             const kb = BO.Settings.getKeybinds();
             const integ = STRUCT[this.type] && r.cand ? ' · integrity <b class="' + (r.support > 0.55 ? 'ok' : r.support > 0.3 ? 'mid' : 'low') + '">' + Math.round(r.support * 100) + '%</b>' : '';
             const html = `<div class="zb-title">${this.spec.name}${integ}</div>
-                <div class="zb-cost ${afford ? '' : 'short'}">${BO.SurvivalItemAmounts(cost)}${afford ? '' : ' · not enough materials'}</div>
+                <div class="zb-cost ${afford ? '' : 'short'}">${costRows}</div>
                 ${r.ok ? '' : `<div class="zb-why">${r.why}</div>`}
                 <div class="zb-keys"><span><kbd>LMB</kbd> place</span><span><kbd>R</kbd> rotate</span><span><kbd>RMB</kbd>/<kbd>${BO.Settings.keyLabel(kb.survBuild)}</kbd> exit</span></div>`;
             if (this._html !== html) { this.label.innerHTML = html; this._html = html; }

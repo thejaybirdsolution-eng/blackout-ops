@@ -162,6 +162,7 @@
             if (s.damageNumbers === undefined) s.damageNumbers = true;
             if (s.showControlHints === undefined) s.showControlHints = true;
             if (s.contextualHud === undefined) s.contextualHud = true;
+            if (s.nextUpHint === undefined) s.nextUpHint = true;
             if (!s.colorBlindMode) s.colorBlindMode = 'none'; // 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia'
             if (s.subtitles === undefined) s.subtitles = true;
             if (s.reducedMotion === undefined) s.reducedMotion = false;
