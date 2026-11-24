@@ -138,17 +138,51 @@
                     }
                 }
             } else if (spec.tool === 'shovel') {
-                make(new THREE.DodecahedronGeometry(0.54), spec.color, 0, 0.11, 0).scale.set(1.25, 0.22, 0.86);
-                if (kind === 'buried') make(new THREE.BoxGeometry(0.4, 0.12, 0.24), 0x7d755a, 0.12, 0.21, 0.04);
+                // A raised mound with a darker crown reads as "dig here" from a distance.
+                make(new THREE.DodecahedronGeometry(0.62), spec.color, 0, 0.16, 0).scale.set(1.45, 0.34, 1.05);
+                make(new THREE.DodecahedronGeometry(0.34), new THREE.Color(spec.color).multiplyScalar(0.72).getHex(), 0.08, 0.34, -0.04).scale.set(1.2, 0.45, 0.9);
+                if (kind === 'buried') {
+                    make(new THREE.BoxGeometry(0.52, 0.16, 0.3), 0x7d755a, 0.18, 0.42, 0.06, { metalness: 0.5 }).rotation.z = 0.35;
+                    make(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 6), 0x9a9a8a, -0.22, 0.42, 0.1, { metalness: 0.6 }).rotation.z = 1.1;
+                }
+            } else if (kind === 'stones') {
+                // A small cairn: five fist-sized stones, the top one pale so it catches the light.
+                const stones = [[0, 0.2, 0, 0.34], [0.36, 0.15, 0.12, 0.26], [-0.32, 0.14, 0.18, 0.24], [0.06, 0.13, -0.34, 0.25], [0.04, 0.52, 0.02, 0.22]];
+                stones.forEach(([dx, dy, dz, r], i) => {
+                    const st = make(new THREE.DodecahedronGeometry(r, 0), i === 4 ? 0xc7cdc4 : spec.color, dx, dy, dz);
+                    st.scale.set(1.1, 0.78, 1);
+                    st.rotation.set(i * 0.7, i * 1.3, i * 0.4);
+                });
+            } else if (kind === 'kindling') {
+                // Crossed fallen sticks with a bundle tied in the middle.
+                for (let i = 0; i < 5; i++) {
+                    const stick = make(new THREE.CylinderGeometry(0.045, 0.06, 1.05 - i * 0.06, 5), i % 2 ? 0x7a5c3e : spec.color,
+                        (i - 2) * 0.06, 0.07 + (i % 3) * 0.05, (i - 2) * 0.05);
+                    stick.rotation.set(Math.PI / 2, 0, i * 0.62 + 0.2);
+                }
+                make(new THREE.TorusGeometry(0.1, 0.025, 4, 8), 0xc8b27a, 0, 0.16, 0).rotation.x = Math.PI / 2;
+            } else if (kind === 'roots') {
+                // A tall tuft of pale fibrous grass, taller than the lawn around it.
+                for (let i = 0; i < 7; i++) {
+                    const a = (i / 7) * Math.PI * 2;
+                    const blade = make(new THREE.ConeGeometry(0.07, 0.8 + (i % 3) * 0.14, 4), i % 2 ? 0xb6c47a : spec.color,
+                        Math.cos(a) * 0.14, 0.42, Math.sin(a) * 0.14);
+                    blade.rotation.set(Math.sin(a) * 0.32, 0, -Math.cos(a) * 0.32);
+                }
             } else {
-                for (let i = 0; i < 4; i++) {
-                    const geo = kind === 'stones' ? new THREE.DodecahedronGeometry(0.15 + i * 0.015)
-                        : kind === 'kindling' ? new THREE.BoxGeometry(0.34 + i * 0.035, 0.05, 0.055)
-                        : new THREE.ConeGeometry(0.095, 0.22 + i * 0.017, 4);
-                    make(geo, spec.color, i * 0.16 - 0.22, kind === 'kindling' ? 0.06 : 0.15 + i * 0.023, i * 0.12 - 0.16).rotation.y = i;
+                // Bitterleaf: broad dark leaves with white flowers on top.
+                for (let i = 0; i < 5; i++) {
+                    const a = (i / 5) * Math.PI * 2;
+                    const leaf = make(new THREE.SphereGeometry(0.22, 6, 4), spec.color, Math.cos(a) * 0.2, 0.14, Math.sin(a) * 0.2);
+                    leaf.scale.set(1, 0.22, 0.55);
+                    leaf.rotation.set(0, -a, 0.35);
+                }
+                for (let i = 0; i < 3; i++) {
+                    make(new THREE.SphereGeometry(0.075, 6, 4), 0xf3f4ee, (i - 1) * 0.12, 0.38 + (i % 2) * 0.06, (i % 2) * 0.1 - 0.05,
+                        { emissive: 0xffffff, emissiveIntensity: 0.18 });
                 }
             }
-            const marker = { id, x, y, z, name: spec.name, label: '', alive: true };
+            const marker = { id, x, y, z, name: spec.name, label: '', alive: true, reach: spec.tool ? 3.4 : 3.3 };
             m.markers.push(marker);
             for (const mesh of geometry) this.meshToNode.set(mesh, id);
             this.resources.set(id, { kind, spec, hp: spec.strokes, geometry, collider, marker });
@@ -209,9 +243,9 @@
                     const dz = mk.z - p.z;
                     const dy = (mk.y + 0.4) - (p.y + 1.0);
                     const d = Math.hypot(dx, dz);
-                    if (d > 2.7 || Math.abs(dy) > 2.2) continue;
+                    if (d > 3.2 || Math.abs(dy) > 2.2) continue;
                     const facing = d < 0.6 ? 1 : (dx * aim.dir.x + dz * aim.dir.z) / (d * Math.hypot(aim.dir.x, aim.dir.z) || 1);
-                    if (facing < 0.55) continue;
+                    if (facing < 0.4) continue;
                     const score = d - facing;
                     if (score < bestScore) { bestScore = score; best = id; }
                 }
@@ -435,11 +469,15 @@
             const { spec } = node;
             {
                 this.deplete(node);
-                if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? 480 : 170);
+                // Small deposits regrow in a day; veins, boulders and digs refill over three days.
+                const day = this.campaign.options?.dayLength || 360;
+                if (node.kind !== 'deep') node.renewAt = m.clock + (spec.tool ? day * 3 : day);
                 const mfx = this.campaign.deep?.modFx || {};
                 const extraLoot = this.campaign.has('richLoot') || this.campaign.deep?.hasInfusion('fortune');
                 const scavMult = 1 + BO.SurvivalCareer.masteryRank('scavenger') * 0.15;
-                const yMult = (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1) * scavMult * (this.campaign.has('sv_double_loot') ? 2 : 1);
+                // Ground inside your own light claim is picked over: small deposits give half.
+                const claimMult = !spec.tool && BO.GM?.active && BO.GM.get('threat')?.inClaim?.(node.marker.x, node.marker.z) ? 0.5 : 1;
+                const yMult = claimMult * (mfx.gatherYieldMult || 1) * (mfx.gatherMult || 1) * scavMult * (this.campaign.has('sv_double_loot') ? 2 : 1);
                 const gain = Object.fromEntries(Object.entries(spec.gain).map(([id, count]) => {
                     if (id === 'relic') return [id, count];
                     let amt = extraLoot ? count + Math.ceil(count * (this.campaign.deep?.hasInfusion('fortune') && this.campaign.has('richLoot') ? 0.9 : 0.5)) : count;

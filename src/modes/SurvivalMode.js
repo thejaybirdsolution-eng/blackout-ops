@@ -820,7 +820,11 @@
             const found = BO.SurvivalItemAmounts(accepted);
             const overflow = BO.SurvivalItemAmounts(remainder);
             if (overflow) this.toast((found ? 'Packed ' + found + '. ' : '') + 'Pack full — dropped ' + overflow);
-            else if (found) this.toast('Found ' + found);
+            else if (found) {
+                const feed = BO.GM?.active ? BO.GM.get('gather') : null;
+                if (feed?.feed) feed.feed(accepted);
+                else this.toast('Found ' + found);
+            }
         }
 
         canAfford(cost) { return Object.entries(cost).every(([key, amount]) => (this.points[key] || 0) >= amount); }

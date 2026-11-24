@@ -84,6 +84,12 @@
             this.dirty.add(b.cell);
         }
 
+        /** A deposit's meshes moved or changed colour: refresh its matrices and re-bake its cell. */
+        touch(node) {
+            for (const mesh of node.geometry) mesh.updateMatrixWorld(true);
+            if (node._batch && !node._batch.live) this.dirty.add(node._batch.cell);
+        }
+
         isLive(node) { return !node._batch || node._batch.live; }
 
         /** Merge every shown, non-live deposit of a cell into a single mesh. */
