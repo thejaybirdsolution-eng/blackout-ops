@@ -20,7 +20,7 @@
     const TABS = [
         ['delve', 'Delve', '⬇'], ['loadout', 'Loadout', '⛨'], ['talents', 'Talents', '✦'], ['stash', 'Stash', '▣'],
         ['merchant', 'Merchant', '◆'], ['forge', 'Forge', '⚒'], ['upgrades', 'Haven', '⌂'], ['roster', 'Roster', '☰'],
-        ['contracts', 'Contracts', '⚑'], ['guide', 'Field Guide', '▤']
+        ['contracts', 'Contracts', '⚑'], ['unlocks', 'Collection', '❖']
     ];
 
     class RPGUI {
@@ -30,6 +30,7 @@
             this.modalClosable = true;
             this.selectedUid = null;
             this.forgeUid = null;
+            this.collectionSlot = 'crest';
             this.startFloor = 1;
             this.floats = [];
             this.bars = [];
@@ -58,6 +59,7 @@
                 <div class="rpg-floorcard">
                     <div class="rpg-floorcard-top"><span class="rpg-floor-label"></span><span class="rpg-room-chip"></span></div>
                     <div class="rpg-objective"></div>
+                    <div class="vault-encounter"></div>
                     <div class="rpg-haul"></div>
                     <div class="rpg-contract-hud"></div>
                     <div class="rpg-boons"></div>
@@ -100,6 +102,9 @@
             this.modal.className = 'rpg-modal hidden';
             document.body.append(this.modal);
             this.modal.addEventListener('click', (e) => this._onModalClick(e));
+            this.modal.addEventListener('input', (e) => {
+                if (e.target.matches('[data-bowl]')) e.target.nextElementSibling.value = e.target.value;
+            });
 
             this.fade = document.createElement('div');
             this.fade.id = 'rpg-fade';
@@ -148,6 +153,10 @@
             const need = Pr.xpNeeded(rec);
             const unspent = Pr.unspentTalentTiers(rec);
             this.haven.style.setProperty('--rpg-accent', C.color);
+            const crest = BO.RPGUnlocks.equipped(p, 'crest');
+            const frame = BO.RPGUnlocks.equipped(p, 'frame');
+            this.haven.style.setProperty('--vault-frame', frame?.color || '#c7a36b');
+            this.haven.style.setProperty('--vault-pattern', (8 + (frame?.pattern || 0)) + 'px');
             this.haven.innerHTML = `
                 <header class="rpg-top">
                     <div class="rpg-top-left">
@@ -157,12 +166,13 @@
                     <div class="rpg-wallet">
                         <div class="rpg-coin" data-tip-title="Gold" data-tip="Banked gold. Spend it at the Merchant, the Forge and on Haven upgrades. Gold found in a delve is only banked when you extract."><span>◆</span><b>${fmt(p.gold)}</b><small>GOLD</small></div>
                         <div class="rpg-coin rpg-coin-scrap" data-tip-title="Scrap" data-tip="Salvaged materials for the Forge. Common items are salvaged automatically when you pick them up."><span>⚙</span><b>${fmt(p.scrap)}</b><small>SCRAP</small></div>
-                        <div class="rpg-charchip" style="--c:${C.color}"><span class="rpg-charchip-ico">${C.icon}</span><div><b>${esc(C.name.toUpperCase())}</b><small>LEVEL ${rec.level}${rec.level >= this.D.LEVEL_CAP ? ' • MAX' : ` • ${fmt(rec.xp)} / ${fmt(need)} XP`}</small><div class="rpg-mini-xp"><div style="width:${need ? Math.round((rec.xp / need) * 100) : 100}%"></div></div></div></div>
+                        <div class="rpg-charchip" style="--c:${C.color}"><span class="rpg-charchip-ico" style="color:${crest?.color || C.color}">${crest?.icon || C.icon}</span><div><b>${esc(C.name.toUpperCase())}</b><small>LEVEL ${rec.level}${rec.level >= this.D.LEVEL_CAP ? ' • MAX' : ` • ${fmt(rec.xp)} / ${fmt(need)} XP`}</small><div class="rpg-mini-xp"><div style="width:${need ? Math.round((rec.xp / need) * 100) : 100}%"></div></div></div></div>
                     </div>
                 </header>
                 <div class="rpg-body">
                     <nav class="rpg-nav">
                         ${TABS.map(([id, label, ico]) => `<button class="rpg-nav-btn ${this.tab === id ? 'active' : ''}" data-act="tab" data-tab="${id}"><span>${ico}</span>${label}${id === 'talents' && unspent ? `<em>${unspent}</em>` : ''}${id === 'delve' && p.run ? '<em>!</em>' : ''}</button>`).join('')}
+                        <button class="rpg-nav-btn" data-act="gameguide"><span>▤</span>Game Guide</button>
                     </nav>
                     <main class="rpg-main" data-tab="${this.tab}">${this._tabHtml()}</main>
                 </div>`;
@@ -178,7 +188,7 @@
                 case 'upgrades': return this._upgradesHtml();
                 case 'roster': return this._classPickHtml(false);
                 case 'contracts': return this._contractsHtml();
-                case 'guide': return this._guideHtml();
+                case 'unlocks': return this._collectionHtml();
                 default: return this._delveHtml();
             }
         }
@@ -279,12 +289,14 @@
         _classPickHtml(first) {
             const Pr = this.Pr;
             const D = this.D;
-            const cards = D.CLASS_ORDER.map((id) => {
+            const cards = D.CLASS_ORDER.filter((id) => !first || !D.CLASSES[id].metric).map((id) => {
                 const C = D.CLASSES[id];
                 const rec = Pr.classRecord(id);
                 const active = Pr.classId === id;
+                const locked = C.metric && !BO.RPGUnlocks.unlocked(Pr.data, C);
+                const requirement = C.metric ? BO.RPGUnlocks.requirement(C) : '';
                 return `
-                <button class="rpg-class ${active ? 'active' : ''}" style="--c:${C.color}" data-act="pickclass" data-class="${id}">
+                <button class="rpg-class ${active ? 'active' : ''}" style="--c:${C.color}" data-act="pickclass" data-class="${id}" ${locked ? 'disabled' : ''}>
                     <div class="rpg-class-emblem">${C.icon}</div>
                     <span class="rpg-kicker">${esc(C.role.toUpperCase())}</span>
                     <h3>${esc(C.name)}</h3>
@@ -295,7 +307,8 @@
                         <li><b>${esc(C.abilities.ultimate.name)}</b> — ${esc(C.abilities.ultimate.desc)}</li>
                         <li><b>${esc(C.passive.name)}</b> — ${esc(C.passive.desc)}</li>
                     </ul>
-                    <div class="rpg-class-foot"><span>${C.baseHp} HP • starts with ${esc(BO.WeaponsData.get(C.startWeapon).shortName)}</span><b>${rec ? `LEVEL ${rec.level}${active ? ' • ACTIVE' : ' • SWITCH'}` : 'CREATE →'}</b></div>
+                    ${locked ? `<p class="vault-lock">${esc(requirement)} <strong>${fmt(BO.RPGUnlocks.value(Pr.data, C.metric))}/${C.goal}</strong></p>` : ''}
+                    <div class="rpg-class-foot"><span>${C.baseHp} HP · ${esc(BO.WeaponsData.get(C.startWeapon).shortName)}</span><b>${locked ? 'LOCKED' : rec ? `LEVEL ${rec.level}${active ? ' · ACTIVE' : ' · SWITCH'}` : 'SELECT'}</b></div>
                 </button>`;
             }).join('');
             if (first) {
@@ -303,7 +316,7 @@
                 <div class="rpg-first">
                     <header class="rpg-top"><div class="rpg-top-left"><button class="btn" data-act="back">← MAIN MENU</button>
                     <div class="rpg-brand"><span class="rpg-brand-kicker">ROGUE LITE • DELVE &amp; EXTRACT</span><div class="rpg-brand-title">CHOOSE YOUR OPERATIVE</div></div></div></header>
-                    <p class="rpg-first-pitch">Delve floor by floor into the Blackout Vaults. Chain elemental combos with your abilities, bank your loot at an Extraction Beacon — or push deeper and risk losing it all. You can play every class; each keeps its own level, talents and gear.</p>
+                    <p class="rpg-first-pitch">Delve floor by floor into the Blackout Vaults. Chain elemental combos with your abilities, bank your loot at an Extraction Beacon — or push deeper and risk losing it all. Choose one of three starting operatives. Twelve more can be unlocked in the Haven roster.</p>
                     <div class="rpg-classes">${cards}</div>
                 </div>`;
             }
@@ -330,31 +343,26 @@
             return this._section('Contract Board', `Choose one for your next delve. Finish it and extract to collect the reward.${note}`, `<div class="rpg-entry-grid">${cards}</div>`);
         }
 
-        _guideHtml() {
-            const D = this.D;
-            const records = this.Pr.data.fieldGuide;
-            const entry = (title, description, extra = '') => `<article class="rpg-entry"><h4>${esc(title)}</h4><p>${esc(description)}</p>${extra}</article>`;
-            const grid = (rows) => `<div class="rpg-entry-grid">${rows.join('')}</div>`;
-            const group = (title, rows, open = false) => `<details class="rpg-guide-group" ${open ? 'open' : ''}><summary>${title}</summary>${grid(rows)}</details>`;
-            const biomes = D.BIOMES.map((biome) => {
-                const [first, last] = biome.floors;
-                const floors = Number.isFinite(last) ? `Floors ${first}–${last}` : `Floor ${first} and deeper`;
-                return entry(biome.name, floors, `<small>${Object.keys(biome.pool).map((id) => esc(D.ENEMIES[id].name)).join(' · ')}</small>`);
-            });
-            const enemies = Object.values(D.ENEMIES).map((enemy) => {
-                const reaction = enemy.weak ? D.REACTIONS[D.STATUSES[enemy.weak].reaction].name : '';
-                return entry(enemy.name, enemy.desc, `<small>${enemy.role} · Floor ${enemy.minFloor || 1}+ · ${fmt(records[enemy.id])} defeated</small>
-                    ${reaction ? `<small>Weak to ${esc(reaction)}</small>` : ''}`);
-            });
-            const bosses = D.BOSSES.map((boss, index) => entry(boss.name, boss.title,
-                `<small>First appears on floor ${(index + 1) * 5} · ${fmt(records[boss.id])} defeated</small>
-                ${boss.set ? `<small>Drops a piece of ${esc(D.SETS[boss.set].name)}</small>` : ''}`));
-            const rooms = Object.values(D.ROOMS).map((room) => entry(room.name, room.desc));
-            const sets = Object.entries(D.SETS).map(([id, set]) => entry(set.name,
-                D.LEGENDARIES.filter((item) => item.set === id).map((item) => item.name).join(' · '),
-                set.bonuses.map((bonus) => `<small>${bonus.pieces} pieces · ${esc(bonus.desc)}</small>`).join('')));
-            return this._section('Field Guide', 'Look up enemy weaknesses, floor hazards, and where each gear set drops.',
-                group('Regions', biomes, true) + group('Enemies', enemies) + group('Guardians', bosses) + group('Rooms', rooms) + group('Gear Sets', sets));
+        _collectionHtml() {
+            const U = BO.RPGUnlocks;
+            const p = this.Pr.data;
+            const category = U.CATEGORIES[this.collectionSlot];
+            const total = U.catalog.filter((item) => U.unlocked(p, item)).length;
+            const tabs = Object.entries(U.CATEGORIES).map(([id, entry]) => `
+                <button class="${id === this.collectionSlot ? 'active' : ''}" data-act="collection" data-slot="${id}" aria-pressed="${id === this.collectionSlot}">${esc(entry.name)}</button>`).join('');
+            const items = U.catalog.filter((item) => item.slot === this.collectionSlot).map((item) => {
+                const earned = U.unlocked(p, item);
+                const equipped = Object.values(p.cosmetics).includes(item.id);
+                const progress = item.metric ? Math.min(item.goal, U.value(p, item.metric)) : 0;
+                return `<article class="vault-collectible ${earned ? 'earned' : ''}" style="--sigil:${item.color};--sigil-step:${item.pattern || 10}px">
+                    <div class="vault-collectible-art" aria-hidden="true">${item.icon}</div>
+                    <h4>${esc(item.name)}</h4><p>${esc(U.requirement(item))}</p>
+                    ${earned ? `<button class="btn btn-sm" data-act="cosmetic" data-id="${item.id}" aria-pressed="${equipped}">${equipped ? 'REMOVE' : 'EQUIP'}</button>` :
+                        item.metric ? `<progress aria-label="${esc(item.name)}" max="${item.goal}" value="${progress}"></progress><small>${fmt(progress)} / ${fmt(item.goal)}</small>` : '<small>Mystery exclusive</small>'}
+                </article>`;
+            }).join('');
+            return this._section('Collection', `${total} of ${U.catalog.length} unlocked. ${category.effect}`,
+                `<div class="rpg-seg vault-collection-tabs">${tabs}</div><div class="vault-collection-grid">${items}</div>`);
         }
 
         _itemCard(it, opts = {}) {
@@ -526,10 +534,11 @@
             switch (act) {
                 case 'back': ok(); BO.Menus.showScreen('main_menu'); return;
                 case 'tab': ok(); this.tab = btn.dataset.tab; this.selectedUid = null; break;
+                case 'gameguide': ok(); BO.Menus.openLegend('rpg'); return;
                 case 'pickclass':
                     ok();
                     if (p.run && p.run.classId !== btn.dataset.class && Pr.classId === p.run.classId) this._flash('Your suspended delve stays with its class.');
-                    Pr.selectClass(btn.dataset.class);
+                    if (!Pr.selectClass(btn.dataset.class)) return;
                     this.tab = 'delve';
                     Pr.refreshMerchant();
                     break;
@@ -537,6 +546,8 @@
                     if (Pr.setContract(p.contract === btn.dataset.id ? null : btn.dataset.id)) ok();
                     else fail('Unlock the required checkpoint to take this contract.');
                     break;
+                case 'collection': ok(); this.collectionSlot = btn.dataset.slot; break;
+                case 'cosmetic': if (Pr.equipCosmetic(btn.dataset.id)) ok(); else fail(); break;
                 case 'startfloor': ok(); this.startFloor = Number(btn.dataset.floor) || 1; break;
                 case 'difficulty': ok(); p.difficulty = btn.dataset.diff; Pr.save(); break;
                 case 'delve':
@@ -624,8 +635,11 @@
 
             // Floor card.
             const room = D.ROOMS[run.roomType];
-            set('floor', q('.rpg-floor-label'), `FLOOR ${run.floor} <small>${esc(M.layout ? M.layout.biome.name.toUpperCase() : '')}</small>`);
-            set('room', q('.rpg-room-chip'), `<span style="color:${room.color}">${room.icon} ${esc(room.name.toUpperCase())}</span>`);
+            const crest = BO.RPGUnlocks.equipped(this.Pr.data, 'crest');
+            const frame = BO.RPGUnlocks.equipped(this.Pr.data, 'frame');
+            this.hud.style.setProperty('--vault-frame', frame?.color || '#c7a36b');
+            set('floor', q('.rpg-floor-label'), `${crest ? `<i style="color:${crest.color}">${crest.icon}</i> ` : ''}FLOOR ${run.floor} <small>${esc(M.layout ? M.layout.biome.name.toUpperCase() : '')}</small>`);
+            set('room', q('.rpg-room-chip'), `<span style="color:${room.color}">${run.mystery ? '? ' : room.icon} ${esc(room.name.toUpperCase())}</span>`);
             let obj;
             const living = M._livingCount();
             if (M.state === 'fighting') {
@@ -636,7 +650,10 @@
                 obj = M.beacon ? 'Extract at the <b style="color:#4ade80">beacon</b> — or take a gate deeper' : 'Choose a <b>gate</b> to go deeper';
                 if (M.altar && !M.altar.used) obj = 'Commune with the <b style="color:#c084fc">shrine</b> — then choose a gate';
             } else obj = '';
-            set('obj', q('.rpg-objective'), obj);
+            const eventObjective = M.roomEvent?.objective();
+            set('obj', q('.rpg-objective'), eventObjective ? esc(eventObjective) : obj);
+            const map = M.layout;
+            set('encounter', q('.vault-encounter'), map ? `${esc(map.style)} · ${map.W} × ${map.L} m${!room.quiet && room.id !== 'boss' ? ` · ${esc(map.encounter.name)}` : ''}${run.curse ? ' · Cursed' : ''}` : '');
             set('haul', q('.rpg-haul'), `<span class="rpg-gold">◆ ${fmt(run.gold)}</span><span>▣ ${run.pack.length}/${s.packSlots}</span><span>⚙ ${fmt(run.scrap)}</span><span class="rpg-dim">UNBANKED</span>`);
             const contract = D.CONTRACTS[run.contract];
             const contractStatus = contract && run.floor < contract.floor ? `counts from floor ${contract.floor}` :

@@ -1,6 +1,6 @@
 /* ============================================================================
    BLACKOUT OPS — Survival 1.0 Field Guide entries (category "v10")
-   Read by SurvivalLegend.build(); keys are shown with the player's bindings.
+   Read by ModeGuide; keys are shown with the player's bindings.
 ============================================================================ */
 (function (BO) {
     'use strict';

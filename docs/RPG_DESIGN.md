@@ -4,6 +4,13 @@
 
 This document records the original design decisions for **Rogue Lite**, the mode originally called RPG.
 
+### Vault roster and Mystery doors
+
+- Three starting operative kits plus twelve unlockable operatives. Each unlock has its own achievement, and each operative has an inherited kit, a separate progression record, and a new passive and starting loadout.
+- The Haven Collection contains 288 milestone cosmetics across four equipment types and 18 curios. Curios come from mystery Unlock rooms and also work as crests.
+- Traveling Shop, Rune Puzzle, Speedrun, Bounty Hunt, Crossfire, Sanctuary and Mystery join the regular door pool. Mystery can also reveal 14 exclusive encounters, including a two-roll bowling lane, a two-minute defense challenge and a pickpocket cutscene. Guardian floors still occur every five floors.
+- Arena seeds vary layout, dimensions and enemy deployment. Would-be neighbors alternate between odd and even widths. The six-tab Game Guide replaces the old Legend and includes a searchable Rogue Lite door, operative, enemy and gear reference.
+
 ### Deep Vaults expansion
 
 - Five new regions span floors 26–50 and beyond. Guardians first appear every five floors through floor 50, then cycle at higher depths.

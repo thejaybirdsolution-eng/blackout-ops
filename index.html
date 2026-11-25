@@ -4,16 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=zc2">
+    <link rel="stylesheet" href="css/styles.css?v=vaults1">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=sv9">
     <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
     <link rel="stylesheet" href="css/modifier-board.css?v=sv9g2">
-    <link rel="stylesheet" href="css/zone-thrill.css?v=sv9">
+    <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=2">
     <link rel="stylesheet" href="css/minigames.css?v=mg1">
     <link rel="stylesheet" href="css/rpg.css?v=rogue-depths1">
+    <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -44,7 +45,8 @@
     <script defer src="src/engine/WorldCore.js?v=z2b"></script>
     <script defer src="src/data/SurvivalWorld.js?v=au1"></script>
     <script defer src="src/data/ZoneRules.js?v=au10"></script>
-    <script defer src="src/data/RPGData.js?v=rogue-depths1"></script>
+    <script defer src="src/data/RPGData.js?v=vaults1"></script>
+    <script defer src="src/data/RPGEncounters.js?v=vaults1"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=rpg1"></script>
@@ -70,10 +72,13 @@
     <script defer src="src/modes/ZombiesMode.js?v=zc1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=sv9"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=zc1"></script>
-    <script defer src="src/rpg/RPGProfile.js?v=rogue-depths1"></script>
-    <script defer src="src/rpg/RPGArena.js?v=rogue-depths1"></script>
+    <script defer src="src/rpg/RPGUnlocks.js?v=vaults1"></script>
+    <script defer src="src/rpg/RPGProfile.js?v=vaults1"></script>
+    <script defer src="src/rpg/RPGArena.js?v=vaults1"></script>
     <script defer src="src/rpg/RPGAbilities.js?v=rpg1"></script>
-    <script defer src="src/modes/RPGMode.js?v=rogue-depths1"></script>
+    <script defer src="src/rpg/RPGVaultArt.js?v=vaults1"></script>
+    <script defer src="src/rpg/RPGRoomEvent.js?v=vaults1"></script>
+    <script defer src="src/modes/RPGMode.js?v=vaults1"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=au1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
     <script defer src="src/systems/SurvivalPack.js?v=g5"></script>
@@ -126,7 +131,7 @@
     <script defer src="src/gm/GMLivestock.js?v=g3"></script>
     <script defer src="src/gm/GMDev.js?v=g4"></script>
     <script defer src="src/gm/GMHud.js?v=gm1"></script>
-    <script defer src="src/gm/GMGuide.js?v=g4"></script>
+    <script defer src="src/gm/GMGuide.js?v=vaults1"></script>
     <script defer src="src/gm/GMUI.js?v=g1"></script>
     <script defer src="src/modes/SurvivalMode.js?v=zc1"></script>
 
@@ -136,13 +141,12 @@
     <script defer src="src/ui/HUDController.js?v=rpg1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=sv9g3"></script>
-    <script defer src="src/ui/MenuController.js?v=zc1mg1rpg1"></script>
+    <script defer src="src/ui/MenuController.js?v=vaults1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
-    <script defer src="src/ui/SurvivalLegend.js?v=sv9g2"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
-    <script defer src="src/ui/SurvivalUI.js?v=zc1"></script>
-    <script defer src="src/ui/SurvivalJournal.js?v=g6"></script>
+    <script defer src="src/ui/SurvivalUI.js?v=vaults1"></script>
+    <script defer src="src/ui/ModeGuide.js?v=vaults1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=rogue-lite1"></script>
     <!-- Minigames (Target Practice, Boss Rush, Whack-a-Mole) -->
     <script defer src="src/minigames/MinigameCore.js?v=mg1"></script>
@@ -152,7 +156,7 @@
     <script defer src="src/minigames/BossRush.js?v=mg1"></script>
     <script defer src="src/minigames/WhackAMole.js?v=mg1"></script>
     <script defer src="src/minigames/MinigameHub.js?v=mg1"></script>
-    <script defer src="src/ui/RPGUI.js?v=rogue-depths1"></script>
+    <script defer src="src/ui/RPGUI.js?v=vaults1"></script>
     <script defer src="src/main.js?v=sv9g2mg1rpg1"></script>
 </head>
 <body>
@@ -238,8 +242,8 @@
                     <button class="mini-tile" id="btn-menu-barracks" data-tip-title="Barracks" data-tip="Career stats, prestige, medals, challenges, the enemy bestiary and save backups.">
                         <span class="mini-ico">📊</span><b>Barracks</b><small>Stats, prestige &amp; bestiary</small>
                     </button>
-                    <button class="mini-tile" id="btn-menu-legend" data-tip-title="Legend" data-tip="A plain-English guide to every weapon, enemy, boss, power, box odds and cheat code.">
-                        <span class="mini-ico">📖</span><b>Legend</b><small>Every weapon &amp; enemy</small>
+                    <button class="mini-tile" id="btn-menu-legend" data-tip-title="Game Guide" data-tip="Rules, controls, progression and tips for all six game modes.">
+                        <span class="mini-ico">📖</span><b>Game Guide</b><small>How to play each mode</small>
                     </button>
                     <button class="mini-tile" id="btn-menu-settings" data-tip-title="Settings" data-tip="Controls, video, audio, gore, fullscreen, cheat codes and save data.">
                         <span class="mini-ico">⚙</span><b>Settings</b><small>Controls, video &amp; cheats</small>
@@ -500,7 +504,7 @@
                 </div>
             </div>
             <button class="btn hidden" id="btn-pause-dev" style="border-color:#a78bfa;color:#c4b5fd;" data-tip-title="Dev panel" data-tip="Open the Survival Dev panel (also F8).">⚙ DEV PANEL [F8]</button>
-            <button class="btn" id="btn-pause-legend" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Master Legend & Codex" data-tip="Searchable codex of all weapons, 70 unique zombies, 15 bosses & Super Bosses, perks, Survival crafting, and cheat codes.">LEGEND &amp; CODEX</button>
+            <button class="btn" id="btn-pause-legend" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Game Guide" data-tip="Open the guide for your current game mode.">GAME GUIDE</button>
             <button class="btn" id="btn-pause-settings" data-tip-title="Settings & Cheat Codes" data-tip="Customize controls, sound, video, GFX, blood, fullscreen, save game, or type cheat codes.">SETTINGS &amp; CHEAT CODES</button>
             <button class="btn" id="btn-pause-restart" data-tip-title="Restart Match" data-tip="Start this match over from the beginning.">RESTART MATCH</button>
             <button class="btn btn-zombies" id="btn-pause-quit" data-tip-title="Quit to Main Menu" data-tip="Leave the current match and return to the Main Menu.">EXIT TO MAIN MENU</button>
@@ -519,28 +523,18 @@
         </div>
     </div>
 
-    <!-- MASTER LEGEND & COMBAT CODEX MODAL (REDESIGNED SCALABLE 2-PANE LAYOUT) -->
     <div id="modal-legend" class="ui-modal hidden">
-        <div class="modal-box legend-codex-box">
-            <header class="legend-codex-head">
-                <div class="legend-codex-brand">
-                    <span class="legend-codex-kicker">BLACKOUT OPS • TACTICAL CODEX</span>
-                    <h2>MASTER LEGEND &amp; ENCYCLOPEDIA</h2>
+        <div class="modal-box mode-guide-box" role="dialog" aria-modal="true" aria-labelledby="game-guide-title">
+            <header class="mode-guide-head">
+                <h2 id="game-guide-title">Game Guide</h2>
+                <div class="mode-guide-search">
+                    <input type="search" id="legend-search-input" aria-label="Search this mode">
+                    <button type="button" id="legend-search-clear" class="btn btn-sm hidden">Clear</button>
                 </div>
-                <div class="legend-codex-search-wrap">
-                    <span class="legend-search-ico">⌕</span>
-                    <input type="search" id="legend-search-input" placeholder="Search weapons, zombies, Super Bosses, perks, modes, cheats..." autocomplete="off">
-                    <button type="button" id="legend-search-clear" class="legend-search-clear hidden" title="Clear search">✕</button>
-                </div>
-                <button class="btn btn-sm" id="btn-legend-close">CLOSE [ESC]</button>
+                <button class="btn btn-sm" id="btn-legend-close">Close <kbd>Esc</kbd></button>
             </header>
-            <div class="legend-codex-shell">
-                <nav id="legend-tabs" class="legend-codex-rail" aria-label="Legend sections"></nav>
-                <div class="legend-codex-main">
-                    <div id="legend-subbar" class="legend-codex-subbar"></div>
-                    <div id="legend-body" class="legend-codex-body"></div>
-                </div>
-            </div>
+            <nav id="legend-tabs" class="mode-guide-tabs" role="tablist" aria-label="Game modes"></nav>
+            <div id="legend-body" class="mode-guide-body" role="tabpanel"></div>
         </div>
     </div>
 

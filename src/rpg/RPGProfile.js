@@ -45,6 +45,10 @@
             elixir: null,
             autoSalvage: true,
             uidSeq: 1,
+            unlockRecords: {},
+            challengeReceipts: [],
+            cosmetics: {},
+            curios: [],
             contract: null,
             contractCompletions: {},
             fieldGuide: {},
@@ -94,8 +98,20 @@
             if (p.activeClass && !p.classes[p.activeClass]) p.activeClass = null;
             if (p.run && (typeof p.run !== 'object' || !p.classes[p.run.classId])) p.run = null;
             p.uidSeq = Math.max(1, Math.floor(p.uidSeq) || 1);
-            p.contract = Object.hasOwn(this.D.CONTRACTS, p.contract) ? p.contract : null;
+            p.challengeReceipts = Array.isArray(raw.challengeReceipts) ? raw.challengeReceipts.filter((id) => typeof id === 'string').slice(-300) : [];
+            p.unlockRecords = this._normalizeCounts(raw.unlockRecords, [
+                'puzzles', 'speedWins', 'defenses', 'strikes', 'curseExtractions', 'legendariesBanked', 'extractedFloor'
+            ]);
+            const unlocks = BO.RPGUnlocks;
+            p.curios = Array.isArray(raw.curios) ? [...new Set(raw.curios)].filter((id) => unlocks.byId[id]?.slot === 'curio') : [];
+            p.unlockRecords.curios = p.curios.length;
+            p.cosmetics = {};
             p.contractCompletions = this._normalizeCounts(raw.contractCompletions, Object.keys(this.D.CONTRACTS));
+            for (const [slot, id] of Object.entries(raw.cosmetics || {})) {
+                const item = unlocks.byId[id];
+                if (item && (slot === item.slot || slot === 'crest' && item.slot === 'curio') && unlocks.unlocked(p, item)) p.cosmetics[slot] = id;
+            }
+            p.contract = Object.hasOwn(this.D.CONTRACTS, p.contract) ? p.contract : null;
             p.fieldGuide = this._normalizeCounts(raw.fieldGuide, [
                 ...Object.keys(this.D.ENEMIES), ...this.D.BOSSES.map((boss) => boss.id)
             ]);
@@ -134,7 +150,8 @@
 
         /** Creates (if needed) and activates a class record with its starter weapon. */
         selectClass(id) {
-            if (!this.D.CLASSES[id]) return false;
+            const character = this.D.CLASSES[id];
+            if (!character || (character.metric && !BO.RPGUnlocks.unlocked(this.data, character))) return false;
             const p = this.data;
             if (!p.classes[id]) {
                 const rec = freshClassRecord();
@@ -142,6 +159,17 @@
                 p.classes[id] = rec;
             }
             p.activeClass = id;
+            this.save();
+            return true;
+        }
+
+        equipCosmetic(id) {
+            const item = BO.RPGUnlocks.byId[id];
+            const p = this.data;
+            if (!item || !BO.RPGUnlocks.unlocked(p, item)) return false;
+            const slot = item.slot === 'curio' ? 'crest' : item.slot;
+            if (p.cosmetics[slot] === id) delete p.cosmetics[slot];
+            else p.cosmetics[slot] = id;
             this.save();
             return true;
         }
@@ -497,11 +525,11 @@
             const C = D.CLASSES[classId];
             const talents = this.talentSet(rec);
             const s = {
-                classId, level: rec.level, talents,
+                classId, kitId: C.kit || classId, level: rec.level, talents,
                 maxHp: C.baseHp + D.levelHpBonus(rec.level),
                 weaponPower: 1, gunDmg: 0, headDmg: 0, bodyDmg: 0, eliteDmg: 0,
                 burnChance: 0, chillChance: 0, shockChance: 0, exposeChance: 0,
-                killHeal: classId === 'vanguard' ? (talents.has('bloodletter') ? 10 : 4) : 0, killHealPct: 0,
+                killHeal: (C.kit || classId) === 'vanguard' ? (talents.has('bloodletter') ? 10 : 4) : 0, killHealPct: 0,
                 dmgReduce: 0, potionHeal: 0, goldFind: 0, momentumKeep: 0,
                 cdr: 0, reactionDmg: 0, abilityDmg: 0, statusDur: 0, ultCharge: 0, xpGain: 0,
                 maxHpPct: 0, dmgMult: 1,
@@ -522,6 +550,7 @@
                     else s[k] = (s[k] || 0) + v;
                 }
             };
+            if (C.fx) addFx(C.fx);
             for (const slot of ['weapon', 'rig', 'relic']) {
                 const it = rec.equip[slot];
                 if (!it) continue;
@@ -558,7 +587,7 @@
             }
             s.maxHp = Math.max(30, Math.round(s.maxHp * (1 + s.maxHpPct / 100) * (1 - ((run && run.shrineHpPenalty) || 0))));
             s.cdrMult = clamp(1 - s.cdr / 100, 0.4, 1.6);
-            s.dmgTakenMult = clamp(1 - s.dmgReduce / 100, 0.35, 1.5);
+            s.dmgTakenMult = clamp(1 - s.dmgReduce / 100, 0.35, 1.5) * (run?.curse ? 1.15 : 1);
             s.potionHealFrac *= Math.max(0.2, 1 + s.potionHeal / 100);
             s.potionHealFrac = Math.min(1, s.potionHealFrac);
             return s;

@@ -106,7 +106,7 @@
                     levelsGained: 0,
                     bossKills: 0,
                     contract: p.contract,
-                    contractProgress: 0
+                    contractProgress: 0, curse: false, roomApplied: false, mystery: false
                 };
                 p.elixir = null;
                 p.stats.delves++;
@@ -145,7 +145,7 @@
                 gold: r.gold, scrap: r.scrap, pack: r.pack.slice(), xpEarned: r.xpEarned, kills: r.kills, reactions: r.reactions,
                 potions: r.potions, hpFrac: r.hpFrac, ult: r.ult, secondWindUsed: r.secondWindUsed, fieldMedicUsed: r.fieldMedicUsed,
                 lastBastionFloor: r.lastBastionFloor, floorsCleared: r.floorsCleared, elapsed: r.elapsed, levelsGained: r.levelsGained, bossKills: r.bossKills,
-                contract: r.contract, contractProgress: r.contractProgress
+                contract: r.contract, contractProgress: r.contractProgress, curse: !!r.curse, roomApplied: !!r.roomApplied, mystery: !!r.mystery
             };
         }
 
@@ -174,7 +174,18 @@
                     if (o.group && scene) scene.remove(o.group);
                 }
             }
-            for (const g of this.gates) if (g.group && scene) scene.remove(g.group);
+            for (const gate of this.gates) {
+                gate.group.removeFromParent();
+                gate.mat.map?.dispose();
+                gate.group.traverse((obj) => {
+                    if (obj.isMesh) { obj.geometry.dispose(); obj.material.dispose(); }
+                });
+            }
+            this.roomEvent?.dispose();
+            this.roomEvent = null;
+            this.vaultArt?.dispose();
+            this.vaultArt = null;
+            this.floorResolved = false;
             this._clearHazards();
             this.projectiles = [];
             this.pickups = [];
@@ -200,11 +211,17 @@
             this._clearFloor();
             if (BO.Combat) BO.Combat.reset(this.camera);
 
-            const quiet = r.roomType === 'rest' || r.roomType === 'shrine';
+            if (r.roomType === 'mystery') {
+                r.mystery = true;
+                r.roomType = BO.RPGMysteryRoom(r.floor, r.seed);
+            }
+            const room = D.ROOMS[r.roomType];
+            const quiet = room.quiet || r.roomType === 'rest' || r.roomType === 'shrine';
             const gateCount = (r.floor + 1) % 5 === 0 ? 1 : (quiet ? 2 : 2 + ((r.seed + r.floor) % 2));
             const gen = BO.RPGArena.generate({ floor: r.floor, roomType: r.roomType, seed: r.seed, gateCount });
             this.layout = gen.layout;
             BO.World.build(gen.mapId);
+            this.vaultArt = BO.RPGVaultArt.build(this.layout, r.seed);
             const sp = gen.layout.spawn;
 
             this.stats = this.Profile.computeStats(r);
@@ -236,22 +253,25 @@
             BO.Combat.onActivateKillstreak = null;
 
             this._buildGates();
+            this.roomEvent = new BO.RPGRoomEvent(this, room);
+            this.trail = BO.RPGUnlocks.equipped(this.Profile.data, 'trail');
+            this.trailClock = 0;
             this._populateRoom();
             this._buildHazards();
 
             // Floor-start snapshot = the suspend/resume point.
             this.Profile.saveRun(this._snapshot());
-            this.state = this._livingCount() === 0 && !this.waves ? 'cleared' : 'fighting';
+            this.state = this._livingCount() === 0 && !this.waves && !this.roomEvent.blocks ? 'cleared' : 'fighting';
             if (this.state === 'cleared') this._onFloorCleared(true);
 
             const biome = this.layout.biome;
-            const room = D.ROOMS[r.roomType];
             BO.Events.emit('hud:banner', {
-                title: `FLOOR ${r.floor} — ${room.name.toUpperCase()}`,
-                sub: `${biome.name.toUpperCase()} • RECOMMENDED LV ${D.recommendedLevel(r.floor)}`,
+                title: `FLOOR ${r.floor} · ${r.mystery ? '? ' : ''}${room.name.toUpperCase()}`,
+                sub: `${biome.name} · ${this.layout.style} · ${this.layout.W} × ${this.layout.L} m`,
                 color: room.color
             });
             if (BO.RPGUI) BO.RPGUI.onFloorEntered();
+            this.roomEvent.onEnter();
         }
 
         _loadoutConfig() {
@@ -303,14 +323,22 @@
             const r = this.run;
             const L = this.layout;
             const f = r.floor;
-            const baseCount = BO.Math.clamp(Math.round(5 + f * 0.55), 5, 15);
-            const camps = L.camps.slice();
+            const tactic = L.encounter;
+            const baseCount = BO.Math.clamp(Math.round((5 + f * 0.55) * tactic.factor), 4, 17);
+            const camps = tactic.formation === 'flanks'
+                ? L.camps.slice().sort((a, b) => Math.abs(b.x) - Math.abs(a.x))
+                : L.camps.slice();
+            const skirmisher = tactic.formation === 'ranged' ? 'ranged' : tactic.formation === 'tanks' ? 'armored' : null;
+            const rush = tactic.formation === 'rush' || r.roomType === 'darkroom';
             const placeGroup = (count, campIdx, opts = {}) => {
                 const c = camps[campIdx % Math.max(1, camps.length)] || { x: 0, z: -4 };
                 for (let i = 0; i < count; i++) {
                     const a = (i / Math.max(1, count)) * Math.PI * 2 + Math.random() * 0.6;
                     const rad = count > 1 ? 1.6 + Math.random() * 0.8 : 0;
-                    this._spawnEnemy(opts.arch || this._pickArchetype(), c.x + Math.cos(a) * rad, c.z + Math.sin(a) * rad, opts);
+                    const special = i % 2 === 0 ? skirmisher : null;
+                    this._spawnEnemy(opts.arch || this._pickArchetype(special), c.x + Math.cos(a) * rad, c.z + Math.sin(a) * rad, {
+                        aggro: rush, hp: tactic.hp, damage: tactic.damage, speed: tactic.speed, ...opts
+                    });
                 }
             };
             const fillCamps = (total, startCamp = 0) => {
@@ -324,6 +352,32 @@
             };
 
             switch (r.roomType) {
+                case 'puzzle':
+                case 'bowling':
+                case 'defend':
+                case 'mimic':
+                    break;
+                case 'miniboss': {
+                    const camp = camps[0] || L.center;
+                    this.roomEvent.champion = this._spawnEnemy(this._pickArchetype('armored'), camp.x, camp.z, { elite: true, hp: 2.1, aggro: true });
+                    fillCamps(Math.max(2, Math.floor(baseCount / 3)), 1);
+                    break;
+                }
+                case 'hunt':
+                    placeGroup(1, 0, { arch: this._pickArchetype('ranged'), elite: true, hp: 1.1 });
+                    fillCamps(Math.round(baseCount * 0.75), 1);
+                    break;
+                case 'crossfire':
+                    for (const side of [-1, 1]) {
+                        const spots = L.camps.filter((c) => c.x * side > 2).slice(0, 3);
+                        for (const spot of spots) this._spawnEnemy(this._pickArchetype('ranged'), spot.x, spot.z, { aggro: true });
+                    }
+                    fillCamps(Math.round(baseCount / 2));
+                    break;
+                case 'speedrun':
+                    fillCamps(baseCount, 0);
+                    for (const enemy of this.enemies) this.aggro(enemy);
+                    break;
                 case 'elite': {
                     const eliteArch = this._pickArchetype();
                     placeGroup(1, 0, { arch: eliteArch, elite: true });
@@ -352,6 +406,7 @@
                     this._spawnAltar(L.center.x, L.center.z);
                     break;
                 default:
+                    if (this.D.ROOMS[r.roomType].quiet) break;
                     if (this.D.ROOMS[r.roomType].hazard) {
                         this._spawnChest(L.center.x, L.center.z);
                     }
@@ -360,9 +415,11 @@
             if (L.cache) this._spawnCache(L.cache.x, L.cache.y, L.cache.z);
         }
 
-        _pickArchetype() {
+        _pickArchetype(trait = null) {
             const biome = this.layout.biome;
-            const entries = Object.entries(biome.pool).filter(([id]) => (this.D.ENEMIES[id].minFloor || 1) <= this.run.floor);
+            const eligible = Object.entries(biome.pool).filter(([id]) => (this.D.ENEMIES[id].minFloor || 1) <= this.run.floor);
+            const preferred = trait ? eligible.filter(([id]) => this.D.ENEMIES[id][trait]) : [];
+            const entries = preferred.length ? preferred : eligible;
             let total = 0;
             for (const [, w] of entries) total += w;
             let roll = Math.random() * total;
@@ -383,8 +440,8 @@
             const rooms = Object.values(this.D.ROOMS).filter((rm) => rm.weight > 0 && (rm.minFloor || 1) <= next);
             const out = [];
             if (next % 5 === 4) out.push('rest'); // the floor before a boss always offers a breather
-            const newHazard = rooms.find((room) => room.hazard && room.minFloor === next);
-            if (newHazard && out.length < count) out.push(newHazard.id);
+            const introductions = { 2: ['puzzle', 'mystery'], 3: ['speedrun', 'vents'], 6: ['shop', 'crossfire'], 8: ['surge'], 16: ['fracture'] };
+            for (const id of introductions[next] || []) if (out.length < count) out.push(id);
             while (out.length < count) {
                 const pool = rooms.filter((rm) => !out.includes(rm.id));
                 if (!pool.length) break;
@@ -409,13 +466,22 @@
                 const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 4.5), mat);
                 plane.position.set(g.x, 2.3, g.z + 0.05);
                 group.add(plane);
-                const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.12), new THREE.MeshBasicMaterial({ color: new THREE.Color(room.color), transparent: true, opacity: 0.25 }));
+                const aura = BO.RPGUnlocks.equipped(this.Profile.data, 'gate');
+                const light = new THREE.Color(aura?.color || room.color);
+                const trim = new THREE.MeshStandardMaterial({ color: 0x907045, metalness: 0.66, roughness: 0.36, emissive: light, emissiveIntensity: 0.15 });
+                const arch = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.12, 8, 22, Math.PI), trim);
+                arch.position.set(g.x, 3.32, g.z + 0.28);
+                group.add(arch);
+                const lamp = new THREE.Mesh(new THREE.OctahedronGeometry(0.23, 0), new THREE.MeshBasicMaterial({ color: light }));
+                lamp.position.set(g.x, 5.12, g.z + 0.25);
+                group.add(lamp);
+                const glow = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.12), new THREE.MeshBasicMaterial({ color: light, transparent: true, opacity: 0.25 }));
                 glow.rotation.x = -Math.PI / 2;
                 glow.position.set(g.x, 0.03, g.z + 0.9);
                 glow.scale.set(1, 14, 1);
                 group.add(glow);
                 BO.World.scene.add(group);
-                this.gates.push({ x: g.x, z: g.z, standZ: g.standZ, type, room, group, plane, mat, glow, open: false });
+                this.gates.push({ x: g.x, z: g.z, standZ: g.standZ, type, room, group, plane, mat, glow, arch, lamp, aura, open: false });
             });
         }
 
@@ -425,24 +491,29 @@
                 g.mat.color.set(0xffffff);
                 g.mat.opacity = 0.95;
                 g.glow.material.opacity = 0.55;
+                g.arch.material.emissiveIntensity = 0.55;
+                if (g.aura) BO.FX.spawnParticles(g.lamp.position, g.aura.pattern, g.glow.material.color.getHex(), 2, -0.2, 1.2, 1.5);
             }
         }
 
         _livingCount() { return this.enemies.filter((z) => z.alive).length; }
 
         _onFloorCleared(silent = false) {
+            if (this.floorResolved) return;
+            this.floorResolved = true;
             const r = this.run;
             this.state = 'cleared';
             this._openGates();
             r.floorsCleared++;
-            const fightRoom = !['rest', 'shrine'].includes(r.roomType);
+            const fightRoom = !this.D.ROOMS[r.roomType].quiet && !['rest', 'shrine'].includes(r.roomType);
             if (fightRoom) {
                 this._trackContract('clears');
                 if (this.hazards.length) {
                     this._trackContract('hazards');
                     this._clearHazards();
                 }
-                this._awardXP(25 + 8 * r.floor, null, 'FLOOR CLEARED');
+                const multiplier = this.roomEvent?.clearBonus() || 1;
+                this._awardXP((25 + 8 * r.floor) * multiplier, null, 'FLOOR CLEARED');
                 BO.Sound.playRoundEnd();
             }
             if (r.roomType === 'boss') {
@@ -457,6 +528,8 @@
                 this._offerBoons('Guardian slain — choose a Boon');
             } else if (r.roomType === 'elite') {
                 this._offerBoons('Elite defeated — choose a Boon');
+            } else if (r.roomType === 'hunt' || r.roomType === 'miniboss') {
+                this._dropGold(new THREE.Vector3(this.layout.center.x, 0, this.layout.center.z), r.roomType === 'hunt' ? 70 : 100);
             }
             if (fightRoom && !silent) {
                 BO.Events.emit('hud:banner', { title: 'FLOOR CLEARED', sub: this.beacon ? 'EXTRACT AT THE BEACON — OR CHOOSE A GATE TO GO DEEPER' : 'CHOOSE A GATE TO GO DEEPER', color: '#4ade80' });
@@ -559,6 +632,8 @@
             r.ult = this.ability.ult;
             r.floor += 1;
             r.roomType = gate.type;
+            r.mystery = false;
+            r.roomApplied = false;
             r.seed = (r.seed * 48271 + 12820163) % 2147483647;
             this.Profile.data.deepest = Math.max(this.Profile.data.deepest, r.floor);
             BO.Sound.playUIClick();
@@ -579,18 +654,19 @@
             const diff = this._difficulty();
             const f = this.run.floor;
             const elite = !!opts.elite;
-            const hp = Math.round(A.hp * D.enemyHpMult(f) * diff.hp * (elite ? D.ELITE.hpMult : 1));
-            const dmg = Math.max(1, Math.round(A.attack * D.enemyDmgMult(f) * diff.dmg * (elite ? 1.3 : 1)));
+            const hp = Math.round(A.hp * D.enemyHpMult(f) * diff.hp * (elite ? D.ELITE.hpMult : 1) * (opts.hp || 1));
+            const dmg = Math.max(1, Math.round(A.attack * D.enemyDmgMult(f) * diff.dmg * (elite ? 1.3 : 1) * (opts.damage || 1)));
+            const speed = A.speed * (opts.speed || 1);
             const spec = Object.assign({}, base, {
                 name: (elite ? 'Elite ' : '') + A.name,
-                hp, speed: A.speed, attack: dmg, defense: 0,
+                hp, speed, attack: dmg, defense: 0,
                 resistances: { bullet: 1, explosive: 1, fire: 1, headshot: 1, melee: 1 },
                 attackType: A.healer ? 'melee' : (A.attackType || base.attackType),
                 movementHabit: A.habit || base.movementHabit,
                 isBoss: false, isSuperBoss: false, isMagical: false, splitCount: 0, jumpChance: 0
             });
             const ent = new BO.ZombieEntity({
-                id: this.nextId++, spec, round: f, hp, speed: A.speed, damage: dmg,
+                id: this.nextId++, spec, round: f, hp, speed, damage: dmg,
                 x, y: 0, z, sizeMult: elite ? D.ELITE.sizeMult : 1, windowInteractive: null
             });
             ent.rpg = {
@@ -804,7 +880,7 @@
                 if (ctx.isHead) mult *= 1 + s.headDmg / 100 + (s.talents.has('marksman') ? 0.35 : 0);
                 else if (s.bodyDmg) mult *= Math.max(0.1, 1 + s.bodyDmg / 100);
                 if (s.talents.has('shotgun_doctrine') && ctx.weapon && /shotgun/i.test(ctx.weapon.stats.category || '')) mult *= 1.3;
-                if (s.classId === 'pyrotech' && this.hasStatus(z, 'burn')) mult *= 1.2;
+                if (s.kitId === 'pyrotech' && this.hasStatus(z, 'burn')) mult *= 1.2;
                 if (this.ability.ultActive > 0 && this.ability.ultId === 'juggernaut') mult *= this.D.CLASSES.vanguard.abilities.ultimate.gunMult;
                 if (r.affixes.includes('warded') && r.wardBroken <= 0 && r.armorBreak <= 0 && !this.hasStatus(z, 'expose')) mult *= 0.4;
             } else if (src === 'ability' || src === 'reaction') {
@@ -984,7 +1060,7 @@
                 }
             }
             // Tempest passive: Static conducts gun damage from Shocked targets.
-            if (s.classId === 'tempest' && dealt > 0 && this.isAlive(z) && this.hasStatus(z, 'shock')) {
+            if (s.kitId === 'tempest' && dealt > 0 && this.isAlive(z) && this.hasStatus(z, 'shock')) {
                 const pct = s.talents.has('static_field') ? 0.4 : 0.2;
                 const t = this.nearestEnemies(z.pos, 8, 1, new Set([z]))[0];
                 if (t) {
@@ -1075,7 +1151,7 @@
             const s = this.stats;
             const P = this.P;
             let a = amount * s.dmgTakenMult;
-            if (s.classId === 'vanguard' && attackerPos && BO.Math.dist2D(attackerPos.x, attackerPos.z, P.pos.x, P.pos.z) <= 4) a *= 0.8;
+            if (s.kitId === 'vanguard' && attackerPos && BO.Math.dist2D(attackerPos.x, attackerPos.z, P.pos.x, P.pos.z) <= 4) a *= 0.8;
             if (this.ability.ultActive > 0 && this.ability.ultId === 'juggernaut') a *= 1 - this.D.CLASSES.vanguard.abilities.ultimate.dr;
             if (s.talents.has('heat_shield') && this.enemiesInRadius(P.pos, 10, (z) => this.hasStatus(z, 'burn')).length) a *= 0.8;
             if (a > 0.5) {
@@ -1262,7 +1338,7 @@
                 c.lid.rotation.x = -1.1;
                 c.lid.position.z -= 0.3;
                 c.lid.position.y += 0.25;
-                const fracture = this.run.roomType === 'fracture';
+                const fracture = ['fracture', 'storm'].includes(this.run.roomType);
                 this._dropGold(new THREE.Vector3(c.x, 0, c.z), (fracture ? 55 : 30) + f * 6);
                 this._dropItem(new THREE.Vector3(c.x + 1.2, 0, c.z + 0.6), this.Profile.rollItem({
                     floor: f + 1, minRarity: fracture ? 'epic' : 'rare', rarityBonus: 0.12
@@ -1312,6 +1388,11 @@
             p.scrap += r.scrap;
             p.stats.goldBanked += r.gold;
             p.stats.extractions++;
+            const U = BO.RPGUnlocks;
+            p.unlockRecords.extractedFloor = Math.max(p.unlockRecords.extractedFloor || 0, r.floor);
+            if (r.curse) U.record(p, 'curseExtractions');
+            const legendaries = r.pack.filter((item) => item.rarity === 'legendary').length;
+            if (legendaries) U.record(p, 'legendariesBanked', legendaries);
             let soldOverflow = 0;
             const banked = [];
             for (const it of r.pack) {
@@ -1390,6 +1471,12 @@
                     return;
                 }
             }
+            const event = this.roomEvent;
+            if (event?.canUse() && near(event.pos.x, event.pos.z, 2.8)) {
+                this.prompt = { text: `[${kbI}] ${event.room.name.toUpperCase()}`, affordable: true, color: event.room.color };
+                this._interactTarget = { kind: 'roomEvent' };
+                return;
+            }
             if (this.altar && !this.altar.used && near(this.altar.x, this.altar.z, 2.6)) {
                 this.prompt = { text: `[${kbI}] COMMUNE WITH THE SHRINE`, affordable: true };
                 this._interactTarget = { kind: 'altar' };
@@ -1419,6 +1506,7 @@
             const t = this._interactTarget;
             if (!t) return;
             if (t.kind === 'item') this._collectItem(t.ref);
+            else if (t.kind === 'roomEvent') this.roomEvent?.interact();
             else if (t.kind === 'container') this._openContainer(t.ref);
             else if (t.kind === 'gate') this.enterGate(t.ref);
             else if (t.kind === 'beacon' && BO.RPGUI) BO.RPGUI.openExtractConfirm(this.run, () => this.extract());
@@ -1473,8 +1561,17 @@
             this._updatePickups(dt);
             this._updateProps(dt);
             this._updateWaves(dt);
-
-            if (this.state === 'fighting' && !this.waves && this._livingCount() === 0) this._onFloorCleared();
+            this.roomEvent?.update(dt);
+            this.vaultArt?.update(this.elapsed);
+            if (this.trail) {
+                this.trailClock -= dt;
+                if (this.trailClock <= 0 && Math.hypot(P.vel.x, P.vel.z) > 1.2 && P.pos.y < 1.3) {
+                    BO.FX.spawnParticles(P.pos.clone().addScaledVector(CAMERA_LIGHT_UP, 0.18), 1 + (this.trail.pattern - 2) / 4,
+                        new THREE.Color(this.trail.color).getHex(), 0.7, -0.1, 0.35, 0.65);
+                    this.trailClock = 0.3;
+                }
+            }
+            if (this.state === 'fighting' && !this.waves && !this.roomEvent?.blocks && this._livingCount() === 0) this._onFloorCleared();
             this._updatePrompt();
         }
 

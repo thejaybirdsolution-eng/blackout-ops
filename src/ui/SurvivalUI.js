@@ -387,22 +387,9 @@
                     if (host) { host.innerHTML = this.craftRows(this.craftList().all).rows; host.scrollTop = 0; }
                     return;
                 }
-                if (e.target.id === 'survival-legend-search') {
-                    this.legendQuery = e.target.value;
-                    const res = this.root.querySelector('#survival-legend-results');
-                    if (res && BO.SurvivalLegend) {
-                        res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery, this.legendCat || 'start');
-                        res.scrollTop = 0;
-                        BO.SurvivalLegend.hydrate(res);
-                        this.root.querySelectorAll('.fg-cat').forEach((b) => b.classList.toggle('active', !this.legendQuery && b.dataset.arg === (this.legendCat || 'start')));
-                    }
-                }
-            });
-            this.root.addEventListener('change', (e) => {
-                if (e.target.id === 'survival-legend-category') {
-                    this.legendCat = e.target.value;
-                    const res = this.root.querySelector('#survival-legend-results');
-                    if (res && BO.SurvivalLegend) res.innerHTML = BO.SurvivalLegend.renderResults(this.legendQuery || '', this.legendCat);
+                if (e.target.matches('[data-survival-guide-search]')) {
+                    const content = this.root.querySelector('[data-survival-guide-topics]');
+                    if (content) content.innerHTML = BO.ModeGuide.render('survival', e.target.value);
                 }
             });
             // Drag & drop onto the hotbar.
@@ -745,7 +732,6 @@
                 }
                 case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
                 case 'devToggle': { const D = BO.GM?.get('dev'); if (D) { D.setEnabled(!D.enabled); BO.Sound?.playUIClick?.(); } return this.render(); }
-                case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
                 case 'closeBrief': return this.close();
                 case 'buyMastery':
@@ -1033,9 +1019,8 @@
                 this.root.innerHTML = `<div class="sv-deploy-frame sv-legend-solo">
                     <header class="sv-dhead"><div class="sv-dhead-title"><span class="sv-kicker">Survival</span><h2>Field guide</h2></div>
                     <button class="sv-btn" data-act="backToBrief"${tip('Back', 'Return to the deployment screen.')}>← Back to deployment</button></header>
-                    <div class="sv-guide-host">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'start') : ''}</div></div>`;
+                    ${this._survivalGuideHtml()}</div>`;
                 this.restoreScroll();
-                BO.SurvivalLegend?.hydrate(this.root);
                 return;
             }
             const mode = BO.SurvivalMode;
@@ -1043,7 +1028,13 @@
             this.root.innerHTML = this.renderTerminal();
             if (s === 'map') this.drawMap();
             this.restoreScroll();
-            if (s === 'legend') BO.SurvivalLegend?.hydrate(this.root);
+        }
+
+        _survivalGuideHtml() {
+            return `<div class="sv-guide-host" data-scroll="guide">
+                <label class="mode-guide-search">Search Survival <input type="search" data-survival-guide-search></label>
+                <div data-survival-guide-topics>${BO.ModeGuide.render('survival')}</div>
+            </div>`;
         }
 
         rememberScroll() {
@@ -1091,7 +1082,7 @@
                     </div>
                     <div class="sv-dhead-actions">
                         <button class="sv-btn ${BO.GM?.get('dev')?.enabled ? 'dev-on' : 'ghost'}" data-act="devToggle"${tip('Dev Mode', 'Testing toolkit for Survival: god mode, creative flight, noclip, any item, free build, unlock or lock anything, spawn anything, teleport anywhere, and every mission with start / end / restart. Press F8 in a run to open the Dev panel. Dev runs show a DEV chip.', BO.GM?.get('dev')?.enabled ? 'ON · click to turn off' : 'OFF · click to turn on')}>${BO.GM?.get('dev')?.enabled ? '⚙ Dev mode ON' : '⚙ Dev mode'}</button>
-                        <button class="sv-btn ghost" data-act="legendFromBrief"${tip('Field guide', 'Searchable encyclopedia of every survival system, item, structure and enemy.')}>Field guide</button>
+                        <button class="sv-btn ghost" data-act="legendFromBrief"${tip('Field guide', 'Survival rules, controls and practical advice.')}>Field guide</button>
                         <button class="sv-btn ghost" data-act="closeBrief"${tip('Back', 'Return to the main menu. Your settings are remembered.')}>✕ Back</button>
                     </div>
                 </header>
@@ -1550,7 +1541,7 @@
                 case 'map': body = this.tabMap(); break;
                 case 'skills': body = this.tabSkills(); break;
                 case 'journal': body = this.tabJournal(); break;
-                case 'legend': body = `<div class="sv-guide-host">${BO.SurvivalLegend ? BO.SurvivalLegend.render(this.legendQuery || '', this.legendCat || 'start') : ''}</div>`; break;
+                case 'legend': body = this._survivalGuideHtml(); break;
                 case 'chest': title = BO.ZoneWorldPlus?.chestTitle?.(this.subject) || 'Storage chest'; body = this.ctxChest(); break;
                 case 'npc': body = this.ctxNpc(); title = BO.ZoneWorldPlus?.npcTitle?.(this.subject) || c.contact(this.subject)?.name || 'Contact'; break;
                 case 'shrine': title = 'Site of Grace'; body = this.ctxShrine(); break;

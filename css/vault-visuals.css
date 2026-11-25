@@ -1,0 +1,171 @@
+/* Vault and game-guide refresh. Native art and menus use the same stone, brass and ink palette. */
+:root {
+    --vault-brass: #d8b779;
+    --vault-ink: #0c1719;
+    --vault-paper: #f3e8d1;
+    --vault-heading: Georgia, 'Times New Roman', serif;
+}
+
+#screen-main-menu {
+    background: linear-gradient(90deg, rgba(5, 12, 17, .89) 3%, rgba(5, 12, 17, .7) 38%, transparent 76%),
+        linear-gradient(0deg, rgba(5, 12, 17, .74), transparent 43%);
+}
+#screen-main-menu .top-bar { border-bottom: 1px solid #ad885340; padding: 0 0 10px; }
+#screen-main-menu .brand-title { color: #f5e3c4; font-family: var(--vault-heading); letter-spacing: .085em; text-shadow: 0 3px 18px #000; }
+#screen-main-menu .menu-group-label { color: #dcc4a3; }
+#screen-main-menu .mode-card {
+    background: linear-gradient(105deg, color-mix(in srgb, var(--mc) 14%, #182326), #10171de8 78%);
+    border: 1px solid #bc995346; border-left: 3px solid var(--mc);
+    border-radius: 7px; padding: 10px 13px; min-height: 67px;
+}
+#screen-main-menu .mode-card-text b { font-family: var(--vault-heading); letter-spacing: .08em; font-size: clamp(17px, 2.2vw, 22px); }
+#screen-main-menu .mode-card small { color: #d4dce0; }
+#screen-main-menu .mode-card-ico { border-radius: 8px; }
+#screen-main-menu .mode-card-badge { color: #cfbda7; }
+#screen-main-menu .mode-card-rpg { --mc: #f3d399; background: linear-gradient(100deg, #6d5439ab, #132422f5 78%); }
+#screen-main-menu .mode-card-go { letter-spacing: .075em; }
+#screen-main-menu .mini-tile, #screen-main-menu .online-card { border-color: #bc99534d; border-radius: 7px; }
+
+.rpg-haven {
+    --rpg-glass: linear-gradient(155deg, rgba(24, 37, 36, .96), rgba(10, 17, 19, .97));
+    --rpg-line: #dabb7840;
+    background: linear-gradient(90deg, #091819f5 0%, #0b1919d9 36%, #0a17197a 100%),
+        linear-gradient(0deg, #0b151b 0%, transparent 58%),
+        url('../assets/vault/haven.webp') center center / cover;
+    color: var(--vault-paper);
+    backdrop-filter: none;
+}
+.rpg-haven .rpg-top, .rpg-card, .rpg-modal-box {
+    border-color: color-mix(in srgb, var(--vault-frame, #c7a36b) 42%, transparent);
+    border-radius: 8px;
+}
+.rpg-haven .rpg-top, .rpg-floorcard {
+    background-image: repeating-linear-gradient(125deg, transparent 0 calc(var(--vault-pattern, 12px) - 1px), #dec99c10 var(--vault-pattern, 12px)),
+        linear-gradient(155deg, #203134f8, #101b1ef5);
+}
+.rpg-brand-title, .rpg-hero h2, .rpg-card-head h3, .rpg-class h3, .rpg-modal-head h2 {
+    font-family: var(--vault-heading); color: var(--vault-paper); letter-spacing: .065em;
+}
+.rpg-card-head h3 { font-size: 19px; }
+.rpg-card-head p, .rpg-class p, .rpg-first-pitch, .rpg-hint { color: #d9d2c3; }
+.rpg-hero {
+    min-height: 170px; border-radius: 8px;
+    background: linear-gradient(90deg, #102123f5, #142426e5 52%, #14242660), url('../assets/vault/haven.webp') 64% 58% / cover;
+    border-color: #d6b27270;
+}
+.rpg-hero-emblem, .rpg-class-emblem {
+    color: var(--c); border-radius: 12px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--c) 21%, #122021), #0b1517);
+}
+.rpg-haven .rpg-nav-btn {
+    font-size: 13px; color: #e9dcc9; background: linear-gradient(135deg, #203035e8, #112022f4);
+    border-radius: 5px; border-color: #c5a56b45; letter-spacing: .06em;
+}
+.rpg-haven .rpg-nav-btn.active { border-color: var(--vault-frame, #c7a36b); box-shadow: inset 3px 0 var(--vault-frame, #c7a36b); color: #fff6e1; }
+.rpg-haven .rpg-class { background: linear-gradient(135deg, color-mix(in srgb, var(--c) 14%, #19292d), #0e191c); border-radius: 7px; }
+.rpg-haven .rpg-class:disabled { cursor: default; border-color: #ac9b794a; }
+.rpg-haven .rpg-class:disabled:hover { transform: none; }
+.vault-lock { margin-top: auto; padding: 8px; border-left: 2px solid #ddbd7b; background: #d8b77914; }
+.vault-lock strong { color: #f6d599; }
+.rpg-floorcard { border-color: var(--vault-frame, #c7a36b); border-radius: 7px; }
+.rpg-floor-label i { font-style: normal; }
+.vault-encounter { margin-top: 5px; color: #d9c6a7; font-size: 12px; }
+.vault-collection-tabs { margin: 12px 0; }
+.vault-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 165px), 1fr)); gap: 10px; }
+.vault-collectible {
+    min-width: 0; display: flex; flex-direction: column; gap: 7px; padding: 10px; border-radius: 7px;
+    background: #0c1b1eed; border: 1px solid #ab8d594a; color: #e8e0d1;
+}
+.vault-collectible.earned { border-color: color-mix(in srgb, var(--sigil) 64%, transparent); }
+.vault-collectible-art {
+    height: 68px; display: grid; place-items: center; font-size: 33px; color: var(--sigil);
+    border-radius: 5px; text-shadow: 0 0 16px color-mix(in srgb, var(--sigil) 44%, transparent);
+    background: repeating-conic-gradient(from 45deg, #d9ba7612 0 25%, transparent 0 50%) center / var(--sigil-step) var(--sigil-step),
+        radial-gradient(ellipse, color-mix(in srgb, var(--sigil) 22%, #142628), #0c171a 72%);
+}
+.vault-collectible h4 { margin: 0; font: bold 16px var(--vault-heading); }
+.vault-collectible p { margin: 0 0 auto; font-size: 13px; line-height: 1.36; }
+.vault-collectible small { color: #e5cda9; }
+.vault-collectible progress { width: 100%; height: 8px; accent-color: var(--sigil); }
+.vault-runes { padding: 18px; text-align: center; font-size: clamp(29px, 6vw, 48px); letter-spacing: .28em; color: #ecd9a6; background: radial-gradient(ellipse, #2c4449, #101d20 73%); }
+.vault-slider { display: grid; grid-template-columns: 70px 1fr 35px; align-items: center; gap: 10px; margin: 10px 0; }
+.vault-slider input { accent-color: var(--vault-brass); }
+.vault-slider output { text-align: right; }
+.vault-lane {
+    position: relative; width: min(100%, 240px); height: 210px; margin: 0 auto 15px; border: 5px solid #55351e; overflow: hidden; perspective: 210px;
+    background: repeating-linear-gradient(90deg, #805037 0 2px, #c18a58 2px 12px, #b1784d 12px 22px);
+    box-shadow: inset 0 0 25px #2c1e13;
+}
+.vault-pin-row { display: flex; justify-content: center; gap: 5px; height: 13px; }
+.vault-pin-row:first-child { margin-top: 13px; }
+.vault-pin-row i { width: 10px; height: 12px; border-radius: 42% 42% 30% 30%; background: linear-gradient(#fff2d6 30%, #8f2f3a 34% 49%, #fff5e0 53%); box-shadow: 1px 2px 2px #59371e; }
+.vault-pin-row i.down { visibility: hidden; }
+.vault-ball {
+    position: absolute; bottom: 7px; left: calc(50% - 12px); width: 24px; height: 24px; border-radius: 50%;
+    background: radial-gradient(circle at 37% 26%, #8ad6ca, #164559 38%, #040d19 80%); box-shadow: 0 5px 7px #3a281b;
+}
+.vault-ball.rolling { animation: vault-roll .58s ease-in forwards; }
+@keyframes vault-roll { to { transform: translate(var(--roll-offset, 0px), -155px) scale(.52) rotate(340deg); } }
+.vault-theft {
+    position: relative; overflow: hidden; height: clamp(170px, 32vh, 310px);
+    background: #0a1317; border: 1px solid #d1aa6777;
+}
+.vault-theft > div {
+    position: absolute; inset: 0;
+    background: linear-gradient(0deg, #091015aa, transparent 52%), url('../assets/vault/thief.webp') center 52% / cover;
+    animation: vault-theft-pan 1.45s ease-out both;
+}
+.vault-theft i { position: absolute; top: 64%; left: 49%; color: #f6cf85; text-shadow: 0 0 9px #f5af51; font-size: 18px; animation: vault-coin 1.08s .12s both; }
+.vault-theft i:last-child { left: 46%; animation-delay: .26s; }
+@keyframes vault-theft-pan { from { opacity: .18; transform: scale(1.12) translateX(-2%); } to { opacity: 1; transform: none; } }
+@keyframes vault-coin { 0% { opacity: .85; } 100% { transform: translate(-42px, 52px) rotate(140deg); opacity: 0; } }
+
+.mode-guide-box {
+    width: min(96vw, 1060px); height: min(88vh, 820px); display: flex; flex-direction: column; overflow: hidden;
+    padding: 0; color: #f3eddf; border: 1px solid #b49155; border-radius: 10px;
+    background: linear-gradient(135deg, #1d3436, #111c23 60%);
+}
+.mode-guide-head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 15px 20px;
+    background: linear-gradient(90deg, #131f24f5, #1221268a), url('../assets/vault/haven.webp') 70% 55% / cover;
+}
+.mode-guide-box .mode-guide-head h2 { margin: 0 auto 0 0; color: #fff2d9; font: bold clamp(23px, 4vw, 31px) var(--vault-heading); }
+.mode-guide-search { display: flex; gap: 6px; }
+.mode-guide-search input { min-width: 0; max-width: 32vw; width: 240px; padding: 8px 10px; color: #fff; background: #0d191f; border: 1px solid #8b7550; border-radius: 5px; }
+.mode-guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; background: #0b171fca; border-block: 1px solid #d8b7793d; }
+.mode-guide-tab { padding: 8px 12px; color: #e2d8c5; background: #15262d; border: 1px solid #7d7053; border-radius: 5px; cursor: pointer; font: 700 14px var(--font-ui); }
+.mode-guide-tab[aria-selected="true"] { background: #58472d; color: #fff0cf; border-color: #e4c88e; }
+.mode-guide-tab:focus-visible { outline: 2px solid #fff1d8; outline-offset: 2px; }
+.mode-guide-body { overflow-y: auto; padding: 12px 20px 22px; min-height: 0; }
+.mode-guide-intro { margin-bottom: 12px; }
+.mode-guide-intro h3 { color: #f6e2ba; margin: 0; font: bold clamp(21px, 3vw, 27px) var(--vault-heading); }
+.mode-guide-intro p, .mode-guide-section p { margin: 6px 0; font-size: 15px; line-height: 1.53; }
+.mode-guide-section { padding: 8px 12px; border: 1px solid #ad8f5c50; border-radius: 5px; background: #101e24ba; margin-bottom: 7px; }
+.mode-guide-section summary { cursor: pointer; color: #f5dbac; font-size: 15px; font-weight: 750; padding: 4px 0; }
+.mode-guide-section ul { margin: 9px 0 5px; padding-left: 22px; }
+.mode-guide-section li { margin: 5px 0; line-height: 1.48; }
+.sv-guide-host .mode-guide-section { color: #e9eee9; }
+@media (max-width: 600px) {
+    .mode-guide-head { padding: 10px; }
+    .mode-guide-search { order: 3; width: 100%; }
+    .mode-guide-search input { max-width: none; width: 100%; }
+    .mode-guide-tab { padding: 7px 9px; font-size: 13px; }
+    .mode-guide-body { padding: 10px; }
+    .rpg-haven { padding: 10px; gap: 9px; }
+    .rpg-haven .rpg-top { padding: 9px 10px; }
+    .rpg-haven .rpg-top-left { gap: 9px; }
+    .rpg-haven .rpg-top-left .btn { white-space: nowrap; padding: 7px 9px; font-size: 11px; }
+    .rpg-haven .rpg-brand-title { font-size: 20px; letter-spacing: .075em; }
+    .rpg-haven .rpg-brand-kicker { font-size: 9px; letter-spacing: .08em; }
+    .rpg-haven .rpg-wallet { gap: 5px; }
+    .rpg-haven .rpg-coin { padding: 5px 7px; }
+    .rpg-haven .rpg-coin b { font-size: 14px; }
+    .rpg-haven .rpg-charchip { padding: 3px 5px; gap: 5px; }
+    .rpg-haven .rpg-charchip-ico { width: 27px; height: 27px; }
+    .rpg-haven .rpg-mini-xp { width: 100%; }
+    .rpg-haven .rpg-body { gap: 8px; }
+    .rpg-haven .rpg-nav-btn { padding: 5px 7px; font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .vault-theft i, .vault-theft > div, .vault-ball.rolling { animation: none; }
+}

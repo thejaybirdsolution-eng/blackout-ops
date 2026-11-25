@@ -156,15 +156,6 @@ body.sv-hide-xp #zt-hud .zt-xp, body.sv-hide-xp #zt-hud .zt-pops, body.sv-hide-x
 body.sv-hide-plates #zt-hud .zt-plates { display: none !important; }
 body.sv-no-compass .sv-compass { visibility: hidden !important; }
 
-/* start-menu Survival Journal */
-#sv-journal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; background: rgba(3, 6, 5, .86); backdrop-filter: blur(4px); }
-#sv-journal .svj-in { width: min(1280px, 96vw); height: min(860px, 92vh); display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; border-radius: 16px; background: var(--sv-bg, #090e0d); border: 1px solid var(--sv-line-2, rgba(159, 224, 201, .22)); color: var(--sv-text, #e3efe9); }
-#sv-journal header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-#sv-journal header h2 { margin: 2px 0 4px; font: 800 28px var(--font-ui, sans-serif); letter-spacing: .04em; }
-#sv-journal header p { margin: 0; color: #9fb8ae; font-size: 13px; }
-#sv-journal .svj-body { flex: 1; min-height: 0; display: flex; }
-#sv-journal .fg { width: 100%; }
-
 /* ---- Brass Recon Spyglass Optic ---- */
 .zt-spyglass { position: fixed; inset: 0; z-index: 28; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, transparent 31%, rgba(16, 12, 8, 0.35) 33%, rgba(6, 8, 10, 0.96) 44%); }
 .zt-spyglass[hidden] { display: none !important; }

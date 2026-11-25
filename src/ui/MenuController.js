@@ -150,8 +150,7 @@
             this.modFilter = { cat: 'all', q: '', onlyActive: false };
             this.barracksTab = 'bestiary';
             this.settingsTab = 'controls';
-            this.legendTab = 'howto';
-            this.legendGunFilter = 'ALL';
+            this.legendTab = 'zombies';
             this.boxPickerTab = 'all';
             this.isRebindingKey = false;
             this.rebindingAction = null;
@@ -255,7 +254,7 @@
             if (mgBtn) mgBtn.onclick = () => { BO.Sound.playUIClick(); this.showScreen('minigames'); };
             document.getElementById('btn-menu-gunsmith').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('btn-menu-barracks').onclick = () => { BO.Sound.playUIClick(); this.showScreen('barracks'); };
-            document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
+            document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend(); };
             document.getElementById('btn-menu-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
             document.getElementById('btn-menu-modmenu').onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
 
@@ -557,12 +556,7 @@
             document.getElementById('btn-pause-modmenu').onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
             document.getElementById('btn-pause-legend').onclick = () => {
                 BO.Sound.playUIClick();
-                if (BO.State.activeMode === 'survival' && BO.SurvivalUI) {
-                    this.setPauseOpen(false);
-                    BO.SurvivalUI.show('legend');
-                } else {
-                    this.openLegend('howto');
-                }
+                this.openLegend(BO.State.activeMode === 'minigame' ? 'minigames' : BO.State.activeMode);
             };
             document.getElementById('btn-pause-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
             const btnPauseControls = document.getElementById('btn-pause-controls');
@@ -1334,7 +1328,7 @@
                     </div>
                     <div class="side-btn-row">
                         <button class="btn btn-sm" id="lobby-edit-class">EDIT CLASS</button>
-                        <button class="btn btn-sm" id="lobby-open-legend">LEGEND</button>
+                        <button class="btn btn-sm" id="lobby-open-legend">GAME GUIDE</button>
                         ${BO.Cheats && BO.Cheats.isModMenuUnlocked() ? '<button class="btn btn-sm" id="lobby-open-modmenu" style="border-color:#fde047;color:#fde047;">★ MODS</button>' : ''}
                     </div>
                 </div>
@@ -1351,7 +1345,7 @@
                 this._renderLobbyRight(mode, roundsUnlocked);
             };
             document.getElementById('lobby-edit-class').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
-            document.getElementById('lobby-open-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
+            document.getElementById('lobby-open-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend(this.lobbyMode); };
             const lModBtn = document.getElementById('lobby-open-modmenu');
             if (lModBtn) lModBtn.onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
             document.getElementById('btn-deploy-match').onclick = () => {
@@ -1722,561 +1716,41 @@
             }
         }
 
-        /* ====================================================================
-           MASTER LEGEND & TACTICAL CODEX (REDESIGNED SCALABLE 2-PANE LAYOUT)
-        ==================================================================== */
-        openLegend(tab = 'howto') {
-            if (tab) this.legendTab = tab;
+        openLegend(mode) {
+            this.legendTab = BO.ModeGuide.MODES[mode] ? mode : 'zombies';
             this.legendQuery = '';
-            const legSearch = document.getElementById('legend-search-input');
-            const legClear = document.getElementById('legend-search-clear');
-            if (legSearch) legSearch.value = '';
-            if (legClear) legClear.classList.add('hidden');
-            this.renderLegend();
+            const search = document.getElementById('legend-search-input');
+            search.value = '';
+            document.getElementById('legend-search-clear').classList.add('hidden');
             this.modalLegend.classList.remove('hidden');
+            this.renderLegend();
+            document.getElementById('btn-legend-close').focus();
         }
 
         renderLegend(keepScroll = false) {
-            const tabsEl = document.getElementById('legend-tabs');
-            const subbarEl = document.getElementById('legend-subbar');
+            const rail = document.getElementById('legend-tabs');
             const body = document.getElementById('legend-body');
-            if (!tabsEl || !body) return;
-
-            const allGuns = BO.WeaponsData.listGuns();
-            const allMelees = BO.WeaponsData.listMelee();
-            const allMagics = BO.WeaponsData.listMagic();
-            const allZombies = BO.ZombiesData.ORDERED_PROGRESSION || BO.ZombiesData.ZOMBIE_TYPES || [];
-            const allBosses = BO.ZombiesData.ORDERED_BOSSES || Object.values(BO.ZombiesData.BOSSES_BY_ROUND || {});
-            const superBosses = allBosses.filter((b) => b.isSuperBoss);
-            const regBosses = allBosses.filter((b) => !b.isSuperBoss);
-            const zPerks = Object.values(BO.ZombiesData.PERK_MACHINES || {});
-            const mpPerks = Object.values(BO.AttachmentsData.PERKS || {});
-            const specials = Object.values(BO.AttachmentsData.FIELD_UPGRADES || {});
-            const ults = Object.values(BO.AttachmentsData.ULTIMATE_POWERS || {});
-            const lethals = Object.values(BO.AttachmentsData.LETHALS || {});
-            const tacticals = Object.values(BO.AttachmentsData.TACTICALS || {});
-            const streaks = Object.values(BO.AttachmentsData.KILLSTREAKS || {});
-            const cheatDefs = BO.Cheats.getDefinitions();
-            const totalPowers = zPerks.length + mpPerks.length + specials.length + ults.length + lethals.length + tacticals.length + streaks.length;
-
-            const GROUPS = [
-                {
-                    title: 'FIELD BRIEFING',
-                    items: [
-                        { id: 'howto', ico: '◈', label: 'Core Mechanics', count: '4 Modes', tip: 'Movement, airborne mantle & vault, Mystery Box odds, Pack-a-Punch, and mode loop.' },
-                        { id: 'personal', ico: '🎖', label: 'Operator Record', count: 'Live', tip: 'Health, armor plates, movement speeds, rank, prestige, and lifetime stats.' },
-                        { id: 'modes_survival', ico: '🌲', label: 'Modes & Zone Guide', count: 'Zone+', tip: 'Exclusion Zone Survival, Fast Travel, Fort Defense, Tower Defense & Multiplayer.' }
-                    ]
-                },
-                {
-                    title: 'ARSENAL',
-                    items: [
-                        { id: 'guns', ico: '🔫', label: 'Firearms', count: String(allGuns.length), tip: 'Every rifle, SMG, shotgun, LMG, sniper, pistol & launcher with PaP variants.' },
-                        { id: 'melee', ico: '⚔', label: 'Melee Blades', count: String(allMelees.length), tip: 'Close-quarters blades & heavy cleavers with reach, cleave, and movement multipliers.' },
-                        { id: 'magic', ico: '✦', label: 'Wonder Weapons', count: String(allMagics.length), tip: 'Supernatural & experimental wonder weapons from the Mystery Box.' },
-                        { id: 'powers', ico: '⚡', label: 'Perks, Gear & Streaks', count: String(totalPowers), tip: 'Perk-a-Colas, Loadout Perks, Tacticals, Grenades, Ultimates & Killstreaks.' }
-                    ]
-                },
-                {
-                    title: 'HOSTILE BESTIARY',
-                    items: [
-                        { id: 'bosses', ico: '👑', label: 'Bosses & Super Bosses', count: String(allBosses.length), tip: 'All Boss Commanders and Colossal Super Bosses with phase mechanics & weakpoints.' },
-                        { id: 'enemies', ico: '🧟', label: 'Zombie Roster', count: String(allZombies.length), tip: 'All 70 unique zombie types with silhouettes, resistances, habits & unlock tiers.' }
-                    ]
-                },
-                {
-                    title: 'SANDBOX & CODES',
-                    items: [
-                        { id: 'rounds_cheats', ico: '★', label: 'Modifiers & Cheats', count: String(cheatDefs.length), tip: 'Custom Modifier Presets across all modes, Round rules, and Zombies cheat codes.' }
-                    ]
-                }
-            ];
-
-            const q = String(this.legendQuery || '').trim().toLowerCase();
-            tabsEl.innerHTML = GROUPS.map((grp) => `
-                <div class="legend-rail-group">
-                    <div class="legend-rail-h">${grp.title}</div>
-                    ${grp.items.map((t) => `
-                        <button type="button" class="legend-rail-btn ${!q && this.legendTab === t.id ? 'active' : ''}" data-ltab="${t.id}"
-                            data-tip-title="${escAttr(t.label)}" data-tip="${escAttr(t.tip)}">
-                            <span class="legend-rail-ico">${t.ico}</span>
-                            <span class="legend-rail-lbl">${t.label}</span>
-                            <span class="legend-rail-cnt">${t.count}</span>
-                        </button>
-                    `).join('')}
-                </div>
-            `).join('');
-            tabsEl.querySelectorAll('[data-ltab]').forEach((b) => {
-                b.onclick = () => {
-                    BO.Sound.playUIClick();
-                    this.legendTab = b.dataset.ltab;
-                    if (this.legendQuery) {
-                        this.legendQuery = '';
-                        const inp = document.getElementById('legend-search-input');
-                        const clr = document.getElementById('legend-search-clear');
-                        if (inp) inp.value = '';
-                        if (clr) clr.classList.add('hidden');
-                    }
-                    this.renderLegend();
-                };
-            });
-
-            const kb = BO.Settings.getKeybinds();
-            if (subbarEl) subbarEl.innerHTML = '';
-
-            // Global live search across the entire codex
-            if (q) {
-                const hits = [];
-                allBosses.forEach((b) => {
-                    const hay = `${b.name} ${b.title || ''} ${b.simpleDesc || ''} ${b.weaknessText || ''} ${b.isSuperBoss ? 'super boss colossal' : 'boss'}`.toLowerCase();
-                    if (hay.includes(q)) {
-                        hits.push({
-                            cat: b.isSuperBoss ? '👑 SUPER BOSS' : '☠ BOSS',
-                            col: b.isSuperBoss ? '#fde047' : '#f87171',
-                            title: b.name,
-                            sub: `${b.title || 'Boss'} • HP ${b.hp} • SPD ${b.speed} • ATK ${b.attack}`,
-                            desc: b.weaknessText || b.simpleDesc || '',
-                            enemyId: b.id
-                        });
-                    }
+            const search = document.getElementById('legend-search-input');
+            const buttons = Object.entries(BO.ModeGuide.MODES);
+            if (!keepScroll) {
+                rail.innerHTML = buttons.map(([id, mode]) => `<button class="mode-guide-tab" data-mode="${id}"
+                    role="tab" aria-controls="legend-body" id="guide-tab-${id}" aria-selected="${id === this.legendTab}">${mode.name}</button>`).join('');
+                rail.querySelectorAll('[data-mode]').forEach((button) => {
+                    button.onclick = () => {
+                        BO.Sound.playUIClick();
+                        this.legendTab = button.dataset.mode;
+                        rail.querySelectorAll('[data-mode]').forEach((tab) => tab.setAttribute('aria-selected', String(tab === button)));
+                        body.setAttribute('aria-labelledby', button.id);
+                        body.innerHTML = BO.ModeGuide.render(this.legendTab, this.legendQuery);
+                        search.placeholder = 'Search ' + BO.ModeGuide.MODES[this.legendTab].name;
+                        body.scrollTop = 0;
+                    };
                 });
-                allZombies.forEach((z) => {
-                    const hay = `${z.name} ${z.simpleDesc || ''} ${z.rarity || ''} ${z.attackType || ''} ${z.movementHabit || ''}`.toLowerCase();
-                    if (hay.includes(q)) {
-                        hits.push({
-                            cat: `🧟 ZOMBIE · ${(z.rarity || 'easy').toUpperCase()}`,
-                            col: z.rarity === 'hard' ? '#f59e0b' : (z.rarity === 'normal' ? '#38bdf8' : '#4ade80'),
-                            title: z.name,
-                            sub: `HP ${z.hp} • SPD ${z.speed} • ATK ${z.attack} • DEF ${Math.round((z.defense || 0) * 100)}%`,
-                            desc: z.simpleDesc || '',
-                            enemyId: z.id
-                        });
-                    }
-                });
-                [...allGuns, ...allMelees, ...allMagics].forEach((w) => {
-                    const hay = `${w.name} ${w.category} ${w.tier} ${w.papName || ''} ${w.description || ''}`.toLowerCase();
-                    if (hay.includes(q)) {
-                        hits.push({
-                            cat: `🔫 ${w.category.toUpperCase()}`,
-                            col: w.tier === 'magic' ? '#c084fc' : (w.tier === 'uncommon' ? '#38bdf8' : '#f5a623'),
-                            title: w.name,
-                            sub: `${w.damage}${w.pellets > 1 ? '×' + w.pellets : ''} DMG • ${w.rpm} RPM • PaP: ${w.papName || '—'}`,
-                            desc: w.description || ''
-                        });
-                    }
-                });
-                [...ults, ...specials, ...zPerks, ...mpPerks, ...lethals, ...tacticals, ...streaks].forEach((p) => {
-                    const hay = `${p.name} ${p.desc || ''}`.toLowerCase();
-                    if (hay.includes(q)) {
-                        hits.push({
-                            cat: '⚡ PERK / POWER',
-                            col: p.color || '#38bdf8',
-                            title: p.name,
-                            sub: p.cost ? `${p.cost} PTS` : (p.kills ? `${p.kills} Killstreak` : 'Loadout / Ability'),
-                            desc: p.desc || ''
-                        });
-                    }
-                });
-                cheatDefs.forEach((d) => {
-                    const hay = `${d.code} ${d.name} ${d.desc}`.toLowerCase();
-                    if (hay.includes(q)) {
-                        hits.push({
-                            cat: '★ CHEAT CODE',
-                            col: '#fde047',
-                            title: `[${d.code}] ${d.name}`,
-                            sub: 'Zombies Cheat Code',
-                            desc: d.desc
-                        });
-                    }
-                });
-
-                if (subbarEl) {
-                    subbarEl.innerHTML = `<div class="legend-sub-meta">SEARCH RESULTS FOR <b>“${escAttr(this.legendQuery)}”</b> — <span>${hits.length} match${hits.length === 1 ? '' : 'es'}</span></div>`;
-                }
-                body.innerHTML = hits.length ? `
-                    <div class="legend-card-grid">
-                        ${hits.slice(0, 90).map((h) => `
-                            <div class="legend-entry-card" style="--lc:${h.col}" ${h.enemyId ? `data-tip-enemy="${h.enemyId}"` : ''}
-                                data-tip-title="${escAttr(h.title)}" data-tip="${escAttr(h.desc)}" data-tip-sub="${escAttr(h.sub)}">
-                                <div class="legend-entry-top">
-                                    <span class="legend-entry-tag">${h.cat}</span>
-                                </div>
-                                <div class="legend-entry-title">${escAttr(h.title)}</div>
-                                <div class="legend-entry-sub">${escAttr(h.sub)}</div>
-                                <div class="legend-entry-desc">${escAttr(h.desc)}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : `<div class="mod-empty">No codex entries matched “${escAttr(this.legendQuery)}”. Try searching for a gun, zombie, boss, perk, or cheat code.</div>`;
-                if (!keepScroll) body.scrollTop = 0;
-                return;
             }
-
-            if (this.legendTab === 'howto') {
-                if (subbarEl) {
-                    subbarEl.innerHTML = `<div class="legend-sub-meta">CORE MECHANICS • CONTEXTUAL PARKOUR • MYSTERY BOX ODDS • COMBAT ANNOUNCER</div>`;
-                }
-                body.innerHTML = `
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        <div class="legend-entry-card" style="--lc:#f5a623">
-                            <span class="legend-entry-tag">MOVEMENT &amp; PARKOUR</span>
-                            <div class="legend-entry-title">Contextual Mantle &amp; Vault</div>
-                            <div class="legend-entry-desc">Move with <b>${formatKeyCode(kb.forward)}/${formatKeyCode(kb.left)}/${formatKeyCode(kb.back)}/${formatKeyCode(kb.right)}</b>, Sprint with <b>${formatKeyCode(kb.sprint)}</b> (double-tap for Tactical Sprint), Slide with <b>${formatKeyCode(kb.crouch)}</b>, and press <b>${formatKeyCode(kb.jump)}</b> while airborne near an obstacle to <b>Mantle</b> onto flat platforms or <b>Vault</b> smoothly over thin barriers onto the far side!</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#ef4444">
-                            <span class="legend-entry-tag">ZOMBIES &amp; SUPER BOSSES</span>
-                            <div class="legend-entry-title">70 Zombies • 10 Bosses • 5 Super Bosses</div>
-                            <div class="legend-entry-desc">Earn Points on hits &amp; kills, flip Power, drink Perk-a-Colas, deploy fortifications with <b>[B]</b>, and face Boss Commanders on milestone waves plus colossal multi-phase <b>Super Bosses</b> with custom weakpoints and massive rewards.</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#c084fc">
-                            <span class="legend-entry-tag">WEAPON UPGRADES</span>
-                            <div class="legend-entry-title">3-Tier Pack-a-Punch &amp; Field Gunsmith</div>
-                            <div class="legend-entry-desc"><b>Tier I (5,000):</b> +90% DMG, +50% Mag &amp; PaP name • <b>Tier II (10,000):</b> 2.65× DMG • <b>Tier III (15,000):</b> 3.55× DMG + Triple Reserve! Fit 3D optics, suppressors, mags, stocks &amp; camos in Gunsmith.</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#38bdf8">
-                            <span class="legend-entry-tag">COMBAT ANNOUNCER &amp; PRESETS</span>
-                            <div class="legend-entry-title">Halo-Style Medals &amp; Custom Modifier Sets</div>
-                            <div class="legend-entry-desc">Chain rapid multi-kills (<i>Double Kill!</i>, <i>Triple Kill!</i>, <i>Overkill!</i>, <i>Killimanjaro!</i>) and sprees (<i>Killing Spree!</i>, <i>Rampage!</i>, <i>Running Riot!</i>) for announcer callouts &amp; bonus XP. Save named Custom Modifier Presets in every mode!</div>
-                        </div>
-                    </div>
-
-                    <div class="panel-title" style="color:#fde047;">OFFICIAL MYSTERY BOX ODDS TABLE (950 PTS • 10 PTS FIRE SALE)</div>
-                    <table class="legend-table">
-                        <thead>
-                            <tr><th>DROP TIER</th><th>ODDS</th><th>POOL</th><th>WHAT YOU RECEIVE</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><td><span class="tier-pill tier-common">Common Firearm</span></td><td><b>60%</b></td><td>32 Guns</td><td>Military assault rifles, SMGs, shotguns, LMGs, marksman rifles, snipers &amp; sidearms.</td></tr>
-                            <tr><td><span class="tier-pill tier-uncommon">Uncommon Firearm</span></td><td><b>15%</b></td><td>18 Guns</td><td>Prototype rifles, heavy .50 BMG anti-materiel snipers, rotary minigun &amp; launchers.</td></tr>
-                            <tr><td><span class="tier-pill tier-common">Common Melee</span></td><td><b>10%</b></td><td>6 Blades</td><td>Fast close-quarters blades &amp; blunt weapons with high movement speed.</td></tr>
-                            <tr><td><span class="tier-pill tier-uncommon">Uncommon Melee</span></td><td><b>5%</b></td><td>4 Blades</td><td>Multi-target cleaving weapons (Carbon Katana, Sledgehammer, Chainsaw, Reaper Scythe).</td></tr>
-                            <tr><td><span class="tier-pill tier-magic">Wonder Weapon</span></td><td><b>5%</b></td><td>10 Magic</td><td>Ray Gun, Zeus Cannon, Singularity Orb, Wunderwaffe, Frost Sceptre, Solar Lance &amp; more!</td></tr>
-                            <tr><td><span class="tier-pill" style="color:#ef4444;">Empty Laugh</span></td><td><b>5%</b></td><td>—</td><td>The box laughs and comes up empty (enter cheat <b>wondernomore</b> to pick directly).</td></tr>
-                        </tbody>
-                    </table>
-                `;
-            } else if (this.legendTab === 'modes_survival') {
-                if (subbarEl) {
-                    subbarEl.innerHTML = `
-                        <div class="legend-sub-meta">ALL 4 GAME MODES • EXCLUSION ZONE SURVIVAL • TOWER DEFENSE • MULTIPLAYER</div>
-                        <button type="button" class="btn btn-sm btn-primary" id="btn-legend-open-zone-guide">OPEN SURVIVAL ENCYCLOPEDIA →</button>
-                    `;
-                    const zBtn = document.getElementById('btn-legend-open-zone-guide');
-                    if (zBtn) {
-                        zBtn.onclick = () => {
-                            BO.Sound.playUIClick();
-                            this.modalLegend.classList.add('hidden');
-                            if (BO.State.activeMode === 'survival' && BO.SurvivalUI) BO.SurvivalUI.show('legend');
-                            else if (BO.SurvivalJournal?.open) BO.SurvivalJournal.open();
-                            else if (BO.SurvivalUI) BO.SurvivalUI.show('legend');
-                        };
-                    }
-                }
-                body.innerHTML = `
-                    <div class="legend-card-grid">
-                        <div class="legend-entry-card" style="--lc:#8fe3c8">
-                            <span class="legend-entry-tag">SURVIVAL • WORLD &amp; FAST TRAVEL</span>
-                            <div class="legend-entry-title">Transit Signposts, Waystones &amp; Vehicles</div>
-                            <div class="legend-entry-desc">Explore a 500×450m Exclusion Zone across 10 biomes. Attune roadside <b>Transit Signposts</b>, secure Safehouses, repair Radio Towers, or build <b>Resonance Waystones</b> to fast-travel instantaneously via compact popup (<b>[T]</b>).</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#fbbf24">
-                            <span class="legend-entry-tag">SURVIVAL • DYNAMIC EVENTS</span>
-                            <div class="legend-entry-title">NPC Fort Defense Sieges</div>
-                            <div class="legend-entry-desc">Respond to distress calls when zombie hordes storm fortified Survivor Forts! Clear the attackers to earn rewards and permanently unlock the fort's storage chests, fast-travel beacon, and patrolling armed NPC defenders who draw zombie aggro and fight alongside you.</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#38bdf8">
-                            <span class="legend-entry-tag">SURVIVAL • BUILDING &amp; CRAFTING</span>
-                            <div class="legend-entry-title">Expanded Building, Alchemy &amp; Quantum Stash</div>
-                            <div class="legend-entry-desc">Snap-build wood, stone &amp; obsidian bases with <b>Stairs</b>, interactive open/close <b>Doors &amp; Gates</b>, Watchtowers, Spike Walls, Storage Vaults, and <b>Quantum Linked Chests</b>. Craft 100+ tools, foods, potions, Phase Pearls, Totems &amp; Grappling Hooks!</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#c084fc">
-                            <span class="legend-entry-tag">SURVIVAL • BLACK MARKET &amp; GATED NPCS</span>
-                            <div class="legend-entry-title">Roaming Brokers &amp; Specialist Contacts</div>
-                            <div class="legend-entry-desc">Track rare roaming <b>Black Market Brokers</b> along Zone roads for Emerald Chip bartering, and earn trust with Gated Specialists via Survivor Level, Kill Count, or targeted Bribes — with fair multi-path ways to earn every item in normal play.</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#22c55e">
-                            <span class="legend-entry-tag">TOWER DEFENSE</span>
-                            <div class="legend-entry-title">Castle Siege, Sniper Lifts &amp; Deployables</div>
-                            <div class="legend-entry-desc">Hold 3 multi-layered castles against escalating waves and Super Bosses. Use compact Quartermaster, Attachment, and Wunderfizz kiosks between waves to place 20+ turrets, allies, traps, and orbital ordnance.</div>
-                        </div>
-                        <div class="legend-entry-card" style="--lc:#f97316">
-                            <span class="legend-entry-tag">MULTIPLAYER</span>
-                            <div class="legend-entry-title">5 Modes • 6 Arenas • Bots &amp; Co-Op</div>
-                            <div class="legend-entry-desc">Battle across TDM, Free-For-All, Domination, Hardpoint, and Gun Game with Create-a-Class loadouts, contextual airborne vaulting, Halo-style multi-kill announcements, Killstreaks, and Winner Killcams.</div>
-                        </div>
-                    </div>
-                `;
-            } else if (this.legendTab === 'personal') {
-                const P = BO.Player;
-                const info = BO.Progression.getRankInfo();
-                const stats = BO.Save.data.stats;
-                const cls = BO.Loadout.getActiveClass();
-                const kd = (stats.mpKills / Math.max(1, stats.mpDeaths)).toFixed(2);
-                const acc = stats.shotsFired > 0 ? Math.round((stats.shotsHit / stats.shotsFired) * 100) + '%' : '0%';
-                const speedMult = (BO.Cheats && BO.Cheats.isActive('superfast')) ? '4.0× (SUPERFAST)' : ((BO.Cheats && BO.Cheats.isActive('fast')) ? '2.0× (FAST)' : '1.0×');
-                const sizeMult = (BO.Cheats && BO.Cheats.isActive('tiny')) ? '25% (TINY)' : '100% (1.75m)';
-                if (subbarEl) subbarEl.innerHTML = `<div class="legend-sub-meta">OPERATOR VITALS • MOVEMENT METRICS • LIFETIME CAREER RECORD</div>`;
-                body.innerHTML = `
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        <div class="legend-entry-card" style="--lc:#ef4444"><span class="legend-entry-tag">VITALS</span><div class="legend-entry-title">Health: ${P ? Math.ceil(P.hp) : 100} / ${P ? P.maxHp : 100} HP</div><div class="legend-entry-desc">Base 100 HP • Juggernog boosts to <b>250 HP</b> • Auto-regenerates after 4.0s out of combat (instant on kill with Quick-Fix).</div></div>
-                        <div class="legend-entry-card" style="--lc:#38bdf8"><span class="legend-entry-tag">PROTECTION</span><div class="legend-entry-title">Armor: ${P ? Math.ceil(P.armor) : 150} / 150 (3 Plates)</div><div class="legend-entry-desc">3 Armor Plates (50 each) absorb 65% of incoming damage. Press <b>[${formatKeyCode(kb.armor)}]</b> to slot a reserve plate.</div></div>
-                        <div class="legend-entry-card" style="--lc:#22c55e"><span class="legend-entry-tag">LOCOMOTION</span><div class="legend-entry-title">Speed Multiplier: ${speedMult}</div><div class="legend-entry-desc">Walk <b>4.9 m/s</b> • Sprint <b>7.15 m/s</b> • Tac-Sprint <b>8.45 m/s</b> • Slide <b>10.2 m/s</b> • Stamin-Up +14%.</div></div>
-                        <div class="legend-entry-card" style="--lc:#f5a623"><span class="legend-entry-tag">AGILITY</span><div class="legend-entry-title">Mantle, Vault &amp; Stature (${sizeMult})</div><div class="legend-entry-desc">Jump <b>7.5 m/s</b> • Airborne <b>Contextual Mantle</b> up to 2.3m ledges • Airborne <b>Contextual Vault</b> cleanly over barriers up to 1.55m!</div></div>
-                    </div>
-                    <div class="panel-title">CAREER RECORD &amp; ACTIVE LOADOUT</div>
-                    <div class="legend-card-grid">
-                        <div class="legend-entry-card" style="--lc:#fde047"><span class="legend-entry-tag">MILITARY RANK</span><div class="legend-entry-title">Rank ${info.level} / 55 (${escAttr(info.rankName)})</div><div class="legend-entry-desc">Prestige: <b>${escAttr(info.prestigeInfo.title)}</b> (+${info.prestige * 10}% XP) • ${info.xpNeededForNext} XP to next rank.</div></div>
-                        <div class="legend-entry-card" style="--lc:#38bdf8"><span class="legend-entry-tag">ACTIVE LOADOUT</span><div class="legend-entry-title">${escAttr(cls.name)}</div><div class="legend-entry-desc">Primary: <b>${escAttr(BO.WeaponsData.get(cls.primary.id).name)}</b><br>Secondary: <b>${escAttr(BO.WeaponsData.get(cls.secondary.id).name)}</b></div></div>
-                        <div class="legend-entry-card" style="--lc:#ef4444"><span class="legend-entry-tag">ZOMBIES RECORD</span><div class="legend-entry-title">${stats.zombiesKills.toLocaleString()} Eliminations</div><div class="legend-entry-desc">Headshots: ${stats.zombiesHeadshots} • Box Spins: ${stats.zombiesBoxSpins || 0} • PaP Upgrades: ${stats.zombiesPaPUsed || 0} • Exfils: ${stats.zombiesExfils || 0}</div></div>
-                        <div class="legend-entry-card" style="--lc:#22c55e"><span class="legend-entry-tag">MULTIPLAYER RECORD</span><div class="legend-entry-title">${kd} K/D Ratio</div><div class="legend-entry-desc">Kills: ${stats.mpKills} • Deaths: ${stats.mpDeaths} • Wins: ${stats.mpWins} • Shot Accuracy: ${acc}</div></div>
-                    </div>
-                `;
-            } else if (this.legendTab === 'guns') {
-                const cats = ['ALL', 'Assault Rifle', 'SMG', 'Shotgun', 'LMG', 'Marksman Rifle', 'Sniper Rifle', 'Pistol', 'Launcher'];
-                const curCat = this.legendGunFilter || 'ALL';
-                const guns = allGuns.filter((g) => curCat === 'ALL' || g.category === curCat);
-                if (subbarEl) {
-                    subbarEl.innerHTML = `
-                        <div class="legend-sub-pills">
-                            ${cats.map((c) => `<button type="button" class="legend-sub-pill ${curCat === c ? 'active' : ''}" data-gcat="${c}">${c}</button>`).join('')}
-                        </div>
-                        <span class="legend-sub-count">${guns.length} / ${allGuns.length}</span>
-                    `;
-                    subbarEl.querySelectorAll('[data-gcat]').forEach((b) => {
-                        b.onclick = () => { BO.Sound.playUIClick(); this.legendGunFilter = b.dataset.gcat; this.renderLegend(); };
-                    });
-                }
-                body.innerHTML = `
-                    <table class="legend-table">
-                        <thead>
-                            <tr><th>#</th><th>FIREARM</th><th>TIER</th><th>CLASS</th><th>DMG</th><th>RPM</th><th>HS</th><th>RANGE</th><th>MAG / RES</th><th>RLD</th><th>PACK-A-PUNCH</th></tr>
-                        </thead>
-                        <tbody>
-                            ${guns.map((w, i) => `
-                                <tr data-tip-title="${escAttr(w.name)}" data-tip="${escAttr(w.description)}" data-tip-sub="Pack-a-Punch: ${escAttr(w.papName)} (${w.papDamageMult}× Base Damage)">
-                                    <td>${i + 1}</td>
-                                    <td><b>${escAttr(w.name)}</b></td>
-                                    <td><span class="tier-pill tier-${w.tier}">${w.tier}</span></td>
-                                    <td>${escAttr(w.category)}</td>
-                                    <td style="color:#f5a623;font-family:var(--font-mono);font-weight:700;">${w.damage}${w.pellets > 1 ? '×' + w.pellets : ''}</td>
-                                    <td style="font-family:var(--font-mono);">${w.rpm}</td>
-                                    <td>${w.headMult}×</td>
-                                    <td>${w.rangeNear}–${w.rangeFar}m</td>
-                                    <td>${w.magSize} / ${w.reserveAmmo}</td>
-                                    <td>${w.reloadTime.toFixed(2)}s</td>
-                                    <td style="color:#c084fc;font-weight:700;">${escAttr(w.papName)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else if (this.legendTab === 'melee') {
-                if (subbarEl) subbarEl.innerHTML = `<div class="legend-sub-meta">${allMelees.length} CLOSE-QUARTERS MELEE WEAPONS • CLEAVE &amp; MOBILITY STATS</div>`;
-                body.innerHTML = `
-                    <table class="legend-table">
-                        <thead>
-                            <tr><th>#</th><th>MELEE WEAPON</th><th>TIER</th><th>DAMAGE</th><th>SWING</th><th>REACH</th><th>CLEAVE</th><th>SPEED</th><th>EFFECT</th><th>PACK-A-PUNCH</th></tr>
-                        </thead>
-                        <tbody>
-                            ${allMelees.map((w, i) => `
-                                <tr data-tip-title="${escAttr(w.name)}" data-tip="${escAttr(w.description)}" data-tip-sub="Pack-a-Punch: ${escAttr(w.papName)} (${w.papDamageMult}× Damage)">
-                                    <td>${i + 1}</td>
-                                    <td><b>${escAttr(w.name)}</b></td>
-                                    <td><span class="tier-pill tier-${w.tier}">${w.tier}</span></td>
-                                    <td style="color:#f5a623;font-family:var(--font-mono);font-weight:800;">${w.damage}</td>
-                                    <td>${w.rpm} RPM</td>
-                                    <td>${w.rangeFar.toFixed(2)}m</td>
-                                    <td>Hits <b>${w.cleave || 1}</b></td>
-                                    <td>${Math.round(w.moveSpeedMult * 100)}%</td>
-                                    <td style="color:#38bdf8;text-transform:uppercase;font-weight:700;">${escAttr(w.meleeEffect || 'slash')}</td>
-                                    <td style="color:#c084fc;font-weight:700;">${escAttr(w.papName)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else if (this.legendTab === 'magic') {
-                if (subbarEl) subbarEl.innerHTML = `<div class="legend-sub-meta">${allMagics.length} SUPERNATURAL WONDER WEAPONS • 5% MYSTERY BOX POOL</div>`;
-                body.innerHTML = `
-                    <div class="legend-card-grid">
-                        ${allMagics.map((w, i) => `
-                            <div class="legend-entry-card" style="--lc:#c084fc">
-                                <span class="legend-entry-tag">#${i + 1} • ${escAttr((w.magicType || 'wonder').replace('_', ' ').toUpperCase())}</span>
-                                <div class="legend-entry-title">${escAttr(w.name)}</div>
-                                <div class="legend-entry-sub">${w.damage}${w.pellets > 1 ? '×' + w.pellets : ''} DMG • ${w.rpm} RPM • Mag ${w.magSize}/${w.reserveAmmo} • PaP: <b style="color:#fde047">${escAttr(w.papName)}</b></div>
-                                <div class="legend-entry-desc">${escAttr(w.description)}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            } else if (this.legendTab === 'powers') {
-                if (subbarEl) subbarEl.innerHTML = `<div class="legend-sub-meta">ULTIMATES • FIELD UPGRADES • PERK-A-COLAS • CLASS PERKS • TACTICALS &amp; KILLSTREAKS</div>`;
-                body.innerHTML = `
-                    <div class="panel-title" style="color:#fde047;">ULTIMATE POWERS [${formatKeyCode(kb.ultimate)}] &amp; FIELD UPGRADES [${formatKeyCode(kb.special)}]</div>
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        ${ults.map((u) => `<div class="legend-entry-card" style="--lc:${u.color || '#fde047'}"><span class="legend-entry-tag">ULTIMATE</span><div class="legend-entry-title">${escAttr(u.name)}</div><div class="legend-entry-desc">${escAttr(u.desc)}</div></div>`).join('')}
-                        ${specials.map((s) => `<div class="legend-entry-card" style="--lc:#38bdf8"><span class="legend-entry-tag">SPECIAL · ${s.cooldown}s CD</span><div class="legend-entry-title">${escAttr(s.name)}</div><div class="legend-entry-desc">${escAttr(s.desc)}</div></div>`).join('')}
-                    </div>
-
-                    <div class="panel-title" style="color:#f87171;">PERK-A-COLA MACHINES &amp; WUNDERFIZZ</div>
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        ${zPerks.map((p) => `<div class="legend-entry-card" style="--lc:${p.color || '#f87171'}"><span class="legend-entry-tag">${p.cost} PTS</span><div class="legend-entry-title">${escAttr(p.name)}</div><div class="legend-entry-desc">${escAttr(p.desc)}</div></div>`).join('')}
-                    </div>
-
-                    <div class="panel-title">LOADOUT PERKS, LETHALS [${formatKeyCode(kb.lethal)}], TACTICALS [${formatKeyCode(kb.tactical)}] &amp; KILLSTREAKS</div>
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        ${mpPerks.map((p) => `<div class="legend-entry-card" style="--lc:${p.color || '#38bdf8'}"><span class="legend-entry-tag">TIER ${p.tier} PERK</span><div class="legend-entry-title">${escAttr(p.name)}</div><div class="legend-entry-desc">${escAttr(p.desc)}</div></div>`).join('')}
-                        ${lethals.map((l) => `<div class="legend-entry-card" style="--lc:#f5a623"><span class="legend-entry-tag">LETHAL</span><div class="legend-entry-title">${escAttr(l.name)}</div><div class="legend-entry-desc">${escAttr(l.desc)}</div></div>`).join('')}
-                        ${tacticals.map((t) => `<div class="legend-entry-card" style="--lc:#38bdf8"><span class="legend-entry-tag">TACTICAL</span><div class="legend-entry-title">${escAttr(t.name)}</div><div class="legend-entry-desc">${escAttr(t.desc)}</div></div>`).join('')}
-                        ${streaks.map((k) => `<div class="legend-entry-card" style="--lc:#22c55e"><span class="legend-entry-tag">${k.kills} KILLSTREAK</span><div class="legend-entry-title">${escAttr(k.name)}</div><div class="legend-entry-desc">${escAttr(k.desc)}</div></div>`).join('')}
-                    </div>
-                `;
-            } else if (this.legendTab === 'bosses') {
-                const bFilter = this.legendBossFilter || 'all';
-                if (subbarEl) {
-                    subbarEl.innerHTML = `
-                        <div class="legend-sub-pills">
-                            ${[['all', `ALL (${allBosses.length})`], ['super', `👑 SUPER BOSSES (${superBosses.length})`], ['regular', `☠ BOSSES (${regBosses.length})`]].map(([k, lbl]) =>
-                                `<button type="button" class="legend-sub-pill ${bFilter === k ? 'active' : ''}" data-bflt="${k}">${lbl}</button>`).join('')}
-                        </div>
-                        <span class="legend-sub-count">Hover any boss card for 3D dossier</span>
-                    `;
-                    subbarEl.querySelectorAll('[data-bflt]').forEach((btn) => {
-                        btn.onclick = () => { BO.Sound.playUIClick(); this.legendBossFilter = btn.dataset.bflt; this.renderLegend(); };
-                    });
-                }
-                const showSuper = bFilter === 'all' || bFilter === 'super';
-                const showReg = bFilter === 'all' || bFilter === 'regular';
-                body.innerHTML = `
-                    ${showSuper && superBosses.length ? `
-                        <div class="panel-title" style="color:#fde047;">👑 ${superBosses.length} COLOSSAL SUPER BOSSES — MULTI-PHASE APEX TITANS</div>
-                        <div class="legend-card-grid" style="margin-bottom:16px;">
-                            ${superBosses.map((b) => `
-                                <div class="legend-entry-card legend-superboss-card" style="--lc:#f59e0b" data-tip-enemy="${b.id}"
-                                    data-tip-title="SUPER BOSS: ${escAttr(b.name)}" data-tip="${escAttr(b.simpleDesc || '')}"
-                                    data-tip-sub="${escAttr((b.weaknessText || '') + ' · +' + (b.drops?.points || 5000) + ' PTS')}">
-                                    <div class="legend-entry-top">
-                                        <span class="legend-entry-tag">👑 SUPER BOSS${b.bossRound ? ' · RD ' + b.bossRound : ''}</span>
-                                        <span class="legend-scale-pill">${(b.bodySpec?.scale?.[1] || 3.4).toFixed(1)}× SCALE</span>
-                                    </div>
-                                    <div class="legend-entry-title">${escAttr(b.name)}</div>
-                                    <div class="legend-entry-sub">${escAttr(b.title || 'Colossal Apex Encounter')}</div>
-                                    <div class="legend-stat-strip">
-                                        <span>HP <b>${b.hp.toLocaleString()}</b></span>
-                                        <span>SPD <b>${b.speed}</b></span>
-                                        <span>ATK <b>${b.attack}</b></span>
-                                        <span>ARM <b>${Math.round((b.defense || 0) * 100)}%</b></span>
-                                    </div>
-                                    <div class="legend-entry-desc">${escAttr(b.simpleDesc || '')}</div>
-                                    <div class="legend-weak-line">🎯 <b>Counterplay:</b> ${escAttr(b.weaknessText || 'Target glowing weakpoints and evade telegraphed AoE slams.')}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                    ${showReg ? `
-                        <div class="panel-title" style="color:#f87171;">☠ ${regBosses.length} BOSS COMMANDERS</div>
-                        <div class="legend-card-grid">
-                            ${regBosses.map((b) => `
-                                <div class="legend-entry-card" style="--lc:#ef4444" data-tip-enemy="${b.id}"
-                                    data-tip-title="${escAttr(b.name)}" data-tip="${escAttr(b.simpleDesc || '')}"
-                                    data-tip-sub="${escAttr((b.weaknessText || '') + ' · +' + (b.drops?.points || 1500) + ' PTS')}">
-                                    <div class="legend-entry-top">
-                                        <span class="legend-entry-tag">${b.bossRound ? 'ROUND ' + b.bossRound + ' BOSS' : 'BOSS COMMANDER'}</span>
-                                        <span class="legend-scale-pill">+${b.drops?.points || 1500} PTS</span>
-                                    </div>
-                                    <div class="legend-entry-title">${escAttr(b.name)}</div>
-                                    <div class="legend-entry-sub">${escAttr(b.title || 'Undead Commander')}</div>
-                                    <div class="legend-stat-strip">
-                                        <span>HP <b>${b.hp.toLocaleString()}</b></span>
-                                        <span>SPD <b>${b.speed}</b></span>
-                                        <span>ATK <b>${b.attack}</b></span>
-                                        <span>ARM <b>${Math.round((b.defense || 0) * 100)}%</b></span>
-                                    </div>
-                                    <div class="legend-entry-desc">${escAttr(b.weaknessText || b.simpleDesc || '')}</div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
-                `;
-            } else if (this.legendTab === 'enemies') {
-                const zFilter = this.legendZombieFilter || 'all';
-                const list = zFilter === 'all' ? allZombies : allZombies.filter((z) => (z.rarity || 'easy') === zFilter);
-                if (subbarEl) {
-                    subbarEl.innerHTML = `
-                        <div class="legend-sub-pills">
-                            ${[['all', `ALL (${allZombies.length})`], ['easy', 'EASY'], ['normal', 'NORMAL'], ['hard', 'HARD / ELITE']].map(([k, lbl]) =>
-                                `<button type="button" class="legend-sub-pill ${zFilter === k ? 'active' : ''}" data-zflt="${k}">${lbl}</button>`).join('')}
-                        </div>
-                        <span class="legend-sub-count">Showing ${list.length} of ${allZombies.length} unique zombie designs</span>
-                    `;
-                    subbarEl.querySelectorAll('[data-zflt]').forEach((btn) => {
-                        btn.onclick = () => { BO.Sound.playUIClick(); this.legendZombieFilter = btn.dataset.zflt; this.renderLegend(); };
-                    });
-                }
-                body.innerHTML = `
-                    <table class="legend-table">
-                        <thead>
-                            <tr><th>#</th><th>ZOMBIE ARCHETYPE</th><th>TIER</th><th>HP</th><th>SPD</th><th>ATK</th><th>ARMOR</th><th>RESISTANCES (BUL/EXP/FIR/HS)</th><th>BEHAVIOR &amp; TRAITS</th></tr>
-                        </thead>
-                        <tbody>
-                            ${list.map((z, idx) => {
-                                const r = z.resistances || { bullet: 1, explosive: 1, fire: 1, headshot: 1.5 };
-                                const rar = z.rarity || 'easy';
-                                const rarCol = rar === 'hard' ? '#f59e0b' : (rar === 'normal' ? '#38bdf8' : '#4ade80');
-                                const traits = [];
-                                if (z.splitCount) traits.push(`Splits ×${z.splitCount}`);
-                                if (z.jumpChance) traits.push('Leaper');
-                                if (z.isMagical) traits.push('Arcane');
-                                return `
-                                    <tr data-tip-enemy="${z.id}" data-tip-title="${escAttr(z.name)}" data-tip="${escAttr(z.simpleDesc || '')}"
-                                        data-tip-sub="${escAttr((z.unlockRound ? 'Round ' + z.unlockRound + '+' : rar.toUpperCase()) + ' · +' + (z.drops?.points || 100) + ' PTS')}">
-                                        <td>#${z.tier || (idx + 1)}</td>
-                                        <td><b>${escAttr(z.name)}</b></td>
-                                        <td><span class="tier-pill" style="color:${rarCol}">${rar.toUpperCase()}</span></td>
-                                        <td style="font-family:var(--font-mono);font-weight:700;">${z.hp}</td>
-                                        <td>${z.speed}</td>
-                                        <td>${z.attack}</td>
-                                        <td>${Math.round((z.defense || 0) * 100)}%</td>
-                                        <td style="font-family:var(--font-mono);font-size:11px;">${Math.round((r.bullet || 1) * 100)}% / ${Math.round((r.explosive || 1) * 100)}% / ${Math.round((r.fire || 1) * 100)}% / ${Math.round((r.headshot || 1.5) * 100)}%</td>
-                                        <td>${escAttr(z.movementHabit || 'shamble')} • ${escAttr((z.attackType || 'claw').replace(/_/g, ' '))}${traits.length ? ' • <b style="color:#fde047">' + traits.join(', ') + '</b>' : ''}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
-            } else if (this.legendTab === 'rounds_cheats') {
-                if (subbarEl) subbarEl.innerHTML = `<div class="legend-sub-meta">CUSTOM MODIFIER PRESETS • WAVE ESCALATION • ${cheatDefs.length} CHEAT CODES</div>`;
-                body.innerHTML = `
-                    <div class="legend-card-grid" style="margin-bottom:14px;">
-                        <div class="legend-entry-card" style="--lc:#22c55e"><span class="legend-entry-tag">ALL GAME MODES</span><div class="legend-entry-title">Custom Modifier Presets</div><div class="legend-entry-desc">Toggle any combination of Buffs, Tactical rules, Challenges, or Chaos modifiers in Zombies, Multiplayer, Tower Defense, or Survival — then type a name and click <b>★ Save set</b> to load, overwrite (↻), or switch sets in one click!</div></div>
-                        <div class="legend-entry-card" style="--lc:#38bdf8"><span class="legend-entry-tag">SURVIVAL SANDBOX</span><div class="legend-entry-title">Unlimited Tech Points &amp; Sandbox</div><div class="legend-entry-desc">Enable <b>Unlimited Tech Points</b> in Survival Modifiers to research the entire 4-tier tech tree for 0 TP, or combine with Creative Build and Master Map for unrestricted base engineering.</div></div>
-                        <div class="legend-entry-card" style="--lc:#f59e0b"><span class="legend-entry-tag">WAVE ESCALATION</span><div class="legend-entry-title">Boss &amp; Super Boss Schedule</div><div class="legend-entry-desc">New zombie archetypes enter rotation as waves climb. Boss Commanders lead milestone waves (5, 10, 15, 20...), and Colossal <b>Super Bosses</b> crash major endgame milestones (or summon them anytime via Sandbox / Super Boss Beacons!).</div></div>
-                        <div class="legend-entry-card" style="--lc:#c084fc"><span class="legend-entry-tag">EXTRACTION</span><div class="legend-entry-title">Helicopter Exfil (Round 10+)</div><div class="legend-entry-desc">From Round 10 onward in Zombies, press <b>[${formatKeyCode(kb.exfil)}]</b> to call an evac chopper and clear the LZ within 75s for +1,200 Bonus XP.</div></div>
-                    </div>
-
-                    <div class="panel-title" style="color:#fde047;">ALL ${cheatDefs.length} ZOMBIES CHEAT CODES (ENTER IN SETTINGS → CHEATS)</div>
-                    <table class="legend-table">
-                        <thead>
-                            <tr><th>CODE</th><th>NAME</th><th>STATUS</th><th>EFFECT (ZOMBIES MODE)</th></tr>
-                        </thead>
-                        <tbody>
-                            ${cheatDefs.map((d) => {
-                                const on = d.code === 'cheats' ? BO.Cheats.isModMenuUnlocked() : BO.Cheats.isActive(d.code, true);
-                                return `
-                                    <tr>
-                                        <td style="font-family:var(--font-mono);color:#fde047;font-weight:800;font-size:13.5px;">${d.code}</td>
-                                        <td><b>${escAttr(d.name)}</b></td>
-                                        <td><span class="tier-pill" style="color:${on ? '#22c55e' : '#94a3b8'}">${on ? 'ACTIVE' : 'OFF'}</span></td>
-                                        <td>${escAttr(d.desc)}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-            if (!keepScroll) body.scrollTop = 0;
+            search.placeholder = 'Search ' + BO.ModeGuide.MODES[this.legendTab].name;
+            body.setAttribute('aria-labelledby', 'guide-tab-' + this.legendTab);
+            body.innerHTML = BO.ModeGuide.render(this.legendTab, this.legendQuery);
+            body.scrollTop = 0;
         }
 
         /* ====================================================================
@@ -2655,7 +2129,7 @@
                 { id: 'sound', label: 'SOUND & AUDIO' },
                 { id: 'cheats', label: 'CHEAT CODES (ZOMBIES)' },
                 { id: 'save', label: 'SAVE GAME & SANDBOX' },
-                { id: 'legend', label: 'LEGEND & GUIDE' }
+                { id: 'legend', label: 'GAME GUIDE' }
             ];
 
             tabsEl.innerHTML = TABS.map((t) => `
@@ -2961,31 +2435,14 @@
                     }
                 };
             } else if (this.settingsTab === 'legend') {
-                const zCnt = (BO.ZombiesData.ORDERED_PROGRESSION || []).length;
-                const bCnt = (BO.ZombiesData.ORDERED_BOSSES || []).length;
-                body.innerHTML = `
-                    <div class="panel-title">MASTER LEGEND &amp; TACTICAL CODEX</div>
-                    <p style="font-size:13.5px;color:var(--text-dim);line-height:1.6;">
-                        Open the searchable Master Codex to inspect every weapon, ${zCnt} unique zombies, ${bCnt} Bosses &amp; Colossal Super Bosses, Perks &amp; Ultimate Powers, Mystery Box odds, Exclusion Zone Survival systems, and Zombies Cheat Codes.
-                    </p>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
-                        <button class="btn btn-primary" id="btn-set-open-legend-howto">OPEN MASTER CODEX</button>
-                        <button class="btn" id="btn-set-open-legend-guns">FIREARMS</button>
-                        <button class="btn" id="btn-set-open-legend-bosses" style="border-color:#fde047;color:#fde047;">👑 BOSSES &amp; SUPER BOSSES</button>
-                        <button class="btn" id="btn-set-open-legend-enemies">ZOMBIE ROSTER (${zCnt})</button>
-                        <button class="btn" id="btn-set-open-legend-zone">SURVIVAL ZONE</button>
-                    </div>
-                `;
-                const jumpLegend = (t) => {
+                body.innerHTML = `<div class="panel-title">GAME GUIDE</div>
+                    <p>Choose a mode to find its rules, controls, progression and advice.</p>
+                    <button class="btn btn-primary" id="btn-set-open-legend">OPEN GAME GUIDE</button>`;
+                document.getElementById('btn-set-open-legend').onclick = () => {
                     BO.Sound.playUIClick();
                     this.modalSettings.classList.add('hidden');
-                    this.openLegend(t);
+                    this.openLegend(BO.State.activeMode);
                 };
-                document.getElementById('btn-set-open-legend-howto').onclick = () => jumpLegend('howto');
-                document.getElementById('btn-set-open-legend-guns').onclick = () => jumpLegend('guns');
-                document.getElementById('btn-set-open-legend-bosses').onclick = () => jumpLegend('bosses');
-                document.getElementById('btn-set-open-legend-enemies').onclick = () => jumpLegend('enemies');
-                document.getElementById('btn-set-open-legend-zone').onclick = () => jumpLegend('modes_survival');
             }
         }
 

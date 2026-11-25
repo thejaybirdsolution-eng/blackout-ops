@@ -50,7 +50,9 @@
     const SIZES = {
         combat: [40, 44], elite: [40, 44], treasure: [36, 40], ambush: [42, 44],
         boss: [48, 52], rest: [24, 26], shrine: [26, 28],
-        vents: [38, 46], surge: [46, 40], fracture: [46, 48]
+        vents: [38, 46], surge: [46, 40], fracture: [46, 48], speedrun: [37, 41], hunt: [49, 35],
+        crossfire: [56, 35], shop: [29, 27], puzzle: [27, 32], sanctuary: [25, 28], defend: [45, 49],
+        miniboss: [41, 37], mimic: [35, 39], darkroom: [43, 48], storm: [52, 44]
     };
 
     BO.RPGArena = {
@@ -66,10 +68,17 @@
             const rr = (a, b) => a + rng() * (b - a);
             const biome = D.biomeForFloor(o.floor);
             const type = o.roomType || 'combat';
-            const hazard = D.ROOMS[type]?.hazard;
-            const [W, L] = SIZES[type] || SIZES.combat;
+            const room = D.ROOMS[type] || D.ROOMS.combat;
+            const hazard = room.hazard;
+            const [baseWidth, baseLength] = SIZES[type] || (room.quiet ? [26, 30] : SIZES.combat);
+            // Alternate odd and even widths so consecutive floors cannot share a footprint.
+            const W = Math.round((baseWidth + rr(-4, 4)) / 2) * 2 + o.floor % 2;
+            const L = Math.round((baseLength + rr(-5, 6)) * 2) / 2;
+            const encounter = BO.RPGEncounters[(o.floor + (o.seed || 0) % 31) % BO.RPGEncounters.length];
+            const styleIndex = (o.floor + Math.floor((o.seed || 0) / 53)) % 8;
+            const style = ['Cloister', 'Spine', 'Terraces', 'Foundry', 'Split Court', 'Arcade', 'Switchback', 'Causeway'][styleIndex];
             const hw = W * 0.5, hl = L * 0.5;
-            const wallH = 7.5;
+            const wallH = 7.2 + (styleIndex % 3) * 1.05;
             const boxes = [];
             const ramps = [];
             const obstacles = []; // solid cover used for spacing & waypoint tests
@@ -102,14 +111,14 @@
             const keepClear = (x, z, pad = 0) => {
                 if (z > spawn.z - 6.5) return false;                 // spawn pocket
                 if (z < gateZ + 5.5) return false;                   // gate apron
-                if (Math.hypot(x - center.x, z - center.z) < 4.2 + pad && type !== 'combat' && type !== 'ambush') return false; // feature spot
+                if (Math.hypot(x - center.x, z - center.z) < (type === 'defend' ? 7.2 : 4.2) + pad && type !== 'combat' && type !== 'ambush') return false; // feature spot
                 return true;
             };
             const tryPlace = (w, d, h, mat, tries = 18) => {
                 for (let t = 0; t < tries; t++) {
                     const x = rr(-hw + 3 + w * 0.5, hw - 3 - w * 0.5);
                     const z = rr(-hl + 3 + d * 0.5, hl - 3 - d * 0.5);
-                    if (!keepClear(x, z)) continue;
+                    if (!keepClear(x, z, Math.max(w, d) / 2)) continue;
                     const cand = { x, z, w, d };
                     if (obstacles.some((b) => insideBox(x, z, b, Math.max(w, d) * 0.5 + 2.6))) continue;
                     const b = box(x - w * 0.5, 0, z - d * 0.5, x + w * 0.5, h, z + d * 0.5, mat);
@@ -120,10 +129,29 @@
                 return null;
             };
 
-            // Cover pieces.
-            const isBig = hazard || type === 'combat' || type === 'elite' || type === 'ambush' || type === 'treasure';
+            // Each floor has a different landmark arrangement plus seed-placed tactical cover.
+            const isBig = !room.quiet && type !== 'boss';
             if (isBig) {
-                const pillars = 3 + Math.floor(rng() * 3);
+                const landmarks = [
+                    [[-0.40,-0.35],[0.40,-0.35],[-0.40,0.22],[0.40,0.22]],
+                    [[0,-0.52],[0,0.05],[0,0.47]],
+                    [[-0.64,-0.30],[0.55,-0.05],[-0.55,0.38]],
+                    [[-0.63,-0.47],[0.55,-0.47],[0,0.25]],
+                    [[-0.73,-0.15],[-0.25,-0.15],[0.25,0.19],[0.73,0.19]],
+                    [[-0.66,-0.29],[0.66,-0.29],[-0.66,0.31],[0.66,0.31]],
+                    [[-0.55,-0.42],[0.50,-0.15],[-0.40,0.24],[0.55,0.39]],
+                    [[-0.28,-0.44],[0.28,-0.44],[-0.28,0.44],[0.28,0.44]]
+                ][styleIndex];
+                for (const [px, pz] of landmarks) {
+                    const x = px * hw, z = pz * hl;
+                    if (!keepClear(x, z, 1) || Math.hypot(x - center.x, z - center.z) < (type === 'defend' ? 6 : 3)) continue;
+                    const w = styleIndex === 2 || styleIndex === 4 ? 3.1 : 0.95;
+                    const height = (styleIndex === 2 ? 1.05 : 3.4 + styleIndex % 3) + rr(0, 0.5);
+                    const b = box(x - w, 0, z - 0.9, x + w, height, z + 0.9, biome.wallMat);
+                    boxes.push(b, box(x - w - 0.14, height, z - 1.04, x + w + 0.14, height + 0.22, z + 1.04, biome.coverMat));
+                    obstacles.push(b);
+                }
+                const pillars = 2 + Math.floor(rng() * 3);
                 for (let i = 0; i < pillars; i++) tryPlace(1.5, 1.5, wallH - 0.5, biome.wallMat);
                 const lows = 3 + Math.floor(rng() * 3);
                 for (let i = 0; i < lows; i++) {
@@ -136,7 +164,9 @@
                     if (c && rng() < 0.35) boxes.push(box(c.x - 0.7, 1.7, c.z - 0.7, c.x + 0.7, 3.1, c.z + 0.7, biome.crateMat));
                 }
             } else if (type === 'boss') {
-                for (const [px, pz] of [[-12, -8], [12, -8], [-12, 10], [12, 10]]) {
+                const spread = 0.46 + styleIndex * 0.025;
+                for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+                    const px = sx * hw * spread, pz = sz * hl * (0.28 + rr(0.02, 0.22));
                     const b = box(px - 1, 0, pz - 1, px + 1, wallH - 0.5, pz + 1, biome.wallMat);
                     boxes.push(b);
                     obstacles.push(b);
@@ -222,8 +252,11 @@
 
             // Lights: biome-tinted lamps plus fire barrels in the corners.
             const lights = [];
-            const lampRows = type === 'rest' || type === 'shrine' ? [[0, 0]] : [[-hw * 0.5, -hl * 0.45], [hw * 0.5, -hl * 0.45], [-hw * 0.5, hl * 0.35], [hw * 0.5, hl * 0.35], [0, 0]];
-            for (const [lx, lz] of lampRows) lights.push({ x: lx, y: wallH - 1.2, z: lz, color: biome.light, intensity: 1.5, distance: 26, alwaysOn: true });
+            const lampRows = room.quiet ? [[0, 0]] : [[-hw * 0.5, -hl * 0.45], [hw * 0.5, -hl * 0.45], [-hw * 0.5, hl * 0.35], [hw * 0.5, hl * 0.35], [0, 0]];
+            for (const [i, [lx, lz]] of lampRows.entries()) {
+                lights.push({ x: lx, y: wallH - 1.2, z: lz, color: i % 2 ? 0xffcf8b : biome.light,
+                    intensity: type === 'darkroom' ? 0.42 : 1.85, distance: type === 'darkroom' ? 13 : 28, alwaysOn: true });
+            }
             for (const [fx, fz] of [[-hw + 1.6, -hl + 1.6], [hw - 1.6, -hl + 1.6], [-hw + 1.6, hl - 1.6], [hw - 1.6, hl - 1.6]]) {
                 lights.push({ x: fx, y: 1.4, z: fz, color: 0xff7a2f, intensity: 1.2, distance: 12, prop: 'fire_barrel', alwaysOn: true });
             }
@@ -233,9 +266,9 @@
                 id: MAP_ID,
                 name: `${biome.name.toUpperCase()} • FLOOR ${o.floor}`,
                 mode: 'rpg',
-                subtitle: biome.name,
+                subtitle: biome.name + ' · ' + style,
                 description: 'Procedural RPG delve floor.',
-                atmosphere: Object.assign({ moon: false }, biome.atmosphere),
+                atmosphere: { moon: false, ...biome.atmosphere, ...(type === 'darkroom' ? { sunIntensity: 0.24, hemiIntensity: 0.38 } : {}) },
                 playerSpawn: spawn,
                 ramps,
                 boxes,
@@ -251,7 +284,7 @@
             return {
                 mapId: MAP_ID,
                 map,
-                layout: { W, L, hw, hl, spawn, gates, camps, ambushSpots, cache, center, biome, type, hazards }
+                layout: { W, L, hw, hl, wallH, spawn, gates, camps, ambushSpots, cache, center, biome, type, hazards, encounter, style }
             };
         }
     };
