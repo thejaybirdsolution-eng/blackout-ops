@@ -856,6 +856,11 @@
                     this.playTone(55, 55, 2.2, 'sine', 0.24, 0, 'music');
                     this.playTone(110, 108, 1.8, 'triangle', 0.12, 0.4, 'music');
                     this.playTone(164.8, 164.8, 1.4, 'sine', 0.08, 1.1, 'music');
+                } else if (this.musicMode === 'rpg') {
+                    // Low modal drone with a hopeful fifth: tension without dread.
+                    this.playTone(65.4, 65.4, 2.6, 'triangle', 0.13, 0, 'music');
+                    this.playTone(98, 97, 2.0, 'sine', 0.09, 0.6, 'music');
+                    this.playTone(155.6, 155.6, 1.2, 'sine', 0.05, 1.6, 'music');
                 } else if (this.musicMode === 'zombies') {
                     this.playTone(49, 48, 2.4, 'sawtooth', 0.09, 0, 'music');
                     this.playTone(146.8, 138.6, 1.8, 'sine', 0.10, 0.8, 'music');

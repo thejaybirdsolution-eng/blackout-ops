@@ -10,9 +10,9 @@
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const tip = (title, body, sub) => ` data-tip-title="${esc(title)}" data-tip="${esc(body)}"${sub ? ` data-tip-sub="${esc(sub)}"` : ''}`;
     const CONTEXTS = [
-        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense']
+        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite']
     ];
-    const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense' };
+    const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense', rpg: 'Rogue Lite' };
 
     class ControlsPanel {
         constructor() {
@@ -129,7 +129,7 @@
                         const code = kb[a.action];
                         const conflicts = code && code !== 'Unbound' ? BO.Settings.findConflicts(a.action, code) : [];
                         const listening = this.listening === a.action;
-                        const modes = a.ctx.length === 4 ? 'All modes' : a.ctx.map((c) => MODE_NAME[c]).join(', ');
+                        const modes = a.ctx.length >= Object.keys(MODE_NAME).length ? 'All modes' : a.ctx.map((c) => MODE_NAME[c]).join(', ');
                         return `<div class="cp-bind ${conflicts.length ? 'conflict' : ''}"${tip(a.label, a.tip || '', 'Works in: ' + modes + (conflicts.length ? ' · Conflicts with ' + conflicts.map((c) => c.label).join(', ') : ''))}>
                             <span class="cp-bind-l">${esc(a.label)}${code !== defaults[a.action] ? '<em>custom</em>' : ''}</span>
                             <button class="cp-key ${listening ? 'listening' : ''} ${code === 'Unbound' ? 'unbound' : ''}" data-cp-bind="${a.action}">${listening ? 'Press a key…' : esc(BO.Settings.keyLabel(code))}</button></div>`;

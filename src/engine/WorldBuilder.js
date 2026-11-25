@@ -109,7 +109,8 @@
             for (let i = 0; i < (this.large ? 0 : this.mapData.boxes.length); i++) {
                 const b = this.mapData.boxes[i];
                 const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
-                const isSurvivalGround = this.mapData.mode === 'survival' && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
+                // Large flat slabs tile across their footprint (Survival ground, RPG arena floors).
+                const isSurvivalGround = (this.mapData.mode === 'survival' || this.mapData.mode === 'rpg') && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
                 const mat = isSurvivalGround
                     ? BO.Textures.getWorldMaterial(b.mat, b.w, b.d)
                     : BO.Textures.getWorldMaterial(b.mat, Math.max(b.w, b.d), b.h);
