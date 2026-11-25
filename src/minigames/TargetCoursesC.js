@@ -23,16 +23,7 @@
        The song is synthesised live. Drums always play; each on-time hit adds
        "groove", and groove unlocks the bass, chords, lead and sparkle layers.
     ===================================================================== */
-    const BPM = 120, BEAT = 60 / BPM, STEP = BEAT / 4;
-    const SONG_BARS = 30;
-    const CHORDS = [
-        { root: 110.00, tones: [220.00, 261.63, 329.63] },  // Am
-        { root: 87.31, tones: [174.61, 220.00, 261.63] },   // F
-        { root: 130.81, tones: [261.63, 329.63, 392.00] },  // C
-        { root: 98.00, tones: [196.00, 246.94, 293.66] }    // G
-    ];
-    const PENTA = [440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
-    const HOOK = [4, -1, 3, 4, -1, 2, 3, -1, 2, -1, 1, 2, -1, 0, 1, -1, 4, -1, 3, 4, -1, 5, 6, -1, 5, 4, 3, -1, 2, -1, 1, -1];
+    const BS = BO.BeatSongs;
     const LAYERS = [
         { id: 'bass', at: 15, label: 'BASS IN' },
         { id: 'chords', at: 35, label: 'CHORDS IN' },
@@ -40,118 +31,10 @@
         { id: 'spark', at: 80, label: 'FULL MIX!' }
     ];
     const NEON = [0x22d3ee, 0xf472b6, 0xfacc15, 0xa3e635, 0xa78bfa];
-    const section = (bar) => bar < 4 ? 'intro' : bar < 12 ? 'verse' : bar < 20 ? 'chorus' : bar < 24 ? 'break' : 'finale';
-
-    function makeBus() {
-        const S = BO.Sound;
-        const ctx = S && S.ensureContext ? S.ensureContext() : null;
-        if (!ctx || !S.masterGain) return null;
-        const out = ctx.createGain();
-        out.gain.value = 0.85;
-        out.connect(S.masterGain);
-        const layers = {};
-        for (const k of ['drums', 'bass', 'chords', 'lead', 'spark', 'fx']) {
-            const g = ctx.createGain();
-            g.gain.value = (k === 'drums' || k === 'fx') ? 1 : 0;
-            g.connect(out);
-            layers[k] = g;
-        }
-        return { ctx, out, layers, noise: S.noiseBuffer };
-    }
-
-    function bOsc(bus, layer, t, f1, f2, dur, type, vol, lp) {
-        const { ctx } = bus;
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = type;
-        o.frequency.setValueAtTime(f1, t);
-        if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.linearRampToValueAtTime(vol, t + Math.min(0.012, dur * 0.2));
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        let node = o;
-        if (lp) {
-            const f = ctx.createBiquadFilter();
-            f.type = 'lowpass';
-            f.frequency.value = lp;
-            f.Q.value = 2;
-            o.connect(f);
-            node = f;
-        }
-        node.connect(g);
-        g.connect(bus.layers[layer]);
-        o.start(t);
-        o.stop(t + dur + 0.03);
-    }
-
-    function bNoise(bus, layer, t, dur, freq, type, vol) {
-        if (!bus.noise) return;
-        const { ctx } = bus;
-        const src = ctx.createBufferSource();
-        src.buffer = bus.noise;
-        const f = ctx.createBiquadFilter();
-        f.type = type;
-        f.frequency.value = freq;
-        const g = ctx.createGain();
-        g.gain.setValueAtTime(vol, t);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        src.connect(f); f.connect(g); g.connect(bus.layers[layer]);
-        src.start(t, Math.random() * 0.5);
-        src.stop(t + dur + 0.02);
-    }
-
-    /** Schedules one 16th-note step of the song at audio time t. */
-    function playStep(bus, step, t) {
-        const bar = Math.floor(step / 16);
-        if (bar >= SONG_BARS) {
-            if (step === SONG_BARS * 16) {
-                // final ringing chord
-                for (const f of CHORDS[0].tones) { bOsc(bus, 'drums', t, f, f, 2.4, 'triangle', 0.06); bOsc(bus, 'drums', t, f * 2, f * 2, 2.0, 'sine', 0.03); }
-                bOsc(bus, 'drums', t, 150, 40, 0.5, 'sine', 0.9);
-                bNoise(bus, 'drums', t, 1.6, 6000, 'highpass', 0.25);
-            }
-            return;
-        }
-        const s = step % 16;
-        const sec = section(bar);
-        const ch = CHORDS[bar % 4];
-        // drums
-        const kick = sec === 'intro' ? s % 8 === 0 : sec === 'break' ? (bar === 23 && s % 4 === 0) : s % 4 === 0;
-        if (kick) { bOsc(bus, 'drums', t, 155, 42, 0.32, 'sine', 0.95); bNoise(bus, 'drums', t, 0.02, 2500, 'bandpass', 0.18); }
-        const snare = (sec !== 'intro' && sec !== 'break' && (s === 4 || s === 12)) || (bar === 23 && s >= 8 && s % 2 === 0) || (bar === 3 && s >= 12);
-        if (snare) {
-            const v = bar === 23 ? 0.12 + (s - 8) * 0.03 : 0.34;
-            bNoise(bus, 'drums', t, 0.16, 1900, 'bandpass', v);
-            bOsc(bus, 'drums', t, 220, 160, 0.1, 'triangle', v * 0.45);
-        }
-        if (s % 4 === 2) bNoise(bus, 'drums', t, 0.05, 8500, 'highpass', 0.14);
-        else if ((sec === 'chorus' || sec === 'finale') && s % 2 === 1) bNoise(bus, 'drums', t, 0.025, 9500, 'highpass', 0.05);
-        // bass (8ths, octave bounce)
-        if (sec !== 'intro' && s % 2 === 0) {
-            if (sec === 'break') { if (s === 0) bOsc(bus, 'bass', t, ch.root, ch.root, BEAT * 3.6, 'sawtooth', 0.12, 420); }
-            else {
-                const f = ch.root * (s % 4 === 2 ? 2 : 1);
-                bOsc(bus, 'bass', t, f, f, STEP * 1.7, 'sawtooth', 0.15, 700);
-            }
-        }
-        // chord pad, once per bar (+ offbeat stabs in the chorus)
-        if (s === 0) for (const f of ch.tones) { bOsc(bus, 'chords', t, f, f, BEAT * 3.9, 'triangle', 0.045); bOsc(bus, 'chords', t, f * 1.004, f * 1.004, BEAT * 3.9, 'sawtooth', 0.012, 1600); }
-        if ((sec === 'chorus' || sec === 'finale') && s % 4 === 2) for (const f of ch.tones) bOsc(bus, 'chords', t, f * 2, f * 2, 0.12, 'square', 0.014, 2600);
-        // lead hook (8ths)
-        if ((sec === 'verse' || sec === 'chorus' || sec === 'finale') && s % 2 === 0) {
-            const n = HOOK[(bar % 4) * 8 + s / 2];
-            if (n >= 0) {
-                const f = PENTA[n] * (sec === 'verse' ? 0.5 : 1);
-                bOsc(bus, 'lead', t, f, f, 0.22, 'square', 0.05, 3200);
-                bOsc(bus, 'lead', t, f * 2, f * 2, 0.14, 'sine', 0.02);
-            }
-        }
-        // sparkle arpeggio (16ths)
-        if (sec !== 'intro') {
-            const f = ch.tones[s % 3] * 4;
-            bOsc(bus, 'spark', t, f, f, 0.09, 'sine', 0.03);
-        }
-    }
+    const bOsc = (...a) => BS.bOsc(...a);
+    const bNoise = (...a) => BS.bNoise(...a);
+    const songOf = (opts) => BS.get((opts && opts.song) || 'original');
+    const modeOf = (opts) => (opts && BS.MODES[opts.mode]) ? opts.mode : 'medium';
 
     function beatTarget(color, radius) {
         const grp = new THREE.Group();
@@ -172,10 +55,18 @@
         id: 'beat_drop', cat: 'target', order: 11,
         name: 'Beat Drop', icon: '🎵', accent: '#22d3ee',
         tagline: 'Shoot on the beat. Build the song.',
-        desc: 'A neon stage and a live-synthesised track. Targets pop in time with the music, and a ring closes on each one. Fire as the ring meets the disc. Your gun plays notes instead of gunshots. Stay on time to build Groove, which brings in the bass, the chords, the lead and finally the full mix. Miss and the song falls apart.',
+        desc: 'A neon stage and a live-synthesised track. Targets pop in time with the music, and a ring closes on each one. Fire as the ring meets the disc. Your gun plays notes instead of gunshots. Stay on time to build Groove, which brings in the bass, the chords, the lead and finally the full mix. Pick from 11 songs (difficulty 1 to 10) and four modes. One bullet breaks exactly one disc, even when discs are stacked.',
         hudSub: 'Fire when the ring meets the disc • on-time hits build the song',
-        heroLabel: 'TARGET PRACTICE • RHYTHM • 60 SECONDS',
+        heroLabel: 'TARGET PRACTICE • RHYTHM • 11 SONGS • 4 MODES',
         duration: 61, stars: [15000, 35000, 60000, 85000], standardWeapon: 'p90', customMusic: true, forgivingMisses: true, infiniteMag: true,
+        oneTargetPerShot: true,
+        hubOptions: [
+            { key: 'song', label: 'SONG', default: 'original', choices: BS.SONGS.map((s) => ({ val: s.id, label: (s.id === 'original' ? '★ ' : s.diff + ' • ') + s.name.toUpperCase(), desc: `${s.name} — ${s.artist} • ${s.bpm} BPM • difficulty ${s.diff}/10. ${s.desc}` })) },
+            { key: 'mode', label: 'MODE', default: 'medium', choices: Object.entries(BS.MODES).map(([k, m]) => ({ val: k, label: m.label, desc: m.desc })) }
+        ],
+        variantKey(o) { const s = songOf(o).id, m = modeOf(o); return s === 'original' && m === 'medium' ? '' : s + '/' + m; },
+        variantLabel(o) { return songOf(o).name.toUpperCase() + ' • ' + BS.MODES[modeOf(o)].label; },
+        starsFor(o) { return BS.stars(songOf(o), modeOf(o)); },
         map: {
             atmosphere: { skyTop: 0x05010f, skyBottom: 0x1e0b3a, fogColor: 0x0d0420, fogDensity: 0.02, sunColor: 0xc4b5fd, sunIntensity: 0.4, sunPos: [0, 40, 20], hemiSky: 0x7c3aed, hemiGround: 0x0b0216, hemiIntensity: 0.7 },
             boxes: [B(0, -0.5, -10, 80, 1, 80, 'concrete')],
@@ -183,6 +74,10 @@
         },
         keys: [['LMB', 'Shoot (on the beat)'], ['R', 'Retry from results']],
         build(S) {
+            S.data.song = songOf(S.opts);
+            S.data.mode = modeOf(S.opts);
+            S.data.win = BS.MODES[S.data.mode].window;
+            S.duration = S.data.song.length + 1;
             S.data.songT = 0;
             S.data.groove = 0;
             S.data.level = 0;
@@ -274,6 +169,7 @@
             const eqH = eq.map(() => rnd());
             S.animate(() => {
                 const st = S.data.songT;
+                const BEAT = S.data.song.beat;
                 const ph = (st % BEAT) / BEAT;
                 const pulse = Math.exp(-ph * 5);
                 const lvl = S.data.level;
@@ -298,38 +194,28 @@
             });
         },
         schedule(S) {
-            const rng = S.rng;
-            let col = 3, row = 1;
-            const xs = [-6, -4, -2, 0, 2, 4, 6];
-            const ys = [1.5, 2.7, 3.9, 5.1];
-            const notes = [];
-            for (let slot = 4; slot < SONG_BARS * 8 - 3; slot++) {   // slot = 8th note
-                const t = slot * BEAT / 2;
-                const bar = Math.floor(slot / 8);
-                const sec = section(bar);
-                const onBeat = slot % 2 === 0;
-                let want = false;
-                if (sec === 'intro') want = slot % 4 === 0;
-                else if (sec === 'verse') want = onBeat;
-                else if (sec === 'chorus') want = onBeat || rng() < 0.28;
-                else if (sec === 'break') want = slot % 4 === 0;
-                else want = onBeat || rng() < 0.42;
-                if (!want) continue;
-                col = BO.Math.clamp(col + Math.floor(rng() * 5) - 2, 0, 6);
-                row = BO.Math.clamp(row + Math.floor(rng() * 3) - 1, 0, 3);
-                notes.push({ t, x: xs[col], y: ys[row], sec, c: NEON[(slot >> 1) % NEON.length] });
-                if (sec === 'finale' && onBeat && rng() < 0.18) notes.push({ t, x: -xs[col] || 4, y: ys[3 - row], sec, c: NEON[((slot >> 1) + 2) % NEON.length] });
+            const notes = BS.chart(S.data.song, S.data.mode);
+            // Discs that share a spot while both are on screen sit one behind the other, oldest in front.
+            for (let i = 0; i < notes.length; i++) {
+                const n = notes[i];
+                n.c = NEON[n.ci % NEON.length];
+                n.z = -14;
+                for (let j = i - 1; j >= 0 && notes[j].t > n.t - n.approach - 0.3; j--) {
+                    const o = notes[j];
+                    if (Math.abs(o.x - n.x) < 1.3 && Math.abs(o.y - n.y) < 1.3) n.z = Math.min(n.z, o.z - 0.09);
+                }
             }
             S.data.noteCount = notes.length;
             for (const n of notes) {
-                const approach = n.sec === 'finale' ? 0.85 : 1.0;
+                const approach = n.approach;
                 S.at(Math.max(0, n.t - approach), (S2) => {
-                    const radius = n.sec === 'finale' ? 0.5 : 0.6;
+                    const radius = n.radius;
                     const bt = beatTarget(n.c, radius);
                     const tg = S2.addTarget({
-                        mesh: bt.mesh, hitMeshes: bt.hitMeshes, pos: V(n.x, n.y, -14), yaw: 0,
+                        mesh: bt.mesh, hitMeshes: bt.hitMeshes, pos: V(n.x, n.y, n.z), yaw: 0,
                         points: 100, appear: 'scale', vanish: 'scale', inT: 0.12, life: approach - 0.12 + 0.24, outT: 0.1,
                         death: 'pop', deathColor: n.c,
+                        motion: n.drift ? (t, age, out) => out.set(Math.sin(age * 2.2) * n.drift * 0.5, 0, 0) : null,
                         onTick: (t) => {
                             const left = t.hitT - S2.data.songT;
                             const k = clamp01(left / approach);
@@ -347,7 +233,7 @@
             }
         },
         onGo(S) {
-            S.data.bus = makeBus();
+            S.data.bus = BS.makeBus();
             if (S.data.bus) S.data.anchor = S.data.bus.ctx.currentTime + 0.03;
             S.data.nextStep = 0;
         },
@@ -359,9 +245,10 @@
                     const audioT = bus.ctx.currentTime - S.data.anchor;
                     if (Math.abs(audioT - S.t) > 0.12) S.data.anchor = bus.ctx.currentTime - S.t;
                     S.data.songT = S.t;
+                    const STEP = S.data.song.step;
                     while (S.data.nextStep * STEP < S.t + 0.12) {
                         const when = Math.max(bus.ctx.currentTime, S.data.anchor + S.data.nextStep * STEP);
-                        playStep(bus, S.data.nextStep, when);
+                        BS.playStep(bus, S.data.song, S.data.nextStep, when);
                         S.data.nextStep++;
                     }
                 } else S.data.songT = S.t;
@@ -384,8 +271,9 @@
         gunSound(S) {
             const bus = S && S.data.bus;
             if (!bus) { SFX.tone(880, 880, 0.12, 'triangle', 0.1); return true; }
+            const song = S.data.song, BEAT = song.beat;
             const bar = Math.floor(S.data.songT / (BEAT * 4));
-            const ch = CHORDS[((bar % 4) + 4) % 4];
+            const ch = song.chordsF[((bar % song.chordsF.length) + song.chordsF.length) % song.chordsF.length];
             const i = (S.shots * 7 + Math.floor(S.data.songT / BEAT)) % 3;
             const f = ch.tones[i] * 2;
             const t = bus.ctx.currentTime;
@@ -401,12 +289,21 @@
         },
         onHit(S, ent, info) {
             if (!ent.mgTarget || !ent.alive) return false;
+            // Stacked discs: the bullet breaks only the one that is due first (core already
+            // guarantees one target per round, so the rest of the stack stays up).
+            if (ent.hitT !== undefined) {
+                for (const o of S.targets) {
+                    if (o === ent || !o.alive || o.hitT === undefined || o.hitT >= ent.hitT) continue;
+                    if (Math.abs(o.root.position.x - ent.root.position.x) < 1.3 && Math.abs(o.root.position.y - ent.root.position.y) < 1.3) ent = o;
+                }
+            }
             const d = S.data.songT - ent.hitT;
             const ad = Math.abs(d);
+            const W = S.data.win || 1;
             let j, base, gr, col;
-            if (ad <= 0.07) { j = 'PERFECT'; base = 300; gr = 9; col = '#67e8f9'; }
-            else if (ad <= 0.13) { j = 'GREAT'; base = 200; gr = 6; col = '#a3e635'; }
-            else if (ad <= 0.22) { j = 'GOOD'; base = 100; gr = 3; col = '#fde68a'; }
+            if (ad <= 0.07 * W) { j = 'PERFECT'; base = 300; gr = 9; col = '#67e8f9'; }
+            else if (ad <= 0.13 * W) { j = 'GREAT'; base = 200; gr = 6; col = '#a3e635'; }
+            else if (ad <= 0.22 * W) { j = 'GOOD'; base = 100; gr = 3; col = '#fde68a'; }
             else { j = 'OFF'; base = 40; gr = 0; col = '#f9a8d4'; }
             S.data.judge[j]++;
             S.data.lastJudge = j === 'OFF' ? (d < 0 ? 'EARLY' : 'LATE') : j;
@@ -439,7 +336,7 @@
             }
         },
         result(S) {
-            const stars = this.stars.filter((th) => S.score >= th).length;
+            const stars = BS.stars(S.data.song, S.data.mode).filter((th) => S.score >= th).length;
             const j = S.data.judge;
             const total = S.data.noteCount || 1;
             const fullMix = S.data.grooveTime[4];
@@ -448,7 +345,8 @@
                 title: stars >= 4 ? 'PLATINUM RECORD' : stars === 3 ? 'GOLD RECORD' : stars === 2 ? 'SILVER' : stars === 1 ? 'BRONZE' : 'KEEP PRACTISING',
                 stats: [
                     ['PERFECT', j.PERFECT], ['GREAT', j.GREAT], ['GOOD', j.GOOD],
-                    ['MISSED', j.MISS + ' / ' + total], ['BEST STREAK', S.maxCombo], ['FULL MIX TIME', fullMix.toFixed(1) + 's']
+                    ['MISSED', j.MISS + ' / ' + total], ['BEST STREAK', S.maxCombo], ['FULL MIX TIME', fullMix.toFixed(1) + 's'],
+                    ['SONG', S.data.song.name.toUpperCase()], ['MODE', BS.MODES[S.data.mode].label]
                 ],
                 accuracy: S.shots ? S.shotHits / S.shots : 0,
                 xp: Math.round(120 + S.score * 0.02 + stars * 150)
@@ -464,11 +362,11 @@
         id: 'one_mag', cat: 'target', order: 12,
         name: 'One Mag', icon: '🔂', accent: '#94a3b8',
         tagline: '30 rounds. 30 targets. 31 seconds. No reload.',
-        desc: 'The purist trial. You get the Lone Star DMR: one magazine of 30 rounds, and it can only fire once every half second. Thirty steel plates appear, one after another, over 31 seconds. Every miss is a target you can no longer clear. They get smaller, further away and start to move. Hard.',
+        desc: 'The purist trial. You get one magazine of 30 rounds (the Lone Star DMR, or your own class weapon loaded with exactly 30), and it can only fire once every half second. Thirty steel plates appear, one after another, over 31 seconds. Every miss is a target you can no longer clear. They get smaller, further away and start to move. Hard.',
         hudSub: 'One magazine • one shot per 0.5s • every round counts',
         heroLabel: 'TARGET PRACTICE • CHALLENGE • 31 SECONDS',
         duration: 31, stars: [18, 24, 28, 30], starLabel: (th) => th + ' / 30',
-        standardWeapon: 'mk14', lockWeapon: true, weaponLabel: 'LONE STAR DMR', weaponNote: '30 rounds • 1 shot / 0.5s • no reload',
+        standardWeapon: 'mk14',
         fireInterval: 0.5, noReload: true, ringScoring: true,
         formatBest: (b) => (b.extra && b.extra.hits !== undefined ? b.extra.hits + '/30 • ' : '') + Number(b.score).toLocaleString(),
         map: {
@@ -545,7 +443,7 @@
             const left = w ? Math.max(0, w.mag) : 0;
             let pips = '';
             for (let i = 0; i < ONE_MAG_ROUNDS; i++) pips += `<i class="${i < left ? 'live' : ''}"></i>`;
-            return `<div class="mgx-mag"><small>LONE STAR • ${left} ROUNDS</small><div class="mgx-pips">${pips}</div><b>${S.kills} / 30 PLATES</b></div>`;
+            return `<div class="mgx-mag"><small>ONE MAG • ${left} ROUNDS</small><div class="mgx-pips">${pips}</div><b>${S.kills} / 30 PLATES</b></div>`;
         },
         result(S) {
             const w = BO.Player.activeWeapon;

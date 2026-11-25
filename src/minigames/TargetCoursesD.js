@@ -12,7 +12,7 @@
     const A = BO.MinigameArt;
     const K = BO.MGCourseKit;
     const F = BO.MGFigures;
-    const { B, SFX, std, basic, clamp01, Ease, TAU } = L;
+    const { B, SFX, std, basic, clamp01, Ease, TAU, esc } = L;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
     const lerp = (a, b, t) => a + (b - a) * t;
     const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -37,18 +37,7 @@
         { id: 'gallery', name: 'Gallery', c: [0, -32], floor: 'marble' },
         { id: 'bedroom', name: 'Master Bedroom', c: [12, -32], floor: 'carpet_blue' }
     ];
-    // encounters: [type, localX, localZ, extra]; local -Z = deeper into the house
-    const ENCOUNTERS = {
-        foyer: [['crim', 3, -3.5, 'stand'], ['host', -3, -3]],
-        living: [['crim', -3, -1.5, 'cover'], ['shield', 2.5, -4]],
-        dining: [['crim', 0, -2.4, 'cover'], ['host', -3.5, 2], ['crim', 4.4, 3.5, 'stand']],
-        library: [['crim', -2, -4, 'stand'], ['host', 2.5, -1]],
-        hall: [['crim', -4, -4, 'stand'], ['crim', 4, -4.5, 'cover'], ['host', 0, -3]],
-        kitchen: [['crim', 0, -0.4, 'cover'], ['host', 3.5, -4]],
-        study: [['shield', 0, -3.5]],
-        gallery: [['crim', -4, -2, 'stand'], ['crim', 4, -4, 'stand']],
-        bedroom: [['boss', 0, -4], ['host', -3.5, -2]]
-    };
+    // encounters now come from BO.MansionScenarios (15 situations, one picked per run)
 
     function floorTex(kind) {
         return L.canvasTex('mansion-floor:' + kind, 256, 256, (g, w, h) => {
@@ -119,7 +108,12 @@
         const [cx, cz] = room.c;
         const P = (x, z) => [cx + x, cz + z];
         const wood = std(0x5b3a1e, 0.7), dark = std(0x2b1a0c, 0.7), cloth = std(0x7f1d1d, 0.9), gold = std(0xd4a017, 0.3, 0.8), white = std(0xf5f5f4, 0.5);
-        const box = (x, y, z, w, h, d, m, o) => { const [X, Z] = P(x, z); return S.box(X, y, Z, w, h, d, m, Object.assign({ solid: true }, o || {})); };
+        room.furn = [];
+        const box = (x, y, z, w, h, d, m, o) => {
+            const [X, Z] = P(x, z);
+            if (!o || o.collide !== false) room.furn.push({ x, z, w, d });     // footprint for MansionScenarios slot picking
+            return S.box(X, y, Z, w, h, d, m, Object.assign({ solid: true }, o || {}));
+        };
         switch (room.id) {
             case 'foyer':
                 box(0, 0.45, -2.4, 1.4, 0.9, 1.4, dark);
@@ -345,7 +339,7 @@
         id: 'mansion_raid', cat: 'target', order: 14,
         name: 'Mansion Raid', icon: '🚔', accent: '#3b82f6',
         tagline: 'Room by room. Find the crew. Save the hostages.',
-        desc: 'A crew has taken over a nine-room mansion. Walk in through the front door and clear it room by room: foyer, living room, dining room, library, grand hall, kitchen, study, gallery and the master bedroom. Criminals react when you enter, some hide behind furniture, and some hold a hostage as a shield. Do not shoot hostages. They shoot back, and you have 100 health.',
+        desc: 'A crew has taken over a nine-room mansion, and every run is one of 15 different situations (a jewel heist, a dinner-party siege, a panic room, a wedding and more), so robbers and hostages are never where you expect. Walk in through the front door and clear it room by room: foyer, living room, dining room, library, grand hall, kitchen, study, gallery and the master bedroom. Criminals react when you enter, some hide behind furniture, and some hold a hostage as a shield. Do not shoot hostages. They shoot back, and you have 100 health.',
         hudSub: 'Clear every room • criminals = masks • hostages = hands up',
         heroLabel: 'TARGET PRACTICE • FREE ROAM • 3 MINUTES',
         duration: 180, stars: [3000, 5500, 8000, 10500], standardWeapon: 'mp5', forgivingMisses: true,
@@ -425,7 +419,6 @@
                 S.add(hedge);
             }
             // rooms: furniture + encounters
-            const rng = L.mulberry32(911);
             for (const room of ROOMS) {
                 room.crims = [];
                 room.hostages = [];
@@ -433,7 +426,16 @@
                 room.depth = ROOM_Z.indexOf(room.c[1]);
                 room.entered = false;
                 furnish(S, room);
-                for (const e of ENCOUNTERS[room.id]) {
+            }
+            // one of fifteen situations, chosen at random each run
+            const MS = BO.MansionScenarios;
+            const sitIdx = MS.pick();
+            const sit = MS.layoutAll(ROOMS)[sitIdx];
+            S.data.situation = sit;
+            const rng = L.mulberry32(911 + sitIdx * 131);
+            for (const room of ROOMS) {
+                for (const pl of sit.placements.filter((q) => q.room === room.id)) {
+                    const e = [pl.type, pl.x, pl.z, pl.type];
                     const [type, lx, lz] = e;
                     if (type === 'host') {
                         const p = V(room.c[0] + lx, 0, room.c[1] + lz);
@@ -448,6 +450,11 @@
                 }
             }
             S.data.rooms = ROOMS;
+            S.data.roomsToClear = ROOMS.filter((r) => r.crimsLeft > 0).length;
+        },
+        onGo(S) {
+            const sit = S.data.situation;
+            BO.Events.emit('hud:banner', { title: sit.name.toUpperCase(), sub: sit.brief, color: '#93c5fd' });
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
@@ -472,7 +479,7 @@
         hud(S) {
             const hp = S.data.hp;
             return `<div class="mgx-raid"><div class="mgx-hp"><small>HEALTH</small><div class="mgx-hp-bar"><i style="width:${hp}%;background:${hp > 50 ? '#22c55e' : hp > 25 ? '#f59e0b' : '#ef4444'}"></i></div><b>${hp}</b></div>
-                <div class="mgx-chip">CRIMINALS LEFT <b>${S.data.crimsLeft}</b></div><div class="mgx-chip">ROOMS CLEAR <b>${S.data.roomsCleared} / 9</b></div>${S.data.hostagesHit ? `<div class="mgx-chip mgx-bad">HOSTAGES HIT <b>${S.data.hostagesHit}</b></div>` : ''}</div>`;
+                <div class="mgx-chip">CRIMINALS LEFT <b>${S.data.crimsLeft}</b></div><div class="mgx-chip">ROOMS CLEAR <b>${S.data.roomsCleared} / ${S.data.roomsToClear}</b></div><div class="mgx-chip">${esc(S.data.situation.name.toUpperCase())}</div>${S.data.hostagesHit ? `<div class="mgx-chip mgx-bad">HOSTAGES HIT <b>${S.data.hostagesHit}</b></div>` : ''}</div>`;
         },
         result(S) {
             const stars = this.stars.filter((th) => S.score >= th).length;
@@ -482,7 +489,8 @@
                 title: S.data.hp <= 0 ? 'OFFICER DOWN' : clear && !S.data.hostagesHit ? 'TEXTBOOK RAID' : clear ? 'HOUSE CLEARED' : 'TIME UP',
                 stats: [
                     ['CRIMINALS', (S.data.crimsTotal - S.data.crimsLeft) + ' / ' + S.data.crimsTotal], ['HOSTAGES SAVED', S.data.saved + ' / ' + S.data.hostagesTotal],
-                    ['HOSTAGES HIT', S.data.hostagesHit], ['HEALTH LEFT', S.data.hp], ['TIME', BO.Math.formatTime(S.t)], ['ACCURACY', S.shots ? Math.round(S.shotHits / S.shots * 100) + '%' : '—']
+                    ['HOSTAGES HIT', S.data.hostagesHit], ['HEALTH LEFT', S.data.hp], ['TIME', BO.Math.formatTime(S.t)], ['ACCURACY', S.shots ? Math.round(S.shotHits / S.shots * 100) + '%' : '—'],
+                    ['SITUATION', S.data.situation.name.toUpperCase()]
                 ],
                 accuracy: S.shots ? S.shotHits / S.shots : 0,
                 xp: Math.round(150 + S.score * 0.05 + stars * 150)

@@ -920,7 +920,10 @@
                 const p = t.root.position;
                 const dx = goal.x - p.x, dz = goal.z - p.z;
                 const d = Math.hypot(dx, dz);
-                const sp = st.speed * (panic ? 2.6 : 1) * (role === 'guard' && d > 3 ? 1.3 : 1);
+                let sp = st.speed * (panic ? 2.6 : 1) * (role === 'guard' && d > 3 ? 1.3 : 1);
+                // The fleeing mark paces himself to reach the car ~6 s before the contract clock runs out,
+                // so the escape is a real threat rather than something the timer always beats.
+                if (goal === CAR && D.phase === 'live') sp = Math.max(sp, d / Math.max(2, contract.time - 6 - (S.t - D.liveAt)));
                 if (d < 0.6) {
                     if (role === 'target' && contract.escape && goal === CAR && D.phase === 'live') { contractFail(S, 'THE TARGET ESCAPED'); return; }
                     st.goal = plazaPoint(rng);
@@ -928,9 +931,19 @@
                     return;
                 }
                 if (role === 'guard' && d < 1.5) { F.walk(fig, st.ph, 0.05); return; }
-                const nx = p.x + dx / d * sp * dt, nz = p.z + dz / d * sp * dt;
-                // walk around the fountain
-                if (Math.hypot(nx, nz - PLAZA.fz) < PLAZA.fr + 0.6) { st.goal = plazaPoint(rng); return; }
+                let nx = p.x + dx / d * sp * dt, nz = p.z + dz / d * sp * dt;
+                // walk around the fountain: slide along its rim instead of freezing in place
+                // (the escaping mark and the bodyguards keep a fixed goal, so re-rolling it is not enough)
+                const fr = Math.hypot(nx, nz - PLAZA.fz);
+                if (fr < PLAZA.fr + 0.6) {
+                    const ox = nx / fr, oz = (nz - PLAZA.fz) / fr;
+                    const side = (dx * oz - dz * ox) >= 0 ? 1 : -1;
+                    nx = p.x + oz * side * sp * dt;
+                    nz = p.z - ox * side * sp * dt;
+                    const r2 = Math.hypot(nx, nz - PLAZA.fz);
+                    if (r2 < PLAZA.fr + 0.6) { nx = nx / r2 * (PLAZA.fr + 0.62); nz = PLAZA.fz + (nz - PLAZA.fz) / r2 * (PLAZA.fr + 0.62); }
+                    if (role === 'civ') st.goal = plazaPoint(rng);
+                }
                 p.x = nx; p.z = nz;
                 t.root.rotation.y += wrapA(Math.atan2(dx, dz) - t.root.rotation.y) * Math.min(1, dt * 6);
                 st.ph += dt * sp * 4.2;
@@ -1006,7 +1019,10 @@
         D.panic = 4;
         SFX.fanfare();
         MG._showCountdown('CONTRACT COMPLETE', '#86efac');
-        if (D.mission >= CONTRACTS.length - 1) MG.finish('ALL CONTRACTS COMPLETE', { color: '#facc15', delay: 2.6 });
+        D.lastLeft = left;
+        D.lastTime = c.time;
+        if (D.single >= 0) MG.finish('CONTRACT COMPLETE', { color: '#86efac', delay: 2.6 });
+        else if (D.mission >= CONTRACTS.length - 1) MG.finish('ALL CONTRACTS COMPLETE', { color: '#facc15', delay: 2.6 });
         else D.nextT = 3;
     }
 
@@ -1016,9 +1032,18 @@
         tagline: 'Read the dossier. Find the mark. One shot.',
         desc: 'Six assassination contracts from a rooftop over a busy plaza. Each opens with a dossier: what the mark wears, carries or does. Scan the crowd through the scope and take out the right person. Decoys share some of the traits. Later contracts add bodyguards, two marks at once, and a target who will escape if he reaches his car. Hit a civilian or run out of time and the run ends.',
         heroLabel: 'ARCADE HALL • 6 MISSIONS', duration: 0,
-        stars: [2, 3, 5, 6], starLabel: (th) => th + ' / 6 CONTRACTS',
+        stars: [2, 3, 5, 6], starLabel: (th) => typeof th === 'string' ? th : th + ' / 6 CONTRACTS',
         standardWeapon: 'intervention', lockWeapon: true, weaponLabel: 'INTERVENTION .408', weaponNote: 'Bolt-action with scope', forgivingMisses: true,
-        formatBest: (b) => (b.extra ? b.extra.done + '/6 contracts • ' : '') + Number(b.score).toLocaleString(),
+        oneTargetPerShot: true,
+        hubOptions: [{
+            key: 'contract', label: 'CONTRACT', default: 'all',
+            choices: [{ val: 'all', label: 'FULL RUN', desc: 'All six contracts back to back. A civilian casualty or a timeout ends the run.' }]
+                .concat(CONTRACTS.map((c, i) => ({ val: 'c' + (i + 1), label: (i + 1) + ' • ' + c.name.toUpperCase(), desc: 'Practise one contract on its own: ' + c.brief.join(', ').replace(/<[^>]+>/g, '') + '.' })))
+        }],
+        variantKey: (o) => (o.contract && o.contract !== 'all' ? o.contract : ''),
+        variantLabel: (o) => (o.contract && o.contract !== 'all' ? 'CONTRACT ' + o.contract.slice(1) : 'FULL RUN'),
+        starsFor: (o) => (o.contract && o.contract !== 'all' ? ['COMPLETE', 'SILENT', 'HEADSHOT', 'HALF TIME LEFT'] : [2, 3, 5, 6]),
+        formatBest: (b) => (b.extra && b.extra.single ? (b.extra.done ? 'Complete • ' : 'Failed • ') : b.extra ? b.extra.done + '/6 contracts • ' : '') + Number(b.score).toLocaleString(),
         keys: [['RMB', 'Scope'], ['LMB', 'Fire'], ['SHIFT', 'Hold breath']],
         map: {
             atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfbcfe8, fogColor: 0xd8c8d8, fogDensity: 0.006, sunColor: 0xffe2c0, sunIntensity: 1.7, sunPos: [-40, 40, -30], hemiSky: 0xfde68a, hemiGround: 0x57534e, hemiIntensity: 0.85 },
@@ -1027,7 +1052,8 @@
         },
         build(S) {
             const D = S.data;
-            Object.assign(D, { mission: 0, walkers: [], targetsLeft: [], completed: 0, log: [], phase: 'brief', panic: 0 });
+            const pick = /^c([1-6])$/.exec(S.opts.contract || '');
+            Object.assign(D, { mission: pick ? +pick[1] - 1 : 0, single: pick ? +pick[1] - 1 : -1, walkers: [], targetsLeft: [], completed: 0, log: [], phase: 'brief', panic: 0 });
             lockPlayer(0, 12, 0.3, 1.6);
             BO.Player.pitch = -0.32;
             // rooftop
@@ -1126,7 +1152,7 @@
                 if (S.t - D.liveAt > c.time) contractFail(S, 'OUT OF TIME');
             } else if (D.phase === 'done') {
                 D.nextT -= dt;
-                if (D.nextT <= 0 && D.mission < CONTRACTS.length - 1) { D.mission++; contractStart(S); }
+                if (D.single < 0 && D.nextT <= 0 && D.mission < CONTRACTS.length - 1) { D.mission++; contractStart(S); }
             }
         },
         onShot(S) {
@@ -1177,6 +1203,20 @@
         scoreText(S) { return Math.round(S.displayScore).toLocaleString(); },
         result(S) {
             const D = S.data;
+            if (D.single >= 0) {
+                const log = D.log[0];
+                const stars = log ? 1 + (log.silent ? 1 : 0) + (D.missionHead ? 1 : 0) + (D.lastLeft >= D.lastTime / 2 ? 1 : 0) : 0;
+                return {
+                    score: S.score, stars, saveExtra: { done: D.completed, single: true },
+                    title: log ? (stars === 4 ? 'FLAWLESS HIT' : 'CONTRACT COMPLETE') : 'CONTRACT FAILED',
+                    stats: [
+                        ['CONTRACT', CONTRACTS[D.single].name.toUpperCase()], ['RESULT', log ? 'COMPLETE' : (D.failWhy || 'FAILED')], ['SILENT', log && log.silent ? 'YES' : 'NO'],
+                        ['HEADSHOT', D.missionHead ? 'YES' : 'NO'], ['SHOTS FIRED', S.shots], ['TIME LEFT', log ? D.lastLeft.toFixed(1) + 's' : '—']
+                    ],
+                    noGraph: true,
+                    xp: Math.round(60 + (log ? 120 : 0) + stars * 40)
+                };
+            }
             const stars = this.stars.filter((th) => D.completed >= th).length;
             return {
                 score: S.score, stars, saveExtra: { done: D.completed },

@@ -389,3 +389,20 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .mgx-dossier.big { left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-1deg); width: 380px; padding: 18px 22px; }
 .mgx-dossier.big h3 { font-size: 26px; }
 .mgx-dossier.big ul { font-size: 15px; }
+
+/* ---- overhaul: option pickers, dual records, speed runs ---- */
+.mgh-seg-wrap { flex-wrap: wrap; }
+.mgh-seg-wrap button { flex: 1 1 30%; font-size: 10px; padding: 6px 4px; }
+.mgh-dualbest { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mgh-dualbest > div { padding: 7px 9px; border-radius: 8px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.08); }
+.mgh-dualbest > div.on { border-color: var(--mc); }
+.mgh-dualbest small { display: block; color: var(--text-dim); font-size: 9px; letter-spacing: 1.5px; }
+.mgh-dualbest b { font: 800 14px var(--font-mono); color: #e2e8f0; }
+.sr-panel { position: absolute; top: 130px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; pointer-events: none; }
+.sr-chip { background: rgba(2, 6, 23, 0.72); border: 1px solid rgba(103, 232, 249, 0.35); border-radius: 8px; padding: 5px 10px; font: 700 12px var(--font-ui); color: #e0f2fe; letter-spacing: 1px; }
+.sr-chip b { color: #67e8f9; margin-left: 6px; font-family: var(--font-mono); }
+.sr-chip.bad { border-color: rgba(248, 113, 113, 0.6); } .sr-chip.bad b { color: #fca5a5; }
+.sr-bar { width: 120px; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 6px; }
+.sr-bar i { display: block; height: 100%; background: #22c55e; }
+.ah3-panel { position: absolute; top: 130px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
+.bra-tele { position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%); font: 900 20px var(--font-ui); color: #fca5a5; letter-spacing: 3px; text-shadow: 0 2px 8px #000; pointer-events: none; }

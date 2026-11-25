@@ -9,8 +9,9 @@
     const esc = BO.MinigameLib.esc;
 
     const CATS = [
-        { id: 'target', name: 'Target Practice', icon: '🎯', sub: '15 courses', accent: '#f59e0b', blurb: 'Fifteen scripted courses, from the classic range to rhythm shooting, a one-magazine trial, a horseback chase, a mansion raid and a heart-blaster beach party. Each plays the same way every time, so practise for the platinum.' },
-        { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', sub: '6 mini games', accent: '#a855f7', blurb: 'Quickdraw duels, two in-world arcade cabinets, a hamster-ball brawl, an aim diagnostics lab and assassination contracts.' },
+        { id: 'target', name: 'Target Practice', icon: '🎯', sub: '15 courses', accent: '#f59e0b', blurb: 'Fifteen courses, from the classic range to rhythm shooting (11 songs, 4 modes), a one-magazine trial, a horseback chase, a mansion raid with 15 situations and a heart-blaster beach party. Every course keeps two records: one with the course weapon, one with your class.' },
+        { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', sub: '15 mini games', accent: '#a855f7', blurb: 'Quickdraw duels, arcade cabinets, a hamster-ball brawl, an aim lab, assassination contracts, and nine more: juggling, colour rules, number order, memory panels, a rail switchyard, a meteor shield, fishing, paint wars and safe cracking.' },
+        { id: 'speed', name: 'Speed Runs', icon: '⏱️', sub: '7 timed runs', accent: '#06b6d4', blurb: 'Seven timed challenges, each with its own map, setup and rules. Beat the clock: clear a course, save three outposts, chase thieves by car, stop a splitting zombie, snipe pilots from a rooftop, survive on 50 bullets, and win a skydive fight before you land.' },
         { id: 'boss', name: 'Boss Rush', icon: '💀', sub: 'Every boss • 3 max heals', accent: '#dc2626', blurb: 'Fight every boss in the game back to back. Bottomless ammo, no regen, three heals for the whole run.' },
         { id: 'mole', name: 'Whack-a-Mole', icon: '🐹', sub: '3 carnival booths', accent: '#22c55e', blurb: 'Shoot the moles! Three booths of rising chaos with gold moles, hard hats and bombs.' }
     ];
@@ -30,16 +31,17 @@
             this.el = document.getElementById('screen-minigames');
         },
 
-        _bestKey(def) {
-            if (def.cat === 'boss') return [def.id, MG.hubOpts.variant, MG.hubOpts.difficulty];
-            return [def.id];
+        /** The options this course would launch with right now. */
+        _opts(def, over) {
+            const o = Object.assign({}, MG.hubOpts);
+            for (const opt of def.hubOptions || []) if (o[opt.key] === undefined || !opt.choices.some((c) => c.val === o[opt.key])) o[opt.key] = opt.default;
+            return Object.assign(o, over || {});
         },
 
-        _best(def) {
+        _best(def, over) {
             const m = BO.Save.data.minigames;
             if (!m || !m.best) return null;
-            if (def.cat === 'boss') return m.best[def.id + ':' + MG.hubOpts.variant + ':' + MG.hubOpts.difficulty] || null;
-            return m.best[def.id] || null;
+            return m.best[MG.bestKey(def, this._opts(def, over))] || null;
         },
 
         _catStars(cat) {
@@ -55,7 +57,7 @@
                     }
                 } else {
                     max += 4;
-                    got += (m[def.id] || {}).stars || 0;
+                    got += MG.bestStarsAny(def);
                 }
             }
             return { got, max };
@@ -106,8 +108,8 @@
 
         _card(def, i, active) {
             const best = def.cat === 'boss' ? null : this._best(def);
-            const stars = best ? best.stars : 0;
-            const num = def.cat === 'target' || def.cat === 'arcade' ? String(i + 1).padStart(2, '0') : '';
+            const stars = def.cat === 'boss' ? 0 : MG.bestStarsAny(def);
+            const num = def.cat === 'target' || def.cat === 'arcade' || def.cat === 'speed' ? String(i + 1).padStart(2, '0') : '';
             return `
                 <button class="mgh-card ${active ? 'active' : ''}" data-id="${def.id}" style="--mc:${def.accent}">
                     <div class="mgh-card-art">
@@ -128,8 +130,13 @@
             const w = def.standardWeapon ? BO.WeaponsData.get(def.standardWeapon) : null;
             const cls = BO.Loadout.getActiveClass();
             const clsW = BO.WeaponsData.get(cls.primary.id);
-            const opts = MG.hubOpts;
-            let options = '';
+            const opts = this._opts(def);
+            const stars = MG.starsOf(def, opts);
+            let options = (def.hubOptions || []).map((opt) => {
+                const cur = opt.choices.find((c) => c.val === opts[opt.key]) || opt.choices[0];
+                return `<div class="mgh-opt"><label>${esc(opt.label)}</label><div class="mgh-seg ${opt.choices.length > 4 ? 'mgh-seg-wrap' : ''}">${opt.choices.map((c) => `<button data-opt="${opt.key}" data-val="${esc(c.val)}" class="${cur.val === c.val ? 'on' : ''}" title="${esc(c.desc || '')}">${esc(c.label)}</button>`).join('')}</div>
+                    ${cur.desc ? `<small>${esc(cur.desc)}</small>` : ''}</div>`;
+            }).join('');
             if (def.cat === 'boss') {
                 options = `
                     <div class="mgh-opt"><label>MODE</label><div class="mgh-seg">${Object.entries(def.variants).map(([k, v]) => `<button data-opt="variant" data-val="${k}" class="${opts.variant === k ? 'on' : ''}">${v.label}</button>`).join('')}</div>
@@ -140,7 +147,7 @@
             } else if (def.lockWeapon || !def.standardWeapon) {
                 options = `
                     ${def.standardWeapon ? `<div class="mgh-opt"><label>WEAPON</label><div class="mgh-weapon"><b>${esc(def.weaponLabel || (w ? w.name : ''))}</b><span>${esc(def.weaponNote || 'Fixed for this event')}</span></div></div>` : (def.weaponNote ? `<div class="mgh-opt"><label>WEAPON</label><div class="mgh-weapon"><b>${esc(def.weaponLabel || 'None')}</b><span>${esc(def.weaponNote)}</span></div></div>` : '')}
-                    <div class="mgh-thresholds">${(def.stars || []).map((th, i) => `<div class="s${i} ${best && best.stars > i ? 'got' : ''}">${STAR_SVG}<b>${esc(def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString())}</b><small>${['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'][i]}</small></div>`).join('')}</div>`;
+                    <div class="mgh-thresholds">${stars.map((th, i) => `<div class="s${i} ${best && best.stars > i ? 'got' : ''}">${STAR_SVG}<b>${esc(def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString())}</b><small>${['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'][i]}</small></div>`).join('')}</div>`;
             } else {
                 options = `
                     <div class="mgh-opt"><label>WEAPON</label><div class="mgh-seg">
@@ -148,15 +155,20 @@
                         <button data-opt="weapon" data-val="class" class="${opts.weapon === 'class' ? 'on' : ''}">MY CLASS</button></div>
                         <div class="mgh-weapon"><b>${esc(opts.weapon === 'class' ? clsW.name : (w ? w.name : clsW.name))}</b><span>${esc(opts.weapon === 'class' ? clsW.category : (w ? w.category : ''))}</span></div>
                     </div>
-                    <div class="mgh-thresholds">${(def.stars || []).map((th, i) => `<div class="s${i} ${best && best.stars > i ? 'got' : ''}">${STAR_SVG}<b>${esc(def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString())}</b><small>${['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'][i]}</small></div>`).join('')}</div>`;
+                    <div class="mgh-thresholds">${stars.map((th, i) => `<div class="s${i} ${best && best.stars > i ? 'got' : ''}">${STAR_SVG}<b>${esc(def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString())}</b><small>${['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'][i]}</small></div>`).join('')}</div>`;
             }
+            const fmt = (b) => b ? esc(def.formatBest ? def.formatBest(b) : Number(b.score).toLocaleString()) : '—';
+            const dual = MG.hasWeaponChoice(def)
+                ? `<div class="mgh-dualbest"><div class="${opts.weapon !== 'class' ? 'on' : ''}"><small>COURSE WEAPON BEST</small><b>${fmt(this._best(def, { weapon: 'standard' }))}</b></div><div class="${opts.weapon === 'class' ? 'on' : ''}"><small>MY CLASS BEST</small><b>${fmt(this._best(def, { weapon: 'class' }))}</b></div></div>`
+                : '';
             const bestLine = best
                 ? `<div class="mgh-best"><small>PERSONAL BEST</small><b>${esc(def.formatBest ? def.formatBest(best) : Number(best.score).toLocaleString())}</b>${starsRow(best.stars || 0, 4, 'big')}</div>`
                 : `<div class="mgh-best mgh-best-none"><small>PERSONAL BEST</small><b>Not played yet</b></div>`;
             return `
-                <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
+                <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : def.cat === 'speed' ? 'SPEED RUN • TIMED' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
                 <p class="mgh-d-desc">${esc(def.desc || '')}</p>
                 ${bestLine}
+                ${dual}
                 ${options}
                 <div class="mgh-keys">${def.keys ? def.keys.map(([k, t]) => `<span><kbd>${esc(k)}</kbd> ${esc(t)}</span>`).join('') : def.cat === 'boss' ? '<span><kbd>H</kbd> Max heal (rest only)</span><span><kbd>N</kbd> Skip rest</span>' : '<span><kbd>R</kbd> Retry from results</span><span><kbd>N</kbd> Next course</span>'}<span><kbd>ESC</kbd> Pause</span></div>
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
@@ -186,7 +198,11 @@
             const o = MG.hubOpts;
             const mgOptions = def.cat === 'boss'
                 ? { variant: o.variant, difficulty: o.difficulty, variantLabel: def.variants[o.variant].label + ' • ' + def.difficulties[o.difficulty].label }
-                : { weapon: o.weapon };
+                : this._opts(def);
+            if (def.cat !== 'boss') {
+                delete mgOptions.variant; delete mgOptions.difficulty;
+                if (def.variantLabel) mgOptions.variantLabel = def.variantLabel(mgOptions);
+            }
             MG.launch(id, mgOptions);
         }
     };

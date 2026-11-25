@@ -500,7 +500,7 @@
     class MinigameRuntime {
         constructor() {
             this.defs = new Map();
-            this.order = { target: [], boss: [], mole: [], arcade: [] };
+            this.order = { target: [], boss: [], mole: [], arcade: [], speed: [] };
             this.active = false;
             this.blockingUI = false;
             this.session = null;
@@ -510,7 +510,7 @@
             this.infiniteMag = false;
             this.pendingShot = null;
             this.hubCat = 'target';
-            this.hubSel = { target: null, boss: null, mole: null, arcade: null };
+            this.hubSel = { target: null, boss: null, mole: null, arcade: null, speed: null };
             this.hubOpts = { weapon: 'standard', difficulty: 'veteran', variant: 'gauntlet' };
             this.lib = { B, BMM, Ease, SFX, mulberry32, signTex, canvasTex, std, basic, HIDDEN_MAT, Target, clamp01, TAU, esc };
         }
@@ -542,6 +542,35 @@
         }
 
         get(id) { return this.defs.get(id); }
+
+        /** True when the player may pick between the course weapon and their own class. */
+        hasWeaponChoice(def) { return !!def && def.cat === 'target' && !!def.standardWeapon && !def.lockWeapon; }
+
+        /**
+         * Save key for a personal best. Boss Rush keys on mode + difficulty; courses with
+         * options (songs, modes) key on def.variantKey(opts); target courses keep a separate
+         * record for the player's own class weapon (":class").
+         */
+        bestKey(def, opts) {
+            opts = opts || {};
+            if (def.cat === 'boss') return def.id + ':' + (opts.variant || '') + ':' + (opts.difficulty || 'veteran');
+            let k = def.id;
+            if (def.variantKey) { const v = def.variantKey(opts); if (v) k += ':' + v; }
+            else if (def.variants && opts.variant) k += ':' + opts.variant;
+            if (this.hasWeaponChoice(def) && opts.weapon === 'class') k += ':class';
+            return k;
+        }
+
+        /** Star thresholds for a course with these options. */
+        starsOf(def, opts) { return (def.starsFor && def.starsFor(opts || {})) || def.stars || []; }
+
+        /** Best star count over every record of a definition (all variants and weapons). */
+        bestStarsAny(def) {
+            const m = (BO.Save.data && BO.Save.data.minigames && BO.Save.data.minigames.best) || {};
+            let best = 0;
+            for (const k of Object.keys(m)) if (k === def.id || k.startsWith(def.id + ':')) best = Math.max(best, m[k].stars || 0);
+            return best;
+        }
         list(cat) { return this.order[cat].map((id) => this.defs.get(id)); }
 
         /* ---------------------------------------------------------- lifecycle */
@@ -679,6 +708,9 @@
             return typeof this.def.blockFire === 'function' ? !!this.def.blockFire(this.session, this.state) : !!this.def.blockFire;
         }
 
+        /** CombatSystem: a bullet stops at the first target it touches (no penetration). */
+        get singleTargetShots() { return !!(this.active && this.def && this.def.oneTargetPerShot); }
+
         /** Minimum seconds between shots, regardless of the weapon's RPM. */
         get fireInterval() { return this.active && this.def ? (this.def.fireInterval || 0) : 0; }
 
@@ -703,6 +735,11 @@
             const S = this.session;
             if (!S || !ent || !ent.alive) return false;
             if (this.state !== 'running' && this.state !== 'finish' && !(this.def.cat === 'boss')) return false;
+            // One round = one target: a bullet (or a whole shotgun shell) never touches a second target.
+            if (this.def.oneTargetPerShot && this.pendingShot) {
+                if (this.pendingShot.used) return false;
+                this.pendingShot.used = true;
+            }
             if (this.pendingShot) this.pendingShot.hit = true;
             if (this.def.onHit) {
                 const r = this.def.onHit(S, ent, info, this.lib);
@@ -991,7 +1028,7 @@
             const S = this.session;
             const def = this.def;
             if (def.result) return def.result(S, this.lib);
-            const stars = (def.stars || []).filter((th) => S.score >= th).length;
+            const stars = this.starsOf(def, this.opts).filter((th) => S.score >= th).length;
             return {
                 score: S.score,
                 stars,
@@ -1028,7 +1065,7 @@
             const def = this.def;
             const S = this.session;
             const res = this._computeResult();
-            const key = def.cat === 'boss' || def.variants ? def.id + ':' + (this.opts.variant || '') + (def.cat === 'boss' ? ':' + (this.opts.difficulty || 'veteran') : '') : def.id;
+            const key = this.bestKey(def, this.opts);
             const store = this._save();
             const prev = store.best[key] || null;
             const better = def.betterThan ? def.betterThan(res, prev) : (!prev || res.score > prev.score);
@@ -1050,14 +1087,15 @@
                 el.id = 'mg-results';
                 document.body.appendChild(el);
             }
-            const starHtml = (def.stars || [1, 1, 1, 1]).map((th, i) => `<div class="mg-star mg-star-${i}" data-i="${i}"><svg viewBox="0 0 24 24"><path d="M12 2.6l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><small>${def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString()}</small></div>`).join('');
+            const starList = this.starsOf(def, this.opts);
+            const starHtml = (starList.length ? starList : [1, 1, 1, 1]).map((th, i) => `<div class="mg-star mg-star-${i}" data-i="${i}"><svg viewBox="0 0 24 24"><path d="M12 2.6l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg><small>${def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString()}</small></div>`).join('');
             el.className = 'mg-results';
             el.style.setProperty('--mg-accent', def.accent || '#f5a623');
             el.innerHTML = `
                 <div class="mg-res-card">
                     <div class="mg-res-head">
                         <span class="mg-res-ico">${def.icon || '🎯'}</span>
-                        <div><small>${def.cat === 'target' ? 'TARGET PRACTICE' : def.cat === 'boss' ? 'BOSS RUSH' : def.cat === 'arcade' ? 'ARCADE HALL' : 'WHACK-A-MOLE'}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
+                        <div><small>${{ target: 'TARGET PRACTICE', boss: 'BOSS RUSH', arcade: 'ARCADE HALL', speed: 'SPEED RUN', mole: 'WHACK-A-MOLE' }[def.cat] || 'MINIGAME'}${this.hasWeaponChoice(def) ? (this.opts.weapon === 'class' ? ' • MY CLASS' : ' • COURSE WEAPON') : ''}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
                         ${better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : '')}
                     </div>
                     <div class="mg-res-title">${esc(res.title)}</div>
@@ -1135,7 +1173,7 @@
                 g.lineWidth = 3;
                 g.lineJoin = 'round';
                 g.stroke();
-                (this.def.cat === 'boss' ? [] : (this.def.stars || [])).forEach((th, i) => {
+                (this.def.cat === 'boss' || res.timeScore ? [] : this.starsOf(this.def, this.opts)).forEach((th, i) => {
                     if (th > max || th < min) return;
                     const y = H - 6 - (th - min) / (max - min) * (H - 14);
                     g.setLineDash([5, 5]);
