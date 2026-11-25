@@ -637,10 +637,17 @@
 
         toggleFireMode() {
             const w = this.activeWeapon;
-            if (!w || !w.stats.altFireMode) return;
-            w.fireMode = w.fireMode === w.stats.fireMode ? w.stats.altFireMode : w.stats.fireMode;
+            if (!w) return;
+            const modes = (w.stats.fireModes && w.stats.fireModes.length > 1)
+                ? w.stats.fireModes
+                : (w.stats.altFireMode ? [w.stats.fireMode, w.stats.altFireMode] : null);
+            if (!modes || modes.length < 2) return;
+            const idx = modes.indexOf(w.fireMode);
+            w.fireMode = modes[idx === -1 ? 1 : (idx + 1) % modes.length];
+            this.burstRemaining = 0;
+            const label = w.fireMode === 'semi' ? 'SINGLE' : w.fireMode.toUpperCase();
             BO.Sound.playUIClick();
-            BO.Events.emit('hud:toast', { text: `${w.stats.shortName} — ${w.fireMode.toUpperCase()} FIRE`, color: '#38bdf8' });
+            BO.Events.emit('hud:toast', { text: `${w.stats.shortName} — ${label} FIRE`, color: '#38bdf8' });
         }
 
         insertArmorPlate() {

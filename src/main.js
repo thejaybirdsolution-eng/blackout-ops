@@ -515,7 +515,7 @@
                     P.adjustScopeZoom(1);
                 } else if ((code === 'Minus' || code === 'NumpadSubtract' || code === 'BracketLeft') && firstDown) {
                     P.adjustScopeZoom(-1);
-                } else if (code === kb.fireMode && firstDown && !survival) {
+                } else if (code === kb.fireMode && firstDown) {
                     if (P.lethalId === 'c4' && BO.Combat.c4Charges.length > 0) BO.Combat.detonateC4();
                     else P.toggleFireMode();
                 } else if (code === kb.melee && firstDown) {

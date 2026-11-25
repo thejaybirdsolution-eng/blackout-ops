@@ -23,7 +23,7 @@
         special: 'KeyX',
         ultimate: 'KeyU',
         armor: 'Digit4',
-        fireMode: 'KeyB',
+        fireMode: 'Comma',
         inspect: 'KeyI',
         exfil: 'KeyH',
         pause: 'KeyP',
@@ -95,7 +95,7 @@
             { action: 'melee', label: 'Melee / punch', tip: 'Quick melee strike. Works with any held item in Survival.', ctx: ALL_MODES },
             { action: 'lethal', label: 'Throw lethal', tip: 'Throw your lethal equipment (frag, semtex, C4, molotov). Hold to cook.', ctx: GRENADE_MODES },
             { action: 'tactical', label: 'Use tactical', tip: 'Use your tactical equipment (flash, stim, monkey bomb).', ctx: GRENADE_MODES },
-            { action: 'fireMode', label: 'Fire mode / detonate C4', tip: 'Switch fire mode, or detonate thrown C4 charges.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'fireMode', label: 'Fire mode / detonate C4', tip: 'Switch fire mode (Auto / Single), or detonate thrown C4 charges.', ctx: ALL_MODES },
             { action: 'inspect', label: 'Inspect weapon', tip: 'Inspect your weapon. In Survival this also reads how full the magazine is.', ctx: ALL_MODES },
             { action: 'armor', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['zombies', 'mp', 'td'] },
             { action: 'special', label: 'Special power', tip: 'Activate your charged Special power.', ctx: ['zombies', 'mp', 'td'] },
@@ -213,6 +213,10 @@
             } else {
                 for (const k of Object.keys(DEFAULT_KEYBINDS)) {
                     if (!s.keybinds[k]) s.keybinds[k] = DEFAULT_KEYBINDS[k];
+                }
+                if (!s.fireModeMigrated) {
+                    if (s.keybinds.fireMode === 'KeyB') s.keybinds.fireMode = DEFAULT_KEYBINDS.fireMode;
+                    s.fireModeMigrated = true;
                 }
             }
             if (!BO.Save.data.cheats || typeof BO.Save.data.cheats !== 'object') {

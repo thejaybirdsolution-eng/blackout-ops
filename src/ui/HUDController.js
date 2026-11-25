@@ -463,7 +463,12 @@
                     this.elWeaponName.textContent = w.stats.shortName + mkTag + (w.isPaP ? ' [PaP]' : '');
                     this.elWeaponName.style.color = w.isPaP ? '#c084fc' : (w.stats.kind === 'magic' ? '#38bdf8' : '#f8fafc');
                 }
-                if (this.elFireMode) this.elFireMode.textContent = (w.fireMode || 'auto').toUpperCase() + (w.stats.altFireMode ? ' [B]' : '');
+                if (this.elFireMode) {
+                    const modeLbl = w.fireMode === 'semi' ? 'SINGLE' : (w.fireMode || 'auto').toUpperCase();
+                    const canToggle = (w.stats.fireModes && w.stats.fireModes.length > 1) || !!w.stats.altFireMode;
+                    const keyTxt = canToggle ? ` [${BO.Settings.keyLabel(BO.Settings.getKeybinds().fireMode)}]` : '';
+                    this.elFireMode.textContent = modeLbl + keyTxt;
+                }
                 if (this.elAmmoMag) {
                     if (mode === 'survival' && !isMeleeW && BO.SurvivalMode?.jammed === w) {
                         this.elAmmoMag.textContent = 'JAM';
