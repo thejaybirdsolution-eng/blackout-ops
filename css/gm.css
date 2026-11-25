@@ -299,3 +299,31 @@ body.gm-fn-on #zt-contracts { display: none !important; }
 .gm-wheel .hub { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #94a3b8; font: 700 11px 'Rajdhani', sans-serif; letter-spacing: 0.12em; }
 .gm-wheel .hub small { display: block; font-size: 10px; letter-spacing: 0.04em; font-weight: 600; }
 #zt-contracts .gm-more { margin-top: 4px; font: 600 11px 'Rajdhani', sans-serif; color: #94a3b8; text-align: right; }
+
+/* ---------- Survival Gold: item tiles & comparison ---------- */
+.sv-tile { position: relative; }
+.sv-tile.hot { box-shadow: inset 0 0 0 2px rgba(245, 158, 11, 0.85); }
+.sv-tile-hot { position: absolute; top: 3px; left: 5px; font-size: 10px; color: #f59e0b; text-shadow: 0 0 6px rgba(245, 158, 11, 0.8); }
+.sv-tile-rar { position: absolute; left: 6px; right: 6px; bottom: 2px; height: 2px; border-radius: 1px; background: var(--rar); }
+.sv-eq[style*="--rar"] { border-left: 3px solid var(--rar); }
+.sv-eq .sv-dura.wide { margin-top: 3px; }
+.gm-compare {
+    position: fixed; z-index: 41; left: calc(50% + 70px); top: calc(50% - 40px); width: 250px; padding: 8px 10px 9px;
+    border-radius: 10px; background: rgba(8, 12, 18, 0.86); border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #e2e8f0; font: 600 12px/1.35 'Rajdhani', 'Segoe UI', sans-serif; text-shadow: 0 1px 2px #000; pointer-events: none;
+}
+.gm-compare.hidden { display: none; }
+.gm-compare header { font-weight: 700; font-size: 13.5px; margin-bottom: 2px; }
+.gm-compare .traits { margin: 0 0 4px; color: #fde68a; font-size: 11px; }
+.gm-compare .cols, .gm-compare .row { display: grid; grid-template-columns: 1fr 64px 14px 64px; align-items: baseline; gap: 4px; }
+.gm-compare .cols small { color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; text-align: right; }
+.gm-compare .row span { color: #94a3b8; }
+.gm-compare .row b, .gm-compare .row em { text-align: right; font-style: normal; }
+.gm-compare .row em { color: #94a3b8; }
+.gm-compare i, .gm-plate-cmp i { font-style: normal; text-align: center; font-size: 10px; }
+.gm-compare i.up, .gm-plate-cmp i.up { color: #4ade80; }
+.gm-compare i.dn, .gm-plate-cmp i.dn { color: #f87171; }
+.gm-compare i.eq, .gm-plate-cmp i.eq { color: #64748b; }
+.gm-plate-cmp { display: grid; grid-template-columns: auto auto 14px 1fr; gap: 3px 8px; align-items: baseline; margin: 6px 0 8px; font: 600 12px var(--font-ui); }
+.gm-plate-cmp span { color: var(--sv-dim); }
+.gm-plate-cmp em { font-style: normal; color: var(--sv-dim); font-size: 11px; }

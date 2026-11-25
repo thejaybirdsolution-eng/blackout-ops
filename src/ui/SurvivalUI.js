@@ -1629,15 +1629,24 @@
             const used = pack.slots();
             const empties = this.packFilter === 'All' ? Math.max(0, lim.slots - used) : 0;
             const sel = this.selItem;
+            const hotLoot = BO.GM?.active ? (BO.GM.get('loot')?.hot || {}) : {};
+            const catalogue = BO.GM?.active ? BO.GM.get('catalogue') : null;
+            const RAR = { common: '', uncommon: '#86efac', rare: '#60a5fa', legendary: '#fbbf24' };
             const tiles = items.map(([id, n]) => {
                 const [name, cat, kg] = frontier.items[id];
                 const usable = BO.SurvivalHotbar.usable.has(id);
-                return `<button class="sv-tile ${sel?.kind === 'item' && sel.id === id ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" ${usable ? `draggable="true" data-drag="item:${id}"` : ''}${tip(name + ' ×' + n, ITEM_INFO[id] || cat, cat + ' · ' + (kg * n).toFixed(1) + ' kg' + (usable ? ' · usable, can go on the hotbar' : ''))}>
-                    ${Icons().item(id, 30)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(name)}</span>${usable ? '<span class="sv-tile-use"></span>' : ''}</button>`;
+                const hot = (hotLoot[id] || 0) > 0;
+                const rar = RAR[catalogue?.byKey?.get('it:' + id)?.rarity] || '';
+                return `<button class="sv-tile ${sel?.kind === 'item' && sel.id === id ? 'selected' : ''} ${hot ? 'hot' : ''}" ${rar ? `style="--rar:${rar}"` : ''} data-act="selItem" data-arg="item:${id}" ${usable ? `draggable="true" data-drag="item:${id}"` : ''}${tip(name + ' ×' + n, ITEM_INFO[id] || cat, cat + ' · ' + (kg * n).toFixed(1) + ' kg' + (usable ? ' · usable, can go on the hotbar' : '') + (hot ? ' · HOT: stash it at base for the haul bonus' : ''))}>
+                    ${Icons().item(id, 30)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(name)}</span>${usable ? '<span class="sv-tile-use"></span>' : ''}${hot ? '<span class="sv-tile-hot">◆</span>' : ''}${rar ? '<span class="sv-tile-rar"></span>' : ''}</button>`;
             }).join('') + Array.from({ length: Math.min(empties, 40) }, () => '<span class="sv-tile empty"></span>').join('');
 
-            const weapons = p.weapons.map((w, ref) => `<button class="sv-eq ${sel?.kind === 'weapon' && sel.id === String(ref) ? 'selected' : ''}" data-act="selItem" data-arg="weapon:${ref}" draggable="true" data-drag="weapon:${ref}"${tip(w.stats.name || w.stats.shortName, w.stats.kind === 'melee' ? 'Melee weapon.' : 'Magazine ' + w.mag + '/' + w.stats.magSize + ' · ' + w.reserve + ' in reserve.', 'Drag onto the hotbar')}>
-                ${Icons().weapon(w, 26)}<span class="sv-eq-t"><b>${esc(w.stats.shortName || w.stats.name)}${w.survivalMk > 1 ? ' <em>Mk ' + w.survivalMk + '</em>' : ''}</b><small>${w.stats.kind === 'melee' ? 'Melee' : w.mag + ' / ' + w.reserve}</small></span></button>`).join('');
+            const weapons = p.weapons.map((w, ref) => {
+                const cond = Math.round(w.cond ?? 100);
+                const rar = BO.ZoneThrill?.rarityOf?.(w);
+                return `<button class="sv-eq ${sel?.kind === 'weapon' && sel.id === String(ref) ? 'selected' : ''}" ${rar && rar.id !== 'common' ? `style="--rar:${rar.css}"` : ''} data-act="selItem" data-arg="weapon:${ref}" draggable="true" data-drag="weapon:${ref}"${tip(w.stats.name || w.stats.shortName, w.stats.kind === 'melee' ? 'Melee weapon.' : 'Magazine ' + w.mag + '/' + w.stats.magSize + ' · ' + w.reserve + ' in reserve.', (rar ? rar.name + ' · ' : '') + cond + '% condition · drag onto the hotbar')}>
+                ${Icons().weapon(w, 26)}<span class="sv-eq-t"><b>${esc(w.stats.shortName || w.stats.name)}${w.survivalMk > 1 ? ' <em>Mk ' + w.survivalMk + '</em>' : ''}</b><small>${w.stats.kind === 'melee' ? 'Melee' : w.mag + ' / ' + w.reserve} · ${cond}%</small><span class="sv-dura wide"><i style="width:${cond}%" class="${cond < 25 ? 'low' : ''}"></i></span></span></button>`;
+            }).join('');
             const tools = Object.entries(pack.tools).map(([id, d]) => {
                 const t = frontier.tools[id];
                 return `<button class="sv-eq ${sel?.kind === 'tool' && sel.id === id ? 'selected' : ''} ${d > 0 ? '' : 'broken'}" data-act="selItem" data-arg="tool:${id}" draggable="true" data-drag="tool:${id}"${tip(t.name, 'Tier ' + t.level + ' ' + t.family + ' · gathering power ' + t.power + '.', Math.ceil(d) + ' / ' + t.wear + ' durability')}>
@@ -1703,6 +1712,7 @@
                 const chestOpen = this.section === 'chest';
                 return `<div class="sv-detail-head">${I.item(id, 44)}<div><h3>${esc(info[0])}</h3><small>${esc(info[1])} · ${info[2]} kg each</small></div></div>
                     <p class="sv-detail-text">${esc(ITEM_INFO[id] || 'Crafting material.')}</p>
+                    ${BO.GM?.active ? (BO.GM.get('compare')?.plateHtml?.(id) || '') : ''}
                     <dl class="sv-kv"><div><dt>Carried</dt><dd>${n}</dd></div><div><dt>Weight</dt><dd>${(info[2] * n).toFixed(2)} kg</dd></div></dl>
                     <div class="sv-actions">
                         ${usable ? `<button class="sv-btn primary" data-act="use" data-arg="${id}" ${n ? '' : 'disabled'}${tip('Use', 'Consume one now.')}>Use</button>` : ''}
