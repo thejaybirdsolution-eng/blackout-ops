@@ -156,7 +156,7 @@
 
             this.maxHp = 100;
             this.hp = 100;
-            this.armor = mode === 'mp' ? 0 : 100; // Start Zombies with 2 armor plates (or replenish)
+            this.armor = (mode === 'mp' || mode === 'rpg') ? 0 : 100; // Start Zombies with 2 armor plates (RPG has no plates)
             this.armorReservePlates = 2;
             this.alive = true;
             this.inLastStand = false;
@@ -712,6 +712,7 @@
             if (BO.Mods) amount *= BO.Mods.incomingDamageMult();
             if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus) amount *= BO.ZoneWorldPlus.incomingDamageMult();
             if (BO.State.activeMode === 'survival' && BO.GM?.active) amount *= BO.GM.incomingDamageMult();
+            if (BO.State.activeMode === 'rpg' && BO.RPGMode?.active) amount = BO.RPGMode.modifyIncomingDamage(amount, attackerPos, attackerEntity);
             if (this.mpPerks.includes('bulwark') && this.crouching && Math.hypot(this.vel.x, this.vel.z) < 0.3) amount *= 0.78;
             if (BO.State.activeMode === 'zombies' && amount > 0) {
                 const mode = BO.ZombiesMode;
@@ -774,6 +775,9 @@
                         sub: 'TEAMMATE CAN PRESS [E] NEAR YOU TO REVIVE!',
                         color: '#ef4444'
                     });
+                } else if (BO.State.activeMode === 'rpg' && BO.RPGMode?.tryPreventDeath?.(this)) {
+                    // Last Bastion / Second Wind / Field Medic kept the player standing.
+                    return;
                 } else if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus?.tryPreventFatalDamage?.(this)) {
                     // Totem of Undying consumed — player remains alive with restored HP & shockwave!
                     return;
@@ -888,7 +892,8 @@
                 this.regenDelayTimer -= dt;
             } else if (this.hp < this.maxHp) {
                 const activeMods = BO.Mods ? BO.Mods.active() : {};
-                if (BO.State.activeMode !== 'survival' && !activeMods.noRegen && !this.matchRules.noHealthRegen) {
+                // RPG mode has no regeneration: potions and Rest rooms are the attrition economy.
+                if (BO.State.activeMode !== 'survival' && BO.State.activeMode !== 'rpg' && !activeMods.noRegen && !this.matchRules.noHealthRegen) {
                     const regenRate = (this.zombiePerks.has('quick_revive') ? 45 : 28) * (BO.Mods ? BO.Mods.regenMult() : 1);
                     this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
                 }

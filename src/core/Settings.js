@@ -54,12 +54,19 @@
         hotbar7: 'Digit7',
         hotbar8: 'Digit8',
         hotbar9: 'Digit9',
-        hotbar10: 'Digit0'
+        hotbar10: 'Digit0',
+        // RPG mode (class abilities replace grenades & powers there)
+        rpgAbility1: 'KeyQ',
+        rpgAbility2: 'KeyF',
+        rpgUltimate: 'KeyX',
+        rpgPotion: 'KeyH'
     };
 
     /* Every rebindable action, grouped for the Controls panel. `ctx` lists the modes in
        which the binding is live; two actions only conflict when their contexts overlap. */
-    const ALL_MODES = ['zombies', 'mp', 'td', 'survival'];
+    const ALL_MODES = ['zombies', 'mp', 'td', 'survival', 'rpg'];
+    // Grenade slots do not exist in RPG mode (class abilities take those keys).
+    const GRENADE_MODES = ['zombies', 'mp', 'td', 'survival'];
     const CONTROL_CATALOG = [
         { group: 'movement', label: 'Movement', actions: [
             { action: 'forward', label: 'Move forward', tip: 'Walk or run forward.', ctx: ALL_MODES },
@@ -74,8 +81,8 @@
         { group: 'combat', label: 'Combat', actions: [
             { action: 'reload', label: 'Reload / clear jam', tip: 'Reload your firearm. In Survival this also clears a weapon stoppage.', ctx: ALL_MODES },
             { action: 'melee', label: 'Melee / punch', tip: 'Quick melee strike. Works with any held item in Survival.', ctx: ALL_MODES },
-            { action: 'lethal', label: 'Throw lethal', tip: 'Throw your lethal equipment (frag, semtex, C4, molotov). Hold to cook.', ctx: ALL_MODES },
-            { action: 'tactical', label: 'Use tactical', tip: 'Use your tactical equipment (flash, stim, monkey bomb).', ctx: ALL_MODES },
+            { action: 'lethal', label: 'Throw lethal', tip: 'Throw your lethal equipment (frag, semtex, C4, molotov). Hold to cook.', ctx: GRENADE_MODES },
+            { action: 'tactical', label: 'Use tactical', tip: 'Use your tactical equipment (flash, stim, monkey bomb).', ctx: GRENADE_MODES },
             { action: 'fireMode', label: 'Fire mode / detonate C4', tip: 'Switch fire mode, or detonate thrown C4 charges.', ctx: ['zombies', 'mp', 'td'] },
             { action: 'inspect', label: 'Inspect weapon', tip: 'Inspect your weapon. In Survival this also reads how full the magazine is.', ctx: ALL_MODES },
             { action: 'armor', label: 'Insert armor plate', tip: 'Slide a spare armor plate into your vest.', ctx: ['zombies', 'mp', 'td'] },
@@ -86,6 +93,12 @@
             { action: 'interact', label: 'Interact / gather', tip: 'Use doors, buy items, talk to contacts, open containers and gather resources.', ctx: ALL_MODES },
             { action: 'armory', label: 'Armory / soda catalog', tip: 'Open the armory or the soda catalog beside a Zombies perk machine.', ctx: ['zombies', 'mp', 'td'] },
             { action: 'exfil', label: 'Call exfil', tip: 'Call an extraction chopper in Zombies (round 10 and later).', ctx: ['zombies'] }
+        ] },
+        { group: 'rpg', label: 'RPG abilities', actions: [
+            { action: 'rpgAbility1', label: 'Primer ability', tip: 'RPG: your class primer (Breach Charge, Napalm Lob, Cryo Lance). Primers apply a status effect.', ctx: ['rpg'] },
+            { action: 'rpgAbility2', label: 'Detonator ability', tip: 'RPG: your class detonator (Concussion Slam, Flashover, Arc Lash). Detonators consume every status on a target and trigger its reaction.', ctx: ['rpg'] },
+            { action: 'rpgUltimate', label: 'Ultimate', tip: 'RPG: your class ultimate. Charges as you deal damage.', ctx: ['rpg'] },
+            { action: 'rpgPotion', label: 'Drink potion', tip: 'RPG: drink a healing potion. Health does not regenerate in a delve; Rest rooms refill potions.', ctx: ['rpg'] }
         ] },
         { group: 'survival', label: 'Survival field terminal', actions: [
             { action: 'survInventory', label: 'Inventory', tip: 'Open the field terminal on your backpack, hotbar and equipment.', ctx: ['survival'] },
@@ -118,7 +131,7 @@
         { label: 'Aim down sights / guard', key: 'RMB', tip: 'Aim your weapon. With bare hands in Survival, raise a guard and time it to parry.' },
         { label: 'Heavy punch', key: 'HOLD LMB', tip: 'Survival bare hands: hold and release for a heavy finisher.' },
         { label: 'Cycle weapons / hotbar', key: 'WHEEL', tip: 'Switch weapons. In Survival, scroll through the ten hotbar slots.' },
-        { label: 'Scoreboard', key: 'TAB', tip: 'Hold to view the scoreboard (Multiplayer, Zombies, Tower Defense).' }
+        { label: 'Scoreboard / delve sheet', key: 'TAB', tip: 'Hold to view the scoreboard (Multiplayer, Zombies, Tower Defense) or your delve sheet (RPG).' }
     ];
 
     const CHEAT_DEFS = {

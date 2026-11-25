@@ -246,6 +246,8 @@
                 BO.SurvivalUI.show('briefing', this.onStartMatch);
             };
             document.getElementById('btn-menu-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.showScreen('play_lobby'); };
+            const rpgBtn = document.getElementById('btn-menu-rpg');
+            if (rpgBtn) rpgBtn.onclick = () => { BO.Sound.playUIClick(); if (BO.RPGUI) BO.RPGUI.openHaven(); };
             const tdBtn = document.getElementById('btn-menu-td');
             if (tdBtn) tdBtn.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.showScreen('play_lobby'); };
             document.getElementById('btn-menu-gunsmith').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
@@ -577,7 +579,13 @@
                 return window.confirm(lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?');
             };
             document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('restart')) return; this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
-            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('exit')) return; this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
+            // RPG: leaving suspends the delve at the start of the current floor (resume from the Haven).
+            const rpgLeave = () => {
+                const RM = BO.RPGMode;
+                if (BO.State.activeMode !== 'rpg' || !RM?.active || !RM.run || RM.state === 'ended') return true;
+                return window.confirm(`Leave the delve? It is suspended at the start of floor ${RM.run.floor} — resume it from the Haven. Anything picked up on this floor is lost.`);
+            };
+            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('exit') || !rpgLeave()) return; this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
 
             const pauseRoundInput = document.getElementById('pause-round-input');
             const btnPauseJump = document.getElementById('btn-pause-jump-round');
@@ -667,6 +675,7 @@
             });
             BO.HUD.setVisible(name === 'playing');
             this.updateCheatMenuVisibility();
+            if (BO.RPGUI && BO.RPGUI.haven) BO.RPGUI.onScreenChanged(name);
 
             if (name === 'main_menu') {
                 BO.Sound.startMusic('menu');
@@ -694,6 +703,14 @@
             }
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
+            // RPG delves restart from the Haven, so the pause-menu restart is hidden there.
+            const btnRestart = document.getElementById('btn-pause-restart');
+            if (btnRestart) btnRestart.classList.toggle('hidden', BO.State.activeMode === 'rpg');
+            const btnQuit = document.getElementById('btn-pause-quit');
+            if (btnQuit) {
+                if (!btnQuit.dataset.baseLabel) btnQuit.dataset.baseLabel = btnQuit.textContent;
+                btnQuit.textContent = BO.State.activeMode === 'rpg' ? 'SUSPEND DELVE → HAVEN' : btnQuit.dataset.baseLabel;
+            }
             if (this.modalPause) this.modalPause.classList.toggle('hidden', !open);
             if (!open && BO.ControlsPanel?.isOpen) BO.ControlsPanel.close();
             if (open && this.modalTdShop) this.modalTdShop.classList.add('hidden');

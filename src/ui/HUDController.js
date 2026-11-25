@@ -400,12 +400,17 @@
             if (this.elHpFill) {
                 this.elHpFill.style.width = BO.Math.clamp((P.hp / Math.max(1, P.maxHp)) * 100, 0, 100) + '%';
             }
-            if (this.elHpText) {
+            if (this.elHpText && mode === 'rpg' && BO.RPGMode?.run) {
+                const kbP = BO.Settings.keyLabel(BO.Settings.getKeybinds().rpgPotion);
+                this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ⚗ ${BO.RPGMode.run.potions} POTIONS [${kbP}]`;
+            } else if (this.elHpText) {
                 const vest = P.plateSlots;
                 this.elHpText.textContent = vest
                     ? `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  VEST ${vest.filter((s) => s && s.hp > 0).length}/3`
                     : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
             }
+            const plateRow = this.elPlates[0]?.parentElement?.parentElement;
+            if (plateRow) plateRow.classList.toggle('hidden', mode === 'rpg');
             for (let i = 0; i < 3; i++) {
                 if (this.elPlates[i]) {
                     const slot = P.plateSlots ? P.plateSlots[i] : undefined;
@@ -494,9 +499,12 @@
                     const text = '[' + BO.Settings.keyLabel(code) + ']';
                     if (tag && tag.textContent !== text) tag.textContent = text;
                 }
-                const hideSuper = mode === 'survival';
+                const hideSuper = mode === 'survival' || mode === 'rpg';
                 this.elFieldInfo?.parentElement?.classList.toggle('hidden', hideSuper);
                 this.elUltInfo?.parentElement?.classList.toggle('hidden', hideSuper);
+                // RPG class abilities replace grenades (they live on the RPG ability bar).
+                this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg');
+                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg');
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0
@@ -519,6 +527,24 @@
                 if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
                 if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
                 if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+            } else if (mode === 'rpg') {
+                if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
+                if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
+                if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+                if (this.elMpScore) this.elMpScore.classList.add('hidden');
+                if (this.elKsDock) this.elKsDock.classList.add('hidden');
+                if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
+                if (this.elPrompt) {
+                    const pr = BO.RPGMode?.getPromptText();
+                    if (pr) {
+                        this.elPrompt.classList.remove('hidden');
+                        this.elPrompt.textContent = pr.text;
+                        this.elPrompt.style.borderColor = pr.color || (pr.affordable ? '#c084fc' : '#64748b');
+                        this.elPrompt.style.color = pr.affordable ? '#f8fafc' : '#94a3b8';
+                    } else {
+                        this.elPrompt.classList.add('hidden');
+                    }
+                }
             } else if (mode === 'zombies') {
                 const zm = BO.ZombiesMode;
                 if (this.elZChalkRow) this.elZChalkRow.classList.remove('hidden');
@@ -699,6 +725,10 @@
 
         _updateEnemyAndBossHUD(mode) {
             const isWaveMode = (mode === 'td' || mode === 'zombies');
+            if (mode === 'rpg') {
+                this._updateRpgBossBar();
+                return;
+            }
             if (!isWaveMode && mode !== 'survival') {
                 if (this.elEnemyTracker) this.elEnemyTracker.classList.add('hidden');
                 if (this.elMultiBoss) this.elMultiBoss.classList.add('hidden');
@@ -809,6 +839,38 @@
             }
         }
 
+        /** RPG guardian bar with phase markers (66% / 33% call for aid). */
+        _updateRpgBossBar() {
+            if (this.elEnemyTracker) this.elEnemyTracker.classList.add('hidden');
+            if (!this.elMultiBoss) return;
+            const RM = BO.RPGMode;
+            const b = RM && RM.boss;
+            if (!b || !b.alive || !b.rpg || !b.rpg.aggro) {
+                this.elMultiBoss.classList.add('hidden');
+                this.elMultiBoss.innerHTML = '';
+                return;
+            }
+            const D = BO.RPGData;
+            const pct = BO.Math.clamp((b.hp / Math.max(1, b.maxHp)) * 100, 0, 100);
+            const st = D.STATUS_ORDER.filter((id) => RM.hasStatus(b, id)).map((id) => D.STATUSES[id].icon).join(' ');
+            this.elMultiBoss.classList.remove('hidden');
+            this.elMultiBoss.style.display = 'grid';
+            this.elMultiBoss.style.gridTemplateColumns = '1fr';
+            this.elMultiBoss.style.width = 'min(620px, 88vw)';
+            this.elMultiBoss.innerHTML = `
+                <div style="background:rgba(15,8,4,0.9);border:1px solid #fbbf24;border-radius:8px;padding:6px 10px;box-shadow:0 0 18px rgba(251,191,36,0.3);">
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;font-weight:800;letter-spacing:1px;margin-bottom:4px;">
+                        <span style="color:#fde047;">♛ ${b.rpg.boss.name} — ${b.rpg.boss.title.toUpperCase()} • PHASE ${b.rpg.phase + 1}/3 ${st}</span>
+                        <span style="color:#fef08a;font-family:var(--font-mono);">${Math.ceil(b.hp)}/${b.maxHp}</span>
+                    </div>
+                    <div style="height:10px;background:rgba(255,255,255,0.12);border-radius:5px;overflow:hidden;position:relative;">
+                        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#f59e0b,#ef4444,#fde047);transition:width 0.1s"></div>
+                        <i style="position:absolute;left:66%;top:0;bottom:0;width:2px;background:rgba(0,0,0,0.6)"></i>
+                        <i style="position:absolute;left:33%;top:0;bottom:0;width:2px;background:rgba(0,0,0,0.6)"></i>
+                    </div>
+                </div>`;
+        }
+
         _drawMinimap() {
             const ctx = this.mmCtx;
             if (!ctx || !BO.World.mapData) return;
@@ -867,6 +929,26 @@
                     ctx.beginPath();
                     ctx.arc((b.pos.x - P.pos.x) * scale, (b.pos.z - P.pos.z) * scale, 3, 0, Math.PI * 2);
                     ctx.fill();
+                }
+            } else if (BO.State.activeMode === 'rpg' && BO.RPGMode?.active) {
+                const RM = BO.RPGMode;
+                for (const g of RM.gates) {
+                    ctx.fillStyle = g.open ? g.room.color : 'rgba(148,163,184,0.5)';
+                    ctx.fillRect((g.x - P.pos.x) * scale - 4, (g.z - P.pos.z) * scale - 2, 8, 4);
+                }
+                if (RM.beacon) {
+                    ctx.fillStyle = '#4ade80';
+                    ctx.beginPath(); ctx.arc((RM.beacon.x - P.pos.x) * scale, (RM.beacon.z - P.pos.z) * scale, 4, 0, Math.PI * 2); ctx.fill();
+                }
+                for (const pk of RM.pickups) {
+                    if (pk.kind !== 'item') continue;
+                    ctx.fillStyle = BO.RPGProfile.rarity(pk.item).color;
+                    ctx.fillRect((pk.pos.x - P.pos.x) * scale - 2, (pk.pos.z - P.pos.z) * scale - 2, 4, 4);
+                }
+                for (const z of RM.enemies) {
+                    if (!RM.isAlive(z)) continue;
+                    ctx.fillStyle = z.rpg.isBoss ? '#fbbf24' : (z.rpg.aggro ? '#ef4444' : 'rgba(248,113,113,0.45)');
+                    ctx.beginPath(); ctx.arc((z.pos.x - P.pos.x) * scale, (z.pos.z - P.pos.z) * scale, z.rpg.elite || z.rpg.isBoss ? 3.6 : 2.5, 0, Math.PI * 2); ctx.fill();
                 }
             } else if (BO.State.activeMode === 'td') {
                 const td = BO.TowerDefenseMode;

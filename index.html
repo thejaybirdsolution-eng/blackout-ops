@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="css/zone-thrill.css?v=sv9">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=1">
+    <link rel="stylesheet" href="css/rpg.css?v=rpg1">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -20,7 +21,7 @@
     <!-- Core -->
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
     <script defer src="src/core/SaveSystem.js?v=20261124a"></script>
-    <script defer src="src/core/Settings.js?v=sv9g5"></script>
+    <script defer src="src/core/Settings.js?v=rpg1"></script>
     <script defer src="src/net/NetworkManager.js?v=20261124a"></script>
 
     <!-- Game Data -->
@@ -42,9 +43,10 @@
     <script defer src="src/engine/WorldCore.js?v=z2b"></script>
     <script defer src="src/data/SurvivalWorld.js?v=au1"></script>
     <script defer src="src/data/ZoneRules.js?v=au10"></script>
+    <script defer src="src/data/RPGData.js?v=rpg1"></script>
 
     <!-- Audio & 3D Graphics -->
-    <script defer src="src/audio/SoundEngine.js?v=sv9"></script>
+    <script defer src="src/audio/SoundEngine.js?v=rpg1"></script>
     <script defer src="src/graphics/TextureFactory.js?v=z1"></script>
     <script defer src="src/graphics/ArsenalDetails.js?v=sv9"></script>
     <script defer src="src/graphics/WeaponMeshBuilder.js?v=sv9"></script>
@@ -57,8 +59,8 @@
     <script defer src="src/systems/ModifierSystem.js?v=sv9"></script>
 
     <!-- Engine & Entities -->
-    <script defer src="src/engine/WorldBuilder.js?v=sv9"></script>
-    <script defer src="src/engine/PlayerController.js?v=sv9g1"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=rpg1"></script>
+    <script defer src="src/engine/PlayerController.js?v=rpg1"></script>
     <script defer src="src/engine/CombatSystem.js?v=sv9"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
     <script defer src="src/entities/BotAI.js?v=z3"></script>
@@ -67,6 +69,10 @@
     <script defer src="src/modes/ZombiesMode.js?v=zc1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=sv9"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=zc1"></script>
+    <script defer src="src/rpg/RPGProfile.js?v=rpg1"></script>
+    <script defer src="src/rpg/RPGArena.js?v=rpg1"></script>
+    <script defer src="src/rpg/RPGAbilities.js?v=rpg1"></script>
+    <script defer src="src/modes/RPGMode.js?v=rpg1"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=au1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
     <script defer src="src/systems/SurvivalPack.js?v=g5"></script>
@@ -126,18 +132,19 @@
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=polish2"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
-    <script defer src="src/ui/HUDController.js?v=sv9g1"></script>
+    <script defer src="src/ui/HUDController.js?v=rpg1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=sv9g3"></script>
-    <script defer src="src/ui/MenuController.js?v=zc1"></script>
+    <script defer src="src/ui/MenuController.js?v=rpg1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
     <script defer src="src/ui/SurvivalLegend.js?v=sv9g2"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
     <script defer src="src/ui/SurvivalUI.js?v=zc1"></script>
     <script defer src="src/ui/SurvivalJournal.js?v=g6"></script>
-    <script defer src="src/ui/ControlsPanel.js?v=polish1g2"></script>
-    <script defer src="src/main.js?v=sv9g2"></script>
+    <script defer src="src/ui/ControlsPanel.js?v=rpg1"></script>
+    <script defer src="src/ui/RPGUI.js?v=rpg1"></script>
+    <script defer src="src/main.js?v=rpg1"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -179,6 +186,14 @@
                         <span class="mode-card-text">
                             <b>SURVIVAL <span class="mode-card-badge">Tech Demo / Proof of Concept</span></b>
                             <small>Open-world Zone • build, farm, raid &amp; hunt seven bosses</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-rpg" id="btn-menu-rpg" data-tip-title="RPG — Delve &amp; Extract" data-tip="First-person action RPG: pick a class, delve floor by floor, chain elemental combos with your abilities, and extract to bank your loot — or push deeper and risk losing it all. Levels, talents, gear and a Haven to spend it in.">
+                        <span class="mode-card-ico" aria-hidden="true">✦</span>
+                        <span class="mode-card-text">
+                            <b>RPG <span class="mode-card-badge">new • solo</span></b>
+                            <small>3 classes • combo abilities • loot &amp; talents • delve, extract or lose it all</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
