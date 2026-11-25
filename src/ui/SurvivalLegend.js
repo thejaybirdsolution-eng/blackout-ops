@@ -183,8 +183,8 @@
         add({ cat: 'travel', title: 'Fast travel signposts, forts & waystones', icon: icon('portal', '#34d399'), tags: ['Press T anywhere'],
             text: 'Press T (or interact with any roadside Signpost, Waystone, or Fort Beacon) to open the compact Fast Travel menu. Travelling between Signposts or Waystones is instantaneous (0 h); field fast travel to Safehouses, Radio Towers, Haven, or Liberated Forts advances time modestly.',
             facts: [['Signposts', '8 crossroads signposts across the Zone (Crash & Relay start attuned)'], ['Quantum Chest', 'Shared dimensional storage accessible from every Quantum Ender-Chest']] });
-        add({ cat: 'crafting', title: 'Alchemy, Arcane relics & Black Market trading', icon: icon('flask', '#d8b4fe'), tags: ['Multiple paths'],
-            text: 'Build an Alchemy Brewing Stand for 8 combat/utility potions, or an Arcane Rune Table for Totems of Undying, Phase Ender-Pearls, Enchanted Golden Apples, and Bottles o\' Skilling. Every item can be gathered/crafted directly OR bartered from Roaming Black Market Brokers (Broker Vex & Peddler Kael) and Gated Specialist Contacts (Viper, Dr. Morrow & Warlord Krag — unlocked by Level, Kills, or Bribes).',
+        add({ cat: 'crafting', title: 'Potions, relics & Black Market trading', icon: icon('flask', '#d8b4fe'), tags: ['Multiple paths'],
+            text: 'Potions brew at the campfire and relics (Totems of Undying, Phase Pearls, Enchanted Apples) are attuned at the workbench; the old Alchemy Stand and Arcane Table were folded into those two stations. Every item can be gathered/crafted directly OR bartered from Roaming Black Market Brokers (Broker Vex & Peddler Kael) and Gated Specialist Contacts (Viper, Dr. Morrow & Warlord Krag — unlocked by Level, Kills, or Bribes).',
             facts: [['Totem of Undying', 'Automatically prevents fatal damage while carried in your backpack'], ['Grappling Launcher', 'Reusable 28 m zip-hook onto rooftops, cliffs & watchtowers']] });
 
         /* ---------- 3b. Levels, loot & contracts ---------- */

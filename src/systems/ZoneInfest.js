@@ -281,6 +281,8 @@
             c.mark('secured', 1, 0);
             const xp = 40 + 30 * s.tier + s.size * 4;
             BO.ZoneThrill?.xp(xp, 'Site secured');
+            // Clearing the map feeds research: every third secured site is worth a Tech Point.
+            if (c.deep && this.securedCount() % 3 === 0) { c.deep.grantTechPoints(1); m.toast('+1 Tech Point · every third secured site funds research (Skills tab).'); }
             BO.Events.emit('hud:banner', { title: 'AREA SECURED', sub: s.name.toUpperCase() + ' · STASH UNLOCKED · ' + this.securedCount() + '/' + this.sites.length + ' OF THE ZONE', color: '#8fe3c8' });
             BO.Sound?.playRoundEnd?.();
             this.applyFlags();

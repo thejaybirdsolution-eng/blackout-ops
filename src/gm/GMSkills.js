@@ -119,6 +119,10 @@
             if (r('coldblood')) out.coldResist = (out.coldResist || 0) + 4 * r('coldblood');
             if (r('mechanic')) out.repairMult = (out.repairMult ?? 1) * (1 + 0.35 * r('mechanic'));
             if (r('gridtech')) out.powerMakeMult = (out.powerMakeMult ?? 1) * (1 + 0.2 * r('gridtech'));
+            // Research nodes rewritten for Survival Gold (data/SurvivalDeepData.js techTree).
+            const deep = this.mode?.campaign?.deep;
+            if (deep?.hasTech?.('t2_gunsmith')) out.repairMult = (out.repairMult ?? 1) * 1.3;
+            if (deep?.hasTech?.('t4_infusion')) out.powerMakeMult = (out.powerMakeMult ?? 1) * 1.25;
         },
 
         /* ------------------------------------------------ lifecycle */

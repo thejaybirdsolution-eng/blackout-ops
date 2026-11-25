@@ -31,6 +31,8 @@
             this.install();
             this.patch();
             this.migrateQuantum();
+            // Resumed saves rebuild pieces before start(): give their uplinks back their prompts.
+            for (const p of mode.campaign.placed) if (p.alive && p.type === 'stashUplink') this.onBuild(p);
         },
 
         stop() { this.unpatch(); this.mode = null; },
@@ -159,8 +161,9 @@
             if (GM.hasStatus('hunted')) { GM.toast('Not while something is hunting you.', '#ef4444'); return; }
             const c = m.campaign;
             const p = BO.Player.pos;
-            const chests = this.chestPieces(p.x, p.z, QUICK_R);
-            if (!chests.length) { GM.toast('No storage within ' + QUICK_R + ' m.', '#f59e0b'); return; }
+            const range = GM.get('rooms')?.quickRange?.(QUICK_R) || QUICK_R; // Storeroom: 25 m
+            const chests = this.chestPieces(p.x, p.z, range);
+            if (!chests.length) { GM.toast('No storage within ' + range + ' m.', '#f59e0b'); return; }
             const pack = c.pack;
             let moved = 0;
             const movedItems = {};
@@ -293,6 +296,7 @@
         },
 
         onBuild(piece) {
+            if (!this.mode) return;
             if (piece.type === 'stashUplink' && !this.mode.markers.some((k) => k.id === 'gmuplink:' + piece.id)) {
                 this.mode.markers.push({ id: 'gmuplink:' + piece.id, x: piece.x, y: piece.y, z: piece.z, name: 'Stash uplink', label: 'Use stash uplink', alive: true });
             }

@@ -83,7 +83,9 @@
             this.install();
             this.patch();
             this.wires = null;
-            for (const pc of mode.campaign.placed) if (pc.alive) this.decorate(pc);
+            // Resumed saves rebuild pieces before start(), when onBuild returned early: run the full
+            // setup now (outpost stash markers, concrete/e-fence structure, floodlights, power, bench look).
+            for (const pc of mode.campaign.placed) if (pc.alive) this.onBuild(pc);
         },
 
         stop() {

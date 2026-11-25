@@ -147,7 +147,8 @@
             if (silent) return;
             const set = SETS.find((s) => s.id === setId);
             GM.sting('haul');
-            GM.banner('SET COMPLETE · ' + set.name.toUpperCase(), set.bonus, '#fbbf24');
+            GM.banner('SET COMPLETE · ' + set.name.toUpperCase(), set.bonus + ' · +1 Tech Point', '#fbbf24');
+            this.mode?.campaign?.deep?.grantTechPoints?.(1);
         },
 
         /** Hunting hook from ZoneWild: records the species and applies the Wildlife bonus. */

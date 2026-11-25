@@ -270,6 +270,36 @@
                 };
             }
 
+            // ESC everywhere outside gameplay: close the top-most open window, or go Back from a sub-screen.
+            // (main.js only handles keys while playing, so menus had no Escape at all.)
+            const ESC_CLOSE = [
+                ['modal-enemy-pool', 'btn-ep-close'], ['modal-legend', 'btn-legend-close'], ['modal-modmenu', 'btn-modmenu-close'],
+                ['modal-choose', 'btn-choose-close'], ['modal-box-picker', 'btn-box-picker-close'], ['modal-td-attachments', 'btn-td-att-close'],
+                ['modal-td-custom-class', 'btn-td-cc-close'], ['modal-td-perks', 'btn-td-perks-close'], ['modal-td-lift', 'btn-td-lift-close'],
+                ['modal-td-shop', 'btn-td-shop-close'], ['modal-z-build', 'btn-z-build-close'], ['modal-mp-class', 'btn-mp-class-close'],
+                ['modal-settings', 'btn-settings-close']
+            ];
+            window.addEventListener('keydown', (e) => {
+                if (e.code !== 'Escape' || this.isRebindingKey || e.repeat) return;
+                if (BO.ControlsPanel?.isOpen || BO.SurvivalUI?.open) return; // they handle their own Escape
+                const t = e.target;
+                if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value) return; // let Esc clear a search box first
+                for (const [modal, close] of ESC_CLOSE) {
+                    const el = document.getElementById(modal);
+                    if (el && !el.classList.contains('hidden')) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        document.getElementById(close)?.click();
+                        return;
+                    }
+                }
+                if (BO.State.screen !== 'playing' && BO.State.screen !== 'main_menu') {
+                    const scr = this.screens?.[BO.State.screen];
+                    const back = scr?.querySelector('.js-back-menu');
+                    if (back) { e.preventDefault(); back.click(); }
+                }
+            }, true);
+
             document.querySelectorAll('.js-back-menu').forEach((b) => {
                 b.setAttribute('data-tip-title', 'Back to Main Menu');
                 b.setAttribute('data-tip', 'Return to the main title screen.');

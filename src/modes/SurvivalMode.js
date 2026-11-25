@@ -316,7 +316,7 @@
                 this.toast('Misfire. This weapon is falling apart — repair it.');
                 return false;
             }
-            const deadeyeMult = Math.max(0.4, 1 - (BO.SurvivalCareer?.masteryRank?.('deadeye') || 0) * 0.15);
+            const deadeyeMult = Math.max(0.4, 1 - (BO.SurvivalCareer?.masteryRank?.('deadeye') || 0) * 0.15) * (BO.GM?.active ? (BO.GM.get('rooms')?.gunWearMult?.() || 1) : 1); // Armory: Oiled
             const jamChance = weapon.cond < 45 ? (45 - weapon.cond) / 45 * 0.05 * (this.weather === 'Ash rain' ? 1.6 : 1) * deadeyeMult : 0;
             if (Math.random() < jamChance) {
                 this.jammed = weapon;

@@ -209,7 +209,7 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 
 ### Not verified
 - No human playthrough yet. Everything above was verified by scripted play in a browser, not by hand with mouse and keyboard.
-- Published: `survival-gold` was pushed to GitHub `master` on 2026-11-24 (commit 446b6a3), so the live site runs Survival Gold plus Phase 1 items 1.2, 1.4–1.6. Items 1.3 and 1.7 are on `survival-gold` only until the next push.
+- Published: `survival-gold` was pushed to GitHub `master` on 2026-11-24 (commit 446b6a3), so the live site runs Survival Gold plus Phase 1 items 1.2, 1.4–1.6. Items 1.3 and 1.7 went live on 2026-11-24 (e36407b).
 
 ---
 
@@ -217,7 +217,7 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 
 | # | Item | Status |
 |---|---|---|
-| 1.1 | Livestock pens | Not started (proposed as its own task) |
+| 1.1 | Livestock pens | **Done** — `src/gm/GMLivestock.js`: Chicken coop (wild eggs hatch into hens at dawn, max 4) and Goat pen (goat kid from goat hunts, 35%, max 3). 1 feed per animal per dawn (hens: crop seeds/wheat/berries; goats: fiber/herbs/wheat; trough 12). Fed animals produce eggs (+feathers) or goat milk (+wool every other day); two hungry dawns and one animal leaves. Tend panel, fenced pen with wandering animals, Base chip and Base card, saved in the checkpoint |
 | 1.2 | Composite armour | **Done** — `src/gm/GMArmor.js`: 3-slot plate vest (leather, bone & hide, ceramic, steel, composite), front plate sets absorption, HUD bars per plate, Base-screen repair/remove, death wear 25%, obsidian rig retired and converted, abyssal rig fills the vest |
 | 1.3 | Survivor Skills tree | **Done** — `src/gm/GMSkills.js`: replaces the random perk cards. 3 branches × 8 nodes (Survival: hunger, cold, stealth · Combat: recoil, reload, melee · Engineering: build cost, power, repair), 50 ranks, 1 point per level, spent any time in the Skills tab (K). Rows 2/3/4 of a branch open at 2/5/8 points spent in it. Nodes write the existing perk ranks, so saved runs keep cards they picked (listed as "Kept from perk cards"). New effects: Cold Blooded (cold feels +4 °C per rank, capped at 18 °C), Frugal Builder (−15% per material per rank, rounded, min 1; build menu, ghost and Next Up show the reduced cost), Field Mechanic (+35% from gun and tool repair kits per rank), Grid Tech (+20% power from generators, solar and wind per rank). Fixed in passing: GMGear and GMCatalogue left a stray `ZoneThrill.xp` copy behind after a run, and the skills wrapper now stacks with their XP bonuses instead of skipping them |
 | 1.4 | Tooltip comparison | **Done** — `src/gm/GMCompare.js`: weapon-pickup card with fixed stat rows and ▲/▼ vs the held weapon; plate comparison in the item panel |
@@ -227,3 +227,28 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 | 1.8 | Delete dead Deep code | Not started |
 
 Repository housekeeping: the seven `Blackout Ops - … backup` folders were moved to the Recycle Bin (every version is in this repo's history). Local branches are now `master` (tracks GitHub; the live site serves it) and `survival-gold` (this work, a fast-forward of `master`).
+
+
+# SYSTEMS & MENUS PASS (2026-11-25)
+
+## Connections added
+| System | What it connects | Where |
+|---|---|---|
+| Room types | Building → crafting, cooking, healing, storage, gun care. A shelter's furniture gives it purposes: Workshop (bench + chest: carried gear maintained to 75%), Kitchen (cooking fire + chest: every second dish doubles), Infirmary (2 beds: bleeding stops, +2 HP/s with no hostile in 15 m), Storeroom (4 storage: quick-stack 25 m), Armory (armoury bench: Oiled 10 min, half gun wear/jams). HUD chip and status icons; Base card lists rooms and what each is missing | `src/gm/GMRooms.js` |
+| Livestock | Hunting → farm → kitchen (eggs unlock 11 recipes) | `src/gm/GMLivestock.js` |
+| Research income | Exploration → base tech: +1 Tech Point per 3rd secured site and per completed Catalogue set (on top of shrines and bosses). Levels → skills; exploring → technology | `ZoneInfest.js`, `GMCatalogue.js` |
+| Research nodes | Four nodes pointed at retired systems; rewritten: Field Gunsmith (repair kits +30%), Field Power Grid (current grid text), Grid Overclock (+25% power), Master Toolsmith (tools wear 40% slower). Removed the stale +50 max-armour effect | `SurvivalDeepData.js`, `GMSkills.js`, `SurvivalPack.js` |
+
+## Bugs fixed
+- Every `.btn` with its own colours lost its background (global `!important`): the online-lobby button was dark text on nothing.
+- Escape did nothing on any menu screen (Legend, Settings, Mod Menu, Barracks…); windows stacked on top of each other. One handler now closes the top-most window or goes Back.
+- Modifier board: presets and curated packs squeezed the card list to ~1 row (102 px) at 720p. They now sit under the categories; the list gets the full column (all modes' lobbies and the Survival briefing).
+- Field Terminal at 1280×720 and 1920×1080: Catalogue/Guide tabs hid behind the clock; inventory filters and hotbar ran under the detail panel. Bigger compact window, tabs shed hotkeys, then the area name, then labels by measured width.
+- XP bar (z 60) drew over the pause menu's Restart button and over Controls; HUD trackers drew over open menus.
+- Crafting list offered retired "Upgrade to Mk II/III" recipes that only printed "retired".
+- Resuming a save: outposts lost their stash prompt, floodlights their light, concrete walls/e-fences their structure, stash uplinks their prompt (build hooks ran before the GM started).
+- Kitchen dish counter and livestock state now restore from the checkpoint.
+- Stale text: main-menu Survival card (fast travel), Field Guide alchemy/arcane entry, tech-point sources, chest footer hints.
+
+## Verified (scripted, in browser)
+Every menu screen and window audited for off-screen, covered, clipped and cut-off controls at 1024×640, 1280×720, 1366×768, 1600×900 and 1920×1080; three in-game days including a horde night with 0 errors; save → resume with rooms, pens, skills, outposts, floodlights, concrete walls and uplinks; all four modes started, run and switched with nothing left behind. Not verified: a human playthrough.

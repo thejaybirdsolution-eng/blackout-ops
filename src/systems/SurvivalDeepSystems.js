@@ -248,6 +248,7 @@
             if (techId === 't2_armory') ['mp5', 'r870', 'kar98k_irons', 'deagle'].forEach((s) => this.unlockedSchematics.add(s));
             if (techId === 't3_heavy_arms') ['m4a1', 'ak47', 'spas12_tac', 'katana_carbon'].forEach((s) => this.unlockedSchematics.add(s));
             if (techId === 't4_elite_arms') ['scarh', 'intervention', 'm249', 'raygun'].forEach((s) => this.unlockedSchematics.add(s));
+            this._computeModFx?.(); // research effects ride on modFx (gm/GMSkills.js mergeFx)
             this.recomputePlayerStats();
             this.campaign.mark('techUnlocked', 1, 35);
             BO.Sound?.playPerkBuy?.();
@@ -418,7 +419,7 @@
             const diff = targetMax - p.maxHp;
             p.maxHp = Math.max(40, targetMax);
             p.hp = BO.Math.clamp(p.hp + Math.max(0, diff), 1, p.maxHp);
-            p.maxArmor = mfx.disableArmor ? 0 : (150 + (this.hasTech('t4_mastery') ? 50 : 0));
+            p.maxArmor = mfx.disableArmor ? 0 : 150;
             if (mfx.disableArmor) { p.armor = 0; p.armorReservePlates = 0; }
         }
 

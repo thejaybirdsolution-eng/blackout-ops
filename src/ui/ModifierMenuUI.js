@@ -357,7 +357,10 @@
                 <header class="mmx-head mm-balance-slot">${parts.meterHtml}</header>
                 <div class="mmx-loadout"><span class="mmx-label">Active</span><div class="mm-tray-slot mmx-tray">${parts.trayHtml}</div></div>
                 <div class="mmx-main">
-                    <nav class="mm-tabs-slot mmx-rail" aria-label="Modifier categories">${parts.tabsHtml}</nav>
+                    <div class="mmx-side">
+                        <nav class="mm-tabs-slot mmx-rail" aria-label="Modifier categories">${parts.tabsHtml}</nav>
+                        <div class="mm-bundles-slot mmx-side-extras">${parts.bundlesHtml}</div>
+                    </div>
                     <section class="mmx-content">
                         <div class="mmx-toolbar">
                             <label class="mmx-search" data-tip-title="Search" data-tip="Search names, effects and categories. Descriptions are searched too, even though they only show on hover.">
@@ -366,7 +369,6 @@
                             <div class="mm-tier-slot mmx-segs">${parts.tierTabsHtml}</div>
                             <button type="button" class="mmx-only${st.onlyActive ? ' active' : ''}" data-mm-only-active data-tip-title="Only active" data-tip="Show only the modifiers you have switched on."><i></i>Only active</button>
                         </div>
-                        <div class="mm-bundles-slot">${parts.bundlesHtml}</div>
                         <div class="mm-body-slot mmx-body">${parts.groupsHtml}</div>
                     </section>
                 </div>

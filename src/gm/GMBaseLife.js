@@ -115,6 +115,7 @@
             if (ready) parts.push(ready + ' crop' + (ready === 1 ? '' : 's') + ' ready');
             if (dry) parts.push(dry + ' bed' + (dry === 1 ? '' : 's') + ' need water');
             if (genDry) parts.push('generator dry');
+            for (const id of GM.order) { const mod = GM.get(id); if (typeof mod.baseNeeds === 'function') { try { parts.push(...mod.baseNeeds()); } catch (err) { console.error('[GM:' + id + '] baseNeeds', err); } } }
             if (!parts.length) return [];
             return [{ text: 'Base · ' + parts.join(' · '), cls: out && c.isNight ? 'danger' : 'warn' }];
         },

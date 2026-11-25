@@ -223,7 +223,7 @@
         craft: ['bench', 'kiln', 'smelter', 'armoryBench', 'tanrack', 'smoker', 'cookstation', 'alchemyStand', 'arcaneTable', 'infuser'],
         light: ['campfire', 'firepit', 'wallTorch', 'lanternPost', 'floodlight', 'searchlight', 'beacon'],
         storage: ['chest', 'supplyCrate', 'ironVault', 'quantumChest', 'autoCollector', 'stashUplink'],
-        farm: ['planter', 'rainbarrel', 'compostBin', 'wellPump', 'hydro', 'purifier', 'growLamp'],
+        farm: ['planter', 'rainbarrel', 'compostBin', 'coop', 'goatPen', 'wellPump', 'hydro', 'purifier', 'growLamp'],
         defence: ['spikes', 'wire', 'barbedWire', 'spikeWall', 'sandbagWall', 'watchtower', 'turret', 'eFence', 'alarm'],
         power: ['generator', 'solarPanel', 'batteryBank', 'windTurbine', 'pylon']
     })) for (const id of ids) BUILD_TAB_OF[id] = tab;
@@ -1542,7 +1542,7 @@
                 build: 'Place walls, stations, storage, traps and machines in front of you.',
                 map: 'Field map, fast travel and vehicles.',
                 base: 'Power grid, territory, settlers, outposts, hauls, threat ladder and the weather forecast.',
-                skills: 'Technology tree, story progress and Archive mastery.',
+                skills: 'Survivor skills (one point per level), the Technology tree, story progress and Archive mastery.',
                 journal: 'Objective, challenges, contracts, activities and career.',
                 catalogue: 'Field Catalogue: everything you have found, what is still missing, and the set bonuses for completing each set.',
                 legend: 'Searchable encyclopedia of everything in Survival.'
@@ -1586,7 +1586,7 @@
             const k = (a) => `<kbd>${keyOf(a)}</kbd>`;
             switch (s) {
                 case 'inventory': return 'Drag items onto the hotbar · select an item and press 1–0 to place it · right-click a slot to clear it · <kbd>ESC</kbd> close';
-                case 'chest': return 'Click to inspect · double-click moves one · shift-click moves the whole stack · <kbd>ESC</kbd> close';
+                case 'chest': return 'Click to inspect · shift-click moves the stack · right-click moves half · shift+scroll or double-click moves one · <kbd>ESC</kbd> close';
                 case 'crafting': return 'Shift-click any recipe to craft · station recipes unlock within 4 m · ' + k('survCraft') + ' or <kbd>ESC</kbd> close';
                 case 'build': return 'Double-click any structure to start placing · <kbd>R</kbd> rotates · ' + k('survBuild') + ' or <kbd>ESC</kbd> close';
                 case 'fasttravel': return 'Click any unlocked beacon, fort, signpost or safehouse to travel · ' + k('survTravel') + ' or <kbd>ESC</kbd> close';
@@ -1855,7 +1855,7 @@
                     desc: 'Forge a ' + (spec?.name || sch.name) + ' and equip it' + (sch.ammo > 1 ? ' with ' + sch.ammo + ' rounds' : '') + '. Replaces the weapon in your active slot when both are full.',
                     lock: unlocked ? null : 'Research “' + techName(sch.tech) + '” or find its schematic.', forge: true });
             }
-            BO.Player.weapons.forEach((w, ref) => {
+            if (!BO.GM?.active) BO.Player.weapons.forEach((w, ref) => {
                 if (w.stats.kind === 'melee' || w.survivalCoil) return;
                 const mk = w.survivalMk || 1;
                 const base = mk === 1 ? { ingot: 2, scrap: 3 } : { ingot: 3, aetherShard: 1, wire: 2 };
@@ -2518,7 +2518,7 @@
                 <section class="sv-tech sv-scroll" data-scroll="tech">
                     ${BO.GM?.active ? (BO.GM.get('skills')?.renderTree?.() || '') : ''}
                     <div class="sv-sec-h"><h3>Technology</h3><span class="sv-pill">${infTp ? '∞ Tech Points' : deep.techPoints + ' Tech Point' + (deep.techPoints === 1 ? '' : 's')}</span>${offGrid ? '<span class="sv-pill warn">Automation disabled by modifier</span>' : ''}</div>
-                    <p class="sv-muted sm">Earn Tech Points by levelling up and defeating named infected.</p>
+                    <p class="sv-muted sm">Levels give skill points (above). Tech Points come from exploring: kindle Sites of Grace, defeat bosses, secure every third infested site and complete Field Catalogue sets.</p>
                     <div class="sv-tiers">${tiers}</div>
                 </section>
                 <aside class="sv-attrs sv-scroll" data-scroll="attrs">

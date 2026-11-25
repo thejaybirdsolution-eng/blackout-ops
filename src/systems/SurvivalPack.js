@@ -219,6 +219,7 @@
             if (!(this.tools[id] > 0)) return;
             let step = amount * (this.campaign.has('steadyTools') ? 0.5 : 1);
             if (this.campaign.deep?.hasInfusion('unbreaking')) step *= 0.4;
+            if (this.campaign.deep?.hasTech?.('t4_mastery')) step *= 0.6; // Master Toolsmith research
             this.tools[id] = Math.max(0, this.tools[id] - step);
             if (this.tools[id] === 0) {
                 this.mode.toast(nameOf(id) + ' wore out. Repair it with a field repair kit or craft a new one.');

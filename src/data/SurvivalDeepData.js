@@ -113,17 +113,17 @@
         { id: 't2_armory', tier: 2, cost: 1, name: 'Field Armory Schematics', req: 't1_fortifications', desc: 'Fabricate field-grade SMGs, shotguns, bolt rifles and sidearms at your Workbench.' },
         { id: 't2_automation', tier: 2, cost: 1, name: 'Automated Base Machines', req: 't1_doors', desc: 'Unlocks passive Auto-Smelter and Hydro-Collector stations.' },
         { id: 't2_tonics', tier: 2, cost: 1, name: 'Field Chem-Stims', req: 't1_alchemy', desc: 'Synthesize Heavy Combat Stim, Adrenaline Auto-Injector, Endurance Serum & Ballistic Focus.' },
-        { id: 't2_gunsmith', tier: 2, cost: 1, name: 'Weapon Mk II / III Bench', req: 't1_scavenge', desc: 'Upgrade equipped firearms at any Workbench up to Mk III (+45% DMG).' },
+        { id: 't2_gunsmith', tier: 2, cost: 1, name: 'Field Gunsmith', req: 't1_scavenge', desc: 'Gun and tool repair kits restore 30% more.' },
         // Tier 3
         { id: 't3_turrets', tier: 3, cost: 2, name: 'Automated Sentry Turrets', req: 't2_automation', desc: 'Unlocks automated Scrap Sentry Turrets that track & shoot threats.' },
-        { id: 't3_power', tier: 3, cost: 2, name: 'Field Power Grid', req: 't2_automation', desc: 'Unlocks Field Power Generator (2x smelter speed & +30% turret fire rate).' },
+        { id: 't3_power', tier: 3, cost: 2, name: 'Field Power Grid', req: 't2_automation', desc: 'Unlocks the field generator (6 power, burns fuel). Wire lights, turrets and machines with pylons; powered smelters run twice as fast.' },
         { id: 't3_heavy_arms', tier: 3, cost: 2, name: 'Heavy Weapon Schematics', req: 't2_armory', desc: 'Fabricate M4A1, AK-47, SPAS-12, and Carbon Breaching Blade at Workbench.' },
         { id: 't3_tactical', tier: 3, cost: 2, name: 'Field Relay & Stealth', req: 't2_tonics', desc: 'Unlocks buildable Field Relay Beacon and -25% crouch detection.' },
         // Tier 4
-        { id: 't4_infusion', tier: 4, cost: 2, name: 'Resonance Mod Bench', req: 't3_power', desc: 'Unlocks Resonance Mod Bench for Yield, Overcharge, Incendiary, Siphon & Unbreaking mods.' },
+        { id: 't4_infusion', tier: 4, cost: 2, name: 'Grid Overclock', req: 't3_power', desc: 'Every generator, solar panel and wind turbine makes 25% more power.' },
         { id: 't4_elite_arms', tier: 4, cost: 2, name: 'Black Pine Prototype Armory', req: 't3_heavy_arms', desc: 'Fabricate Intervention .408, SCAR-H, M249 SAW, and Black Pine Resonance Emitter.' },
         { id: 't4_orbital', tier: 4, cost: 2, name: 'Balloon Supply Support', req: 't3_turrets', desc: 'Craft Balloon Supply Flares and double all Auto-Turret magazine efficiency.' },
-        { id: 't4_mastery', tier: 4, cost: 2, name: 'Resonance Alloy Tools', req: 't2_gunsmith', desc: 'Unlocks Tier 4 Resonance Pick/Axe and grants +50 permanent max Armor capacity.' }
+        { id: 't4_mastery', tier: 4, cost: 2, name: 'Master Toolsmith', req: 't2_gunsmith', desc: 'Tools wear 40% slower.' }
     ];
 
     // 7 Minecraft-Style Aether Infusions (Up to 2 Active Simultaneously)

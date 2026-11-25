@@ -202,7 +202,8 @@ body.gm-fn-on #zt-contracts { display: none !important; }
 
 /* ---------- Survival Gold: crafting & build menus ---------- */
 .sv-rec-col { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
-.sv-rec-col > .sv-rec-list { flex: 1 1 auto; }
+.sv-rec-col > .sv-rec-list { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+.sv-rec-col > .sv-undiscovered, .sv-rec-col > .sv-search, .sv-bcol > .sv-undiscovered { flex: none; } /* the list scrolls; the footer never sits on top of it */
 .sv-search {
     width: 100%; box-sizing: border-box; height: 34px; padding: 0 12px;
     border-radius: 9px; border: 1px solid var(--sv-line); background: var(--sv-panel);
@@ -365,3 +366,33 @@ body.gm-skills-on .zt-xp .zt-ready { display: none !important; }
 .gm-sk.st-short { opacity: .85; }
 .gm-sk-legacy { margin-top: 8px; }
 @media (max-width: 1100px) { .gm-sk-cols { grid-template-columns: 1fr; } }
+
+/* ---------- Survival Gold: terminal layout fixes (menus audit) ---------- */
+/* The compact terminal was capped at 940 × 600: tabs hid behind the clock and the
+   inventory's filters and hotbar ran under the detail panel at 1280 × 720. */
+dialog.sv-shell.sv-compact { width: min(1180px, 96vw); height: min(720px, 90vh); }
+dialog.sv-shell.sv-compact[data-section="chest"] { width: min(1040px, 95vw); height: min(620px, 86vh); }
+/* Tabs shrink before they hide: keys go first, then labels (icons stay, with tooltips). */
+.sv-thead { container-type: inline-size; container-name: svhead; }
+.sv-tabs { min-width: 0; }
+@container svhead (max-width: 1700px) { .sv-tab kbd { display: none; } } /* hotkeys stay in each tab's tooltip */
+@container svhead (max-width: 1160px) { .sv-tab > span { display: none; } .sv-tab { padding: 0 9px; } .sv-tab.active > span { display: inline; } }
+@container svhead (max-width: 760px) { .sv-tab.active > span { display: none; } }
+.sv-filter, .sv-sort { flex-wrap: wrap; }
+.sv-inv-pack { min-width: 0; }
+.sv-hb-row { min-width: 0; }
+/* HUD trackers sat above open menus. */
+body:has(dialog.sv-shell[open]) :is(#gm-fn, #gm-next, #zt-contracts, #gm-feed, #gm-compare, #gm-look, #gm-cards) { visibility: hidden; }
+/* Pause, settings, legend and every other menu window: the XP bar (z 60) drew over their buttons. */
+body:has(.ui-modal:not(.hidden)) :is(#zt-hud, #gm-fn, #gm-next, #zt-contracts, #gm-feed, #gm-compare, #gm-look, #gm-cards, #gm-wheel) { visibility: hidden; }
+/* Room cards on the Base screen. */
+.gm-rooms li { flex-wrap: wrap; }
+.gm-rooms li small { flex-basis: 100%; }
+.gm-rooms-guide { margin-top: 8px; }
+.gm-rooms-guide summary { cursor: pointer; color: var(--sv-dim, #9fb3ad); font-size: 12px; }
+@container svhead (max-width: 1420px) { .sv-brand { width: 0; min-width: 0; overflow: hidden; visibility: hidden; margin-right: -14px; } }
+/* Livestock pen panel. */
+.gm-pen h4 { margin: 12px 0 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.gm-pen h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 6px; }
+.gm-pen-feed { display: flex; flex-wrap: wrap; gap: 6px; }
+.gm-pen .gm-warn { color: #fbbf24; font-size: 12px; margin: 6px 0; }
