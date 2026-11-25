@@ -168,7 +168,11 @@
 
     function toActiveSet(active) {
         const set = new Set();
-        if (Array.isArray(active)) {
+        // Callers pass arrays, {key: true} maps or Sets; a Set has no own entries, so it used to read as
+        // empty and every "Save set" / "Overwrite" silently saved nothing.
+        if (active instanceof Set) {
+            for (const k of active) if (k) set.add(k);
+        } else if (Array.isArray(active)) {
             for (const k of active) if (k) set.add(k);
         } else if (active && typeof active === 'object') {
             for (const [k, v] of Object.entries(active)) if (v) set.add(k);
@@ -272,7 +276,7 @@
         const exactMatch = (mods) => mods.length === activeSet.size && mods.every((k) => activeSet.has(k));
         const presetsHtml = `
             <div class="mmx-presets-bar">
-                <span class="mmx-label">Custom presets</span>
+                <span class="mmx-label">Custom presets${st.flashUntil > Date.now() ? ` <em class="mmx-flash">${esc(st.flash)}</em>` : ''}</span>
                 <div class="mmx-preset-form">
                     <input type="text" class="mmx-preset-input" data-mm-preset-name maxlength="28" placeholder="Preset name (e.g. Fast Chaos)…" value="${esc(st.draftName || '')}" title="Name your current modifier set to save and reuse anytime">
                     <button type="button" class="mmx-btn primary" data-mm-act="savepreset" ${stats.totalActive ? '' : 'disabled'} data-tip-title="Save custom preset" data-tip="${stats.totalActive ? 'Saves your current ' + stats.totalActive + ' active modifier(s) under this name for ' + mode.toUpperCase() + '. Typing an existing preset name updates it.' : 'Switch on at least 1 modifier first to save a preset.'}">★ Save set</button>
@@ -541,6 +545,9 @@
                 const pid = updPresetBtn.dataset.mmUpdatePreset;
                 if (updatePresetById(mode, pid, getActive())) {
                     BO.Sound?.playPerkBuy?.();
+                    const st = getState(mode);
+                    st.flash = '✓ Updated';
+                    st.flashUntil = Date.now() + 2600;
                     refreshShellInPlace(shell, mode, getActive(), false);
                 }
                 return;
@@ -570,6 +577,9 @@
                     const saved = savePreset(mode, rawName || fallback, cur);
                     if (saved) {
                         st.draftName = '';
+                        st.flash = '✓ Saved “' + saved.name + '”';
+                        st.flashUntil = Date.now() + 2600;
+                        setTimeout(() => refreshShellInPlace(shell, mode, getActive(), false), 2700);
                         BO.Sound?.playPerkBuy?.();
                         refreshShellInPlace(shell, mode, cur, false);
                     }

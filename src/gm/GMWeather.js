@@ -42,6 +42,7 @@
     const HALF_DAY = 12;
 
     const Weather = {
+        FRONTS, // read by gm/GMDev.js
         rate: 4,
 
         start(mode, saved) {

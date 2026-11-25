@@ -466,8 +466,22 @@
             document.getElementById('btn-pause-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
             const btnPauseControls = document.getElementById('btn-pause-controls');
             if (btnPauseControls) btnPauseControls.onclick = () => { BO.Sound.playUIClick(); BO.ControlsPanel.open(); };
-            document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
-            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
+            // Survival: leaving or restarting used to drop everything since the last save without a word.
+            // Save automatically when it is safe; otherwise ask, saying how much would be lost.
+            const survivalLeave = (verb) => {
+                const SM = BO.SurvivalMode;
+                if (BO.State.activeMode !== 'survival' || !SM?.active || !SM.campaign) return true;
+                const c = SM.campaign;
+                if (verb === 'exit' && c.canSave?.() && c.save(true)) { SM.toast?.('Progress saved.'); return true; }
+                const cp = BO.SurvivalCareer?.checkpoint;
+                const ago = cp ? Math.max(0, Math.round(SM.clock - cp.clock)) : null;
+                if (ago != null && ago < 15) return true; // nothing meaningful to lose
+                const lost = ago == null ? 'This run has never been saved' : 'Your last save was ' + (ago >= 60 ? Math.floor(ago / 60) + ' min ' : '') + (ago % 60) + ' s of play ago';
+                const why = verb === 'exit' ? ' and enemies are too close to save now' : '';
+                return window.confirm(lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?');
+            };
+            document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('restart')) return; this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
+            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('exit')) return; this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
 
             const pauseRoundInput = document.getElementById('pause-round-input');
             const btnPauseJump = document.getElementById('btn-pause-jump-round');
@@ -576,6 +590,12 @@
             BO.State.paused = open;
             if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
             this.updateCheatMenuVisibility();
+            const btnDev = document.getElementById('btn-pause-dev');
+            if (btnDev) {
+                const dev = BO.GM?.active ? BO.GM.get('dev') : null;
+                btnDev.classList.toggle('hidden', !open || !dev?.active);
+                btnDev.onclick = () => { this.setPauseOpen(false); dev?.toggle(true); };
+            }
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
             if (this.modalPause) this.modalPause.classList.toggle('hidden', !open);

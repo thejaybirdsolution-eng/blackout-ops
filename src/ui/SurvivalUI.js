@@ -476,6 +476,7 @@
                 const proj = this._mapProjection(drag.canvas);
                 const wx = Math.round(proj.wx(px));
                 const wz = Math.round(proj.wz(py));
+                if (BO.GM?.active && BO.GM.get('dev')?.mapClick?.(wx, wz)) return; // Dev Mode: click to teleport
                 if (this.mapWaypoint && Math.hypot(wx - this.mapWaypoint.x, wz - this.mapWaypoint.z) < 12 / Math.max(1, this.mapZoom)) {
                     this.mapWaypoint = null;
                 } else {
@@ -727,6 +728,7 @@
                     return;
                 }
                 case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
+                case 'devToggle': { const D = BO.GM?.get('dev'); if (D) { D.setEnabled(!D.enabled); BO.Sound?.playUIClick?.(); } return this.render(); }
                 case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
                 case 'closeBrief': return this.close();
@@ -1072,6 +1074,7 @@
                         <small>${career.level >= 50 ? 'Max level' : (career.nextXP - xp).toLocaleString() + ' XP to level ' + (career.level + 1)}</small></span>
                     </div>
                     <div class="sv-dhead-actions">
+                        <button class="sv-btn ${BO.GM?.get('dev')?.enabled ? 'dev-on' : 'ghost'}" data-act="devToggle"${tip('Dev Mode', 'Testing toolkit for Survival: god mode, creative flight, noclip, any item, free build, unlock or lock anything, spawn anything, teleport anywhere, and every mission with start / end / restart. Press F8 in a run to open the Dev panel. Dev runs show a DEV chip.', BO.GM?.get('dev')?.enabled ? 'ON · click to turn off' : 'OFF · click to turn on')}>${BO.GM?.get('dev')?.enabled ? '⚙ Dev mode ON' : '⚙ Dev mode'}</button>
                         <button class="sv-btn ghost" data-act="legendFromBrief"${tip('Field guide', 'Searchable encyclopedia of every survival system, item, structure and enemy.')}>Field guide</button>
                         <button class="sv-btn ghost" data-act="closeBrief"${tip('Back', 'Return to the main menu. Your settings are remembered.')}>✕ Back</button>
                     </div>
@@ -2090,8 +2093,10 @@
                     <h4 class="sv-sub">Vehicles <small>${c.vehicle ? 'Riding' : 'On foot'}</small></h4><div class="sv-tlist">${data.vehicles.map((v) => {
                         const owned = c.hasVehicle(v.id);
                         const on = c.vehicle === v.id;
-                        return `<button class="sv-trow ${on ? 'on' : ''}" data-act="ride" data-arg="${on ? 'off' : v.id}" ${owned ? '' : 'disabled'}${tip(v.name, v.detail, owned ? (on ? 'Click to dismount' : 'Click to ride · roads ×' + v.speed + ', off-road ×' + v.offroad) : 'Unlocks at survival level ' + v.level + ', from a Haven trade or a kit')}>
-                            ${Icons().named(v.id === 'mount' ? 'leaf' : 'gear', owned ? '#9fd4c7' : '#56645f', 16)}<b>${esc(v.name)}</b><small>${on ? 'Riding · click to dismount' : owned ? 'Road ×' + v.speed + ' · off-road ×' + v.offroad : 'Level ' + v.level}</small></button>`;
+                        // 1.0 vehicles are found in the world or built; the old level gate no longer exists.
+                        const how = v.found ? 'Parked at a ' + String(v.found).replace(/_/g, ' ') : v.build ? 'Build: ' + BO.SurvivalItemAmounts(v.build) : Number.isFinite(v.level) ? 'Level ' + v.level : 'Haven trade or a kit';
+                        return `<button class="sv-trow ${on ? 'on' : ''}" data-act="ride" data-arg="${on ? 'off' : v.id}" ${owned ? '' : 'disabled'}${tip(v.name, v.detail, owned ? (on ? 'Click to dismount' : 'Click to ride · roads ×' + v.speed + ', off-road ×' + v.offroad) : how)}>
+                            ${Icons().named(v.id === 'mount' ? 'leaf' : 'gear', owned ? '#9fd4c7' : '#56645f', 16)}<b>${esc(v.name)}</b><small>${on ? 'Riding · click to dismount' : owned ? 'Road ×' + v.speed + ' · off-road ×' + v.offroad : esc(how)}</small></button>`;
                     }).join('')}</div>
                     <h4 class="sv-sub">Regions <small>${c.visited.size}/${BO.Zone.REGIONS.length} discovered</small></h4><ul class="sv-region-list">${regions}</ul>
                 </aside></div>`;

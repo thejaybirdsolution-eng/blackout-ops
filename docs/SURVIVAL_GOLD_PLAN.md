@@ -252,3 +252,10 @@ Repository housekeeping: the seven `Blackout Ops - … backup` folders were move
 
 ## Verified (scripted, in browser)
 Every menu screen and window audited for off-screen, covered, clipped and cut-off controls at 1024×640, 1280×720, 1366×768, 1600×900 and 1920×1080; three in-game days including a horde night with 0 errors; save → resume with rooms, pens, skills, outposts, floodlights, concrete walls and uplinks; all four modes started, run and switched with nothing left behind. Not verified: a human playthrough.
+
+
+# DEV MODE, PRESETS & UI POLISH (2026-11-25)
+- **Custom modifier presets were broken in every mode**: the save path passed a `Set`, which the helper read as empty, so "Save set" and "Overwrite" stored nothing. Fixed in `ModifierMenuUI.toActiveSet`; verified save, overwrite, load, reload persistence and that a loaded Survival preset is what deploys. Saving now shows "✓ Saved".
+- **Survival Dev Mode** (`src/gm/GMDev.js`): Dev mode button on the deployment screen, F8 panel with Player, World, Items, Unlocks, Spawn, Teleport, Missions, Inspect and Debug tabs (see the file header). Patches unwind on exit; verified every action by script.
+- **UI polish layer** (`css/ui-polish.css`): tabbed windows keep one height, themed toggles/sliders, focus rings, disabled state, small-screen fallback.
+- **QoL**: leaving a Survival run saves automatically when safe and otherwise asks first (with time since the last save); restarting asks too. Map vehicle list said "Level Infinity" for every 1.0 vehicle; it now says where each is parked or what it costs to build.
