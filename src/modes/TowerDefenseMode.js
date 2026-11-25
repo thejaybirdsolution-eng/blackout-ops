@@ -762,9 +762,16 @@
 
         _spawnBossZombie() {
             const sp = this._pickTdSpawnPoint();
-            const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount));
-            const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
-            const bossSpec = BO.Math.pick(enabledB.length > 0 ? enabledB : unlockedB);
+            const defaultUnlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount));
+            const defaultSet = new Set(defaultUnlockedB.map((b) => b.id));
+            const eligibleB = BO.ZombiesData.ORDERED_BOSSES.filter((b) => {
+                if (this.disabledEnemySet.has(b.id)) return false;
+                if (BO.ZombieCustomizer) return BO.ZombieCustomizer.isSpecUnlocked(b, this.wave, defaultSet, !!this.modifiers.allEnemiesUnlocked);
+                return defaultSet.has(b.id);
+            });
+            const bossSpec = (BO.ZombieCustomizer && eligibleB.length > 0)
+                ? BO.ZombieCustomizer._pickWeightedInList(eligibleB)
+                : BO.Math.pick(eligibleB.length > 0 ? eligibleB : defaultUnlockedB);
             if (!bossSpec) return;
             const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
@@ -777,9 +784,16 @@
         _spawnWaveZombie() {
             const sp = this._pickTdSpawnPoint();
             if (this.modifiers.allBosses) {
-                const unlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount || BO.ZombiesData.ORDERED_BOSSES.length));
-                const enabledB = unlockedB.filter((b) => !this.disabledEnemySet.has(b.id));
-                const bossSpec = BO.Math.pick(enabledB.length > 0 ? enabledB : unlockedB);
+                const defaultUnlockedB = BO.ZombiesData.ORDERED_BOSSES.slice(0, Math.max(1, this.unlockedBossCount || BO.ZombiesData.ORDERED_BOSSES.length));
+                const defaultSet = new Set(defaultUnlockedB.map((b) => b.id));
+                const enabledB = BO.ZombiesData.ORDERED_BOSSES.filter((b) => {
+                    if (this.disabledEnemySet.has(b.id)) return false;
+                    if (BO.ZombieCustomizer) return BO.ZombieCustomizer.isSpecUnlocked(b, this.wave, defaultSet, true);
+                    return defaultSet.has(b.id);
+                });
+                const bossSpec = (BO.ZombieCustomizer && enabledB.length > 0)
+                    ? BO.ZombieCustomizer._pickWeightedInList(enabledB)
+                    : BO.Math.pick(enabledB.length > 0 ? enabledB : defaultUnlockedB);
                 if (bossSpec) {
                     const ent = new BO.ZombieEntity(this._buildZombieOpts(bossSpec, sp, true));
                     if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
@@ -792,8 +806,16 @@
             const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
             const baseBossPct = Number((this.config.customValues || {}).bossSpawnPct ?? 2.0);
             const effBossPct = baseBossPct + (this.wave > 10 ? (this.wave - 10) * 0.5 : 0);
-            const spec = BO.EnemyLab?.pick('td', this.wave, unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct) // Enemy Lab
-                || BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
+            const spec = BO.ZombieCustomizer
+                ? BO.ZombieCustomizer.pickEnemy({
+                    round: this.wave,
+                    unlockedEnemies,
+                    unlockedBosses,
+                    disabledSet: this.disabledEnemySet,
+                    bossChancePct: effBossPct,
+                    allUnlocked: !!this.modifiers.allEnemiesUnlocked
+                })
+                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
             const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, !!spec.isBoss));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
             BO.Mods.afterSpawn(this.modifiers, ent);

@@ -708,6 +708,7 @@
                     else if (set.size < total - 1) set.add(arg);
                     opts.disabledEnemies = [...set];
                     career.remember(opts);
+                    if (BO.ZombieCustomizer) BO.ZombieCustomizer.setDisabledEnemies(opts.disabledEnemies);
                     return this.renderBriefing();
                 }
                 case 'rosterBulk': {
@@ -716,7 +717,22 @@
                     // 'light' keeps the six lighter types; 'noHeavy' drops the three armoured heavies.
                     opts.disabledEnemies = arg === 'all' ? [] : arg === 'light' ? ids.slice(6) : ids.slice(-3);
                     career.remember(opts);
+                    if (BO.ZombieCustomizer) BO.ZombieCustomizer.setDisabledEnemies(opts.disabledEnemies);
                     return this.renderBriefing();
+                }
+                case 'openZombieCustomizer': {
+                    if (!BO.Menu || !BO.Menu.openEnemyPoolModal) return;
+                    BO.Sound?.playUIClick?.();
+                    const wasOpen = this.dialog && this.dialog.open;
+                    if (wasOpen) this.dialog.close();
+                    BO.Menu.openEnemyPoolModal({
+                        mode: 'survival',
+                        onClose: () => {
+                            if (wasOpen && this.dialog && !this.dialog.open) this.dialog.showModal();
+                            this.renderBriefing();
+                        }
+                    });
+                    return;
                 }
                 case 'deploy': {
                     const callback = this.deploy;
@@ -728,7 +744,6 @@
                     return;
                 }
                 case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
-                case 'enemyLab': BO.EnemyLab?.open('survival', () => this.render()); return;
                 case 'devToggle': { const D = BO.GM?.get('dev'); if (D) { D.setEnabled(!D.enabled); BO.Sound?.playUIClick?.(); } return this.render(); }
                 case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
@@ -1324,24 +1339,34 @@
             const offList = [];
             // Day thresholds are computed against the enabled roster, matching the in-game director.
             let enabledIndex = 0;
+            const zc = BO.ZombieCustomizer;
+            const withDay = [];
             list.forEach((z) => {
                 if (disabled.has(z.id)) {
                     offList.push(z);
                     return;
                 }
-                const d = unlockDay(enabledIndex++);
+                const customDay = zc ? zc.getStartRound(z.id) : null;
+                const d = customDay != null ? customDay : unlockDay(enabledIndex++);
+                withDay.push({ z, d, custom: customDay != null });
+            });
+            withDay.sort((a, b) => a.d - b.d);
+            withDay.forEach(({ z, d, custom }) => {
                 if (d !== lastDay) {
                     onRows.push(`<div class="sv-roster-day">Joins on day ${d}</div>`);
                     lastDay = d;
                 }
-                onRows.push(`<button class="sv-enemy on" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Enabled · joins Survival on day ' + d + ' · click to disable')}>
-                    <span class="sv-enemy-box">✓</span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
+                const modMark = zc && zc.isCustomized(z.id) ? ' ✎' : '';
+                onRows.push(`<button class="sv-enemy on" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Enabled · joins Survival on day ' + d + (custom ? ' (custom)' : '') + ' · click to disable')}>
+                    <span class="sv-enemy-box">✓</span><b>${esc(z.name)}${modMark}</b><small>${esc(z.rarity || '')}</small></button>`);
             });
             const offRows = offList.map((z) => `<button class="sv-enemy off" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Disabled · click to enable')}>
                     <span class="sv-enemy-box"></span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
-            return `<p class="sv-lede">The Exclusion Zone has twelve kinds of infected. They unlock from weakest to strongest as days pass; regions favour their own (riot walkers at Kessel, the drowned at the Spillway, stalkers in Pinebreak). Disable any you never want to meet; the rest shift earlier.</p>
-                <button class="sv-btn sm" data-act="enemyLab"${tip('Enemy Lab', 'Edit each infected type: health, speed and damage %, the day it starts appearing, and its spawn chance, plus a chance per category. Save and load named setups.', BO.EnemyLab ? (BO.EnemyLab.isDefault(BO.EnemyLab.get('survival')) ? 'All normal' : BO.EnemyLab.count(BO.EnemyLab.get('survival')) + ' changes active') : '')}>🧪 Enemy Lab: stats, start days &amp; spawn chances${BO.EnemyLab && !BO.EnemyLab.isDefault(BO.EnemyLab.get('survival')) ? ' · ' + BO.EnemyLab.count(BO.EnemyLab.get('survival')) + ' changes' : ''}</button>
+            const modCnt = zc ? zc.getCustomizedCount() : 0;
+            const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
+            return `<p class="sv-lede">Customize which infected appear, edit any zombie's stats (HP, speed, attack, armor, resistances), pick the exact day each zombie can start appearing, tune per-zombie &amp; category spawn %, and save setups.</p>
                 <div class="sv-row-actions">
+                    <button class="sv-btn primary sm" data-act="openZombieCustomizer"${tip('Zombie Customizer', 'Edit zombie stats, choose start day/round, edit per-zombie & category spawn %, and save/load zombie configs.')}>⚙ Edit Stats, Start Day, Spawn % &amp; Setups (${esc(setupName)}${modCnt ? ' · ' + modCnt + ' edited' : ''})</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="all"${tip('Enable all', 'Allow every infected variant to appear when its day comes.')}>Enable all</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="light"${tip('Lighter roster', 'Keep only the six lighter infected: no chargers, bloaters, riot walkers, stalkers or heavies.')}>Lighter six only</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="noHeavy"${tip('No heavies', 'Disable the shadow stalker, club goliath and iron juggernaut.')}>No heavies</button>

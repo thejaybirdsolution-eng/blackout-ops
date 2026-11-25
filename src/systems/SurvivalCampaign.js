@@ -76,8 +76,18 @@
             const list = this.roster;
             const areaSpec = data.areas.find((a) => a.id === area);
             const tierBoost = Math.max(0, (areaSpec?.tier || 1) - 1);
-            const threat = BO.SurvivalRules.threat((this.mode.threat?.day || this.day) + tierBoost, this.isNight, this.options, this.mode.difficultyRules, list.length);
-            const allowed = list.slice(0, Math.max(1, threat.poolSize));
+            const day = this.mode.threat?.day || this.day;
+            const threat = BO.SurvivalRules.threat(day + tierBoost, this.isNight, this.options, this.mode.difficultyRules, list.length);
+            const defaultAllowed = new Set(list.slice(0, Math.max(1, threat.poolSize)).map((z) => z.id));
+            const ZC = BO.ZombieCustomizer;
+            const allowed = list.filter((z) => {
+                if (ZC) {
+                    const customStart = ZC.getStartRound(z.id);
+                    if (customStart != null) return day >= customStart;
+                }
+                return defaultAllowed.has(z.id);
+            });
+            const finalAllowed = allowed.length ? allowed : list.slice(0, 1);
             const keywordsByArea = {
                 crash: 'shambler|ankle_biter', relay: 'shambler|ankle_biter|sprinter',
                 hollow: 'shambler|ankle_biter|hunch_spitter|one_arm_ripper',
@@ -90,10 +100,10 @@
                 crater: 'iron_juggernaut|club_goliath|shadow_stalker'
             };
             const keywords = [keywordsByArea[area], data.pools[kind]?.keywords].filter(Boolean).join('|');
-            const preferred = keywords ? allowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
+            const preferred = keywords ? finalAllowed.filter((z) => new RegExp(keywords, 'i').test(z.id)) : [];
             // Area flavour only takes over once it has real variety; the newest unlocks always stay in rotation.
-            if (preferred.length >= 3) return [...new Set([...preferred, ...allowed.slice(-2)])];
-            return allowed;
+            if (preferred.length >= 3) return [...new Set([...preferred, ...finalAllowed.slice(-2)])];
+            return finalAllowed;
         }
 
         /** Is a crafting station within reach? The Relay shelter doubles as workbench and stove. */

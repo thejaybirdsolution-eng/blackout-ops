@@ -60,7 +60,16 @@
                 const day = this.mode.threat?.day || this.day;
                 const tierBoost = Math.max(0, (BO.Zone.REGIONS.find((r) => r.id === area)?.threat || 1) - 1);
                 const n = this.has('sv_all_enemies') ? all.length : Math.min(all.length, 8 + (day - 1) * 6 + tierBoost * 3);
-                const allowed = all.slice(0, Math.max(1, n));
+                const defaultAllowed = new Set(all.slice(0, Math.max(1, n)).map((z) => z.id));
+                const ZC = BO.ZombieCustomizer;
+                const filtered = all.filter((z) => {
+                    if (ZC) {
+                        const customStart = ZC.getStartRound(z.id);
+                        if (customStart != null) return day >= customStart;
+                    }
+                    return defaultAllowed.has(z.id);
+                });
+                const allowed = filtered.length ? filtered : all.slice(0, 1);
                 const kw = KEY[area] ? new RegExp(KEY[area], 'i') : null;
                 const preferred = kw ? allowed.filter((z) => kw.test(z.id) || kw.test(z.name || '')) : [];
                 // Region favourites are doubled; the newest unlocks are always in the mix.

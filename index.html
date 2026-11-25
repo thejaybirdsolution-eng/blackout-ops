@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=sv9g1">
+    <link rel="stylesheet" href="css/styles.css?v=zc2">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=sv9">
     <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
@@ -30,6 +30,7 @@
     <script defer src="src/data/ExpansionData.js"></script>
     <script defer src="src/data/ProgressionData.js?v=sv9"></script>
     <script defer src="src/data/ZombiesData.js?v=sv9"></script>
+    <script defer src="src/systems/ZombieCustomizer.js?v=zc1"></script>
     <script defer src="src/data/MapsData.js?v=sv9"></script>
     <script defer src="src/data/ModeModifiersCatalog.js?v=sv9"></script>
     <script defer src="src/data/SurvivalData.js?v=20x1"></script>
@@ -61,13 +62,12 @@
     <script defer src="src/engine/PlayerController.js?v=sv9g1mg1"></script>
     <script defer src="src/engine/CombatSystem.js?v=sv9mg1"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
-    <script defer src="src/systems/EnemyLab.js?v=1"></script>
     <script defer src="src/entities/BotAI.js?v=z3"></script>
 
     <!-- Modes -->
-    <script defer src="src/modes/ZombiesMode.js?v=sv9g1"></script>
+    <script defer src="src/modes/ZombiesMode.js?v=zc1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=sv9"></script>
-    <script defer src="src/modes/TowerDefenseMode.js?v=sv9g1"></script>
+    <script defer src="src/modes/TowerDefenseMode.js?v=zc1"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=au1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
     <script defer src="src/systems/SurvivalPack.js?v=g5"></script>
@@ -75,7 +75,7 @@
     <script defer src="src/systems/SurvivalActivities.js?v=g7"></script>
     <script defer src="src/systems/SurvivalDeepSystems.js?v=sv9g2"></script>
     <script defer src="src/systems/SurvivalHotbar.js?v=sv9"></script>
-    <script defer src="src/systems/SurvivalCampaign.js?v=sv9g2"></script>
+    <script defer src="src/systems/SurvivalCampaign.js?v=zc1"></script>
     <script defer src="src/systems/ZoneLoot.js?v=f1"></script>
     <script defer src="src/systems/ZoneDirector.js?v=sv9"></script>
     <script defer src="src/systems/ZoneBuild.js?v=sv9g3"></script>
@@ -93,7 +93,7 @@
     <script defer src="src/systems/ZoneCompanions.js?v=g7"></script>
     <script defer src="src/systems/ZoneArmory.js?v=g7"></script>
     <script defer src="src/systems/ZoneDungeons.js?v=g9"></script>
-    <script defer src="src/systems/ZoneLegends.js?v=sv9"></script>
+    <script defer src="src/systems/ZoneLegends.js?v=zc1"></script>
     <script defer src="src/systems/ZoneQuests.js?v=g6"></script>
     <script defer src="src/systems/ZoneWorldPlus.js?v=sv9g1"></script>
     <script defer src="src/systems/ZoneSandbox.js?v=sv9"></script>
@@ -122,7 +122,7 @@
     <script defer src="src/gm/GMHud.js?v=gm1"></script>
     <script defer src="src/gm/GMGuide.js?v=g4"></script>
     <script defer src="src/gm/GMUI.js?v=g1"></script>
-    <script defer src="src/modes/SurvivalMode.js?v=sv9g5"></script>
+    <script defer src="src/modes/SurvivalMode.js?v=zc1"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=polish2"></script>
@@ -130,12 +130,12 @@
     <script defer src="src/ui/HUDController.js?v=sv9g1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=sv9g3"></script>
-    <script defer src="src/ui/MenuController.js?v=sv9g6mg1"></script>
+    <script defer src="src/ui/MenuController.js?v=zc1mg1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
     <script defer src="src/ui/SurvivalLegend.js?v=sv9g2"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
-    <script defer src="src/ui/SurvivalUI.js?v=sv9g12"></script>
+    <script defer src="src/ui/SurvivalUI.js?v=zc1"></script>
     <script defer src="src/ui/SurvivalJournal.js?v=g6"></script>
     <script defer src="src/ui/ControlsPanel.js?v=polish1g2"></script>
     <!-- Minigames (Target Practice, Boss Rush, Whack-a-Mole) -->
@@ -170,7 +170,7 @@
                     <button class="mode-card mode-card-z" id="btn-menu-zombies" data-tip-title="Zombies" data-tip="Survive endless rounds of 70 unique zombies, 10 bosses & 5 colossal Super Bosses. Buy doors, drink perks, spin the Mystery Box and Pack-a-Punch your guns.">
                         <span class="mode-card-ico">🧟</span>
                         <span class="mode-card-text">
-                            <b>ZOMBIES</b>
+                            <b>ZOMBIES <span class="mode-card-badge">alpha demo</span></b>
                             <small>Round-based survival • 70 enemies • 15 bosses &amp; Super Bosses • Pack-a-Punch</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -178,7 +178,7 @@
                     <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Arena matches against AI bots or friends: Team Deathmatch, Free-for-All, Domination, Hardpoint and Gun Game, with custom modifier presets.">
                         <span class="mode-card-ico">🎯</span>
                         <span class="mode-card-text">
-                            <b>MULTIPLAYER</b>
+                            <b>MULTIPLAYER <span class="mode-card-badge">alpha demo</span></b>
                             <small>5 modes • 6 arenas • contextual vaulting • custom presets &amp; killcam</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -186,7 +186,7 @@
                     <button class="mode-card mode-card-survival" id="btn-menu-survival" data-tip-title="Exclusion Zone Survival" data-tip="Open-world survival: gather and build your first shelter before dark, then grow a base with rooms, farms and livestock, raid sites for loot, level Survivor Skills, fill the Field Catalogue and hunt seven bosses.">
                         <span class="mode-card-ico" aria-hidden="true">◈</span>
                         <span class="mode-card-text">
-                            <b>SURVIVAL</b>
+                            <b>SURVIVAL <span class="mode-card-badge">Tech Demo / Proof of Concept</span></b>
                             <small>Open-world Zone • build, farm, raid &amp; hunt seven bosses</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -194,7 +194,7 @@
                     <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
                         <span class="mode-card-ico">🏰</span>
                         <span class="mode-card-text">
-                            <b>TOWER DEFENSE</b>
+                            <b>TOWER DEFENSE <span class="mode-card-badge">alpha demo</span></b>
                             <small>3 castles • sniper towers • shopkeeper • turrets &amp; deployables</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -484,7 +484,6 @@
                     <button class="btn btn-sm js-quick-round" data-rnd="50">RD 50 BOSS</button>
                 </div>
             </div>
-            <button class="btn hidden" id="btn-pause-lab" style="border-color:#f472b6;color:#f9a8d4;" data-tip-title="Enemy Lab" data-tip="Edit zombie stats, start rounds and spawn chances, and load saved setups. Changes apply to zombies that spawn from now on.">🧪 ENEMY LAB</button>
             <button class="btn hidden" id="btn-pause-dev" style="border-color:#a78bfa;color:#c4b5fd;" data-tip-title="Dev panel" data-tip="Open the Survival Dev panel (also F8).">⚙ DEV PANEL [F8]</button>
             <button class="btn" id="btn-pause-legend" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Master Legend & Codex" data-tip="Searchable codex of all weapons, 70 unique zombies, 15 bosses & Super Bosses, perks, Survival crafting, and cheat codes.">LEGEND &amp; CODEX</button>
             <button class="btn" id="btn-pause-settings" data-tip-title="Settings & Cheat Codes" data-tip="Customize controls, sound, video, GFX, blood, fullscreen, save game, or type cheat codes.">SETTINGS &amp; CHEAT CODES</button>
@@ -675,26 +674,46 @@
         </div>
     </div>
 
-    <!-- CUSTOMIZE ENEMY POOL MODAL (ENABLE / DISABLE ANY OF 70 ENEMIES + 15 BOSSES + LIVE 3D HOVER PREVIEW!) -->
+    <!-- CUSTOMIZE ENEMY POOL & ZOMBIE STATS MODAL (APPLIES TO SURVIVAL, ZOMBIES & TOWER DEFENSE) -->
     <div id="modal-enemy-pool" class="ui-modal hidden">
-        <div class="modal-box" style="width:min(1220px,97vw);max-height:92vh;display:flex;flex-direction:column;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div class="modal-box" style="width:min(1340px,98vw);max-height:94vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
                 <div>
-                    <h2 style="margin:0;letter-spacing:2px;color:#f87171;">🧟 CUSTOMIZE ENEMY POOL (70 ZOMBIES + 15 BOSSES &amp; SUPER BOSSES)</h2>
-                    <div style="font-size:12px;color:var(--text-dim);">Hover over any enemy to inspect its LIVE 3D MODEL! Spawn rates: Easy 50% • Normal 25% • Hard 15% • Boss &amp; Super Boss 10%.</div>
+                    <h2 style="margin:0;letter-spacing:2px;color:#f87171;">🧟 ZOMBIE CUSTOMIZER &amp; ENEMY POOL</h2>
+                    <div id="ep-modal-sub" style="font-size:12px;color:var(--text-dim);">Edit stats, start round/day, per-zombie &amp; category spawn %, and save setups — applies to Survival, Zombies &amp; Tower Defense.</div>
                 </div>
-                <div style="display:flex;gap:6px;">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
                     <button class="btn btn-sm" id="btn-ep-all-on" style="border-color:#22c55e;color:#4ade80;">ENABLE ALL</button>
                     <button class="btn btn-sm" id="btn-ep-all-off" style="border-color:#ef4444;color:#f87171;">DISABLE ALL</button>
+                    <button class="btn btn-sm" id="btn-ep-reset-all" style="border-color:#f59e0b;color:#fbbf24;">RESET ALL</button>
                     <button class="btn btn-sm btn-primary" id="btn-ep-close">SAVE &amp; CLOSE</button>
                 </div>
             </div>
+            <!-- Saved Setups / Configs & Search Bar -->
+            <div id="ep-presets-bar" class="ep-toolbar">
+                <div class="ep-toolbar-group">
+                    <span class="ep-tb-lbl">SETUP:</span>
+                    <select id="ep-preset-select" class="ep-select" title="Load a saved zombie setup"></select>
+                    <input type="text" id="ep-preset-name" class="ep-input" placeholder="New setup name..." maxlength="48">
+                    <button class="btn btn-sm" id="btn-ep-save-preset" style="border-color:#38bdf8;color:#7dd3fc;">SAVE SETUP</button>
+                    <button class="btn btn-sm" id="btn-ep-del-preset" style="border-color:#ef4444;color:#fca5a5;">DELETE</button>
+                    <button class="btn btn-sm" id="btn-ep-export" title="Copy setup JSON to clipboard">EXPORT</button>
+                    <button class="btn btn-sm" id="btn-ep-import" title="Paste setup JSON">IMPORT</button>
+                </div>
+                <div class="ep-toolbar-group">
+                    <input type="search" id="ep-search" class="ep-input ep-search" placeholder="Search zombies or bosses...">
+                </div>
+            </div>
+            <!-- Category Spawn % Bar -->
+            <div id="ep-cat-bar" class="ep-cat-bar"></div>
             <div style="display:flex;gap:14px;flex:1;min-height:0;overflow:hidden;">
                 <div id="enemy-pool-body" style="flex:1;overflow-y:auto;padding-right:6px;"></div>
-                <div id="enemy-preview-panel" style="width:290px;flex-shrink:0;display:flex;flex-direction:column;background:rgba(6,10,18,0.92);border:1px solid rgba(56,189,248,0.35);border-radius:10px;padding:12px;gap:10px;">
-                    <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#38bdf8;text-align:center;">LIVE 3D ENEMY PREVIEW</div>
-                    <canvas id="enemy-preview-canvas" width="264" height="264" style="width:264px;height:264px;border-radius:8px;background:radial-gradient(circle at 50% 45%,#1e293b,#060911);border:1px solid rgba(148,163,184,0.22);"></canvas>
-                    <div id="enemy-preview-info" style="font-size:12px;color:#cbd5e1;line-height:1.45;">Hover over any zombie or boss on the left to inspect its 3D model, stats &amp; abilities!</div>
+                <div id="enemy-preview-panel" style="width:355px;flex-shrink:0;display:flex;flex-direction:column;background:rgba(6,10,18,0.95);border:1px solid rgba(56,189,248,0.35);border-radius:10px;padding:12px;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <canvas id="enemy-preview-canvas" width="144" height="144" style="width:128px;height:128px;flex-shrink:0;border-radius:8px;background:radial-gradient(circle at 50% 45%,#1e293b,#060911);border:1px solid rgba(148,163,184,0.22);"></canvas>
+                        <div id="enemy-preview-info" style="font-size:11.5px;color:#cbd5e1;line-height:1.4;min-width:0;flex:1;">Click any zombie or boss on the left to edit its stats, start round/day &amp; spawn %!</div>
+                    </div>
+                    <div id="enemy-editor-form" class="ep-editor-form"></div>
                 </div>
             </div>
         </div>

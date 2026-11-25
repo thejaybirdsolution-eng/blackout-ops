@@ -382,18 +382,31 @@
             if (!required && type === 'normal' && this.campaign.has('noRoamers')) return null;
             const candidates = this.campaign?.selectedEnemies?.length ? this.campaign.selectedEnemies : BO.Zone.bestiary().slice(0, 4);
             const boss = BO.ZoneBosses?.isBoss(type);
-            const labPick = !savedSpec && !boss && type === 'normal' ? BO.EnemyLab?.pick('survival', this.campaign?.day || 1, candidates, [], new Set(this.campaign?.options?.disabledEnemies || []), 0) : null; // Enemy Lab
-            const spec = savedSpec ? BO.ZombiesData.get(savedSpec) : boss ? BO.ZoneBosses.spec(type) : (labPick || BO.Math.pick(candidates));
+            const disSet = new Set(this.campaign?.options?.disabledEnemies || []);
+            const day = this.campaign?.day || 1;
+            const ZC = BO.ZombieCustomizer;
+            const spec = savedSpec
+                ? BO.ZombiesData.get(savedSpec)
+                : boss
+                    ? BO.ZoneBosses.spec(type)
+                    : (ZC ? ZC.pickFromSurvivalPool(candidates, day, disSet) : BO.Math.pick(candidates));
             if (!spec) return null;
             const mfx = this.campaign?.deep?.modFx || {};
             const groundY = y ?? BO.World.getGroundHeight(x, z, 80);
-            const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y: groundY, z, round: 1,
+            const hasCustomHp = !!(ZC && ZC.hasStatOverride(spec.id, 'hp'));
+            const hasCustomSpd = !!(ZC && ZC.hasStatOverride(spec.id, 'speed'));
+            const hasCustomAtk = !!(ZC && ZC.hasStatOverride(spec.id, 'attack'));
+            const baseHp = hasCustomHp ? spec.hp : (boss ? BO.ZoneBosses.hp(type) : Math.min(340, spec.hp * 0.75));
+            const baseSpd = hasCustomSpd ? spec.speed : (boss ? 2.6 : Math.min(4.9, spec.speed));
+            const baseAtk = hasCustomAtk ? spec.attack : (boss ? 32 : 13);
+            const entity = new BO.ZombieEntity({ id: this.nextEnemy++, spec, x, y: groundY, z, round: day,
                 // 1.0: no calendar or tier HP inflation. Escalation comes from the Behaviour Ladder (gm/GMThreat.js).
-                hp: Math.round(this.difficultyRules.hp * (boss ? BO.ZoneBosses.hp(type) : Math.min(340, spec.hp * 0.75))),
-                speed: (boss ? 2.6 : Math.min(4.9, spec.speed)) * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
-                damage: Math.round((boss ? 32 : 13) * this.difficultyRules.damage) });
+                hp: Math.max(1, Math.round(this.difficultyRules.hp * baseHp)),
+                speed: baseSpd * (this.campaign?.isNight && mfx.nightEnemySpdMult ? mfx.nightEnemySpdMult : 1),
+                damage: Math.max(0, Math.round(baseAtk * this.difficultyRules.damage)) });
             entity.survivalType = type;
             if (boss) entity.bossLabel = BO.ZoneBosses.label(type);
+            else if (spec.isBoss) entity.bossLabel = spec.name;
             this.zombies.push(entity);
             BO.ZoneThrill?.onSpawn(entity, type, required);
             BO.GM?.call('onSpawn', entity, type, required);
