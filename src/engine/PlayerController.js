@@ -714,6 +714,7 @@
             if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus) amount *= BO.ZoneWorldPlus.incomingDamageMult();
             if (BO.State.activeMode === 'survival' && BO.GM?.active) amount *= BO.GM.incomingDamageMult();
             if (BO.State.activeMode === 'rpg' && BO.RPGMode?.active) amount = BO.RPGMode.modifyIncomingDamage(amount, attackerPos, attackerEntity);
+            if (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active) amount = BO.OWRPGMode.modifyIncomingDamage(amount, attackerPos, attackerEntity);
             if (this.mpPerks.includes('bulwark') && this.crouching && Math.hypot(this.vel.x, this.vel.z) < 0.3) amount *= 0.78;
             if (BO.State.activeMode === 'zombies' && amount > 0) {
                 const mode = BO.ZombiesMode;
@@ -778,6 +779,8 @@
                     });
                 } else if (BO.State.activeMode === 'rpg' && BO.RPGMode?.tryPreventDeath?.(this)) {
                     // Last Bastion / Second Wind / Field Medic kept the player standing.
+                    return;
+                } else if (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.tryPreventDeath?.(this)) {
                     return;
                 } else if (BO.State.activeMode === 'survival' && BO.ZoneWorldPlus?.tryPreventFatalDamage?.(this)) {
                     // Totem of Undying consumed — player remains alive with restored HP & shockwave!
@@ -894,7 +897,7 @@
             } else if (this.hp < this.maxHp) {
                 const activeMods = BO.Mods ? BO.Mods.active() : {};
                 // RPG mode has no regeneration: potions and Rest rooms are the attrition economy.
-                if (BO.State.activeMode !== 'survival' && BO.State.activeMode !== 'rpg' && !activeMods.noRegen && !this.matchRules.noHealthRegen) {
+                if (BO.State.activeMode !== 'survival' && BO.State.activeMode !== 'rpg' && BO.State.activeMode !== 'owrpg' && !activeMods.noRegen && !this.matchRules.noHealthRegen) {
                     const regenRate = (this.zombiePerks.has('quick_revive') ? 45 : 28) * (BO.Mods ? BO.Mods.regenMult() : 1);
                     this.hp = Math.min(this.maxHp, this.hp + regenRate * dt);
                 }
@@ -1176,6 +1179,7 @@
             this.inSwampMud = BO.World.isInSlowZone(this.pos.x, this.pos.y, this.pos.z) && !this.sliding && this.onGround;
             if (this.inSwampMud && !this.mpPerks.includes('mudskipper')) speed *= 0.62;
             if (BO.State.activeMode === 'survival') speed *= BO.SurvivalMode.campaign?.speed || 1;
+            if (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active) speed *= BO.OWRPGMode.speedMult();
             speed *= gunMoveMult;
 
             if (this.sliding) {

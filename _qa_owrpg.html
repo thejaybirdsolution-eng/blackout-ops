@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blackout Ops — Open World RPG QA Suite</title>
+<style>
+  body { margin: 0; background: #0a0b08; color: #e7e5e4; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  #bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #14120c; border-bottom: 1px solid #3a2f17; }
+  #status { font-weight: bold; color: #f5a623; }
+  #main { display: flex; flex: 1; min-height: 0; }
+  #log { width: 470px; overflow-y: auto; padding: 10px; border-right: 1px solid #3a2f17; font-size: 11.5px; line-height: 1.45; }
+  iframe { flex: 1; border: 0; }
+  .pass { color: #4ade80; } .fail { color: #f87171; font-weight: bold; } .info { color: #a8a29e; }
+</style>
+</head>
+<body>
+<div id="bar"><span id="status">RUNNING…</span><span class="info">Boots index.html in an iframe, runs the OWRPG validator and scripted playthroughs. Real localStorage is snapshotted and restored.</span></div>
+<div id="main"><div id="log"></div><iframe id="game" src="about:blank"></iframe></div>
+<script>
+(async function () {
+  const logEl = document.getElementById('log'), statusEl = document.getElementById('status');
+  const results = [];
+  const log = (m, c = '') => { const d = document.createElement('div'); d.className = c; d.textContent = m; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; };
+  const check = (name, cond, detail = '') => { results.push(!!cond); log(`${cond ? 'PASS' : 'FAIL'} — ${name}${detail ? ' (' + detail + ')' : ''}`, cond ? 'pass' : 'fail'); };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Snapshot real storage; tests run on a scratch copy and the original is restored on exit.
+  const saved = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); saved[k] = localStorage.getItem(k); }
+  const restore = () => { localStorage.clear(); for (const [k, v] of Object.entries(saved)) localStorage.setItem(k, v); };
+  window.addEventListener('beforeunload', restore);
+
+  const frame = document.getElementById('game');
+  frame.src = 'index.html?qa=owrpg';
+  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+  const W = frame.contentWindow;
+  const errors = [];
+  W.addEventListener('error', (e) => errors.push(e.message));
+  for (let i = 0; i < 100 && !(W.BO && W.BO.App && W.BO.OWRPGMode); i++) await wait(100);
+  const BO = W.BO;
+  try {
+    // --- 1. Validator
+    const v = BO.OWRPGValidator.runAll();
+    check('Validator: 0 errors', v.errors.length === 0, v.errors.slice(0, 3).join(' | '));
+    log(`validator warnings: ${v.warnings.length}`, 'info');
+
+    // --- 2. New character + derived stats
+    BO.State.paused = true;
+    BO.App.startMatch({ mode: 'owrpg', slot: 2, newChar: { name: 'QA', attrs: { BRW: 7, RFX: 5, TCH: 7, PRC: 7, PRS: 7 }, difficulty: 'tactical' } });
+    BO.State.paused = true;
+    const M = BO.OWRPGMode, s = M.state, P = BO.Player, C = BO.OWRPGCharacter, Q = BO.OWRPGQuests, I = BO.OWRPGInventory;
+    check('Mode active on meridian map', M.active && BO.World.mapData.id === 'meridian');
+    check('Max HP = 60 + 8·BRW', P.maxHp === 60 + 8 * 7, `hp ${P.maxHp}`);
+    check('Carry = 35 + 6·BRW', C.derived(s).maxWeight === 35 + 6 * 7);
+    check('Weakspot multiplier = 1.5 + 0.045·PRC', Math.abs(C.derived(s).critMult - (1.5 + 0.045 * 7)) < 1e-6);
+    check('XP curve L1 = 200', BO.OWRPGStatsData.xpToNext(1) === 200);
+    check('Starter loadout equipped', P.weapons.length === 2 && !!I.equippedEntry(s, 'rig'));
+
+    // --- 3. Combat pipeline + reaction
+    const pump = BO.OWRPGWorldData.POIS.find((p) => p.id === 'pump_three');
+    P.pos.set(pump.x + 30, BO.World.terrainHeight(pump.x + 30, pump.z) + 0.3, pump.z);
+    BO.OWRPGWorldSim.tick1(1);
+    const agent = BO.OWRPGAI.agents.find((a) => a.poiId === 'pump_three');
+    check('POI streaming spawned agents', !!agent, `${BO.OWRPGAI.agents.length} agents`);
+    if (agent) {
+      const hp0 = agent.ent.hp;
+      BO.OWRPGCombat.applyStatus(agent, 'chill');
+      const fired = BO.OWRPGCombat.detonate(agent, 20);
+      check('Primer + Detonator fires a reaction', fired === 1 && (agent.ent.hp < hp0 || !agent.alive));
+    }
+
+    // --- 4. Quest: three resolution paths
+    const resetQ = () => { delete s.quests.q_dry_artery; for (const f of ['culvert_valve_pulled', 'junction_rerouted', 'mags_shutoff', 'kessler_betrayed']) delete s.worldFlags[f]; I.remove(s, 'syndicate_ledger', 9); I.remove(s, 'bypass_valve', 9); };
+    // Tech path through dialogue + terminal.
+    resetQ();
+    let node = BO.OWRPGDialogue.entry(s, 'kessler');
+    check('Kessler opens on intro', node === 'intro_1');
+    const techIdx = BO.OWRPGDialogueData.TREES.kessler.nodes.intro_1.choices.findIndex((c) => c.req && c.req.attr && c.req.attr[0] === 'TCH');
+    BO.OWRPGDialogue.choose(s, 'kessler', 'intro_1', techIdx);
+    check('TCH 6 choice grants schematic + starts quest', I.has(s, 'pressure_schematic') && Q.get(s, 'q_dry_artery').stage === 'investigate');
+    M.setFlag('junction_rerouted', true);
+    check('Reroute advances to report', Q.get(s, 'q_dry_artery').stage === 'report');
+    check('Kessler turn-in node', BO.OWRPGDialogue.entry(s, 'kessler') === 'turnin');
+    const rep0 = s.factions.militia;
+    Q.complete(s, 'q_dry_artery', 'reroute');
+    check('Reroute branch completes with Militia rep', Q.get(s, 'q_dry_artery').state === 'completed' && s.factions.militia > rep0);
+    // Sequence break: pull the valve before ever meeting Kessler.
+    resetQ();
+    M.setFlag('culvert_valve_pulled', true);
+    check('Sequence break → Kessler reacts (prefixed)', BO.OWRPGDialogue.entry(s, 'kessler') === 'prefixed');
+    BO.OWRPGDialogue.choose(s, 'kessler', 'prefixed', 0);
+    check('Prefixed node jumps to report', Q.get(s, 'q_dry_artery').stage === 'report');
+    // Social path with Mags (PRS 7).
+    resetQ();
+    Q.start(s, 'q_dry_artery');
+    const pumpNode = BO.OWRPGDialogueData.TREES.mags.nodes.pump;
+    const prsIdx = pumpNode.choices.findIndex((c) => c.req && c.req.attr && c.req.attr[0] === 'PRS');
+    check('PRS 7 option visible + passes', BO.OWRPGDialogue.check(s, pumpNode.choices[prsIdx].req) === '');
+    BO.OWRPGDialogue.choose(s, 'mags', 'pump', prsIdx);
+    check('Mags shut-off advances quest', s.worldFlags.mags_shutoff && Q.get(s, 'q_dry_artery').stage === 'report');
+    const syn0 = s.factions.syndicate;
+    Q.complete(s, 'q_dry_artery', 'diplomacy');
+    check('Diplomacy branch raises both Militia and Syndicate', s.factions.syndicate > syn0);
+
+    // --- 5. Faction spillover math
+    const a0 = s.factions.aegis, h0 = s.factions.helix;
+    BO.OWRPGFactions.add(s, 'aegis', 100, { raw: true });
+    check('Rival spillover = −50%', s.factions.aegis === a0 + 100 && s.factions.helix === h0 - 50);
+
+    // --- 6. Perks are mutually exclusive
+    s.player.level = 6; s.player.perkPoints = 3;
+    C.takePerk(s, 'ghost_t1_softstep');
+    check('XOR perk locks its pair', C.perkBlock(s, 'ghost_t1_suppressed') === 'Locked by choice');
+
+    // --- 7. Interior enter/exit
+    const hatch = BO.OWRPGWorldData.INTERACTS.find((i) => i.id === 'h_culvert');
+    BO.OWRPGInteriors.enter(hatch.to, 'culvert');
+    check('Entered sealed interior', BO.OWRPGWorldData.isInterior(P.pos.x, P.pos.z));
+    const ex = BO.OWRPGWorldData.INTERACTS.find((i) => i.id === 'x_culvert');
+    BO.OWRPGInteriors.exit(ex.to);
+    check('Exited to the surface', !BO.OWRPGWorldData.isInterior(P.pos.x, P.pos.z) && s.player.interiorId === null);
+
+    // --- 8. Save round-trip
+    BO.OWRPGAI.clear();
+    P.onGround = true;
+    M.save(2, 'QA');
+    const raw = JSON.stringify(BO.OWRPGSave.read(2));
+    const before = JSON.stringify(M._snapshot());
+    s.player.credits = -999;
+    const back = BO.OWRPGSave.read(2);
+    check('Save → wipe → read deep-equals', JSON.stringify(back) === raw && raw === before);
+    const migrated = BO.OWRPGSave.migrate({ schemaVersion: 1, slots: [{ player: { name: 'OLD' } }] });
+    check('Migration fills missing keys', migrated.slots[0].player.attrs && migrated.slots[0].factions && migrated.slots[0].quests);
+    check('Save size < 250 KB', BO.OWRPGSave.byteSize() < 250 * 1024, (BO.OWRPGSave.byteSize() / 1024).toFixed(1) + ' KB');
+
+    // --- 9. Frame budget
+    BO.State.paused = false;
+    await wait(800);
+    const r = BO.App.renderer;
+    r.info.autoReset = false; r.info.reset();
+    await new Promise((res) => W.requestAnimationFrame(res));
+    const calls = r.info.render.calls; r.info.autoReset = true;
+    // Frame cost (sim + world render), independent of the host's vsync/throttling.
+    BO.State.paused = true;
+    const times = [];
+    for (let n = 0; n < 60; n++) {
+      const t0 = W.performance.now();
+      P.update(1 / 60, BO.App.worldCamera); M.update(1 / 60);
+      r.render(BO.World.scene, BO.App.worldCamera); r.getContext().finish();
+      times.push(W.performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    const med = times[Math.floor(times.length / 2)];
+    check('Draw calls < 200 (target 180)', calls < 200, `${calls} calls`);
+    check('Median frame cost < 16.6 ms', med < 16.6, med.toFixed(1) + ' ms');
+
+    BO.OWRPGSave.remove(2);
+    BO.App.exitToMenu();
+    check('No uncaught errors', errors.length === 0, errors.slice(0, 2).join(' | '));
+  } catch (e) {
+    check('Suite crashed', false, e.stack);
+  }
+  restore();
+  const pass = results.filter(Boolean).length;
+  statusEl.textContent = `${pass} / ${results.length} PASSED`;
+  statusEl.style.color = pass === results.length ? '#4ade80' : '#f87171';
+  window.__qaResult = { pass, total: results.length };
+})();
+</script>
+</body>
+</html>

@@ -50,6 +50,18 @@
             ['Contracts and the Collection', 'Pick a contract before you leave and extract after finishing its objective to receive the payout. Use Collection to see progress and equip crests, frames, gate auras and footstep trails. A curio can also be equipped as a crest.'],
             ['Guardians and checkpoints', 'A guardian appears every fifth floor. Defeat it to open a later starting checkpoint. Checkpoints let you skip early floors, but you begin a fresh delve without previous Boons or unbanked loot.']
         ] },
+        owrpg: { name: 'Open World RPG', intro: 'Operation Meridian: build a character, take sides and find out what is calling from the crater.', sections: [
+            ['Create an operative', 'Pick a callsign, spend 8 points across five attributes (Brawn, Reflex, Tech, Perception, Presence), choose a starting Primer and a difficulty. You have three save slots.'],
+            ['Navigate by landmarks', 'There are no quest arrows. Six skyline landmarks (35–58 m) mark the regions: Mast Alpha, the Goliath Crane, the Cooling Stack, the Excavator, the Dish Array and the Meridian Dome. Smoke columns often mean a camp. Open the map [M] to place compass pins; you can turn on a tracked-quest marker there.'],
+            ['Talk, and pass checks', 'Dialogue options marked with an attribute, reputation or item need that value. Checks are fixed thresholds, not dice rolls, so reloading never changes them. Locked options show what they need.'],
+            ['Every quest has three ways through', 'Main and faction quests can be solved by force, by tech or stealth, or by talking to the right person. Quests also react if you solve them before you are asked.'],
+            ['Stealth and noise', 'The eye at the top of the screen shows how aware enemies are. Crouch to slow detection and quiet your steps; sprinting and unsuppressed gunfire carry far. Attacks with melee or suppressed weapons on unaware targets deal sneak-attack damage.'],
+            ['Primers and Detonators', 'Q fires your Primer (Burn, Chill, Shock or Expose). F fires your Detonator, which consumes statuses for reactions: Combust, Shatter, Overload and Rupture. X uses your gadget and H a Med-Injector. Health regenerates to 60% only out of combat.'],
+            ['Factions', 'Militia, Syndicate, Aegis and Helix track reputation from Hated to Sworn. Helping one costs you half as much with its rival. Hated factions shoot on sight; Shunned ones warn you first. Being caught stealing turns a faction hostile.'],
+            ['Levels and perks', 'Quests and discoveries pay most of the XP. Every even level gives a perk point and every odd level from 3 gives an attribute point. Each perk tier is a choice between two perks; Medic Ines can retrain you for credits.'],
+            ['Weight and travel', 'Carrying more than your limit slows your sprint and makes you louder; over 130% you cannot dodge. Wake Transit Pylons by touching them, then jump between them for one Relay Cell each.'],
+            ['Saving', 'F5 quick-saves when you are out of combat and on the ground, F9 reloads. The game also saves when you discover places, finish quests, use pylons and enter or leave interiors.']
+        ] },
         td: { name: 'Tower Defense', intro: 'Keep the castle heart alive while enemy waves break through the walls.', sections: [
             ['Start a siege', 'Pick a castle, set the waves and modifiers, and deploy. Play solo or invite human teammates from an online lobby.'],
             ['What you protect', 'Defensive wall layers slow attackers before they reach the castle heart. Shoot through the wall from a safe position. When a layer breaks, fall back and cover the next approach. The match ends when the heart is destroyed.'],

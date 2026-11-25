@@ -248,6 +248,12 @@
             document.getElementById('btn-menu-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.showScreen('play_lobby'); };
             const rpgBtn = document.getElementById('btn-menu-rpg');
             if (rpgBtn) rpgBtn.onclick = () => { BO.Sound.playUIClick(); if (BO.RPGUI) BO.RPGUI.openHaven(); };
+            const owBtn = document.getElementById('btn-menu-owrpg');
+            if (owBtn) owBtn.onclick = () => {
+                if (BO.Net?.active) { BO.Events.emit('hud:toast', { text: 'Open World RPG is solo. Leave the online lobby to deploy.', color: '#f5a623' }); return; }
+                BO.Sound.playUIClick();
+                if (BO.OWRPGUI) BO.OWRPGUI.openSlots();
+            };
             const tdBtn = document.getElementById('btn-menu-td');
             if (tdBtn) tdBtn.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.showScreen('play_lobby'); };
             const mgBtn = document.getElementById('btn-menu-minigames');
