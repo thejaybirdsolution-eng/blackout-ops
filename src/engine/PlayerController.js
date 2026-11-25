@@ -1682,6 +1682,10 @@
         }
 
         _updateViewmodel(dt) {
+            if (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.hideViewmodel) {
+                this.vmAnchor.visible = false;
+                return;
+            }
             if (this.usingBareHands && this.fistRig) {
                 this._updateFistPose();
                 return;

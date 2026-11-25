@@ -226,6 +226,8 @@
                 return;
             }
 
+            const mgRt = BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.active ? BO.Minigames : null;
+            if (mgRt && mgRt.blockFire) { P.fireCooldown = 0.1; return; }
             if (w.mag <= 0 && !infAmmo) {
                 BO.Sound.playEmptyClick();
                 P.fireCooldown = 0.25;
@@ -251,9 +253,10 @@
             const modRof = BO.Mods ? BO.Mods.fireRateMult() : 1.0;
             const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost * modRof;
             P.fireCooldown = 60 / Math.max(30, rpm);
+            if (mgRt && mgRt.fireInterval) P.fireCooldown = Math.max(P.fireCooldown, mgRt.fireInterval);
 
             P.triggerMuzzleFlash();
-            BO.Sound.playGunshot(w.stats.soundProfile, w.stats.suppressed, w.isPaP, 1.0);
+            if (!(BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.customGunSound(w))) BO.Sound.playGunshot(w.stats.soundProfile, w.stats.suppressed, w.isPaP, 1.0);
             if (BO.Net && BO.Net.active) {
                 BO.Net.sendPlayerFx({
                     kind: 'shot',
@@ -456,7 +459,7 @@
                 BO.FX.spawnParticles(worldHit.point, 4, 0xd4d4d8, 3.0, 11, 0.25, 0.7);
             }
 
-            const tracerCol = w.isPaP ? 0xc084fc : 0xffd166;
+            const tracerCol = (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.tracerColor) || (w.isPaP ? 0xc084fc : 0xffd166);
             BO.FX.spawnTracer(muzzlePos, endPoint, tracerCol, w.isPaP ? 0.036 : 0.022, 0.075);
             if (BO.Net && BO.Net.active) {
                 BO.Net.sendPlayerFx({

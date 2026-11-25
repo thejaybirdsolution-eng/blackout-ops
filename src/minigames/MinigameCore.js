@@ -500,7 +500,7 @@
     class MinigameRuntime {
         constructor() {
             this.defs = new Map();
-            this.order = { target: [], boss: [], mole: [] };
+            this.order = { target: [], boss: [], mole: [], arcade: [] };
             this.active = false;
             this.blockingUI = false;
             this.session = null;
@@ -510,7 +510,7 @@
             this.infiniteMag = false;
             this.pendingShot = null;
             this.hubCat = 'target';
-            this.hubSel = { target: null, boss: null, mole: null };
+            this.hubSel = { target: null, boss: null, mole: null, arcade: null };
             this.hubOpts = { weapon: 'standard', difficulty: 'veteran', variant: 'gauntlet' };
             this.lib = { B, BMM, Ease, SFX, mulberry32, signTex, canvasTex, std, basic, HIDDEN_MAT, Target, clamp01, TAU, esc };
         }
@@ -592,7 +592,8 @@
             this._lastBeep = 4;
             this.finishTimer = 0;
             this._buildHud();
-            BO.Sound.startMusic('zombies');
+            if (def.customMusic) { if (BO.Sound.stopMusic) BO.Sound.stopMusic(); }
+            else BO.Sound.startMusic('zombies');
             BO.Events.emit('hud:banner', { title: def.name.toUpperCase(), sub: def.tagline || '', color: def.accent || '#f5a623' });
             return scene;
         }
@@ -649,7 +650,7 @@
             if (def.cat === 'boss') {
                 return Object.assign({}, cls, { primary: cls.primary, secondary: cls.secondary });
             }
-            const primary = (weaponPref === 'class' || !def.standardWeapon) ? cls.primary : mk(def.standardWeapon);
+            const primary = ((weaponPref === 'class' && !def.lockWeapon) || !def.standardWeapon) ? cls.primary : mk(def.standardWeapon);
             return {
                 name: 'MINIGAME', primary, secondary: null, perks: [],
                 lethal: cls.lethal, tactical: cls.tactical, fieldUpgrade: cls.fieldUpgrade, ultimatePower: cls.ultimatePower
@@ -663,6 +664,31 @@
             this._resolvePendingShot();
             this.session.shots++;
             this.pendingShot = { hit: false };
+            if (this.def.onShot) { try { this.def.onShot(this.session, this.lib); } catch (e) { console.error('[Minigames] onShot', e); } }
+        }
+
+        /** CombatSystem asks before playing the normal gunshot; true = the minigame made its own sound. */
+        customGunSound(w) {
+            if (!this.active || !this.def || !this.def.gunSound) return false;
+            try { return this.def.gunSound(this.session, w, this.lib) !== false; } catch (e) { console.error(e); return false; }
+        }
+
+        /** CombatSystem skips the shot entirely while this is true (the minigame reads the trigger itself). */
+        get blockFire() {
+            if (!this.active || !this.def || !this.session) return false;
+            return typeof this.def.blockFire === 'function' ? !!this.def.blockFire(this.session, this.state) : !!this.def.blockFire;
+        }
+
+        /** Minimum seconds between shots, regardless of the weapon's RPM. */
+        get fireInterval() { return this.active && this.def ? (this.def.fireInterval || 0) : 0; }
+
+        /** Bullet tracer colour override. */
+        get tracerColor() { return this.active && this.def ? (this.def.tracerColor || 0) : 0; }
+
+        /** PlayerController hides the first-person weapon while this is true. */
+        get hideViewmodel() {
+            if (!this.active || !this.def || !this.session) return false;
+            return typeof this.def.hideViewmodel === 'function' ? !!this.def.hideViewmodel(this.session) : !!this.def.hideViewmodel;
         }
 
         _resolvePendingShot() {
@@ -725,8 +751,13 @@
             const def = this.def;
             const P = BO.Player;
 
-            // Endless reserve ammo in every minigame.
-            for (const w of P.weapons) if (w && w.stats && w.stats.reserveMax) w.reserve = w.stats.reserveMax;
+            // Endless reserve ammo in every minigame (except the ones built around a single magazine).
+            if (def.noReload) {
+                for (const w of P.weapons) if (w) w.reserve = 0;
+                if (P.reloading) { P.reloading = false; P.reloadTimer = 0; }
+            } else {
+                for (const w of P.weapons) if (w && w.stats && w.stats.reserveMax) w.reserve = w.stats.reserveMax;
+            }
             if (this.infiniteMag && P.activeWeapon && P.activeWeapon.stats && P.activeWeapon.stats.magSize) {
                 P.activeWeapon.mag = P.activeWeapon.stats.magSize;
                 if (P.reloading) { P.reloading = false; P.reloadTimer = 0; }
@@ -1026,18 +1057,20 @@
                 <div class="mg-res-card">
                     <div class="mg-res-head">
                         <span class="mg-res-ico">${def.icon || '🎯'}</span>
-                        <div><small>${def.cat === 'target' ? 'TARGET PRACTICE' : def.cat === 'boss' ? 'BOSS RUSH' : 'WHACK-A-MOLE'}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
+                        <div><small>${def.cat === 'target' ? 'TARGET PRACTICE' : def.cat === 'boss' ? 'BOSS RUSH' : def.cat === 'arcade' ? 'ARCADE HALL' : 'WHACK-A-MOLE'}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
                         ${better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : '')}
                     </div>
                     <div class="mg-res-title">${esc(res.title)}</div>
                     <div class="mg-res-score"><span id="mg-res-score">0</span><small>${esc(res.scoreLabel || 'POINTS')}</small></div>
                     <div class="mg-res-stars">${starHtml}</div>
                     <div class="mg-res-grid">${res.stats.map(([k, v]) => `<div><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join('')}</div>
-                    <div class="mg-res-graph"><canvas id="mg-res-canvas" width="640" height="120"></canvas><small>${esc(res.graphLabel || 'SCORE OVER TIME')}</small></div>
+                    ${res.extraHtml || ''}
+                    ${res.noGraph ? '' : `<div class="mg-res-graph"><canvas id="mg-res-canvas" width="640" height="120"></canvas><small>${esc(res.graphLabel || 'SCORE OVER TIME')}</small></div>`}
                     <div class="mg-res-best">${prev ? 'PREVIOUS BEST: <b>' + esc(def.formatBest ? def.formatBest(prev) : Number(prev.score).toLocaleString()) + '</b>' : 'No previous record'} • +${res.xp || 0} XP</div>
                     <div class="mg-res-actions">
                         <button class="btn" data-act="hub">MINIGAMES <kbd>ESC</kbd></button>
                         <button class="btn" data-act="menu">MAIN MENU</button>
+                        ${(res.actions || []).map((a) => `<button class="btn mg-res-custom" data-act="x:${esc(a.id)}">${esc(a.label)}</button>`).join('')}
                         ${next ? `<button class="btn" data-act="next">NEXT: ${esc(next.name)} <kbd>N</kbd></button>` : ''}
                         <button class="btn btn-primary" data-act="retry">RETRY <kbd>R</kbd></button>
                     </div>
@@ -1046,7 +1079,9 @@
             el.querySelectorAll('[data-act]').forEach((b) => {
                 b.onclick = () => { BO.Sound.playUIClick(); this._resultAction(b.dataset.act); };
             });
+            this._lastRes = res;
             this._animateResults(el, res);
+            if (res.onShow) { try { res.onShow(el); } catch (e) { console.error(e); } }
         }
 
         _animateResults(el, res) {
@@ -1117,8 +1152,8 @@
         }
 
         _nextDef() {
-            if (!this.def || this.def.cat !== 'target') return null;
-            const ids = this.order.target;
+            if (!this.def || this.def.cat === 'boss') return null;
+            const ids = this.order[this.def.cat];
             const i = ids.indexOf(this.def.id);
             return i >= 0 && i < ids.length - 1 ? this.defs.get(ids[i + 1]) : null;
         }
@@ -1126,6 +1161,14 @@
         _resultAction(act) {
             const def = this.def;
             const opts = this.opts;
+            if (act.startsWith('x:')) {
+                const res = this._lastRes;
+                this._hideResults();
+                this.blockingUI = false;
+                BO.State.paused = false;
+                if (res && res.onAction) res.onAction(act.slice(2));
+                return;
+            }
             this._hideResults();
             this.blockingUI = false;
             BO.State.paused = false;

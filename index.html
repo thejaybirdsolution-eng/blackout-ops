@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=2">
-    <link rel="stylesheet" href="css/minigames.css?v=mg1">
+    <link rel="stylesheet" href="css/minigames.css?v=mg2">
     <link rel="stylesheet" href="css/rpg.css?v=rogue-depths1">
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
 
@@ -63,8 +63,8 @@
 
     <!-- Engine & Entities -->
     <script defer src="src/engine/WorldBuilder.js?v=rpg1"></script>
-    <script defer src="src/engine/PlayerController.js?v=sv9g1mg1rpg1"></script>
-    <script defer src="src/engine/CombatSystem.js?v=sv9mg1"></script>
+    <script defer src="src/engine/PlayerController.js?v=sv9g1mg2rpg1"></script>
+    <script defer src="src/engine/CombatSystem.js?v=sv9mg2"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
     <script defer src="src/entities/BotAI.js?v=z3"></script>
 
@@ -150,13 +150,18 @@
     <script defer src="src/ui/ModeGuide.js?v=doors1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=rogue-lite1"></script>
     <!-- Minigames (Target Practice, Boss Rush, Whack-a-Mole) -->
-    <script defer src="src/minigames/MinigameCore.js?v=mg1"></script>
+    <script defer src="src/minigames/MinigameCore.js?v=mg2"></script>
     <script defer src="src/minigames/MinigameArt.js?v=mg1"></script>
     <script defer src="src/minigames/TargetCoursesA.js?v=mg1"></script>
     <script defer src="src/minigames/TargetCoursesB.js?v=mg1"></script>
+    <script defer src="src/minigames/MinigameFigures.js?v=mg2"></script>
+    <script defer src="src/minigames/TargetCoursesC.js?v=mg2"></script>
+    <script defer src="src/minigames/TargetCoursesD.js?v=mg2"></script>
     <script defer src="src/minigames/BossRush.js?v=mg1"></script>
     <script defer src="src/minigames/WhackAMole.js?v=mg1"></script>
-    <script defer src="src/minigames/MinigameHub.js?v=mg1"></script>
+    <script defer src="src/minigames/ArcadeHall.js?v=mg2"></script>
+    <script defer src="src/minigames/ArcadeHall2.js?v=mg2"></script>
+    <script defer src="src/minigames/MinigameHub.js?v=mg2"></script>
     <script defer src="src/ui/RPGUI.js?v=doors1"></script>
     <script defer src="src/main.js?v=sv9g2mg1rpg1"></script>
 </head>
@@ -219,11 +224,11 @@
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
-                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Ten scripted Target Practice courses (roller coaster, boulder chase, skeet, sniper ridge and more), a Boss Rush against every boss with only three heals, and a carnival Whack-a-Mole.">
+                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Fifteen Target Practice courses (rhythm shooting, a one-mag trial, a horseback chase, a mansion raid, a heart-blaster beach and more), the Arcade Hall (quickdraw duels, two arcade cabinets, Ball Brawl, aim diagnostics, contracts), a Boss Rush and a carnival Whack-a-Mole.">
                         <span class="mode-card-ico">🎪</span>
                         <span class="mode-card-text">
                             <b>MINIGAMES</b>
-                            <small>Target Practice • Boss Rush • Whack-a-Mole</small>
+                            <small>Target Practice • Arcade Hall • Boss Rush • Whack-a-Mole</small>
                         </span>
                         <span class="mg-new-badge">NEW</span>
                         <span class="mode-card-go">PLAY →</span>
