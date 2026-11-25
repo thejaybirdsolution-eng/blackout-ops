@@ -220,6 +220,14 @@
             const dispName = isPaP ? (base.papName + tierRoman) : (dual ? ('AKIMBO ' + base.name) : base.name);
             const dispShort = isPaP ? (base.papName + tierRoman) : (dual ? ('AKIMBO ' + base.shortName) : base.shortName);
 
+            const fireModes = [fireMode];
+            if (base.altFireMode && !fireModes.includes(base.altFireMode)) fireModes.push(base.altFireMode);
+            if (base.kind !== 'melee' && (fireMode === 'auto' || base.altFireMode === 'auto') && !fireModes.includes('semi')) {
+                const autoIdx = fireModes.indexOf('auto');
+                fireModes.splice(autoIdx + 1, 0, 'semi');
+            }
+            const altFireMode = fireModes.length > 1 ? fireModes[1] : null;
+
             return {
                 id: base.id,
                 name: dispName,
@@ -235,7 +243,8 @@
                 magicType: base.magicType || null,
                 magicColor: base.magicColor || 0x22ff77,
                 fireMode,
-                altFireMode: base.altFireMode || null,
+                altFireMode,
+                fireModes,
                 burstCount: base.burstCount || 1,
                 burstDelay: base.burstDelay || 0.06,
                 rpm: finalRpm,
