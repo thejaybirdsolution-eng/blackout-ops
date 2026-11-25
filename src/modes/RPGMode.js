@@ -106,7 +106,8 @@
                     levelsGained: 0,
                     bossKills: 0,
                     contract: p.contract,
-                    contractProgress: 0, curse: false, roomApplied: false, mystery: false
+                    contractProgress: 0, curse: false, roomApplied: false, mystery: false,
+                    door: 'standard', doorApplied: true
                 };
                 p.elixir = null;
                 p.stats.delves++;
@@ -145,7 +146,8 @@
                 gold: r.gold, scrap: r.scrap, pack: r.pack.slice(), xpEarned: r.xpEarned, kills: r.kills, reactions: r.reactions,
                 potions: r.potions, hpFrac: r.hpFrac, ult: r.ult, secondWindUsed: r.secondWindUsed, fieldMedicUsed: r.fieldMedicUsed,
                 lastBastionFloor: r.lastBastionFloor, floorsCleared: r.floorsCleared, elapsed: r.elapsed, levelsGained: r.levelsGained, bossKills: r.bossKills,
-                contract: r.contract, contractProgress: r.contractProgress, curse: !!r.curse, roomApplied: !!r.roomApplied, mystery: !!r.mystery
+                contract: r.contract, contractProgress: r.contractProgress, curse: !!r.curse, roomApplied: !!r.roomApplied, mystery: !!r.mystery,
+                door: r.door || 'standard', doorApplied: r.doorApplied !== false
             };
         }
 
@@ -258,6 +260,7 @@
             this.trailClock = 0;
             this._populateRoom();
             this._buildHazards();
+            this._applyDoor();
 
             // Floor-start snapshot = the suspend/resume point.
             this.Profile.saveRun(this._snapshot());
@@ -267,7 +270,7 @@
             const biome = this.layout.biome;
             BO.Events.emit('hud:banner', {
                 title: `FLOOR ${r.floor} · ${r.mystery ? '? ' : ''}${room.name.toUpperCase()}`,
-                sub: `${biome.name} · ${this.layout.style} · ${this.layout.W} × ${this.layout.L} m`,
+                sub: `${biome.name} · ${this.layout.style} · ${this.layout.W} × ${this.layout.L} m${this._door().id !== 'standard' ? ' · ' + this._door().name : ''}`,
                 color: room.color
             });
             if (BO.RPGUI) BO.RPGUI.onFloorEntered();
@@ -457,18 +460,20 @@
 
         _buildGates() {
             const choices = this._nextRoomChoices(this.layout.gates.length);
+            const doors = BO.RPGDoors.roll(this.layout.gates.length, this.run.floor + 1, choices);
             this.layout.gates.forEach((g, i) => {
                 const type = choices[i] || choices[0] || 'combat';
                 const room = this.D.ROOMS[type];
+                const door = BO.RPGDoors.get(doors[i]);
                 const group = new THREE.Group();
-                const tex = BO.RPGUI ? BO.RPGUI.makeGateTexture(room, this.run.floor + 1) : null;
+                const tex = BO.RPGUI ? BO.RPGUI.makeGateTexture(room, this.run.floor + 1, door, BO.RPGDoors.cost(door, this.run, this.P)) : null;
                 const mat = new THREE.MeshBasicMaterial({ map: tex, color: 0x555555, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
                 const plane = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 4.5), mat);
                 plane.position.set(g.x, 2.3, g.z + 0.05);
                 group.add(plane);
                 const aura = BO.RPGUnlocks.equipped(this.Profile.data, 'gate');
-                const light = new THREE.Color(aura?.color || room.color);
-                const trim = new THREE.MeshStandardMaterial({ color: 0x907045, metalness: 0.66, roughness: 0.36, emissive: light, emissiveIntensity: 0.15 });
+                const light = new THREE.Color(door.id !== 'standard' ? door.color : (aura?.color || room.color));
+                const trim = new THREE.MeshStandardMaterial({ color: door.id === 'standard' ? 0x907045 : new THREE.Color(door.color).multiplyScalar(0.55), metalness: 0.66, roughness: 0.36, emissive: light, emissiveIntensity: 0.15 });
                 const arch = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.12, 8, 22, Math.PI), trim);
                 arch.position.set(g.x, 3.32, g.z + 0.28);
                 group.add(arch);
@@ -481,13 +486,21 @@
                 glow.scale.set(1, 14, 1);
                 group.add(glow);
                 BO.World.scene.add(group);
-                this.gates.push({ x: g.x, z: g.z, standZ: g.standZ, type, room, group, plane, mat, glow, arch, lamp, aura, open: false });
+                if (door.id !== 'standard') {
+                    // Door-type keystone above the arch so the door reads at a distance.
+                    const stone = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), new THREE.MeshStandardMaterial({ color: door.color, emissive: door.color, emissiveIntensity: 0.6, metalness: 0.4, roughness: 0.3 }));
+                    stone.position.set(g.x, 4.25, g.z + 0.32);
+                    stone.scale.set(1, 1.35, 0.5);
+                    group.add(stone);
+                }
+                this.gates.push({ x: g.x, z: g.z, standZ: g.standZ, type, room, door, group, plane, mat, glow, arch, lamp, aura, open: false, timer: Infinity });
             });
         }
 
         _openGates() {
             for (const g of this.gates) {
                 g.open = true;
+                g.timer = g.door?.window || Infinity;
                 g.mat.color.set(0xffffff);
                 g.mat.opacity = 0.95;
                 g.glow.material.opacity = 0.55;
@@ -625,13 +638,22 @@
         }
 
         enterGate(gate) {
-            if (!gate || !gate.open || this.state !== 'cleared') return;
-            this.state = 'transition'; // blocks double-entry during the fade
+            if (!gate || !gate.open || gate.sealed || this.state !== 'cleared') return;
             const r = this.run;
+            const door = gate.door || BO.RPGDoors.get();
+            const cost = BO.RPGDoors.cost(door, r, this.P);
+            if (cost && !cost.ok) return;
+            if (cost?.kind === 'gold') r.gold -= cost.amount;
+            if (cost?.kind === 'scrap') r.scrap -= cost.amount;
+            if (cost?.kind === 'hp') this.P.hp = Math.max(1, this.P.hp - cost.amount);
+            if (cost) BO.Events.emit('hud:toast', { text: `${door.name.toUpperCase()} OPENED — PAID ${cost.label}`, color: door.color });
+            this.state = 'transition'; // blocks double-entry during the fade
             r.hpFrac = BO.Math.clamp(this.P.hp / Math.max(1, this.P.maxHp), 0.05, 1);
             r.ult = this.ability.ult;
             r.floor += 1;
             r.roomType = gate.type;
+            r.door = door.id;
+            r.doorApplied = false;
             r.mystery = false;
             r.roomApplied = false;
             r.seed = (r.seed * 48271 + 12820163) % 2147483647;
@@ -654,8 +676,9 @@
             const diff = this._difficulty();
             const f = this.run.floor;
             const elite = !!opts.elite;
-            const hp = Math.round(A.hp * D.enemyHpMult(f) * diff.hp * (elite ? D.ELITE.hpMult : 1) * (opts.hp || 1));
-            const dmg = Math.max(1, Math.round(A.attack * D.enemyDmgMult(f) * diff.dmg * (elite ? 1.3 : 1) * (opts.damage || 1)));
+            const door = this._door();
+            const hp = Math.round(A.hp * D.enemyHpMult(f) * diff.hp * (elite ? D.ELITE.hpMult : 1) * (opts.hp || 1) * (door.hp || 1));
+            const dmg = Math.max(1, Math.round(A.attack * D.enemyDmgMult(f) * diff.dmg * (elite ? 1.3 : 1) * (opts.damage || 1) * (door.dmg || 1)));
             const speed = A.speed * (opts.speed || 1);
             const spec = Object.assign({}, base, {
                 name: (elite ? 'Elite ' : '') + A.name,
@@ -1202,7 +1225,7 @@
             const recommended = D.recommendedLevel(this.run.floor);
             const catchup = rec_lv < recommended ? 1 + 0.25 * Math.min(3, recommended - rec_lv) : 1;
             const amt = Math.round(base * D.depthRewardMult(this.run.floor) * (1 + this.momentum.stacks * D.MOMENTUM.xpPerStack)
-                * (1 + this.stats.xpGain / 100) * this._difficulty().reward * catchup);
+                * (1 + this.stats.xpGain / 100) * this._difficulty().reward * catchup * (this._door().xp || 1));
             this.run.xpEarned += amt;
             const levels = this.Profile.addXP(amt);
             if (BO.RPGUI && pos) BO.RPGUI.floatText(pos, `+${amt} XP`, '#a78bfa', 13, 1.9);
@@ -1230,7 +1253,27 @@
 
         _goldMult() {
             return this.D.depthRewardMult(this.run.floor) * this._difficulty().reward * (1 + this.stats.goldFind / 100)
-                * (1 + this.momentum.stacks * this.D.MOMENTUM.goldPerStack);
+                * (1 + this.momentum.stacks * this.D.MOMENTUM.goldPerStack) * (this._door().gold || 1);
+        }
+
+        _door() { return BO.RPGDoors.get(this.run?.door); }
+
+        _applyDoor() {
+            const r = this.run;
+            const door = this._door();
+            const L = this.layout;
+            // The chest is part of the room, so it is rebuilt when a suspended floor resumes.
+            // Only one chest per floor is tracked, so a room that already has one pays out in gold instead.
+            if (door.chest && r.roomType !== 'boss' && !this.chest) this._spawnChest(L.center.x + 3, L.center.z + 3);
+            if (r.doorApplied) return;
+            r.doorApplied = true;
+            if (door.chest && (r.roomType === 'boss' || this.chest?.x !== L.center.x + 3)) {
+                this._dropGold(new THREE.Vector3(L.center.x, 0, L.center.z + 3), 60);
+            }
+            if (door.potion) {
+                r.potions = Math.min(this.stats.potionsMax, r.potions + door.potion);
+                BO.Events.emit('hud:toast', { text: 'CLOVER DOOR — POTION REFILLED', color: door.color });
+            }
         }
 
         _dropGold(pos, base) {
@@ -1490,10 +1533,17 @@
             }
             for (const g of this.gates) {
                 if (near(g.x, g.standZ, 2.6)) {
-                    this.prompt = g.open
-                        ? { text: `[${kbI}] ENTER ${g.room.name.toUpperCase()} ROOM — ${g.room.desc}`, affordable: true }
-                        : { text: `${g.room.name.toUpperCase()} GATE — SEALED UNTIL THE FLOOR IS CLEAR`, affordable: false };
-                    this._interactTarget = g.open ? { kind: 'gate', ref: g } : null;
+                    const door = g.door || BO.RPGDoors.get();
+                    const roomName = door.hidden ? 'VEILED' : g.room.name.toUpperCase();
+                    const cost = BO.RPGDoors.cost(door, this.run, this.P);
+                    const doorNote = door.id === 'standard' ? '' : ` • ${door.name.toUpperCase()}: ${door.desc}`;
+                    const timer = Number.isFinite(g.timer) && g.open ? ` • SEALS IN ${Math.ceil(g.timer)}s` : '';
+                    if (g.sealed) this.prompt = { text: `${door.name.toUpperCase()} — THE SAND RAN OUT. THIS DOOR IS SEALED`, affordable: false };
+                    else if (!g.open) this.prompt = { text: `${roomName} GATE — SEALED UNTIL THE FLOOR IS CLEAR${doorNote}`, affordable: false };
+                    else if (cost && !cost.ok) this.prompt = { text: `${door.name.toUpperCase()} — NEEDS ${cost.label}${cost.kind === 'hp' ? ' (TOO WOUNDED)' : ''}${doorNote}`, affordable: false };
+                    else this.prompt = { text: `[${kbI}] ENTER ${roomName} ROOM${cost ? ' — PAY ' + cost.label : ''} — ${door.hidden ? 'The room is hidden.' : g.room.desc}${doorNote}${timer}`, affordable: true };
+                    const usable = g.open && !g.sealed && (!cost || cost.ok);
+                    this._interactTarget = usable ? { kind: 'gate', ref: g } : null;
                     return;
                 }
             }
@@ -1811,6 +1861,20 @@
             }
             for (const g of this.gates) {
                 if (g.open) g.glow.material.opacity = 0.4 + Math.sin(t * 3 + g.x) * 0.15;
+                if (g.open && Number.isFinite(g.timer) && this.state === 'cleared') {
+                    g.timer -= dt;
+                    if (g.timer <= 0) {
+                        g.open = false;
+                        g.sealed = true;
+                        g.mat.color.set(0x333333);
+                        g.mat.opacity = 0.4;
+                        g.glow.material.opacity = 0;
+                        g.arch.material.emissiveIntensity = 0.05;
+                        BO.Events.emit('hud:toast', { text: 'THE HOURGLASS DOOR HAS SEALED', color: g.door.color });
+                    } else if (g.timer < 6) {
+                        g.glow.material.opacity = Math.sin(t * 18) > 0 ? 0.7 : 0.1; // flicker warning
+                    }
+                }
             }
             for (let i = this.pools.length - 1; i >= 0; i--) {
                 const pool = this.pools[i];

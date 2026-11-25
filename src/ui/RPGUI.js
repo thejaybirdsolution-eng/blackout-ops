@@ -832,7 +832,8 @@
            Gate texture
         ====================================================================== */
 
-        makeGateTexture(room, floor) {
+        makeGateTexture(room, floor, door = null, cost = null) {
+            if (door?.hidden) room = { icon: '?', name: 'Veiled', color: door.color, desc: 'The sign has been scratched away. Whatever waits here pays 30% more.' };
             const c = document.createElement('canvas');
             c.width = 512;
             c.height = 796;
@@ -869,6 +870,19 @@
                 if (ctx.measureText(test).width > 420) { ctx.fillText(line, 256, y); y += 36; line = w; } else line = test;
             }
             if (line) ctx.fillText(line, 256, y);
+            if (door && door.id !== 'standard') {
+                // Door-type band along the bottom of the sign.
+                ctx.fillStyle = 'rgba(6,8,14,0.82)';
+                ctx.fillRect(28, 680, c.width - 56, 90);
+                ctx.fillStyle = door.color;
+                ctx.fillRect(28, 680, c.width - 56, 5);
+                ctx.font = '900 34px Bahnschrift, Impact, sans-serif';
+                ctx.fillText(`${door.icon}  ${door.name.toUpperCase()}`, 256, 724);
+                ctx.font = 'bold 24px Consolas, monospace';
+                ctx.fillStyle = '#e2e8f0';
+                const tag = cost ? `COST: ${cost.label}` : door.window ? `SEALS ${door.window}s AFTER CLEAR` : door.potion ? 'FREE POTION REFILL' : 'BONUS REWARDS';
+                ctx.fillText(tag, 256, 756);
+            }
             const tex = new THREE.CanvasTexture(c);
             if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
             return tex;
