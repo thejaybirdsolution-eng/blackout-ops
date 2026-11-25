@@ -138,18 +138,18 @@
                     ${cur.desc ? `<small>${esc(cur.desc)}</small>` : ''}</div>`;
             }).join('');
             if (def.cat === 'boss') {
-                options = `
+                options += `
                     <div class="mgh-opt"><label>MODE</label><div class="mgh-seg">${Object.entries(def.variants).map(([k, v]) => `<button data-opt="variant" data-val="${k}" class="${opts.variant === k ? 'on' : ''}">${v.label}</button>`).join('')}</div>
                         <small>${esc(def.variants[opts.variant] ? def.variants[opts.variant].desc : '')}</small></div>
                     <div class="mgh-opt"><label>DIFFICULTY</label><div class="mgh-seg">${Object.entries(def.difficulties).map(([k, v]) => `<button data-opt="difficulty" data-val="${k}" class="${opts.difficulty === k ? 'on' : ''}">${v.label}</button>`).join('')}</div></div>
                     <div class="mgh-opt"><label>LOADOUT</label><div class="mgh-weapon"><b>${esc(cls.name)}</b><span>${esc(clsW.name)} + ${esc(BO.WeaponsData.get(cls.secondary.id).shortName)}</span></div><small>Your active Create-a-Class loadout, with bottomless magazines.</small></div>
                     <div class="mgh-roster">${BO.ZombiesData.ORDERED_BOSSES.filter(def.variants[opts.variant].filter).map((b, i) => `<span class="${b.isSuperBoss ? 'super' : ''}" title="${esc(b.name)}">${i + 1}. ${esc(b.name)}</span>`).join('')}</div>`;
             } else if (def.lockWeapon || !def.standardWeapon) {
-                options = `
+                options += `
                     ${def.standardWeapon ? `<div class="mgh-opt"><label>WEAPON</label><div class="mgh-weapon"><b>${esc(def.weaponLabel || (w ? w.name : ''))}</b><span>${esc(def.weaponNote || 'Fixed for this event')}</span></div></div>` : (def.weaponNote ? `<div class="mgh-opt"><label>WEAPON</label><div class="mgh-weapon"><b>${esc(def.weaponLabel || 'None')}</b><span>${esc(def.weaponNote)}</span></div></div>` : '')}
                     <div class="mgh-thresholds">${stars.map((th, i) => `<div class="s${i} ${best && best.stars > i ? 'got' : ''}">${STAR_SVG}<b>${esc(def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString())}</b><small>${['BRONZE', 'SILVER', 'GOLD', 'PLATINUM'][i]}</small></div>`).join('')}</div>`;
             } else {
-                options = `
+                options += `
                     <div class="mgh-opt"><label>WEAPON</label><div class="mgh-seg">
                         <button data-opt="weapon" data-val="standard" class="${opts.weapon !== 'class' ? 'on' : ''}">COURSE STANDARD</button>
                         <button data-opt="weapon" data-val="class" class="${opts.weapon === 'class' ? 'on' : ''}">MY CLASS</button></div>
