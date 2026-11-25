@@ -12,7 +12,7 @@
     const CONTEXTS = [
         ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite']
     ];
-    const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense', rpg: 'Rogue Lite' };
+    const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense', rpg: 'Rogue Lite', owrpg: 'Open World RPG' };
 
     class ControlsPanel {
         constructor() {

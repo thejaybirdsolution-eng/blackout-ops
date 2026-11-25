@@ -46,6 +46,7 @@
             BO.Tooltips.init();
             BO.HUD.init();
             if (BO.RPGUI) BO.RPGUI.init();
+            if (BO.OWRPGUI) BO.OWRPGUI.init();
             BO.GunsmithUI.init((cfg) => this._rebuildShowcaseWeapon(cfg));
             BO.Menus.init({
                 onStartMatch: (opts) => this.startMatch(opts),
@@ -148,7 +149,7 @@
             this._safePointerLock();
             this._clearInputState();
 
-            if (opts.mode !== "survival" && opts.mode !== 'minigame' && opts.mode !== 'rpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+            if (opts.mode !== "survival" && opts.mode !== 'minigame' && opts.mode !== 'rpg' && opts.mode !== 'owrpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
                 BO.Net.broadcastMatchStart(opts);
             }
             if (BO.Net) BO.Net.clearRemoteAvatars();
@@ -161,6 +162,7 @@
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
             if (BO.Minigames) BO.Minigames.stop();
             if (BO.RPGMode) BO.RPGMode.stop();
+            if (BO.OWRPGMode) BO.OWRPGMode.stop();
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
@@ -171,6 +173,8 @@
                 BO.Minigames.start(this.worldCamera, opts);
             } else if (opts.mode === 'survival') {
                 BO.SurvivalMode.start(this.worldCamera, opts);
+            } else if (opts.mode === 'owrpg') {
+                BO.OWRPGMode.start({ slot: opts.slot || 0, newChar: opts.newChar || null, camera: this.worldCamera });
             } else if (opts.mode === 'rpg') {
                 BO.RPGMode.start({ resume: !!opts.resume, startFloor: opts.startFloor || 1, camera: this.worldCamera });
             } else if (opts.mode === 'zombies') {
@@ -237,6 +241,7 @@
 
         restartMatch() {
             if (this.lastMatchOpts && this.lastMatchOpts.mode === 'rpg') return; // delves restart from the Haven
+            if (this.lastMatchOpts && this.lastMatchOpts.mode === 'owrpg') { if (BO.OWRPGMode?.active) { BO.Menus.setPauseOpen(false); BO.OWRPGMode.quickLoad(); } return; }
             if (this.lastMatchOpts) {
                 this.startMatch(this.lastMatchOpts);
             }
@@ -253,6 +258,7 @@
                 if (BO.RPGMode.active) BO.RPGMode.suspend();
                 BO.RPGMode.stop();
             }
+            if (BO.OWRPGMode && BO.OWRPGMode.active) BO.OWRPGMode.suspend();
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
@@ -394,7 +400,7 @@
 
             window.addEventListener('wheel', (e) => {
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
-                if (BO.SurvivalUI.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen) return;
+                if (BO.SurvivalUI.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen) return;
                 if (Math.abs(e.deltaY) > 4) {
                     if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) {
                         BO.ZoneWild.adjustSpyglassZoom(e.deltaY < 0 ? 1 : -1);
@@ -422,6 +428,7 @@
                 if (BO.ZoneArmory?.uiOpen) { BO.ZoneArmory.handleKey(e); return; }
                 if (BO.ZoneLegends?.dialog) { BO.ZoneLegends.handleKey(e); return; }
                 if (BO.RPGUI?.modalOpen) { BO.RPGUI.handleKey(e); return; }
+                if (BO.OWRPGUI?.modalOpen) { BO.OWRPGUI.handleKey(e); return; }
                 if (BO.SurvivalUI.open) {
                     BO.SurvivalUI.handleKey(e);
                     return;
@@ -430,6 +437,7 @@
                 const kb = BO.Settings.getKeybinds();
                 const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
                 const rpg = BO.State.activeMode === 'rpg' && BO.RPGMode?.active;
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
 
                 if (code === 'Escape' && BO.ZoneWild?.spyglassOpen) { e.preventDefault(); BO.ZoneWild.setSpyglass(false); return; }
                 if (code === 'Escape' && BO.ZoneBuild?.active) { e.preventDefault(); BO.ZoneBuild.end(); return; }
@@ -470,8 +478,12 @@
                 if (rpg && firstDown && this._handleRpgKey(code, kb)) return;
                 if (rpg && this._isRpgSuppressed(code, kb)) return;
                 if (survival && (code === 'Tab' || code === 'AltLeft')) e.preventDefault();
+                // Open World RPG: abilities, Pip-Pad, saves and dodge replace grenades, powers and the scoreboard.
+                if (ow && (code === 'Tab' || code === 'AltLeft' || code === 'F5' || code === 'F9' || code === 'F8' || BO.OWRPGMode.isSuppressed(code, kb))) e.preventDefault();
+                if (ow && firstDown && BO.OWRPGMode.handleKey(code, kb, e)) return;
+                if (ow && BO.OWRPGMode.isSuppressed(code, kb)) return;
 
-                if (code === 'Tab' && !survival) {
+                if (code === 'Tab' && !survival && !ow) {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {
@@ -528,6 +540,7 @@
                     BO.ExpansionShop.show();
                 } else if (code === kb.interact && firstDown) {
                     if (BO.State.activeMode === 'rpg') BO.RPGMode.interact();
+                    else if (BO.State.activeMode === 'owrpg') BO.OWRPGMode.interact();
                     else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
                     else if (BO.State.activeMode === 'survival') BO.SurvivalMode.interact();
@@ -646,7 +659,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.RPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -665,6 +678,7 @@
                         else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
                         else if (BO.State.activeMode === 'mp') BO.MPMode.update(dt);
                         else if (BO.State.activeMode === 'rpg') BO.RPGMode.update(dt);
+                        else if (BO.State.activeMode === 'owrpg') BO.OWRPGMode.update(dt);
                         else if (BO.State.activeMode === 'td') {
                             BO.TowerDefenseMode.update(dt);
                             if (BO.Menus && BO.Menus.modalTdShop && !BO.Menus.modalTdShop.classList.contains('hidden')) {
@@ -684,6 +698,7 @@
                     BO.ExpansionShop.updateHud();
                     BO.SurvivalUI.updateHud();
                     if (BO.RPGUI) BO.RPGUI.updateHud(dt);
+                    if (BO.OWRPGUI && BO.State.activeMode === 'owrpg') BO.OWRPGUI.updateHud(dt);
                 } else if (!BO.State.paused && BO.SurvivalUI.open && BO.State.activeMode === 'survival' && BO.SurvivalMode.active &&
                     !['respawn', 'briefing', 'ending', 'epilogue'].includes(BO.SurvivalUI.section)) {
                     // Real-time menus: the Zone keeps moving while you rummage through your pack.

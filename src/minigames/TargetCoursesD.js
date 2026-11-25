@@ -589,18 +589,20 @@
         duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', tracerColor: 0xff5fa8, forgivingMisses: true,
         map: {
             atmosphere: {
-                skyTop: 0x0369a1, skyBottom: 0x7dd3fc, fogColor: 0xbae6fd, fogDensity: 0.0028,
-                sunColor: 0xfff3d1, sunIntensity: 1.25, sunPos: [26, 48, -90],
-                hemiSky: 0xbae6fd, hemiGround: 0xd9b37c, hemiIntensity: 0.65
+                skyTop: 0x0369a1, skyBottom: 0x7dd3fc, fogColor: 0xbae6fd, fogDensity: 0.0024,
+                sunColor: 0xfff4d6, sunIntensity: 1.42, sunPos: [32, 44, 38],
+                hemiSky: 0xbae6fd, hemiGround: 0xd4a36a, hemiIntensity: 0.52
             },
             boxes: [B(0, -0.5, -40, 220, 1, 220, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 1.2, yaw: 0 }
         },
         build(S) {
-            // Subtle warm front-fill light so anime faces, skin & hair sheen pop without blowing out highlights
-            const fill = new THREE.DirectionalLight(0xffe4d6, 0.35);
-            fill.position.set(-14, 16, 26);
-            S.add(fill);
+            // Studio 3-point tropical lighting: 45° golden key sun (from map) + turquoise ocean back-rim + soft peach fill
+            const oceanRim = new THREE.DirectionalLight(0x67e8f9, 0.62);
+            oceanRim.position.set(-8, 16, -58);
+            const peachFill = new THREE.DirectionalLight(0xffe4d6, 0.26);
+            peachFill.position.set(-24, 12, 22);
+            S.add(oceanRim, peachFill);
 
             // Rich warm golden beach sand (high contrast against light skin & bright swimwear)
             const sandTex = L.canvasTex('hq-beach-sand-v2', 256, 256, (g, w, h) => {
