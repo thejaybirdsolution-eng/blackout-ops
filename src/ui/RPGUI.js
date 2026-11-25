@@ -19,7 +19,8 @@
 
     const TABS = [
         ['delve', 'Delve', '⬇'], ['loadout', 'Loadout', '⛨'], ['talents', 'Talents', '✦'], ['stash', 'Stash', '▣'],
-        ['merchant', 'Merchant', '◆'], ['forge', 'Forge', '⚒'], ['upgrades', 'Haven', '⌂'], ['roster', 'Roster', '☰']
+        ['merchant', 'Merchant', '◆'], ['forge', 'Forge', '⚒'], ['upgrades', 'Haven', '⌂'], ['roster', 'Roster', '☰'],
+        ['contracts', 'Contracts', '⚑'], ['guide', 'Field Guide', '▤']
     ];
 
     class RPGUI {
@@ -58,6 +59,7 @@
                     <div class="rpg-floorcard-top"><span class="rpg-floor-label"></span><span class="rpg-room-chip"></span></div>
                     <div class="rpg-objective"></div>
                     <div class="rpg-haul"></div>
+                    <div class="rpg-contract-hud"></div>
                     <div class="rpg-boons"></div>
                 </div>
                 <div class="rpg-bottom">
@@ -175,6 +177,8 @@
                 case 'forge': return this._forgeHtml();
                 case 'upgrades': return this._upgradesHtml();
                 case 'roster': return this._classPickHtml(false);
+                case 'contracts': return this._contractsHtml();
+                case 'guide': return this._guideHtml();
                 default: return this._delveHtml();
             }
         }
@@ -192,6 +196,7 @@
             const run = p.run && p.run.classId === Pr.classId ? p.run : null;
             const otherRun = p.run && p.run.classId !== Pr.classId ? p.run : null;
             const diff = D.DIFFICULTIES[p.difficulty];
+            const contract = D.CONTRACTS[run ? run.contract : p.contract];
             const kb = BO.Settings.getKeybinds();
             const key = (a) => esc(BO.Settings.keyLabel(kb[a]));
             const hero = `
@@ -216,7 +221,8 @@
                 action = `
                     <div class="rpg-resume">
                         <div><span class="rpg-kicker">DELVE SUSPENDED</span><h3>Floor ${run.floor} • ${esc(D.biomeForFloor(run.floor).name)}</h3>
-                        <p>Unbanked: <b class="rpg-gold">◆ ${fmt(run.gold)}</b> • <b>${run.pack.length}</b> items • ${run.boons.length} boons. You resume at the start of the floor.</p></div>
+                        <p>Unbanked: <b class="rpg-gold">◆ ${fmt(run.gold)}</b> • <b>${run.pack.length}</b> items • ${run.boons.length} boons. You resume at the start of the floor.</p>
+                        ${contract ? `<p>Contract: ${esc(contract.name)} • ${run.contractProgress || 0}/${contract.goal}</p>` : ''}</div>
                         <div class="rpg-resume-btns">
                             <button class="btn rpg-btn-ghost" data-act="abandon">ABANDON</button>
                             <button class="btn btn-primary rpg-btn-big" data-act="resume">RESUME FLOOR ${run.floor} →</button>
@@ -228,6 +234,10 @@
                     <div class="rpg-launch">
                         <div class="rpg-field"><label>START AT</label><div class="rpg-seg">${cps.map((c) => `<button class="${this.startFloor === c ? 'active' : ''}" data-act="startfloor" data-floor="${c}" data-tip-title="Floor ${c}" data-tip="${esc(D.biomeForFloor(c).name)} • recommended level ${D.recommendedLevel(c)}">F${c}</button>`).join('')}</div></div>
                         <div class="rpg-field"><label>DIFFICULTY</label><div class="rpg-seg">${Object.values(D.DIFFICULTIES).map((d) => `<button class="${p.difficulty === d.id ? 'active' : ''}" data-act="difficulty" data-diff="${d.id}" data-tip-title="${esc(d.name)}" data-tip="${esc(d.desc)}">${esc(d.name.toUpperCase())}</button>`).join('')}</div></div>
+                        <div class="rpg-contract-link">
+                            <span>${contract ? `<b>${esc(contract.name)}</b> · ${esc(contract.objective)}` : 'No contract selected'}</span>
+                            <button class="btn btn-sm" data-act="tab" data-tab="contracts">${contract ? 'CHANGE CONTRACT' : 'VIEW CONTRACTS'}</button>
+                        </div>
                         ${otherRun ? `<p class="rpg-warn">Your ${esc(D.CLASSES[otherRun.classId].name)} has a suspended delve on floor ${otherRun.floor}. Starting a new delve abandons it.</p>` : ''}
                         <button class="btn btn-primary rpg-btn-big" data-act="delve">BEGIN DELVE → FLOOR ${this.startFloor}</button>
                         <p class="rpg-hint">Recommended level ${D.recommendedLevel(this.startFloor)} • ${esc(diff.name)} • ${p.elixir ? `Elixir ready: <b>${esc(D.ELIXIRS.find((e) => e.id === p.elixir).name)}</b>` : 'No elixir'}</p>
@@ -300,12 +310,61 @@
             return this._section('Roster', 'Each class keeps its own level, talents and equipped gear. Gold, scrap, stash, upgrades and checkpoints are shared.', `<div class="rpg-classes">${cards}</div>`);
         }
 
+        _contractsHtml() {
+            const p = this.Pr.data;
+            const cards = Object.entries(this.D.CONTRACTS).map(([id, contract]) => {
+                const locked = !p.checkpoints.some((floor) => floor >= contract.floor);
+                const selected = p.contract === id;
+                const completions = p.contractCompletions[id] || 0;
+                return `<article class="rpg-entry ${selected ? 'selected' : ''}">
+                    <h4>${esc(contract.name)}</h4>
+                    <p>${esc(contract.objective)}${contract.floor > 1 ? ` on floor ${contract.floor} or deeper` : ''}.</p>
+                    <p class="rpg-gold">◆ ${fmt(contract.gold)} gold · ⚙ ${fmt(contract.scrap)} scrap</p>
+                    <div class="rpg-entry-footer">
+                        <small>${completions ? `Completed ${fmt(completions)}×` : locked ? `Unlock at checkpoint ${contract.floor}` : 'Available now'}</small>
+                        <button class="btn btn-sm" data-act="contract" data-id="${id}" aria-pressed="${selected}" ${locked ? 'disabled' : ''}>${selected ? 'REMOVE' : 'SELECT'}</button>
+                    </div>
+                </article>`;
+            }).join('');
+            const note = p.run ? ' Your suspended delve keeps its original contract.' : '';
+            return this._section('Contract Board', `Choose one for your next delve. Finish it and extract to collect the reward.${note}`, `<div class="rpg-entry-grid">${cards}</div>`);
+        }
+
+        _guideHtml() {
+            const D = this.D;
+            const records = this.Pr.data.fieldGuide;
+            const entry = (title, description, extra = '') => `<article class="rpg-entry"><h4>${esc(title)}</h4><p>${esc(description)}</p>${extra}</article>`;
+            const grid = (rows) => `<div class="rpg-entry-grid">${rows.join('')}</div>`;
+            const group = (title, rows, open = false) => `<details class="rpg-guide-group" ${open ? 'open' : ''}><summary>${title}</summary>${grid(rows)}</details>`;
+            const biomes = D.BIOMES.map((biome) => {
+                const [first, last] = biome.floors;
+                const floors = Number.isFinite(last) ? `Floors ${first}–${last}` : `Floor ${first} and deeper`;
+                return entry(biome.name, floors, `<small>${Object.keys(biome.pool).map((id) => esc(D.ENEMIES[id].name)).join(' · ')}</small>`);
+            });
+            const enemies = Object.values(D.ENEMIES).map((enemy) => {
+                const reaction = enemy.weak ? D.REACTIONS[D.STATUSES[enemy.weak].reaction].name : '';
+                return entry(enemy.name, enemy.desc, `<small>${enemy.role} · Floor ${enemy.minFloor || 1}+ · ${fmt(records[enemy.id])} defeated</small>
+                    ${reaction ? `<small>Weak to ${esc(reaction)}</small>` : ''}`);
+            });
+            const bosses = D.BOSSES.map((boss, index) => entry(boss.name, boss.title,
+                `<small>First appears on floor ${(index + 1) * 5} · ${fmt(records[boss.id])} defeated</small>
+                ${boss.set ? `<small>Drops a piece of ${esc(D.SETS[boss.set].name)}</small>` : ''}`));
+            const rooms = Object.values(D.ROOMS).map((room) => entry(room.name, room.desc));
+            const sets = Object.entries(D.SETS).map(([id, set]) => entry(set.name,
+                D.LEGENDARIES.filter((item) => item.set === id).map((item) => item.name).join(' · '),
+                set.bonuses.map((bonus) => `<small>${bonus.pieces} pieces · ${esc(bonus.desc)}</small>`).join('')));
+            return this._section('Field Guide', 'Look up enemy weaknesses, floor hazards, and where each gear set drops.',
+                group('Regions', biomes, true) + group('Enemies', enemies) + group('Guardians', bosses) + group('Rooms', rooms) + group('Gear Sets', sets));
+        }
+
         _itemCard(it, opts = {}) {
             const Pr = this.Pr;
             const D = this.D;
             const rar = Pr.rarity(it);
             const L = it.legendary ? D.legendaryById(it.legendary) : null;
             const slot = D.ITEM_SLOTS[it.slot];
+            const set = L?.set ? D.SETS[L.set] : null;
+            const setCount = set ? Pr.equippedSetCount(L.set) : 0;
             const eq = opts.compare === false ? null : (Pr.cls && Pr.cls.equip[it.slot]);
             let cmp = '';
             if (eq && eq.uid !== it.uid) {
@@ -317,11 +376,12 @@
                 <div class="rpg-item ${opts.selected ? 'selected' : ''} ${opts.compact ? 'compact' : ''}" style="--r:${rar.color}" ${opts.act ? `data-act="${opts.act}" data-uid="${it.uid}"` : ''}>
                     <div class="rpg-item-head">
                         <span class="rpg-item-slot">${slot.icon}</span>
-                        <div><b>${esc(it.name)}</b>${cmp}<small>${esc(rar.name)} ${sub} • iLvl ${it.ilvl}</small></div>
+                        <div><b>${esc(it.name)}</b>${cmp}<small>${esc(rar.name)} ${sub} • iLvl ${it.ilvl}${set ? ` · ${esc(set.name)}` : ''}</small></div>
                     </div>
                     ${opts.compact ? '' : `<ul class="rpg-item-lines">
                         ${Pr.describeItem(it).map((l, i) => `<li class="${i === 0 ? 'base' : ''}">${esc(l)}</li>`).join('')}
                         ${L ? `<li class="uniq">★ ${esc(L.unique)}</li><li class="down">▼ ${esc(L.downside)}</li>` : ''}
+                        ${set ? set.bonuses.map((bonus) => `<li class="${setCount >= bonus.pieces ? 'rpg-set-active' : 'rpg-dim'}">${bonus.pieces} pieces · ${esc(bonus.desc)}</li>`).join('') : ''}
                     </ul>`}
                     ${opts.footer || ''}
                 </div>`;
@@ -380,7 +440,7 @@
                     <button class="btn" data-act="salvage" data-uid="${sel.uid}">SALVAGE ⚙${Pr.scrapValue(sel)}</button>
                 </div>` : '<div class="rpg-empty">Select an item to see it in full.</div>';
             return `<div class="rpg-grid-split">
-                ${this._section(`Stash ${p.stash.length} / ${this.D.STASH_SIZE}`, '', `<div class="rpg-item-grid">${grid}</div>
+                ${this._section(`Stash ${p.stash.length} / ${Pr.stashCapacity()}`, '', `<div class="rpg-item-grid">${grid}</div>
                     <label class="rpg-toggle"><input type="checkbox" data-act="autosalvage" ${p.autoSalvage ? 'checked' : ''}> Auto-salvage Common items when picked up in a delve</label>`)}
                 ${this._section('Details', '', detail)}
             </div>`;
@@ -472,6 +532,10 @@
                     Pr.selectClass(btn.dataset.class);
                     this.tab = 'delve';
                     Pr.refreshMerchant();
+                    break;
+                case 'contract':
+                    if (Pr.setContract(p.contract === btn.dataset.id ? null : btn.dataset.id)) ok();
+                    else fail('Unlock the required checkpoint to take this contract.');
                     break;
                 case 'startfloor': ok(); this.startFloor = Number(btn.dataset.floor) || 1; break;
                 case 'difficulty': ok(); p.difficulty = btn.dataset.diff; Pr.save(); break;
@@ -567,13 +631,17 @@
             if (M.state === 'fighting') {
                 if (M.waves) obj = `Ambush — wave ${Math.max(1, M.waves.current)} / ${M.waves.total} • ${living} left`;
                 else if (M.boss) obj = `Defeat ${esc(M.boss.rpg.boss.name)}`;
-                else obj = `Clear the floor — <b>${living}</b> ${living === 1 ? 'enemy' : 'enemies'} left`;
+                else obj = `Clear the floor — <b>${living}</b> ${living === 1 ? 'enemy' : 'enemies'} left${M.hazards.length ? ' · Leave the circles as they brighten' : ''}`;
             } else if (M.state === 'cleared') {
                 obj = M.beacon ? 'Extract at the <b style="color:#4ade80">beacon</b> — or take a gate deeper' : 'Choose a <b>gate</b> to go deeper';
                 if (M.altar && !M.altar.used) obj = 'Commune with the <b style="color:#c084fc">shrine</b> — then choose a gate';
             } else obj = '';
             set('obj', q('.rpg-objective'), obj);
             set('haul', q('.rpg-haul'), `<span class="rpg-gold">◆ ${fmt(run.gold)}</span><span>▣ ${run.pack.length}/${s.packSlots}</span><span>⚙ ${fmt(run.scrap)}</span><span class="rpg-dim">UNBANKED</span>`);
+            const contract = D.CONTRACTS[run.contract];
+            const contractStatus = contract && run.floor < contract.floor ? `counts from floor ${contract.floor}` :
+                contract && run.contractProgress >= contract.goal ? 'complete · extract to collect' : `${run.contractProgress}/${contract?.goal}`;
+            set('contract', q('.rpg-contract-hud'), contract ? `⚑ ${esc(contract.name)} · ${contractStatus}` : '');
             const boonsHtml = Array.from(run.boons).map((id) => { const b = D.boonById(id); return `<span class="rpg-boon-chip" title="${esc(b.name)}: ${esc(b.desc)}">${b.icon}</span>`; }).join('');
             set('boons', q('.rpg-boons'), boonsHtml);
 
@@ -957,6 +1025,8 @@
 
         openExtractConfirm(run, onYes) {
             this._modalKind = 'extract';
+            const contract = this.D.CONTRACTS[run.contract];
+            const reward = contract && run.contractProgress >= contract.goal ? contract : null;
             const items = run.pack.length ? run.pack.map((it) => this._itemCard(it, { compact: true })).join('') : '<small class="rpg-dim">No items in the pack.</small>';
             this.openModal({
                 kicker: `FLOOR ${run.floor} • EXTRACTION BEACON`, title: 'Extract and bank your haul?', accent: '#4ade80', closeLabel: 'STAY',
@@ -966,6 +1036,7 @@
                         <div class="rpg-stat big"><small>ITEMS</small><b>${run.pack.length}</b></div>
                     </div>
                     <div class="rpg-item-grid">${items}</div>
+                    ${reward ? `<p class="rpg-gold">${esc(reward.name)} pays ◆ ${fmt(reward.gold)} gold and ⚙ ${fmt(reward.scrap)} scrap on extraction.</p>` : ''}
                     <p class="rpg-hint">Going deeper multiplies gold, XP and item quality — but if you die, all of this is lost.</p>
                     <div class="rpg-row-end"><button class="btn btn-primary rpg-btn-big" data-mact="yes">EXTRACT NOW</button></div>`,
                 handlers: { yes: () => { this.closeModal(true); onYes(); } }
@@ -1011,6 +1082,7 @@
                         <div class="rpg-stat"><small>REACTIONS</small><b>${r.reactions}</b></div>
                     </div>
                     ${win && r.soldOverflow ? `<p class="rpg-warn">Stash full — overflow items were sold for ◆${fmt(r.soldOverflow)}.</p>` : ''}
+                    ${r.contractReward ? `<p class="rpg-gold">Contract paid · ${esc(r.contractReward.name)} · ◆ ${fmt(r.contractReward.gold)} gold · ⚙ ${fmt(r.contractReward.scrap)} scrap</p>` : ''}
                     ${banked}${lostItems}
                     <div class="rpg-row-end">
                         <button class="btn" data-mact="haven">RETURN TO THE HAVEN</button>

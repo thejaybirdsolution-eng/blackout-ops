@@ -49,7 +49,8 @@
 
     const SIZES = {
         combat: [40, 44], elite: [40, 44], treasure: [36, 40], ambush: [42, 44],
-        boss: [48, 52], rest: [24, 26], shrine: [26, 28]
+        boss: [48, 52], rest: [24, 26], shrine: [26, 28],
+        vents: [38, 46], surge: [46, 40], fracture: [46, 48]
     };
 
     BO.RPGArena = {
@@ -65,6 +66,7 @@
             const rr = (a, b) => a + rng() * (b - a);
             const biome = D.biomeForFloor(o.floor);
             const type = o.roomType || 'combat';
+            const hazard = D.ROOMS[type]?.hazard;
             const [W, L] = SIZES[type] || SIZES.combat;
             const hw = W * 0.5, hl = L * 0.5;
             const wallH = 7.5;
@@ -119,7 +121,7 @@
             };
 
             // Cover pieces.
-            const isBig = type === 'combat' || type === 'elite' || type === 'ambush' || type === 'treasure';
+            const isBig = hazard || type === 'combat' || type === 'elite' || type === 'ambush' || type === 'treasure';
             if (isBig) {
                 const pillars = 3 + Math.floor(rng() * 3);
                 for (let i = 0; i < pillars; i++) tryPlace(1.5, 1.5, wallH - 0.5, biome.wallMat);
@@ -203,6 +205,21 @@
                 }
             }
 
+            const hazards = [];
+            if (hazard) {
+                // Use open pathing points and leave space to escape each ring.
+                const spots = waypoints.filter(({ x, z }) => keepClear(x, z, hazard.radius - 2) &&
+                    Math.abs(x) < hw - hazard.radius && Math.abs(z) < hl - hazard.radius &&
+                    !obstacles.some((b) => insideBox(x, z, b, hazard.radius * 0.65)) &&
+                    !ramps.some((r) => Math.abs(x - r.x) < r.w / 2 + hazard.radius &&
+                        z > Math.min(r.z1, r.z2) - hazard.radius && z < Math.max(r.z1, r.z2) + hazard.radius));
+                while (hazards.length < hazard.count && spots.length) {
+                    const [spot] = spots.splice(Math.floor(rng() * spots.length), 1);
+                    if (hazards.some((h) => Math.hypot(h.x - spot.x, h.z - spot.z) < hazard.radius * 2 + 1)) continue;
+                    hazards.push({ x: spot.x, z: spot.z, phase: hazards.length / hazard.count });
+                }
+            }
+
             // Lights: biome-tinted lamps plus fire barrels in the corners.
             const lights = [];
             const lampRows = type === 'rest' || type === 'shrine' ? [[0, 0]] : [[-hw * 0.5, -hl * 0.45], [hw * 0.5, -hl * 0.45], [-hw * 0.5, hl * 0.35], [hw * 0.5, hl * 0.35], [0, 0]];
@@ -234,7 +251,7 @@
             return {
                 mapId: MAP_ID,
                 map,
-                layout: { W, L, hw, hl, spawn, gates, camps, ambushSpots, cache, center, biome, type }
+                layout: { W, L, hw, hl, spawn, gates, camps, ambushSpots, cache, center, biome, type, hazards }
             };
         }
     };

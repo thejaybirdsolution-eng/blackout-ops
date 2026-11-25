@@ -17,8 +17,9 @@
         for (const e of entries) total += Math.max(0, e[1]);
         let r = Math.random() * total;
         for (const e of entries) {
-            r -= Math.max(0, e[1]);
-            if (r <= 0) return e[0];
+            if (e[1] <= 0) continue;
+            r -= e[1];
+            if (r < 0) return e[0];
         }
         return entries[entries.length - 1][0];
     };
@@ -44,6 +45,9 @@
             elixir: null,
             autoSalvage: true,
             uidSeq: 1,
+            contract: null,
+            contractCompletions: {},
+            fieldGuide: {},
             run: null
         };
     }
@@ -90,7 +94,30 @@
             if (p.activeClass && !p.classes[p.activeClass]) p.activeClass = null;
             if (p.run && (typeof p.run !== 'object' || !p.classes[p.run.classId])) p.run = null;
             p.uidSeq = Math.max(1, Math.floor(p.uidSeq) || 1);
+            p.contract = Object.hasOwn(this.D.CONTRACTS, p.contract) ? p.contract : null;
+            p.contractCompletions = this._normalizeCounts(raw.contractCompletions, Object.keys(this.D.CONTRACTS));
+            p.fieldGuide = this._normalizeCounts(raw.fieldGuide, [
+                ...Object.keys(this.D.ENEMIES), ...this.D.BOSSES.map((boss) => boss.id)
+            ]);
             return p;
+        }
+
+        _normalizeCounts(raw, ids) {
+            return Object.fromEntries(ids.filter((id) => Number.isFinite(raw?.[id]) && raw[id] >= 1)
+                .map((id) => [id, Math.floor(raw[id])]));
+        }
+
+        setContract(id) {
+            const contract = Object.hasOwn(this.D.CONTRACTS, id) ? this.D.CONTRACTS[id] : null;
+            const p = this.data;
+            if (id !== null && (!contract || !p.checkpoints.some((floor) => floor >= contract.floor))) return false;
+            p.contract = id;
+            this.save();
+            return true;
+        }
+
+        equippedSetCount(id) {
+            return Object.values(this.cls?.equip || {}).filter((item) => this.D.legendaryById(item?.legendary)?.set === id).length;
         }
 
         _validItem(it) {
@@ -203,20 +230,23 @@
 
         /**
          * Rolls a random item.
-         * opts: { floor, slot, minRarity ('common'|'rare'|'epic'|'legendary'), rarityBonus }
+         * opts: { floor, slot, minRarity, rarityBonus, set, excludeLegendaries }
          */
         rollItem(opts = {}) {
             const floor = Math.max(1, opts.floor || 1);
             const weights = this.D.rarityWeights(floor, opts.rarityBonus || 0);
-            const minIdx = this.D.RARITY_INDEX[opts.minRarity || 'common'] || 0;
+            const minIdx = this.D.RARITY_INDEX[opts.set ? 'legendary' : opts.minRarity] || 0;
             const rIdx = pickWeighted(weights.map((w, i) => [i, i >= minIdx ? w : 0]));
             const rarity = this.D.RARITIES[rIdx];
-            const slot = opts.slot || pickWeighted([['weapon', 40], ['rig', 30], ['relic', 30]]);
+            const setPool = opts.set ? this.D.LEGENDARIES.filter((item) => item.set === opts.set) : [];
+            const newPieces = setPool.filter((item) => !opts.excludeLegendaries?.has(item.id));
+            const setPiece = setPool.length ? BO.Math.pick(newPieces.length ? newPieces : setPool) : null;
+            const slot = setPiece?.slot || opts.slot || pickWeighted([['weapon', 40], ['rig', 30], ['relic', 30]]);
             const ilvl = clamp(Math.ceil(floor * 0.8) + randInt(-1, 1), 1, 40);
             const it = { slot, rarity: rarity.id, ilvl, affixes: [], legendary: null };
             if (rarity.id === 'legendary') {
-                const pool = this.D.LEGENDARIES.filter((l) => l.slot === slot);
-                const L = BO.Math.pick(pool);
+                const pool = this.D.LEGENDARIES.filter((l) => l.slot === slot && (!l.set || floor >= this.D.SETS[l.set].minFloor));
+                const L = setPiece || BO.Math.pick(pool);
                 it.legendary = L.id;
                 if (slot === 'weapon') it.base = L.base;
             }
@@ -288,14 +318,15 @@
             const p = this.data;
             if (!rec || !rec.equip[slot]) return false;
             if (slot === 'weapon') return false; // a weapon is always required
-            if (p.stash.length >= this.D.STASH_SIZE) return false;
+            if (this.stashFree() <= 0) return false;
             p.stash.push(rec.equip[slot]);
             rec.equip[slot] = null;
             this.save();
             return true;
         }
 
-        stashFree() { return this.D.STASH_SIZE - this.data.stash.length; }
+        stashCapacity() { return this.D.STASH_SIZE + this.upgradeLevel('vault_racks') * 8; }
+        stashFree() { return this.stashCapacity() - this.data.stash.length; }
 
         sellFromStash(uid) {
             const p = this.data;
@@ -368,7 +399,7 @@
             const it = p.merchant.stock[idx];
             const cost = this.buyValue(it);
             if (p.gold < cost) return 'gold';
-            if (p.stash.length >= this.D.STASH_SIZE) return 'stash';
+            if (this.stashFree() <= 0) return 'stash';
             p.gold -= cost;
             p.merchant.stock.splice(idx, 1);
             p.stash.push(it);
@@ -503,8 +534,16 @@
                     if (L) addFx(L.fx);
                 }
             }
+            for (const [id, set] of Object.entries(D.SETS)) {
+                const count = this.equippedSetCount(id);
+                for (const bonus of set.bonuses) if (count >= bonus.pieces) addFx(bonus.fx);
+            }
             if (talents.has('iron_hide')) s.maxHpPct += 25;
             if (run) {
+                for (const id of run.boons) {
+                    const effects = D.boonById(id)?.fx;
+                    if (effects) addFx(effects);
+                }
                 if (run.boons.has('glass_cannon')) { s.dmgMult *= 1.35; s.maxHpPct -= 25; }
                 if (run.boons.has('overclock')) s.cdr += 25;
                 if (run.boons.has('fortune')) s.goldFind += 40;

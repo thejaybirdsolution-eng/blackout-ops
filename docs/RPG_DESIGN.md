@@ -2,7 +2,15 @@
 
 > **Pitch (5-second hook):** *Pick a class, delve floor by floor into the Blackout Vaults, chain elemental combos with your abilities — then extract to bank your loot, or push deeper and risk losing it all.*
 
-This document is the design record for the **RPG** game mode. It shows the brainstorm (10 ideas per system), how they were compared, and what was picked and why. The live implementation status and handoff notes live in [`RPG_HANDOFF.md`](RPG_HANDOFF.md).
+This document records the original design decisions for **Rogue Lite**, the mode originally called RPG.
+
+### Deep Vaults expansion
+
+- Five new regions span floors 26–50 and beyond. Guardians first appear every five floors through floor 50, then cycle at higher depths.
+- Pressure Vents, Surge Circuit and Null Fracture first appear as gate choices for floors 3, 8 and 16. Brightening floor rings warn of an eruption. Clearing a hazard room disarms it and unlocks its reward chest.
+- The Haven lists ten repeatable contracts. Select one before starting a delve. Only progress made at or beyond its required floor counts, and payouts are banked on successful extraction.
+- Four three-piece legendary sets award bonuses at two and three equipped pieces. The guardians on floors 30, 35, 40 and 45 drop a piece of their own set and favor pieces the player does not already carry or own.
+- The Field Guide records defeated enemies and guardians and lists region rosters, room rules, weaknesses and set effects. Vault Racks add eight stash slots per upgrade.
 
 Every decision was judged against the project's six standards (Fun, Appeal, Loops, Dev discipline, Greybox-first, RPG fun) and five wisdoms (ambition, deliberate thinking, system-wide cohesion, flagship UI, zero placeholders).
 

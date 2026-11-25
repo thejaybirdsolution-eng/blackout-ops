@@ -39,6 +39,7 @@
             this.momentum = { stacks: 0, decay: 0 };
             this.prompt = null;
             this.waves = null;
+            this.hazards = [];
             this.boss = null;
             this.bannerText = '';
         }
@@ -103,7 +104,9 @@
                     floorsCleared: 0,
                     elapsed: 0,
                     levelsGained: 0,
-                    bossKills: 0
+                    bossKills: 0,
+                    contract: p.contract,
+                    contractProgress: 0
                 };
                 p.elixir = null;
                 p.stats.delves++;
@@ -141,7 +144,8 @@
                 boons: Array.from(r.boons), elixir: r.elixir, shrineHpPenalty: r.shrineHpPenalty,
                 gold: r.gold, scrap: r.scrap, pack: r.pack.slice(), xpEarned: r.xpEarned, kills: r.kills, reactions: r.reactions,
                 potions: r.potions, hpFrac: r.hpFrac, ult: r.ult, secondWindUsed: r.secondWindUsed, fieldMedicUsed: r.fieldMedicUsed,
-                lastBastionFloor: r.lastBastionFloor, floorsCleared: r.floorsCleared, elapsed: r.elapsed, levelsGained: r.levelsGained, bossKills: r.bossKills
+                lastBastionFloor: r.lastBastionFloor, floorsCleared: r.floorsCleared, elapsed: r.elapsed, levelsGained: r.levelsGained, bossKills: r.bossKills,
+                contract: r.contract, contractProgress: r.contractProgress
             };
         }
 
@@ -150,6 +154,9 @@
             r.boons = new Set(Array.isArray(s.boons) ? s.boons : []);
             r.pack = Array.isArray(s.pack) ? s.pack.slice() : [];
             r.hpFrac = BO.Math.clamp(Number(s.hpFrac) || 1, 0.05, 1);
+            r.contract = Object.hasOwn(this.D.CONTRACTS, s.contract) ? s.contract : null;
+            const contract = this.D.CONTRACTS[r.contract];
+            r.contractProgress = contract ? BO.Math.clamp(Math.floor(Number(s.contractProgress) || 0), 0, contract.goal) : 0;
             return r;
         }
 
@@ -168,6 +175,7 @@
                 }
             }
             for (const g of this.gates) if (g.group && scene) scene.remove(g.group);
+            this._clearHazards();
             this.projectiles = [];
             this.pickups = [];
             this.pools = [];
@@ -179,6 +187,7 @@
             this.beacon = null;
             this.altar = null;
             this.chest = null;
+            this.cache = null;
             this.ability.storm = null;
             this.ability.dash = null;
             if (BO.RPGUI) BO.RPGUI.clearWorldUi();
@@ -228,6 +237,7 @@
 
             this._buildGates();
             this._populateRoom();
+            this._buildHazards();
 
             // Floor-start snapshot = the suspend/resume point.
             this.Profile.saveRun(this._snapshot());
@@ -315,7 +325,7 @@
 
             switch (r.roomType) {
                 case 'elite': {
-                    const eliteArch = BO.Math.pick(['grunt', 'runner', 'spitter', f >= 6 ? 'brute' : 'grunt', f >= 11 ? 'hexer' : 'runner']);
+                    const eliteArch = this._pickArchetype();
                     placeGroup(1, 0, { arch: eliteArch, elite: true });
                     fillCamps(Math.round(baseCount * 0.6), 1);
                     break;
@@ -342,6 +352,9 @@
                     this._spawnAltar(L.center.x, L.center.z);
                     break;
                 default:
+                    if (this.D.ROOMS[r.roomType].hazard) {
+                        this._spawnChest(L.center.x, L.center.z);
+                    }
                     fillCamps(baseCount);
             }
             if (L.cache) this._spawnCache(L.cache.x, L.cache.y, L.cache.z);
@@ -370,6 +383,8 @@
             const rooms = Object.values(this.D.ROOMS).filter((rm) => rm.weight > 0 && (rm.minFloor || 1) <= next);
             const out = [];
             if (next % 5 === 4) out.push('rest'); // the floor before a boss always offers a breather
+            const newHazard = rooms.find((room) => room.hazard && room.minFloor === next);
+            if (newHazard && out.length < count) out.push(newHazard.id);
             while (out.length < count) {
                 const pool = rooms.filter((rm) => !out.includes(rm.id));
                 if (!pool.length) break;
@@ -422,6 +437,11 @@
             r.floorsCleared++;
             const fightRoom = !['rest', 'shrine'].includes(r.roomType);
             if (fightRoom) {
+                this._trackContract('clears');
+                if (this.hazards.length) {
+                    this._trackContract('hazards');
+                    this._clearHazards();
+                }
                 this._awardXP(25 + 8 * r.floor, null, 'FLOOR CLEARED');
                 BO.Sound.playRoundEnd();
             }
@@ -442,6 +462,70 @@
                 BO.Events.emit('hud:banner', { title: 'FLOOR CLEARED', sub: this.beacon ? 'EXTRACT AT THE BEACON — OR CHOOSE A GATE TO GO DEEPER' : 'CHOOSE A GATE TO GO DEEPER', color: '#4ade80' });
             }
             this.Profile.save();
+        }
+
+        _buildHazards() {
+            const room = this.D.ROOMS[this.run.roomType];
+            const spec = room.hazard;
+            if (!spec) return;
+
+            for (const spot of this.layout.hazards) {
+                const group = new THREE.Group();
+                const material = new THREE.MeshBasicMaterial({
+                    color: room.color, transparent: true, opacity: 0.3, depthWrite: false
+                });
+                const ring = new THREE.Mesh(new THREE.RingGeometry(spec.radius - 0.13, spec.radius, 40), material);
+                const fill = new THREE.Mesh(new THREE.CircleGeometry(spec.radius - 0.16, 40), material.clone());
+                fill.material.opacity = 0.06;
+                ring.rotation.x = fill.rotation.x = -Math.PI / 2;
+                group.position.set(spot.x, 0.035, spot.z);
+                group.add(ring, fill);
+                BO.World.scene.add(group);
+                this.hazards.push({ group, ring, fill, clock: spot.phase * (spec.period - spec.warning) });
+            }
+        }
+
+        _clearHazards() {
+            for (const { group, ring, fill } of this.hazards) {
+                group.removeFromParent();
+                for (const mesh of [ring, fill]) {
+                    mesh.material.dispose();
+                    mesh.geometry.dispose();
+                }
+            }
+            this.hazards = [];
+        }
+
+        _updateHazards(dt) {
+            if (!this.hazards.length) return;
+            const room = this.D.ROOMS[this.run.roomType];
+            const spec = room.hazard;
+            const player = this.P;
+            for (const hazard of this.hazards) {
+                hazard.clock += dt;
+                const tell = (hazard.clock - spec.period + spec.warning) / spec.warning;
+                hazard.ring.material.opacity = 0.32 + 0.67 * BO.Math.clamp(tell, 0, 1);
+                hazard.fill.material.opacity = 0.06 + 0.45 * BO.Math.clamp(tell, 0, 1);
+                if (hazard.clock < spec.period) continue;
+                hazard.clock -= spec.period;
+                const pos = hazard.group.position;
+                BO.FX.spawnParticles(pos.clone().add(CAMERA_LIGHT_UP), 14, new THREE.Color(room.color).getHex(), 3, 1, 0.6, 1.2);
+                if (!player.alive || player.pos.y > 0.9 || Math.hypot(player.pos.x - pos.x, player.pos.z - pos.z) >= spec.radius) continue;
+                player.takeDamage(player.maxHp * spec.damage * this._difficulty().dmg, null, true);
+                if (spec.silence) this.ability.silenced = Math.max(this.ability.silenced, spec.silence);
+                if (spec.drain) this.ability.ult = Math.max(0, this.ability.ult - spec.drain);
+                BO.Events.emit('hud:toast', { text: spec.name, color: room.color });
+            }
+        }
+
+        _trackContract(event, amount = 1) {
+            const r = this.run;
+            const contract = this.D.CONTRACTS[r.contract];
+            if (!contract || contract.event !== event || r.floor < contract.floor || r.contractProgress >= contract.goal) return;
+            r.contractProgress = Math.min(contract.goal, r.contractProgress + amount);
+            if (r.contractProgress === contract.goal) {
+                BO.Events.emit('hud:toast', { text: `${contract.name} complete. Extract to collect your reward.`, color: '#fbbf24' });
+            }
         }
 
         _offerBoons(title) {
@@ -567,10 +651,11 @@
             const thresholds = [0.66, 0.33];
             while (r.phase < thresholds.length && frac <= thresholds[r.phase]) {
                 r.phase++;
-                const adds = 2 + Math.floor(this.run.floor / 5);
+                const adds = Math.min(8, 2 + Math.floor(this.run.floor / 5));
                 for (let i = 0; i < adds; i++) {
                     const spot = this.layout.camps[i % Math.max(1, this.layout.camps.length)] || { x: 0, z: 0 };
-                    this._spawnEnemy(this._pickArchetype(), spot.x, spot.z, { aggro: true });
+                    const archetype = i === 0 && r.boss.escort ? r.boss.escort : this._pickArchetype();
+                    this._spawnEnemy(archetype, spot.x, spot.z, { aggro: true });
                 }
                 z.stunTimer = Math.max(z.stunTimer, 0.6);
                 BO.FX.spawnExplosion(z.pos.clone().add(CAMERA_LIGHT_UP), 5, 0xfbbf24);
@@ -794,6 +879,7 @@
                 }
             }
             this.run.reactions += count;
+            this._trackContract('reactions', count);
             this.Profile.data.stats.reactions += count;
             if (this.run.boons.has('reactive_mend')) this.heal(3 * count);
             return count;
@@ -928,6 +1014,11 @@
             const selfDestruct = !!ctx.selfDestruct;
 
             if (!selfDestruct) {
+                this._trackContract('kills');
+                if (r.elite) this._trackContract('elites');
+                const guide = this.Profile.data.fieldGuide;
+                const key = r.isBoss ? r.boss.id : r.arch.id;
+                guide[key] = (guide[key] || 0) + 1;
                 // Momentum.
                 const cap = run.boons.has('adrenal') ? 15 : this.D.MOMENTUM.max;
                 this.momentum.stacks = Math.min(cap, this.momentum.stacks + 1);
@@ -959,6 +1050,8 @@
                 });
             }
             if (r.isBoss) {
+                this._trackContract('bosses');
+                if (r.boss.id === 'boss_hydra_matron') this._trackContract('matron');
                 run.bossKills++;
                 this.Profile.data.stats.bossKills++;
                 this.boss = null;
@@ -1083,7 +1176,14 @@
             const f = this.run.floor;
             if (r.isBoss) {
                 this._dropItem(z.pos, this.Profile.rollItem({ floor: f + 2, minRarity: 'epic', rarityBonus: 0.2 }));
-                this._dropItem(z.pos.clone().add(new THREE.Vector3(1.5, 0, 0)), this.Profile.rollItem({ floor: f + 1, minRarity: 'rare' }));
+                const extra = { floor: f + 1, minRarity: 'rare' };
+                if (r.boss.set) {
+                    extra.set = r.boss.set;
+                    const p = this.Profile.data;
+                    const equipped = Object.values(p.classes).flatMap((rec) => Object.values(rec.equip));
+                    extra.excludeLegendaries = new Set([...equipped, ...p.stash, ...this.run.pack].map((item) => item?.legendary));
+                }
+                this._dropItem(z.pos.clone().add(new THREE.Vector3(1.5, 0, 0)), this.Profile.rollItem(extra));
                 return;
             }
             if (r.elite) {
@@ -1156,13 +1256,17 @@
         _openContainer(c) {
             if (c.opened) return;
             c.opened = true;
+            this._trackContract('containers');
             const f = this.run.floor;
             if (c.kind === 'chest') {
                 c.lid.rotation.x = -1.1;
                 c.lid.position.z -= 0.3;
                 c.lid.position.y += 0.25;
-                this._dropGold(new THREE.Vector3(c.x, 0, c.z), 30 + f * 6);
-                this._dropItem(new THREE.Vector3(c.x + 1.2, 0, c.z + 0.6), this.Profile.rollItem({ floor: f + 1, minRarity: 'rare', rarityBonus: 0.12 }));
+                const fracture = this.run.roomType === 'fracture';
+                this._dropGold(new THREE.Vector3(c.x, 0, c.z), (fracture ? 55 : 30) + f * 6);
+                this._dropItem(new THREE.Vector3(c.x + 1.2, 0, c.z + 0.6), this.Profile.rollItem({
+                    floor: f + 1, minRarity: fracture ? 'epic' : 'rare', rarityBonus: 0.12
+                }));
                 BO.Sound.playMysteryBoxJingle();
             } else {
                 c.group.children[1].material.color.set(0x334155);
@@ -1211,14 +1315,21 @@
             let soldOverflow = 0;
             const banked = [];
             for (const it of r.pack) {
-                if (p.stash.length < this.D.STASH_SIZE) { p.stash.push(it); banked.push(it); } else {
+                if (profile.stashFree() > 0) { p.stash.push(it); banked.push(it); } else {
                     const g = profile.sellValue(it);
                     p.gold += g;
                     soldOverflow += g;
                 }
             }
             p.deepest = Math.max(p.deepest, r.floor);
-            this._finish('extract', { bonusXp, banked, soldOverflow, goldKept: r.gold, scrapKept: r.scrap });
+            const contract = this.D.CONTRACTS[r.contract];
+            const contractReward = contract && r.contractProgress >= contract.goal ? contract : null;
+            if (contractReward) {
+                p.gold += contractReward.gold;
+                p.scrap += contractReward.scrap;
+                p.contractCompletions[r.contract] = (p.contractCompletions[r.contract] || 0) + 1;
+            }
+            this._finish('extract', { bonusXp, banked, soldOverflow, goldKept: r.gold, scrapKept: r.scrap, contractReward });
         }
 
         _die() {
@@ -1357,6 +1468,7 @@
             }
 
             this._updateEnemies(dt);
+            this._updateHazards(dt);
             this._updateProjectiles(dt);
             this._updatePickups(dt);
             this._updateProps(dt);

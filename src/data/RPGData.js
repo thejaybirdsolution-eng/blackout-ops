@@ -2,7 +2,7 @@
    BLACKOUT OPS — RPG Mode Data (classes, abilities, statuses, enemies, loot,
    talents, boons, Haven upgrades, biomes, rooms, curves).
    Every tunable number for RPG mode lives here so balance changes never touch
-   logic. Design record: docs/RPG_DESIGN.md · Handoff: docs/RPG_HANDOFF.md
+   logic. Design record: docs/RPG_DESIGN.md
 ============================================================================ */
 (function (global) {
     'use strict';
@@ -211,7 +211,23 @@
             weak: 'burn', healer: true, minFloor: 6, desc: 'Keeps its distance and heals allies. Kill it first.' },
         hexer: { id: 'hexer', base: 'shadow_stalker', name: 'Void Hexer', role: 'Disruptor', hp: 120, speed: 2.8, attack: 12, xp: 28, gold: 8,
             weak: 'chill', ranged: true, hexer: true, attackType: 'aether_bolt', habit: 'flank_circle', minFloor: 11,
-            desc: 'Its bolts silence your abilities for 3 s. Stay out of its sight line.' }
+            desc: 'Its bolts silence your abilities for 3 s. Stay out of its sight line.' },
+        hound: { id: 'hound', base: 'bone_hound', name: 'Sump Hound', role: 'Pursuer', hp: 72, speed: 5.1, attack: 13, xp: 15, gold: 4,
+            weak: 'chill', minFloor: 3, desc: 'A low, fast melee hunter. Slow it before it closes the gap.' },
+        cinder: { id: 'cinder', base: 'ember_dwarf', name: 'Kiln Thrower', role: 'Skirmisher', hp: 120, speed: 3.1, attack: 15, xp: 20, gold: 6,
+            weak: 'chill', ranged: true, minFloor: 6, desc: 'Throws cinders across open ground. Fight from cover.' },
+        frost: { id: 'frost', base: 'frost_gnome', name: 'Rime Slinger', role: 'Ranged', hp: 105, speed: 3.2, attack: 14, xp: 22, gold: 6,
+            weak: 'burn', ranged: true, minFloor: 11, desc: 'Flanks while throwing frost projectiles. Combust breaks up its escort.' },
+        ogre: { id: 'ogre', base: 'iron_ogre', name: 'Archive Bulwark', role: 'Tank', hp: 380, speed: 2.0, attack: 29, xp: 35, gold: 11,
+            weak: 'expose', armored: true, minFloor: 16, desc: 'Armored from the front. Flank it or strip its armor with Expose.' },
+        spark: { id: 'spark', base: 'lightning_sprite', name: 'Relay Wisp', role: 'Ranged', hp: 100, speed: 4.2, attack: 13, xp: 23, gold: 7,
+            weak: 'expose', ranged: true, minFloor: 21, desc: 'A small hovering target that drifts around cover and throws aether bolts.' },
+        oracle: { id: 'oracle', base: 'swamp_witch', name: 'Spore Oracle', role: 'Healer', hp: 158, speed: 3.2, attack: 0, xp: 32, gold: 10,
+            weak: 'burn', healer: true, minFloor: 26, desc: 'Hangs back and restores nearby enemies. Separate it from the pack.' },
+        prowler: { id: 'prowler', base: 'saber_tigerman', name: 'Breach Prowler', role: 'Pursuer', hp: 188, speed: 5.2, attack: 22, xp: 31, gold: 9,
+            weak: 'chill', minFloor: 31, desc: 'A fast double-claw threat. Chill gives you room to reposition.' },
+        cantor: { id: 'cantor', base: 'arch_witch', name: 'Null Cantor', role: 'Disruptor', hp: 190, speed: 3.2, attack: 18, xp: 34, gold: 10,
+            weak: 'shock', ranged: true, hexer: true, minFloor: 36, desc: 'Blinks around the arena and silences your abilities with aether bolts.' }
     };
 
     const ELITE_AFFIXES = {
@@ -227,23 +243,43 @@
         { id: 'boss_witch_queen', name: 'COVEN MATRIARCH', title: 'Hex-Queen of the Furnace', hp: 2400, speed: 3.4, attack: 30, xp: 380, gold: 180 },
         { id: 'boss_lycan_king', name: 'LYCAN KING', title: 'Warden of the Cryo Vault', hp: 3400, speed: 4.6, attack: 34, xp: 520, gold: 250 },
         { id: 'boss_colossus', name: 'IRON COLOSSUS', title: 'Abyssal Siege Engine', hp: 4400, speed: 2.8, attack: 40, xp: 680, gold: 320 },
-        { id: 'boss_nyx', name: 'OVERLORD NYX', title: 'Sovereign of the Abyss', hp: 5200, speed: 3.6, attack: 38, xp: 820, gold: 400 }
+        { id: 'boss_nyx', name: 'OVERLORD NYX', title: 'Sovereign of the Abyss', hp: 5200, speed: 3.6, attack: 38, xp: 820, gold: 400 },
+        { id: 'boss_plague', name: 'THE BLOOMKEEPER', title: 'Custodian of the Spore Gardens', hp: 6050, speed: 3.1, attack: 35, xp: 950, gold: 470, escort: 'oracle', set: 'mire' },
+        { id: 'boss_cerberus', name: 'RELAY CERBERUS', title: 'Hound of the Storm Relay', hp: 6750, speed: 4.2, attack: 37, xp: 1100, gold: 540, escort: 'spark', set: 'surge' },
+        { id: 'boss_ogre_emperor', name: 'THE LAST ARCHIVIST', title: 'Keeper of the Black Archive', hp: 7550, speed: 2.8, attack: 42, xp: 1250, gold: 610, escort: 'ogre', set: 'bastion' },
+        { id: 'boss_manbearpig', name: 'THE CINDER BEAST', title: 'Hunter of the Ember Crucible', hp: 8350, speed: 4.0, attack: 40, xp: 1400, gold: 680, escort: 'cinder', set: 'kiln' },
+        { id: 'boss_hydra_matron', name: 'THE FAULT MATRON', title: 'Guardian of the Null Fault', hp: 9400, speed: 3.4, attack: 43, xp: 1550, gold: 760, escort: 'cantor' }
     ];
 
     /* ---------------- Biomes (every 5 floors) ---------------- */
     const BIOMES = [
         { id: 'substation', name: 'Sunken Substation', floors: [1, 5], floorMat: 'concrete', wallMat: 'soviet_concrete', coverMat: 'rusted_metal', crateMat: 'wood_crate',
             light: 0x5eead4, accent: '#5eead4', atmosphere: { skyTop: 0x02090b, skyBottom: 0x07191c, fogColor: 0x061416, fogDensity: 0.028, sunColor: 0x9ff6e8, sunIntensity: 0.55, sunPos: [18, 40, -12], hemiSky: 0x2b5c5a, hemiGround: 0x0b1111, hemiIntensity: 0.62 },
-            pool: { grunt: 50, runner: 22, spitter: 18, bomber: 10 } },
+            pool: { grunt: 44, runner: 20, spitter: 18, bomber: 10, hound: 8 } },
         { id: 'furnace', name: 'Furnace Works', floors: [6, 10], floorMat: 'rust_steel', wallMat: 'brick', coverMat: 'diamond_plate', crateMat: 'wood_crate',
             light: 0xfb923c, accent: '#fb923c', atmosphere: { skyTop: 0x0c0402, skyBottom: 0x2a0d05, fogColor: 0x1d0a04, fogDensity: 0.026, sunColor: 0xffa66b, sunIntensity: 0.7, sunPos: [-20, 36, 16], hemiSky: 0x6b2e14, hemiGround: 0x140806, hemiIntensity: 0.6 },
-            pool: { grunt: 30, runner: 18, spitter: 14, bomber: 12, brute: 14, mender: 12 } },
+            pool: { grunt: 24, runner: 13, spitter: 10, bomber: 12, brute: 14, mender: 12, cinder: 15 } },
         { id: 'cryo', name: 'Cryo Vault', floors: [11, 15], floorMat: 'diamond_plate', wallMat: 'lab_panel', coverMat: 'pentagon_panel', crateMat: 'container_blue',
             light: 0x93c5fd, accent: '#93c5fd', atmosphere: { skyTop: 0x02040b, skyBottom: 0x0a1630, fogColor: 0x0a1328, fogDensity: 0.024, sunColor: 0xcfe3ff, sunIntensity: 0.75, sunPos: [10, 44, 20], hemiSky: 0x3a5a8c, hemiGround: 0x0a0d16, hemiIntensity: 0.66 },
-            pool: { grunt: 22, runner: 16, spitter: 14, bomber: 10, brute: 14, mender: 12, hexer: 12 } },
-        { id: 'abyss', name: 'The Abyss', floors: [16, 999], floorMat: 'bunker_stone', wallMat: 'dark_slate_roof', coverMat: 'castle_stone', crateMat: 'container_red',
+            pool: { grunt: 14, hound: 16, spitter: 9, bomber: 8, brute: 12, mender: 11, hexer: 12, frost: 18 } },
+        { id: 'abyss', name: 'The Abyss', floors: [16, 25], floorMat: 'bunker_stone', wallMat: 'dark_slate_roof', coverMat: 'castle_stone', crateMat: 'container_red',
             light: 0xc084fc, accent: '#c084fc', atmosphere: { skyTop: 0x05020a, skyBottom: 0x180a2a, fogColor: 0x10081c, fogDensity: 0.027, sunColor: 0xd8b4fe, sunIntensity: 0.6, sunPos: [-14, 40, -18], hemiSky: 0x4c2a6b, hemiGround: 0x0b0610, hemiIntensity: 0.6 },
-            pool: { grunt: 18, runner: 16, spitter: 14, bomber: 10, brute: 15, mender: 12, hexer: 15 } }
+            pool: { grunt: 12, hound: 14, spitter: 12, bomber: 10, ogre: 15, mender: 12, hexer: 15, spark: 10 } },
+        { id: 'gardens', name: 'Spore Gardens', floors: [26, 30], floorMat: 'bunker_stone', wallMat: 'castle_stone', coverMat: 'rusted_metal', crateMat: 'wood_crate',
+            light: 0x86efac, accent: '#86efac', atmosphere: { skyTop: 0x040d06, skyBottom: 0x173819, fogColor: 0x122718, fogDensity: 0.026, sunColor: 0xd1fa89, sunIntensity: 0.68, sunPos: [15, 44, 20], hemiSky: 0x648f53, hemiGround: 0x111707, hemiIntensity: 0.62 },
+            pool: { hound: 18, spitter: 18, bomber: 17, oracle: 20, ogre: 15, frost: 12 } },
+        { id: 'relay', name: 'Storm Relay', floors: [31, 35], floorMat: 'lab_panel', wallMat: 'diamond_plate', coverMat: 'pentagon_panel', crateMat: 'container_blue',
+            light: 0x67e8f9, accent: '#67e8f9', atmosphere: { skyTop: 0x020b12, skyBottom: 0x0d3048, fogColor: 0x0e2434, fogDensity: 0.02, sunColor: 0xb6f2ff, sunIntensity: 0.82, sunPos: [-24, 38, -16], hemiSky: 0x357b91, hemiGround: 0x0d1525, hemiIntensity: 0.65 },
+            pool: { spark: 28, prowler: 19, frost: 15, brute: 13, hexer: 14, mender: 11 } },
+        { id: 'archive', name: 'Black Archive', floors: [36, 40], floorMat: 'dark_slate_roof', wallMat: 'bunker_stone', coverMat: 'lab_panel', crateMat: 'container_blue',
+            light: 0xf9a8d4, accent: '#f9a8d4', atmosphere: { skyTop: 0x100512, skyBottom: 0x301932, fogColor: 0x24152e, fogDensity: 0.021, sunColor: 0xf5c4fa, sunIntensity: 0.7, sunPos: [24, 38, -12], hemiSky: 0x755b98, hemiGround: 0x160e20, hemiIntensity: 0.64 },
+            pool: { ogre: 23, cantor: 20, oracle: 14, prowler: 15, spark: 16, frost: 12 } },
+        { id: 'crucible', name: 'Ember Crucible', floors: [41, 45], floorMat: 'rust_steel', wallMat: 'castle_stone', coverMat: 'rusted_metal', crateMat: 'container_red',
+            light: 0xfcd34d, accent: '#fcd34d', atmosphere: { skyTop: 0x170601, skyBottom: 0x46210c, fogColor: 0x391609, fogDensity: 0.024, sunColor: 0xffd49a, sunIntensity: 0.85, sunPos: [-16, 40, 18], hemiSky: 0x9a511e, hemiGround: 0x210c02, hemiIntensity: 0.65 },
+            pool: { cinder: 27, prowler: 22, ogre: 18, bomber: 15, oracle: 10, cantor: 8 } },
+        { id: 'fault', name: 'Null Fault', floors: [46, Infinity], floorMat: 'pentagon_panel', wallMat: 'dark_slate_roof', coverMat: 'diamond_plate', crateMat: 'container_red',
+            light: 0xa5b4fc, accent: '#a5b4fc', atmosphere: { skyTop: 0x050616, skyBottom: 0x19183d, fogColor: 0x12132f, fogDensity: 0.022, sunColor: 0xc7d2fe, sunIntensity: 0.73, sunPos: [12, 47, -18], hemiSky: 0x57538f, hemiGround: 0x0f0b1b, hemiIntensity: 0.69 },
+            pool: { cantor: 22, spark: 17, prowler: 17, ogre: 16, oracle: 12, frost: 8, cinder: 8 } }
     ];
     function biomeForFloor(floor) {
         return BIOMES.find((b) => floor >= b.floors[0] && floor <= b.floors[1]) || BIOMES[BIOMES.length - 1];
@@ -257,6 +293,12 @@
         ambush: { id: 'ambush', name: 'Ambush', icon: '⚑', color: '#fb923c', desc: 'Three waves, no camps. +50% gold and XP.', weight: 10, minFloor: 3 },
         shrine: { id: 'shrine', name: 'Shrine', icon: '✦', color: '#c084fc', desc: 'No enemies. Trade max HP for a Boon, or pay gold.', weight: 6, minFloor: 2 },
         rest: { id: 'rest', name: 'Rest', icon: '✚', color: '#4ade80', desc: 'No enemies. Heal, refill potions — and you may extract here.', weight: 6, minFloor: 2 },
+        vents: { id: 'vents', name: 'Pressure Vents', icon: '♨', color: '#fbbf24', desc: 'Steam erupts from marked vents. Clear the room for a bonus vault chest.', weight: 9, minFloor: 3,
+            hazard: { name: 'Steam burst', radius: 2.9, period: 5.6, warning: 1.4, damage: 0.17, count: 5 } },
+        surge: { id: 'surge', name: 'Surge Circuit', icon: 'ϟ', color: '#67e8f9', desc: 'Pulses damage and briefly silence you. Clear the room for a bonus vault chest.', weight: 8, minFloor: 8,
+            hazard: { name: 'Surge pulse', radius: 3.5, period: 6.8, warning: 1.7, damage: 0.13, silence: 2, count: 5 } },
+        fracture: { id: 'fracture', name: 'Null Fracture', icon: '◈', color: '#c4b5fd', desc: 'Void bursts drain Ultimate charge. Clear the room for a richer vault chest.', weight: 7, minFloor: 16,
+            hazard: { name: 'Void burst', radius: 4.2, period: 7.4, warning: 1.8, damage: 0.19, drain: 0.2, count: 6 } },
         boss: { id: 'boss', name: 'Boss', icon: '♛', color: '#fbbf24', desc: 'The floor guardian. Beat it to unlock a checkpoint and extract.', weight: 0 }
     };
 
@@ -342,6 +384,53 @@
             fx: { goldFind: 80, maxHpPct: -25 } }
     ];
 
+    const SETS = {
+        mire: { name: 'Sumpwalker', minFloor: 26, bonuses: [
+            { pieces: 2, desc: '+12 HP healed per kill and +20% status duration.', fx: { killHeal: 12, statusDur: 20 } },
+            { pieces: 3, desc: 'Kills also heal 4% of max HP.', fx: { killHealPct: 4 } }
+        ] },
+        surge: { name: 'Storm Relay', minFloor: 31, bonuses: [
+            { pieces: 2, desc: '18% shorter cooldowns and Ultimate charges 25% faster.', fx: { cdr: 18, ultCharge: 25 } },
+            { pieces: 3, desc: 'Every reaction triggers twice.', fx: { doubleReactions: true } }
+        ] },
+        bastion: { name: 'Archive Guard', minFloor: 36, bonuses: [
+            { pieces: 2, desc: '+20% max HP and 12% less damage taken.', fx: { maxHpPct: 20, dmgReduce: 12 } },
+            { pieces: 3, desc: '+40% damage against elites and bosses.', fx: { eliteDmg: 40 } }
+        ] },
+        kiln: { name: 'Kilnforged', minFloor: 41, bonuses: [
+            { pieces: 2, desc: '+20% ability damage and +25% reaction damage.', fx: { abilityDmg: 20, reactionDmg: 25 } },
+            { pieces: 3, desc: 'Every gun hit applies Burn.', fx: { alwaysBurn: true } }
+        ] }
+    };
+    LEGENDARIES.push(
+        { id: 'mire_spitter', set: 'mire', slot: 'weapon', base: 'mp5', name: 'Sump Spitter', unique: 'Kills heal 9 HP.', downside: '−12% gun damage.', fx: { killHeal: 9, gunDmg: -12 } },
+        { id: 'mire_coat', set: 'mire', slot: 'rig', name: 'Fen Coat', unique: 'Potions heal 45% more.', downside: '−15% max HP.', fx: { potionHeal: 45, maxHpPct: -15 } },
+        { id: 'mire_seed', set: 'mire', slot: 'relic', name: 'Pale Seed', unique: '+55% status duration.', downside: '−12% ability damage.', fx: { statusDur: 55, abilityDmg: -12 } },
+        { id: 'surge_carbine', set: 'surge', slot: 'weapon', base: 'acr_68', name: 'Relay Breaker', unique: 'Every 6th hit Shocks and detonates its target.', downside: '−18% gun damage.', fx: { everyNthDetonate: 6, gunDmg: -18 } },
+        { id: 'surge_rig', set: 'surge', slot: 'rig', name: 'Relay Grounding', unique: 'Lose 60% less Momentum when hit.', downside: 'Potions heal 20% less.', fx: { momentumKeep: 60, potionHeal: -20 } },
+        { id: 'surge_clock', set: 'surge', slot: 'relic', name: 'Arc Clock', unique: 'Cooldowns 25% shorter.', downside: 'Ultimate charges 20% slower.', fx: { cdr: 25, ultCharge: -20 } },
+        { id: 'archive_rifle', set: 'bastion', slot: 'weapon', base: 'fal_osw', name: 'Red Ledger', unique: '+40% headshot damage.', downside: '−20% body-shot damage.', fx: { headDmg: 40, bodyDmg: -20 } },
+        { id: 'archive_rig', set: 'bastion', slot: 'rig', name: 'Lockplate', unique: 'Take 18% less damage.', downside: '−15% gold found.', fx: { dmgReduce: 18, goldFind: -15 } },
+        { id: 'archive_seal', set: 'bastion', slot: 'relic', name: 'Sealed Index', unique: '+30% damage against elites and bosses.', downside: 'Cooldowns 15% longer.', fx: { eliteDmg: 30, cdr: -15 } },
+        { id: 'kiln_shotgun', set: 'kiln', slot: 'weapon', base: 'ksg_slug', name: 'Slag Driver', unique: 'Gun hits have a 30% chance to Burn.', downside: '−20% headshot damage.', fx: { burnChance: 30, headDmg: -20 } },
+        { id: 'kiln_rig', set: 'kiln', slot: 'rig', name: 'Forgeman’s Apron', unique: '+18% ability damage.', downside: 'Take 10% more damage.', fx: { abilityDmg: 18, dmgReduce: -10 } },
+        { id: 'kiln_ember', set: 'kiln', slot: 'relic', name: 'Banked Ember', unique: '+45% reaction damage.', downside: '−20% status duration.', fx: { reactionDmg: 45, statusDur: -20 } }
+    );
+
+    // Each contract is scoped to a single delve and pays only on extraction.
+    const CONTRACTS = {
+        sweep: { name: 'Vault Sweep', objective: 'Defeat 24 enemies', event: 'kills', goal: 24, floor: 1, gold: 140, scrap: 12 },
+        compound: { name: 'Compound Reactions', objective: 'Trigger 18 elemental reactions', event: 'reactions', goal: 18, floor: 1, gold: 155, scrap: 14 },
+        guardian: { name: 'Break the Gate', objective: 'Defeat a guardian', event: 'bosses', goal: 1, floor: 1, gold: 180, scrap: 18 },
+        salvage: { name: 'Salvage Survey', objective: 'Open 3 vault chests or hidden caches', event: 'containers', goal: 3, floor: 1, gold: 170, scrap: 22 },
+        pressure: { name: 'Pressure Test', objective: 'Clear 2 hazard rooms', event: 'hazards', goal: 2, floor: 1, gold: 220, scrap: 22 },
+        hunters: { name: 'Pack Hunters', objective: 'Defeat 3 elites', event: 'elites', goal: 3, floor: 6, gold: 240, scrap: 22 },
+        deep_sweep: { name: 'Deep Patrol', objective: 'Clear 6 combat floors', event: 'clears', goal: 6, floor: 11, gold: 270, scrap: 26 },
+        breach: { name: 'Two Locks Down', objective: 'Defeat 2 guardians', event: 'bosses', goal: 2, floor: 16, gold: 360, scrap: 34 },
+        faultline: { name: 'Faultline Survey', objective: 'Clear 3 hazard rooms', event: 'hazards', goal: 3, floor: 26, gold: 440, scrap: 46 },
+        endgame: { name: 'End of the Line', objective: 'Defeat the Fault Matron', event: 'matron', goal: 1, floor: 46, gold: 750, scrap: 70 }
+    };
+
     /* ---------------- Boons (run-only, pick 1 of 3) ---------------- */
     const BOONS = [
         { id: 'glass_cannon', name: 'Glass Cannon', icon: '◇', desc: '+35% damage, −25% max HP.' },
@@ -358,7 +447,17 @@
         { id: 'adrenal', name: 'Adrenal', icon: '➹', desc: 'Momentum caps at 15 stacks and decays half as fast.' },
         { id: 'potion_belt', name: 'Potion Belt', icon: '⚗', desc: '+1 potion and refill all potions now.' },
         { id: 'executioner', name: 'Executioner', icon: '✕', desc: '+50% damage to enemies below 30% HP.' },
-        { id: 'reactive_mend', name: 'Reactive Mend', icon: '✚', desc: 'Every reaction heals you 3 HP.' }
+        { id: 'reactive_mend', name: 'Reactive Mend', icon: '✚', desc: 'Every reaction heals you 3 HP.' },
+        { id: 'long_fuse', name: 'Long Fuse', icon: '◴', desc: 'Statuses last 50% longer.', fx: { statusDur: 50 } },
+        { id: 'witchfire', name: 'Witchfire', icon: '✷', desc: '+35% reaction damage and −15% gun damage.', fx: { reactionDmg: 35, gunDmg: -15 } },
+        { id: 'glass_sight', name: 'Glass Sight', icon: '⌖', desc: '+40% headshot damage and −20% body-shot damage.', fx: { headDmg: 40, bodyDmg: -20 } },
+        { id: 'guardian_hunter', name: 'Guardian Hunter', icon: '♛', desc: '+35% damage to elites and guardians.', fx: { eliteDmg: 35 } },
+        { id: 'tonic', name: 'Concentrated Tonic', icon: '⚗', desc: 'Potions heal 45% more.', fx: { potionHeal: 45 } },
+        { id: 'bulkhead', name: 'Bulkhead', icon: '⛨', desc: 'Take 15% less damage.', fx: { dmgReduce: 15 } },
+        { id: 'bookkeeper', name: 'Bookkeeper', icon: '▤', desc: '+25% XP.', fx: { xpGain: 25 } },
+        { id: 'field_study', name: 'Field Study', icon: '⊕', desc: '+25% ability damage.', fx: { abilityDmg: 25 } },
+        { id: 'voltage', name: 'Live Wires', icon: 'ϟ', desc: 'Ultimate charges 40% faster.', fx: { ultCharge: 40 } },
+        { id: 'steady', name: 'Steady Nerves', icon: '◎', desc: 'Lose 60% less Momentum when hit.', fx: { momentumKeep: 60 } }
     ];
 
     /* ---------------- Haven upgrades (permanent gold sinks) ---------------- */
@@ -368,6 +467,7 @@
         { id: 'field_pack', name: 'Field Pack', icon: '▣', desc: '+1 delve pack slot per level.', costs: [120, 360, 820] },
         { id: 'insurance', name: 'Insurance', icon: '⛉', desc: 'Keep 15% of unbanked gold per level when you die.', costs: [200, 520, 1150] },
         { id: 'scavenger', name: "Scavenger's Eye", icon: '◎', desc: '+12% item drop chance per level.', costs: [240, 620, 1350] },
+        { id: 'vault_racks', name: 'Vault Racks', icon: '▥', desc: '+8 Haven stash slots per level.', costs: [260, 650, 1450] },
         { id: 'second_wind', name: 'Field Medic', icon: '❤', desc: 'Once per delve, lethal damage leaves you at 25% HP.', costs: [1500] }
     ];
     const BASE_POTIONS = 3;
@@ -397,7 +497,7 @@
         MOMENTUM, DIFFICULTIES, enemyHpMult, enemyDmgMult, depthRewardMult,
         ENEMIES, ELITE_AFFIXES, ELITE, BOSSES, BIOMES, biomeForFloor, ROOMS,
         RARITIES, RARITY_INDEX, rarityWeights, ITEM_SLOTS, ITEM_POWER_PER_LEVEL, WEAPON_POOL, RIG_NAMES, RELIC_NAMES,
-        AFFIXES, LEGENDARIES, BOONS, UPGRADES, BASE_POTIONS, BASE_POTION_HEAL, BASE_PACK_SLOTS, STASH_SIZE,
+        AFFIXES, LEGENDARIES, SETS, CONTRACTS, BOONS, UPGRADES, BASE_POTIONS, BASE_POTION_HEAL, BASE_PACK_SLOTS, STASH_SIZE,
         ELIXIRS, FORGE, SHRINE,
         talentById(classId, talentId) {
             for (const tier of TALENTS[classId] || []) {
