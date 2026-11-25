@@ -327,3 +327,7 @@ body.gm-fn-on #zt-contracts { display: none !important; }
 .gm-plate-cmp { display: grid; grid-template-columns: auto auto 14px 1fr; gap: 3px 8px; align-items: baseline; margin: 6px 0 8px; font: 600 12px var(--font-ui); }
 .gm-plate-cmp span { color: var(--sv-dim); }
 .gm-plate-cmp em { font-style: normal; color: var(--sv-dim); font-size: 11px; }
+
+/* ---------- Survival Gold: interface scale (Settings · Controls · Display) ---------- */
+#hud-layer, #zt-contracts, #gm-fn, #gm-next, #gm-feed, #gm-cards, #gm-compare, #gm-wheel, #gm-look { zoom: var(--ui-scale, 1); }
+dialog.sv-shell { zoom: clamp(0.8, var(--ui-scale, 1), 1.15); }

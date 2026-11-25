@@ -210,3 +210,20 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 ### Not verified
 - No human playthrough yet. Everything above was verified by scripted play in a browser, not by hand with mouse and keyboard.
 - The live site still runs `main`. None of this is published until `survival-gold` is merged and pushed.
+
+---
+
+# ROADMAP PHASE 1 — PROGRESS (branch `survival-gold`)
+
+| # | Item | Status |
+|---|---|---|
+| 1.1 | Livestock pens | Not started (proposed as its own task) |
+| 1.2 | Composite armour | **Done** — `src/gm/GMArmor.js`: 3-slot plate vest (leather, bone & hide, ceramic, steel, composite), front plate sets absorption, HUD bars per plate, Base-screen repair/remove, death wear 25%, obsidian rig retired and converted, abyssal rig fills the vest |
+| 1.3 | Survivor Skills tree | Not started |
+| 1.4 | Tooltip comparison | **Done** — `src/gm/GMCompare.js`: weapon-pickup card with fixed stat rows and ▲/▼ vs the held weapon; plate comparison in the item panel |
+| 1.5 | UI scale | **Done** — Controls · Display slider 80–140%, applied to HUD, trackers, overlays and (capped at 115%) the terminal |
+| 1.6 | Item tiles | **Done** — Hot-loot ring, rarity edge, weapon condition bar and rarity border |
+| 1.7 | Shift-click / scroll-split audit | Not started |
+| 1.8 | Delete dead Deep code | Not started |
+
+Repository housekeeping: the seven `Blackout Ops - … backup` folders were moved to the Recycle Bin (every version is in this repo's history). Local branches are now `master` (tracks GitHub, currently Survival 1.0, which is what the live site runs) and `survival-gold` (this work, a fast-forward of `master`).

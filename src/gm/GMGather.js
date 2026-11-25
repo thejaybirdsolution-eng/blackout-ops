@@ -353,8 +353,10 @@
             if (v.z > 1) { el.classList.add('hidden'); return; }
             const html = this.labelHtml(node);
             if (html !== this._lastHtml) { el.innerHTML = html; this._lastHtml = html; }
-            el.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth) + 'px';
-            el.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+            // The label is zoomed with the interface scale, so its pixel position is divided by it.
+            const z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;
+            el.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth / z) + 'px';
+            el.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight / z) + 'px';
             el.classList.remove('hidden');
         },
 

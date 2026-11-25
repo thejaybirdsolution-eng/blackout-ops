@@ -64,7 +64,7 @@
                         const v = Number(e.target.value);
                         BO.Settings.set(key, v);
                         const lbl = host.querySelector(`[data-cp-val="${key}"]`);
-                        if (lbl) lbl.textContent = key === 'adsSensitivity' ? v.toFixed(2) : v.toFixed(1);
+                        if (lbl) lbl.textContent = key === 'uiScale' ? Math.round(v * 100) + '%' : key === 'adsSensitivity' ? v.toFixed(2) : v.toFixed(1);
                     }
                 });
             }
@@ -98,6 +98,7 @@
                             <ul class="cp-mouse">${BO.Settings.mouseControls.map((m) => `<li${tip(m.label, m.tip)}><kbd>${esc(m.key)}</kbd><span>${esc(m.label)}</span></li>`).join('')}</ul>
                         </div>
                         <div class="cp-card"><h4>Display</h4>
+                            <div class="cp-row cp-sl"${tip('Interface scale', 'Scales the HUD, trackers and the Survival terminal from 80% to 140%. Useful on large monitors, small laptops and handhelds.')}><span>Interface scale</span><input type="range" min="0.8" max="1.4" step="0.05" value="${Number(s.uiScale) || 1}" data-cp-range="uiScale"><b data-cp-val="uiScale">${Math.round((Number(s.uiScale) || 1) * 100)}%</b></div>
                             <button class="cp-toggle ${s.showControlHints !== false ? 'on' : ''}" data-cp-toggle="showControlHints"${tip('On-screen key hints', 'Show a small strip of key reminders on the HUD (Survival inventory, crafting, build and map keys).')}><i></i>Show key hints on HUD</button>
                             <button class="cp-toggle ${s.contextualHud !== false ? 'on' : ''}" data-cp-toggle="contextualHud"${tip('Contextual survival HUD', 'Hide food, water, radiation, temperature and noise meters while they are comfortable; they fade back in when they matter.')}><i></i>Contextual survival HUD</button>
                             <button class="cp-toggle ${s.nextUpHint !== false ? 'on' : ''}" data-cp-toggle="nextUpHint"${tip('Next Up hint', 'Survival: after the First Night, a single line under the top bar names the most useful thing you are closest to making and where to find its missing material.')}><i></i>Survival “Next Up” hint</button>

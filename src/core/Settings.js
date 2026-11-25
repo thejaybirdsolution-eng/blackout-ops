@@ -165,6 +165,7 @@
             if (s.showControlHints === undefined) s.showControlHints = true;
             if (s.contextualHud === undefined) s.contextualHud = true;
             if (s.nextUpHint === undefined) s.nextUpHint = true;
+            if (!Number.isFinite(s.uiScale)) s.uiScale = 1;
             if (!s.colorBlindMode) s.colorBlindMode = 'none'; // 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia'
             if (s.subtitles === undefined) s.subtitles = true;
             if (s.reducedMotion === undefined) s.reducedMotion = false;
@@ -201,7 +202,7 @@
             this._ensureDefaults();
             BO.Save.data.settings[key] = value;
             BO.Save.save();
-            if (key === 'colorBlindMode' || key === 'reducedMotion') this.applyAccessibility();
+            if (key === 'colorBlindMode' || key === 'reducedMotion' || key === 'uiScale') this.applyAccessibility();
             BO.Events.emit('settings:changed', { key, value, settings: BO.Save.data.settings });
         }
 
@@ -211,6 +212,9 @@
             document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
             if (s.colorBlindMode && s.colorBlindMode !== 'none') document.body.classList.add('cb-' + s.colorBlindMode);
             if (s.reducedMotion) document.body.classList.add('sv-reduced-motion');
+            // HUD and terminal scale (80–140%), read by css/gm.css through --ui-scale.
+            const scale = Math.max(0.8, Math.min(1.4, Number(s.uiScale) || 1));
+            document.documentElement.style.setProperty('--ui-scale', String(scale));
         }
 
         getKeybinds() {
