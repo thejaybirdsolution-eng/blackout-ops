@@ -491,381 +491,14 @@
     });
 
     /* =====================================================================
-       15. SWEETHEART SHORE — the heart blaster
-       Stylised anime-style beachgoers run up to say hi. Tag each with a heart
-       before she reaches the boardwalk; she lights up, giggles and waves.
+       15. SWEETHEART SHORE — the heart blaster (AAA Tropical Overhaul)
+       High-detail sculpted anime beachgoers (BO.BeachArt) with bespoke
+       swimwear, hair sheen, and real 2nd-order soft-tissue/hair/cloth
+       spring-damper physics run up from a sunlit tropical shoreline.
     ===================================================================== */
-    const GIRLS = [
-        { name: 'Mika', skin: 0xffe0c4, hair: 0xf472b6, style: 'twintails', eyes: '#a855f7', suit: 'frill', c1: 0xffffff, c2: 0xf472b6, acc: 'bow', accC: 0xec4899 },
-        { name: 'Rin', skin: 0xf5d0b0, hair: 0x1e293b, style: 'ponytail', eyes: '#0ea5e9', suit: 'sport', c1: 0x0ea5e9, c2: 0xffffff, acc: 'visor', accC: 0xffffff },
-        { name: 'Hana', skin: 0xe8b48a, hair: 0x7c2d12, style: 'long', eyes: '#16a34a', suit: 'sarong', c1: 0xf97316, c2: 0xfde047, acc: 'flower', accC: 0xef4444 },
-        { name: 'Yuki', skin: 0xfff1e6, hair: 0xe0f2fe, style: 'bob', eyes: '#3b82f6', suit: 'onepiece', c1: 0x1d4ed8, c2: 0xffffff, acc: 'shades', accC: 0x111827 },
-        { name: 'Sora', skin: 0xc68642, hair: 0xfacc15, style: 'bun', eyes: '#d97706', suit: 'sport', c1: 0x22c55e, c2: 0x064e3b, acc: 'scrunchie', accC: 0x22c55e },
-        { name: 'Aiko', skin: 0xffdbac, hair: 0x991b1b, style: 'braid', eyes: '#dc2626', suit: 'frill', c1: 0xfef08a, c2: 0xf59e0b, acc: 'hat', accC: 0xfef3c7 },
-        { name: 'Nami', skin: 0x8d5524, hair: 0x0f172a, style: 'long', eyes: '#f59e0b', suit: 'onepiece', c1: 0xdb2777, c2: 0xfbcfe8, acc: 'flower', accC: 0xfde047 },
-        { name: 'Kiko', skin: 0xf1c27d, hair: 0xa78bfa, style: 'twintails', eyes: '#14b8a6', suit: 'sarong', c1: 0x14b8a6, c2: 0xccfbf1, acc: 'bow', accC: 0x7c3aed }
-    ];
-
-    function animeFace(eyeCol, happy) {
-        return L.canvasTex('anime-face:' + eyeCol + ':' + (happy ? 1 : 0), 128, 128, (g, w, h) => {
-            g.clearRect(0, 0, w, h);
-            // blush
-            g.fillStyle = happy ? 'rgba(251,113,133,0.55)' : 'rgba(251,113,133,0.32)';
-            for (const x of [30, 98]) { g.beginPath(); g.ellipse(x, 84, 13, 6, 0, 0, TAU); g.fill(); }
-            g.lineCap = 'round';
-            if (happy) {
-                // ^ ^ eyes
-                g.strokeStyle = '#1f1135'; g.lineWidth = 6;
-                for (const x of [40, 88]) { g.beginPath(); g.moveTo(x - 13, 66); g.quadraticCurveTo(x, 46, x + 13, 66); g.stroke(); }
-                // open smile
-                g.fillStyle = '#7f1d3a';
-                g.beginPath(); g.moveTo(52, 92); g.quadraticCurveTo(64, 112, 76, 92); g.closePath(); g.fill();
-                g.fillStyle = '#fb7185'; g.beginPath(); g.ellipse(64, 101, 6, 3.5, 0, 0, TAU); g.fill();
-            } else {
-                for (const x of [40, 88]) {
-                    g.fillStyle = '#ffffff';
-                    g.beginPath(); g.ellipse(x, 62, 13, 17, 0, 0, TAU); g.fill();
-                    const gr = g.createLinearGradient(0, 48, 0, 78);
-                    gr.addColorStop(0, '#1f1135'); gr.addColorStop(0.45, eyeCol); gr.addColorStop(1, '#ffffff');
-                    g.fillStyle = gr;
-                    g.beginPath(); g.ellipse(x, 64, 10, 14, 0, 0, TAU); g.fill();
-                    g.fillStyle = '#1f1135';
-                    g.beginPath(); g.ellipse(x, 64, 4.5, 7, 0, 0, TAU); g.fill();
-                    g.fillStyle = '#ffffff';
-                    g.beginPath(); g.arc(x - 4, 57, 4, 0, TAU); g.fill();
-                    g.beginPath(); g.arc(x + 4, 70, 2, 0, TAU); g.fill();
-                    // lashes
-                    g.strokeStyle = '#1f1135'; g.lineWidth = 5;
-                    g.beginPath(); g.ellipse(x, 62, 14, 18, 0, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
-                    g.lineWidth = 3;
-                    g.beginPath(); g.moveTo(x + (x < 64 ? -12 : 12), 52); g.lineTo(x + (x < 64 ? -18 : 18), 47); g.stroke();
-                }
-                // brows
-                g.strokeStyle = '#3b2314'; g.lineWidth = 2.5;
-                for (const x of [40, 88]) { g.beginPath(); g.moveTo(x - 10, 36); g.quadraticCurveTo(x, 31, x + 10, 36); g.stroke(); }
-                // small smile
-                g.strokeStyle = '#7f1d3a'; g.lineWidth = 3;
-                g.beginPath(); g.moveTo(57, 95); g.quadraticCurveTo(64, 101, 71, 95); g.stroke();
-            }
-        });
-    }
-
-    function heartTex() {
-        return L.canvasTex('heart-sprite', 64, 64, (g, w, h) => {
-            g.clearRect(0, 0, w, h);
-            const draw = (fill) => {
-                g.beginPath();
-                g.moveTo(32, 56);
-                g.bezierCurveTo(4, 36, 4, 10, 20, 10);
-                g.bezierCurveTo(28, 10, 32, 16, 32, 20);
-                g.bezierCurveTo(32, 16, 36, 10, 44, 10);
-                g.bezierCurveTo(60, 10, 60, 36, 32, 56);
-                g.closePath();
-                g.fillStyle = fill; g.fill();
-            };
-            g.shadowColor = '#ff3d9a'; g.shadowBlur = 8;
-            draw('#ff4fa3');
-            g.shadowBlur = 0;
-            g.fillStyle = 'rgba(255,255,255,0.75)';
-            g.beginPath(); g.ellipse(22, 20, 5, 3.5, -0.6, 0, TAU); g.fill();
-        });
-    }
-    let heartMat = null;
-    function heartSprite(scale) {
-        if (!heartMat) heartMat = new THREE.SpriteMaterial({ map: heartTex(), transparent: true, depthWrite: false });
-        const s = new THREE.Sprite(heartMat);
-        s.scale.setScalar(scale);
-        return s;
-    }
-
-    function capsule(r, len, mat, segs = 8) {
-        return new THREE.Mesh(new THREE.CapsuleGeometry(r, len, 4, segs), mat);
-    }
-
-    /** Builds a stylised anime beachgoer. Faces +Z, feet at y=0, ~1.66m tall. */
-    function beachGirl(d) {
-        const mats = [];
-        const M = (hex, rough = 0.6, extra = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color: hex, roughness: rough, emissive: 0x000000 }, extra)); mats.push(m); return m; };
-        const skin = M(d.skin, 0.55), hair = M(d.hair, 0.45), s1 = M(d.c1, 0.5), s2 = M(d.c2, 0.5), acc = M(d.accC, 0.45);
-        const sandal = M(d.c2, 0.6);
-        const root = new THREE.Group();
-        const body = new THREE.Group();
-        root.add(body);
-        const P = { sway: [] };
-        const hips = new THREE.Group();
-        hips.position.y = 0.86;
-        body.add(hips);
-        P.hips = hips;
-        const pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), d.suit === 'sport' || d.suit === 'sarong' ? s2 : s1);
-        pelvis.scale.set(1, 0.72, 0.78);
-        hips.add(pelvis);
-        for (const s of [-1, 1]) {
-            const thigh = new THREE.Group();
-            thigh.position.set(s * 0.08, -0.03, 0);
-            const tm = capsule(0.066, 0.3, skin);
-            tm.position.y = -0.2;
-            const knee = new THREE.Group();
-            knee.position.y = -0.41;
-            const sm = capsule(0.054, 0.32, skin);
-            sm.position.y = -0.2;
-            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.04, 0.17), sandal);
-            foot.position.set(0, -0.4, 0.04);
-            knee.add(sm, foot);
-            thigh.add(tm, knee);
-            hips.add(thigh);
-            P[s < 0 ? 'thighL' : 'thighR'] = thigh;
-            P[s < 0 ? 'kneeL' : 'kneeR'] = knee;
-        }
-        const chest = new THREE.Group();
-        hips.add(chest);
-        P.chest = chest;
-        const waist = capsule(0.098, 0.16, d.suit === 'onepiece' || d.suit === 'frill' ? s1 : skin);
-        waist.position.y = 0.15;
-        waist.scale.z = 0.82;
-        const upper = capsule(0.118, 0.12, s1);
-        upper.position.y = 0.33;
-        upper.scale.set(1.05, 1, 0.8);
-        chest.add(waist, upper);
-        if (d.suit === 'sport') {
-            const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.014, 6, 24), s2);
-            stripe.rotation.x = Math.PI / 2;
-            stripe.position.y = 0.27;
-            stripe.scale.set(1.05, 0.8, 1);
-            chest.add(stripe);
-        } else if (d.suit === 'onepiece') {
-            const band = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.016, 6, 24), s2);
-            band.rotation.x = Math.PI / 2;
-            band.position.y = 0.12;
-            band.scale.set(1, 0.82, 1);
-            chest.add(band);
-        } else if (d.suit === 'frill') {
-            const ruffle = new THREE.Mesh(new THREE.TorusGeometry(0.125, 0.022, 6, 28), s2);
-            ruffle.rotation.x = Math.PI / 2;
-            ruffle.position.y = 0.4;
-            ruffle.scale.set(1.05, 0.82, 1);
-            chest.add(ruffle);
-            const skirtG = new THREE.Group();
-            const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.23, 0.17, 20, 1, true), M(d.c2, 0.6, { side: THREE.DoubleSide }));
-            skirt.position.y = -0.08;
-            skirtG.add(skirt);
-            hips.add(skirtG);
-            P.sway.push({ obj: skirtG, kind: 'skirt' });
-        }
-        if (d.suit === 'sarong') {
-            const tex = L.canvasTex('sarong:' + d.c1, 64, 64, (g, w, h) => {
-                g.fillStyle = '#' + d.c2.toString(16).padStart(6, '0'); g.fillRect(0, 0, w, h);
-                g.fillStyle = '#' + d.c1.toString(16).padStart(6, '0');
-                for (let i = 0; i < 6; i++) { g.beginPath(); g.arc((i * 23) % w, (i * 37) % h, 7, 0, TAU); g.fill(); }
-            });
-            const sarG = new THREE.Group();
-            const sar = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.24, 0.42, 20, 1, true, -0.4, Math.PI * 1.55), M(0xffffff, 0.7, { map: tex, side: THREE.DoubleSide }));
-            sar.position.y = -0.18;
-            sarG.add(sar);
-            hips.add(sarG);
-            P.sway.push({ obj: sarG, kind: 'sarong' });
-        }
-        // arms
-        for (const s of [-1, 1]) {
-            const sh = new THREE.Group();
-            sh.position.set(s * 0.155, 0.42, 0);
-            const um = capsule(0.04, 0.2, skin);
-            um.position.y = -0.13;
-            const el = new THREE.Group();
-            el.position.y = -0.27;
-            const fm = capsule(0.035, 0.18, skin);
-            fm.position.y = -0.11;
-            const hand = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), skin);
-            hand.position.y = -0.25;
-            el.add(fm, hand);
-            sh.add(um, el);
-            chest.add(sh);
-            P[s < 0 ? 'shL' : 'shR'] = sh;
-            P[s < 0 ? 'elL' : 'elR'] = el;
-        }
-        if (d.acc === 'scrunchie') {
-            const sc = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.016, 6, 14), acc);
-            sc.rotation.x = Math.PI / 2;
-            sc.position.y = -0.2;
-            P.elL.add(sc);
-        }
-        // neck + head
-        const neck = capsule(0.038, 0.06, skin);
-        neck.position.y = 0.5;
-        chest.add(neck);
-        const head = new THREE.Group();
-        head.position.y = 0.6;
-        chest.add(head);
-        P.head = head;
-        const skull = new THREE.Mesh(new THREE.SphereGeometry(0.15, 24, 18), skin);
-        skull.scale.set(1, 1.04, 0.96);
-        skull.position.y = 0.1;
-        head.add(skull);
-        const faceMat = new THREE.MeshBasicMaterial({ map: animeFace(d.eyes, false), transparent: true, depthWrite: false });
-        const face = new THREE.Mesh(new THREE.SphereGeometry(0.1515, 24, 16, Math.PI / 2 - 0.72, 1.44, Math.PI / 2 - 0.5, 1.0), faceMat);
-        face.scale.copy(skull.scale);
-        face.position.y = 0.1;
-        face.userData.noHit = true;
-        head.add(face);
-        P.faceMat = faceMat;
-        P.eyes = d.eyes;
-        // hair
-        const cap = new THREE.Mesh(new THREE.SphereGeometry(d.style === 'bob' ? 0.168 : 0.16, 24, 14, 0, TAU, 0, Math.PI * (d.style === 'bob' ? 0.66 : 0.56)), hair);
-        cap.position.set(0, 0.11, -0.012);
-        cap.rotation.x = -0.32;
-        if (d.style === 'bob') cap.scale.set(1.06, 1.05, 1.04);
-        head.add(cap);
-        for (let i = 0; i < 5; i++) {
-            const bang = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.12, 5), hair);
-            bang.position.set(-0.09 + i * 0.045, 0.19, 0.125);
-            bang.rotation.set(Math.PI + 0.35, 0, (i - 2) * 0.12);
-            head.add(bang);
-        }
-        for (const s of [-1, 1]) {
-            const lock = capsule(0.028, d.style === 'bob' ? 0.12 : 0.16, hair);
-            lock.position.set(s * 0.14, 0.04, 0.05);
-            head.add(lock);
-        }
-        const hangHair = (x, y, z, r, len, n, kind, mirror) => {
-            const pivot = new THREE.Group();
-            pivot.position.set(x, y, z);
-            let parent = pivot;
-            for (let i = 0; i < n; i++) {
-                const seg = new THREE.Group();
-                const m = capsule(r * (1 - i * 0.18), len / n, hair);
-                m.position.y = -len / n / 2;
-                seg.add(m);
-                parent.add(seg);
-                if (i > 0) seg.position.y = -len / n;
-                P.sway.push({ obj: seg, kind, i, mirror });
-                parent = seg;
-            }
-            head.add(pivot);
-            return pivot;
-        };
-        if (d.style === 'twintails') {
-            for (const s of [-1, 1]) {
-                hangHair(s * 0.13, 0.17, -0.05, 0.05, 0.42, 3, 'tail', s);
-                const tie = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), acc);
-                tie.position.set(s * 0.13, 0.17, -0.05);
-                head.add(tie);
-            }
-        } else if (d.style === 'ponytail') {
-            hangHair(0, 0.2, -0.14, 0.055, 0.45, 3, 'tail', 0);
-        } else if (d.style === 'long') {
-            const p = hangHair(0, 0.12, -0.11, 0.08, 0.5, 2, 'long', 0);
-            p.scale.set(1.9, 1, 0.55);
-        } else if (d.style === 'bun') {
-            const bun = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 10), hair);
-            bun.position.set(0, 0.25, -0.08);
-            head.add(bun);
-            hangHair(0, 0.2, -0.13, 0.03, 0.16, 2, 'tail', 0);
-        } else if (d.style === 'braid') {
-            hangHair(0.11, 0.02, 0.02, 0.04, 0.36, 4, 'braid', 1);
-        }
-        // accessories
-        if (d.acc === 'bow') {
-            const bow = new THREE.Group();
-            for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.09, 4), acc); w.rotation.z = s * Math.PI / 2; w.position.x = s * 0.045; bow.add(w); }
-            bow.add(new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), acc));
-            bow.position.set(0.1, 0.23, 0.02);
-            bow.rotation.z = -0.4;
-            head.add(bow);
-        } else if (d.acc === 'flower') {
-            const fl = new THREE.Group();
-            for (let i = 0; i < 5; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), acc); p.position.set(Math.cos(i / 5 * TAU) * 0.028, Math.sin(i / 5 * TAU) * 0.028, 0); fl.add(p); }
-            fl.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), M(0xfde047, 0.5)));
-            fl.position.set(0.14, 0.15, 0.04);
-            fl.rotation.y = 1.2;
-            head.add(fl);
-        } else if (d.acc === 'visor') {
-            const band = new THREE.Mesh(new THREE.TorusGeometry(0.158, 0.012, 6, 28), acc);
-            band.rotation.x = Math.PI / 2 - 0.25;
-            band.position.y = 0.17;
-            const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.01, 16, 1, false, -0.8, 1.6), M(0x0ea5e9, 0.4, { transparent: true, opacity: 0.8 }));
-            brim.position.set(0, 0.19, 0.13);
-            brim.rotation.x = 0.15;
-            head.add(band, brim);
-        } else if (d.acc === 'shades') {
-            for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.04, 0.015), acc); l.position.set(s * 0.05, 0.27, 0.06); l.rotation.x = -0.6; head.add(l); }
-        } else if (d.acc === 'hat') {
-            const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.012, 24), acc);
-            brim.position.y = 0.24;
-            const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.16, 0.1, 18), acc);
-            crown.position.y = 0.29;
-            const ribbon = new THREE.Mesh(new THREE.CylinderGeometry(0.161, 0.161, 0.03, 18), M(0xf43f5e, 0.5));
-            ribbon.position.y = 0.255;
-            head.add(brim, crown, ribbon);
-            P.sway.push({ obj: brim, kind: 'brim' });
-        }
-        const hit = [];
-        root.traverse((m) => { if (m.isMesh && !m.userData.noHit) { m.castShadow = true; m.userData.hitbox = 'torso'; hit.push(m); } });
-        return { root, body, parts: P, hit, mats };
-    }
-
-    function runPose(g, ph, amt, speed) {
-        const P = g.parts;
-        const s = Math.sin(ph);
-        P.thighL.rotation.x = s * 0.8 * amt;
-        P.thighR.rotation.x = -s * 0.8 * amt;
-        P.kneeL.rotation.x = (0.25 + Math.max(0, -Math.sin(ph - 0.6)) * 1.15) * amt;
-        P.kneeR.rotation.x = (0.25 + Math.max(0, Math.sin(ph - 0.6)) * 1.15) * amt;
-        P.shL.rotation.set(-s * 0.7 * amt, 0, -0.22);
-        P.shR.rotation.set(s * 0.7 * amt, 0, 0.22);
-        P.elL.rotation.set(-1.25 * amt, 0, 0);
-        P.elR.rotation.set(-1.25 * amt, 0, 0);
-        P.hips.position.y = 0.86 + Math.abs(Math.cos(ph)) * 0.05 * amt;
-        P.hips.rotation.y = s * 0.08 * amt;
-        P.chest.rotation.set(0.1 * amt, -s * 0.18 * amt, 0);
-        P.head.rotation.set(-0.08 * amt, s * 0.1 * amt, 0);
-        swayHair(g, ph, amt, speed);
-    }
-
-    function swayHair(g, ph, amt, speed) {
-        for (const sw of g.parts.sway) {
-            const o = sw.obj;
-            if (sw.kind === 'tail' || sw.kind === 'braid') {
-                const back = sw.i === 0 ? 0.25 + speed * 0.05 : 0.12;
-                o.rotation.x = back * amt + Math.sin(ph * 2 - 0.7 - (sw.i || 0) * 0.6) * 0.14 * amt;
-                o.rotation.z = Math.sin(ph - 0.5 - (sw.i || 0) * 0.5) * 0.16 * (sw.mirror || 1);
-            } else if (sw.kind === 'long') {
-                o.rotation.x = (0.15 + speed * 0.03) * amt + Math.sin(ph * 2 - 0.8 - (sw.i || 0) * 0.5) * 0.08;
-            } else if (sw.kind === 'skirt' || sw.kind === 'sarong') {
-                o.rotation.x = Math.sin(ph * 2) * 0.07 * amt;
-                o.rotation.z = Math.sin(ph) * 0.05 * amt;
-                o.scale.set(1 + Math.sin(ph * 2) * 0.03 * amt, 1, 1);
-            } else if (sw.kind === 'brim') {
-                o.rotation.x = Math.sin(ph * 2) * 0.05 * amt;
-            }
-        }
-    }
-
-    function giggleSound(pitch) {
-        for (let i = 0; i < 5; i++) {
-            const f = (820 + (i % 2) * 140 - i * 30) * pitch;
-            SFX.tone(f, f * 1.08, 0.08, 'sine', 0.07, i * 0.085);
-            SFX.tone(f * 2, f * 2.1, 0.05, 'triangle', 0.02, i * 0.085);
-        }
-    }
-
-    function heartBurst(S, pos, n = 7) {
-        for (let i = 0; i < n; i++) {
-            const h = heartSprite(0.16 + Math.random() * 0.12);
-            h.position.copy(pos);
-            S.add(h);
-            const v = V((Math.random() - 0.5) * 1.6, 1.2 + Math.random() * 1.4, (Math.random() - 0.5) * 1.6);
-            let t = 0;
-            S.animate((dt) => {
-                t += dt;
-                h.position.addScaledVector(v, dt);
-                v.multiplyScalar(1 - dt * 1.2);
-                h.scale.setScalar(Math.max(0.001, h.scale.x * (t > 0.9 ? 0.9 : 1.0)));
-                if (t > 1.4) { if (h.parent) h.parent.remove(h); return false; }
-            });
-        }
-    }
-
     function spawnGirl(S, d, idx, x0, z0, speed, weave, ph0) {
-        const g = beachGirl(d);
+        const BA = BO.BeachArt;
+        const g = BA.buildGirl(d);
         const st = { ph: ph0, z: z0, x: x0, t: 0 };
         const pitch = 0.92 + (idx % 8) * 0.04;
         const tg = S.addTarget({
@@ -882,201 +515,319 @@
                 t.root.position.set(st.x, 0, st.z);
                 t.root.rotation.y = Math.atan2(dx * 0.35, 1);
                 st.ph += dt * (4.2 + spd * 1.25);
-                runPose(g, st.ph, 1, spd);
+                BA.updateGirl(g, S, dt, st.ph, 1, spd, true);
                 if (st.z > -2.4 && t.phase !== 'out') {
                     MG.popup(t.root.position.clone().add(V(0, 2, 0)), d.name + ' ran past!', '#f9a8d4');
                     t.retire();
                 }
             },
-            onKill: (t) => {
-                // move the model out of the target so the reaction can play
+            onKill: () => {
                 const r = g.root;
                 S.scene.attach(r);
-                girlReaction(S, g, d, pitch, st.ph);
+                BA.reactGirl(S, g, d, pitch);
             }
         });
         tg.girl = d;
         return tg;
     }
 
-    function girlReaction(S, g, d, pitch, ph) {
-        const P = g.parts;
-        const r = g.root;
-        P.faceMat.map = animeFace(d.eyes, true);
-        P.faceMat.needsUpdate = true;
-        for (const m of g.mats) { m.emissive.setHex(0xff5fa8); m.emissiveIntensity = 0.0; }
-        giggleSound(pitch);
-        const headPos = new THREE.Vector3();
-        P.head.getWorldPosition(headPos);
-        heartBurst(S, headPos.add(V(0, 0.2, 0)), 8);
-        const y0 = r.position.y;
-        const side = r.position.x >= 0 ? 1 : -1;
-        let t = 0, hearts = 0;
-        S.animate((dt) => {
-            t += dt;
-            const glow = t < 0.25 ? t / 0.25 : Math.max(0, 1 - (t - 0.25) / 2.2);
-            for (const m of g.mats) m.emissiveIntensity = 0.55 * glow + Math.max(0, Math.sin(t * 14)) * 0.12 * glow;
-            if (t < 1.7) {
-                // happy hop, hands to cheeks, giggling wiggle
-                const hop = t < 0.55 ? Math.sin(t / 0.55 * Math.PI) * 0.32 : Math.abs(Math.sin(t * 9)) * 0.03;
-                r.position.y = y0 + hop;
-                P.thighL.rotation.x = lerp(P.thighL.rotation.x, t < 0.55 ? -0.3 : 0, 0.2);
-                P.thighR.rotation.x = lerp(P.thighR.rotation.x, t < 0.55 ? 0.15 : 0, 0.2);
-                P.kneeL.rotation.x = lerp(P.kneeL.rotation.x, t < 0.55 ? 0.9 : 0.05, 0.2);
-                P.kneeR.rotation.x = lerp(P.kneeR.rotation.x, 0.05, 0.2);
-                P.shL.rotation.set(-2.2, 0, 0.55);
-                P.shR.rotation.set(-2.2, 0, -0.55);
-                P.elL.rotation.set(-1.5, 0, 0);
-                P.elR.rotation.set(-1.5, 0, 0);
-                P.chest.rotation.set(-0.05, Math.sin(t * 22) * 0.07, Math.sin(t * 15) * 0.05);
-                P.head.rotation.set(0.05, 0, 0.22 + Math.sin(t * 11) * 0.06);
-                P.hips.position.y = 0.86;
-                swayHair(g, t * 10, 0.6, 0);
-                if (t > 0.5 && hearts < 3 && t > 0.5 + hearts * 0.35) {
-                    hearts++;
-                    const hp = new THREE.Vector3();
-                    P.head.getWorldPosition(hp);
-                    heartBurst(S, hp.add(V(0, 0.35, 0)), 2);
-                }
-            } else if (t < 3.4) {
-                // wave goodbye and skip off to the side
-                const k = t - 1.7;
-                r.rotation.y = lerp(r.rotation.y, side * 1.3, Math.min(1, dt * 4));
-                r.position.x += side * dt * 2.6 * Math.min(1, k * 2);
-                r.position.y = y0 + Math.abs(Math.sin(k * 7)) * 0.12;
-                runPose(g, k * 7, 0.55, 1);
-                P.shR.rotation.set(0, 0, 2.7 + Math.sin(k * 14) * 0.3);
-                P.elR.rotation.set(-0.3, 0, 0);
-                P.head.rotation.set(0, -side * 0.8, 0.15);
-                if (k > 1.2) r.scale.setScalar(Math.max(0.001, 1 - (k - 1.2) / 0.5));
-            } else {
-                if (r.parent) r.parent.remove(r);
-                return false;
-            }
-        });
-    }
-
     function beachBall() {
-        const tex = L.canvasTex('beachball', 128, 64, (g, w, h) => {
+        const tex = L.canvasTex('beachball-hq', 256, 128, (g, w, h) => {
             const cols = ['#ef4444', '#ffffff', '#3b82f6', '#ffffff', '#facc15', '#ffffff'];
             for (let i = 0; i < 6; i++) { g.fillStyle = cols[i]; g.fillRect(i * w / 6, 0, w / 6 + 1, h); }
+            g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, 12); g.fillRect(0, h - 12, w, 12);
         });
-        const m = new THREE.Mesh(new THREE.SphereGeometry(0.4, 18, 12), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.4 }));
+        const m = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.25, metalness: 0.05 }));
         m.castShadow = true;
         const grp = new THREE.Group();
         grp.add(m);
         return { mesh: grp, hitMeshes: [m], ball: m };
     }
 
+    function surfboard(c1, c2) {
+        const tex = L.canvasTex('surf:' + c1 + ':' + c2, 64, 256, (g, w, h) => {
+            g.fillStyle = c1; g.fillRect(0, 0, w, h);
+            g.fillStyle = c2; g.fillRect(w * 0.38, 0, w * 0.24, h);
+            g.fillStyle = 'rgba(255,255,255,0.6)'; g.fillRect(w * 0.48, 0, w * 0.04, h);
+        });
+        const g = new THREE.Group();
+        const board = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 2.25, 16), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.22, metalness: 0.08 }));
+        board.scale.set(1, 1, 0.16);
+        board.position.y = 1.05;
+        board.castShadow = true;
+        g.add(board);
+        return g;
+    }
+
+    function beachLounger(stripeCol) {
+        const g = new THREE.Group();
+        const wood = std(0x9a6b3e, 0.78);
+        const fabric = std(stripeCol, 0.65);
+        const base = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.08, 1.85), wood);
+        base.position.set(0, 0.34, 0);
+        const pad = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 1.25), fabric);
+        pad.position.set(0, 0.40, 0.28);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.65), fabric);
+        back.position.set(0, 0.62, -0.58);
+        back.rotation.x = 0.62;
+        for (const [x, z] of [[-0.32, -0.78], [0.32, -0.78], [-0.32, 0.78], [0.32, 0.78]]) {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.34, 0.06), wood);
+            leg.position.set(x, 0.17, z);
+            g.add(leg);
+        }
+        g.add(base, pad, back);
+        g.traverse((m) => { if (m.isMesh) m.castShadow = true; });
+        return g;
+    }
+
     MG.register({
         id: 'sweetheart_shore', cat: 'target', order: 15,
         name: 'Sweetheart Shore', icon: '💖', accent: '#f472b6',
         tagline: 'The heart blaster. Spread the love.',
-        desc: 'A sunny beach day, and your gun fires hearts. Eight friendly beachgoers, each with her own look, run up from the shoreline to say hi. Tag each one with a heart before she reaches the boardwalk. She lights up, giggles, waves and skips off. Bouncing beach balls are bonus points.',
+        desc: 'A sunlit tropical paradise where your gun fires hearts. Eight uniquely sculpted anime beachgoers — each with bespoke swimwear, layered hair, and real spring-damper motion — run up from the turquoise shoreline. Tag each one with a heart before she reaches the boardwalk. Bouncing beach balls award bonus points.',
         hudSub: 'Tag every runner with a heart before she reaches you',
         duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', tracerColor: 0xff5fa8, forgivingMisses: true,
         map: {
-            atmosphere: { skyTop: 0x0284c7, skyBottom: 0xbae6fd, fogColor: 0xdbeafe, fogDensity: 0.004, sunColor: 0xfff7e0, sunIntensity: 2.0, sunPos: [30, 70, 40], hemiSky: 0xe0f2fe, hemiGround: 0xfde68a, hemiIntensity: 1.0 },
-            boxes: [B(0, -0.5, -40, 200, 1, 200, 'desert_sand')],
+            atmosphere: {
+                skyTop: 0x0369a1, skyBottom: 0x7dd3fc, fogColor: 0xbae6fd, fogDensity: 0.0028,
+                sunColor: 0xfff3d1, sunIntensity: 1.25, sunPos: [26, 48, -90],
+                hemiSky: 0xbae6fd, hemiGround: 0xd9b37c, hemiIntensity: 0.65
+            },
+            boxes: [B(0, -0.5, -40, 220, 1, 220, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 1.2, yaw: 0 }
         },
         build(S) {
-            K.groundPlane(S, 200, 0xf3dfb0, 0.002, 1);
-            // ocean with rolling waves
-            const sea = new THREE.Mesh(new THREE.PlaneGeometry(320, 160, 64, 24), new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.92, flatShading: true }));
+            // Subtle warm front-fill light so anime faces, skin & hair sheen pop without blowing out highlights
+            const fill = new THREE.DirectionalLight(0xffe4d6, 0.35);
+            fill.position.set(-14, 16, 26);
+            S.add(fill);
+
+            // Rich warm golden beach sand (high contrast against light skin & bright swimwear)
+            const sandTex = L.canvasTex('hq-beach-sand-v2', 256, 256, (g, w, h) => {
+                g.fillStyle = '#d4ad72'; g.fillRect(0, 0, w, h);
+                for (let y = 0; y < h; y += 6) {
+                    g.strokeStyle = y % 12 === 0 ? 'rgba(245,222,179,0.28)' : 'rgba(154,112,56,0.22)';
+                    g.lineWidth = 2;
+                    g.beginPath();
+                    for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x * 0.05 + y * 0.1) * 2.5);
+                    g.stroke();
+                }
+                for (let i = 0; i < 700; i++) {
+                    g.fillStyle = i % 2 ? 'rgba(255,245,220,0.20)' : 'rgba(130,90,42,0.20)';
+                    g.fillRect((i * 73) % w, (i * 41) % h, 2, 2);
+                }
+            });
+            sandTex.wrapS = sandTex.wrapT = THREE.RepeatWrapping;
+            sandTex.repeat.set(28, 28);
+            const sandMesh = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.88 }));
+            sandMesh.rotation.x = -Math.PI / 2;
+            sandMesh.position.y = 0.002;
+            sandMesh.receiveShadow = true;
+            S.add(sandMesh);
+
+            // Glowing golden sun disc + soft halo over the tropical horizon
+            const sunHaloTex = L.canvasTex('hq-sun-halo', 256, 256, (g, w, h) => {
+                const rg = g.createRadialGradient(128, 128, 12, 128, 128, 124);
+                rg.addColorStop(0, 'rgba(255, 253, 240, 1)');
+                rg.addColorStop(0.22, 'rgba(254, 240, 138, 0.85)');
+                rg.addColorStop(0.55, 'rgba(251, 191, 36, 0.24)');
+                rg.addColorStop(1, 'rgba(251, 191, 36, 0)');
+                g.fillStyle = rg; g.fillRect(0, 0, w, h);
+            });
+            const sunSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: sunHaloTex, transparent: true, depthWrite: false, fog: false }));
+            sunSpr.position.set(28, 36, -185);
+            sunSpr.scale.set(44, 44, 1);
+            S.add(sunSpr);
+
+            // Layered turquoise-to-cobalt tropical ocean with multi-frequency rolling waves
+            const seaTex = L.canvasTex('hq-tropical-sea', 128, 256, (g, w, h) => {
+                const gr = g.createLinearGradient(0, 0, 0, h);
+                gr.addColorStop(0, '#0369a1');
+                gr.addColorStop(0.45, '#0284c7');
+                gr.addColorStop(0.82, '#06b6d4');
+                gr.addColorStop(1, '#67e8f9');
+                g.fillStyle = gr; g.fillRect(0, 0, w, h);
+            });
+            const sea = new THREE.Mesh(
+                new THREE.PlaneGeometry(360, 170, 72, 32),
+                new THREE.MeshStandardMaterial({ map: seaTex, roughness: 0.14, metalness: 0.28, transparent: true, opacity: 0.94 })
+            );
             sea.rotation.x = -Math.PI / 2;
-            sea.position.set(0, 0.06, -142);
+            sea.position.set(0, 0.07, -146);
             S.add(sea);
             const base = sea.geometry.attributes.position.array.slice();
-            const foam = new THREE.Mesh(new THREE.PlaneGeometry(320, 3), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
-            foam.rotation.x = -Math.PI / 2;
-            foam.position.set(0, 0.08, -62.5);
-            S.add(foam);
-            const wet = new THREE.Mesh(new THREE.PlaneGeometry(320, 8), std(0xd6b98a, 0.5));
-            wet.rotation.x = -Math.PI / 2;
-            wet.position.set(0, 0.005, -60);
-            S.add(wet);
+
+            // Dual animated whitewater surf foam lines + glossy wet shoreline sand
+            const foamTex = L.canvasTex('hq-surf-foam', 256, 64, (g, w, h) => {
+                g.clearRect(0, 0, w, h);
+                const gr = g.createLinearGradient(0, 0, 0, h);
+                gr.addColorStop(0, 'rgba(255,255,255,0)');
+                gr.addColorStop(0.45, 'rgba(255,255,255,0.88)');
+                gr.addColorStop(0.7, 'rgba(224,242,254,0.65)');
+                gr.addColorStop(1, 'rgba(255,255,255,0)');
+                g.fillStyle = gr; g.fillRect(0, 0, w, h);
+                g.fillStyle = 'rgba(255,255,255,0.55)';
+                for (let i = 0; i < 45; i++) { g.beginPath(); g.arc((i * 19) % w, 24 + Math.sin(i) * 10, 4 + (i % 5), 0, TAU); g.fill(); }
+            });
+            foamTex.wrapS = THREE.RepeatWrapping; foamTex.repeat.set(16, 1);
+            const foam1 = new THREE.Mesh(new THREE.PlaneGeometry(340, 4.2), new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0.85, depthWrite: false }));
+            foam1.rotation.x = -Math.PI / 2; foam1.position.set(0, 0.09, -62.2);
+            const foam2 = new THREE.Mesh(new THREE.PlaneGeometry(340, 3.2), new THREE.MeshBasicMaterial({ map: foamTex, transparent: true, opacity: 0.65, depthWrite: false }));
+            foam2.rotation.x = -Math.PI / 2; foam2.position.set(0, 0.085, -65.5);
+            const wet = new THREE.Mesh(new THREE.PlaneGeometry(340, 9.5), new THREE.MeshStandardMaterial({ color: 0xc9a875, roughness: 0.22, metalness: 0.12 }));
+            wet.rotation.x = -Math.PI / 2; wet.position.set(0, 0.008, -59.5);
+            S.add(foam1, foam2, wet);
+
+            // Distant tropical islands & bobbing sailboats on the horizon
+            const islands = [[-72, -162, 22, 11], [68, -170, 28, 14], [-18, -185, 16, 7]];
+            for (const [ix, iz, ir, ih] of islands) {
+                const isl = new THREE.Mesh(new THREE.ConeGeometry(ir, ih, 18), std(0x15803d, 0.9));
+                isl.position.set(ix, ih * 0.42, iz);
+                const beachRing = new THREE.Mesh(new THREE.CylinderGeometry(ir * 0.92, ir * 1.05, 1.1, 18), std(0xf3dfb0, 0.9));
+                beachRing.position.set(ix, 0.4, iz);
+                S.add(isl, beachRing);
+            }
+            const boats = [];
+            for (const [bx, bz, col] of [[-32, -118, 0xf43f5e], [42, -132, 0xfacc15]]) {
+                const bt = new THREE.Group();
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 4.2), std(0xf8fafc, 0.4));
+                hull.position.y = 0.35;
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 4.5, 6), std(0x94a3b8, 0.4, 0.6));
+                mast.position.y = 2.6;
+                const sail = new THREE.Mesh(new THREE.ConeGeometry(1.5, 3.8, 3), std(col, 0.6));
+                sail.position.set(0, 2.7, 0.35); sail.scale.set(0.12, 1, 1);
+                bt.add(hull, mast, sail);
+                bt.position.set(bx, 0.1, bz);
+                bt.rotation.y = bx < 0 ? 0.5 : -0.6;
+                S.add(bt);
+                boats.push({ obj: bt, x0: bx, z0: bz });
+            }
+
             let wt = 0;
             S.animate((dt) => {
                 wt += dt;
                 const arr = sea.geometry.attributes.position.array;
-                for (let i = 0; i < arr.length; i += 3) arr[i + 2] = Math.sin(base[i] * 0.08 + wt * 1.4) * 0.35 + Math.cos(base[i + 1] * 0.12 + wt) * 0.25;
+                for (let i = 0; i < arr.length; i += 3) {
+                    arr[i + 2] = Math.sin(base[i] * 0.075 + wt * 1.45) * 0.36 + Math.cos(base[i + 1] * 0.11 + wt * 1.1) * 0.24;
+                }
                 sea.geometry.attributes.position.needsUpdate = true;
-                foam.position.z = -62.5 + Math.sin(wt * 0.8) * 1.2;
-                foam.material.opacity = 0.5 + Math.sin(wt * 0.8) * 0.25;
+                foam1.position.z = -62.0 + Math.sin(wt * 0.85) * 1.5;
+                foam1.material.opacity = 0.55 + Math.sin(wt * 0.85) * 0.32;
+                foam2.position.z = -65.5 + Math.sin(wt * 0.85 - 1.4) * 1.4;
+                foam2.material.opacity = 0.4 + Math.sin(wt * 0.85 - 1.4) * 0.25;
+                for (let i = 0; i < boats.length; i++) {
+                    boats[i].obj.position.y = 0.15 + Math.sin(wt * 1.3 + i * 2) * 0.18;
+                    boats[i].obj.rotation.z = Math.sin(wt * 1.1 + i) * 0.06;
+                }
             });
-            // boardwalk deck the player stands on
-            const plank = std(0xb08154, 0.85);
-            const deck = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 5), plank);
-            deck.position.set(0, -0.08, 1.5);
+
+            // Upgraded Boardwalk Deck with weathered planks, rope rails & warm string fairy lights
+            const plankTex = L.canvasTex('hq-boardwalk', 256, 256, (g, w, h) => {
+                g.fillStyle = '#b48556'; g.fillRect(0, 0, w, h);
+                for (let y = 0; y < h; y += 32) {
+                    g.fillStyle = y % 64 === 0 ? '#a67649' : '#be9060';
+                    g.fillRect(0, y, w, 30);
+                    g.fillStyle = '#5c3c20'; g.fillRect(0, y + 30, w, 2);
+                }
+            });
+            plankTex.wrapS = plankTex.wrapT = THREE.RepeatWrapping; plankTex.repeat.set(3, 2);
+            const plank = new THREE.MeshStandardMaterial({ map: plankTex, roughness: 0.82 });
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.22, 5.2), plank);
+            deck.position.set(0, -0.09, 1.5);
             deck.receiveShadow = true;
             S.add(deck);
-            for (const x of [-3.9, 3.9]) for (const z of [-0.9, 3.9]) {
-                const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.1, 0.16), plank);
-                post.position.set(x, 0.55, z);
+            for (const x of [-4.0, 4.0]) for (const z of [-0.95, 3.95]) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.0, 0.18), plank);
+                post.position.set(x, 0.48, z);
+                post.castShadow = true;
                 S.add(post);
             }
-            const rail = new THREE.Mesh(new THREE.BoxGeometry(8, 0.1, 0.12), plank);
-            rail.position.set(0, 1.05, -0.9);
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.09, 0.12), plank);
+            rail.position.set(0, 0.88, -0.95);
             S.add(rail);
-            S.collider(-4, 0, -1.0, 4, 1.1, -0.8);
-            S.collider(-4.1, 0, -1.0, -3.8, 3, 4.2);
-            S.collider(3.8, 0, -1.0, 4.1, 3, 4.2);
-            S.collider(-4, 0, 3.9, 4, 3, 4.2);
-            const sign = A.sign('♥ SWEETHEART SHORE ♥', 3.6, 0.55, { bg: '#fdf2f8', color: '#db2777', borderColor: '#f472b6', size: 0.5 });
-            sign.position.set(0, 2.4, 4.0);
+            // Surfboards flanking the boardwalk entrance
+            const sb1 = surfboard('#f472b6', '#ffffff'); sb1.position.set(-4.65, 0, -0.5); sb1.rotation.set(0.12, 0.35, -0.15); S.add(sb1);
+            const sb2 = surfboard('#06b6d4', '#fde047'); sb2.position.set(4.65, 0, -0.5); sb2.rotation.set(0.12, -0.35, 0.15); S.add(sb2);
+
+            S.collider(-4.1, 0, -1.05, 4.1, 1.1, -0.85);
+            S.collider(-4.2, 0, -1.05, -3.9, 3, 4.2);
+            S.collider(3.9, 0, -1.05, 4.2, 3, 4.2);
+            S.collider(-4.1, 0, 3.9, 4.1, 3, 4.2);
+            const sign = A.sign('♥ SWEETHEART SHORE ♥', 3.8, 0.6, { bg: '#fdf2f8', color: '#db2777', borderColor: '#f472b6', size: 0.52 });
+            sign.position.set(0, 2.55, 4.0);
             sign.rotation.y = Math.PI;
             S.add(sign);
-            // palms, umbrellas, towels, a volleyball net, lifeguard tower
+
+            // Palms, umbrellas, loungers, towels, seashells, volleyball court, lifeguard tower
             const rnd = L.mulberry32(214);
-            for (let i = 0; i < 18; i++) {
-                const p = A.palm(1.1 + rnd() * 0.5);
+            for (let i = 0; i < 22; i++) {
+                const p = A.palm(1.1 + rnd() * 0.55);
                 const side = i % 2 ? 1 : -1;
-                p.position.set(side * (19 + rnd() * 14), 0, 4 - i * 3.5);
+                p.position.set(side * (18.5 + rnd() * 15), 0, 5 - i * 3.1);
                 p.rotation.y = rnd() * TAU;
                 S.add(p);
             }
-            const umbCols = ['#ef4444', '#3b82f6', '#facc15', '#22c55e', '#f472b6'];
-            for (let i = 0; i < 9; i++) {
+            const umbCols = ['#f43f5e', '#0ea5e9', '#facc15', '#10b981', '#ec4899'];
+            for (let i = 0; i < 10; i++) {
                 const c = umbCols[i % umbCols.length];
                 const tex = L.canvasTex('umb:' + c, 128, 16, (g, w, h) => { for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#ffffff' : c; g.fillRect(k * 16, 0, 16, h); } });
                 const umb = new THREE.Group();
-                const top = new THREE.Mesh(new THREE.ConeGeometry(1.4, 0.6, 16, 1, true), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.7 }));
-                top.position.y = 2.3;
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 6), std(0xe5e7eb, 0.4, 0.6));
-                pole.position.y = 1.2;
+                const top = new THREE.Mesh(new THREE.ConeGeometry(1.55, 0.65, 20, 1, true), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.65 }));
+                top.position.y = 2.35; top.castShadow = true;
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 2.45, 8), std(0xe5e7eb, 0.35, 0.6));
+                pole.position.y = 1.22;
                 umb.add(top, pole);
                 const side = i % 2 ? 1 : -1;
-                umb.position.set(side * (17 + rnd() * 6), 0, -8 - i * 5);
-                umb.rotation.z = (rnd() - 0.5) * 0.2;
+                umb.position.set(side * (17 + rnd() * 6), 0, -7 - i * 4.8);
+                umb.rotation.z = (rnd() - 0.5) * 0.18;
                 S.add(umb);
-                const towel = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.02, 1.8), std(parseInt(umbCols[(i + 2) % 5].slice(1), 16), 0.9));
-                towel.position.set(umb.position.x + side * 1.2, 0.012, umb.position.z + 0.5);
-                towel.rotation.y = rnd();
-                S.add(towel);
+                if (i % 2 === 0) {
+                    const ch = beachLounger(parseInt(c.slice(1), 16));
+                    ch.position.set(umb.position.x - side * 1.1, 0, umb.position.z + 0.6);
+                    ch.rotation.y = side * -0.45;
+                    S.add(ch);
+                } else {
+                    const towel = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.02, 1.85), std(parseInt(umbCols[(i + 2) % 5].slice(1), 16), 0.88));
+                    towel.position.set(umb.position.x + side * 1.1, 0.012, umb.position.z + 0.5);
+                    towel.rotation.y = rnd();
+                    S.add(towel);
+                }
             }
+
+            // Scattered coral starfish & shells along the sand
+            for (let i = 0; i < 24; i++) {
+                const sx = (rnd() - 0.5) * 34;
+                const sz = -6 - rnd() * 48;
+                const sh = new THREE.Mesh(new THREE.OctahedronGeometry(0.08 + rnd() * 0.05, 0), std(i % 2 ? 0xfb7185 : 0xfef3c7, 0.5));
+                sh.scale.set(1.2, 0.35, 1.2);
+                sh.position.set(sx, 0.03, sz);
+                sh.rotation.y = rnd() * TAU;
+                S.add(sh);
+            }
+
+            // Volleyball net + court boundary lines
             const net = new THREE.Mesh(new THREE.PlaneGeometry(7, 1, 14, 2), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true }));
-            net.position.set(-22, 1.9, -30);
-            net.rotation.y = Math.PI / 2;
+            net.position.set(-22, 1.9, -30); net.rotation.y = Math.PI / 2;
             S.add(net);
             for (const z of [-26.5, -33.5]) { const np = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.5, 6), std(0xe5e7eb, 0.4)); np.position.set(-22, 1.25, z); S.add(np); }
+
+            // Detailed Lifeguard Tower with ladder & red rescue buoy
             const tower = new THREE.Group();
-            const tp = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.2, 2.4), std(0xf8fafc, 0.6));
-            tp.position.y = 2.6;
-            const hut = new THREE.Mesh(new THREE.BoxGeometry(2, 1.5, 2), std(0xef4444, 0.6));
-            hut.position.y = 3.45;
-            const roofT = new THREE.Mesh(new THREE.ConeGeometry(1.8, 0.7, 4), std(0xf8fafc, 0.6));
-            roofT.position.y = 4.55;
-            roofT.rotation.y = Math.PI / 4;
-            tower.add(tp, hut, roofT);
-            for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.6, 0.15), std(0xf8fafc, 0.6)); l.position.set(x, 1.3, z); tower.add(l); }
+            const tp = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.22, 2.5), std(0xf8fafc, 0.6)); tp.position.y = 2.6;
+            const hut = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.55, 2.0), std(0xef4444, 0.55)); hut.position.y = 3.48;
+            const win = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.65, 2.04), std(0x0f172a, 0.2, 0.5)); win.position.y = 3.55;
+            const roofT = new THREE.Mesh(new THREE.ConeGeometry(1.9, 0.72, 4), std(0xf8fafc, 0.6)); roofT.position.y = 4.62; roofT.rotation.y = Math.PI / 4;
+            const buoy = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 8, 18), std(0xf43f5e, 0.4)); buoy.position.set(-1.05, 3.1, 0); buoy.rotation.y = Math.PI / 2;
+            tower.add(tp, hut, win, roofT, buoy);
+            for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.16), std(0xf8fafc, 0.6)); l.position.set(x, 1.3, z); tower.add(l); }
             tower.position.set(24, 0, -22);
             S.add(tower);
+
             K.cloudLayer(S, 12, 70, 200);
-            // seagulls
-            for (let i = 0; i < 5; i++) {
+            // Animated soaring seagulls
+            for (let i = 0; i < 6; i++) {
                 const gull = new THREE.Group();
-                for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.03, 0.18), std(0xf8fafc, 0.6)); w.position.x = s * 0.35; w.rotation.z = s * 0.3; gull.add(w); }
+                for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.03, 0.18), std(0xf8fafc, 0.6)); w.position.x = s * 0.37; w.rotation.z = s * 0.3; gull.add(w); }
                 S.add(gull);
                 const r = 20 + i * 6, sp = 0.2 + i * 0.05, ph = i * 1.3;
                 let tt = 0;
@@ -1090,14 +841,15 @@
             }
         },
         schedule(S) {
+            const GIRLS = BO.BeachArt.GIRLS;
             let idx = 0;
             K.ramp(S, { from: 1.75, to: 0.6, start: 0.4, end: 55.5, jitter: 0.25 }, (at, k, rng) => {
                 const d = GIRLS[idx % GIRLS.length];
                 const i = idx++;
-                const x0 = (rng() - 0.5) * 28;
-                const z0 = -50 - rng() * 8;
-                const speed = lerp(3.4, 6.6, k) * (0.9 + rng() * 0.25);
-                const weave = (0.6 + rng() * 1.6) * (rng() < 0.5 ? -1 : 1);
+                const x0 = (rng() - 0.5) * 26;
+                const z0 = -48 - rng() * 8;
+                const speed = lerp(3.4, 6.4, k) * (0.9 + rng() * 0.25);
+                const weave = (0.6 + rng() * 1.5) * (rng() < 0.5 ? -1 : 1);
                 const ph0 = rng() * TAU;
                 S.at(at, (S2) => spawnGirl(S2, d, i, x0, z0, speed, weave, ph0));
             });
@@ -1109,7 +861,7 @@
                 S.at(at, (S2) => {
                     const b = beachBall();
                     S2.addTarget(Object.assign(b, {
-                        pos: V(x0, 0.4, z), points: 75, bonus: true, life: 32 / Math.abs(sp), appear: 'scale', death: 'pop', deathColor: 0xfacc15,
+                        pos: V(x0, 0.42, z), points: 75, bonus: true, life: 32 / Math.abs(sp), appear: 'scale', death: 'pop', deathColor: 0xfacc15,
                         motion: (tg, t, out) => { out.set(sp * t, Math.abs(Math.sin(t * 2.6)) * bh, 0); b.ball.rotation.z -= sp * 0.02; },
                         onKill: () => { SFX.pop(); S2.data.balls = (S2.data.balls || 0) + 1; }
                     }));
@@ -1126,7 +878,7 @@
             if (!cam) return;
             const dir = new THREE.Vector3();
             cam.getWorldDirection(dir);
-            const h = heartSprite(0.22);
+            const h = BO.BeachArt.heartSprite(0.24);
             h.position.copy(cam.position).addScaledVector(dir, 0.9).add(V(0, -0.12, 0));
             S.add(h);
             let t = 0;
@@ -1149,7 +901,7 @@
                 return true;
             }
             const r = S.hitTarget(ent, info);
-            if (r && info.pt) heartBurst(S, info.pt, 4);
+            if (r && info.pt) BO.BeachArt.heartBurst(S, info.pt, 5);
             return r;
         },
         result(S) {
