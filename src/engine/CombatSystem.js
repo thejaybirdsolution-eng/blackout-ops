@@ -219,7 +219,8 @@
             if (!w || !this.camera) return;
 
             const tdInf = BO.State.activeMode === 'td' && BO.TowerDefenseMode && (BO.TowerDefenseMode.modifiers?.infiniteAmmo || BO.TowerDefenseMode.overdriveTimer > 0);
-            const infAmmo = (BO.Cheats && BO.Cheats.isActive('infammo')) || tdInf;
+            const mgInf = BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.infiniteMag;
+            const infAmmo = (BO.Cheats && BO.Cheats.isActive('infammo')) || tdInf || mgInf;
             if (w.stats.kind === 'melee') {
                 this._executeMeleeWeaponSwing(w);
                 return;
@@ -243,6 +244,7 @@
             if (infReserve && w.stats.reserveMax) w.reserve = w.stats.reserveMax;
             if (BO.Mods && BO.Mods.onWeaponShot) BO.Mods.onWeaponShot(w);
             BO.Progression.recordStat('shotsFired', 1);
+            if (BO.State.activeMode === 'minigame' && BO.Minigames) BO.Minigames.onShotFired(w);
 
             const hasDoubleTap = P.zombiePerks.has('double_tap');
             const tdGongBoost = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.overdriveTimer > 0) ? 1.85 : 1.0;
@@ -435,7 +437,9 @@
 
                 // Blood impact FX (respects bloodLevel setting!)
                 const bloodLvl = BO.Settings.get('bloodLevel') || 'normal';
-                if (bloodLvl !== 'off') {
+                if (ent.noBlood) {
+                    BO.FX.spawnParticles(h.point, 5, 0xfde68a, 3.2, 10, 0.25, 0.7);
+                } else if (bloodLvl !== 'off') {
                     const mult = bloodLvl === 'ultra' ? 2.2 : 1.0;
                     BO.FX.spawnParticles(h.point, Math.round((isHead ? 10 : 6) * mult), 0x991b1b, 3.8 * mult, 12, 0.38, mult);
                 }

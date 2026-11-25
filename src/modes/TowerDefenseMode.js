@@ -792,7 +792,8 @@
             const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
             const baseBossPct = Number((this.config.customValues || {}).bossSpawnPct ?? 2.0);
             const effBossPct = baseBossPct + (this.wave > 10 ? (this.wave - 10) * 0.5 : 0);
-            const spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
+            const spec = BO.EnemyLab?.pick('td', this.wave, unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct) // Enemy Lab
+                || BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
             const ent = new BO.ZombieEntity(this._buildZombieOpts(spec, sp, !!spec.isBoss));
             if (this.modifiers.armoredHorde) ent.defense = Math.min(0.70, (ent.defense || 0) + 0.35);
             BO.Mods.afterSpawn(this.modifiers, ent);

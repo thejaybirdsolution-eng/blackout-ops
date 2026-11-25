@@ -619,7 +619,8 @@
             const effBossPct = baseBossPct + (this.round > 10 ? (this.round - 10) * 0.5 : 0);
             let spec = this.modifiers.allBosses
                 ? BO.Math.pick(BO.ZombiesData.ORDERED_BOSSES.filter((b) => !this.disabledEnemySet.has(b.id))) || BO.ZombiesData.ORDERED_BOSSES[0]
-                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
+                : (BO.EnemyLab?.pick('zombies', this.round, unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct) // Enemy Lab: start rounds & spawn %
+                    || BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct));
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
             if (cc && Array.isArray(cc.customZombiePool) && cc.customZombiePool.length > 0) {
                 const customSpecs = cc.customZombiePool.map((id) => BO.ZombiesData.get(id)).filter(Boolean);

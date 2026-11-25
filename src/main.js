@@ -147,7 +147,7 @@
             this._safePointerLock();
             this._clearInputState();
 
-            if (opts.mode !== "survival" && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+            if (opts.mode !== "survival" && opts.mode !== 'minigame' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
                 BO.Net.broadcastMatchStart(opts);
             }
             if (BO.Net) BO.Net.clearRemoteAvatars();
@@ -158,12 +158,16 @@
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
+            if (BO.Minigames) BO.Minigames.stop();
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
             BO.State.paused = false;
+            BO.State.timeScale = 1;
 
-            if (opts.mode === 'survival') {
+            if (opts.mode === 'minigame') {
+                BO.Minigames.start(this.worldCamera, opts);
+            } else if (opts.mode === 'survival') {
                 BO.SurvivalMode.start(this.worldCamera, opts);
             } else if (opts.mode === 'zombies') {
                 BO.ZombiesMode.start({
@@ -235,6 +239,10 @@
 
         exitToMenu() {
             this._clearInputState();
+            const fromMinigame = BO.State.activeMode === 'minigame';
+            const mgReturn = fromMinigame && BO.Minigames ? BO.Minigames.consumeReturnScreen() : null;
+            if (BO.Minigames) BO.Minigames.stop();
+            BO.State.timeScale = 1;
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
@@ -245,7 +253,7 @@
             BO.State.activeMode = null;
             BO.State.paused = false;
             if (document.pointerLockElement) document.exitPointerLock();
-            BO.Menus.showScreen('main_menu');
+            BO.Menus.showScreen(mgReturn || 'main_menu');
         }
 
         _bindInputs() {
@@ -397,6 +405,7 @@
                 if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
                 if (BO.State.screen !== 'playing') return;
                 if (BO.ExpansionShop.open) return;
+                if (BO.Minigames?.blockingUI) { BO.Minigames.handleUIKey(e); return; }
                 if (BO.ZoneThrill?.picking) { BO.ZoneThrill.handleKey(e); return; }
                 if (BO.ZoneWild?.boxOpen) { BO.ZoneWild.handleKey(e); return; }
                 if (BO.ZoneArmory?.uiOpen) { BO.ZoneArmory.handleKey(e); return; }
@@ -435,6 +444,11 @@
 
                 const firstDown = !P.keys[code];
                 P.keys[code] = true;
+
+                if (BO.State.activeMode === 'minigame' && BO.Minigames?.handleGameKey(code, kb, firstDown)) {
+                    e.preventDefault();
+                    return;
+                }
 
                 // Survival field controls take priority over shared bindings (all rebindable).
                 if (survival && firstDown && this._handleSurvivalKey(code, kb, e)) return;
@@ -605,6 +619,7 @@
                         BO.MPMode.update(dt);
                     } else {
                         if (this.mouseDown) BO.Combat.handleFireInput(true, false);
+                        if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
                         BO.Player.update(dt, this.worldCamera);
                         BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
                         BO.Superpowers.tick(dt);
@@ -612,6 +627,7 @@
                         BO.FX.update(dt);
 
                         if (BO.State.activeMode === 'survival') BO.SurvivalMode.update(dt);
+                        else if (BO.State.activeMode === 'minigame') BO.Minigames.update(dt);
                         else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
                         else if (BO.State.activeMode === 'mp') BO.MPMode.update(dt);
                         else if (BO.State.activeMode === 'td') {

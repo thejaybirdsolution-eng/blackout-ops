@@ -728,6 +728,7 @@
                     return;
                 }
                 case 'legendFromBrief': this.section = 'legend'; this.returnToBriefing = true; return this.render();
+                case 'enemyLab': BO.EnemyLab?.open('survival', () => this.render()); return;
                 case 'devToggle': { const D = BO.GM?.get('dev'); if (D) { D.setEnabled(!D.enabled); BO.Sound?.playUIClick?.(); } return this.render(); }
                 case 'legendCat': this.legendCat = arg; this.legendQuery = ''; this.scrollMemo['legend:guide'] = 0; return this.render();
                 case 'backToBrief': this.section = 'briefing'; return this.render();
@@ -1339,6 +1340,7 @@
             const offRows = offList.map((z) => `<button class="sv-enemy off" data-act="roster" data-arg="${z.id}" data-tip-enemy="${z.id}"${tip(z.name, (z.simpleDesc || 'Infected variant.'), 'Disabled · click to enable')}>
                     <span class="sv-enemy-box"></span><b>${esc(z.name)}</b><small>${esc(z.rarity || '')}</small></button>`);
             return `<p class="sv-lede">The Exclusion Zone has twelve kinds of infected. They unlock from weakest to strongest as days pass; regions favour their own (riot walkers at Kessel, the drowned at the Spillway, stalkers in Pinebreak). Disable any you never want to meet; the rest shift earlier.</p>
+                <button class="sv-btn sm" data-act="enemyLab"${tip('Enemy Lab', 'Edit each infected type: health, speed and damage %, the day it starts appearing, and its spawn chance, plus a chance per category. Save and load named setups.', BO.EnemyLab ? (BO.EnemyLab.isDefault(BO.EnemyLab.get('survival')) ? 'All normal' : BO.EnemyLab.count(BO.EnemyLab.get('survival')) + ' changes active') : '')}>🧪 Enemy Lab: stats, start days &amp; spawn chances${BO.EnemyLab && !BO.EnemyLab.isDefault(BO.EnemyLab.get('survival')) ? ' · ' + BO.EnemyLab.count(BO.EnemyLab.get('survival')) + ' changes' : ''}</button>
                 <div class="sv-row-actions">
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="all"${tip('Enable all', 'Allow every infected variant to appear when its day comes.')}>Enable all</button>
                     <button class="sv-btn ghost sm" data-act="rosterBulk" data-arg="light"${tip('Lighter roster', 'Keep only the six lighter infected: no chargers, bloaters, riot walkers, stalkers or heavies.')}>Lighter six only</button>

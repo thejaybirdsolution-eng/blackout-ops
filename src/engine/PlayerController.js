@@ -139,6 +139,7 @@
         }
 
         get matchRules() {
+            if (BO.State.activeMode === 'minigame') return (BO.Minigames && BO.Minigames.matchRules) || {};
             return BO.State.activeMode === 'mp' ? BO.MPMode.customRules : {};
         }
 
@@ -1014,6 +1015,18 @@
 
             if (this.rideState) {
                 const rs = this.rideState;
+                if (rs.kind === 'minigame') {
+                    // Minigame rail vehicles (coaster, boulder run, helicopter...) drive the rider directly.
+                    if (rs.pos) this.pos.copy(rs.pos);
+                    this.vel.set(0, 0, 0);
+                    this.onGround = true;
+                    this.sliding = false;
+                    this.crouching = false;
+                    this.parkourRoll = rs.roll || 0;
+                    this.parkourPitch = rs.pitch || 0;
+                    if (rs.eye !== undefined) this.eyeHeight = rs.eye;
+                    return;
+                }
                 if (rs.kind === 'elevator') {
                     const el = rs.elevator;
                     this.pos.x = BO.Math.damp(this.pos.x, el.x, 8, dt);

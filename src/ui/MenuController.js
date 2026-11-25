@@ -169,7 +169,8 @@
                 play_lobby: document.getElementById('screen-lobby'),
                 gunsmith: document.getElementById('screen-gunsmith'),
                 barracks: document.getElementById('screen-barracks'),
-                aar: document.getElementById('screen-aar')
+                aar: document.getElementById('screen-aar'),
+                minigames: document.getElementById('screen-minigames')
             };
             this.modalSettings = document.getElementById('modal-settings');
             this.modalPause = document.getElementById('modal-pause');
@@ -246,6 +247,8 @@
             document.getElementById('btn-menu-mp').onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'mp'; this.showScreen('play_lobby'); };
             const tdBtn = document.getElementById('btn-menu-td');
             if (tdBtn) tdBtn.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.showScreen('play_lobby'); };
+            const mgBtn = document.getElementById('btn-menu-minigames');
+            if (mgBtn) mgBtn.onclick = () => { BO.Sound.playUIClick(); this.showScreen('minigames'); };
             document.getElementById('btn-menu-gunsmith').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('btn-menu-barracks').onclick = () => { BO.Sound.playUIClick(); this.showScreen('barracks'); };
             document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend('howto'); };
@@ -281,7 +284,7 @@
             ];
             window.addEventListener('keydown', (e) => {
                 if (e.code !== 'Escape' || this.isRebindingKey || e.repeat) return;
-                if (BO.ControlsPanel?.isOpen || BO.SurvivalUI?.open) return; // they handle their own Escape
+                if (BO.ControlsPanel?.isOpen || BO.SurvivalUI?.open || document.querySelector('#enemy-lab[open]')) return; // they handle their own Escape
                 const t = e.target;
                 if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && t.value) return; // let Esc clear a search box first
                 for (const [modal, close] of ESC_CLOSE) {
@@ -583,6 +586,9 @@
                 BO.GunsmithUI.open();
             } else if (name === 'barracks') {
                 this.renderBarracks();
+            } else if (name === 'minigames') {
+                BO.Sound.startMusic('menu');
+                if (BO.MinigameHub) BO.MinigameHub.render();
             }
         }
 
@@ -590,6 +596,12 @@
             BO.State.paused = open;
             if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
             this.updateCheatMenuVisibility();
+            const btnLab = document.getElementById('btn-pause-lab');
+            if (btnLab) {
+                const labMode = BO.State.activeMode;
+                btnLab.classList.toggle('hidden', !open || !BO.EnemyLab?.MODES?.[labMode]);
+                btnLab.onclick = () => { BO.EnemyLab?.open(labMode); };
+            }
             const btnDev = document.getElementById('btn-pause-dev');
             if (btnDev) {
                 const dev = BO.GM?.active ? BO.GM.get('dev') : null;
@@ -869,6 +881,11 @@
                         <span class="big-action-ico">🧟</span>
                         <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per round after 10</small></span>
                         <span class="big-action-go">OPEN →</span>
+                    </button>
+                    <button class="big-action" id="btn-zombies-open-lab">
+                        <span class="big-action-ico">🧪</span>
+                        <span><b>Enemy Lab: stats, start rounds &amp; spawn chances</b><small>${BO.EnemyLab ? (BO.EnemyLab.isDefault(BO.EnemyLab.get('zombies')) ? 'All normal' : BO.EnemyLab.count(BO.EnemyLab.get('zombies')) + ' changes active') + ' · ' + BO.EnemyLab.presets('zombies').length + ' saved setups' : ''}</small></span>
+                        <span class="big-action-go">OPEN →</span>
                     </button>`) + this._section('Exact values', 'Fine-tune the horde with precise numbers.', this._valueGrid([
                     { k: 'zombieHpMult', lbl: 'Zombie health ×', step: 0.1, min: 0.05, max: 20 },
                     { k: 'zombieSpeedMult', lbl: 'Zombie speed ×', step: 0.1, min: 0.2, max: 5 },
@@ -882,6 +899,7 @@
                     { k: 'supplyDropPct', lbl: 'Supply drop rate %', step: 5, min: 0, max: 100 }
                 ], this.zCustomValues, 'js-z-cval', 'zk'));
                 document.getElementById('btn-z-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                document.getElementById('btn-zombies-open-lab').onclick = () => { BO.Sound.playUIClick(); BO.EnemyLab?.open('zombies', () => this.renderLobby()); };
                 body.querySelectorAll('.js-z-cval').forEach((inp) => {
                     inp.onchange = (e) => { this.zCustomValues[e.target.dataset.zk] = Number(e.target.value); this._lobbyBroadcast(); };
                 });
@@ -1135,8 +1153,14 @@
                         <span class="big-action-ico">🧟</span>
                         <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per wave after 10</small></span>
                         <span class="big-action-go">OPEN →</span>
+                    </button>
+                    <button class="big-action" id="btn-td-open-lab">
+                        <span class="big-action-ico">🧪</span>
+                        <span><b>Enemy Lab: stats, start waves &amp; spawn chances</b><small>${BO.EnemyLab ? (BO.EnemyLab.isDefault(BO.EnemyLab.get('td')) ? 'All normal' : BO.EnemyLab.count(BO.EnemyLab.get('td')) + ' changes active') + ' · ' + BO.EnemyLab.presets('td').length + ' saved setups' : ''}</small></span>
+                        <span class="big-action-go">OPEN →</span>
                     </button>`);
                 document.getElementById('btn-td-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
+                document.getElementById('btn-td-open-lab').onclick = () => { BO.Sound.playUIClick(); BO.EnemyLab?.open('td', () => this.renderLobby()); };
             } else {
                 body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('td'));
                 this._bindModifiers(body, 'td');
