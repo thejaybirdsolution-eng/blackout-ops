@@ -518,7 +518,11 @@
         register(def) {
             def.cat = def.cat || 'target';
             this.defs.set(def.id, def);
-            if (!this.order[def.cat].includes(def.id)) this.order[def.cat].push(def.id);
+            if (!this.order[def.cat].includes(def.id)) {
+                this.order[def.cat].push(def.id);
+                // keep each category in its declared order, whatever file registered it
+                this.order[def.cat].sort((a, b) => ((this.defs.get(a).order ?? 999) - (this.defs.get(b).order ?? 999)));
+            }
             if (def.map && BO.MapsData) {
                 const atm = Object.assign({
                     skyTop: 0x1e3a8a, skyBottom: 0x93c5fd, fogColor: 0x9fb4cc, fogDensity: 0.006,
@@ -760,7 +764,7 @@
             if (this.def.keepEquipment) {
                 return code === kb.armory || code === kb.exfil;
             }
-            const blocked = [kb.lethal, kb.tactical, kb.special, kb.ultimate, 'KeyZ', kb.armory, kb.exfil, kb.armor];
+            const blocked = [kb.lethal, kb.tactical, kb.special, kb.ultimate, 'KeyZ', kb.armory, kb.exfil, kb.armor].concat(this.def.blockKeys || []);
             return blocked.includes(code);
         }
 
@@ -792,7 +796,7 @@
             if (def.noReload) {
                 for (const w of P.weapons) if (w) w.reserve = 0;
                 if (P.reloading) { P.reloading = false; P.reloadTimer = 0; }
-            } else {
+            } else if (!def.fixedAmmo) {
                 for (const w of P.weapons) if (w && w.stats && w.stats.reserveMax) w.reserve = w.stats.reserveMax;
             }
             if (this.infiniteMag && P.activeWeapon && P.activeWeapon.stats && P.activeWeapon.stats.magSize) {

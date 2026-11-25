@@ -95,6 +95,7 @@
                 const m = bottleMesh([0x22c55e, 0x0ea5e9, 0xa855f7, 0xf97316, 0xef4444][D.launched % 5]);
                 const b = AK.tgt(S, m.g, V(0, 1.2, -12), { hitMeshes: m.hit, death: 'shatter', deathColor: 0x86efac, bonus: true });
                 b.vel = V((Math.random() - 0.5) * 3, 9.5, 0);
+                b.body = m.g;
                 b.chain = 0;
                 b.onTick = (t, dt2) => {
                     if (MG.state !== 'running' || !t.alive) return;
@@ -103,7 +104,7 @@
                     const p = t.root.position;
                     if (Math.abs(p.x) > 6.5) { t.vel.x = -Math.sign(p.x) * Math.abs(t.vel.x); p.x = Math.sign(p.x) * 6.5; }
                     if (p.y > 7.5) t.vel.y = Math.min(t.vel.y, 0);
-                    t.pivot.rotation.z += t.vel.x * dt2 * 0.8;
+                    t.body.rotation.z += t.vel.x * dt2 * 0.8;
                     if (p.y < 0.3 && t.vel.y < 0) {
                         t.kill({ pt: p.clone() });
                         SFX.shatter();

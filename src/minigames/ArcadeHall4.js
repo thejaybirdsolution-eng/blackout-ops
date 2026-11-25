@@ -52,11 +52,11 @@
             glow.userData.noHit = true;
             g.add(rock, glow);
             const tg = S.addTarget({ mesh: g, hitMeshes: [rock], pos, life: 0, appear: 'scale', inT: 0.1, death: 'burst', deathColor: 0xf97316, bonus: true });
-            tg.vel = vel; tg.size = size;
+            tg.vel = vel; tg.size = size; tg.body = g;
             tg.onTick = (t, dt) => {
                 if (!t.alive || MG.state !== 'running') return;
                 t.root.position.addScaledVector(t.vel, dt);
-                t.pivot.rotation.x += dt * 1.5; t.pivot.rotation.y += dt;
+                t.body.rotation.x += dt * 1.5; t.body.rotation.y += dt;
                 if (Math.random() < 0.4) BO.FX.spawnParticles(t.root.position, 1, 0xfb923c, 1, 0, 0.4, M.r);
                 if (t.root.position.y < -4) {
                     const D = S.data;
@@ -262,7 +262,7 @@
             const body = new THREE.Group(); body.add(m.mesh || m); (m.mesh || m).scale.setScalar(2.6);
             const tint = new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 8), basic(0xf472b6)); tint.position.y = -0.3; tint.userData.noHit = true; body.add(tint);
             const tg = S.addTarget({ mesh: body, pos: V(i ? 5 : -5, PW.cy, PW.z + 1.2), life: 0, appear: 'scale', inT: 0.3, bonus: true });
-            tg.drone = true; tg.stun = 0; tg.goal = V(0, PW.cy, PW.z + 1.2); tg.sprayT = 0; tg.bombT = 4 + i * 2; tg.speed = 3 + i;
+            tg.drone = true; tg.body = body; tg.stun = 0; tg.goal = V(0, PW.cy, PW.z + 1.2); tg.sprayT = 0; tg.bombT = 4 + i * 2; tg.speed = 3 + i;
             D.drones.push(tg);
             return tg;
         },
@@ -289,8 +289,8 @@
             if (state !== 'running') return;
             if (S.t > 30 && D.drones.length < 2) { this._drone(S, 1); MG.toast('A SECOND DRONE JOINS', '#f9a8d4'); }
             for (const d of D.drones) {
-                if (d.stun > 0) { d.stun -= dt; d.pivot.rotation.z = Math.sin(d.stun * 30) * 0.3; continue; }
-                d.pivot.rotation.z = 0;
+                if (d.stun > 0) { d.stun -= dt; d.body.rotation.z = Math.sin(d.stun * 30) * 0.3; continue; }
+                d.body.rotation.z = 0;
                 const p = d.root.position;
                 if (p.distanceTo(d.goal) < 0.4) d.goal.set((Math.random() - 0.5) * (PW.w - 2), PW.cy + (Math.random() - 0.5) * (PW.h - 1.5), PW.z + 1.2);
                 const step = d.goal.clone().sub(p);
