@@ -189,6 +189,7 @@
             this.modalEnemyPool = document.getElementById('modal-enemy-pool');
 
             this._bindButtons();
+            if (BO.UpdateLogUI) BO.UpdateLogUI.init();
             this.updateAllRankBadges();
             this.updateCheatMenuVisibility();
 
@@ -262,6 +263,10 @@
             document.getElementById('btn-menu-barracks').onclick = () => { BO.Sound.playUIClick(); this.showScreen('barracks'); };
             document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend(); };
             document.getElementById('btn-menu-settings').onclick = () => { BO.Sound.playUIClick(); this.openSettings('controls'); };
+            const updatesBtn = document.getElementById('btn-menu-updates');
+            if (updatesBtn) updatesBtn.onclick = () => { BO.Sound.playUIClick(); if (BO.UpdateLogUI) BO.UpdateLogUI.open(); };
+            const allUpdatesBtn = document.getElementById('btn-open-all-updates');
+            if (allUpdatesBtn) allUpdatesBtn.onclick = () => { BO.Sound.playUIClick(); if (BO.UpdateLogUI) BO.UpdateLogUI.open(); };
             document.getElementById('btn-menu-modmenu').onclick = () => { BO.Sound.playUIClick(); this.openModMenu(); };
 
             const menuRoundInput = document.getElementById('menu-round-input');
@@ -285,7 +290,7 @@
             // ESC everywhere outside gameplay: close the top-most open window, or go Back from a sub-screen.
             // (main.js only handles keys while playing, so menus had no Escape at all.)
             const ESC_CLOSE = [
-                ['modal-enemy-pool', 'btn-ep-close'], ['modal-legend', 'btn-legend-close'], ['modal-modmenu', 'btn-modmenu-close'],
+                ['modal-enemy-pool', 'btn-ep-close'], ['modal-updates', 'btn-updates-close'], ['modal-legend', 'btn-legend-close'], ['modal-modmenu', 'btn-modmenu-close'],
                 ['modal-choose', 'btn-choose-close'], ['modal-box-picker', 'btn-box-picker-close'], ['modal-td-attachments', 'btn-td-att-close'],
                 ['modal-td-custom-class', 'btn-td-cc-close'], ['modal-td-perks', 'btn-td-perks-close'], ['modal-td-lift', 'btn-td-lift-close'],
                 ['modal-td-shop', 'btn-td-shop-close'], ['modal-z-build', 'btn-z-build-close'], ['modal-mp-class', 'btn-mp-class-close'],
