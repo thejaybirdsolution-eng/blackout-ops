@@ -65,7 +65,9 @@
                 mapSize: 1.0,
                 wallHp: 250,
                 gunZombiePct: 0,
-                disabledEnemies: [],
+                disabledEnemies: (BO.ZombieCustomizer && Array.isArray(BO.ZombieCustomizer.config.disabledEnemies))
+                    ? BO.ZombieCustomizer.config.disabledEnemies.slice()
+                    : [],
                 modifiers: {
                     allBosses: false,
                     fastZombies: false,
@@ -390,7 +392,7 @@
             if (btnEpAllOn) {
                 btnEpAllOn.onclick = () => {
                     BO.Sound.playUIClick();
-                    this.tdConfig.disabledEnemies = [];
+                    this._setDisabledEnemies([]);
                     this.renderEnemyPool();
                 };
             }
@@ -401,7 +403,17 @@
                     const allIds = BO.ZombiesData.ORDERED_PROGRESSION.map((z) => z.id)
                         .concat(BO.ZombiesData.ORDERED_BOSSES.map((b) => b.id));
                     // Keep at least 1 enemy enabled so spawns never stall
-                    this.tdConfig.disabledEnemies = allIds.slice(1);
+                    this._setDisabledEnemies(allIds.slice(1));
+                    this.renderEnemyPool();
+                };
+            }
+            const btnEpResetAll = document.getElementById('btn-ep-reset-all');
+            if (btnEpResetAll) {
+                btnEpResetAll.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!confirm('Reset all zombie stats, start rounds, spawn % and disabled enemies back to defaults?')) return;
+                    if (BO.ZombieCustomizer) BO.ZombieCustomizer.resetAll();
+                    this._setDisabledEnemies([]);
                     this.renderEnemyPool();
                 };
             }
@@ -409,8 +421,92 @@
             if (btnEpClose) {
                 btnEpClose.onclick = () => {
                     BO.Sound.playUIClick();
-                    if (this.modalEnemyPool) this.modalEnemyPool.classList.add('hidden');
-                    this.renderLobby();
+                    this.closeEnemyPoolModal();
+                };
+            }
+            const epSearch = document.getElementById('ep-search');
+            if (epSearch) {
+                epSearch.oninput = (e) => {
+                    this._epSearchQuery = (e.target.value || '').trim().toLowerCase();
+                    this.renderEnemyPool();
+                };
+            }
+            const epPresetSel = document.getElementById('ep-preset-select');
+            if (epPresetSel) {
+                epPresetSel.onchange = (e) => {
+                    BO.Sound.playUIClick();
+                    const val = e.target.value;
+                    if (!BO.ZombieCustomizer || !val) return;
+                    if (BO.ZombieCustomizer.loadPreset(val)) {
+                        this._syncDisabledFromCustomizer();
+                        const nameInp = document.getElementById('ep-preset-name');
+                        if (nameInp) nameInp.value = val === '__default__' ? '' : val;
+                        this.renderEnemyPool();
+                    }
+                };
+            }
+            const btnEpSavePreset = document.getElementById('btn-ep-save-preset');
+            if (btnEpSavePreset) {
+                btnEpSavePreset.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!BO.ZombieCustomizer) return;
+                    const nameInp = document.getElementById('ep-preset-name');
+                    const sel = document.getElementById('ep-preset-select');
+                    const typed = (nameInp && nameInp.value.trim()) || (sel && sel.value !== '__default__' ? sel.value : '');
+                    const name = typed || prompt('Enter a name for this zombie setup:', BO.ZombieCustomizer.config.activePresetName || 'My Setup');
+                    if (!name || !name.trim()) return;
+                    BO.ZombieCustomizer.savePreset(name.trim());
+                    if (nameInp) nameInp.value = name.trim();
+                    this.renderEnemyPool();
+                    BO.Events.emit('hud:toast', { text: `Saved zombie setup: ${name.trim()}`, color: '#4ade80' });
+                };
+            }
+            const btnEpDelPreset = document.getElementById('btn-ep-del-preset');
+            if (btnEpDelPreset) {
+                btnEpDelPreset.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!BO.ZombieCustomizer) return;
+                    const sel = document.getElementById('ep-preset-select');
+                    const name = sel && sel.value;
+                    if (!name || name === '__default__') return;
+                    if (!confirm(`Delete saved zombie setup "${name}"?`)) return;
+                    BO.ZombieCustomizer.deletePreset(name);
+                    const nameInp = document.getElementById('ep-preset-name');
+                    if (nameInp && nameInp.value.trim() === name) nameInp.value = '';
+                    this.renderEnemyPool();
+                };
+            }
+            const btnEpExport = document.getElementById('btn-ep-export');
+            if (btnEpExport) {
+                btnEpExport.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!BO.ZombieCustomizer) return;
+                    const json = BO.ZombieCustomizer.exportJSON();
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(json).then(
+                            () => BO.Events.emit('hud:toast', { text: 'Zombie setup JSON copied to clipboard!', color: '#38bdf8' }),
+                            () => prompt('Copy your zombie setup JSON:', json)
+                        );
+                    } else {
+                        prompt('Copy your zombie setup JSON:', json);
+                    }
+                };
+            }
+            const btnEpImport = document.getElementById('btn-ep-import');
+            if (btnEpImport) {
+                btnEpImport.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!BO.ZombieCustomizer) return;
+                    const raw = prompt('Paste exported zombie setup JSON:');
+                    if (!raw || !raw.trim()) return;
+                    try {
+                        BO.ZombieCustomizer.importJSON(raw.trim());
+                        this._syncDisabledFromCustomizer();
+                        this.renderEnemyPool();
+                        BO.Events.emit('hud:toast', { text: 'Imported zombie setup!', color: '#4ade80' });
+                    } catch (err) {
+                        alert('Could not import zombie setup JSON: ' + err.message);
+                    }
                 };
             }
 
@@ -864,10 +960,14 @@
                 body.innerHTML = this._section('Starting weapons', 'Pick what you spawn with. "Custom Class" uses the class selected on the right.', this._protocolHtml('zombies'));
                 this._bindProtocol(body, 'zombies');
             } else if (sec === 'enemies') {
-                body.innerHTML = this._section('Enemy pool', 'Choose which of the 70 enemies and 10 bosses can spawn. Hover any enemy for a full field report.', `
+                const totalEp = (BO.ZombiesData.ORDERED_PROGRESSION.length || 70) + (BO.ZombiesData.ORDERED_BOSSES.length || 15);
+                const zc = BO.ZombieCustomizer;
+                const modCnt = zc ? zc.getCustomizedCount() : 0;
+                const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
+                body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start rounds, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-z-open-ep">
                         <span class="big-action-ico">🧟</span>
-                        <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per round after 10</small></span>
+                        <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`) + this._section('Exact values', 'Fine-tune the horde with precise numbers.', this._valueGrid([
                     { k: 'zombieHpMult', lbl: 'Zombie health ×', step: 0.1, min: 0.05, max: 20 },
@@ -1130,10 +1230,14 @@
                 body.innerHTML = this._section('Starting weapons', 'What you spawn with. You can still buy more from the shopkeeper.', this._protocolHtml('td'));
                 this._bindProtocol(body, 'td');
             } else if (sec === 'enemies') {
-                body.innerHTML = this._section('Enemy pool', 'Choose which enemies and bosses can attack. Hover any enemy for a full field report.', `
+                const totalEp = (BO.ZombiesData.ORDERED_PROGRESSION.length || 70) + (BO.ZombiesData.ORDERED_BOSSES.length || 15);
+                const zc = BO.ZombieCustomizer;
+                const modCnt = zc ? zc.getCustomizedCount() : 0;
+                const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
+                body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start waves, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-td-open-ep">
                         <span class="big-action-ico">🧟</span>
-                        <span><b>Enable / disable enemies</b><small>${80 - disabledCount} of 80 enabled • boss chance 2% + 0.5% per wave after 10</small></span>
+                        <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`);
                 document.getElementById('btn-td-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
@@ -3134,82 +3238,212 @@
         }
 
         /* ====================================================================
-           CUSTOMIZE ENEMY POOL MODAL (ENABLE / DISABLE 70 ENEMIES + 10 BOSSES)
+           CUSTOMIZE ENEMY POOL & ZOMBIE STATS MODAL
+           (APPLIES TO SURVIVAL, ZOMBIES & TOWER DEFENSE)
         ==================================================================== */
-        openEnemyPoolModal() {
+        _setDisabledEnemies(ids) {
+            const clean = Array.from(new Set((ids || []).filter((x) => typeof x === 'string')));
+            this.tdConfig.disabledEnemies = clean;
+            if (BO.ZombieCustomizer) BO.ZombieCustomizer.setDisabledEnemies(clean);
+            if (BO.SurvivalCareer && BO.SurvivalCareer.profile && BO.SurvivalCareer.profile.options) {
+                BO.SurvivalCareer.remember({ ...BO.SurvivalCareer.profile.options, disabledEnemies: clean.slice() });
+            }
+        }
+
+        _syncDisabledFromCustomizer() {
+            if (!BO.ZombieCustomizer) return;
+            const ids = (BO.ZombieCustomizer.config.disabledEnemies || []).slice();
+            this.tdConfig.disabledEnemies = ids;
+            if (BO.SurvivalCareer && BO.SurvivalCareer.profile && BO.SurvivalCareer.profile.options) {
+                BO.SurvivalCareer.remember({ ...BO.SurvivalCareer.profile.options, disabledEnemies: ids.slice() });
+            }
+        }
+
+        openEnemyPoolModal(opts = null) {
             if (!this.modalEnemyPool) return;
+            this._epContext = opts || { mode: this.lobbyMode || 'zombies', onClose: null };
+            // If opened from Survival, sync Survival's disabledEnemies into customizer if needed
+            if (this._epContext.mode === 'survival' && BO.SurvivalCareer?.profile?.options) {
+                const svDis = BO.SurvivalCareer.profile.options.disabledEnemies || [];
+                this.tdConfig.disabledEnemies = svDis.slice();
+                if (BO.ZombieCustomizer) BO.ZombieCustomizer.setDisabledEnemies(svDis);
+            } else if (BO.ZombieCustomizer) {
+                this.tdConfig.disabledEnemies = (BO.ZombieCustomizer.config.disabledEnemies || []).slice();
+            }
+            const sub = document.getElementById('ep-modal-sub');
+            if (sub) {
+                const unit = this._epContext.mode === 'survival' ? 'Start Day' : (this._epContext.mode === 'td' ? 'Start Wave' : 'Start Round');
+                sub.textContent = `Edit stats, ${unit}, per-zombie & category spawn %, and save setups — applies to Survival, Zombies & Tower Defense.`;
+            }
             this.renderEnemyPool();
             this.modalEnemyPool.classList.remove('hidden');
+        }
+
+        closeEnemyPoolModal() {
+            if (this.modalEnemyPool) this.modalEnemyPool.classList.add('hidden');
+            const cb = this._epContext && this._epContext.onClose;
+            this._epContext = null;
+            if (typeof cb === 'function') cb();
+            else this.renderLobby();
+        }
+
+        _renderEpPresetsBar() {
+            const ZC = BO.ZombieCustomizer;
+            const sel = document.getElementById('ep-preset-select');
+            if (!sel || !ZC) return;
+            const presets = ZC.listPresets();
+            const active = ZC.config.activePresetName || 'Default';
+            const opts = [`<option value="__default__" ${!ZC.presets[active] ? 'selected' : ''}>Default (Factory)</option>`]
+                .concat(presets.map((p) => `<option value="${escAttr(p.name)}" ${active === p.name ? 'selected' : ''}>${escAttr(p.name)} (${p.modifiedCount} edited)</option>`));
+            sel.innerHTML = opts.join('');
+            const delBtn = document.getElementById('btn-ep-del-preset');
+            if (delBtn) delBtn.disabled = !ZC.presets[sel.value];
+        }
+
+        _renderEpCategoryBar() {
+            const bar = document.getElementById('ep-cat-bar');
+            const ZC = BO.ZombieCustomizer;
+            if (!bar || !ZC) return;
+            const ch = ZC.config.categoryChances;
+            const total = ZC.CATEGORIES.reduce((acc, c) => acc + (Number(ch[c.id]) || 0), 0);
+            const totalCol = Math.abs(total - 100) < 0.2 ? '#4ade80' : '#fbbf24';
+            bar.innerHTML = `
+                <span class="ep-tb-lbl" style="color:#38bdf8;">CATEGORY SPAWN %:</span>
+                ${ZC.CATEGORIES.map((c) => `
+                    <label class="ep-cat-pill" style="--cat-col:${c.color};" title="Spawn probability for the entire ${c.label} category">
+                        <b>${c.label.toUpperCase()}</b>
+                        <input type="number" class="js-ep-cat-pct" data-cat="${c.id}" min="0" max="100" step="0.5" value="${ch[c.id]}">
+                        <span style="color:#94a3b8;">%</span>
+                    </label>
+                `).join('')}
+                <span class="ep-cat-total" style="color:${totalCol};">TOTAL: ${total.toFixed(1)}%</span>
+                <button class="btn btn-sm" id="btn-ep-norm-cat" style="padding:3px 8px;font-size:10.5px;">NORMALIZE 100%</button>
+                <button class="btn btn-sm" id="btn-ep-reset-cat" style="padding:3px 8px;font-size:10.5px;">RESET %</button>
+            `;
+            bar.querySelectorAll('.js-ep-cat-pct').forEach((inp) => {
+                inp.onchange = (e) => {
+                    ZC.setCategoryChance(e.target.dataset.cat, Number(e.target.value));
+                    this.renderEnemyPool();
+                };
+            });
+            const normBtn = document.getElementById('btn-ep-norm-cat');
+            if (normBtn) normBtn.onclick = () => { BO.Sound.playUIClick(); ZC.normalizeCategoryChances(); this.renderEnemyPool(); };
+            const resetBtn = document.getElementById('btn-ep-reset-cat');
+            if (resetBtn) resetBtn.onclick = () => { BO.Sound.playUIClick(); ZC.resetCategoryChances(); this.renderEnemyPool(); };
         }
 
         renderEnemyPool() {
             const body = document.getElementById('enemy-pool-body');
             if (!body) return;
+            const ZC = BO.ZombieCustomizer;
+            this._renderEpPresetsBar();
+            this._renderEpCategoryBar();
+
             const disSet = new Set(this.tdConfig.disabledEnemies || []);
+            const oddsData = ZC ? ZC.computeEffectiveOdds(disSet) : { catEffective: {}, enemyOdds: {} };
+            const q = this._epSearchQuery || '';
             const superBossList = BO.ZombiesData.ORDERED_BOSSES.filter((b) => b.isSuperBoss);
             const regBossList = BO.ZombiesData.ORDERED_BOSSES.filter((b) => !b.isSuperBoss);
             const groups = [
-                { title: 'EASY ENEMIES (50% SPAWN RATE)', color: '#4ade80', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'easy') },
-                { title: 'NORMAL ENEMIES (25% SPAWN RATE)', color: '#38bdf8', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'normal') },
-                { title: 'HARD / ROUGHEST ENEMIES (15% SPAWN RATE — LATE ROUNDS)', color: '#f59e0b', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'hard') },
-                { title: 'BOSS COMMANDERS (MILESTONE WAVES)', color: '#ef4444', list: regBossList },
-                ...(superBossList.length ? [{ title: '👑 COLOSSAL SUPER BOSSES (APEX ENCOUNTERS)', color: '#fde047', list: superBossList }] : [])
+                { cat: 'easy', title: 'EASY ENEMIES', color: '#4ade80', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'easy') },
+                { cat: 'normal', title: 'NORMAL ENEMIES', color: '#38bdf8', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'normal') },
+                { cat: 'hard', title: 'HARD / ROUGHEST ENEMIES', color: '#f59e0b', list: BO.ZombiesData.ORDERED_PROGRESSION.filter((z) => z.rarity === 'hard') },
+                { cat: 'boss', title: 'BOSS COMMANDERS', color: '#ef4444', list: regBossList },
+                ...(superBossList.length ? [{ cat: 'super_boss', title: '👑 COLOSSAL SUPER BOSSES', color: '#fde047', list: superBossList }] : [])
             ];
 
-            body.innerHTML = groups.map((g) => `
-                <div class="panel-title" style="color:${g.color};margin-top:10px;">${g.title} (${g.list.length})</div>
-                <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:6px;">
-                    ${g.list.map((z) => {
+            const roundLbl = (this._epContext && this._epContext.mode === 'survival') ? 'Day' : 'Rd';
+            const selectedId = this._epSelectedId || (this._epPreviewActiveSpec && this._epPreviewActiveSpec.id) || (BO.ZombiesData.ORDERED_PROGRESSION[0] && BO.ZombiesData.ORDERED_PROGRESSION[0].id);
+
+            body.innerHTML = groups.map((g) => {
+                const filtered = q ? g.list.filter((z) => (z.name || '').toLowerCase().includes(q) || (z.id || '').toLowerCase().includes(q) || (z.simpleDesc || '').toLowerCase().includes(q)) : g.list;
+                if (q && filtered.length === 0) return '';
+                const catPct = ZC ? ZC.config.categoryChances[g.cat] : 0;
+                const enabledInCat = g.list.filter((z) => !disSet.has(z.id)).length;
+                return `
+                <div class="ep-cat-head">
+                    <div class="panel-title" style="color:${g.color};margin:0;">${g.title} — ${catPct}% (${enabledInCat}/${g.list.length} ON)</div>
+                    <div class="ep-cat-head-btns">
+                        <button class="btn btn-sm js-ep-cat-on" data-cat="${g.cat}">ALL ON</button>
+                        <button class="btn btn-sm js-ep-cat-off" data-cat="${g.cat}">ALL OFF</button>
+                    </div>
+                </div>
+                <div class="card-grid" style="grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:6px;">
+                    ${filtered.map((z) => {
                         const enabled = !disSet.has(z.id);
-                        const tags = [];
-                        if (z.splitCount) tags.push(`Splits x${z.splitCount}`);
-                        if (z.jumpChance) tags.push('Jumps');
-                        if (z.isMagical) tags.push('Magic');
-                        const d = BO.ZombiesData.describe(z);
-                        const tipBody = [
-                            d.lines.join(' '),
-                            '',
-                            `Threat: ${'★'.repeat(d.threat)}${'☆'.repeat(5 - d.threat)} ${d.threatLabel}`,
-                            `HP ${z.hp} • Speed ${z.speed} • Attack ${z.attack} • Armor ${Math.round((z.defense || 0) * 100)}%`,
-                            d.traits.length ? `Traits: ${d.traits.join(', ')}` : '',
-                            d.weak.length ? `Weak to: ${d.weak.join(', ')}` : '',
-                            d.resists.length ? `Resists: ${d.resists.join(', ')}` : '',
-                            `${d.unlock}${d.points ? ` • Worth ${d.points} pts` : ''}`
-                        ].filter((l, i) => l !== '' || i === 1).join('\n');
+                        const isSel = selectedId === z.id;
+                        const isMod = ZC && ZC.isCustomized(z.id);
+                        const customStart = ZC ? ZC.getStartRound(z.id) : null;
+                        const showStart = customStart != null ? customStart : (ZC ? ZC.getDefaultStartRound(z) : (z.unlockRound || z.bossRound || 1));
+                        const ov = ZC ? ZC.getOverride(z.id) : null;
+                        const odds = oddsData.enemyOdds[z.id];
+                        const pctTxt = enabled && odds ? `${odds.overallPct.toFixed(1)}%` : '0%';
+                        const isCustomPct = !!(ov && ov.spawnChance != null);
                         return `
-                            <label class="mod-row ep-row js-ep-row ${enabled ? 'active' : ''}" data-eid="${z.id}" data-tip-enemy="${z.id}" style="--ep-col:${g.color};"
-                                data-tip-title="${escAttr(z.name)}" data-tip="${escAttr(tipBody)}" data-tip-sub="${escAttr(d.unlock + (enabled ? ' · enabled' : ' · disabled'))}">
+                            <div class="mod-row ep-row js-ep-row ${enabled ? 'active' : ''} ${isSel ? 'selected' : ''}" data-eid="${z.id}" style="--ep-col:${g.color};">
                                 <span class="ep-row-main">
-                                    <b>${escAttr(z.name)}</b>
-                                    <span class="ep-row-meta">${'★'.repeat(d.threat)} • HP ${z.hp}${tags.length ? ' • ' + tags.join(', ') : ''}</span>
+                                    <b>${escAttr(z.name)}${isMod ? '<span class="ep-badge-mod">✎</span>' : ''}</b>
+                                    <span class="ep-row-meta">
+                                        <span>HP ${z.hp}</span>
+                                        <span class="ep-badge-rnd" title="${customStart != null ? 'Custom start' : 'Default start'}">${roundLbl} ${showStart}${customStart != null ? '*' : ''}</span>
+                                        <span class="ep-badge-pct" title="Effective overall spawn %${isCustomPct ? ' (custom)' : ''}">${pctTxt}${isCustomPct ? '*' : ''}</span>
+                                    </span>
                                 </span>
-                                <input type="checkbox" class="js-ep-cb" data-eid="${z.id}" ${enabled ? 'checked' : ''}>
-                            </label>
+                                <input type="checkbox" class="js-ep-cb" data-eid="${z.id}" ${enabled ? 'checked' : ''} title="Enable or disable this enemy">
+                            </div>
                         `;
                     }).join('')}
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
+
+            body.querySelectorAll('.js-ep-cat-on, .js-ep-cat-off').forEach((btn) => {
+                btn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    const cat = btn.dataset.cat;
+                    const turnOn = btn.classList.contains('js-ep-cat-on');
+                    const grp = groups.find((x) => x.cat === cat);
+                    if (!grp) return;
+                    const s = new Set(this.tdConfig.disabledEnemies || []);
+                    for (const z of grp.list) {
+                        if (turnOn) s.delete(z.id);
+                        else s.add(z.id);
+                    }
+                    // Ensure at least 1 enemy remains enabled overall
+                    const allIds = BO.ZombiesData.ORDERED_PROGRESSION.map((z) => z.id).concat(BO.ZombiesData.ORDERED_BOSSES.map((b) => b.id));
+                    if (s.size >= allIds.length) s.delete(allIds[0]);
+                    this._setDisabledEnemies(Array.from(s));
+                    this.renderEnemyPool();
+                };
+            });
 
             body.querySelectorAll('.js-ep-row').forEach((row) => {
-                row.onmouseenter = () => {
+                row.onclick = (e) => {
+                    if (e.target && e.target.classList.contains('js-ep-cb')) return;
+                    BO.Sound.playUIClick();
+                    this._epSelectedId = row.dataset.eid;
+                    body.querySelectorAll('.js-ep-row.selected').forEach((r) => r.classList.remove('selected'));
+                    row.classList.add('selected');
                     const spec = BO.ZombiesData.get(row.dataset.eid);
                     if (spec) this._showEnemyPreview(spec);
                 };
             });
             body.querySelectorAll('.js-ep-cb').forEach((cb) => {
                 cb.onchange = (e) => {
+                    e.stopPropagation();
                     BO.Sound.playUIClick();
                     const id = e.target.dataset.eid;
                     const s = new Set(this.tdConfig.disabledEnemies || []);
                     if (e.target.checked) s.delete(id);
                     else s.add(id);
-                    this.tdConfig.disabledEnemies = Array.from(s);
+                    this._setDisabledEnemies(Array.from(s));
                     this.renderEnemyPool();
                 };
             });
-            // Show first enemy by default when opening the modal!
-            if (!this._epPreviewActiveSpec && BO.ZombiesData.ORDERED_PROGRESSION[0]) {
-                this._showEnemyPreview(BO.ZombiesData.ORDERED_PROGRESSION[0]);
+
+            const activeSpec = BO.ZombiesData.get(selectedId) || BO.ZombiesData.ORDERED_PROGRESSION[0];
+            if (activeSpec) {
+                this._epSelectedId = activeSpec.id;
+                this._showEnemyPreview(activeSpec);
             }
         }
 
@@ -3218,7 +3452,7 @@
             const canvas = document.getElementById('enemy-preview-canvas');
             if (!canvas || typeof THREE === 'undefined') return;
             this._epRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-            this._epRenderer.setSize(264, 264, false);
+            this._epRenderer.setSize(144, 144, false);
             this._epScene = new THREE.Scene();
             this._epCam = new THREE.PerspectiveCamera(40, 1, 0.1, 40);
             this._epCam.position.set(0, 1.35, 3.6);
@@ -3259,38 +3493,166 @@
             }
             const info = document.getElementById('enemy-preview-info');
             if (info) {
-                const traits = [];
-                if (spec.isBoss) traits.push('<span style="color:#ef4444;font-weight:800;">☠ BOSS</span>');
-                if (spec.splitCount) traits.push(`<span style="color:#4ade80;font-weight:800;">🧬 SPLITS ×${spec.splitCount}</span>`);
-                if (spec.jumpChance) traits.push('<span style="color:#fde047;font-weight:800;">🦘 JUMPER</span>');
-                if (spec.isMagical) traits.push('<span style="color:#c084fc;font-weight:800;">✨ MAGICAL</span>');
-                const rarCol = spec.isBoss ? '#ef4444' : (spec.rarity === 'hard' ? '#f59e0b' : (spec.rarity === 'normal' ? '#38bdf8' : '#4ade80'));
+                const rarCol = spec.isSuperBoss ? '#fde047' : (spec.isBoss ? '#ef4444' : (spec.rarity === 'hard' ? '#f59e0b' : (spec.rarity === 'normal' ? '#38bdf8' : '#4ade80')));
+                const catLabel = spec.isSuperBoss ? 'SUPER BOSS' : (spec.isBoss ? 'BOSS' : `${(spec.rarity || 'easy').toUpperCase()} TIER`);
                 info.innerHTML = `
-                    <div style="font-size:15px;font-weight:800;color:${rarCol};letter-spacing:1px;">${escAttr(spec.name)}</div>
-                    <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">${(spec.isBoss ? 'BOSS TIER (10%)' : `${(spec.rarity || 'easy').toUpperCase()} TIER`)} ${traits.length ? '• ' + traits.join(' ') : ''}</div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-family:var(--font-mono);font-size:11px;margin-bottom:6px;">
-                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">HP: <b style="color:#4ade80;">${spec.hp}</b></div>
-                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">SPD: <b style="color:#38bdf8;">${spec.speed}</b></div>
-                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">ATK: <b style="color:#f87171;">${spec.attack}</b></div>
-                        <div style="background:rgba(15,23,42,0.8);padding:4px 6px;border-radius:4px;">DEF: <b style="color:#fde047;">${Math.round((spec.defense || 0) * 100)}%</b></div>
-                    </div>
-                    <div style="font-size:11.5px;color:#cbd5e1;">${escAttr(spec.simpleDesc || spec.weaknessText || 'Unique undead combatant.')}</div>
-                    ${(() => {
-                        const d = BO.ZombiesData.describe(spec);
-                        if (!d) return '';
-                        return `
-                            <div class="ep-report">
-                                <div><span>THREAT</span><b style="color:#fbbf24;">${'★'.repeat(d.threat)}${'☆'.repeat(5 - d.threat)} ${d.threatLabel}</b></div>
-                                <div><span>MOVES</span>${escAttr(d.movement)}</div>
-                                <div><span>ATTACKS</span>${escAttr(d.attack)}</div>
-                                ${d.traits.length ? `<div><span>TRAITS</span>${escAttr(d.traits.join(', '))}</div>` : ''}
-                                ${d.weak.length ? `<div><span>WEAK TO</span><b style="color:#4ade80;">${escAttr(d.weak.join(', '))}</b></div>` : ''}
-                                ${d.resists.length ? `<div><span>RESISTS</span><b style="color:#f87171;">${escAttr(d.resists.join(', '))}</b></div>` : ''}
-                                <div><span>APPEARS</span>${escAttr(d.unlock)}</div>
-                                <div class="ep-tip">💡 ${escAttr(d.tip)}</div>
-                            </div>`;
-                    })()}
+                    <div style="font-size:14px;font-weight:800;color:${rarCol};letter-spacing:0.6px;">${escAttr(spec.name)}</div>
+                    <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px;">${catLabel}</div>
+                    <div style="font-size:11px;color:#cbd5e1;line-height:1.35;">${escAttr(spec.simpleDesc || spec.weaknessText || 'Unique undead combatant.')}</div>
                 `;
+            }
+            this._renderEnemyEditor(spec);
+        }
+
+        _renderEnemyEditor(spec) {
+            const form = document.getElementById('enemy-editor-form');
+            const ZC = BO.ZombieCustomizer;
+            if (!form || !ZC || !spec) return;
+            const ov = ZC.getOverride(spec.id) || {};
+            const base = ZC.getBaseSpec(spec.id) || spec;
+            const disSet = new Set(this.tdConfig.disabledEnemies || []);
+            const odds = ZC.computeEffectiveOdds(disSet).enemyOdds[spec.id];
+            const defStart = ZC.getDefaultStartRound(spec);
+            const curStart = ov.startRound != null ? ov.startRound : '';
+            const curSpawnPct = ov.spawnChance != null ? ov.spawnChance : '';
+            const curScale = ov.scale != null ? ov.scale : 1.0;
+            const res = spec.resistances || { bullet: 1, explosive: 1, fire: 1, headshot: 1, melee: 1 };
+            const isMod = (k) => ov[k] !== undefined && ov[k] !== null;
+            const isResMod = (rk) => !!(ov.resistances && ov.resistances[rk] !== undefined);
+            const roundLbl = (this._epContext && this._epContext.mode === 'survival') ? 'Start Day' : 'Start Round / Day';
+
+            form.innerHTML = `
+                <div class="ep-ed-sec">
+                    <span>SPAWN RULES</span>
+                    <button class="btn btn-sm" id="btn-ep-reset-one" style="padding:2px 7px;font-size:10px;border-color:#f59e0b;color:#fbbf24;">RESET ENEMY</button>
+                </div>
+                <div class="ep-ed-grid">
+                    <label class="ep-ed-field ${isMod('startRound') ? 'modified' : ''}" title="First round (or day in Survival) this zombie can appear. Leave blank for default progression.">
+                        <span>${roundLbl} (def ${defStart})</span>
+                        <input type="number" id="ed-startRound" min="1" max="999" step="1" placeholder="Auto (${defStart})" value="${curStart}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('spawnChance') ? 'modified' : ''}" title="% share within its category (0-100). Leave blank for Auto equal split.">
+                        <span>Category Share %</span>
+                        <input type="number" id="ed-spawnChance" min="0" max="100" step="0.5" placeholder="Auto" value="${curSpawnPct}">
+                    </label>
+                </div>
+                <div class="ep-ed-note">
+                    Effective spawn: <b style="color:#7dd3fc;">${odds ? odds.inCatPct.toFixed(1) : '0.0'}%</b> in category • <b style="color:#4ade80;">${odds ? odds.overallPct.toFixed(2) : '0.00'}%</b> overall
+                </div>
+
+                <div class="ep-ed-sec"><span>CORE STATS</span></div>
+                <div class="ep-ed-grid">
+                    <label class="ep-ed-field ${isMod('hp') ? 'modified' : ''}">
+                        <span>Base HP (def ${base.hp})</span>
+                        <input type="number" id="ed-hp" min="1" max="500000" step="10" value="${spec.hp}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('speed') ? 'modified' : ''}">
+                        <span>Speed (def ${base.speed})</span>
+                        <input type="number" id="ed-speed" min="0.2" max="15" step="0.1" value="${spec.speed}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('attack') ? 'modified' : ''}">
+                        <span>Attack DMG (def ${base.attack})</span>
+                        <input type="number" id="ed-attack" min="0" max="99999" step="2" value="${spec.attack}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('defense') ? 'modified' : ''}">
+                        <span>Armor % (def ${Math.round((base.defense || 0) * 100)}%)</span>
+                        <input type="number" id="ed-defense" min="0" max="95" step="1" value="${Math.round((spec.defense || 0) * 100)}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('points') ? 'modified' : ''}">
+                        <span>Kill Points (def ${(base.drops && base.drops.points) || 60})</span>
+                        <input type="number" id="ed-points" min="0" max="100000" step="10" value="${(spec.drops && spec.drops.points) || 60}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('scale') ? 'modified' : ''}">
+                        <span>Size Scale × (def 1.0)</span>
+                        <input type="number" id="ed-scale" min="0.35" max="3.5" step="0.05" value="${curScale}">
+                    </label>
+                </div>
+
+                <div class="ep-ed-sec"><span>BEHAVIOR &amp; TRAITS</span></div>
+                <div class="ep-ed-grid">
+                    <label class="ep-ed-field ${isMod('movementHabit') ? 'modified' : ''}">
+                        <span>Movement</span>
+                        <select id="ed-movementHabit">${ZC.MOVEMENT_HABITS.map((m) => `<option value="${m}" ${spec.movementHabit === m ? 'selected' : ''}>${m.replace(/_/g, ' ')}</option>`).join('')}</select>
+                    </label>
+                    <label class="ep-ed-field ${isMod('attackType') ? 'modified' : ''}">
+                        <span>Attack Type</span>
+                        <select id="ed-attackType">${ZC.ATTACK_TYPES.map((a) => `<option value="${a}" ${spec.attackType === a ? 'selected' : ''}>${a.replace(/_/g, ' ')}</option>`).join('')}</select>
+                    </label>
+                    <label class="ep-ed-field ${isMod('splitCount') ? 'modified' : ''}">
+                        <span>Splits on Death (0-6)</span>
+                        <input type="number" id="ed-splitCount" min="0" max="6" step="1" value="${spec.splitCount || 0}">
+                    </label>
+                    <label class="ep-ed-field ${isMod('jumpChance') ? 'modified' : ''}">
+                        <span>Jump Chance %</span>
+                        <input type="number" id="ed-jumpChance" min="0" max="100" step="5" value="${Math.round((spec.jumpChance || 0) * 100)}">
+                    </label>
+                </div>
+                <label class="ep-ed-check">
+                    <input type="checkbox" id="ed-isMagical" ${spec.isMagical ? 'checked' : ''}>
+                    <span>Magical (casts arcane bolts &amp; glows)</span>
+                </label>
+
+                <div class="ep-ed-sec"><span>DAMAGE TAKEN MULTIPLIERS</span></div>
+                <div class="ep-ed-grid-3">
+                    ${['bullet', 'explosive', 'fire', 'headshot', 'melee'].map((rk) => `
+                        <label class="ep-ed-field ${isResMod(rk) ? 'modified' : ''}">
+                            <span>${rk.charAt(0).toUpperCase() + rk.slice(1)} ×</span>
+                            <input type="number" class="js-ed-res" data-rk="${rk}" min="0" max="10" step="0.05" value="${Number(res[rk] ?? 1).toFixed(2)}">
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+
+            const commit = (patch) => {
+                ZC.setEnemyOverride(spec.id, patch);
+                this.renderEnemyPool();
+            };
+
+            const bindNum = (elId, key, transform, allowBlank = false) => {
+                const el = document.getElementById(elId);
+                if (!el) return;
+                el.onchange = () => {
+                    const raw = el.value.trim();
+                    if (allowBlank && raw === '') return commit({ [key]: null });
+                    const n = Number(raw);
+                    if (!Number.isFinite(n)) return;
+                    commit({ [key]: transform ? transform(n) : n });
+                };
+            };
+
+            bindNum('ed-startRound', 'startRound', (n) => Math.max(1, Math.min(999, Math.floor(n))), true);
+            bindNum('ed-spawnChance', 'spawnChance', (n) => Math.max(0, Math.min(100, Math.round(n * 10) / 10)), true);
+            bindNum('ed-hp', 'hp', (n) => Math.max(1, Math.round(n)));
+            bindNum('ed-speed', 'speed', (n) => Math.max(0.2, Math.min(15, Math.round(n * 100) / 100)));
+            bindNum('ed-attack', 'attack', (n) => Math.max(0, Math.round(n)));
+            bindNum('ed-defense', 'defense', (n) => Math.max(0, Math.min(0.95, Math.round(n) / 100)));
+            bindNum('ed-points', 'points', (n) => Math.max(0, Math.floor(n)));
+            bindNum('ed-scale', 'scale', (n) => Math.max(0.35, Math.min(3.5, Math.round(n * 100) / 100)));
+            bindNum('ed-splitCount', 'splitCount', (n) => Math.max(0, Math.min(6, Math.floor(n))));
+            bindNum('ed-jumpChance', 'jumpChance', (n) => Math.max(0, Math.min(1, Math.round(n) / 100)));
+
+            const mh = document.getElementById('ed-movementHabit');
+            if (mh) mh.onchange = () => commit({ movementHabit: mh.value });
+            const at = document.getElementById('ed-attackType');
+            if (at) at.onchange = () => commit({ attackType: at.value });
+            const mag = document.getElementById('ed-isMagical');
+            if (mag) mag.onchange = () => commit({ isMagical: !!mag.checked });
+
+            form.querySelectorAll('.js-ed-res').forEach((inp) => {
+                inp.onchange = () => {
+                    const n = Number(inp.value);
+                    if (!Number.isFinite(n)) return;
+                    commit({ resistances: { [inp.dataset.rk]: Math.max(0, Math.min(10, n)) } });
+                };
+            });
+
+            const resetOne = document.getElementById('btn-ep-reset-one');
+            if (resetOne) {
+                resetOne.onclick = () => {
+                    BO.Sound.playUIClick();
+                    ZC.resetEnemy(spec.id);
+                    this.renderEnemyPool();
+                };
             }
         }
 

@@ -617,9 +617,28 @@
             const unlockedBosses = BO.ZombiesData.ORDERED_BOSSES.slice(0, this.unlockedBossCount);
             const baseBossPct = Number(this.customValues.bossSpawnPct ?? 2.0);
             const effBossPct = baseBossPct + (this.round > 10 ? (this.round - 10) * 0.5 : 0);
-            let spec = this.modifiers.allBosses
-                ? BO.Math.pick(BO.ZombiesData.ORDERED_BOSSES.filter((b) => !this.disabledEnemySet.has(b.id))) || BO.ZombiesData.ORDERED_BOSSES[0]
-                : BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
+            let spec;
+            if (this.modifiers.allBosses) {
+                const availBosses = BO.ZombiesData.ORDERED_BOSSES.filter((b) => {
+                    if (this.disabledEnemySet.has(b.id)) return false;
+                    const sr = BO.ZombieCustomizer ? BO.ZombieCustomizer.getStartRound(b.id) : null;
+                    return sr == null || this.round >= sr;
+                });
+                spec = (BO.ZombieCustomizer && availBosses.length > 0)
+                    ? BO.ZombieCustomizer._pickWeightedInList(availBosses)
+                    : (BO.Math.pick(availBosses) || BO.ZombiesData.ORDERED_BOSSES[0]);
+            } else if (BO.ZombieCustomizer) {
+                spec = BO.ZombieCustomizer.pickEnemy({
+                    round: this.round,
+                    unlockedEnemies,
+                    unlockedBosses,
+                    disabledSet: this.disabledEnemySet,
+                    bossChancePct: effBossPct,
+                    allUnlocked: !!this.modifiers.allEnemiesUnlocked
+                });
+            } else {
+                spec = BO.ZombiesData.pickFromTieredPool(unlockedEnemies, unlockedBosses, this.disabledEnemySet, effBossPct);
+            }
             const cc = (BO.Cheats && BO.Cheats.isActive('choose')) ? BO.Save.data.chooseConfig : null;
             if (cc && Array.isArray(cc.customZombiePool) && cc.customZombiePool.length > 0) {
                 const customSpecs = cc.customZombiePool.map((id) => BO.ZombiesData.get(id)).filter(Boolean);
