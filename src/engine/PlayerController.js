@@ -743,9 +743,9 @@
             this.flinchPitch += 0.045;
             this.cameraShake = Math.max(this.cameraShake, 0.035);
 
-            // Armor absorbs 65% of damage first
+            // Armor absorbs 65% of damage first (Survival's plate vest sets armorAbsorb per front plate)
             if (this.armor > 0) {
-                const absorb = Math.min(this.armor, amount * 0.65);
+                const absorb = Math.min(this.armor, amount * (this.armorAbsorb ?? 0.65));
                 this.armor -= absorb;
                 amount -= absorb;
             }

@@ -24,6 +24,13 @@
         isRetiredBuild(id) { return RETIRED_BUILDS.has(id); }
     };
 
+    /* The obsidian trauma rig is replaced by the plate vest (gm/GMArmor.js). */
+    const RETIRED_RECIPES = new Set(['obsidianArmor', 'craftObsidianArmor']);
+    if (BO.SurvivalFrontierData?.recipes) {
+        const list = BO.SurvivalFrontierData.recipes;
+        for (let i = list.length - 1; i >= 0; i--) if (RETIRED_RECIPES.has(list[i].id)) list.splice(i, 1);
+    }
+
     /* Recipes: move retired stations, and drop rune wording from the cut rune economy. */
     for (const r of BO.SurvivalFrontierData?.recipes || []) {
         if (STATION_MOVE[r.station]) r.station = STATION_MOVE[r.station];

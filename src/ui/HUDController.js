@@ -401,12 +401,19 @@
                 this.elHpFill.style.width = BO.Math.clamp((P.hp / Math.max(1, P.maxHp)) * 100, 0, 100) + '%';
             }
             if (this.elHpText) {
-                this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
+                const vest = P.plateSlots;
+                this.elHpText.textContent = vest
+                    ? `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  VEST ${vest.filter((s) => s && s.hp > 0).length}/3`
+                    : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
             }
             for (let i = 0; i < 3; i++) {
                 if (this.elPlates[i]) {
-                    const fill = BO.Math.clamp((P.armor - i * 50) / 50, 0, 1) * 100;
+                    const slot = P.plateSlots ? P.plateSlots[i] : undefined;
+                    const fill = slot !== undefined
+                        ? (slot ? BO.Math.clamp(slot.hp / slot.max, 0, 1) * 100 : 0)
+                        : BO.Math.clamp((P.armor - i * 50) / 50, 0, 1) * 100;
                     this.elPlates[i].style.width = fill + '%';
+                    this.elPlates[i].style.background = slot ? slot.color : '';
                 }
             }
             if (this.elTacBar) {
