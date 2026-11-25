@@ -46,9 +46,37 @@
             if (srgb && THREE.sRGBEncoding) {
                 tex.encoding = THREE.sRGBEncoding;
             }
-            tex.anisotropy = 4;
+            tex.anisotropy = 16; // clamped to the GPU max by three.js
             tex.needsUpdate = true;
             return tex;
+        }
+
+        /** Seamless 5-octave value-noise field in [0,1]. */
+        _fbmField(W, H, rng) {
+            const out = new Float32Array(W * H);
+            let amp = 0.5, total = 0;
+            for (let o = 0; o < 5; o++) {
+                const P = 3 << o; // lattice period: 3, 6, 12, 24, 48 cells per tile
+                const lat = new Float32Array(P * P);
+                for (let k = 0; k < lat.length; k++) lat[k] = rng();
+                for (let y = 0; y < H; y++) {
+                    const fy = (y / H) * P, iy = Math.floor(fy), ty = fy - iy;
+                    const sy = ty * ty * (3 - 2 * ty);
+                    const y0 = (iy % P) * P, y1 = ((iy + 1) % P) * P;
+                    for (let x = 0; x < W; x++) {
+                        const fx = (x / W) * P, ix = Math.floor(fx), tx = fx - ix;
+                        const sx = tx * tx * (3 - 2 * tx);
+                        const x0 = ix % P, x1 = (ix + 1) % P;
+                        const a = lat[y0 + x0] + (lat[y0 + x1] - lat[y0 + x0]) * sx;
+                        const b = lat[y1 + x0] + (lat[y1 + x1] - lat[y1 + x0]) * sx;
+                        out[y * W + x] += (a + (b - a) * sy) * amp;
+                    }
+                }
+                total += amp;
+                amp *= 0.5;
+            }
+            for (let k = 0; k < out.length; k++) out[k] /= total;
+            return out;
         }
 
         _createNoiseTexture(key, w, h, baseHex, variance, speckColor, gridOpts) {
@@ -57,20 +85,25 @@
             const ctx = c.getContext('2d');
             const rng = seededNoise(key.length * 1337 + baseHex.charCodeAt(1) * 97);
 
-            ctx.fillStyle = baseHex;
-            ctx.fillRect(0, 0, w, h);
-
-            // Subtle mottled blotches
-            for (let i = 0; i < 650; i++) {
-                const x = rng() * w;
-                const y = rng() * h;
-                const r = 2 + rng() * 14;
-                const shade = Math.floor((rng() - 0.5) * variance);
-                ctx.fillStyle = shade > 0 ? `rgba(255,255,255,${shade / 255})` : `rgba(0,0,0,${-shade / 255})`;
-                ctx.beginPath();
-                ctx.arc(x, y, r, 0, Math.PI * 2);
-                ctx.fill();
+            // Tileable fractal value noise (replaces hard-edged blotch circles).
+            const S = 2; // supersample: author at 2x for crisper close-up detail
+            if (c.width !== w * S) { c.width = w * S; c.height = h * S; }
+            const W = w * S, H = h * S;
+            const field = this._fbmField(W, H, rng);
+            const base = new THREE.Color(baseHex);
+            const img = ctx.createImageData(W, H);
+            const d = img.data;
+            const v = variance / 255;
+            for (let i = 0, j = 0; i < field.length; i++, j += 4) {
+                const n = (field[i] - 0.5) * 2 * v + (rng() - 0.5) * v * 0.35;
+                d[j] = Math.max(0, Math.min(255, (base.r + n) * 255));
+                d[j + 1] = Math.max(0, Math.min(255, (base.g + n * 0.96) * 255));
+                d[j + 2] = Math.max(0, Math.min(255, (base.b + n * 0.9) * 255));
+                d[j + 3] = 255;
             }
+            ctx.putImageData(img, 0, 0);
+            ctx.save();
+            ctx.scale(S, S);
 
             if (speckColor) {
                 ctx.fillStyle = speckColor;
@@ -98,6 +131,7 @@
                 }
             }
 
+            ctx.restore();
             const tex = this._toTex(c, 1, 1, true);
             this.textures[key] = tex;
             return tex;
@@ -305,8 +339,106 @@
                 emissive,
                 emissiveIntensity
             });
+            // Surface relief derived from the albedo, so every procedural surface gets lit detail.
+            const nrm = this._normalFromMap(map, matName);
+            if (nrm) {
+                const n = nrm.clone();
+                n.repeat.set(repX, repY);
+                n.needsUpdate = true;
+                mat.normalMap = n;
+                const flat = /water|marble|glass|metal_clean/.test(matName);
+                const k = flat ? 0.25 : 0.85;
+                mat.normalScale.set(k, k);
+            }
+            this._applyMacroVariation(mat, matName);
             this.materials[cacheKey] = mat;
             return mat;
+        }
+
+        /** Sobel normal map from an albedo canvas's luminance (cached per source image). */
+        _normalFromMap(map, name) {
+            const img = map && map.image;
+            if (!img || !img.getContext || !img.width) return null;
+            this._normalCache = this._normalCache || new WeakMap();
+            const hit = this._normalCache.get(img);
+            if (hit) return hit;
+            const w = img.width, h = img.height;
+            let src;
+            try { src = img.getContext('2d').getImageData(0, 0, w, h).data; } catch (e) { return null; }
+            const lum = new Float32Array(w * h);
+            for (let i = 0, j = 0; i < lum.length; i++, j += 4) lum[i] = (src[j] * 0.299 + src[j + 1] * 0.587 + src[j + 2] * 0.114) / 255;
+            const c = this._makeCanvas(w, h);
+            const ctx = c.getContext('2d');
+            const out = ctx.createImageData(w, h);
+            const o = out.data;
+            const strength = /grass|dirt|sand|mud/.test(name || '') ? 2.2 : 3.2;
+            const at = (x, y) => lum[((y + h) % h) * w + ((x + w) % w)];
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const tl = at(x - 1, y - 1), t = at(x, y - 1), tr = at(x + 1, y - 1);
+                    const l = at(x - 1, y), r = at(x + 1, y);
+                    const bl = at(x - 1, y + 1), b = at(x, y + 1), br = at(x + 1, y + 1);
+                    const dx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+                    const dy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+                    let nx = -dx * strength, ny = dy * strength, nz = 1;
+                    const len = Math.hypot(nx, ny, nz);
+                    nx /= len; ny /= len; nz /= len;
+                    const k = (y * w + x) * 4;
+                    o[k] = (nx * 0.5 + 0.5) * 255;
+                    o[k + 1] = (ny * 0.5 + 0.5) * 255;
+                    o[k + 2] = (nz * 0.5 + 0.5) * 255;
+                    o[k + 3] = 255;
+                }
+            }
+            ctx.putImageData(out, 0, 0);
+            const tex = this._toTex(c, 1, 1, false);
+            this._normalCache.set(img, tex);
+            return tex;
+        }
+
+        /** World-space macro variation: breaks visible tiling on big surfaces (albedo + roughness). */
+        _applyMacroVariation(mat, matName) {
+            // World-space box projection: uniform texel density on every face regardless of the
+            // mesh's proportions (thin slabs no longer stretch textures 15:1 into streaks).
+            const worldUV = !/sign|poster|screen|logo|banner|label|decal/.test(matName || '');
+            mat.onBeforeCompile = (shader) => {
+                const SC = THREE.ShaderChunk;
+                shader.vertexShader = shader.vertexShader
+                    .replace('#include <common>', `#include <common>
+varying vec3 vBoWorld;
+varying vec3 vBoNormal;`)
+                    .replace('#include <begin_vertex>', `#include <begin_vertex>
+vBoWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;
+vBoNormal = normalize(mat3(modelMatrix) * objectNormal);`);
+                let fs = shader.fragmentShader
+                    .replace('#include <common>', `#include <common>
+varying vec3 vBoWorld;
+varying vec3 vBoNormal;
+vec2 boUV;
+float boHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float boNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(boHash(i), boHash(i + vec2(1.0, 0.0)), f.x), mix(boHash(i + vec2(0.0, 1.0)), boHash(i + vec2(1.0, 1.0)), f.x), f.y); }`);
+                if (worldUV) {
+                    fs = fs
+                        .replace('#include <normalmap_pars_fragment>', SC.normalmap_pars_fragment.replace(/vUv/g, 'boUV'))
+                        .replace('#include <normal_fragment_maps>', SC.normal_fragment_maps.replace(/vUv/g, 'boUV'))
+                        .replace('#include <map_fragment>', SC.map_fragment.replace(/vUv/g, 'boUV'))
+                        .replace('void main() {', `void main() {
+    vec3 boA = abs(vBoNormal);
+    boUV = (boA.y > max(boA.x, boA.z) ? vBoWorld.xz : (boA.x > boA.z ? vec2(vBoWorld.z, vBoWorld.y) : vBoWorld.xy)) * 0.25;`);
+                } else {
+                    fs = fs.replace('void main() {', 'void main() {\n    boUV = vec2(0.0);');
+                }
+                fs = fs
+                    .replace('#include <color_fragment>', `#include <color_fragment>
+vec2 boP = vBoWorld.xz + vBoWorld.y * 0.37;
+float boN = boNoise(boP * 0.06) * 0.6 + boNoise(boP * 0.21) * 0.3 + boNoise(boP * 0.9) * 0.1;
+diffuseColor.rgb *= mix(0.8, 1.12, boN);`)
+                    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+roughnessFactor = clamp(roughnessFactor * mix(0.88, 1.08, boN), 0.04, 1.0);`);
+                shader.fragmentShader = fs;
+            };
+            mat.customProgramCacheKey = () => worldUV ? 'boMacroW2' : 'boMacro2';
         }
 
         _makeBrickTexture() {

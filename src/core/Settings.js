@@ -199,6 +199,10 @@
             if (s.zombieVolume === undefined) s.zombieVolume = 1.0;
             if (s.dynamicLights === undefined) s.dynamicLights = true;
             if (s.wallDecals === undefined) s.wallDecals = true;
+            if (s.postFx === undefined) s.postFx = true;
+            if (s.bloom === undefined) s.bloom = 1.0;
+            if (s.filmGrain === undefined) s.filmGrain = true;
+            if (s.chromaticAberration === undefined) s.chromaticAberration = true;
             if (s.damageNumbers === undefined) s.damageNumbers = true;
             if (s.showControlHints === undefined) s.showControlHints = true;
             if (s.contextualHud === undefined) s.contextualHud = true;

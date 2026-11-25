@@ -2270,7 +2270,31 @@
                         <span>Wall Impact Sparks &amp; Debris</span>
                         <input type="checkbox" id="set-decals" ${s.wallDecals !== false ? 'checked' : ''}>
                     </div>
+                    <div class="setting-row" data-tip-title="Cinematic Post-Processing" data-tip="HDR rendering with bloom, filmic colour grading, lens vignette and damage grading. Turned off automatically on Low quality.">
+                        <span>Cinematic Post-Processing</span>
+                        <input type="checkbox" id="set-postfx" ${s.postFx !== false ? 'checked' : ''}>
+                    </div>
+                    <div class="setting-row" data-tip-title="Bloom Intensity" data-tip="How strongly bright lights, muzzle flashes and the sun glow.">
+                        <span>Bloom (<span id="lbl-bloom">${Math.round((s.bloom ?? 1) * 100)}%</span>)</span>
+                        <input type="range" id="set-bloom" min="0" max="2" step="0.1" value="${s.bloom ?? 1}">
+                    </div>
+                    <div class="setting-row" data-tip-title="Film Grain" data-tip="Subtle animated grain that adds texture to the image.">
+                        <span>Film Grain</span>
+                        <input type="checkbox" id="set-grain" ${s.filmGrain !== false ? 'checked' : ''}>
+                    </div>
+                    <div class="setting-row" data-tip-title="Chromatic Aberration" data-tip="Slight colour fringing toward the screen edges, like a real lens.">
+                        <span>Chromatic Aberration</span>
+                        <input type="checkbox" id="set-ca" ${s.chromaticAberration !== false ? 'checked' : ''}>
+                    </div>
                 `;
+                document.getElementById('set-postfx').onchange = (e) => BO.Settings.set('postFx', e.target.checked);
+                document.getElementById('set-bloom').oninput = (e) => {
+                    const v = Number(e.target.value);
+                    document.getElementById('lbl-bloom').textContent = Math.round(v * 100) + '%';
+                    BO.Settings.set('bloom', v);
+                };
+                document.getElementById('set-grain').onchange = (e) => BO.Settings.set('filmGrain', e.target.checked);
+                document.getElementById('set-ca').onchange = (e) => BO.Settings.set('chromaticAberration', e.target.checked);
                 document.getElementById('set-quality').onchange = (e) => BO.Settings.set('quality', e.target.value);
                 document.getElementById('set-blood').onchange = (e) => BO.Settings.set('bloodLevel', e.target.value);
                 document.getElementById('set-shake').oninput = (e) => {

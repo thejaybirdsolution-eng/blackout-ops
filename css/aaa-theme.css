@@ -1,0 +1,345 @@
+/* ============================================================================
+   BLACKOUT OPS — AAA presentation layer (loaded last).
+   One graphite palette, one amber accent, condensed display type, hairline
+   structure instead of boxed cards, and a HUD that floats on the image with
+   legibility shadows rather than opaque panels.
+============================================================================ */
+:root {
+    --aaa-ink: #07090c;
+    --aaa-graphite: rgba(12, 15, 19, 0.72);
+    --aaa-line: rgba(232, 236, 241, 0.10);
+    --aaa-line-strong: rgba(232, 236, 241, 0.22);
+    --aaa-text: #eef1f4;
+    --aaa-dim: #8d96a2;
+    --aaa-faint: #59616c;
+    --aaa-accent: #ffb23f;
+    --aaa-accent-soft: rgba(255, 178, 63, 0.14);
+    --aaa-danger: #ff4d4d;
+    --aaa-display: 'Bahnschrift', 'DIN Condensed', 'Arial Narrow', sans-serif;
+    --aaa-ease: cubic-bezier(0.2, 0.9, 0.25, 1);
+    --aaa-shadow-text: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 12px rgba(0, 0, 0, 0.45);
+}
+
+/* ---------------------------------------------------------------- MAIN MENU */
+#screen-main-menu {
+    background:
+        linear-gradient(90deg, rgba(5, 7, 10, 0.94) 0%, rgba(5, 7, 10, 0.78) 30%, rgba(5, 7, 10, 0.12) 62%, transparent 80%),
+        linear-gradient(0deg, rgba(5, 7, 10, 0.85) 0%, transparent 30%),
+        linear-gradient(180deg, rgba(5, 7, 10, 0.7) 0%, transparent 18%) !important;
+    padding: 28px 44px 24px !important;
+}
+#screen-main-menu::after {
+    /* Fine scanline texture over the whole front end. */
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px);
+}
+#screen-main-menu > * { position: relative; z-index: 1; }
+
+#screen-main-menu .top-bar {
+    background: none !important; border: 0 !important; box-shadow: none !important;
+    border-bottom: 1px solid var(--aaa-line) !important;
+    padding: 0 0 18px !important; border-radius: 0 !important;
+    backdrop-filter: none !important;
+}
+#screen-main-menu .top-bar::before, #screen-main-menu .top-bar::after { display: none !important; }
+#screen-main-menu .brand-lockup { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 6px; }
+#screen-main-menu .brand-title {
+    font-family: var(--aaa-display) !important;
+    font-stretch: 75%;
+    font-weight: 700;
+    font-size: clamp(34px, 3.6vw, 54px) !important;
+    letter-spacing: 0.04em !important;
+    line-height: 0.9;
+    color: var(--aaa-text) !important;
+    background: none !important; -webkit-text-fill-color: currentColor !important;
+    text-shadow: 0 2px 30px rgba(0, 0, 0, 0.6) !important;
+}
+#screen-main-menu .brand-title::after {
+    content: ""; display: inline-block; width: 0.18em; height: 0.18em; margin-left: 0.12em;
+    background: var(--aaa-accent); vertical-align: baseline;
+}
+#screen-main-menu .brand-tag {
+    background: none !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important;
+    font-family: var(--font-mono); font-size: 10.5px !important; letter-spacing: 0.32em !important;
+    color: var(--aaa-accent) !important; box-shadow: none !important;
+}
+
+#screen-main-menu .rank-pill {
+    background: rgba(255, 255, 255, 0.03) !important;
+    border: 1px solid var(--aaa-line) !important; border-radius: 2px !important;
+    box-shadow: none !important;
+}
+#screen-main-menu #btn-edit-callsign, #screen-main-menu .top-bar .btn {
+    background: transparent !important; border: 1px solid var(--aaa-line-strong) !important;
+    border-radius: 2px !important; letter-spacing: 0.2em; font-size: 11px;
+}
+#screen-main-menu .top-bar .btn:hover { border-color: var(--aaa-accent) !important; color: var(--aaa-accent) !important; }
+
+#screen-main-menu .menu-body { grid-template-columns: minmax(380px, 560px) 1fr !important; gap: 48px !important; }
+#screen-main-menu .menu-col { gap: 6px; padding-right: 14px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.15) transparent; }
+#screen-main-menu .menu-group-label {
+    color: var(--aaa-faint) !important; font-family: var(--font-mono);
+    font-size: 10px !important; letter-spacing: 0.34em !important; margin: 14px 0 4px !important;
+    display: flex; align-items: center; gap: 12px;
+}
+#screen-main-menu .menu-group-label::after { content: ""; flex: 1; height: 1px; background: var(--aaa-line); }
+
+/* Mode list: editorial rows, numbered, no emoji tiles. */
+#screen-main-menu .mode-cards { counter-reset: mode; gap: 0 !important; }
+#screen-main-menu .mode-card {
+    counter-increment: mode;
+    grid-template-columns: 40px 1fr auto !important;
+    gap: 16px !important;
+    min-height: 0 !important;
+    padding: 15px 16px 15px 14px !important;
+    background: transparent !important;
+    border: 0 !important; border-bottom: 1px solid var(--aaa-line) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    transform: none !important;
+    transition: background 0.25s var(--aaa-ease), padding 0.25s var(--aaa-ease) !important;
+}
+#screen-main-menu .mode-card:first-child { border-top: 1px solid var(--aaa-line) !important; }
+#screen-main-menu .mode-card::after {
+    /* Accent rail that wipes in on hover/focus. */
+    content: "" !important; position: absolute; left: 0; top: 0; bottom: 0; right: auto !important;
+    width: 3px; inset: 0 auto 0 0 !important;
+    background: var(--aaa-accent) !important; opacity: 1 !important;
+    transform: scaleY(0); transform-origin: 50% 100%;
+    transition: transform 0.3s var(--aaa-ease);
+}
+#screen-main-menu .mode-card::before {
+    content: counter(mode, decimal-leading-zero);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.1em;
+    color: var(--aaa-faint); align-self: start; padding-top: 7px;
+    transition: color 0.2s;
+}
+#screen-main-menu .mode-card-ico { display: none !important; }
+#screen-main-menu .mode-card-text { gap: 3px !important; }
+#screen-main-menu .mode-card-text b {
+    font-family: var(--aaa-display) !important; font-stretch: 75%;
+    font-weight: 700 !important;
+    font-size: clamp(22px, 2.1vw, 30px) !important;
+    letter-spacing: 0.03em !important;
+    color: var(--aaa-text) !important;
+    line-height: 1;
+    transition: transform 0.3s var(--aaa-ease), color 0.2s;
+    align-items: center !important;
+}
+#screen-main-menu .mode-card-badge, #screen-main-menu .mg-new-badge {
+    font-family: var(--font-mono) !important; font-stretch: normal;
+    font-size: 9px !important; font-weight: 600 !important;
+    letter-spacing: 0.16em !important; text-transform: uppercase !important;
+    color: var(--aaa-dim) !important;
+    border: 1px solid var(--aaa-line-strong); padding: 3px 6px 2px; border-radius: 1px;
+    background: none !important; box-shadow: none !important; animation: none !important;
+    position: static !important; line-height: 1;
+}
+#screen-main-menu .mg-new-badge { color: var(--aaa-ink) !important; background: var(--aaa-accent) !important; border-color: var(--aaa-accent); align-self: center; }
+#screen-main-menu .mode-card-text small {
+    font-size: 12.5px !important; color: var(--aaa-dim) !important; letter-spacing: 0.01em;
+    max-width: 44ch;
+}
+#screen-main-menu .mode-card-go {
+    font-family: var(--font-mono); font-size: 10.5px !important; letter-spacing: 0.24em !important;
+    color: transparent !important; transform: translateX(-8px) !important;
+    transition: color 0.2s, transform 0.3s var(--aaa-ease) !important;
+}
+#screen-main-menu .mode-card:hover, #screen-main-menu .mode-card:focus-visible {
+    background: linear-gradient(90deg, var(--aaa-accent-soft), rgba(255, 178, 63, 0.03) 55%, transparent) !important;
+    padding-left: 20px !important;
+    outline: none !important;
+}
+#screen-main-menu .mode-card:hover::after, #screen-main-menu .mode-card:focus-visible::after { transform: scaleY(1); }
+#screen-main-menu .mode-card:hover::before, #screen-main-menu .mode-card:focus-visible::before { color: var(--aaa-accent); }
+#screen-main-menu .mode-card:hover .mode-card-text b { color: #fff !important; }
+#screen-main-menu .mode-card:hover .mode-card-go, #screen-main-menu .mode-card:focus-visible .mode-card-go { color: var(--aaa-accent) !important; transform: none !important; }
+
+#screen-main-menu .online-card {
+    margin-top: 12px;
+    background: rgba(255, 255, 255, 0.025) !important;
+    border: 1px solid var(--aaa-line) !important; border-radius: 2px !important;
+    box-shadow: none !important; transform: none !important; backdrop-filter: blur(8px);
+}
+#screen-main-menu .online-card b { color: var(--aaa-text) !important; font-family: var(--aaa-display); font-stretch: 75%; font-size: 17px !important; letter-spacing: 0.08em !important; }
+#screen-main-menu .online-card small { color: var(--aaa-dim) !important; }
+#screen-main-menu .online-card:hover { border-color: rgba(74, 222, 128, 0.55) !important; background: rgba(74, 222, 128, 0.06) !important; }
+#screen-main-menu .online-card:hover .mode-card-go { color: #4ade80 !important; }
+#screen-main-menu .online-dot { width: 8px !important; height: 8px !important; }
+
+#screen-main-menu .menu-mini-grid { gap: 1px !important; background: var(--aaa-line); border: 1px solid var(--aaa-line); }
+#screen-main-menu .mini-tile {
+    background: rgba(9, 11, 14, 0.82) !important; border: 0 !important; border-radius: 0 !important;
+    transform: none !important; box-shadow: none !important; padding: 12px 14px !important;
+    grid-template-columns: 1fr !important;
+}
+#screen-main-menu .mini-tile .mini-ico { display: none !important; }
+#screen-main-menu .mini-tile b { font-family: var(--aaa-display); font-stretch: 75%; font-size: 16px !important; letter-spacing: 0.06em !important; text-transform: uppercase; color: var(--aaa-text) !important; }
+#screen-main-menu .mini-tile small { color: var(--aaa-faint) !important; font-size: 11px !important; }
+#screen-main-menu .mini-tile:hover { background: rgba(22, 26, 32, 0.92) !important; }
+#screen-main-menu .mini-tile:hover b { color: var(--aaa-accent) !important; }
+
+/* Right column: patch notes as a quiet dossier, showcase caption as a lower-third. */
+#screen-main-menu .menu-update-preview {
+    background: rgba(8, 10, 13, 0.62) !important;
+    border: 1px solid var(--aaa-line) !important; border-radius: 2px !important;
+    box-shadow: none !important; backdrop-filter: blur(14px) saturate(1.1);
+    max-width: 380px; justify-self: end;
+}
+#screen-main-menu .ul-prev-kicker { color: var(--aaa-accent) !important; font-family: var(--font-mono); letter-spacing: 0.28em !important; }
+#screen-main-menu .ul-prev-count { background: none !important; border: 1px solid var(--aaa-line) !important; border-radius: 1px !important; color: var(--aaa-dim) !important; }
+#screen-main-menu .ul-prev-list > * { background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--aaa-line) !important; border-radius: 0 !important; box-shadow: none !important; }
+#screen-main-menu .ul-prev-all-btn {
+    background: transparent !important; color: var(--aaa-accent) !important;
+    border: 1px solid rgba(255, 178, 63, 0.45) !important; border-radius: 1px !important; box-shadow: none !important;
+    font-family: var(--font-mono); letter-spacing: 0.18em !important; font-size: 10.5px !important;
+}
+#screen-main-menu .ul-prev-all-btn:hover { background: var(--aaa-accent) !important; color: var(--aaa-ink) !important; }
+
+#screen-main-menu .menu-showcase-caption {
+    background: none !important; border: 0 !important; backdrop-filter: none !important; box-shadow: none !important;
+    padding: 0 0 4px !important; border-right: 3px solid var(--aaa-accent) !important; padding-right: 16px !important;
+    border-radius: 0 !important;
+}
+#screen-main-menu .showcase-label { color: var(--aaa-accent) !important; font-family: var(--font-mono); letter-spacing: 0.3em !important; font-size: 10px !important; }
+#screen-main-menu .showcase-name {
+    font-family: var(--aaa-display); font-stretch: 75%; font-size: clamp(24px, 2.4vw, 36px) !important;
+    letter-spacing: 0.02em; text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8); line-height: 1.05;
+}
+#screen-main-menu .showcase-sub { color: var(--aaa-dim) !important; font-family: var(--font-mono); font-size: 10.5px !important; letter-spacing: 0.12em; }
+
+/* Entry choreography: rows stagger in on menu open. */
+@keyframes aaaRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#screen-main-menu:not(.hidden) .mode-card { animation: aaaRise 0.55s var(--aaa-ease) both; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(2) { animation-delay: 0.04s; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(3) { animation-delay: 0.08s; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(4) { animation-delay: 0.12s; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(5) { animation-delay: 0.16s; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(6) { animation-delay: 0.2s; }
+#screen-main-menu:not(.hidden) .mode-card:nth-child(7) { animation-delay: 0.24s; }
+
+/* ---------------------------------------------------------- SHARED CHROME */
+.ui-screen .top-bar .brand-title { font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.05em; }
+.btn-primary {
+    border-radius: 2px !important;
+    letter-spacing: 0.16em;
+}
+.btn { transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.18s var(--aaa-ease); }
+.btn:active { transform: translateY(1px); }
+
+/* ---------------------------------------------------------------- IN-GAME HUD */
+#hud-layer { font-family: var(--font-ui); color: var(--aaa-text); }
+
+/* Crosshair: hairline ticks with a dark keyline so they read on any surface. */
+#hud-layer .ch-tick { background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); }
+#hud-layer .ch-top, #hud-layer .ch-bot { width: 2px; height: 9px; }
+#hud-layer .ch-left, #hud-layer .ch-right { height: 2px; width: 9px; }
+#hud-layer .ch-dot { width: 2px; height: 2px; left: -1px; top: -1px; border-radius: 0; }
+#hud-layer #hitmarker::before, #hud-layer #hitmarker::after { width: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4); clip-path: polygon(0 0, 100% 0, 100% 36%, 0 36%, 0 64%, 100% 64%, 100% 100%, 0 100%); }
+
+/* Minimap: framed tactical display with corner brackets. */
+#hud-layer .hud-top-left { top: 22px; left: 26px; }
+#hud-layer #minimap-canvas {
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    background: rgba(6, 8, 10, 0.55) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+    border-radius: 2px;
+}
+
+/* Compass + score: floating type, no slabs. */
+#hud-layer .hud-top-center { top: 18px; }
+#hud-layer .compass-bar {
+    background: linear-gradient(90deg, transparent, rgba(6, 8, 10, 0.55) 25%, rgba(6, 8, 10, 0.55) 75%, transparent) !important;
+    border: 0 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.18) !important;
+    padding: 4px 48px !important; font-size: 12px !important; letter-spacing: 0.32em !important;
+    color: var(--aaa-text) !important; text-shadow: var(--aaa-shadow-text);
+}
+#hud-layer .mp-score-pill {
+    background: rgba(6, 8, 10, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 2px; font-family: var(--aaa-display); font-stretch: 75%; font-size: 18px !important;
+    letter-spacing: 0.06em; backdrop-filter: blur(6px);
+}
+#hud-layer .fps-badge { background: none !important; border: 0 !important; color: var(--aaa-faint) !important; font-family: var(--font-mono); font-size: 10px !important; text-shadow: var(--aaa-shadow-text); }
+
+/* Vitals: bottom-left lower third. */
+#hud-layer .hud-bottom-left { left: 26px; bottom: 24px; }
+#hud-layer .vitals-box {
+    background: linear-gradient(90deg, rgba(6, 8, 10, 0.62), rgba(6, 8, 10, 0.18) 80%, transparent) !important;
+    border: 0 !important; border-left: 2px solid rgba(255, 255, 255, 0.5) !important;
+    border-radius: 0 !important; padding: 10px 16px 9px 14px !important; width: 300px !important;
+    gap: 7px !important; box-shadow: none !important;
+}
+#hud-layer .armor-plates { gap: 3px !important; }
+#hud-layer .plate-seg { height: 4px !important; background: rgba(255, 255, 255, 0.1) !important; transform: skewX(-20deg); }
+#hud-layer .plate-seg-fill { background: linear-gradient(90deg, #5ec8ff, #b3e6ff) !important; box-shadow: 0 0 8px rgba(94, 200, 255, 0.5); }
+#hud-layer .hp-bar-bg {
+    height: 6px !important; background: rgba(255, 255, 255, 0.1) !important; transform: skewX(-20deg); overflow: hidden;
+    background-image: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0, 0, 0, 0.55) calc(10% - 1px) 10%) !important;
+}
+#hud-layer .hp-bar-fill {
+    background: linear-gradient(90deg, #f3f5f7, #ffffff) !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
+    transition: width 0.18s var(--aaa-ease) !important;
+}
+#hud-layer #hud-hp-text { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em; color: var(--aaa-text); text-shadow: var(--aaa-shadow-text); }
+
+/* Weapon: big condensed ammo count, minimal frame. */
+#hud-layer .hud-bottom-right { right: 28px; bottom: 24px; }
+#hud-layer .weapon-dock {
+    background: linear-gradient(270deg, rgba(6, 8, 10, 0.62), rgba(6, 8, 10, 0.18) 80%, transparent) !important;
+    border: 0 !important; border-right: 2px solid var(--aaa-accent) !important;
+    border-radius: 0 !important; padding: 10px 18px 10px 34px !important; gap: 20px !important;
+    box-shadow: none !important;
+}
+#hud-layer #hud-weapon-name {
+    font-family: var(--aaa-display); font-stretch: 75%; font-size: 19px !important; letter-spacing: 0.08em !important;
+    text-transform: uppercase; text-shadow: var(--aaa-shadow-text);
+}
+#hud-layer #hud-fire-mode { font-family: var(--font-mono); font-size: 10px !important; letter-spacing: 0.24em !important; color: var(--aaa-accent) !important; }
+#hud-layer .ammo-mag {
+    font-family: var(--aaa-display) !important; font-stretch: 75%;
+    font-size: 52px !important; font-weight: 700 !important; letter-spacing: -0.01em;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+    font-variant-numeric: tabular-nums;
+}
+#hud-layer .ammo-res { font-family: var(--aaa-display) !important; font-stretch: 75%; font-size: 20px !important; color: var(--aaa-dim) !important; font-variant-numeric: tabular-nums; }
+#hud-layer .gear-dock { border-left: 1px solid rgba(255, 255, 255, 0.14) !important; font-family: var(--font-mono); font-size: 10.5px !important; letter-spacing: 0.08em; }
+#hud-layer .ks-slot {
+    background: rgba(6, 8, 10, 0.55) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 1px; font-family: var(--font-mono); font-size: 10px !important; letter-spacing: 0.1em;
+}
+#hud-layer .ks-slot.ready { border-color: var(--aaa-accent) !important; color: var(--aaa-accent) !important; box-shadow: 0 0 16px rgba(255, 178, 63, 0.25) !important; }
+
+/* Killfeed, banners, prompts. */
+#hud-layer #killfeed > * {
+    background: linear-gradient(270deg, rgba(6, 8, 10, 0.6), transparent) !important;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    font-size: 12px; letter-spacing: 0.03em; text-shadow: var(--aaa-shadow-text);
+}
+#hud-layer #hud-banner .banner-title {
+    font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.12em; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+}
+#hud-layer #hud-prompt, #hud-layer #hud-toast {
+    background: rgba(6, 8, 10, 0.7) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 2px !important; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important; backdrop-filter: blur(8px);
+    letter-spacing: 0.04em;
+}
+#hud-layer #pointer-lock-hint {
+    background: rgba(6, 8, 10, 0.72) !important; border: 0 !important; border-top: 2px solid var(--aaa-accent) !important;
+    border-radius: 0 !important; padding: 14px 26px !important; backdrop-filter: blur(10px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+}
+#hud-layer #pointer-lock-hint > div:first-child { font-family: var(--aaa-display); font-stretch: 75%; font-size: 20px !important; letter-spacing: 0.1em; color: var(--aaa-text) !important; }
+#hud-layer #pointer-lock-hint > div:last-child { font-family: var(--font-mono); letter-spacing: 0.08em; }
+
+/* The post pipeline now renders damage grading; keep the DOM vignette subtle so they don't stack. */
+#hud-layer #damage-vignette { opacity: 0.55; mix-blend-mode: multiply; }
+
+/* Boss bar: cinematic, thin, wide. */
+#hud-layer .boss-bar-track { height: 6px !important; border-radius: 0 !important; background: rgba(255, 255, 255, 0.08) !important; border: 0 !important; }
+#hud-layer .boss-bar-name { font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.18em !important; font-size: 16px !important; text-shadow: var(--aaa-shadow-text); }
+
+@media (prefers-reduced-motion: reduce) {
+    #screen-main-menu .mode-card { animation: none !important; }
+}

@@ -98,7 +98,9 @@
                 sun.shadow.camera.right = d;
                 sun.shadow.camera.top = d;
                 sun.shadow.camera.bottom = -d;
-                sun.shadow.bias = -0.0005;
+                sun.shadow.bias = -0.0004;
+                sun.shadow.normalBias = 0.025;
+                sun.shadow.radius = 2.5;
             }
             scene.add(sun);
 
@@ -176,6 +178,11 @@
         }
 
         _buildSkyDome(scene, atm) {
+            if (BO.Atmosphere) {
+                BO.Atmosphere.install(scene, atm);
+                if (atm.moon) this._buildMoon(scene);
+                return;
+            }
             const c = document.createElement('canvas');
             c.width = 16;
             c.height = 128;
@@ -201,6 +208,17 @@
                 moon.lookAt(0, 0, 0);
                 scene.add(moon);
             }
+        }
+
+        _buildMoon(scene) {
+            const moon = new THREE.Mesh(
+                new THREE.CircleGeometry(14.0, 48),
+                new THREE.MeshBasicMaterial({ color: new THREE.Color(0xff5544).multiplyScalar(2.2), fog: false, toneMapped: true })
+            );
+            moon.position.set(68, 118, -190);
+            moon.lookAt(0, 0, 0);
+            moon.renderOrder = -999;
+            scene.add(moon);
         }
 
         _buildRampMesh(scene, r) {

@@ -38,11 +38,17 @@
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
+            if (BO.PostFX) BO.PostFX.init(this.renderer);
             this._applyRendererQuality();
 
             this.worldCamera = new THREE.PerspectiveCamera(BO.Settings.get('fov') || 90, window.innerWidth / window.innerHeight, 0.08, 1500);
 
             this._buildShowcaseScene();
+            if (BO.Atmosphere) {
+                const studio = BO.Atmosphere.studio(this.renderer);
+                this.showcaseScene.environment = studio;
+                if (BO.Player && BO.Player.vmScene) BO.Player.vmScene.environment = studio;
+            }
             BO.Tooltips.init();
             BO.HUD.init();
             if (BO.RPGUI) BO.RPGUI.init();
@@ -59,7 +65,7 @@
             this._onResize();
             window.addEventListener('resize', () => this._onResize());
             BO.Events.on('settings:changed', (e) => {
-                if (['quality', 'exposure', 'resScale', 'hudOpacity'].includes(e.key)) {
+                if (['quality', 'exposure', 'resScale', 'hudOpacity', 'postFx'].includes(e.key)) {
                     this._applyRendererQuality();
                 }
             });
@@ -76,6 +82,7 @@
             this.renderer.shadowMap.enabled = q.shadows;
             this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             this.renderer.toneMappingExposure = BO.Settings.get('exposure') || 1.08;
+            if (BO.PostFX && BO.PostFX.ready) BO.PostFX.applyQuality();
             const hudEl = document.getElementById('hud-layer');
             if (hudEl) hudEl.style.opacity = String(BO.Settings.get('hudOpacity') ?? 1.0);
         }
@@ -84,6 +91,7 @@
             const w = window.innerWidth;
             const h = window.innerHeight;
             this.renderer.setSize(w, h, false);
+            if (BO.PostFX) BO.PostFX.setSize();
             this.worldCamera.aspect = w / h;
             this.worldCamera.updateProjectionMatrix();
             BO.Player.vmCamera.aspect = w / h;
@@ -712,28 +720,39 @@
 
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
 
+                if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+                if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
+                const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 if (BO.World.scene) {
                     this.renderer.render(BO.World.scene, this.worldCamera);
                 }
                 this.renderer.clearDepth();
                 this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
+                if (post) BO.PostFX.end(this.renderer, dt);
             } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {
                         const gs = BO.GunsmithUI;
+                        this.showcasePivot.scale.setScalar(1);
                         this.showcasePivot.position.set(0.0, 0.04, 0);
                         this.showcasePivot.rotation.set(gs.orbitPitch, gs.orbitYaw, 0);
                         this.showcaseCamera.position.set(0, 0.12, gs.orbitZoom);
                     } else {
-                        this.showcasePivot.position.set(0.28, -0.02, 0);
-                        this.showcasePivot.rotation.set(0.08, this.elapsed * 0.45, 0);
-                        this.showcaseCamera.position.set(0, 0.20, 1.32);
+                        // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
+                        const aspect = this.showcaseCamera.aspect || 1.6;
+                        this.showcasePivot.scale.setScalar(0.72);
+                        this.showcasePivot.position.set(0.16 + 0.26 * Math.min(1.8, aspect) / 1.8, -0.04 + Math.sin(this.elapsed * 0.8) * 0.008, 0);
+                        this.showcasePivot.rotation.set(0.06, this.elapsed * 0.32, 0);
+                        this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
                     }
                 }
+                if (BO.PostFX) BO.PostFX.setGrade('menu');
+                const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 this.renderer.render(this.showcaseScene, this.showcaseCamera);
+                if (post) BO.PostFX.end(this.renderer, dt);
             }
         }
     }
