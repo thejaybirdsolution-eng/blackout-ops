@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=2">
-    <link rel="stylesheet" href="css/minigames.css?v=mg2">
+    <link rel="stylesheet" href="css/minigames.css?v=mg7">
     <link rel="stylesheet" href="css/rpg.css?v=rogue-depths1">
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
     <link rel="stylesheet" href="css/owrpg.css?v=ow1">
@@ -70,7 +70,7 @@
     <!-- Engine & Entities -->
     <script defer src="src/engine/WorldBuilder.js?v=rpg1"></script>
     <script defer src="src/engine/PlayerController.js?v=ow1"></script>
-    <script defer src="src/engine/CombatSystem.js?v=sv9mg2"></script>
+    <script defer src="src/engine/CombatSystem.js?v=sv9mg7"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
     <script defer src="src/entities/BotAI.js?v=z3"></script>
 
@@ -168,21 +168,28 @@
     <script defer src="src/ui/SurvivalUI.js?v=vaults1"></script>
     <script defer src="src/ui/ModeGuide.js?v=ow1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
-    <!-- Minigames (Target Practice, Boss Rush, Whack-a-Mole) -->
-    <script defer src="src/minigames/MinigameCore.js?v=mg2"></script>
+    <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Whack-a-Mole) -->
+    <script defer src="src/minigames/MinigameCore.js?v=mg7"></script>
     <script defer src="src/minigames/MinigameArt.js?v=mg1"></script>
     <script defer src="src/minigames/TargetCoursesA.js?v=mg1"></script>
     <script defer src="src/minigames/TargetCoursesB.js?v=mg1"></script>
     <script defer src="src/minigames/MinigameFigures.js?v=mg2"></script>
-    <script defer src="src/minigames/TargetCoursesC.js?v=mg2"></script>
+    <script defer src="src/minigames/BeatSongs.js?v=mg7"></script>
+    <script defer src="src/minigames/TargetCoursesC.js?v=mg7"></script>
     <script defer src="src/minigames/BeachAnatomy.js?v=mg6"></script>
     <script defer src="src/minigames/BeachArt.js?v=mg6"></script>
-    <script defer src="src/minigames/TargetCoursesD.js?v=mg6"></script>
-    <script defer src="src/minigames/BossRush.js?v=mg1"></script>
+    <script defer src="src/minigames/MansionScenarios.js?v=mg7"></script>
+    <script defer src="src/minigames/TargetCoursesD.js?v=mg7"></script>
+    <script defer src="src/minigames/BossAttacks.js?v=mg7"></script>
+    <script defer src="src/minigames/BossRush.js?v=mg7"></script>
     <script defer src="src/minigames/WhackAMole.js?v=mg1"></script>
     <script defer src="src/minigames/ArcadeHall.js?v=mg2"></script>
-    <script defer src="src/minigames/ArcadeHall2.js?v=mg2"></script>
-    <script defer src="src/minigames/MinigameHub.js?v=mg2"></script>
+    <script defer src="src/minigames/ArcadeHall2.js?v=mg7"></script>
+    <script defer src="src/minigames/ArcadeHall3.js?v=mg7"></script>
+    <script defer src="src/minigames/ArcadeHall4.js?v=mg7"></script>
+    <script defer src="src/minigames/SpeedRuns.js?v=mg7"></script>
+    <script defer src="src/minigames/SpeedRuns2.js?v=mg7"></script>
+    <script defer src="src/minigames/MinigameHub.js?v=mg7"></script>
     <script defer src="src/ui/RPGUI.js?v=doors1"></script>
     <script defer src="src/ui/OWRPGUI.js?v=ow1"></script>
     <script defer src="src/ui/OWRPGPipPad.js?v=ow1"></script>
@@ -255,11 +262,11 @@
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
-                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Fifteen Target Practice courses (rhythm shooting, a one-mag trial, a horseback chase, a mansion raid, a heart-blaster beach and more), the Arcade Hall (quickdraw duels, two arcade cabinets, Ball Brawl, aim diagnostics, contracts), a Boss Rush and a carnival Whack-a-Mole.">
+                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Fifteen Target Practice courses (rhythm shooting with 11 songs and 4 modes, a one-mag trial, a horseback chase, a 15-situation mansion raid, a heart-blaster beach and more), a 15-game Arcade Hall, a Boss Rush of 5x-size bosses with unique attacks, seven timed Speed Runs and a carnival Whack-a-Mole.">
                         <span class="mode-card-ico">🎪</span>
                         <span class="mode-card-text">
                             <b>MINIGAMES</b>
-                            <small>Target Practice • Arcade Hall • Boss Rush • Whack-a-Mole</small>
+                            <small>Target Practice • Arcade Hall • Boss Rush • Speed Runs • Whack-a-Mole</small>
                         </span>
                         <span class="mg-new-badge">NEW</span>
                         <span class="mode-card-go">PLAY →</span>

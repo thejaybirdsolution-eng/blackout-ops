@@ -375,6 +375,7 @@
             if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
             let endPoint = worldHit ? worldHit.point.clone() : origin.clone().addScaledVector(dir, 60);
             let pierceLeft = (w.stats.penetration || 0) + 1;
+            if (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.singleTargetShots) pierceLeft = 1;
             const hitEntities = new Set();
             let didHit = false;
             let didHead = false;

@@ -17,6 +17,7 @@
     const ARENA_R = 30;
     const REST_TIME = 30;
     const MAX_HEALS = 3;
+    const BOSS_SCALE = 5;            // every boss is five times its normal size here
 
     const DIFFS = {
         recruit: { label: 'RECRUIT', hp: 0.7, dmg: 0.55, spd: 0.9, xp: 0.75 },
@@ -56,8 +57,8 @@
     MG.register({
         id: 'boss_rush', cat: 'boss',
         name: 'Boss Rush', icon: '💀', accent: '#dc2626',
-        tagline: 'The Colosseum. Every boss. Three heals.',
-        desc: 'Step into the Colosseum and face every boss in the game, one after another, from The Butcher to Malakor, Eclipse Sovereign. Your magazines never run dry, but your health does not regenerate. You get 30 seconds to rest between rounds and only THREE max heals for the whole rush. Use one in any rest period. They never come back.',
+        tagline: 'Every boss at 5x size. Five unique attacks each. Three heals.',
+        desc: 'Step into the Colosseum and face every boss in the game, one after another, from The Butcher to Malakor, Eclipse Sovereign. Every boss is FIVE times its normal size and brings five signature attacks no other boss has; the stronger the attack, the longer it takes to come back. Your magazines never run dry, but your health does not regenerate. You get 30 seconds to rest between rounds and only THREE max heals for the whole rush. Use one in any rest period. They never come back.',
         hudSub: 'Health does not regenerate • [H] Max Heal during rest',
         duration: 0, countdown: 3, infiniteMag: true, keepEquipment: true, forgivingMisses: true,
         matchRules: { noHealthRegen: true },
@@ -244,9 +245,19 @@
             const ent = new BO.ZombieEntity({
                 id: S.data.nextId++, spec, round: 20 + S.data.bossIndex * 3,
                 hp, speed: Math.min(9, (spec.speed || 3) * d.spd), damage: Math.max(5, Math.round((spec.attack || 60) * d.dmg)),
-                x: 0, y: 0, z: -ARENA_R + 1.5, splitCount: 0, hasGun: false
+                x: 0, y: 0, z: -ARENA_R + 6, splitCount: 0, hasGun: false, sizeMult: BOSS_SCALE
             });
             ent.mgBoss = true;
+            // the constructor clamps radius for normal arenas; giants need their real footprint
+            const sc = (spec.bodySpec && spec.bodySpec.scale) || [1, 1, 1];
+            ent.radius = BO.Math.clamp(0.38 * sc[0] * BOSS_SCALE, 1.6, 4.2);
+            ent.height *= BOSS_SCALE;
+            ent.superMechanic = null;              // only the five Boss Rush signature attacks
+            ent.pos.z = -ARENA_R + ent.radius + 1.5;
+            ent.parts.root.position.copy(ent.pos);
+            if (S.data.runner) S.data.runner.dispose();
+            S.data.runner = new BO.BossAttacks.Runner(S, ent, ARENA_R);
+            S.data.stompCd = 2;
             ent.stunTimer = 1.8; // brief roar in the gateway
             S.data.zombies.push(ent);
             S.data.boss = ent;
@@ -327,6 +338,8 @@
                         D.crowd.cheer(1.4);
                         for (const pr of D.projectiles) S.scene.remove(pr.mesh);
                         D.projectiles = [];
+                        if (D.runner) { D.runner.dispose(); D.runner = null; }
+                        for (const z of D.zombies) if (z.mgMinion && z.alive) z.takeDamage(1e9, 'torso', false);
                     }
                 } else if (D.phase === 'victory' && D.phaseT <= 0) {
                     D.bossIndex++;
@@ -356,10 +369,23 @@
 
             // bosses
             const callbacks = {
-                allowProjectiles: true,
+                allowProjectiles: false,
                 onMeleePlayer: (z) => { if (P.alive) P.takeDamage(z.damage, z.pos, false, z); },
                 onRangedAttack: (z, tx, ty, tz, extra) => this._spawnProjectile(S, z, tx, ty, tz, extra)
             };
+            if (D.runner) D.runner.update(dt, state === 'running' && D.phase === 'fight');
+            // stomp: the stock melee range is far too short for a 5x boss, so giants crush whoever is underfoot
+            const bz = D.boss;
+            if (bz && bz.alive && D.phase === 'fight' && state === 'running') {
+                D.stompCd -= dt;
+                if (D.stompCd <= 0 && P.alive && Math.hypot(P.pos.x - bz.pos.x, P.pos.z - bz.pos.z) < bz.radius + 1.6) {
+                    D.stompCd = 1.5;
+                    bz.attackSwing = 1;
+                    P.takeDamage(Math.round(bz.damage * 0.55), bz.pos, false, bz);
+                    BO.FX.spawnExplosion(V(P.pos.x, 0.2, P.pos.z), 2.4, 0xd6d3d1);
+                    P.cameraShake = Math.max(P.cameraShake, 0.08);
+                }
+            }
             const frozen = state === 'finish' || state === 'results' || D.phase === 'intro';
             for (let i = D.zombies.length - 1; i >= 0; i--) {
                 const z = D.zombies[i];
@@ -371,10 +397,11 @@
                     if (D.phase === 'intro' && state === 'running') { z.pos.z += dt * 2.2; }
                     continue;
                 }
+                if (z.mgScripted && z.alive) continue;          // mid-charge / mid-leap: the attack runner moves it
                 const keep = z.update(dt, D.zombies, callbacks);
                 if (z.alive) {
-                    const r = Math.hypot(z.pos.x, z.pos.z);
-                    if (r > ARENA_R - 1) { z.pos.x *= (ARENA_R - 1) / r; z.pos.z *= (ARENA_R - 1) / r; }
+                    const r = Math.hypot(z.pos.x, z.pos.z), R = ARENA_R - Math.max(1, z.mgBoss ? z.radius + 0.5 : 1);
+                    if (r > R) { z.pos.x *= R / r; z.pos.z *= R / r; }
                 }
                 if (!keep) { z.destroy(); D.zombies.splice(i, 1); }
             }
@@ -406,6 +433,11 @@
         },
 
         onHit(S, ent, info) {
+            if (ent.mgMinion) {
+                const killedM = ent.takeDamage(info.dmg, info.hitbox, info.hitbox === 'head', null, 'bullet');
+                S.hits++;
+                return killedM;
+            }
             if (!ent.mgBoss) return undefined;
             if (S.data.phase === 'intro') return false;
             const isMelee = info.w && info.w.stats && info.w.stats.kind === 'melee';
@@ -470,7 +502,9 @@
                     <div class="br-boss-top"><b>${esc(z.spec.name)}</b><span>${z.isSuperBoss ? 'SUPER BOSS • ' : ''}${D.bossIndex + 1}/${D.total}</span></div>
                     <div class="br-bar"><i style="width:${(frac * 100).toFixed(1)}%"></i><em style="left:50%"></em></div>
                     <div class="br-boss-sub"><span>${Math.ceil(z.hp).toLocaleString()} / ${z.maxHp.toLocaleString()}</span><span>${z.superEnraged ? 'PHASE II' : (z.isSuperBoss ? 'PHASE I' : '')}</span></div>
+                    ${D.runner ? `<div class="br-moves">${D.runner.list.map((a) => `<span class="${a.cd <= 0 ? 'ready' : ''}" title="Tier ${a.def.tier}">${'▮'.repeat(a.def.tier)} ${esc(a.def.name)}</span>`).join('')}</div>` : ''}
                 </div>`;
+                if (D.runner && D.runner.labelT > 0) html += `<div class="bra-tele">⚠ ${esc(D.runner.label)}</div>`;
             }
             if (D.phase === 'rest') {
                 const next = D.queue[D.bossIndex];
@@ -524,6 +558,7 @@
 
         dispose(S) {
             BO.State.timeScale = 1;
+            if (S.data.runner) { S.data.runner.dispose(); S.data.runner = null; }
             for (const z of S.data.zombies || []) z.destroy();
             S.data.zombies = [];
             for (const pr of S.data.projectiles || []) S.scene.remove(pr.mesh);
