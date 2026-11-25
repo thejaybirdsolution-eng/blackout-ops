@@ -391,7 +391,7 @@
             const trunkKey = 'gmveh:' + v.uid;
             const trunk = m.campaign.pack.chests.get(trunkKey) || {};
             const lim = { slots: v.cls.trunk, weight: v.cls.trunk * 4 };
-            const tile = (id, n, dir) => `<button class="sv-tile" data-act="gm" data-arg="vehicle.trunk:${dir}|${esc(v.uid)}|${esc(id)}">${BO.SurvivalIcons?.item?.(id, 24) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`;
+            const tile = (id, n, dir) => `<button class="sv-tile" data-act="gm" data-arg="vehicle.trunk:${dir}|${esc(v.uid)}|${esc(id)}" data-mv-act="gm" data-mv-arg="vehicle.trunk:${dir}|${esc(v.uid)}|${esc(id)}|N" data-mv-max="${n}" title="Click moves the stack · right-click moves half · shift+scroll moves one">${BO.SurvivalIcons?.item?.(id, 24) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`;
             const packTiles = Object.entries(m.points).filter(([id, n]) => n > 0 && BO.SurvivalFrontierData.items[id]).map(([id, n]) => tile(id, n, 'in')).join('');
             const trunkTiles = Object.entries(trunk).filter(([, n]) => n > 0).map(([id, n]) => tile(id, n, 'out')).join('');
             const canFuel = v.cls.fuel && (m.points.fuel || 0) > 0 && v.fuel < 1;
@@ -411,7 +411,8 @@
             const m = this.mode;
             const c = m.campaign;
             if (cmd === 'trunk') {
-                const [dir, uid, id] = arg.split('|');
+                const [dir, uid, id, cnt] = arg.split('|');
+                const want = (have) => (cnt ? Math.min(have, Math.max(1, Number(cnt) || 1)) : have);
                 const v = this.list.find((x) => x.uid === uid);
                 if (!v) return true;
                 const key = 'gmveh:' + v.uid;
@@ -420,14 +421,14 @@
                 const lim = { slots: v.cls.trunk, weight: v.cls.trunk * 4 };
                 const L = GM.get('loot');
                 if (dir === 'in') {
-                    const n = c.pack.room(id, m.points[id] || 0, trunk, lim);
+                    const n = c.pack.room(id, want(m.points[id] || 0), trunk, lim);
                     if (!n) { BO.SurvivalUI.feedback = 'The trunk is full.'; return true; }
                     const hot = Math.min(n, L?.hot[id] || 0);
                     m.points[id] -= n;
                     trunk[id] = (trunk[id] || 0) + n;
                     if (hot) L.stashHot(key, id, hot);
                 } else {
-                    const n = c.pack.room(id, trunk[id] || 0);
+                    const n = c.pack.room(id, want(trunk[id] || 0));
                     if (!n) { BO.SurvivalUI.feedback = 'Your pack has no room.'; return true; }
                     trunk[id] -= n; if (!trunk[id]) delete trunk[id];
                     m.points[id] = (m.points[id] || 0) + n;

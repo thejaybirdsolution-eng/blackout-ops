@@ -38,7 +38,7 @@
         { kind: 'pack', level: 3, recipe: 'hauler', why: '32 slots, 76 kg' }
     ];
 
-    const costOf = (spec) => (typeof spec.cost === 'number' ? { scrap: spec.cost } : spec.cost || {});
+    const costOf = (spec) => (BO.buildCostOf ? BO.buildCostOf(spec) : (typeof spec.cost === 'number' ? { scrap: spec.cost } : spec.cost || {}));
 
     const Recipes = {
         rate: 4,

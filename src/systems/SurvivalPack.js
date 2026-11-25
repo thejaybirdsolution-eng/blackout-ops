@@ -548,7 +548,7 @@
             if (!chest || !data.items[id] || !okAccess) return false;
             const source = deposit ? this.inventory : chest;
             const target = deposit ? chest : this.inventory;
-            const desired = amount === 'all' ? source[id] : Math.min(source[id] || 0, 1);
+            const desired = amount === 'all' ? source[id] : Math.min(source[id] || 0, Math.max(1, Math.floor(Number(amount)) || 1));
             const chestLim = BO.ZoneWorldPlus?.chestLimitsForKey?.(chestId) || { slots: 18, weight: 54 };
             const n = this.room(id, desired || 0, target, deposit ? chestLim : this.limits);
             if (!n) {
@@ -656,7 +656,7 @@
                 this.filterUntil = Math.max(m.clock, this.filterUntil) + 120;
             } else if (id === 'repair' && this.equipped && this.tools[this.equipped] < data.tools[this.equipped].wear) {
                 const tool = data.tools[this.equipped];
-                this.tools[this.equipped] = Math.min(tool.wear, this.tools[this.equipped] + 24);
+                this.tools[this.equipped] = Math.min(tool.wear, this.tools[this.equipped] + Math.round(24 * (m.campaign?.deep?.modFx?.repairMult || 1)));
                 m.toast(tool.name + ' repaired.');
             } else if (id === 'torch') {
                 this.lightKind = id;

@@ -198,7 +198,7 @@
             const self = this;
             const T = BO.ZoneThrill;
             const loot = this.mode.loot;
-            this._orig = { xp: T?.xp, complete: loot?.complete };
+            this._orig = { xp: T?.xp, xpOwn: !!T && Object.prototype.hasOwnProperty.call(T, 'xp'), complete: loot?.complete };
             if (T?.xp) {
                 T.xp = function (n, label, quiet) {
                     return self._orig.xp.call(this, self.doneSets.has('places') && n > 0 ? n * 1.1 : n, label, quiet);
@@ -215,7 +215,7 @@
 
         unpatch() {
             if (!this._orig) return;
-            if (this._orig.xp && BO.ZoneThrill) BO.ZoneThrill.xp = this._orig.xp;
+            if (this._orig.xp && BO.ZoneThrill) { if (this._orig.xpOwn) BO.ZoneThrill.xp = this._orig.xp; else delete BO.ZoneThrill.xp; }
             if (this._orig.complete && this.mode?.loot) this.mode.loot.complete = this._orig.complete;
             this._orig = null;
         },

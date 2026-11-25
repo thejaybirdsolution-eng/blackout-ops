@@ -410,6 +410,7 @@
                     if (s.store) store += s.store;
                     if (s.use) consumers.push(p);
                 }
+                supply *= c.deep?.modFx?.powerMakeMult || 1; // Grid Tech (Survivor Skills)
                 capacity += store;
                 consumers.sort((a, b) => POWER[b.type].prio - POWER[a.type].prio);
                 const demand = consumers.reduce((t, p) => t + POWER[p.type].use, 0);

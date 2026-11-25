@@ -771,6 +771,8 @@
             let targetTemp = (areaId === 'frost' ? -4 : areaId === 'cinder' ? 36 : (areaId === 'cavern' || areaId === 'trench') ? 10 : 21) + (mfx.tempOffset || 0);
             if (this.campaign.isNight) targetTemp -= this.campaign.has('freezingNights') ? 19 : 9;
             if (BO.ZoneFrontier?.active) targetTemp = BO.ZoneFrontier.ambient();
+            // Cold Blooded (Survivor Skills): cold feels warmer, never past a mild 18 °C.
+            if (mfx.coldResist && targetTemp < 18) targetTemp = Math.min(18, targetTemp + mfx.coldResist);
             const nearFire = this.campaign.placed.some((item) => item.alive && ['campfire', 'kiln', 'wallTorch', 'beacon'].includes(item.type) && dist2(item, p.pos) < 5.5) ||
                 D().shrines.some((s) => this.kindledShrines.has(s.id) && dist3(s, p.pos) < 5.5);
             if (nearFire) {

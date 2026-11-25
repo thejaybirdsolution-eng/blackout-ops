@@ -13,6 +13,12 @@
     'use strict';
 
     const G = 2.8;
+    /** What a build piece costs right now: its listed cost, less the Frugal Builder skill. */
+    BO.buildCostOf = (spec) => {
+        const base = typeof spec.cost === 'number' ? { scrap: spec.cost } : (spec.cost || {});
+        const sk = BO.GM?.active ? BO.GM.get('skills') : null;
+        return sk?.buildCost ? sk.buildCost(base) : base;
+    };
     const ROOF_OFF = 2.72; // legacy placement offset used by SurvivalCampaign.place for roofs
     const STRUCT = {
         floor: { kind: 'floor', mat: 'wood' }, stoneFloor: { kind: 'floor', mat: 'stone' },
@@ -402,7 +408,7 @@
                 if (!r.ok) col.setHex(0xff5a4a); else if (STRUCT[this.type]) supportColor(r.support, col); else col.setHex(0x52d483);
                 g.material.color.copy(col);
             }
-            const cost = typeof this.spec.cost === 'number' ? { scrap: this.spec.cost } : this.spec.cost;
+            const cost = BO.buildCostOf(this.spec);
             const have = BO.GM?.active ? (BO.GM.get('storage')?.available?.() || m.points) : m.points;
             const afford = Object.entries(cost).every(([id, n]) => (have[id] || 0) >= n);
             const costRows = Object.entries(cost).map(([id, n]) => {
@@ -424,7 +430,7 @@
             const c = this.campaign;
             const r = this.evaluate();
             if (!r.ok) { m.toast(r.why || 'Cannot build here.'); BO.Sound.playEmptyClick?.(); return false; }
-            const cost = typeof this.spec.cost === 'number' ? { scrap: this.spec.cost } : this.spec.cost;
+            const cost = BO.buildCostOf(this.spec);
             if (!m.spend(cost)) { m.toast('Required: ' + BO.SurvivalItemAmounts(cost)); return false; }
             const id = String(c.placed.length);
             c.place({ ...r.piece, id, alive: true });

@@ -314,7 +314,7 @@
             const point = { x, y, z };
             const protectedSite = m.markers.some((site) => site.alive !== false && !site.id.startsWith('build:') && near(site, point, 1.2));
             if (protectedSite) return m.toast('Keep access to contacts and mission sites clear.');
-            const cost = typeof spec.cost === 'number' ? { scrap: spec.cost } : spec.cost;
+            const cost = BO.buildCostOf ? BO.buildCostOf(spec) : (typeof spec.cost === 'number' ? { scrap: spec.cost } : spec.cost);
             if (!m.spend(cost)) return m.toast('Required: ' + BO.SurvivalItemAmounts(cost));
             this.place({ ...target, id: String(this.placed.length), alive: true });
             this.mark('built', 1, 19);

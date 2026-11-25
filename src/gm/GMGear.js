@@ -70,7 +70,7 @@
             const c = m.campaign;
             const self = this;
             const deep = c.deep;
-            this._orig = { consume: m.consume, sleep: c.sleepUntilDawn, activate: c.activate, upgrade: deep?.upgradeEquippedWeapon, infuse: deep?.applyInfusion, xp: BO.ZoneThrill?.xp };
+            this._orig = { consume: m.consume, sleep: c.sleepUntilDawn, activate: c.activate, upgrade: deep?.upgradeEquippedWeapon, infuse: deep?.applyInfusion, xp: BO.ZoneThrill?.xp, xpOwn: !!BO.ZoneThrill && Object.prototype.hasOwnProperty.call(BO.ZoneThrill, 'xp') };
             m.consume = function (id) {
                 if (id === 'spoiled') { GM.toast('That is rotten. Make it into blood bait instead.', '#f59e0b'); return false; }
                 const before = this.points[id] || 0;
@@ -106,7 +106,7 @@
             c.sleepUntilDawn = this._orig.sleep;
             c.activate = this._orig.activate;
             if (c.deep && this._orig.upgrade) { c.deep.upgradeEquippedWeapon = this._orig.upgrade; c.deep.applyInfusion = this._orig.infuse; }
-            if (BO.ZoneThrill && this._orig.xp) BO.ZoneThrill.xp = this._orig.xp;
+            if (BO.ZoneThrill && this._orig.xp) { if (this._orig.xpOwn) BO.ZoneThrill.xp = this._orig.xp; else delete BO.ZoneThrill.xp; }
             this._orig = null;
         },
 

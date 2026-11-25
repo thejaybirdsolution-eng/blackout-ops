@@ -93,7 +93,7 @@
             { action: 'survBuild', label: 'Build', tip: 'Open construction to place walls, stations, storage and defenses. Detonates C4 if you have charges out.', ctx: ['survival'] },
             { action: 'survMap', label: 'Map', tip: 'Open the field map with landmarks, contacts and your position.', ctx: ['survival'] },
             { action: 'survTravel', label: 'Travel', tip: 'Open the map on vehicles and fast-travel routes.', ctx: ['survival'] },
-            { action: 'survSkills', label: 'Skills & tech', tip: 'Spend Tech Points and Aether Runes on research and attributes.', ctx: ['survival'] },
+            { action: 'survSkills', label: 'Skills & tech', tip: 'Spend skill points on the Survivor Skills tree and Tech Points on research.', ctx: ['survival'] },
             { action: 'survJournal', label: 'Journal', tip: 'See your objective, field challenges, activities and career record.', ctx: ['survival'] },
             { action: 'survLegend', label: 'Survival guide', tip: 'Open the searchable Survival encyclopedia.', ctx: ['survival'] },
             { action: 'survRide', label: 'Ride / dismount', tip: 'Mount your fastest vehicle (or the last one you rode), or get off. Hold Shift to cycle vehicles.', ctx: ['survival'] },

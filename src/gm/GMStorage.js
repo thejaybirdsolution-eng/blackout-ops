@@ -17,6 +17,7 @@
 (function (BO) {
     'use strict';
     const GM = BO.GM;
+    const HINT = 'Click moves the stack · right-click moves half · shift+scroll moves one';
     const F = () => BO.SurvivalFrontierData;
     const BASE_R = 30;
     const QUICK_R = 10;
@@ -236,26 +237,27 @@
         renderSatchel() {
             const esc = GM.esc;
             const m = this.mode;
-            const tile = (id, n, side) => `<button class="sv-tile" data-act="gm" data-arg="storage.move:${side}|${esc(id)}">${BO.SurvivalIcons?.item?.(id, 26) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`;
+            const tile = (id, n, side) => `<button class="sv-tile" data-act="gm" data-arg="storage.move:${side}|${esc(id)}" data-mv-act="gm" data-mv-arg="storage.move:${side}|${esc(id)}|N" data-mv-max="${n}" title="${HINT}">${BO.SurvivalIcons?.item?.(id, 26) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`;
             const packTiles = Object.entries(m.points).filter(([id, n]) => n > 0 && F().items[id] && id !== 'fieldSatchel').map(([id, n]) => tile(id, n, 'in')).join('');
             const satTiles = Object.entries(this.satchel).filter(([, n]) => n > 0).map(([id, n]) => tile(id, n, 'out')).join('');
             return `<div class="gm-two"><section><h4>Backpack</h4><div class="sv-grid">${packTiles || '<p class="gm-muted">Empty.</p>'}</div></section>
                 <section><h4>Satchel · ${Object.keys(this.satchel).length}/6 stacks</h4><div class="sv-grid">${satTiles || '<p class="gm-muted">Click backpack items to pack them here.</p>'}</div></section></div>
-                <p class="gm-muted sm">Click to move a whole stack. Satchel contents count as carried: Hot outside base and dropped on death.</p>`;
+                <p class="gm-muted sm">${HINT}. Satchel contents count as carried: Hot outside base and dropped on death.</p>`;
         },
 
         satchelAct(cmd, arg) {
             if (cmd !== 'move') return false;
-            const [side, id] = arg.split('|');
+            const [side, id, cnt] = arg.split('|');
             const m = this.mode;
             const pack = m.campaign.pack;
+            const want = (have) => (cnt ? Math.min(have, Math.max(1, Number(cnt) || 1)) : have);
             if (side === 'in') {
-                const n = pack.room(id, m.points[id] || 0, this.satchel, this.satchelLimits());
+                const n = pack.room(id, want(m.points[id] || 0), this.satchel, this.satchelLimits());
                 if (!n) { BO.SurvivalUI.feedback = 'The satchel is full.'; return true; }
                 m.points[id] -= n;
                 this.satchel[id] = (this.satchel[id] || 0) + n;
             } else {
-                const n = pack.room(id, this.satchel[id] || 0);
+                const n = pack.room(id, want(this.satchel[id] || 0));
                 if (!n) { BO.SurvivalUI.feedback = 'Your pack has no room.'; return true; }
                 this.satchel[id] -= n; if (!this.satchel[id]) delete this.satchel[id];
                 m.points[id] = (m.points[id] || 0) + n;
@@ -303,21 +305,28 @@
             const there = this.chestPieces(...this.xz(sub.there), BASE_R).map((p) => c.pack.chests.get(p.id)).filter(Boolean);
             const sum = (list) => { const o = {}; for (const st of list) for (const [k, v] of Object.entries(st)) o[k] = (o[k] || 0) + v; return o; };
             const H = sum(here), T = sum(there);
-            const row = (items, dir) => Object.entries(items).filter(([, n]) => n > 0).map(([id, n]) => `<button class="sv-tile" data-act="gm" data-arg="uplink.send:${dir}|${esc(id)}|${esc(sub.here)}|${esc(sub.there)}">${BO.SurvivalIcons?.item?.(id, 24) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`).join('');
-            return `<div class="gm-two"><section><h4>This base</h4><div class="sv-grid">${row(H, 'out') || '<p class="gm-muted">Empty.</p>'}</div></section><section><h4>Linked base</h4><div class="sv-grid">${row(T, 'in') || '<p class="gm-muted">Empty.</p>'}</div></section></div><p class="gm-muted sm">Click a stack to send it across. Only stored (secured) items can travel.</p>`;
+            const row = (items, dir) => Object.entries(items).filter(([, n]) => n > 0).map(([id, n]) => `<button class="sv-tile" data-act="gm" data-arg="uplink.send:${dir}|${esc(id)}|${esc(sub.here)}|${esc(sub.there)}" data-mv-act="gm" data-mv-arg="uplink.send:${dir}|${esc(id)}|${esc(sub.here)}|${esc(sub.there)}|N" data-mv-max="${n}" title="${HINT}">${BO.SurvivalIcons?.item?.(id, 24) || ''}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(GM.itemName(id))}</span></button>`).join('');
+            return `<div class="gm-two"><section><h4>This base</h4><div class="sv-grid">${row(H, 'out') || '<p class="gm-muted">Empty.</p>'}</div></section><section><h4>Linked base</h4><div class="sv-grid">${row(T, 'in') || '<p class="gm-muted">Empty.</p>'}</div></section></div><p class="gm-muted sm">${HINT}. Only stored (secured) items can travel.</p>`;
         },
 
         xz(id) { const p = this.mode.campaign.placed.find((x) => x.id === id); return p ? [p.x, p.z] : [0, 0]; },
 
         uplinkAct(cmd, arg) {
             if (cmd !== 'send') return false;
-            const [dir, id, hereId, thereId] = arg.split('|');
+            const [dir, id, hereId, thereId, cnt] = arg.split('|');
             const c = this.mode.campaign;
             const fromId = dir === 'out' ? hereId : thereId, toId = dir === 'out' ? thereId : hereId;
             const from = this.chestPieces(...this.xz(fromId), BASE_R);
             const to = this.chestPieces(...this.xz(toId), BASE_R);
             let n = 0;
-            for (const pc of from) { const st = c.pack.chests.get(pc.id); if (st?.[id]) { n += st[id]; delete st[id]; } }
+            let left = cnt ? Math.max(1, Number(cnt) || 1) : Infinity;
+            for (const pc of from) {
+                const st = c.pack.chests.get(pc.id);
+                if (!st?.[id] || left <= 0) continue;
+                const k = Math.min(st[id], left);
+                st[id] -= k; if (!st[id]) delete st[id];
+                n += k; left -= k;
+            }
             for (const pc of to) {
                 if (!n) break;
                 const st = c.pack.chests.get(pc.id);

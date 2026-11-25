@@ -19,7 +19,7 @@
         ['wild', 'Animals, hunting & cooking', 'bowl', 'Every animal, where it lives and what it drops; raw vs cooked food; campfires, fire camps and cooking stations; every meal.'],
         ['dungeons', 'Dungeons', 'key', 'All nine dungeons and their puzzles. (Legendary hunts and Pit Master duels were replaced by the seven final bosses in 1.0.)'],
         ['quests', 'Quests', 'scroll', 'The quest log: chapters, how tracking works, every quest and its reward.'],
-        ['thrill', 'Levels, loot & contracts', 'rune', 'Survivor levels and perk cards, weapon rarity and traits, champions, infested sites, contracts and caches.'],
+        ['thrill', 'Levels, loot & contracts', 'rune', 'Survivor levels and skills, weapon rarity and traits, champions, infested sites, contracts and caches.'],
         ['vitals', 'Vitals, injuries & climate', 'flask', 'Health, bleeding, fractures, hunger, water, cold, toxic ash and radiation.'],
         ['map', 'Zone regions', 'scroll', 'Every region of the 500 × 450 m Exclusion Zone: threat, climate and resources.'],
         ['building', 'Building & fortifications', 'build', 'Snap building, structural integrity, breaching, traps, turrets and power.'],
@@ -190,7 +190,12 @@
         /* ---------- 3b. Levels, loot & contracts ---------- */
         const TH = BO.ZoneThrill;
         if (TH) {
-            add({ cat: 'thrill', title: 'Survivor levels & perk cards', icon: icon('rune', '#ffd27a'), tags: ['Every expedition'],
+            const SK = BO.GM?.get?.('skills');
+            if (SK) add({ cat: 'thrill', title: 'Survivor levels & skills', icon: icon('rune', '#ffd27a'), tags: ['Every expedition'],
+                text: 'Everything you do earns XP: kills (+4 for headshots), kill streaks and multi-kills, containers, discoveries, securing sites, stashes, contracts and caches. Each level heals 25% and gives one skill point. Press ' + key('survSkills') + ' to open Skills and spend it on any open node, whenever you like. Three branches of eight nodes; rows 2, 3 and 4 of a branch open after 2, 5 and 8 points spent in it. Skills last for the whole expedition, deaths included.',
+                facts: [['Points', 'One per level'], ['Ranks in all', String(SK.totalRanks())], ['Row unlocks', '2 · 5 · 8 points in the branch'], ['Where to see them', 'Skills tab, or Journal → Survivor skills']],
+                lists: SK.BRANCHES.map((br) => ({ h: br.name, items: br.nodes.map((nd) => nd.name + ' (max ' + nd.max + '): ' + nd.desc(1)) })) });
+            else add({ cat: 'thrill', title: 'Survivor levels & perk cards', icon: icon('rune', '#ffd27a'), tags: ['Every expedition'],
                 text: 'Everything you do earns XP: kills (+4 for headshots), kill streaks and multi-kills, containers, discoveries, securing sites, stashes, contracts and caches. Each level heals 25% and lets you choose one of three perk cards. Cards open on their own once no infected is hunting you, or press ' + key('survSkills') + ' to choose now. Press 1–3 to pick, R to reroll (you start with 1 reroll and earn more from contracts), Esc for later. Perks last for the whole expedition, deaths included.',
                 facts: [['Card rarity', 'Common · Rare · Epic (Epic perks from level 3–5)'], ['Ranks', 'Most perks stack 2–3 times'], ['Where to see them', 'Journal → Survivor perks']],
                 lists: ['Combat', 'Stealth', 'Survival', 'Scavenging', 'Building', 'Legend'].map((cat) => ({ h: cat, items: TH.PERKS.filter((p) => p.cat === cat).map((p) => p.name + ' (max ' + p.max + '): ' + p.desc(1)) })) });

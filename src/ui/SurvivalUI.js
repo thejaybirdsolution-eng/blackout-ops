@@ -365,6 +365,7 @@
                 this.act(el.dataset.act, el.dataset.arg, e, el);
             });
             this.root.addEventListener('contextmenu', (e) => {
+                if (this.moveFromTile(e, 'half')) return;
                 const slot = e.target.closest('[data-hb-slot]');
                 if (slot && this.section === 'inventory') {
                     e.preventDefault();
@@ -483,6 +484,16 @@
                 this.render();
             });
             this.root.addEventListener('wheel', (e) => {
+                // Shift + scroll over a stack moves one per notch; plain scrolling still scrolls the list.
+                if (e.shiftKey && (e.deltaY || e.deltaX) && e.target.closest?.('[data-mv-act]')) {
+                    e.preventDefault();
+                    // Trackpads fire many small wheel events; one item per 70 ms keeps it controllable.
+                    const now = performance.now();
+                    if (now - (this._mvWheelAt || 0) < 70) return;
+                    this._mvWheelAt = now;
+                    this.moveFromTile(e, 'one');
+                    return;
+                }
                 if (e.target.id !== 'sv-map-canvas' || this.section !== 'map') return;
                 e.preventDefault();
                 const next = e.deltaY < 0 ? Math.min(4, this.mapZoom + 0.5) : Math.max(1, this.mapZoom - 0.5);
@@ -960,6 +971,20 @@
                 default: return;
             }
             this.render();
+        }
+
+        /**
+         * Shared quick-move for every container screen (chest, satchel, vehicle trunk, stash uplink).
+         * A stack tile carries data-mv-act / data-mv-arg (with N where the count goes) / data-mv-max.
+         */
+        moveFromTile(e, how) {
+            const el = e.target.closest?.('[data-mv-act]');
+            if (!el || !this.open) return false;
+            e.preventDefault();
+            const max = Math.max(1, Number(el.dataset.mvMax) || 1);
+            const n = how === 'half' ? Math.ceil(max / 2) : 1;
+            this.act(el.dataset.mvAct, String(el.dataset.mvArg).replace(/N$/, String(n)), e, el);
+            return true;
         }
 
         assignToHotbar(index, kind, id) {
@@ -1770,7 +1795,7 @@
             const stored = pack.chests.get(chestKey) || {};
             const sel = this.selItem;
             const grid = (items, side) => Object.entries(items).filter(([id, n]) => frontier.items[id] && n > 0).map(([id, n]) => `
-                <button class="sv-tile ${sel?.kind === 'item' && sel.id === id && this.selSide === side ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" data-side="${side}"${tip(itemName(id) + ' ×' + n, ITEM_INFO[id] || '', 'Double-click moves one · shift-click moves the stack')}>
+                <button class="sv-tile ${sel?.kind === 'item' && sel.id === id && this.selSide === side ? 'selected' : ''}" data-act="selItem" data-arg="item:${id}" data-side="${side}" data-mv-act="transfer" data-mv-arg="${side === 'pack' ? 'store' : 'take'}:${id}:N" data-mv-max="${n}"${tip(itemName(id) + ' ×' + n, ITEM_INFO[id] || '', 'Shift-click moves the stack · right-click moves half · shift+scroll or double-click moves one')}>
                 ${Icons().item(id, 28)}<span class="sv-tile-n">${n}</span><span class="sv-tile-name">${esc(itemName(id))}</span></button>`).join('');
             const chestW = pack.weight(stored);
             const selStored = sel?.kind === 'item' ? stored[sel.id] || 0 : 0;
@@ -1780,7 +1805,7 @@
                 <section><div class="sv-pack-cap"><b>${esc(limits.label || 'Chest')}</b><span class="sv-cap-bar"><i style="width:${pct(chestW, limits.weight)}%"></i></span><small>${chestW.toFixed(1)} / ${limits.weight} kg · ${pack.slots(stored)}/${limits.slots} stacks</small></div>
                     <div class="sv-grid sv-scroll" data-scroll="cgrid">${grid(stored, 'chest') || '<p class="sv-muted">Empty storage.</p>'}</div></section>
                 <aside class="sv-detail sv-scroll">${sel?.kind === 'item' ? `${this.detailPanel(sel)}
-                    ${selStored ? `<div class="sv-actions"><button class="sv-btn sm" data-act="transfer" data-arg="take:${sel.id}:one">Take 1</button><button class="sv-btn sm primary" data-act="transfer" data-arg="take:${sel.id}:all">Take all (${selStored})</button></div>` : ''}` : '<div class="sv-empty-detail"><b>Quick Transfer</b><p>Shift-click any stack to move it immediately, or double-click to move one.</p></div>'}</aside>
+                    ${selStored ? `<div class="sv-actions"><button class="sv-btn sm" data-act="transfer" data-arg="take:${sel.id}:one">Take 1</button><button class="sv-btn sm primary" data-act="transfer" data-arg="take:${sel.id}:all">Take all (${selStored})</button></div>` : ''}` : '<div class="sv-empty-detail"><b>Quick Transfer</b><p>Shift-click a stack to move all of it, right-click to move half, and hold Shift while scrolling over it (or double-click) to move one at a time.</p></div>'}</aside>
             </div>`;
         }
 
@@ -1965,7 +1990,7 @@
             const known = listed.filter((b) => !RM || RM.buildVisible(b));
             const hidden = listed.length - known.length;
             const tabOf = (b) => BUILD_TAB_OF[b.id] || 'craft';
-            const costOfB = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
+            const costOfB = (b) => BO.buildCostOf(b);
             if (!this.buildTab || !BUILD_TABS.some(([id]) => id === this.buildTab)) this.buildTab = 'shelter';
             const pieces = known.filter((b) => tabOf(b) === this.buildTab);
             const tabs = BUILD_TABS.map(([id, label, glyph]) => {
@@ -1978,7 +2003,7 @@
                 return `<div class="sv-build"><div class="sv-bcol"><nav class="sv-btabs">${tabs}</nav><section class="sv-bgrid sv-scroll" data-scroll="bgrid-${this.buildTab}"><p class="sv-muted">No blueprints discovered in this tab yet.</p></section>${undiscovered}</div><aside class="sv-detail"><p class="sv-muted">Pick a tab with blueprints.</p></aside></div>`;
             }
             if (!this.selBuild || !pieces.some((b) => b.id === this.selBuild)) this.selBuild = pieces[0].id;
-            const costOf = (b) => (typeof b.cost === 'number' ? { scrap: b.cost } : b.cost);
+            const costOf = (b) => BO.buildCostOf(b);
             const techName = (id) => deepData().techTree?.find((t) => t.id === id)?.name || id;
             const cards = pieces.map((b) => {
                 const techOk = (!b.tech || deep?.hasTech(b.tech)) && !BO.GM?.get('base')?.buildBlock?.(b.id);
@@ -2491,6 +2516,7 @@
             }).join('');
             return `<div class="sv-skills">
                 <section class="sv-tech sv-scroll" data-scroll="tech">
+                    ${BO.GM?.active ? (BO.GM.get('skills')?.renderTree?.() || '') : ''}
                     <div class="sv-sec-h"><h3>Technology</h3><span class="sv-pill">${infTp ? '∞ Tech Points' : deep.techPoints + ' Tech Point' + (deep.techPoints === 1 ? '' : 's')}</span>${offGrid ? '<span class="sv-pill warn">Automation disabled by modifier</span>' : ''}</div>
                     <p class="sv-muted sm">Earn Tech Points by levelling up and defeating named infected.</p>
                     <div class="sv-tiers">${tiers}</div>
@@ -2542,7 +2568,7 @@
                 </div>
                 <div class="sv-jcols">
                     <section><h4 class="sv-sub">Field challenges</h4>${challenges}</section>
-                    <section><h4 class="sv-sub">Survivor perks</h4>${BO.ZoneThrill ? BO.ZoneThrill.summaryHtml() : ''}
+                    <section><h4 class="sv-sub">${BO.GM?.active ? 'Survivor skills' : 'Survivor perks'}</h4>${BO.ZoneThrill ? BO.ZoneThrill.summaryHtml() : ''}
                         <h4 class="sv-sub">Haven contracts</h4><div class="sv-contracts">${(BO.ZoneContracts?.list || []).map((k) => { const pr = BO.ZoneContracts.progress(k); return `<div class="sv-contract"${tip(k.title, k.sub, '+' + k.xp + ' XP and a weapon reward')}><b>${esc(k.title)}</b><small>${esc(k.sub)}</small><span class="sv-prog sm"><i style="width:${pr ? pct(pr[0], pr[1]) : 0}%"></i></span><em>${pr ? pr[0] + '/' + pr[1] : '+' + k.xp}</em></div>`; }).join('') || '<p class="sv-muted sm">Haven radios new contracts every few minutes.</p>'}</div>
                         <p class="sv-muted sm">${BO.ZoneInfest ? esc(BO.ZoneInfest.chip()) + ' sites secured.' : ''}</p>
                         ${contracts ? `<h4 class="sv-sub">Contacts</h4><div class="sv-contracts">${contracts}</div>` : ''}

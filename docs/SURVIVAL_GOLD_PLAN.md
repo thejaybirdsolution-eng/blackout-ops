@@ -209,7 +209,7 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 
 ### Not verified
 - No human playthrough yet. Everything above was verified by scripted play in a browser, not by hand with mouse and keyboard.
-- The live site still runs `main`. None of this is published until `survival-gold` is merged and pushed.
+- Published: `survival-gold` was pushed to GitHub `master` on 2026-11-24 (commit 446b6a3), so the live site runs Survival Gold plus Phase 1 items 1.2, 1.4–1.6. Items 1.3 and 1.7 are on `survival-gold` only until the next push.
 
 ---
 
@@ -219,11 +219,11 @@ Each module ships complete, wired in and browser-tested (FPS, a scripted playthr
 |---|---|---|
 | 1.1 | Livestock pens | Not started (proposed as its own task) |
 | 1.2 | Composite armour | **Done** — `src/gm/GMArmor.js`: 3-slot plate vest (leather, bone & hide, ceramic, steel, composite), front plate sets absorption, HUD bars per plate, Base-screen repair/remove, death wear 25%, obsidian rig retired and converted, abyssal rig fills the vest |
-| 1.3 | Survivor Skills tree | Not started |
+| 1.3 | Survivor Skills tree | **Done** — `src/gm/GMSkills.js`: replaces the random perk cards. 3 branches × 8 nodes (Survival: hunger, cold, stealth · Combat: recoil, reload, melee · Engineering: build cost, power, repair), 50 ranks, 1 point per level, spent any time in the Skills tab (K). Rows 2/3/4 of a branch open at 2/5/8 points spent in it. Nodes write the existing perk ranks, so saved runs keep cards they picked (listed as "Kept from perk cards"). New effects: Cold Blooded (cold feels +4 °C per rank, capped at 18 °C), Frugal Builder (−15% per material per rank, rounded, min 1; build menu, ghost and Next Up show the reduced cost), Field Mechanic (+35% from gun and tool repair kits per rank), Grid Tech (+20% power from generators, solar and wind per rank). Fixed in passing: GMGear and GMCatalogue left a stray `ZoneThrill.xp` copy behind after a run, and the skills wrapper now stacks with their XP bonuses instead of skipping them |
 | 1.4 | Tooltip comparison | **Done** — `src/gm/GMCompare.js`: weapon-pickup card with fixed stat rows and ▲/▼ vs the held weapon; plate comparison in the item panel |
 | 1.5 | UI scale | **Done** — Controls · Display slider 80–140%, applied to HUD, trackers, overlays and (capped at 115%) the terminal |
 | 1.6 | Item tiles | **Done** — Hot-loot ring, rarity edge, weapon condition bar and rarity border |
-| 1.7 | Shift-click / scroll-split audit | Not started |
+| 1.7 | Shift-click / scroll-split audit | **Done** — one rule set in every container (chest, field satchel, vehicle trunk, stash uplink): shift-click (or click, in the satchel/trunk/uplink) moves the stack, right-click moves half, Shift+scroll moves one per notch (throttled for trackpads; plain scrolling still scrolls the list), double-click still moves one in chests. Shared handler `SurvivalUI.moveFromTile` reads `data-mv-*` on each tile |
 | 1.8 | Delete dead Deep code | Not started |
 
-Repository housekeeping: the seven `Blackout Ops - … backup` folders were moved to the Recycle Bin (every version is in this repo's history). Local branches are now `master` (tracks GitHub, currently Survival 1.0, which is what the live site runs) and `survival-gold` (this work, a fast-forward of `master`).
+Repository housekeeping: the seven `Blackout Ops - … backup` folders were moved to the Recycle Bin (every version is in this repo's history). Local branches are now `master` (tracks GitHub; the live site serves it) and `survival-gold` (this work, a fast-forward of `master`).

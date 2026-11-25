@@ -897,7 +897,7 @@
                 if ((w.cond ?? 100) >= (w.maxCond ?? 100) - 1) { this.toast('This weapon is already in top condition.'); return false; }
                 this.points.gunkit--;
                 w.maxCond = Math.max(40, (w.maxCond ?? 100) - 5);
-                w.cond = Math.min(w.maxCond, (w.cond ?? 50) + 35);
+                w.cond = Math.min(w.maxCond, (w.cond ?? 50) + 35 * (this.campaign?.deep?.modFx?.repairMult || 1));
                 if (this.jammed === w) this.jammed = null;
                 this.toast((w.stats.shortName || 'Weapon') + ' repaired to ' + Math.round(w.cond) + '%.');
                 return true;
