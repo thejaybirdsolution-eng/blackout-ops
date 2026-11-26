@@ -399,6 +399,7 @@
             S.data.ringsTaken = 0; S.data.recoveries = 0; S.data.beaconsLit = 0;
             S.data.stageIdx = 0; S.data.power = 'small'; S.data.hasGuns = false; S.data.coins = 0;
             S.data.stageObjs = []; S.data.fireballs = []; S.data.bFire = [];
+            S.data.bHammers = []; S.data.bHazards = []; S.data.bWaves = []; S.data.bBeams = [];
             S.data.bowser = null; S.data.bowserForm = 0; S.data.musicStep = 0; S.data.musicTimer = 0;
             if (S.opts.platformCourse === 'foundry') BO.PrismFoundry.build(S);
             else this._loadWorld(S, 0);
@@ -406,8 +407,21 @@
         _clearWorld(S) {
             const retired = new THREE.Group();
             for (const o of S.data.stageObjs) if (o.parent) retired.add(o);
-            for (const p of [...S.data.fireballs, ...S.data.bFire]) if (p.mesh.parent) retired.add(p.mesh);
+            for (const p of [...S.data.fireballs, ...S.data.bFire, ...(S.data.bHammers || []), ...(S.data.bWaves || [])]) {
+                if (p.mesh && p.mesh.parent) retired.add(p.mesh);
+            }
+            for (const hz of S.data.bHazards || []) {
+                if (hz.ring && hz.ring.parent) retired.add(hz.ring);
+                if (hz.meteor && hz.meteor.parent) retired.add(hz.meteor);
+            }
+            for (const bm of S.data.bBeams || []) {
+                if (bm.group && bm.group.parent) retired.add(bm.group);
+            }
             S.data.fireballs.length = 0; S.data.bFire.length = 0;
+            if (S.data.bHammers) S.data.bHammers.length = 0;
+            if (S.data.bHazards) S.data.bHazards.length = 0;
+            if (S.data.bWaves) S.data.bWaves.length = 0;
+            if (S.data.bBeams) S.data.bBeams.length = 0;
             for (const target of S.targets) if (target.root.parent) retired.add(target.root);
             MG._releaseGpu(retired);
             S.data.stageObjs = [];
@@ -769,9 +783,9 @@
             D.bowserForm = form;
             const formMeta = [
                 null,
-                { name: 'BOWSER (NORMAL)', hp: 1450, sc: 1.0, shell: 0x166534, skin: 0xfacc15, horn: 0xfef3c7, mane: 0xdc2626, rim: 0xf8fafc, seam: 0x14532d, seamGlow: 0x000000, eyeIris: 0xef4444, fireCol: 0xf97316, fireHalo: 0xfacc15, rate: 1.9 },
-                { name: 'BOWSER — FINAL FORM!', hp: 2100, sc: 1.38, shell: 0x270909, skin: 0xf97316, horn: 0xfde047, mane: 0xf97316, rim: 0xfdba74, seam: 0xf97316, seamGlow: 0xea580c, eyeIris: 0xfef08a, fireCol: 0xf97316, fireHalo: 0xfef08a, rate: 1.3 },
-                { name: 'OMEGA BOWSER — FINAL FINAL FORM!!', hp: 2800, sc: 1.72, shell: 0x1e0636, skin: 0xc084fc, horn: 0xfef08a, mane: 0xe879f9, rim: 0xe9d5ff, seam: 0xe879f9, seamGlow: 0xc026d3, eyeIris: 0xfef9c3, fireCol: 0xc084fc, fireHalo: 0xf0abfc, rate: 0.9 }
+                { name: 'BOWSER (NORMAL)', hp: 4500, sc: 1.0, shell: 0x166534, skin: 0xfacc15, horn: 0xfef3c7, mane: 0xdc2626, rim: 0xf8fafc, seam: 0x14532d, seamGlow: 0x000000, eyeIris: 0xef4444, fireCol: 0xf97316, fireHalo: 0xfacc15, rate: 1.75 },
+                { name: 'BOWSER — FINAL FORM!', hp: 7500, sc: 1.38, shell: 0x270909, skin: 0xf97316, horn: 0xfde047, mane: 0xf97316, rim: 0xfdba74, seam: 0xf97316, seamGlow: 0xea580c, eyeIris: 0xfef08a, fireCol: 0xf97316, fireHalo: 0xfef08a, rate: 1.25 },
+                { name: 'OMEGA BOWSER — FINAL FINAL FORM!!', hp: 12000, sc: 1.72, shell: 0x1e0636, skin: 0xc084fc, horn: 0xfef08a, mane: 0xe879f9, rim: 0xe9d5ff, seam: 0xe879f9, seamGlow: 0xc026d3, eyeIris: 0xfef9c3, fireCol: 0xc084fc, fireHalo: 0xf0abfc, rate: 0.95 }
             ][form];
             D.formMeta = formMeta;
             const cBrick = new THREE.MeshStandardMaterial({ map: marioTex('cbrick'), roughness: 0.82 });
@@ -943,9 +957,515 @@
             // Move target root cleanly to Bowser boss spawn
             tg.root.position.set(0, 0, -16);
             tg.hp = formMeta.hp; tg.maxHp = formMeta.hp; tg.fireT = 1.2; tg.walkT = 0; tg.flinchT = 0;
+            tg.moveMode = 'strafe'; tg.moveT = 2.8; tg.moveDir = 1;
+            tg.specialT = form === 1 ? 5.5 : form === 2 ? 4.2 : 3.4;
+            tg.act = null; tg.actLabel = form === 1 ? 'CASTLE OVERLORD' : form === 2 ? 'MOLTEN AWAKENING' : 'COSMIC ASCENSION';
+            tg.jumpY = 0; tg.jumpVy = 0; tg.spinYaw = 0; tg.hoverY = 0; tg.dashHits = 0;
             Object.assign(tg, { bodyGroup, headGroup, jawGroup, mouthGlow, tailGroup, omegaRing, ...limbs });
             D.bowser = tg;
             MG.toast(formMeta.name, '#facc15'); SFX.rumble(0.7);
+        },
+        _bowserMouthPos(bw) {
+            const p = V();
+            if (bw && bw.mouthGlow) bw.mouthGlow.getWorldPosition(p);
+            else if (bw) p.copy(bw.root.position).add(V(0, 3.6, 0));
+            return p;
+        },
+        _spawnBowserFireball(S, origin, vel, opts = {}) {
+            const D = S.data, col = opts.col || D.formMeta.fireCol, halo = opts.halo || D.formMeta.fireHalo;
+            const sc = opts.scale || 1.0;
+            const fm = new THREE.Group();
+            fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.38 * sc, 10, 8), basic(halo)));
+            fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.56 * sc, 10, 8), basic(col, { transparent: true, opacity: 0.48 })));
+            fm.position.copy(origin); S.add(fm);
+            D.bFire.push({
+                mesh: fm, vel: vel.clone(), life: opts.life || 3.8, rad: opts.rad || (1.05 * sc),
+                dmg: opts.dmg || (14 + D.bowserForm * 4), homing: !!opts.homing,
+                homingSpd: opts.homingSpd || 0, col
+            });
+        },
+        _spawnBowserHammer(S, origin, target, opts = {}) {
+            const D = S.data, col = opts.col || (D.bowserForm === 3 ? 0xe879f9 : D.bowserForm === 2 ? 0xf97316 : 0x94a3b8);
+            const hg = new THREE.Group();
+            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.35, 8), std(0x78350f, 0.65));
+            const head = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.9, 10), std(col, 0.28, 0.72, { emissive: D.bowserForm > 1 ? col : 0x000000, emissiveIntensity: D.bowserForm > 1 ? 0.55 : 0 }));
+            head.rotation.z = Math.PI / 2; head.position.y = 0.55;
+            hg.add(handle, head); hg.position.copy(origin); S.add(hg);
+            const flightT = opts.flightT || (0.85 + Math.random() * 0.35);
+            const dx = target.x - origin.x, dy = (target.y + 0.6) - origin.y, dz = target.z - origin.z;
+            const g = 24;
+            const vel = V(dx / flightT, dy / flightT + 0.5 * g * flightT, dz / flightT);
+            D.bHammers.push({ mesh: hg, vel, g, life: flightT + 0.9, dmg: opts.dmg || (15 + D.bowserForm * 3), blastRad: opts.blastRad || 2.1, col });
+        },
+        _spawnBowserHazard(S, x, z, delay, rad, dmg, col, kind = 'fissure') {
+            const cx = BO.Math.clamp(x, -17.5, 17.5), cz = BO.Math.clamp(z, -27, 15.5);
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.35, rad, 24), basic(col, { transparent: true, opacity: 0.72, side: THREE.DoubleSide }));
+            ring.rotation.x = -Math.PI / 2; ring.position.set(cx, 0.08, cz); S.add(ring);
+            let meteor = null;
+            if (kind === 'meteor') {
+                meteor = new THREE.Group();
+                meteor.add(new THREE.Mesh(new THREE.DodecahedronGeometry(rad * 0.42, 0), basic(col)));
+                meteor.add(new THREE.Mesh(new THREE.SphereGeometry(rad * 0.58, 10, 8), basic(col, { transparent: true, opacity: 0.35 })));
+                meteor.position.set(cx, 26, cz); S.add(meteor);
+            }
+            S.data.bHazards.push({ ring, meteor, pos: V(cx, 0.2, cz), t: delay, total: delay, rad, dmg, col, kind });
+        },
+        _spawnBowserWave(S, origin, maxRad, speed, dmg, col) {
+            const mesh = new THREE.Mesh(new THREE.TorusGeometry(1, 0.14, 8, 32), basic(col, { transparent: true, opacity: 0.9 }));
+            mesh.rotation.x = Math.PI / 2;
+            mesh.position.set(origin.x, 0.28, origin.z); S.add(mesh);
+            S.data.bWaves.push({ mesh, origin: V(origin.x, 0.28, origin.z), r: 1.1, prevR: 1.1, maxRad, speed, dmg, col, hit: false });
+        },
+        _spawnBowserBeam(S, origin, yaw, pitchAng, sweepRad, dur, col, dmg) {
+            const group = new THREE.Group(); group.position.copy(origin);
+            const teleGeo = new THREE.CylinderGeometry(0.08, 0.08, 38, 8);
+            const teleMesh = new THREE.Mesh(teleGeo, basic(0xfef08a, { transparent: true, opacity: 0.78 }));
+            teleMesh.rotation.x = Math.PI / 2; teleMesh.position.z = 19; group.add(teleMesh);
+            const beamGroup = new THREE.Group(); beamGroup.visible = false;
+            const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.6, 38, 12), basic(0xffffff));
+            inner.rotation.x = Math.PI / 2; inner.position.z = 19;
+            const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.84, 0.98, 38, 12), basic(col, { transparent: true, opacity: 0.58 }));
+            outer.rotation.x = Math.PI / 2; outer.position.z = 19;
+            beamGroup.add(inner, outer); group.add(beamGroup);
+            const dir = V(Math.sin(yaw - sweepRad * 0.5) * Math.cos(pitchAng), Math.sin(pitchAng), Math.cos(yaw - sweepRad * 0.5) * Math.cos(pitchAng)).normalize();
+            group.quaternion.setFromUnitVectors(V(0, 0, 1), dir);
+            S.add(group);
+            S.data.bBeams.push({ group, teleMesh, beamGroup, origin: origin.clone(), baseYaw: yaw, pitchAng, sweepRad, elapsed: 0, teleDur: 0.95, dur, col, dmg, hitCd: 0 });
+        },
+        _triggerBowserAttack(S, bw) {
+            const D = S.data, P = BO.Player, form = D.bowserForm;
+            const mOrig = this._bowserMouthPos(bw);
+            const aim = D.aimPoint.clone(); aim.y += 1.0;
+            const col = D.formMeta.fireCol;
+            const fireToward = (tx, ty, tz, spd, opts) => {
+                const dir = V(tx - mOrig.x, ty - mOrig.y, tz - mOrig.z).normalize();
+                this._spawnBowserFireball(S, mOrig, dir.multiplyScalar(spd), opts);
+            };
+            const pool = form === 1 ? ['spread3', 'hammer3', 'burst4']
+                : form === 2 ? ['molten_volley', 'hammer6', 'flame_sweep', 'magma_fissure']
+                : ['cosmic_fan', 'hammer8', 'halo_barrage', 'twin_fissure'];
+            const pick = pool[Math.floor(Math.random() * pool.length)];
+
+            if (pick === 'spread3') {
+                bw.actLabel = 'FIREBALL SPREAD';
+                for (let c = -1; c <= 1; c++) fireToward(aim.x + c * 2.8, aim.y, aim.z, 19);
+                SFX.launch();
+            } else if (pick === 'hammer3' || pick === 'hammer6' || pick === 'hammer8') {
+                const n = pick === 'hammer3' ? 3 : pick === 'hammer6' ? 6 : 8;
+                bw.actLabel = form === 1 ? 'IRON HAMMER TOSS' : form === 2 ? 'MAGMA HAMMER BARRAGE' : 'VOID HAMMER STORM';
+                for (let i = 0; i < n; i++) {
+                    const spread = (i - (n - 1) * 0.5) * (form === 1 ? 2.4 : 2.1);
+                    const tgt = P.pos.clone().add(V(spread, 0, (Math.random() - 0.5) * 4));
+                    this._spawnBowserHammer(S, bw.root.position.clone().add(V((i % 2 ? 1.4 : -1.4), 3.8 * D.formMeta.sc, 0.5)), tgt, { flightT: 0.78 + i * 0.08 });
+                }
+                SFX.launch();
+            } else if (pick === 'burst4') {
+                bw.actLabel = 'FLAME BURST';
+                for (let i = 0; i < 4; i++) {
+                    fireToward(aim.x + (i - 1.5) * 1.4, aim.y + 0.15 * i, aim.z, 18 + i * 2.2);
+                }
+                SFX.launch();
+            } else if (pick === 'molten_volley') {
+                bw.actLabel = 'MOLTEN VOLLEY';
+                for (let c = -2; c <= 2; c++) fireToward(aim.x + c * 2.5, aim.y, aim.z, 22);
+                for (const s of [-1, 1]) fireToward(aim.x + s * 6, aim.y + 1.5, aim.z, 15, { homing: true, homingSpd: 14, col: 0xfacc15, scale: 1.2, dmg: 20 });
+                SFX.launch();
+            } else if (pick === 'flame_sweep') {
+                bw.actLabel = 'FLAMETHROWER SWEEP';
+                for (let c = -3; c <= 3; c++) fireToward(aim.x + c * 3.1, aim.y, aim.z, 20 + Math.abs(c) * 1.1);
+                SFX.launch();
+            } else if (pick === 'magma_fissure') {
+                bw.actLabel = 'MAGMA FISSURE';
+                const dir = P.pos.clone().sub(bw.root.position); dir.y = 0; dir.normalize();
+                for (let k = 1; k <= 5; k++) {
+                    const fp = bw.root.position.clone().addScaledVector(dir, k * 4.6);
+                    this._spawnBowserHazard(S, fp.x, fp.z, 0.75 + k * 0.18, 2.7, 20, 0xf97316, 'fissure');
+                }
+                SFX.rumble(0.45);
+            } else if (pick === 'cosmic_fan') {
+                bw.actLabel = 'COSMIC FAN';
+                for (let c = -3; c <= 3; c++) fireToward(aim.x + c * 2.8, aim.y, aim.z, 24);
+                for (const s of [-1, 1]) fireToward(aim.x + s * 7, aim.y + 2.0, aim.z, 16, { homing: true, homingSpd: 17, col: 0xfef08a, scale: 1.25, dmg: 22 });
+                SFX.launch();
+            } else if (pick === 'halo_barrage') {
+                bw.actLabel = 'HALO STAR BARRAGE';
+                const ringOrigin = bw.omegaRing ? bw.omegaRing.getWorldPosition(V()) : mOrig.clone().add(V(0, 2.2, 0));
+                for (let k = 0; k < 10; k++) {
+                    const a = (k / 10) * TAU;
+                    const start = ringOrigin.clone().add(V(Math.cos(a) * 1.9, 0, Math.sin(a) * 1.9));
+                    const d = P.pos.clone().add(V((k - 4.5) * 1.3, 1.0, 0)).sub(start).normalize();
+                    this._spawnBowserFireball(S, start, d.multiplyScalar(22), { col: 0xe879f9, halo: 0xfef08a, dmg: 18, scale: 0.95 });
+                }
+                SFX.star(1);
+            } else if (pick === 'twin_fissure') {
+                bw.actLabel = 'TWIN VOID FISSURES';
+                const baseAng = Math.atan2(P.pos.x - bw.root.position.x, P.pos.z - bw.root.position.z);
+                for (const s of [-0.26, 0.26]) {
+                    const ang = baseAng + s;
+                    for (let k = 1; k <= 5; k++) {
+                        this._spawnBowserHazard(S, bw.root.position.x + Math.sin(ang) * k * 4.8, bw.root.position.z + Math.cos(ang) * k * 4.8, 0.72 + k * 0.16, 2.8, 22, 0xc084fc, 'fissure');
+                    }
+                }
+                SFX.rumble(0.5);
+            }
+        },
+        _triggerBowserSpecial(S, bw) {
+            const D = S.data, P = BO.Player, form = D.bowserForm;
+            const pool = form === 1 ? ['koopa_slam', 'fire_nova']
+                : form === 2 ? ['meteor_cataclysm', 'shell_tornado', 'triple_stomp', 'molten_slam']
+                : ['void_laser', 'cosmic_storm', 'singularity_spiral', 'phantom_blitz', 'omega_slam'];
+            const type = pool[Math.floor(Math.random() * pool.length)];
+            const labels = {
+                koopa_slam: 'KOOPA GROUND SLAM', fire_nova: 'FIRE BREATH NOVA',
+                meteor_cataclysm: 'METEOR CATACLYSM', shell_tornado: 'INFERNO SHELL TORNADO',
+                triple_stomp: 'TRIPLE LAVA STOMP', molten_slam: 'MOLTEN VAULT SLAM',
+                void_laser: 'OMEGA VOID LASER', cosmic_storm: 'COSMIC METEOR STORM',
+                singularity_spiral: 'SINGULARITY SPIRAL', phantom_blitz: 'PHANTOM SHELL BLITZ',
+                omega_slam: 'OMEGA CATACLYSM SLAM'
+            };
+            bw.actLabel = labels[type];
+            bw.act = { type, t: 0, phase: 0, count: 0, target: P.pos.clone(), start: bw.root.position.clone() };
+            MG.toast(`BOWSER SPECIAL: ${bw.actLabel}!`, form === 3 ? '#e879f9' : form === 2 ? '#f97316' : '#facc15');
+            SFX.rumble(0.65);
+
+            if (type === 'koopa_slam' || type === 'molten_slam' || type === 'omega_slam') {
+                if (type === 'omega_slam') {
+                    BO.FX.spawnExplosion(bw.root.position.clone().add(V(0, 2.5, 0)), 4, 0xc084fc);
+                    bw.root.position.set(BO.Math.clamp(P.pos.x + (Math.random() - 0.5) * 6, -14, 14), 0, BO.Math.clamp(P.pos.z - 8, -24, 10));
+                }
+                bw.jumpVy = type === 'koopa_slam' ? 16 : 21; bw.jumpY = 0.01;
+                bw.act.hang = type !== 'koopa_slam';
+            } else if (type === 'cosmic_storm') {
+                BO.FX.spawnExplosion(bw.root.position.clone().add(V(0, 2.5, 0)), 4, 0xc084fc);
+                bw.root.position.set(0, 0, -14); bw.hoverY = 4.2;
+            } else if (type === 'void_laser' || type === 'singularity_spiral') {
+                bw.root.position.set(0, 0, -16); bw.hoverY = type === 'void_laser' ? 5.2 : 4.8;
+            } else if (type === 'shell_tornado' || type === 'phantom_blitz') {
+                bw.dashHits = 0;
+            }
+        },
+        _updateBowser(S, dt) {
+            const D = S.data, P = BO.Player, bw = D.bowser;
+            const form = D.bowserForm, sc = D.formMeta.sc, col = D.formMeta.fireCol;
+            bw.walkT += dt;
+            if (bw.flinchT > 0) bw.flinchT = Math.max(0, bw.flinchT - dt);
+
+            const step = Math.sin(bw.walkT * (4.2 + form * 0.45));
+            let spinThisFrame = 0;
+
+            if (bw.act) {
+                const a = bw.act; a.t += dt;
+                if (a.type === 'koopa_slam' || a.type === 'molten_slam' || a.type === 'omega_slam') {
+                    // Vault up, track player slightly, hang briefly (Forms 2/3), slam down with shockwaves
+                    if (a.phase === 0) {
+                        bw.jumpVy -= 34 * dt; bw.jumpY += bw.jumpVy * dt;
+                        bw.root.position.x = BO.Math.lerp(bw.root.position.x, BO.Math.clamp(P.pos.x, -15, 15), dt * 2.2);
+                        bw.root.position.z = BO.Math.lerp(bw.root.position.z, BO.Math.clamp(P.pos.z - 2.5, -24, 11), dt * 2.2);
+                        if (a.hang && bw.jumpVy < 0 && a.t < 1.15) { bw.jumpVy = 0; }
+                        if (bw.jumpY <= 0) {
+                            bw.jumpY = 0; bw.jumpVy = 0; a.phase = 1; a.t = 0;
+                            BO.FX.spawnExplosion(bw.root.position.clone().add(V(0, 0.8, 0)), 6 * sc, col); SFX.rumble(0.85);
+                            const waveN = a.type === 'koopa_slam' ? 1 : a.type === 'molten_slam' ? 2 : 3;
+                            for (let wi = 0; wi < waveN; wi++) {
+                                this._spawnBowserWave(S, bw.root.position, 28, 12 + wi * 4.5, 18 + form * 4, col);
+                            }
+                            if (a.type !== 'koopa_slam') {
+                                const fn = a.type === 'molten_slam' ? 4 : 6;
+                                for (let fi = 0; fi < fn; fi++) {
+                                    const ang = (fi / fn) * TAU;
+                                    this._spawnBowserHazard(S, bw.root.position.x + Math.cos(ang) * 7.5, bw.root.position.z + Math.sin(ang) * 7.5, 0.9, 3.0, 22, col, 'fissure');
+                                }
+                            }
+                        }
+                    } else if (a.t > 0.55) { bw.act = null; bw.actLabel = D.formMeta.name; }
+                } else if (a.type === 'fire_nova') {
+                    bw.headGroup.rotation.x = -0.32; bw.jawGroup.rotation.x = 0.72;
+                    if (a.phase === 0 && a.t >= 0.7) {
+                        a.phase = 1; const mOrig = this._bowserMouthPos(bw);
+                        for (let k = 0; k < 12; k++) {
+                            const ang = (k / 12) * TAU;
+                            this._spawnBowserFireball(S, mOrig, V(Math.sin(ang) * 16, -0.8, Math.cos(ang) * 16), { col, dmg: 16 });
+                        }
+                        for (let c = -1; c <= 1; c++) {
+                            const d = P.pos.clone().add(V(c * 2.5, 1.0, 0)).sub(mOrig).normalize();
+                            this._spawnBowserFireball(S, mOrig, d.multiplyScalar(21), { col: 0xfacc15, dmg: 18, scale: 1.15 });
+                        }
+                        SFX.launch();
+                    } else if (a.t > 1.35) { bw.act = null; }
+                } else if (a.type === 'meteor_cataclysm' || a.type === 'cosmic_storm') {
+                    const total = a.type === 'meteor_cataclysm' ? 8 : 14;
+                    bw.jawGroup.rotation.x = 0.65;
+                    while (a.count < total && a.t >= 0.35 + a.count * 0.18) {
+                        const nearPlayer = a.count % 2 === 0;
+                        const mx = nearPlayer ? P.pos.x + (Math.random() - 0.5) * 9 : (Math.random() - 0.5) * 30;
+                        const mz = nearPlayer ? P.pos.z + (Math.random() - 0.5) * 9 : -22 + Math.random() * 34;
+                        this._spawnBowserHazard(S, mx, mz, 1.15, a.type === 'cosmic_storm' ? 3.4 : 3.0, 22 + form * 3, col, 'meteor');
+                        a.count++;
+                    }
+                    if (a.type === 'cosmic_storm' && a.phase === 0 && a.t >= 1.2) {
+                        a.phase = 1;
+                        this._spawnBowserWave(S, bw.root.position, 32, 14, 22, col);
+                        this._spawnBowserWave(S, bw.root.position, 32, 20, 22, 0xfef08a);
+                    }
+                    if (a.t > 2.8) { bw.hoverY = 0; bw.act = null; }
+                } else if (a.type === 'triple_stomp') {
+                    const stompStep = Math.floor(a.t / 0.72);
+                    if (stompStep > a.count && a.count < 3) {
+                        a.count = stompStep; bw.jumpY = 0.6; bw.jumpVy = -8;
+                        SFX.rumble(0.75); BO.FX.spawnParticles(bw.root.position.clone().add(V(0, 0.3, 0)), 14, col, 4, 8, 0.5, 1.1);
+                        this._spawnBowserWave(S, bw.root.position, 30, 14 + a.count * 2.5, 20, col);
+                    }
+                    bw.jumpY = Math.max(0, bw.jumpY + bw.jumpVy * dt);
+                    if (a.t > 2.5) { bw.jumpY = 0; bw.jumpVy = 0; bw.act = null; }
+                } else if (a.type === 'shell_tornado' || a.type === 'phantom_blitz') {
+                    const maxDashes = a.type === 'shell_tornado' ? 2 : 3;
+                    spinThisFrame = 14 + form * 3;
+                    if (a.phase === 0) {
+                        a.target.copy(P.pos); a.phase = 1; a.subT = 0; a.dropT = 0;
+                    } else if (a.phase === 1) {
+                        a.subT += dt; a.dropT += dt;
+                        if (a.subT < 0.38) {
+                            a.target.copy(P.pos);
+                        } else {
+                            const toTgt = V(a.target.x - bw.root.position.x, 0, a.target.z - bw.root.position.z);
+                            const dist = toTgt.length();
+                            if (dist > 0.8 && a.subT < 1.35) {
+                                toTgt.normalize();
+                                bw.root.position.addScaledVector(toTgt, (a.type === 'shell_tornado' ? 22 : 28) * dt);
+                                if (a.dropT >= 0.28) {
+                                    a.dropT = 0;
+                                    if (a.type === 'shell_tornado') {
+                                        const ra = Math.random() * TAU;
+                                        this._spawnBowserFireball(S, bw.root.position.clone().add(V(0, 2.2, 0)), V(Math.cos(ra) * 13, 0, Math.sin(ra) * 13), { col, dmg: 15 });
+                                    } else {
+                                        this._spawnBowserHazard(S, bw.root.position.x, bw.root.position.z, 0.95, 2.8, 22, col, 'mine');
+                                    }
+                                }
+                            } else {
+                                a.count++;
+                                if (a.count >= maxDashes) { bw.act = null; bw.spinYaw = 0; }
+                                else a.phase = 0;
+                            }
+                            if (bw.dashHits < maxDashes && bw.root.position.distanceTo(P.pos) < 2.2 * sc) {
+                                bw.dashHits++;
+                                P.takeDamage(20 + form * 4, bw.root.position, true);
+                                if (!P.alive) MG.finish('DEFEATED BY BOWSER', { color: '#f87171' });
+                            }
+                        }
+                    }
+                } else if (a.type === 'void_laser') {
+                    if (a.phase === 0) {
+                        a.phase = 1;
+                        const mOrig = this._bowserMouthPos(bw);
+                        const d = P.pos.clone().add(V(0, 1.0, 0)).sub(mOrig);
+                        const yaw = Math.atan2(d.x, d.z), pitchAng = Math.asin(BO.Math.clamp(d.y / Math.max(0.1, d.length()), -0.8, 0.5));
+                        this._spawnBowserBeam(S, mOrig, yaw, pitchAng, 1.83, 1.45, 0xe879f9, 20);
+                    }
+                    bw.jawGroup.rotation.x = 0.72; bw.mouthGlow.scale.setScalar(1.8);
+                    if (a.t > 2.55) { bw.hoverY = 0; bw.act = null; }
+                } else if (a.type === 'singularity_spiral') {
+                    spinThisFrame = 9;
+                    if (a.count < 3 && a.t >= 0.45 + a.count * 0.65) {
+                        a.count++; const mOrig = bw.root.position.clone().add(V(0, 3.6 * sc, 0));
+                        const offset = a.count * 0.35;
+                        for (let k = 0; k < 12; k++) {
+                            const ang = (k / 12) * TAU + offset;
+                            this._spawnBowserFireball(S, mOrig, V(Math.sin(ang) * 16, -2.1, Math.cos(ang) * 16), { col: 0xc084fc, halo: 0xfef08a, dmg: 18, scale: 1.05 });
+                        }
+                        SFX.star(2);
+                    }
+                    if (a.t > 2.6) { bw.hoverY = 0; bw.spinYaw = 0; bw.act = null; }
+                }
+            } else {
+                // Autonomous Multi-Mode Movement AI
+                bw.moveT -= dt;
+                if (bw.moveT <= 0) {
+                    const modes = form === 1 ? ['strafe', 'stalk', 'leap_reposition']
+                        : form === 2 ? ['strafe', 'stalk', 'leap_reposition', 'flank_sprint', 'shell_dash']
+                        : ['strafe', 'stalk', 'leap_reposition', 'void_blink', 'cosmic_hover'];
+                    bw.moveMode = modes[Math.floor(Math.random() * modes.length)];
+                    bw.moveDir = Math.random() < 0.5 ? -1 : 1;
+                    bw.moveT = bw.moveMode === 'strafe' ? 2.8 : bw.moveMode === 'stalk' ? 2.4 : 1.7;
+                    if (bw.moveMode === 'leap_reposition' && bw.jumpY <= 0.01) { bw.jumpVy = 12.5; bw.jumpY = 0.01; SFX.boing(); }
+                    if (bw.moveMode === 'void_blink') {
+                        BO.FX.spawnExplosion(bw.root.position.clone().add(V(0, 2.5, 0)), 3.2, 0xc084fc);
+                        const bx = BO.Math.clamp(P.pos.x + (Math.random() < 0.5 ? -10 : 10), -14.5, 14.5);
+                        const bz = BO.Math.clamp(P.pos.z - 12 - Math.random() * 7, -23.5, 8);
+                        bw.root.position.set(bx, 0, bz);
+                        BO.FX.spawnExplosion(bw.root.position.clone().add(V(0, 2.5, 0)), 3.2, 0xfef08a);
+                        SFX.star(2);
+                    }
+                }
+                if (bw.moveMode === 'strafe') {
+                    bw.root.position.x = BO.Math.lerp(bw.root.position.x, Math.sin(bw.walkT * (1.2 + form * 0.25)) * 11 * bw.moveDir, dt * 2.2);
+                    bw.root.position.z = BO.Math.lerp(bw.root.position.z, -14 + Math.cos(bw.walkT * 0.9) * 5, dt * 2.0);
+                } else if (bw.moveMode === 'stalk') {
+                    const d = V(P.pos.x - bw.root.position.x, 0, P.pos.z - bw.root.position.z);
+                    if (d.length() > 4.2) { d.normalize(); bw.root.position.addScaledVector(d, (5.2 + form * 1.4) * dt); }
+                } else if (bw.moveMode === 'flank_sprint') {
+                    const toP = V(P.pos.x - bw.root.position.x, 0, P.pos.z - bw.root.position.z).normalize();
+                    const perp = V(-toP.z * bw.moveDir, 0, toP.x * bw.moveDir);
+                    bw.root.position.addScaledVector(perp.addScaledVector(toP, 0.35).normalize(), 11.5 * dt);
+                } else if (bw.moveMode === 'shell_dash') {
+                    spinThisFrame = 12;
+                    const d = V(P.pos.x - bw.root.position.x, 0, P.pos.z - bw.root.position.z);
+                    if (d.length() > 3.0) bw.root.position.addScaledVector(d.normalize(), 15 * dt);
+                } else if (bw.moveMode === 'cosmic_hover') {
+                    bw.hoverY = BO.Math.lerp(bw.hoverY, 2.8 + Math.sin(bw.walkT * 3) * 0.6, dt * 4);
+                    bw.root.position.x = BO.Math.lerp(bw.root.position.x, Math.cos(bw.walkT * 1.6) * 12, dt * 2.6);
+                }
+                if (bw.moveMode !== 'cosmic_hover') bw.hoverY = BO.Math.lerp(bw.hoverY, 0, dt * 5);
+                if (bw.jumpY > 0 || bw.jumpVy > 0) {
+                    bw.jumpVy -= 30 * dt; bw.jumpY += bw.jumpVy * dt;
+                    bw.root.position.x += bw.moveDir * 6.5 * dt;
+                    if (bw.jumpY <= 0) { bw.jumpY = 0; bw.jumpVy = 0; SFX.rumble(0.35); }
+                }
+
+                // Trigger Specials on cooldown, regular attacks in between
+                bw.specialT -= dt;
+                if (bw.specialT <= 0) {
+                    bw.specialT = form === 1 ? 6.2 : form === 2 ? 4.8 : 3.9;
+                    bw.fireT = Math.max(bw.fireT, 1.2);
+                    this._triggerBowserSpecial(S, bw);
+                } else {
+                    const lead = 0.55;
+                    if (bw.fireT > 0.48) D.aimPoint.copy(P.pos);
+                    bw.fireT -= dt;
+                    const charging = bw.fireT <= lead;
+                    D.warningRing.visible = bw.fireT <= 0.48;
+                    if (D.warningRing.visible) {
+                        D.warningRing.position.set(D.aimPoint.x, 0.045, D.aimPoint.z);
+                        D.warningRing.scale.setScalar(0.7 + Math.max(0, bw.fireT) * 2.5);
+                    }
+                    bw.headGroup.rotation.x = BO.Math.lerp(bw.headGroup.rotation.x, (charging ? -0.22 : 0) - bw.flinchT * 1.1, Math.min(1, dt * 10));
+                    bw.jawGroup.rotation.x = BO.Math.lerp(bw.jawGroup.rotation.x, charging ? 0.68 : 0.06, Math.min(1, dt * 12));
+                    bw.mouthGlow.scale.setScalar(charging ? 1.55 : 0.65);
+                    bw.armL.rotation.x = charging ? -0.55 : -step * 0.35;
+                    bw.armR.rotation.x = charging ? -0.55 : step * 0.35;
+                    if (charging && Math.random() < dt * 24) {
+                        BO.FX.spawnParticles(this._bowserMouthPos(bw), 1, col, 1.5, -1.0, 0.35, 0.7);
+                    }
+                    if (bw.fireT <= 0) {
+                        bw.fireT = D.formMeta.rate;
+                        this._triggerBowserAttack(S, bw);
+                    }
+                }
+            }
+
+            // Clamp Bowser onto the stone castle platform + apply vertical jump/hover + orientation
+            bw.root.position.x = BO.Math.clamp(bw.root.position.x, -15.5, 15.5);
+            bw.root.position.z = BO.Math.clamp(bw.root.position.z, -24, 12);
+            bw.root.position.y = bw.jumpY + bw.hoverY;
+            const faceYaw = Math.atan2(P.pos.x - bw.root.position.x, P.pos.z - bw.root.position.z);
+            if (spinThisFrame > 0) {
+                bw.spinYaw += spinThisFrame * dt;
+                bw.root.rotation.y = faceYaw + bw.spinYaw;
+            } else {
+                bw.spinYaw = 0;
+                bw.root.rotation.y = faceYaw;
+            }
+
+            // Procedural Limb & Form Aura Animations
+            bw.legL.rotation.x = bw.jumpY > 0.2 ? 0.35 : step * 0.42;
+            bw.legR.rotation.x = bw.jumpY > 0.2 ? -0.35 : -step * 0.42;
+            bw.bodyGroup.position.y = bw.jumpY > 0.2 ? 0 : Math.abs(step) * 0.14;
+            bw.bodyGroup.rotation.z = step * 0.045;
+            bw.bodyGroup.rotation.x = -bw.flinchT * 0.9;
+            bw.tailGroup.rotation.y = Math.sin(bw.walkT * 2.6) * 0.25;
+            if (bw.omegaRing) { bw.omegaRing.rotation.y += dt * 2.2; bw.omegaRing.position.y = 2.05 + Math.sin(bw.walkT * 3) * 0.14; }
+            if (form >= 2 && Math.random() < dt * (form === 2 ? 16 : 24)) {
+                BO.FX.spawnParticles(bw.root.position.clone().add(V((Math.random() - 0.5) * 3.4, 2.6, (Math.random() - 0.5) * 2.4)), 1, col, 1.4, -1.8, 0.55, 0.8);
+            }
+
+            const pTarget = P.pos.clone().add(V(0, 1.1, 0));
+            // Update Fireballs (normal + homing)
+            for (let i = D.bFire.length - 1; i >= 0; i--) {
+                const bf = D.bFire[i]; bf.life -= dt;
+                if (bf.homing && P.alive) {
+                    const desired = pTarget.clone().sub(bf.mesh.position).normalize().multiplyScalar(bf.homingSpd);
+                    bf.vel.lerp(desired, Math.min(1, dt * 2.4));
+                }
+                bf.mesh.position.addScaledVector(bf.vel, dt);
+                bf.mesh.rotation.y += dt * 7; bf.mesh.scale.setScalar(0.92 + Math.sin(bw.walkT * 18 + i) * 0.12);
+                if (bf.mesh.position.distanceTo(pTarget) < bf.rad) {
+                    P.takeDamage(bf.dmg, bf.mesh.position, true);
+                    S.scene.remove(bf.mesh); D.bFire.splice(i, 1);
+                    if (!P.alive) { MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return; }
+                    continue;
+                }
+                if (bf.life <= 0 || bf.mesh.position.y < -2) { S.scene.remove(bf.mesh); D.bFire.splice(i, 1); }
+            }
+            // Update Ballistic Spinning Hammers
+            for (let i = D.bHammers.length - 1; i >= 0; i--) {
+                const hm = D.bHammers[i]; hm.life -= dt;
+                hm.vel.y -= hm.g * dt;
+                hm.mesh.position.addScaledVector(hm.vel, dt);
+                hm.mesh.rotation.x += dt * 13; hm.mesh.rotation.z += dt * 5;
+                if (hm.mesh.position.distanceTo(pTarget) < 1.15) {
+                    P.takeDamage(hm.dmg, hm.mesh.position, true);
+                    BO.FX.spawnExplosion(hm.mesh.position.clone(), 2.2, hm.col);
+                    S.scene.remove(hm.mesh); D.bHammers.splice(i, 1);
+                    if (!P.alive) { MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return; }
+                    continue;
+                }
+                if (hm.mesh.position.y <= 0.15 || hm.life <= 0) {
+                    BO.FX.spawnExplosion(V(hm.mesh.position.x, 0.25, hm.mesh.position.z), 1.8, hm.col);
+                    if (Math.hypot(P.pos.x - hm.mesh.position.x, P.pos.z - hm.mesh.position.z) < hm.blastRad && P.pos.y < 1.4) {
+                        P.takeDamage(Math.round(hm.dmg * 0.75), hm.mesh.position, true);
+                        if (!P.alive) { S.scene.remove(hm.mesh); D.bHammers.splice(i, 1); MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return; }
+                    }
+                    S.scene.remove(hm.mesh); D.bHammers.splice(i, 1);
+                }
+            }
+            // Update Telegraphed Ground Fissures, Mines & Meteors
+            for (let i = D.bHazards.length - 1; i >= 0; i--) {
+                const hz = D.bHazards[i]; hz.t -= dt;
+                const prog = 1 - Math.max(0, hz.t) / Math.max(0.01, hz.total);
+                if (hz.meteor) hz.meteor.position.y = BO.Math.lerp(26, 0.3, prog * prog);
+                if (hz.t <= 0) {
+                    BO.FX.spawnExplosion(hz.pos.clone(), hz.rad, hz.col); SFX.rumble(0.45);
+                    if (Math.hypot(P.pos.x - hz.pos.x, P.pos.z - hz.pos.z) <= hz.rad && P.pos.y < (hz.kind === 'meteor' ? 3.2 : 1.6)) {
+                        P.takeDamage(hz.dmg, hz.pos, true);
+                        if (!P.alive) {
+                            S.scene.remove(hz.ring); if (hz.meteor) S.scene.remove(hz.meteor); D.bHazards.splice(i, 1);
+                            MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return;
+                        }
+                    }
+                    S.scene.remove(hz.ring); if (hz.meteor) S.scene.remove(hz.meteor); D.bHazards.splice(i, 1);
+                }
+            }
+            // Update Expanding Jump-Dodge Shockwave Rings
+            for (let i = D.bWaves.length - 1; i >= 0; i--) {
+                const wv = D.bWaves[i]; wv.prevR = wv.r; wv.r += wv.speed * dt;
+                wv.mesh.scale.set(wv.r, wv.r, 1);
+                wv.mesh.material.opacity = Math.max(0, 0.9 * (1 - wv.r / wv.maxRad));
+                const d = Math.hypot(P.pos.x - wv.origin.x, P.pos.z - wv.origin.z);
+                if (!wv.hit && d >= wv.prevR - 0.8 && d <= wv.r + 0.8 && P.pos.y < 1.15) {
+                    wv.hit = true; P.takeDamage(wv.dmg, wv.origin, true);
+                    if (!P.alive) { S.scene.remove(wv.mesh); D.bWaves.splice(i, 1); MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return; }
+                }
+                if (wv.r >= wv.maxRad) { S.scene.remove(wv.mesh); D.bWaves.splice(i, 1); }
+            }
+            // Update Sweeping Omega Void Laser Beams
+            for (let i = D.bBeams.length - 1; i >= 0; i--) {
+                const bm = D.bBeams[i]; bm.elapsed += dt;
+                if (bm.hitCd > 0) bm.hitCd -= dt;
+                if (bm.elapsed >= bm.teleDur) {
+                    bm.teleMesh.visible = false; bm.beamGroup.visible = true;
+                    const u = Math.min(1, (bm.elapsed - bm.teleDur) / bm.dur);
+                    const curYaw = bm.baseYaw + (u - 0.5) * bm.sweepRad;
+                    const dir = V(Math.sin(curYaw) * Math.cos(bm.pitchAng), Math.sin(bm.pitchAng), Math.cos(curYaw) * Math.cos(bm.pitchAng)).normalize();
+                    bm.group.quaternion.setFromUnitVectors(V(0, 0, 1), dir);
+                    const toP = pTarget.clone().sub(bm.origin);
+                    const proj = BO.Math.clamp(toP.dot(dir), 0, 38);
+                    const dist = bm.origin.clone().addScaledVector(dir, proj).distanceTo(pTarget);
+                    if (dist < 1.25 && bm.hitCd <= 0) {
+                        bm.hitCd = 0.28; P.takeDamage(bm.dmg, bm.origin, true);
+                        if (!P.alive) { S.scene.remove(bm.group); D.bBeams.splice(i, 1); MG.finish('DEFEATED BY BOWSER', { color: '#f87171' }); return; }
+                    }
+                }
+                if (bm.elapsed >= bm.teleDur + bm.dur) { S.scene.remove(bm.group); D.bBeams.splice(i, 1); }
+            }
         },
         onKey(S, code) {
             const D = S.data, P = BO.Player;
@@ -1140,71 +1660,7 @@
             }
 
             if (D.bowserForm > 0 && D.bowser) {
-                const bw = D.bowser; bw.walkT += dt;
-                bw.root.position.x = BO.Math.lerp(bw.root.position.x, Math.sin(bw.walkT * 1.25) * 9, dt * 2.0);
-                bw.root.position.z = BO.Math.lerp(bw.root.position.z, -15 + Math.cos(bw.walkT * 0.9) * 3.5, dt * 2.0);
-                bw.root.rotation.y = Math.atan2(P.pos.x - bw.root.position.x, P.pos.z - bw.root.position.z);
-
-                // Heavy stomping walk, swinging arms, tail counter-swish & hit recoil
-                const step = Math.sin(bw.walkT * 4.2);
-                bw.legL.rotation.x = step * 0.42;
-                bw.legR.rotation.x = -step * 0.42;
-                bw.bodyGroup.position.y = Math.abs(step) * 0.14;
-                bw.bodyGroup.rotation.z = step * 0.045;
-                bw.tailGroup.rotation.y = Math.sin(bw.walkT * 2.6) * 0.25;
-                if (bw.omegaRing) { bw.omegaRing.rotation.y += dt * 1.9; bw.omegaRing.position.y = 2.05 + Math.sin(bw.walkT * 3) * 0.14; }
-                if (bw.flinchT > 0) bw.flinchT = Math.max(0, bw.flinchT - dt);
-                bw.bodyGroup.rotation.x = -bw.flinchT * 0.9;
-
-                if (D.bowserForm === 2 && Math.random() < dt * 16) {
-                    BO.FX.spawnParticles(bw.root.position.clone().add(V((Math.random() - 0.5) * 3.2, 2.6, (Math.random() - 0.5) * 2.4)), 1, 0xf97316, 1.4, -1.8, 0.55, 0.8);
-                }
-
-                const lead = 0.55;
-                if (bw.fireT > 0.48) D.aimPoint.copy(P.pos);
-                bw.fireT -= dt;
-                const charging = bw.fireT <= lead;
-                D.warningRing.visible = bw.fireT <= 0.48;
-                if (D.warningRing.visible) {
-                    D.warningRing.position.set(D.aimPoint.x, 0.045, D.aimPoint.z);
-                    D.warningRing.scale.setScalar(0.7 + Math.max(0, bw.fireT) * 2.5);
-                }
-                // Fire-breath telegraph pose + mouth charge flare
-                bw.headGroup.rotation.x = BO.Math.lerp(bw.headGroup.rotation.x, (charging ? -0.22 : 0) - bw.flinchT * 1.1, Math.min(1, dt * 10));
-                bw.jawGroup.rotation.x = BO.Math.lerp(bw.jawGroup.rotation.x, charging ? 0.68 : 0.06, Math.min(1, dt * 12));
-                bw.mouthGlow.scale.setScalar(charging ? 1.55 : 0.65);
-                bw.armL.rotation.x = charging ? -0.55 : -step * 0.35;
-                bw.armR.rotation.x = charging ? -0.55 : step * 0.35;
-                if (charging && Math.random() < dt * 24) {
-                    const mp = V(); bw.mouthGlow.getWorldPosition(mp);
-                    BO.FX.spawnParticles(mp, 1, D.formMeta.fireCol, 1.5, -1.0, 0.35, 0.7);
-                }
-
-                if (bw.fireT <= 0) {
-                    bw.fireT = D.formMeta.rate;
-                    const count = D.bowserForm === 1 ? 1 : D.bowserForm === 2 ? 3 : 5;
-                    const mOrig = V(); bw.mouthGlow.getWorldPosition(mOrig);
-                    for (let c = 0; c < count; c++) {
-                        const fm = new THREE.Group();
-                        fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), basic(D.formMeta.fireHalo)));
-                        fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.56, 10, 8), basic(D.formMeta.fireCol, { transparent: true, opacity: 0.48 })));
-                        fm.position.copy(mOrig); S.add(fm);
-                        const tgt = D.aimPoint.clone().add(V((c - (count - 1) * 0.5) * 2.5, 1.0, 0));
-                        D.bFire.push({ mesh: fm, vel: tgt.sub(mOrig).normalize().multiplyScalar(17 + D.bowserForm * 3), life: 3.5 });
-                    }
-                    SFX.launch();
-                }
-                for (let i = D.bFire.length - 1; i >= 0; i--) {
-                    const bf = D.bFire[i]; bf.life -= dt; bf.mesh.position.addScaledVector(bf.vel, dt);
-                    bf.mesh.rotation.y += dt * 7; bf.mesh.scale.setScalar(0.92 + Math.sin(bw.walkT * 18 + i) * 0.12);
-                    if (bf.mesh.position.distanceTo(P.pos.clone().add(V(0, 1.1, 0))) < 1.1) {
-                        P.takeDamage(14 + D.bowserForm * 4, bf.mesh.position, true);
-                        S.scene.remove(bf.mesh); D.bFire.splice(i, 1);
-                        if (!P.alive) MG.finish('DEFEATED BY BOWSER', { color: '#f87171' });
-                        continue;
-                    }
-                    if (bf.life <= 0) { S.scene.remove(bf.mesh); D.bFire.splice(i, 1); }
-                }
+                this._updateBowser(S, dt);
                 return;
             }
             for (const g of D.goombas || []) {
@@ -1256,7 +1712,7 @@
         onHit(S, ent, info) {
             const D = S.data;
             if (ent === D.bowser) {
-                D.bowser.hp -= info.dmg * 1.4; D.bowser.flinchT = 0.14; S.hits++; SFX.thunk();
+                D.bowser.hp -= info.dmg; D.bowser.flinchT = 0.14; S.hits++; SFX.thunk();
                 if (D.bowser.hp <= 0) {
                     BO.FX.spawnExplosion(D.bowser.root.position.clone().add(V(0, 2, 0)), 8, 0xfacc15);
                     D.bowser.kill(info); D.bowser = null; S.kills++; S.award(2500 * D.bowserForm);
@@ -1280,7 +1736,11 @@
             if (D.foundry) return BO.PrismFoundry.hud(S);
             if (D.bowserForm > 0 && D.bowser) {
                 const pct = Math.max(0, Math.round(D.bowser.hp / D.bowser.maxHp * 100));
-                return `<div class="fun-panel"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>${D.formMeta.name}</span><b>${Math.round(D.bowser.hp)} / ${D.bowser.maxHp}</b></div><div class="fun-bar"><i style="width:${pct}%;background:linear-gradient(90deg,#ef4444,#facc15)"></i></div></div></div>`;
+                const grad = D.bowserForm === 1 ? 'linear-gradient(90deg,#dc2626,#facc15)'
+                    : D.bowserForm === 2 ? 'linear-gradient(90deg,#991b1b,#f97316,#fde047)'
+                    : 'linear-gradient(90deg,#7e22ce,#ec4899,#fef08a)';
+                const actBadge = D.bowser.actLabel ? `<em style="font-style:normal;opacity:0.9;margin-left:8px;color:#fde047">[${D.bowser.actLabel}]</em>` : '';
+                return `<div class="fun-panel"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>FORM ${D.bowserForm}/3 • ${D.formMeta.name}${actBadge}</span><b>${Math.round(D.bowser.hp)} / ${D.bowser.maxHp}</b></div><div class="fun-bar"><i style="width:${pct}%;background:${grad}"></i></div></div></div>`;
             }
             return `<div class="fun-panel"><div class="mgx-chip"><b>${D.world ? D.world.name : ''}</b></div><div class="mgx-chip">PRISMS <b>${D.ringsTaken}</b></div><div class="mgx-chip">LIFT <b>${D.boostReady ? 'READY [V]' : 'SPENT'}</b></div><div class="mgx-chip">COINS <b>${D.coins}</b></div><div class="mgx-chip">POWER <b>${D.hasGuns ? 'FAMAS + DEAGLE' : D.power.toUpperCase()}</b></div><div class="mgx-chip">GOAL <b>${Math.max(0, Math.round(BO.Player.pos.z - (D.goalZ || -120)))} m</b></div>${D.nearPipe ? '<div class="mgx-chip mgx-hot">PRESS <b>[E / C]</b> ENTER PIPE</div>' : ''}</div>`;
         }
