@@ -118,7 +118,7 @@
             return `
                 <button class="mgh-card ${active ? 'active' : ''}" data-id="${def.id}" style="--mc:${def.accent}">
                     <div class="mgh-card-art">
-                        ${def.cardImage ? `<img class="mgh-card-scene" src="${esc(def.cardImage)}" alt="" loading="lazy" decoding="async">` : `<span class="mgh-card-ico">${def.icon}</span>`}
+                        ${(def.cardImage || (BO.MinigameThumbs && BO.MinigameThumbs.get(def))) ? `<img class="mgh-card-scene" src="${esc(def.cardImage || BO.MinigameThumbs.get(def))}" alt="" loading="lazy" decoding="async">` : `<span class="mgh-card-ico">${def.icon}</span>`}
                         ${num ? `<span class="mgh-card-num">${num}</span>` : ''}
                         ${tag}
                     </div>

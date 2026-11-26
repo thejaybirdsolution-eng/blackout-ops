@@ -647,6 +647,36 @@
                 if (st % 4 === 2) this._hat(urgent ? 0.055 : 0.032, false, (st % 8 === 2 ? -0.25 : 0.25));
                 const noir = [0, 0, N.B4, 0, 0, N.C5, 0, 0, N.B4, 0, 0, N.G4, 0, 0, N.Fs4, 0][st];
                 if (noir) this._osc(noir, 0.34, 'sine', 0.055, { pan: Math.sin(s * 0.4) * 0.35 });
+            } else if (this.mode === 'range') {
+                // 128 BPM Upbeat Tactical Firing-Range Groove
+                this.timer = 0.117;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const root = [N.E2, N.E2, N.G2, N.A2][bar];
+                if (st === 0 || st === 6 || st === 10) this._kick(0.24, 150, 48, 0.16);
+                if (st === 4 || st === 12) this._snare(0.15, 210, 0.12);
+                if (st % 2 === 1) this._hat(0.045, false, (st % 4 === 1 ? -0.2 : 0.2));
+                this._osc(root * (st % 4 === 2 ? 1.5 : 1), 0.10, 'triangle', 0.11);
+                const mel = [N.E4, 0, N.G4, N.A4, N.B4, 0, N.A4, N.G4, N.E4, 0, N.G4, N.B4, N.D5, 0, N.B4, N.A4][st];
+                if (mel) this._osc(mel, 0.11, 'triangle', 0.068, { pan: (st % 4 - 1.5) * 0.18 });
+            } else if (this.mode === 'western') {
+                // Ennio-style High Noon Standoff -> Driving Showdown on Draw
+                const draw = !!state.draw;
+                this.timer = draw ? 0.105 : 0.185;
+                const N = NOTE, st = s % 16;
+                if (draw) {
+                    if (st % 4 === 0 || st === 14) this._kick(0.26, 138, 42, 0.18);
+                    if (st === 4 || st === 12) this._snare(0.18, 200, 0.13);
+                    this._osc([N.D2, N.D2, N.F2, N.A2][Math.floor(st / 4)], 0.10, 'sawtooth', 0.10, { cutoff: 900 });
+                    const gal = [N.D4, N.F4, N.A4, N.D5, N.C5, N.A4, N.F4, N.G4][st % 8];
+                    this._osc(gal, 0.10, 'triangle', 0.075);
+                } else {
+                    if (st === 0) this._kick(0.16, 86, 36, 0.20);
+                    if (st === 8) this._snare(0.07, 175, 0.08);
+                    const bass = [N.D2, 0, 0, 0, N.A2, 0, 0, 0, N.D2, 0, 0, 0, N.F2, 0, N.G2, 0][st];
+                    if (bass) this._osc(bass, 0.28, 'triangle', 0.13);
+                    const whistle = [0, 0, N.A4, 0, N.D5, 0, 0, 0, N.A4, 0, N.C5, 0, N.G4, 0, 0, 0][st];
+                    if (whistle) this._osc(whistle, 0.36, 'sine', 0.065, { pan: Math.sin(s * 0.25) * 0.25 });
+                }
             }
         }
 
@@ -938,6 +968,16 @@
             [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6].forEach((f, i) => {
                 this._osc(f, 0.18, 'square', 0.12, { sfx: true, delay: i * 0.055 });
             });
+        }
+        steelPing(pitch = 1) {
+            this._noise(0.05, 4200, 'bandpass', 1.6, 0.16, 0, true);
+            this._osc(1480 * pitch, 0.24, 'triangle', 0.14, { sfx: true });
+            this._osc(2960 * pitch, 0.18, 'sine', 0.08, { sfx: true, delay: 0.01 });
+        }
+        westernBell() {
+            this._osc(620, 0.72, 'sine', 0.18, { sfx: true });
+            this._osc(1240, 0.55, 'triangle', 0.09, { sfx: true, delay: 0.01 });
+            this._osc(930, 0.45, 'sine', 0.06, { sfx: true, delay: 0.015 });
         }
     }
 

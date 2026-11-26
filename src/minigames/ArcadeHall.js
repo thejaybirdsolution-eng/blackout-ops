@@ -104,7 +104,7 @@
         name: 'Pistol Quickdraw', icon: '🤠', accent: '#f59e0b',
         tagline: 'Holster. Buzzer. Draw.',
         desc: 'A Western duel at high noon. Your pistol sits in the holster while you wait. Fire before the buzzer and you foul. When it sounds, draw, aim up and hit the outlaw before he fires. Your reaction is timed in milliseconds. Each round the next gunslinger draws faster. Three lives.',
-        heroLabel: 'ARCADE HALL • REFLEX DUEL', duration: 0,
+        heroLabel: 'ARCADE HALL • REFLEX DUEL', duration: 0, customMusic: true,
         stars: [3, 6, 9, 12], starLabel: (th) => 'ROUND ' + th,
         standardWeapon: 'python_magnum', lockWeapon: true, weaponLabel: 'COLT PYTHON .357', weaponNote: 'Holstered until the buzzer', infiniteMag: true, forgivingMisses: true,
         formatBest: (b) => (b.extra ? b.extra.rounds + ' rounds • best ' + (b.extra.best < 9999 ? b.extra.best + 'ms' : '—') : Number(b.score).toLocaleString()),
@@ -116,10 +116,12 @@
         },
         countdown: 2,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('western');
             Object.assign(S.data, { round: 0, wins: 0, lives: 3, times: [], best: 9999, phase: 'intro', reactMs: 0 });
             lockPlayer(S, 0, 0);
             const woods = [0x8b5a2b, 0x7c4a1e, 0xa16207, 0x6b3f17, 0x92400e];
             const names = ['SALOON', 'BANK', 'SHERIFF', 'GENERAL STORE', 'HOTEL', 'BARBER', 'UNDERTAKER', 'LIVERY'];
+            const lanternPts = [];
             for (let i = 0; i < 8; i++) {
                 const side = i % 2 ? 1 : -1;
                 const z = 4 - Math.floor(i / 2) * 9;
@@ -133,6 +135,7 @@
                 porch.position.set(-side * 4.8, 3, 0);
                 b.add(body, facade, porch);
                 for (const pz of [-3.8, 0, 3.8]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3, 0.15), std(0x3f2a14, 0.9)); post.position.set(-side * 5.9, 1.5, pz); b.add(post); }
+                lanternPts.push(V(side * 10 - side * 5.85, 2.75, z - 1.6), V(side * 10 - side * 5.85, 2.75, z + 1.6));
                 const sg = A.sign(names[i], 4.6, 0.8, { bg: '#3f2a14', color: '#fde68a', borderColor: '#78350f', size: 0.5 });
                 sg.position.set(-side * 3.82, h + 0.8, 0);
                 sg.rotation.y = -side * Math.PI / 2;
@@ -140,13 +143,30 @@
                 b.position.set(side * 10, 0, z);
                 S.add(b);
             }
+            const lanterns = A.bulbs(lanternPts, [0xfbbf24, 0xf59e0b, 0xfde68a], 0.11);
+            S.add(lanterns);
+            A.animateBulbs(S, lanterns, 4, 'twinkle');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl1 = new THREE.PointLight(0xffb454, 1.8, 28, 1.4); pl1.position.set(0, 4.5, -5.5); S.add(pl1);
+                const pl2 = new THREE.PointLight(0xffd28a, 1.5, 26, 1.4); pl2.position.set(0, 4.2, -13); S.add(pl2);
+            }
             const bell = new THREE.Group();
             const tower = new THREE.Mesh(new THREE.BoxGeometry(3, 12, 3), std(0xe7e5e4, 0.9));
             tower.position.y = 6;
+            const clockTex = L.canvasTex('noon-clock', 128, 128, (g, w, h) => {
+                g.fillStyle = '#fef3c7'; g.beginPath(); g.arc(64, 64, 58, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#451a03'; g.lineWidth = 6; g.stroke();
+                g.lineWidth = 5; g.beginPath(); g.moveTo(64, 64); g.lineTo(64, 18); g.stroke();
+                g.lineWidth = 7; g.beginPath(); g.moveTo(64, 64); g.lineTo(64, 28); g.stroke();
+            });
+            const clockFace = new THREE.Mesh(new THREE.CircleGeometry(1.05, 24), new THREE.MeshBasicMaterial({ map: clockTex }));
+            clockFace.position.set(0, 9.6, 1.52);
+            const brassBell = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.55, 0.7, 12), std(0xd97706, 0.3, 0.85));
+            brassBell.position.y = 12.1;
             const roofB = new THREE.Mesh(new THREE.ConeGeometry(2.4, 3, 4), std(0x7f1d1d, 0.8));
             roofB.position.y = 13.5;
             roofB.rotation.y = Math.PI / 4;
-            bell.add(tower, roofB);
+            bell.add(tower, clockFace, brassBell, roofB);
             bell.position.set(0, 0, -40);
             S.add(bell);
             // tumbleweed + hanging sign
@@ -176,6 +196,7 @@
             S.animate(() => { const t = performance.now() * 0.0008; hawk.position.set(Math.cos(t) * 14, 15 + Math.sin(t * 2), -20 + Math.sin(t) * 10); hawk.rotation.y = -t; });
         },
         onGo(S) { startRound(S); },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         hideViewmodel(S) { return S.data.phase === 'ready' || S.data.phase === 'intro'; },
         blockFire(S) { return S.data.phase !== 'draw'; },
         update(S, dt, lib, state) {
@@ -184,13 +205,21 @@
             const trig = !!P.triggerHeld;
             const pressed = trig && !D._trig;
             D._trig = trig;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { draw: D.phase === 'draw' });
             if (state !== 'running') return;
             if (D.phase === 'ready') {
                 D.wait -= dt;
+                if (D.opp && D.opp.fig) {
+                    // Tense western standoff breathing + nervous trigger finger twitch as wait nears 0
+                    D.opp.fig.root.position.y = Math.sin(S.t * 2.4) * 0.012;
+                    if (D.opp.fig.parts.head) D.opp.fig.parts.head.rotation.y = Math.sin(S.t * 1.1) * 0.06;
+                    if (D.wait < 0.9 && D.opp.fig.parts.armR) D.opp.fig.parts.armR.rotation.x = Math.sin(S.t * 28) * 0.08 - 0.1;
+                }
                 if (pressed) { D.reactMs = 0; resolve(S, false, 'foul'); return; }
                 if (D.wait <= 0) {
                     D.phase = 'draw';
                     D.drawAt = performance.now();
+                    if (BO.MinigameAudio) BO.MinigameAudio.westernBell();
                     SFX.tone(1320, 1320, 0.32, 'square', 0.16);
                     SFX.tone(2640, 2640, 0.2, 'sine', 0.06);
                     MG._showCountdown('DRAW!', '#fde68a');

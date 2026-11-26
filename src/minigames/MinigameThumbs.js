@@ -1,0 +1,574 @@
+/* ============================================================================
+   BLACKOUT OPS — MINIGAMES: Procedural Illustrated 320x180 Poster Thumbnails
+   Generates crisp WebP/PNG data URLs for every minigame card without a static
+   cardImage, tailored to each game's theme, atmosphere, characters & props.
+============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO;
+    const cache = new Map();
+
+    function hexRgb(hex) {
+        const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '#f59e0b').trim());
+        if (!m) return [245, 158, 11];
+        const n = parseInt(m[1], 16);
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    function rgba(hex, a) {
+        const [r, g, b] = hexRgb(hex);
+        return `rgba(${r},${g},${b},${a})`;
+    }
+
+    function rng32(seedStr) {
+        let h = 2166136261 >>> 0;
+        const s = String(seedStr || 'mg');
+        for (let i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return () => {
+            h += 0x6D2B79F5;
+            let t = Math.imul(h ^ (h >>> 15), 1 | h);
+            t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function drawBullseye(g, cx, cy, r, style) {
+        const rings = style === 'gold'
+            ? ['#fef08a', '#f59e0b', '#fef08a', '#b45309', '#ffffff']
+            : ['#f8fafc', '#dc2626', '#f8fafc', '#dc2626', '#facc15'];
+        for (let i = 0; i < rings.length; i++) {
+            g.beginPath();
+            g.arc(cx, cy, r * (1 - i * 0.2), 0, Math.PI * 2);
+            g.fillStyle = rings[i];
+            g.fill();
+            g.lineWidth = 1.4;
+            g.strokeStyle = 'rgba(15,23,42,0.75)';
+            g.stroke();
+        }
+    }
+
+    function drawBulbsRow(g, x1, y1, x2, y2, n, colors) {
+        for (let i = 0; i <= n; i++) {
+            const t = i / n;
+            const x = x1 + (x2 - x1) * t;
+            const y = y1 + (y2 - y1) * t;
+            const col = colors[i % colors.length];
+            g.fillStyle = rgba(col, 0.35);
+            g.beginPath();
+            g.arc(x, y, 7, 0, Math.PI * 2);
+            g.fill();
+            g.fillStyle = col;
+            g.beginPath();
+            g.arc(x, y, 3.2, 0, Math.PI * 2);
+            g.fill();
+        }
+    }
+
+    function drawCrosshair(g, cx, cy, r, col) {
+        g.save();
+        g.strokeStyle = col;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(cx, cy, r, 0, Math.PI * 2);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(cx - r * 1.45, cy); g.lineTo(cx - r * 0.55, cy);
+        g.moveTo(cx + r * 0.55, cy); g.lineTo(cx + r * 1.45, cy);
+        g.moveTo(cx, cy - r * 1.45); g.lineTo(cx, cy - r * 0.55);
+        g.moveTo(cx, cy + r * 0.55); g.lineTo(cx, cy + r * 1.45);
+        g.stroke();
+        g.fillStyle = col;
+        g.beginPath();
+        g.arc(cx, cy, 2.4, 0, Math.PI * 2);
+        g.fill();
+        g.restore();
+    }
+
+    function drawStarburst(g, W, H, cx, cy, col, rays) {
+        g.save();
+        g.fillStyle = rgba(col, 0.10);
+        for (let i = 0; i < rays; i++) {
+            const a1 = (i / rays) * Math.PI * 2;
+            const a2 = a1 + (Math.PI / rays);
+            g.beginPath();
+            g.moveTo(cx, cy);
+            g.lineTo(cx + Math.cos(a1) * W, cy + Math.sin(a1) * W);
+            g.lineTo(cx + Math.cos(a2) * W, cy + Math.sin(a2) * W);
+            g.closePath();
+            g.fill();
+        }
+        g.restore();
+    }
+
+    const CUSTOM = {
+        whack_a_mole(g, W, H) {
+            const sky = g.createLinearGradient(0, 0, 0, H);
+            sky.addColorStop(0, '#4c0519');
+            sky.addColorStop(0.55, '#881337');
+            sky.addColorStop(1, '#451a03');
+            g.fillStyle = sky;
+            g.fillRect(0, 0, W, H);
+            // striped carnival awning
+            for (let i = 0; i < 16; i++) {
+                g.fillStyle = i % 2 ? '#fef3c7' : '#dc2626';
+                g.fillRect(i * 20, 0, 20, 28);
+            }
+            drawBulbsRow(g, 14, 30, W - 14, 30, 12, ['#fde047', '#ffffff', '#fb7185']);
+            // wooden board
+            g.fillStyle = '#78350f';
+            g.fillRect(16, 112, W - 32, 68);
+            g.fillStyle = '#facc15';
+            g.fillRect(16, 112, W - 32, 4);
+            // 3 holes + cute wide-eyed mole popping up in center
+            for (const hx of [82, 160, 238]) {
+                g.fillStyle = '#1c1917';
+                g.beginPath(); g.ellipse(hx, 140, 32, 11, 0, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#a16207'; g.lineWidth = 3; g.stroke();
+            }
+            // Mole body
+            g.fillStyle = '#6b3a1f';
+            g.beginPath(); g.arc(160, 108, 28, Math.PI, 0); g.lineTo(188, 140); g.lineTo(132, 140); g.closePath(); g.fill();
+            g.fillStyle = '#d6a77a';
+            g.beginPath(); g.ellipse(160, 124, 17, 15, 0, 0, Math.PI * 2); g.fill();
+            // Hard hat
+            g.fillStyle = '#facc15';
+            g.beginPath(); g.arc(160, 84, 24, Math.PI, 0); g.closePath(); g.fill();
+            g.fillRect(130, 82, 60, 6);
+            // Eyes + pink nose
+            for (const sx of [-9, 9]) {
+                g.fillStyle = '#ffffff'; g.beginPath(); g.arc(160 + sx, 102, 5.5, 0, Math.PI * 2); g.fill();
+                g.fillStyle = '#09090b'; g.beginPath(); g.arc(160 + sx, 102, 2.8, 0, Math.PI * 2); g.fill();
+            }
+            g.fillStyle = '#f472b6'; g.beginPath(); g.ellipse(160, 112, 6, 4.5, 0, 0, Math.PI * 2); g.fill();
+            // Mallet / Pow star
+            g.fillStyle = '#fde047';
+            g.font = '900 18px Bahnschrift, sans-serif';
+            g.textAlign = 'center';
+            g.fillText('WHACK!', 244, 72);
+        },
+
+        range_day(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e3a8a');
+            bg.addColorStop(0.55, '#fb923c');
+            bg.addColorStop(1, '#b45309');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // berm & steel backstop
+            g.fillStyle = '#475569';
+            g.fillRect(0, 104, W, 38);
+            g.fillStyle = '#0f172a';
+            g.fillRect(0, 134, W, 8);
+            for (let x = 0; x < W; x += 24) {
+                g.fillStyle = '#facc15';
+                g.beginPath(); g.moveTo(x, 142); g.lineTo(x + 12, 142); g.lineTo(x + 18, 134); g.lineTo(x + 6, 134); g.closePath(); g.fill();
+            }
+            // Overhead beam + floodlights
+            g.fillStyle = '#1e293b';
+            g.fillRect(0, 0, W, 18);
+            drawBulbsRow(g, 24, 18, W - 24, 18, 10, ['#fef08a', '#f59e0b']);
+            // Pop-up targets & golden steel gong
+            drawBullseye(g, 78, 96, 26, 'classic');
+            drawBullseye(g, 162, 76, 30, 'gold');
+            drawBullseye(g, 246, 100, 22, 'classic');
+            drawCrosshair(g, 162, 76, 20, '#fde047');
+        },
+
+        skeet(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1d4ed8');
+            bg.addColorStop(0.6, '#93c5fd');
+            bg.addColorStop(1, '#3f6212');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            g.fillStyle = '#4d7c0f';
+            g.fillRect(0, 126, W, 54);
+            // High & Low houses
+            g.fillStyle = '#e7e5e4';
+            g.fillRect(14, 62, 44, 72);
+            g.fillRect(262, 102, 44, 34);
+            g.fillStyle = '#7f1d1d';
+            g.beginPath(); g.moveTo(10, 62); g.lineTo(36, 42); g.lineTo(62, 62); g.closePath(); g.fill();
+            g.beginPath(); g.moveTo(258, 102); g.lineTo(284, 86); g.lineTo(310, 102); g.closePath(); g.fill();
+            drawBulbsRow(g, 18, 62, 54, 62, 4, ['#fb923c', '#facc15']);
+            drawBulbsRow(g, 266, 102, 302, 102, 3, ['#fb923c', '#facc15']);
+            // Arc trail + flying orange & gold clays
+            g.strokeStyle = 'rgba(255,255,255,0.45)';
+            g.lineWidth = 2;
+            g.setLineDash([5, 5]);
+            g.beginPath(); g.moveTo(58, 70); g.quadraticCurveTo(160, 22, 260, 92); g.stroke();
+            g.setLineDash([]);
+            for (const [cx, cy, col] of [[116, 48, '#f97316'], [205, 58, '#facc15']]) {
+                g.fillStyle = col;
+                g.beginPath(); g.ellipse(cx, cy, 18, 6.5, -0.2, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#1c1917'; g.lineWidth = 1.5; g.stroke();
+            }
+            // Burst shards
+            g.fillStyle = '#fdba74';
+            for (let i = 0; i < 8; i++) {
+                const a = (i / 8) * Math.PI * 2;
+                g.fillRect(205 + Math.cos(a) * 20, 58 + Math.sin(a) * 14, 5, 4);
+            }
+        },
+
+        quickdraw(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#7c2d12');
+            bg.addColorStop(0.55, '#f59e0b');
+            bg.addColorStop(1, '#78350f');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // High noon sun + bell tower
+            g.fillStyle = '#fef08a';
+            g.beginPath(); g.arc(160, 74, 34, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#451a03';
+            g.fillRect(142, 36, 36, 94);
+            g.beginPath(); g.moveTo(136, 36); g.lineTo(160, 12); g.lineTo(184, 36); g.closePath(); g.fill();
+            g.fillStyle = '#fef3c7';
+            g.beginPath(); g.arc(160, 58, 10, 0, Math.PI * 2); g.fill();
+            // Saloon buildings left/right with glowing amber lanterns
+            g.fillStyle = '#3f2a14';
+            g.fillRect(0, 34, 72, 120);
+            g.fillRect(W - 72, 34, 72, 120);
+            drawBulbsRow(g, 18, 92, 66, 92, 3, ['#fbbf24', '#f59e0b']);
+            drawBulbsRow(g, W - 66, 92, W - 18, 92, 3, ['#fbbf24', '#f59e0b']);
+            // Duelist cowboy silhouette
+            g.fillStyle = '#09090b';
+            g.beginPath(); g.ellipse(160, 72, 24, 5, 0, 0, Math.PI * 2); g.fill();
+            g.fillRect(148, 56, 24, 16);
+            g.beginPath(); g.arc(160, 82, 10, 0, Math.PI * 2); g.fill();
+            g.fillRect(146, 92, 28, 42);
+            g.fillRect(146, 134, 11, 34);
+            g.fillRect(163, 134, 11, 34);
+            g.fillStyle = '#fde047';
+            g.font = '900 22px Bahnschrift, sans-serif';
+            g.textAlign = 'center';
+            g.fillText('DRAW!', 160, 166);
+        },
+
+        contracts(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617');
+            bg.addColorStop(0.6, '#0f172a');
+            bg.addColorStop(1, '#1e293b');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // City towers & warm lit windows
+            for (const [x, w, h] of [[10, 44, 96], [62, 50, 120], [210, 48, 110], [264, 46, 90]]) {
+                g.fillStyle = '#0f172a';
+                g.fillRect(x, H - h - 22, w, h);
+                g.fillStyle = 'rgba(253,230,138,0.45)';
+                for (let wy = H - h - 10; wy < H - 34; wy += 16) {
+                    for (let wx = x + 8; wx < x + w - 10; wx += 14) g.fillRect(wx, wy, 7, 9);
+                }
+            }
+            // Plaza + getaway car + VIP target in sniper scope
+            g.fillStyle = '#09090b';
+            g.fillRect(108, 128, 72, 22);
+            g.fillStyle = '#ef4444';
+            g.fillRect(112, 138, 8, 5);
+            g.fillStyle = '#e2e8f0';
+            g.beginPath(); g.arc(210, 104, 11, 0, Math.PI * 2); g.fill();
+            g.fillRect(198, 115, 24, 42);
+            // Red sniper laser + scope ring
+            g.strokeStyle = 'rgba(239,68,68,0.65)';
+            g.lineWidth = 1.6;
+            g.beginPath(); g.moveTo(0, 26); g.lineTo(210, 104); g.stroke();
+            drawCrosshair(g, 210, 104, 34, '#ef4444');
+        },
+
+        beat_drop(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e1b4b');
+            bg.addColorStop(0.55, '#581c87');
+            bg.addColorStop(1, '#09090b');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // Equalizer bars
+            const eq = [0.4, 0.75, 0.9, 0.55, 0.85, 0.95, 0.65, 0.8, 0.5, 0.7];
+            for (let i = 0; i < eq.length; i++) {
+                const col = i % 2 ? '#22d3ee' : '#ec4899';
+                g.fillStyle = rgba(col, 0.42);
+                const bh = eq[i] * 86;
+                g.fillRect(24 + i * 28, 126 - bh, 18, bh);
+            }
+            // Hit line & glowing rhythm orbs
+            g.strokeStyle = '#facc15';
+            g.lineWidth = 3;
+            g.beginPath(); g.moveTo(16, 138); g.lineTo(W - 16, 138); g.stroke();
+            for (const [x, y, col] of [[68, 56, '#22d3ee'], [134, 92, '#ec4899'], [196, 136, '#facc15'], [254, 72, '#a855f7']]) {
+                g.fillStyle = col;
+                g.beginPath(); g.arc(x, y, 16, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#ffffff'; g.lineWidth = 2.5; g.stroke();
+            }
+        },
+
+        coaster(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0f172a');
+            bg.addColorStop(0.6, '#312e81');
+            bg.addColorStop(1, '#1e1b4b');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // Roller coaster track curve
+            g.strokeStyle = '#facc15';
+            g.lineWidth = 5;
+            g.beginPath(); g.moveTo(0, 140); g.bezierCurveTo(75, 34, 155, 160, 235, 54); g.lineTo(W, 118); g.stroke();
+            // Floating balloons
+            for (const [bx, by, col] of [[78, 54, '#ef4444'], [132, 46, '#22d3ee'], [196, 70, '#ec4899'], [254, 44, '#facc15']]) {
+                g.fillStyle = col;
+                g.beginPath(); g.ellipse(bx, by, 14, 17, 0, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#e2e8f0'; g.lineWidth = 1.2;
+                g.beginPath(); g.moveTo(bx, by + 17); g.lineTo(bx, by + 38); g.stroke();
+            }
+        },
+
+        temple_run(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#064e3b');
+            bg.addColorStop(0.5, '#78350f');
+            bg.addColorStop(1, '#451a03');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            // Temple stone pillars & torches
+            g.fillStyle = '#57534e';
+            g.fillRect(18, 12, 34, 152);
+            g.fillRect(W - 52, 12, 34, 152);
+            for (const fx of [58, W - 58]) {
+                g.fillStyle = '#f97316';
+                g.beginPath(); g.arc(fx, 62, 11, 0, Math.PI * 2); g.fill();
+                g.fillStyle = '#fde047';
+                g.beginPath(); g.arc(fx, 60, 6, 0, Math.PI * 2); g.fill();
+            }
+            // Giant rolling boulder
+            g.fillStyle = '#78716c';
+            g.beginPath(); g.arc(160, 96, 48, 0, Math.PI * 2); g.fill();
+            g.strokeStyle = '#292524'; g.lineWidth = 3; g.stroke();
+            g.beginPath(); g.moveTo(132, 74); g.lineTo(156, 98); g.lineTo(188, 82); g.stroke();
+        },
+
+        boss_rush(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#450a0a');
+            bg.addColorStop(0.6, '#991b1b');
+            bg.addColorStop(1, '#18181b');
+            g.fillStyle = bg;
+            g.fillRect(0, 0, W, H);
+            drawStarburst(g, W, H, 160, 86, '#f87171', 14);
+            // Horned colossus silhouette with glowing weak core
+            g.fillStyle = '#09090b';
+            g.beginPath(); g.arc(160, 88, 42, 0, Math.PI * 2); g.fill();
+            g.fillRect(102, 100, 116, 78);
+            g.beginPath(); g.moveTo(126, 56); g.lineTo(106, 20); g.lineTo(144, 48); g.closePath(); g.fill();
+            g.beginPath(); g.moveTo(194, 56); g.lineTo(214, 20); g.lineTo(176, 48); g.closePath(); g.fill();
+            // Glowing eyes + chest core
+            g.fillStyle = '#ef4444';
+            g.beginPath(); g.arc(144, 80, 6, 0, Math.PI * 2); g.arc(176, 80, 6, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#facc15';
+            g.beginPath(); g.arc(160, 126, 14, 0, Math.PI * 2); g.fill();
+            drawCrosshair(g, 160, 126, 22, '#fde047');
+        },
+
+        fun_angry_birds(g, W, H) {
+            const sky = g.createLinearGradient(0, 0, 0, H);
+            sky.addColorStop(0, '#0284c7'); sky.addColorStop(0.7, '#bae6fd'); sky.addColorStop(1, '#15803d');
+            g.fillStyle = sky; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#16a34a'; g.fillRect(0, 134, W, 46);
+            // Slingshot left + Red bird mid-flight + Pig fort right
+            g.strokeStyle = '#78350f'; g.lineWidth = 7;
+            g.beginPath(); g.moveTo(58, 136); g.lineTo(58, 94); g.lineTo(42, 66); g.moveTo(58, 94); g.lineTo(74, 66); g.stroke();
+            g.fillStyle = '#dc2626'; g.beginPath(); g.arc(124, 64, 18, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#facc15'; g.beginPath(); g.moveTo(140, 62); g.lineTo(152, 66); g.lineTo(140, 70); g.closePath(); g.fill();
+            g.fillStyle = '#b45309'; g.fillRect(216, 78, 70, 56);
+            g.fillStyle = '#4ade80'; g.beginPath(); g.arc(251, 68, 16, 0, Math.PI * 2); g.fill();
+        },
+
+        fun_ff_rpg(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, W, H);
+            bg.addColorStop(0, '#090d26'); bg.addColorStop(0.6, '#1e3a8a'); bg.addColorStop(1, '#020617');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            drawStarburst(g, W, H, 160, 82, '#38bdf8', 16);
+            // Floating Crystal
+            g.fillStyle = '#38bdf8';
+            g.beginPath(); g.moveTo(160, 26); g.lineTo(192, 82); g.lineTo(160, 146); g.lineTo(128, 82); g.closePath(); g.fill();
+            g.fillStyle = '#e0f2fe';
+            g.beginPath(); g.moveTo(160, 26); g.lineTo(176, 82); g.lineTo(160, 146); g.closePath(); g.fill();
+        },
+
+        fun_kaiju_mecha(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#450a0a'); bg.addColorStop(0.6, '#991b1b'); bg.addColorStop(1, '#0f172a');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#09090b';
+            for (const [x, h] of [[16, 70], [54, 100], [116, 62], [242, 95], [278, 72]]) g.fillRect(x, H - h, 28, h);
+            // Kaiju glowing dorsal spines + atomic beam
+            g.fillStyle = '#06b6d4';
+            for (const sy of [46, 64, 84]) { g.beginPath(); g.moveTo(106, sy); g.lineTo(84, sy + 8); g.lineTo(108, sy + 16); g.closePath(); g.fill(); }
+            g.fillStyle = '#18181b'; g.beginPath(); g.arc(134, 62, 26, 0, Math.PI * 2); g.fill();
+            g.fillRect(108, 78, 52, 84);
+            g.strokeStyle = '#38bdf8'; g.lineWidth = 6;
+            g.beginPath(); g.moveTo(154, 66); g.lineTo(256, 78); g.stroke();
+        },
+
+        fun_hoverbike(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(0.55, '#3b0764'); bg.addColorStop(1, '#06b6d4');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Perspective neon highway lines
+            g.strokeStyle = '#ec4899'; g.lineWidth = 2.5;
+            for (let x = -120; x <= W + 120; x += 60) {
+                g.beginPath(); g.moveTo(160, 62); g.lineTo(x, H); g.stroke();
+            }
+            // Hoverbike silhouette + twin cyan thrusters
+            g.fillStyle = '#0f172a';
+            g.beginPath(); g.moveTo(126, 134); g.lineTo(160, 102); g.lineTo(194, 134); g.closePath(); g.fill();
+            g.fillStyle = '#22d3ee';
+            g.beginPath(); g.arc(146, 136, 9, 0, Math.PI * 2); g.arc(174, 136, 9, 0, Math.PI * 2); g.fill();
+        },
+
+        fun_pinball(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e1b4b'); bg.addColorStop(1, '#312e81');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            for (const [x, y, c] of [[96, 62, '#ec4899'], [160, 44, '#facc15'], [224, 62, '#22d3ee']]) {
+                g.fillStyle = rgba(c, 0.35); g.beginPath(); g.arc(x, y, 26, 0, Math.PI * 2); g.fill();
+                g.fillStyle = c; g.beginPath(); g.arc(x, y, 16, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.stroke();
+            }
+            // Flippers + steel pinball
+            g.strokeStyle = '#facc15'; g.lineWidth = 10; g.lineCap = 'round';
+            g.beginPath(); g.moveTo(86, 140); g.lineTo(138, 158); g.moveTo(234, 140); g.lineTo(182, 158); g.stroke();
+            g.fillStyle = '#e2e8f0'; g.beginPath(); g.arc(160, 114, 12, 0, Math.PI * 2); g.fill();
+        }
+    };
+
+    function drawCategoryPoster(g, W, H, def) {
+        const accent = def.accent || '#f59e0b';
+        const cat = def.cat || 'target';
+        const rnd = rng32(def.id || def.name);
+        const palMap = {
+            fun: ['#3b0764', '#be185d'],
+            target: ['#0f172a', '#7c2d12'],
+            speed: ['#082f49', '#0e7490'],
+            arcade: ['#1e1b4b', '#581c87'],
+            boss: ['#18181b', '#7f1d1d']
+        };
+        const [c1, c2] = palMap[cat] || ['#0f172a', '#1e293b'];
+        const bg = g.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, c1);
+        bg.addColorStop(0.55, c2);
+        bg.addColorStop(1, '#09090b');
+        g.fillStyle = bg;
+        g.fillRect(0, 0, W, H);
+
+        drawStarburst(g, W, H, W * 0.5, H * 0.52, accent, 12);
+
+        if (cat === 'target' || cat === 'boss') {
+            // Tactical radar / perspective floor grid
+            g.strokeStyle = rgba(accent, 0.25);
+            g.lineWidth = 1;
+            for (let y = 102; y <= H; y += 16) {
+                g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+            }
+            for (let x = -80; x <= W + 80; x += 48) {
+                g.beginPath(); g.moveTo(W / 2, 92); g.lineTo(x, H); g.stroke();
+            }
+            if (cat === 'target') drawBullseye(g, 250, 74, 24, rnd() > 0.5 ? 'classic' : 'gold');
+        } else if (cat === 'speed') {
+            // Diagonal racing speed lines + checkered strip
+            g.strokeStyle = rgba('#22d3ee', 0.35);
+            g.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                const y = 18 + i * 20;
+                g.beginPath(); g.moveTo(0, y); g.lineTo(120 + rnd() * 140, y - 12); g.stroke();
+            }
+            for (let i = 0; i < 16; i++) {
+                g.fillStyle = i % 2 ? '#ffffff' : '#09090b';
+                g.fillRect(i * 20, H - 14, 20, 14);
+            }
+        } else if (cat === 'arcade') {
+            // CRT bezel + chasing marquee bulbs
+            g.strokeStyle = rgba(accent, 0.55);
+            g.lineWidth = 4;
+            g.strokeRect(18, 18, W - 36, H - 36);
+            drawBulbsRow(g, 28, 22, W - 28, 22, 10, ['#f472b6', '#22d3ee', '#facc15']);
+        } else {
+            // Carnival stars / bokeh sparkles
+            for (let i = 0; i < 14; i++) {
+                g.fillStyle = rgba(i % 2 ? '#fde047' : accent, 0.35);
+                g.beginPath();
+                g.arc(rnd() * W, rnd() * H, 2 + rnd() * 5, 0, Math.PI * 2);
+                g.fill();
+            }
+        }
+
+        // Gleaming center medallion with icon
+        const cx = W * 0.5, cy = H * 0.48;
+        const glow = g.createRadialGradient(cx, cy, 8, cx, cy, 62);
+        glow.addColorStop(0, rgba(accent, 0.55));
+        glow.addColorStop(1, rgba(accent, 0));
+        g.fillStyle = glow;
+        g.beginPath(); g.arc(cx, cy, 62, 0, Math.PI * 2); g.fill();
+
+        g.fillStyle = 'rgba(15,23,42,0.85)';
+        g.beginPath(); g.arc(cx, cy, 38, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = accent;
+        g.lineWidth = 3.5;
+        g.stroke();
+
+        g.font = '38px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = '#ffffff';
+        g.fillText(def.icon || '🎯', cx, cy + 3);
+    }
+
+    function renderThumb(def) {
+        const W = 320, H = 180;
+        const c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        const g = c.getContext('2d');
+        const accent = def.accent || '#f59e0b';
+
+        if (CUSTOM[def.id]) {
+            CUSTOM[def.id](g, W, H, def);
+        } else {
+            drawCategoryPoster(g, W, H, def);
+        }
+
+        // Vignette + glossy top rim + title ribbon so every card feels cohesive
+        const vig = g.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.72);
+        vig.addColorStop(0, 'rgba(0,0,0,0)');
+        vig.addColorStop(1, 'rgba(0,0,0,0.48)');
+        g.fillStyle = vig;
+        g.fillRect(0, 0, W, H);
+
+        g.strokeStyle = rgba(accent, 0.55);
+        g.lineWidth = 2;
+        g.strokeRect(1, 1, W - 2, H - 2);
+
+        g.fillStyle = 'rgba(255,255,255,0.12)';
+        g.fillRect(0, 0, W, 3);
+
+        try {
+            const webp = c.toDataURL('image/webp', 0.86);
+            if (webp && webp.startsWith('data:image/webp')) return webp;
+        } catch (_) {}
+        return c.toDataURL('image/png');
+    }
+
+    BO.MinigameThumbs = {
+        get(def) {
+            if (!def || !def.id) return '';
+            if (cache.has(def.id)) return cache.get(def.id);
+            const url = renderThumb(def);
+            cache.set(def.id, url);
+            return url;
+        }
+    };
+})(window);

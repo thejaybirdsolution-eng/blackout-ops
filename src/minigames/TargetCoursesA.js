@@ -193,14 +193,45 @@
         tagline: 'Pop-up steel & paper on a sunlit range',
         desc: 'The classic. Stand at the firing line while bullseyes flip up across seven lanes from 8 to 35 metres. Hit the gold for a bullseye bonus. Targets get smaller, faster and start sliding as the clock runs down.',
         hudSub: 'Hit the gold ring for a BULLSEYE bonus',
-        duration: 60, stars: [4000, 8000, 13000, 19000], standardWeapon: 'm4a1', ringScoring: true,
+        duration: 60, stars: [4000, 8000, 13000, 19000], standardWeapon: 'm4a1', ringScoring: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x2563eb, skyBottom: 0xfed7aa, fogColor: 0xf3d9b8, fogDensity: 0.006, sunColor: 0xffe2b0, sunIntensity: 1.9, sunPos: [-40, 38, 30], hemiSky: 0xdbeafe, hemiGround: 0x6b5a3e, hemiIntensity: 0.8 },
             boxes: [B(0, -0.5, -20, 140, 1, 140, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('range');
             K.booth(S, { awning: '#b91c1c' });
+            // bench props: olive ammo can + shell box on left, spotting scope on right
+            const ammoCan = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.20, 0.18), std(0x3f6212, 0.65, 0.35));
+            ammoCan.position.set(-1.25, 1.20, -0.76); ammoCan.rotation.y = 0.25; S.add(ammoCan);
+            const latch = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.19), std(0xfacc15, 0.35, 0.85));
+            latch.position.set(-1.25, 1.24, -0.76); latch.rotation.y = 0.25; S.add(latch);
+            const scopeTube = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.34, 12), std(0x1f2937, 0.4, 0.7));
+            scopeTube.rotation.x = Math.PI / 2 - 0.08;
+            scopeTube.position.set(1.28, 1.24, -0.72); S.add(scopeTube);
+            const scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.02, 12), basic(0x38bdf8));
+            scopeLens.rotation.x = Math.PI / 2 - 0.08;
+            scopeLens.position.set(1.28, 1.255, -0.89); S.add(scopeLens);
+            // overhead range truss + chasing floodlight bulbs + RANGE HOT marquee
+            const trussM = std(0x1e293b, 0.5, 0.7);
+            for (const sx of [-12, 12]) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.28, 6.4, 0.28), trussM);
+                post.position.set(sx, 3.2, -10); S.add(post);
+            }
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(24.6, 0.36, 0.36), trussM);
+            beam.position.set(0, 6.2, -10); S.add(beam);
+            const marquee = A.sign('RANGE HOT • LIVE FIRE', 6.4, 1.05, { bg: '#0f172a', color: '#facc15', borderColor: '#ef4444', size: 0.62 });
+            marquee.position.set(0, 6.35, -9.8); S.add(marquee);
+            const bulbPts = [];
+            for (let i = 0; i <= 24; i++) bulbPts.push(V(-11.4 + i * 0.95, 5.95, -9.85));
+            const bulbs = A.bulbs(bulbPts, [0xfef08a, 0xf59e0b, 0xffffff], 0.08);
+            S.add(bulbs);
+            A.animateBulbs(S, bulbs, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const l1 = new THREE.PointLight(0xffe8b6, 1.6, 26, 1.5); l1.position.set(0, 3.4, -1.5); S.add(l1);
+                const l2 = new THREE.PointLight(0xfef08a, 1.25, 34, 1.4); l2.position.set(0, 6.0, -14); S.add(l2);
+            }
             // lanes
             const laneMat = std(0xe5e7eb, 0.7);
             for (let i = -4; i <= 4; i++) {
@@ -209,17 +240,36 @@
                 S.add(line);
             }
             [10, 20, 30].forEach((d) => { K.distanceSign(S, d + 'M', -11.5, -d); K.distanceSign(S, d + 'M', 11.5, -d); });
-            // berm + backstop
+            // textured hazard-striped steel backstop + sandbag berms
+            const backTex = L.canvasTex('range-backstop', 256, 128, (g, w, h) => {
+                g.fillStyle = '#334155'; g.fillRect(0, 0, w, h);
+                g.fillStyle = '#1e293b'; for (let y = 16; y < h; y += 28) g.fillRect(0, y, w, 2);
+                g.fillStyle = '#facc15';
+                for (let x = -32; x < w + 32; x += 32) {
+                    g.beginPath(); g.moveTo(x, h); g.lineTo(x + 16, h); g.lineTo(x + 30, h - 18); g.lineTo(x + 14, h - 18); g.closePath(); g.fill();
+                }
+            });
+            backTex.wrapS = THREE.RepeatWrapping; backTex.repeat.set(6, 1);
             const berm = new THREE.Mesh(new THREE.CylinderGeometry(60, 64, 6, 4, 1), std(0x8b6b45, 1));
             berm.scale.set(1, 1, 0.08);
             berm.rotation.y = Math.PI / 4;
             berm.position.set(0, 3, -46);
             S.add(berm);
             S.solid(berm);
-            const back = new THREE.Mesh(new THREE.BoxGeometry(34, 5, 0.6), std(0x52525b, 0.6, 0.5));
+            const back = new THREE.Mesh(new THREE.BoxGeometry(34, 5, 0.6), new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.55, metalness: 0.45 }));
             back.position.set(0, 2.5, -42);
             S.add(back);
             S.solid(back);
+            const bagM = std(0xa8926a, 0.95);
+            for (const sx of [-13.5, 13.5]) {
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 4 - r; c++) {
+                        const bag = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.34, 0.55), bagM);
+                        bag.position.set(sx + (c - (3 - r) * 0.5) * 0.9, 0.17 + r * 0.32, -41.2);
+                        S.add(bag);
+                    }
+                }
+            }
             for (let i = 0; i < 18; i++) {
                 const t = A.tree(1.4 + (i % 3) * 0.3, i % 2 ? 0x166534 : 0x3f6212);
                 const side = i % 2 ? 1 : -1;
@@ -247,6 +297,8 @@
                 flag.geometry.attributes.position.needsUpdate = true;
             });
         },
+        update(S, dt) { if (BO.MinigameAudio) BO.MinigameAudio.tick(dt); },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         schedule(S) {
             K.ramp(S, { from: 1.15, to: 0.42, start: 0.2 }, (at, k, rng) => {
                 const lane = Math.floor(rng() * 7) - 3;
@@ -258,14 +310,28 @@
                 const spd = lerp(1.2, 3.2, k) * (rng() < 0.5 ? 1 : -1);
                 const ph = rng() * 6.28;
                 const double = k > 0.45 && rng() < 0.35;
-                const make = (offsetLane) => S.at(at, (S2) => {
-                    const pos = V((lane + offsetLane) * 2.6, 0, -dist);
-                    const t = A.bullseye(radius, 1.1 + (dist / 40) * 0.6);
-                    S2.addTarget(Object.assign(t, { pos, points: 100, life, appear: 'flip', death: 'knock', motion: moving ? K.sweep(amp, spd, ph) : null, deathColor: 0xfafafa }));
+                const golden = rng() < 0.14;
+                const make = (offsetLane, isGold) => S.at(at, (S2) => {
+                    const pos = V((lane + offsetLane) * 2.6, isGold ? 1.45 : 0, -dist);
+                    const t = isGold ? A.steelPlate(radius * 0.88, 0xfacc15) : A.bullseye(radius, 1.1 + (dist / 40) * 0.6);
+                    if (isGold && t.hitMeshes[0] && t.hitMeshes[0].material[1]) {
+                        t.hitMeshes[0].material[1].emissive = new THREE.Color(0xa16207);
+                        t.hitMeshes[0].material[1].emissiveIntensity = 0.5;
+                    }
+                    const tg = S2.addTarget(Object.assign(t, {
+                        pos, points: isGold ? 350 : 100, bonus: isGold,
+                        life: isGold ? life * 0.85 : life, appear: 'flip', death: 'knock',
+                        motion: (moving || isGold) ? K.sweep(amp, spd * (isGold ? 1.25 : 1), ph) : null,
+                        deathColor: isGold ? 0xfacc15 : 0xfafafa,
+                        onKill: () => {
+                            if (BO.MinigameAudio) BO.MinigameAudio.steelPing(isGold ? 1.38 : 0.95 + Math.random() * 0.15);
+                            if (isGold) { SFX.ding(1.6); S2.award(150, tg.root.position.clone().add(V(0, 0.7, 0)), 'GOLD PLATE!', '#facc15'); }
+                        }
+                    }));
                     SFX.clack();
                 });
-                make(0);
-                if (double) make(lane > 0 ? -2 : 2);
+                make(0, golden);
+                if (double) make(lane > 0 ? -2 : 2, false);
             });
         }
     });
@@ -748,13 +814,14 @@
         tagline: 'Pull! Clay discs fired from the high and low houses',
         desc: 'Stand on the shooting pad while clay discs launch from the high house, the low house and the hidden trap in front of you. Singles become doubles, doubles become crossfire. Rare gold clays fly fast and pay big. Hit two within a second for a DOUBLE bonus.',
         hudSub: 'Lead your shots — discs arc and fall',
-        duration: 60, stars: [2000, 4000, 6500, 9000], standardWeapon: 'm1014_cod4', forgivingMisses: false,
+        duration: 60, stars: [2000, 4000, 6500, 9000], standardWeapon: 'm1014_cod4', forgivingMisses: false, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1d4ed8, skyBottom: 0xbfdbfe, fogColor: 0xc7d9ee, fogDensity: 0.004, sunColor: 0xfffbeb, sunIntensity: 1.7, sunPos: [20, 70, 50], hemiSky: 0xdbeafe, hemiGround: 0x3f6212, hemiIntensity: 0.9 },
             boxes: [B(0, -0.5, -30, 240, 1, 240, 'nuketown_grass')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('range');
             K.booth(S, { roof: false, w: 3.6, wood: 0x9a7448 });
             const house = (x, h, col, label) => {
                 const g = new THREE.Group();
@@ -767,7 +834,7 @@
                 const port = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), basic(0x0a0a0a));
                 port.position.set(x < 0 ? 1.61 : -1.61, h - 0.8, 0);
                 port.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
-                const s = A.sign(label, 2.4, 0.5, { size: 0.5 });
+                const s = A.sign(label, 2.4, 0.5, { bg: '#292524', color: '#fdba74', borderColor: '#f97316', size: 0.5 });
                 s.position.set(0, h - 0.3, 1.62);
                 g.add(body, roof, port, s);
                 g.position.set(x, 0, -13);
@@ -775,6 +842,32 @@
             };
             house(-12, 5.2, 0xe7e5e4, 'HIGH HOUSE');
             house(12, 1.8, 0xd6d3d1, 'LOW HOUSE');
+            // Grand SKEET STORM gantry arch + chasing orange/gold festival bulbs on houses & gantry
+            const postM = std(0x5b3a1f, 0.85);
+            for (const gx of [-6.4, 6.4]) {
+                const gp = new THREE.Mesh(new THREE.BoxGeometry(0.32, 6.4, 0.32), postM);
+                gp.position.set(gx, 3.2, -27); S.add(gp);
+            }
+            const gBeam = new THREE.Mesh(new THREE.BoxGeometry(13.4, 0.35, 0.35), postM);
+            gBeam.position.set(0, 6.2, -27); S.add(gBeam);
+            const gSign = A.sign('SKEET STORM • PULL!', 7.5, 1.15, { bg: '#1c1917', color: '#fb923c', borderColor: '#facc15', size: 0.62 });
+            gSign.position.set(0, 6.3, -26.8); S.add(gSign);
+            const sBulbs = [];
+            for (let i = 0; i <= 14; i++) sBulbs.push(V(-5.95 + i * 0.85, 5.95, -26.82));
+            for (let i = 0; i < 4; i++) {
+                sBulbs.push(V(-13.3 + i * 0.85, 5.25, -11.3), V(10.7 + i * 0.85, 1.85, -11.3));
+            }
+            const sb = A.bulbs(sBulbs, [0xf97316, 0xfacc15, 0xfef3c7], 0.08);
+            S.add(sb);
+            A.animateBulbs(S, sb, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xffcf87, 1.5, 28, 1.5); pl.position.set(0, 4.2, -2.5); S.add(pl);
+            }
+            // Shell caddy + orange clay crate beside shooting bench
+            const crate = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.36, 0.42), std(0x78350f, 0.88));
+            crate.position.set(1.55, 0.18, -1.15); S.add(crate);
+            const clayStack = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.12, 18), std(0xf97316, 0.55));
+            clayStack.position.set(1.55, 0.42, -1.15); S.add(clayStack);
             const trap = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 2.4), std(0x57534e, 0.8));
             trap.position.set(0, 0.3, -22);
             S.add(trap);
@@ -786,8 +879,9 @@
                 S.add(pad);
             }
             K.fence(S, -40, -60, 40, -60);
+            const treePalette = [0x166534, 0x14532d, 0xd97706, 0xb45309];
             for (let i = 0; i < 26; i++) {
-                const t = A.tree(1.8 + (i % 4) * 0.4, i % 3 ? 0x166534 : 0x14532d);
+                const t = A.tree(1.8 + (i % 4) * 0.4, treePalette[i % treePalette.length]);
                 t.position.set(-60 + i * 4.8, 0, -66 - (i % 3) * 5);
                 S.add(t);
             }
@@ -800,6 +894,8 @@
             K.cloudLayer(S, 12, 70, 200);
             S.data.lastKill = -9;
         },
+        update(S, dt) { if (BO.MinigameAudio) BO.MinigameAudio.tick(dt); },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         schedule(S) {
             const launchers = {
                 high: { p: V(-10.4, 4.6, -13), dir: 1 },
@@ -813,7 +909,8 @@
                     : V(L0.dir * speed, up, -speed * 0.28 + cross);
                 const pos = L0.p.clone();
                 const t = A.clay();
-                if (golden) t.mesh.children[0].material = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.25, emissive: 0xa16207, emissiveIntensity: 0.5 });
+                if (golden) t.mesh.children[0].material = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.25, emissive: 0xa16207, emissiveIntensity: 0.55 });
+                else t.mesh.children[0].material = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.45, emissive: 0xea580c, emissiveIntensity: 0.22 });
                 const g = 9.8 * 0.6;
                 const tg = S2.addTarget(Object.assign(t, {
                     pos, points: golden ? 400 : 150, life: 0, appear: 'none', death: 'shatter', deathColor: golden ? 0xfacc15 : 0xf97316, inT: 0.01,
@@ -827,6 +924,7 @@
                     outT: 0.05,
                     onKill: () => {
                         SFX.shatter();
+                        if (golden && BO.MinigameAudio) BO.MinigameAudio.steelPing(1.5);
                         if (S2.t - S2.data.lastKill < 1.0) {
                             S2.award(100, tg.root.position.clone().add(V(0, 0.8, 0)), 'DOUBLE!', '#38bdf8');
                         }
