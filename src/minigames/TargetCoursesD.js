@@ -670,7 +670,7 @@
         desc: 'A sunlit tropical paradise where your gun fires hearts. Ten uniquely sculpted anime beachgoers — each with bespoke swimwear, signature beach props, layered hair, and real spring-damper motion — run up from the turquoise shoreline. Tag each one with a heart before she reaches the boardwalk. Bouncing beach balls award bonus points.',
         hudSub: 'Weapon [1]: Heart Blaster • Weapon [2]: Deagle Armor Breaker',
         duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', secondaryWeapon: 'deagle',
-        weaponLabel: 'FIVE-SEVEN (HEARTS) • [2] DEAGLE (ARMOR OFF)', tracerColor: 0xff5fa8, forgivingMisses: true,
+        weaponLabel: 'FIVE-SEVEN (HEARTS) • [2] DEAGLE (ARMOR OFF)', tracerColor: 0xff5fa8, forgivingMisses: true, customMusic: true,
         map: {
             atmosphere: {
                 skyTop: 0x0369a1, skyBottom: 0x7dd3fc, fogColor: 0xbae6fd, fogDensity: 0.0024,
@@ -681,6 +681,14 @@
             spawn: { x: 0, y: 0, z: 1.2, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('pinball');
+                S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
+            const tikiPts = [];
+            for (let tx = -12; tx <= 12; tx += 1.6) tikiPts.push(V(tx, 3.2, -2.2));
+            const tb = A.bulbs(tikiPts, [0xfde047, 0xf472b6, 0x38bdf8, 0xfb923c], 0.09);
+            S.add(tb); A.animateBulbs(S, tb, 5, 'chase');
             // Studio 3-point tropical beauty lighting: balanced golden front-key + turquoise ocean back-rim + soft coral sand bounce
             const frontBeautyKey = new THREE.DirectionalLight(0xfff5e0, 0.30);
             frontBeautyKey.position.set(16, 22, 36);
@@ -1063,6 +1071,7 @@
                 accuracy: S.shots ? S.shotHits / S.shots : 0,
                 xp: Math.round(120 + S.score * 0.06 + stars * 150)
             };
-        }
+        },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); }
     });
 })(window);

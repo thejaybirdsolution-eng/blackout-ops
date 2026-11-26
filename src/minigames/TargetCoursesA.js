@@ -364,13 +364,17 @@
         tagline: 'Hang on. Giant drop. Broken tracks ahead!',
         desc: 'Strap into the Thunderbolt coaster for an epic 50-meter plunge and a death-defying broken-track ramp jump across mid-air! Targets flip beside the track and float over the drops.',
         hudSub: 'Epic 50m drop + Broken Track Airborne Ramp Jump!',
-        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'mp7_navy', ringScoring: true, rail: true,
+        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'mp7_navy', ringScoring: true, rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x0ea5e9, skyBottom: 0xe0f2fe, fogColor: 0xcde9f6, fogDensity: 0.004, sunColor: 0xfff7e6, sunIntensity: 1.8, sunPos: [60, 90, 40], hemiSky: 0xe0f2fe, hemiGround: 0x4d7c0f, hemiIntensity: 0.9 },
             boxes: [B(0, -0.5, 0, 420, 1, 420, 'nuketown_grass')],
             spawn: { x: COASTER_PTS[0].x, y: COASTER_PTS[0].y, z: COASTER_PTS[0].z, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('pinball');
+                S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
             const R = K.rail(COASTER_PTS, true, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
@@ -582,7 +586,8 @@
                     }));
                 });
             });
-        }
+        },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); }
     });
 
     /* ================================================================
@@ -602,13 +607,17 @@
         tagline: 'Run. Shoot. Do not look back… okay, look back once.',
         desc: 'You grabbed the idol. Now a three-metre boulder is thundering down the temple corridor behind you and it is gaining. Keep sprinting while golden discs slide out of the walls, swing from the ceiling and rise from the floor ahead.',
         hudSub: 'The boulder gets closer every second',
-        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'vector_kriss', ringScoring: true, rail: true,
+        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'vector_kriss', ringScoring: true, rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1c1208, skyBottom: 0x3b2410, fogColor: 0x2a1a0b, fogDensity: 0.03, sunColor: 0xffb46b, sunIntensity: 0.55, sunPos: [10, 50, -40], hemiSky: 0xffc58a, hemiGround: 0x2a1a0b, hemiIntensity: 0.55 },
             boxes: [B(0, -0.5, -260, 120, 1, 600, 'bunker_stone')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('tactical');
+                S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
             const R = K.rail(TEMPLE_PTS, false, 0.5);
             S.data.rail = R;
             S.data.dist = 4;
@@ -802,7 +811,8 @@
                     }));
                 });
             });
-        }
+        },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); }
     });
 
     /* ================================================================

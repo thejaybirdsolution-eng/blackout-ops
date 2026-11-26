@@ -194,7 +194,7 @@
         desc: 'The flagship carnival booth shooter! Pick Classic (3x3 pistol), Frenzy (4x4 full-auto with hard hats), or Mayhem (5x4 with bombs). Moles pop, peek, and taunt from tiered holes under chasing marquee bulbs.',
         hudSub: 'Gold moles pay 5x • switch booth variants in the hub!',
         heroLabel: 'TARGET PRACTICE • WHACK-A-MOLE • 60 SECONDS',
-        duration: 60, stars: MOLE_MODES.classic.stars,
+        duration: 60, stars: MOLE_MODES.classic.stars, customMusic: true,
         standardWeapon: (o) => MOLE_MODES[modeOf(o)].weapon,
         standardOptic: 'iron',
         hubOptions: [{
@@ -210,6 +210,10 @@
             spawn: { x: 0, y: 0, z: 0.4, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('pinball');
+                S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
             const cfg = MOLE_MODES[modeOf(S.opts)];
             const holes = holeLayout(cfg.cols, cfg.rows);
             S.data.cfg = cfg;
@@ -291,6 +295,7 @@
                     S.at(at + p * 0.07, (S2) => spawnMole(S2, hi, kind, life, behaviour));
                 }
             });
-        }
+        },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); }
     });
 })(window);
