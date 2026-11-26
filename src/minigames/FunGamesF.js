@@ -224,7 +224,7 @@
         },
         heroLabel: 'FUN & SPECIALS • 5CM MICRO-SCALE WARFARE', duration: 150,
         stars: [2600, 5200, 8400, 12000],
-        standardWeapon: 'm16a4', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'm16a4', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'PLASTIC M16A4 CARBINE', weaponNote: '[Q] Drop 3 Green Allies (18s) • Bounce on Giant Erasers • Shoot Red Firecrackers!',
         keys: [['WASD', 'March Across Playmat'], ['SPACE', 'Jump / Eraser Bounce'], ['Q', 'Drop Green Squad (18s)'], ['LMB', 'Fire Plastic Rounds']],
         map: {
@@ -238,9 +238,10 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('toywar');
             const D = S.data;
             Object.assign(D, {
-                flagHp: 100, enemies: [], allies: [], bouncePads: [], allyCd: 0,
+                flagHp: 100, enemies: [], allies: [], bouncePads: [], medkits: [], allyCd: 0,
                 spawnCd: 1.2, waveKilled: 0, biplane: null, biplaneSpawned: false, biplaneDown: false
             });
 
@@ -303,12 +304,20 @@
                 S.box(bk.x, bk.y, bk.z, bk.w, bk.h, bk.d, mat, { solid: true });
             }
 
-            // 4. Colorful Studded LEGO Brick Bunkers across the Playmat!
+            // 4. Colorful Studded LEGO Brick Bunkers + Giant Wooden Alphabet Blocks (A/B/C)!
             buildLegoBlock(S, -5.5, 0, 7.5, 4, 1, 1.6, 0xef4444);
             buildLegoBlock(S, 5.5, 0, 7.5, 4, 1, 1.6, 0x3b82f6);
             buildLegoBlock(S, 0, 0, -2.5, 5, 2, 1.8, 0xfacc15);
             buildLegoBlock(S, -11, 0, -13.5, 4, 2, 2.2, 0x22c55e);
             buildLegoBlock(S, 11, 0, -13.5, 4, 2, 2.2, 0xa855f7);
+            for (const [ax, az, ch, col] of [[-14, 9, 'A', '#ef4444'], [14, 9, 'B', '#3b82f6'], [14, -9, 'C', '#22c55e']]) {
+                const aTex = L.canvasTex('toy-abc-' + ch, 128, 128, (g, w, h) => {
+                    g.fillStyle = '#fef3c7'; g.fillRect(0, 0, w, h);
+                    g.strokeStyle = col; g.lineWidth = 14; g.strokeRect(7, 7, w - 14, h - 14);
+                    g.fillStyle = col; g.font = '900 78px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ch, w / 2, h / 2 + 4);
+                });
+                S.box(ax, 1.6, az, 3.2, 3.2, 3.2, new THREE.MeshStandardMaterial({ map: aTex, roughness: 0.65 }), { solid: true });
+            }
 
             // 5. Pink & Blue Dual-Tone Rubber-Eraser Bounce Pads!
             for (const [ex, ez] of [[-12.5, -2.5], [12.5, -2.5], [0, 6.5]]) {
@@ -366,6 +375,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _spawnGreenSquad(S, initial = false) {
@@ -373,7 +383,7 @@
             if (!initial && D.allyCd > 0) { MG.toast(`⏳ GREEN REINFORCEMENTS IN ${D.allyCd.toFixed(1)}s`, '#94a3b8'); return; }
             if (!initial) {
                 D.allyCd = 18.0;
-                tone(440, 880, 0.22, 'triangle', 0.11);
+                if (BO.MinigameAudio) BO.MinigameAudio.bugleCall(); else tone(440, 880, 0.22, 'triangle', 0.11);
                 MG.toast('🪂 GREEN PLASTIC PARATROOPERS DEPLOYED!', '#4ade80');
             }
             const count = initial ? 2 : 3;
@@ -405,6 +415,10 @@
                     hp: 4, life: 0, points: 320, appear: 'scale', death: 'burst', deathColor: 0xfacc15,
                     onKill: () => {
                         BO.FX.spawnExplosion(tgt.basePos.clone().add(V(0, 0.8, 0)), 3.2, 0xf97316);
+                        // Drop Plastic Medkit Crate (+25 HP & +12% Flag HP)!
+                        const mk = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.65, 0.95), std(0x22c55e, 0.35, 0.15, { emissive: 0x16a34a, emissiveIntensity: 0.45 }));
+                        mk.position.set(tgt.basePos.x, 0.45, tgt.basePos.z); S.add(mk);
+                        D.medkits.push({ mesh: mk, life: 16 });
                         D.waveKilled++;
                         D.enemies = D.enemies.filter((e) => e.tgt !== tgt);
                     }
@@ -445,8 +459,18 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.allyCd = Math.max(0, D.allyCd - dt);
+            for (let i = (D.medkits || []).length - 1; i >= 0; i--) {
+                const mk = D.medkits[i]; mk.life -= dt; mk.mesh.rotation.y += dt * 2.5;
+                if (P.pos.distanceTo(mk.mesh.position) < 1.8) {
+                    P.hp = Math.min(P.maxHp, P.hp + 25); D.flagHp = Math.min(100, D.flagHp + 12);
+                    SFX.heal(); MG.toast('➕ PLASTIC MEDKIT! +25 HP & +12% HQ FLAG', '#4ade80');
+                    S.scene.remove(mk.mesh); D.medkits.splice(i, 1); continue;
+                }
+                if (mk.life <= 0) { S.scene.remove(mk.mesh); D.medkits.splice(i, 1); }
+            }
 
             // Rubber-Eraser Bounce Pads!
             for (const bp of D.bouncePads) {
@@ -689,7 +713,7 @@
         },
         heroLabel: 'FUN & SPECIALS • REAL-TIME BATTLE CHESS', duration: 165,
         stars: [2800, 5400, 8600, 12500],
-        standardWeapon: 'scarh', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'scarh', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'GRANDMASTER SCAR-H + ROYAL HORN [E]', weaponNote: '[E] Command White Surge (12s) • Stand on Gold Center Squares for Power Boost!',
         keys: [['WASD', 'Cross the 8x8 Board'], ['E', 'Command White Surge (12s)'], ['SPACE', 'Jump Knight Shockwaves'], ['LMB', 'Shatter Black Pieces']],
         map: {
@@ -703,6 +727,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('chess');
             const D = S.data;
             const SQ = 4.0; // 8x8 * 4m = 32m x 32m giant chessboard!
             Object.assign(D, {
@@ -782,6 +807,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _spawnBlackPiece(S, role, pos) {
@@ -832,8 +858,7 @@
             const D = S.data;
             if (D.commandCd > 0) { MG.toast(`⏳ ROYAL HORN RECHARGING (${D.commandCd.toFixed(1)}s)`, '#94a3b8'); return; }
             D.commandCd = 12.0;
-            tone(392, 587, 0.22, 'sawtooth', 0.12);
-            tone(587, 784, 0.28, 'sawtooth', 0.12, 0.10);
+            if (BO.MinigameAudio) BO.MinigameAudio.chessHorn(); else { tone(392, 587, 0.22, 'sawtooth', 0.12); tone(587, 784, 0.28, 'sawtooth', 0.12, 0.10); }
             MG.toast('📯 WHITE ROYAL ADVANCE — ALLIED PIECES SURGING!', '#fde047');
             for (const wp of D.whitePieces) {
                 wp.surgeT = 4.5;
@@ -853,6 +878,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.commandCd = Math.max(0, D.commandCd - dt);
 
@@ -1028,7 +1054,7 @@
         },
         heroLabel: 'FUN & SPECIALS • PARANORMAL CONTAINMENT', duration: 165,
         stars: [2800, 5600, 9200, 13200],
-        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'NEUTRONA PROTON WAND + GHOST TRAP [E/G]', weaponNote: 'Hold [LMB] Proton Stream • [E / G] Toss Ghost Trap • [R] Vent Heat',
         keys: [['WASD', 'Patrol Ballroom'], ['HOLD LMB', 'Proton Stream Lash'], ['E / G', 'Toss Ghost Trap'], ['R', 'Vent Pack Heat']],
         map: {
@@ -1042,10 +1068,11 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('ghosts');
             const D = S.data;
             Object.assign(D, {
                 ghosts: [], traps: [], ectoBolts: [], heat: 0, overheated: false,
-                captured: 0, bossSpawned: false, bossTrapped: false, spawnCd: 1.0, trapCd: 0, beamSoundCd: 0
+                captured: 0, bossSpawned: false, bossTrapped: false, spawnCd: 1.0, trapCd: 0, beamSoundCd: 0, pkeBeepCd: 0
             });
 
             // Haunted Victorian Ballroom Parquet + Crimson Grand Rug + Grand Pipe Organ at North End (z = -19.2)!
@@ -1170,6 +1197,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
             if (S.data.rig && S.data.rig.parent) S.data.rig.parent.remove(S.data.rig);
         },
@@ -1224,7 +1252,7 @@
             D.ghosts = D.ghosts.filter((g) => g !== gObj);
             D.captured++; S.kills++; S.bumpCombo();
             S.award(Math.round(pts * S.comboMult), gObj.pos.clone().add(V(0, 1.2, 0)), viaTrap ? `⚡ TRAPPED: ${gObj.spec.name}!` : `💥 VAPORIZED: ${gObj.spec.name}`, viaTrap ? '#fde047' : '#4ade80');
-            SFX.fanfare();
+            if (viaTrap && BO.MinigameAudio) BO.MinigameAudio.trapSnap(); else SFX.fanfare();
             if (gObj.spec.boss) {
                 D.bossTrapped = true;
                 MG.finish('👻 LORD VOLTAIRE SEALED IN CONTAINMENT!', { color: '#4ade80', delay: 2.0 });
@@ -1232,9 +1260,11 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player, cam = BO.App.worldCamera;
             D.trapCd = Math.max(0, D.trapCd - dt);
             D.beamSoundCd = Math.max(0, D.beamSoundCd - dt);
+            D.pkeBeepCd = Math.max(0, (D.pkeBeepCd || 0) - dt);
 
             // Haunted Ballroom Chandeliers sway eerily
             for (let i = 0; i < D.chandeliers.length; i++) {
@@ -1257,6 +1287,10 @@
             D.pke.wingL.rotation.z = pkeAlert * 0.65;
             D.pke.wingR.rotation.z = -pkeAlert * 0.65;
             D.pke.screen.material.color.setHex(pkeAlert > 0.6 ? 0xfacc15 : 0x4ade80);
+            if (pkeAlert > 0.45 && D.pkeBeepCd <= 0) {
+                D.pkeBeepCd = Math.max(0.22, 0.85 - pkeAlert * 0.6);
+                tone(1100 + pkeAlert * 650, 1250 + pkeAlert * 650, 0.045, 'sine', 0.035);
+            }
 
             // Proton Stream Wrangling ([LMB] held)!
             for (const g of D.ghosts) g.wrangled = false;

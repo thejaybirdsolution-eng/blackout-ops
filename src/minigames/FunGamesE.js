@@ -808,8 +808,8 @@
         },
         heroLabel: 'FUN & SPECIALS • CULINARY CHAOS', duration: 150,
         stars: [2200, 4200, 6800, 9500],
-        standardWeapon: 'm1911', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
-        weaponLabel: 'SOUS-CHEF M1911 + SPATULA [E]', weaponNote: '[E] Grab / Grill / Plate / Serve • [LMB] Shoot Pests & Fire Valve • [Q] Trash Held Item',
+        standardWeapon: 'm1911', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
+        weaponLabel: 'SOUS-CHEF M1911 + SPATULA [E]', weaponNote: '[E] Grab / Grill / Plate / Serve • 3-Order Streak = MICHELIN FEVER (2x Grill Speed + 1.5x Tips)!',
         keys: [['WASD', 'Move in Kitchen'], ['E', 'Grab / Grill / Plate / Bell'], ['LMB', 'Shoot Rats & Fire Valve'], ['Q', 'Toss Held Item']],
         map: {
             atmosphere: { skyTop: 0x1c1917, skyBottom: 0x451a03, fogColor: 0x292524, fogDensity: 0.010, sunColor: 0xfffbeb, sunIntensity: 1.3, sunPos: [6, 18, 8], hemiSky: 0xfef3c7, hemiGround: 0x44403c, hemiIntensity: 0.95 },
@@ -822,10 +822,11 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('kitchen');
             const D = S.data;
             Object.assign(D, {
                 held: null, heldHudMesh: null, burners: [], plates: [], crates: [], tickets: [],
-                raiders: [], served: 0, stolen: 0, spawnCd: 2.8, ticketCd: 0.5, valveCool: 0
+                raiders: [], served: 0, stolen: 0, spawnCd: 2.8, ticketCd: 0.5, valveCool: 0, feverT: 0, orderStreak: 0
             });
 
             // Checkered Bistro Floor + Warm Bistro Walls + Dining Room beyond the Pass!
@@ -841,6 +842,20 @@
 
             const warm1 = new THREE.PointLight(0xffedd5, 1.2, 24, 1.5); warm1.position.set(-4, 4.8, -2); S.add(warm1);
             const warm2 = new THREE.PointLight(0xfde68a, 1.1, 24, 1.5); warm2.position.set(4, 4.8, 3); S.add(warm2);
+            // Overhead Brass Bistro Pendant Lamps & Hanging Copper Pot Rack!
+            const copperM = std(0xd97706, 0.25, 0.85);
+            for (const lx of [-3.5, 0, 3.5]) {
+                const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.2, 6), darkSteel); cord.position.set(lx, 5.8, 3.6);
+                const shade = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.45, 14), copperM); shade.position.set(lx, 4.6, 3.6);
+                const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), basic(0xfef08a)); bulb.position.set(lx, 4.35, 3.6);
+                S.add(cord, shade, bulb);
+            }
+            const potBar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 6.2, 8), darkSteel);
+            potBar.rotation.z = Math.PI / 2; potBar.position.set(-3.4, 3.9, -4.2); S.add(potBar);
+            for (let p = -2; p <= 2; p++) {
+                const pan = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.30, 0.14, 14), copperM);
+                pan.rotation.x = Math.PI / 2; pan.position.set(-3.4 + p * 1.2, 3.45, -4.2); S.add(pan);
+            }
 
             // 1. Back Ingredient Counter (z = -4.2) with 4 Labeled Crates + Trash Chute
             const prepBench = new THREE.Mesh(new THREE.BoxGeometry(11.6, 1.0, 1.5), steel);
@@ -957,6 +972,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
             if (S.data.handAnchor && S.data.handAnchor.parent) S.data.handAnchor.parent.remove(S.data.handAnchor);
         },
@@ -1009,13 +1025,16 @@
                 const matchIdx = D.tickets.findIndex((tk) => tk.spec.need.slice().sort().join('+') === sortedPlate);
                 if (matchIdx >= 0) {
                     const tk = D.tickets.splice(matchIdx, 1)[0];
-                    const tip = Math.round((tk.timeLeft / tk.maxTime) * 260);
+                    const tip = Math.round((tk.timeLeft / tk.maxTime) * (D.feverT > 0 ? 390 : 260));
                     const pts = tk.spec.reward + tip;
-                    D.served++; S.bumpCombo();
+                    D.served++; D.orderStreak++; S.bumpCombo();
+                    if (D.orderStreak >= 3 && D.feverT <= 0) {
+                        D.feverT = 12.0; D.orderStreak = 0;
+                        MG.toast('🔥 MICHELIN FEVER (12s)! 2x GRILL SPEED + 1.5x TIPS!', '#fde047');
+                    }
                     S.award(pts, p.pos.clone().add(V(0, 1.0, 0)), `🔔 ORDER UP: ${tk.spec.name} (+${tip} TIP)!`, '#fde047');
                     BO.FX.spawnParticles(p.pos.clone().add(V(0, 0.4, 0)), 20, 0xfacc15, 5, 6, 0.5, 0.9);
-                    tone(880, 1320, 0.18, 'triangle', 0.13);
-                    tone(1320, 1760, 0.24, 'triangle', 0.12, 0.10);
+                    if (BO.MinigameAudio) BO.MinigameAudio.kitchenBell(); else { tone(880, 1320, 0.18, 'triangle', 0.13); tone(1320, 1760, 0.24, 'triangle', 0.12, 0.10); }
                     p.items = []; this._rebuildPlateVisual(p);
                     this._addTicket(S);
                     servedAny = true;
@@ -1056,7 +1075,7 @@
                         b.state = 'raw'; b.cookT = 0;
                         b.foodMount.add(buildFoodLayerMesh('raw_patty'));
                         b.ring.material.color.setHex(0xf97316);
-                        tone(260, 480, 0.14, 'sawtooth', 0.09);
+                        if (BO.MinigameAudio) BO.MinigameAudio.kitchenSizzle(); else tone(260, 480, 0.14, 'sawtooth', 0.09);
                         MG.toast('🥩 SIZZLING WAGYU ON BURNER — PULL WHEN GOLD!', '#fb923c');
                         return;
                     }
@@ -1132,8 +1151,10 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.valveCool = Math.max(0, D.valveCool - dt);
+            D.feverT = Math.max(0, (D.feverT || 0) - dt);
 
             // Keep ticket queue populated & tick patience timers
             D.ticketCd -= dt;
@@ -1151,7 +1172,7 @@
             // Update 4 Sizzling Flattop Burners
             for (const b of D.burners) {
                 if (b.state === 'raw' || b.state === 'cooked') {
-                    b.cookT += dt;
+                    b.cookT += dt * (b.state === 'raw' && D.feverT > 0 ? 1.9 : 1.0);
                     if (Math.random() < dt * 6) BO.FX.spawnParticles(b.pos.clone().add(V(0, 0.12, 0)), 2, b.state === 'cooked' ? 0xfde047 : 0xe2e8f0, 1.2, 2.2, 0.35, 0.4);
                     if (b.state === 'raw' && b.cookT >= 4.2) {
                         b.state = 'cooked';
@@ -1237,7 +1258,7 @@
             return `<div class="fun-panel">
                 <div class="mgx-chip mgx-hot">HAND <b>${esc(heldName)}</b></div>
                 <div class="mgx-chip">SERVED <b>${D.served}</b></div>
-                <div class="mgx-chip">PESTS SLAIN <b>${S.kills}</b></div>
+                ${D.feverT > 0 ? `<div class="mgx-chip mgx-hot">🔥 FEVER <b>${D.feverT.toFixed(1)}s</b></div>` : `<div class="mgx-chip">PESTS SLAIN <b>${S.kills}</b></div>`}
             </div>
             <div class="fun-panel" style="margin-top:4px;">${ticketHtml}</div>`;
         },
@@ -1398,9 +1419,9 @@
         },
         heroLabel: 'FUN & SPECIALS • HIGH-ALTITUDE NAVAL SIEGE', duration: 180,
         stars: [2600, 4800, 7600, 10800],
-        standardWeapon: 'model_1887_mw2', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
-        weaponLabel: 'AKIMBO 1887s + 4 BRASS DECK CANNONS [E]', weaponNote: '[E] Fire Loaded Broadside Cannon / Patch Ship at Repair Barrel • [LMB] Blast Pirate Boarders & Aether Cores',
-        keys: [['WASD', 'Patrol Ship Deck'], ['E', 'Fire Deck Cannon / Repair Hull'], ['LMB', 'Shoot Boarders & Cores'], ['SPACE', 'Jump Rigging']],
+        standardWeapon: 'model_1887_mw2', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
+        weaponLabel: 'AKIMBO 1887s + 4 BRASS DECK CANNONS [E] + SALVO [Q]', weaponNote: '[E] Fire Deck Cannon / Patch Ship • [Q] FULL 4-CANNON BROADSIDE SALVO (16s)!',
+        keys: [['WASD', 'Patrol Ship Deck'], ['E', 'Fire Deck Cannon / Repair Hull'], ['Q', 'Full Broadside Salvo (16s)'], ['LMB', 'Shoot Boarders & Cores']],
         map: {
             atmosphere: { skyTop: 0x0284c7, skyBottom: 0xfef3c7, fogColor: 0xbae6fd, fogDensity: 0.0045, sunColor: 0xfffbeb, sunIntensity: 1.85, sunPos: [45, 70, 30], hemiSky: 0xe0f2fe, hemiGround: 0xfde68a, hemiIntensity: 1.0 },
             boxes: [
@@ -1416,11 +1437,12 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('skypirate');
             const D = S.data;
             Object.assign(D, {
                 shipHp: 100, maxShipHp: 100, cannons: [], cannonballs: [], zeppelins: [], boarders: [],
                 deckFires: [], zepsSunk: 0, bossSpawned: false, bossDefeated: false,
-                zepSpawnCd: 1.5, boarderCd: 4.5, repairCd: 0
+                zepSpawnCd: 1.5, boarderCd: 4.5, repairCd: 0, salvoAllCd: 0
             });
 
             // Sculpt HMS Sovereign: Oak Plank Deck Overlay, Tapered Prow + Bowsprit, 2 Tall Masts + Billowing Sails, Brass Helm Wheel!
@@ -1522,10 +1544,30 @@
             D.onKey = (e) => {
                 if (MG.session !== S || MG.state !== 'running') return;
                 if (e.code === 'KeyE') this._interactShip(S);
+                else if (e.code === 'KeyQ' && D.salvoAllCd <= 0) {
+                    D.salvoAllCd = 16.0;
+                    if (BO.MinigameAudio) BO.MinigameAudio.cannonBoom();
+                    MG.toast('💣 FULL 4-CANNON BROADSIDE SALVO!', '#fde047');
+                    for (const c of D.cannons) {
+                        c.cd = 3.6; c.recoil = 1.0;
+                        const muzzle = V(c.pos.x + c.side * 1.45, 0.72, c.pos.z);
+                        BO.FX.spawnExplosion(muzzle, 1.8, 0xf97316);
+                        let vel = V(c.side * 44, 5.5, 0);
+                        const sameSideZeps = D.zeppelins.filter((z) => z.tgt.alive && Math.sign(z.tgt.basePos.x) === c.side);
+                        if (sameSideZeps.length) {
+                            const zt = sameSideZeps[0].tgt.basePos.clone().add(V(0, 4.2, 0));
+                            vel = zt.sub(muzzle).normalize().multiplyScalar(48);
+                        }
+                        const ball = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), std(0x111827, 0.35, 0.85));
+                        ball.position.copy(muzzle); S.add(ball);
+                        D.cannonballs.push({ mesh: ball, vel, life: 3.0 });
+                    }
+                }
             };
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _interactShip(S) {
@@ -1537,7 +1579,7 @@
                     c.cd = 3.6; c.recoil = 1.0;
                     const muzzle = V(c.pos.x + c.side * 1.45, 0.72, c.pos.z);
                     BO.FX.spawnExplosion(muzzle, 1.8, 0xf97316);
-                    SFX.rumble(0.45); tone(150, 48, 0.32, 'sawtooth', 0.14);
+                    if (BO.MinigameAudio) BO.MinigameAudio.cannonBoom(); else { SFX.rumble(0.45); tone(150, 48, 0.32, 'sawtooth', 0.14); }
 
                     // Aim slightly toward nearest enemy zeppelin on that broadside if one is present!
                     let vel = V(c.side * 44, 5.5, 0);
@@ -1620,8 +1662,10 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.repairCd = Math.max(0, D.repairCd - dt);
+            D.salvoAllCd = Math.max(0, (D.salvoAllCd || 0) - dt);
 
             // Safety net if player ever leaps over bulwark into the clouds: grappling-rope hoist back onto deck!
             if (P.pos.y < -6) {
@@ -1755,6 +1799,7 @@
             return `<div class="fun-panel">
                 <div class="mgx-chip ${D.shipHp < 35 ? 'mgx-hot' : ''}">⚓ SHIP HULL <b>${Math.ceil(D.shipHp)}%</b></div>
                 <div class="mgx-chip">CORSAIRS SUNK <b>${D.zepsSunk} / 4</b></div>
+                <div class="mgx-chip ${(D.salvoAllCd || 0) <= 0 ? 'mgx-hot' : ''}">SALVO [Q] <b>${(D.salvoAllCd || 0) <= 0 ? 'READY' : D.salvoAllCd.toFixed(0) + 's'}</b></div>
                 <div class="mgx-chip">DECK FIRES <b>${D.deckFires.length}</b></div>
                 <div class="mgx-chip">REPAIR [E] <b>${D.repairCd <= 0 ? 'READY' : D.repairCd.toFixed(0) + 's'}</b></div>
             </div>

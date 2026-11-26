@@ -505,6 +505,69 @@
                     this._osc(riff, 0.12, 'square', 0.062, { cutoff: 2900, pan: -0.22 });
                     this._osc(riff * 0.5, 0.12, 'sawtooth', 0.045, { cutoff: 1800, pan: 0.22 });
                 }
+            } else if (this.mode === 'kitchen') {
+                // 148 BPM French Bistro Accordion / Gypsy-Jazz Rush!
+                this.timer = 0.101;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const bass = [N.D3, N.A2, N.G2, N.A2][bar];
+                if (st % 4 === 0) this._kick(0.18, 130, 50, 0.12);
+                if (st % 4 === 2) this._hat(0.055, false, 0.2);
+                if (st % 2 === 0) this._osc(st % 4 === 0 ? bass : bass * 1.5, 0.11, 'triangle', 0.10);
+                const mel = [N.D5, N.F5, N.A5, 0, N.G5, N.F5, N.E5, N.D5, N.E5, N.G5, N.Bb5, 0, N.A5, N.G5, N.F5, N.E5][st];
+                if (mel) {
+                    this._osc(mel, 0.10, 'sawtooth', 0.058, { cutoff: 2400, pan: -0.18 });
+                    this._osc(mel * 1.005, 0.10, 'triangle', 0.045, { pan: 0.18 });
+                }
+            } else if (this.mode === 'skypirate') {
+                // Swashbuckling 6/8 Sea-Shanty Brass & Fiddle Adventure!
+                this.timer = 0.118;
+                const N = NOTE, st = s % 24;
+                const mel = [
+                    N.D5, 0, N.D5, N.F5, N.G5, N.A5, N.A5, 0, N.G5, N.F5, N.E5, N.D5,
+                    N.C5, 0, N.C5, N.E5, N.G5, N.E5, N.D5, 0, N.A4, N.D5, 0, 0
+                ];
+                const bass = [N.D2, 0, 0, N.A2, 0, 0, N.F2, 0, 0, N.C3, 0, 0, N.C2, 0, 0, N.G2, 0, 0, N.D2, 0, 0, N.A2, 0, 0];
+                if (st % 6 === 0) this._kick(0.24, 135, 44, 0.18);
+                if (st % 6 === 3) this._snare(0.15, 190, 0.12);
+                if (mel[st]) {
+                    this._osc(mel[st], 0.18, 'sawtooth', 0.072, { cutoff: 2600, pan: -0.15 });
+                    this._osc(mel[st] * 0.5, 0.18, 'triangle', 0.05, { pan: 0.15 });
+                }
+                if (bass[st]) this._osc(bass[st], 0.28, 'sawtooth', 0.11, { cutoff: 720 });
+            } else if (this.mode === 'toywar') {
+                // Crisp 132 BPM Toy-Soldier Snare March & Fife Bugle!
+                this.timer = 0.113;
+                const N = NOTE, st = s % 16;
+                if (st === 0 || st === 8) this._kick(0.22, 145, 52, 0.14);
+                if (st === 4 || st === 12 || st === 14 || st === 15) this._snare(st >= 14 ? 0.10 : 0.18, 250, 0.10);
+                const fife = [N.C5, 0, N.E5, N.G5, N.C6, 0, N.G5, 0, N.A5, N.G5, N.F5, N.E5, N.D5, 0, N.G5, 0][st];
+                if (fife) this._osc(fife, 0.12, 'triangle', 0.078, { pan: Math.sin(s * 0.5) * 0.25 });
+                if (st % 4 === 0) this._osc(st < 8 ? N.C3 : N.G2, 0.22, 'triangle', 0.11);
+            } else if (this.mode === 'chess') {
+                // Dramatic Gothic Harpsichord & Cathedral Strings Toccata
+                this.timer = 0.115;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const arp = [
+                    [N.D4, N.F4, N.A4, N.D5], [N.Bb3, N.D4, N.F4, N.Bb4],
+                    [N.G3, N.Bb3, N.D4, N.G4], [N.A3, N.Cs4, N.E4, N.A4]
+                ][bar];
+                const f = arp[st % 4] * (st >= 8 ? 2 : 1);
+                this._osc(f, 0.14, 'sawtooth', 0.052, { cutoff: 3400, cutoffEnd: 900, pan: (st % 4 - 1.5) * 0.22 });
+                if (st === 0) {
+                    this._supersaw(arp[0] * 0.5, 0.85, 0.042, 1400);
+                    this._kick(0.20, 110, 42, 0.22);
+                }
+            } else if (this.mode === 'ghosts') {
+                // Funky 124 BPM Ghost-Hunter Synth Bassline + Spooky Theremin Organ!
+                this.timer = 0.121;
+                const N = NOTE, st = s % 16;
+                if (st % 4 === 0) this._kick(0.26, 150, 46, 0.18);
+                if (st === 4 || st === 12) this._snare(0.17, 215, 0.13);
+                if (st % 2 === 1) this._hat(0.05, st === 15, 0.2);
+                const bass = [N.B2, N.B2, 0, N.B2, N.D3, 0, N.Cs3, 0, N.A2, N.A2, 0, N.A2, N.B2, 0, N.Fs2, 0][st];
+                if (bass) this._osc(bass, 0.11, 'sawtooth', 0.13, { cutoff: 1450, cutoffEnd: 360, q: 3.0 });
+                const spooky = [0, 0, N.Fs5, 0, 0, N.G5, 0, N.Fs5, 0, 0, N.E5, 0, N.D5, 0, N.Cs5, 0][st];
+                if (spooky) this._osc(spooky, 0.24, 'sine', 0.068, { slideTo: spooky * 1.03, pan: Math.sin(s) * 0.35 });
             }
         }
 
@@ -749,6 +812,28 @@
         derbyZap() {
             this._osc(920, 0.18, 'sawtooth', 0.14, { slideTo: 240, cutoff: 2800, sfx: true });
             this._noise(0.14, 4200, 'highpass', 1.4, 0.16, 0, true);
+        }
+        kitchenSizzle() {
+            this._noise(0.28, 3800, 'bandpass', 1.2, 0.18, 0, true);
+        }
+        kitchenBell() {
+            this._osc(1760, 0.42, 'sine', 0.16, { sfx: true });
+            this._osc(3520, 0.26, 'triangle', 0.09, { sfx: true });
+        }
+        cannonBoom() {
+            this._kick(0.36, 110, 28, 0.34, true);
+            this._noise(0.42, 650, 'lowpass', 1.1, 0.32, 0, true);
+        }
+        bugleCall() {
+            [NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5].forEach((f, i) => this._osc(f, 0.14, 'sawtooth', 0.11, { cutoff: 2800, sfx: true, delay: i * 0.08 }));
+        }
+        chessHorn() {
+            [NOTE.D4, NOTE.A4, NOTE.D5].forEach((f, i) => this._osc(f, 0.32, 'sawtooth', 0.10, { cutoff: 2200, sfx: true, delay: i * 0.09 }));
+        }
+        trapSnap() {
+            this._osc(280, 0.22, 'sawtooth', 0.16, { slideTo: 880, cutoff: 2600, sfx: true });
+            this._kick(0.25, 160, 52, 0.14, true);
+            this._osc(NOTE.E5, 0.28, 'triangle', 0.13, { sfx: true, delay: 0.12 });
         }
     }
 
