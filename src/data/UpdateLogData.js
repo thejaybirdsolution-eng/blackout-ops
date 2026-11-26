@@ -10,7 +10,7 @@
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
         period: 'Nov 22 – Nov 25, 2026 (ET)',
-        totalCount: 79,
+        totalCount: 83,
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -1633,6 +1633,82 @@
                         {
                                 "type": "p",
                                 "text": "I added the option to switch every automatic gun between full-auto and single fire in all modes, with a setting for it and a fire-mode indicator on the HUD."
+                        }
+                ]
+        },
+        {
+                "id": 80,
+                "hash": "5e061b2",
+                "date": "Nov 25, 2026",
+                "fullDate": "November 25, 2026",
+                "time": "2:23 PM ET",
+                "dayKey": "2026-11-25",
+                "title": "Home Screen Patch Notes & Full Update Log Modal",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I added a live Patch Notes preview card on the main menu alongside a searchable, filterable Update Log modal covering the entire development timeline."
+                        }
+                ]
+        },
+        {
+                "id": 81,
+                "hash": "5d95c3f",
+                "date": "Nov 25, 2026",
+                "fullDate": "November 25, 2026",
+                "time": "5:39 PM ET",
+                "dayKey": "2026-11-25",
+                "title": "AAA Visual Overhaul: HDR Pipeline, Shader Sky & IBL",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Major graphics and UI overhaul introducing an HDR post-processing pipeline, procedural shader sky with image-based lighting (IBL), rebuilt PBR textures, and a redesigned menu and HUD."
+                        }
+                ]
+        },
+        {
+                "id": 82,
+                "hash": "77e6de8",
+                "date": "Nov 25, 2026",
+                "fullDate": "November 25, 2026",
+                "time": "7:35 PM ET",
+                "dayKey": "2026-11-25",
+                "title": "Visual Pass 2: Bevels, AO, Sun Shafts & Ornamented UI",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Second visual pass adding global mesh bevels, ambient occlusion, volumetric sun shafts, eye adaptation, atmospheric dust, contact shadows, and ornamented UI framing."
+                        }
+                ]
+        },
+        {
+                "id": 83,
+                "hash": "65458cb",
+                "date": "Nov 25, 2026",
+                "fullDate": "November 25, 2026",
+                "time": "7:45 PM ET",
+                "dayKey": "2026-11-25",
+                "title": "Visual Pass 3: Operator Model, Creature Shading & ADS DoF",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Third visual pass introducing a new 3D operator model, upgraded creature shading, ADS depth of field, tactile hit-stop feedback, and unified UI styling across every screen."
                         }
                 ]
         }

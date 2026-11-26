@@ -285,6 +285,7 @@
             }
 
             const tagMeta = data.tagMeta || {};
+            const latestId = data.updates.length ? data.updates[data.updates.length - 1].id : 0;
             listEl.innerHTML = filtered.map((u) => {
                 const tagsHtml = (u.tags || []).map((t) => {
                     const meta = tagMeta[t] || { label: t, color: '#94a3b8' };
@@ -302,12 +303,12 @@
                 }).join('');
 
                 return (
-                    '<article class="ul-card' + (u.major ? ' is-major' : '') + (u.id === 79 ? ' is-head' : '') + '" id="ul-card-' + u.id + '">' +
+                    '<article class="ul-card' + (u.major ? ' is-major' : '') + (u.id === latestId ? ' is-head' : '') + '" id="ul-card-' + u.id + '">' +
                         '<div class="ul-rail-dot" aria-hidden="true"></div>' +
                         '<div class="ul-card-head">' +
                             '<div class="ul-card-id-row">' +
                                 '<span class="ul-num">UPDATE #' + u.id + '</span>' +
-                                (u.id === 79 ? '<span class="ul-badge-live">LATEST</span>' : '') +
+                                (u.id === latestId ? '<span class="ul-badge-live">LATEST</span>' : '') +
                                 (u.major ? '<span class="ul-badge-major">★ MILESTONE</span>' : '') +
                                 '<code class="ul-hash">' + esc(u.hash) + '</code>' +
                             '</div>' +
