@@ -508,7 +508,7 @@
         const BA = BO.BeachArt;
         const g = BA.buildGirl(d);
         const st = { ph: ph0, z: z0, x: x0, t: 0 };
-        const pitch = 0.92 + (idx % 8) * 0.04;
+        const pitch = 0.90 + (idx % 10) * 0.035;
         const tg = S.addTarget({
             mesh: g.root, hitMeshes: g.hit, pos: V(x0, 0, z0), yaw: 0, points: 150, life: 0,
             appear: 'scale', vanish: 'scale', inT: 0.3, outT: 0.35, death: 'none', deathColor: 0xff7ab8,
@@ -525,7 +525,7 @@
                 st.ph += dt * (4.2 + spd * 1.25);
                 BA.updateGirl(g, S, dt, st.ph, 1, spd, true);
                 if (st.z > -2.4 && t.phase !== 'out') {
-                    MG.popup(t.root.position.clone().add(V(0, 2, 0)), d.name + ' ran past!', '#f9a8d4');
+                    MG.popup(t.root.position.clone().add(V(0, 2, 0)), `${d.name} (${d.title}) ran past!`, '#f9a8d4');
                     t.retire();
                 }
             },
@@ -592,7 +592,7 @@
         id: 'sweetheart_shore', cat: 'target', order: 15,
         name: 'Sweetheart Shore', icon: '💖', accent: '#f472b6',
         tagline: 'The heart blaster. Spread the love.',
-        desc: 'A sunlit tropical paradise where your gun fires hearts. Eight uniquely sculpted anime beachgoers — each with bespoke swimwear, layered hair, and real spring-damper motion — run up from the turquoise shoreline. Tag each one with a heart before she reaches the boardwalk. Bouncing beach balls award bonus points.',
+        desc: 'A sunlit tropical paradise where your gun fires hearts. Ten uniquely sculpted anime beachgoers — each with bespoke swimwear, signature beach props, layered hair, and real spring-damper motion — run up from the turquoise shoreline. Tag each one with a heart before she reaches the boardwalk. Bouncing beach balls award bonus points.',
         hudSub: 'Tag every runner with a heart before she reaches you',
         duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', tracerColor: 0xff5fa8, forgivingMisses: true,
         map: {

@@ -2,13 +2,17 @@
    BLACKOUT OPS — Sweetheart Shore 2026 AAA Skinned Character & Soft-Engine Kit
    - True 25-bone THREE.Skeleton + unified THREE.SkinnedMesh human manifold:
      breasts, cleavage, ribcage, hourglass waist, navel, hips, glutes, thighs,
-     knees, calves, ankles, shoulders, elbows & wrists are sculpted into ONE
+     knees, calves, ankles, shoulders, elbows & wrists sculpted into ONE
      continuous skinned surface (ZERO ball-joint seams, 1 body draw call!)
    - Dedicated bodyfat/soft-tissue jiggle bones (breastL, breastR, bellySoft,
      gluteL, gluteR, thighSoftL, thighSoftR) deforming skin & fitted couture
      swimwear together on the GPU with zero cloth clipping
    - LinearEncoding tangent-space normal maps + PMREM IBL + custom GLSL
-     Subsurface Scattering (Soft-Engine warm peach wrap-lighting) shader
+     Subsurface Scattering (Soft-Engine warm peach wrap-lighting & sun sheen) shader
+   - Ultra-crisp 512x512 jewel anime eye textures with multi-tier starlight irises,
+     glossy 3D cornea lenses, Cupid's-bow lips, and emotive expressions
+   - High-fashion couture fabric shaders (gingham, hibiscus, nautical, polka,
+     stripe, ombre, shell, mesh, gamer-hearts, lifeguard-crests)
 ============================================================================ */
 (function (global) {
     'use strict';
@@ -61,7 +65,7 @@
             if (!renderer || !THREE.PMREMGenerator) return null;
             const pmrem = new THREE.PMREMGenerator(renderer);
             pmrem.compileEquirectangularShader();
-            const envTex = L.canvasTex('aaa26-beach-env', 256, 128, (g, w, h) => {
+            const envTex = L.canvasTex('aaa26-beach-env-v3', 256, 128, (g, w, h) => {
                 const gr = g.createLinearGradient(0, 0, 0, h);
                 gr.addColorStop(0.0, '#0c4a6e');
                 gr.addColorStop(0.36, '#38bdf8');
@@ -70,14 +74,16 @@
                 gr.addColorStop(1.0, '#784e28');
                 g.fillStyle = gr; g.fillRect(0, 0, w, h);
                 // Crisp key-sun specular highlight (front-right)
-                const sun = g.createRadialGradient(w * 0.35, h * 0.22, 2, w * 0.35, h * 0.22, 24);
+                const sun = g.createRadialGradient(w * 0.35, h * 0.22, 2, w * 0.35, h * 0.22, 28);
                 sun.addColorStop(0, '#ffffff');
-                sun.addColorStop(0.4, '#fef3c7');
+                sun.addColorStop(0.35, '#fef08a');
+                sun.addColorStop(0.7, '#f59e0b');
                 sun.addColorStop(1, 'rgba(255,245,210,0)');
                 g.fillStyle = sun; g.fillRect(0, 0, w, h);
                 // Turquoise ocean rim reflection (back)
-                const rim = g.createRadialGradient(w * 0.82, h * 0.42, 4, w * 0.82, h * 0.42, 36);
-                rim.addColorStop(0, 'rgba(103, 232, 249, 0.75)');
+                const rim = g.createRadialGradient(w * 0.82, h * 0.42, 4, w * 0.82, h * 0.42, 42);
+                rim.addColorStop(0, 'rgba(103, 232, 249, 0.85)');
+                rim.addColorStop(0.5, 'rgba(6, 182, 212, 0.45)');
                 rim.addColorStop(1, 'rgba(103, 232, 249, 0)');
                 g.fillStyle = rim; g.fillRect(0, 0, w, h);
             });
@@ -196,14 +202,12 @@
         const gluteCleft = -0.022 * gauss(th, Math.PI, 0.14) * gauss(v, 0.12, 0.08);
 
         // Integrated 3D Sculpted Teardrop Breasts + Natural Medial Cleavage Valley!
-        // Left breast centered near th = +0.52, Right breast near th = TAU - 0.52, v ~ 0.60 (y ~ 1.26)
         const dThL = Math.atan2(Math.sin(th - 0.50), Math.cos(th - 0.50));
         const dThR = Math.atan2(Math.sin(th + 0.50), Math.cos(th + 0.50));
         const bRadL = Math.hypot(dThL / 0.46, (v - 0.605) / 0.105);
         const bRadR = Math.hypot(dThR / 0.46, (v - 0.605) / 0.105);
         const lobeL = bRadL < 1.35 ? Math.pow(Math.max(0, Math.cos(bRadL * 1.12)), 1.55) : 0;
         const lobeR = bRadR < 1.35 ? Math.pow(Math.max(0, Math.cos(bRadR * 1.12)), 1.55) : 0;
-        // Gravity teardrop asymmetry: fuller rounded lower pole, smooth natural upper pectoral slope!
         const tearSlope = v < 0.605 ? 1.18 : lerp(1.0, 0.62, clamp((v - 0.605) / 0.11, 0, 1));
         const breastProj = 0.086 * bustSc * (lobeL + lobeR) * tearSlope;
         const breastDropY = -0.022 * bustSc * (lobeL + lobeR) * Math.pow(clamp(1.1 - Math.min(bRadL, bRadR), 0, 1), 1.3);
@@ -317,7 +321,6 @@
             const cx = s * 0.092 * hipSc;
 
             appendTubePart(out, 32, 22, (v, th, u) => {
-                // v=0 at y=0.935 (blends seamlessly into pelvis/glutes) -> v=1 at y=0.055 (ankle)
                 const y = lerp(0.935, 0.055, v);
                 const sinT = Math.sin(th), cosT = Math.cos(th);
                 const front = Math.max(0, cosT), back = Math.max(0, -cosT);
@@ -325,26 +328,23 @@
 
                 let rad;
                 if (v < 0.50) {
-                    // Sculpted plush upper thigh tapering to knee (v = 0.50 -> y = 0.495)
                     const tv = v / 0.50;
                     rad = lerp(0.098 * thighSc, 0.049, Math.pow(tv, 0.82));
-                    rad += 0.013 * thighSc * front * gauss(tv, 0.38, 0.24);        // quadriceps sweep
-                    rad += 0.012 * thighSc * back * gauss(tv, 0.25, 0.24);         // hamstring curve
-                    rad += 0.008 * thighSc * inner * gauss(tv, 0.20, 0.18);        // plush inner-thigh softness
+                    rad += 0.013 * thighSc * front * gauss(tv, 0.38, 0.24);
+                    rad += 0.012 * thighSc * back * gauss(tv, 0.25, 0.24);
+                    rad += 0.008 * thighSc * inner * gauss(tv, 0.20, 0.18);
                 } else {
-                    // Knee patella -> asymmetric gastrocnemius calf -> slender Achilles & ankle
                     const cv = (v - 0.50) / 0.50;
                     rad = lerp(0.049, 0.030, smoothstep(0.0, 0.92, cv));
-                    rad += 0.005 * front * gauss(cv, 0.04, 0.08);                  // kneecap
-                    rad += 0.019 * (0.42 + 0.58 * back) * gauss(cv, 0.28, 0.16);   // calf muscle
-                    rad += 0.004 * Math.abs(sinT) * gauss(cv, 0.94, 0.05);         // ankle malleoli
+                    rad += 0.005 * front * gauss(cv, 0.04, 0.08);
+                    rad += 0.019 * (0.42 + 0.58 * back) * gauss(cv, 0.28, 0.16);
+                    rad += 0.004 * Math.abs(sinT) * gauss(cv, 0.94, 0.05);
                 }
 
                 const zShift = v > 0.50 ? -0.006 * gauss((v - 0.50) / 0.50, 0.28, 0.18) : 0;
                 const x = cx + rad * sinT * 0.97;
                 const z = rad * cosT + zShift;
 
-                // Smooth hip-to-thigh, plush-thigh jiggle, knee, and ankle skin weights!
                 let skin;
                 if (v < 0.10) {
                     const tHip = 1 - v / 0.10;
@@ -371,7 +371,6 @@
             const bWr = s > 0 ? BONE.WR_L : BONE.WR_R;
 
             appendTubePart(out, 22, 16, (v, th, u) => {
-                // Follows exact bind bone line: sh (0.152*s, 1.385, -0.006) -> el (0.170*s, 1.120, -0.006) -> wr (0.182*s, 0.880, 0.006)
                 let cx, cy, cz, rad;
                 if (v < 0.52) {
                     const t = v / 0.52;
@@ -410,8 +409,6 @@
 
     // ------------------------------------------------------------------------
     // Unified Skinned Couture Swimsuit Builder (Bound to Exact Same 25-Bone Skeleton!)
-    // Generates form-fitted bikini / bustier / sport / cutout-monokini / shell-cup
-    // directly from evalUnifiedTorso (+0.0035m normal offset) -> ZERO clipping ever!
     // ------------------------------------------------------------------------
     const suitGeoCache = new Map();
 
@@ -421,7 +418,6 @@
 
         const out = { pos: [], uv: [], si: [], sw: [], idx: [] };
 
-        // Helper to emit a vertex band on the torso with custom per-(v, th) coverage shaping
         const addBand = (v0, v1, slices, segs, shapeFn) => {
             const baseV = out.pos.length / 3;
             const cols = segs + 1;
@@ -455,7 +451,6 @@
         // 1. Sculpted High-Leg V-Cut Bikini / Swimsuit Bottoms (all styles)
         addBand(0.01, 0.23, 14, 40, (v, th, tv) => {
             const cosT = Math.cos(th), side = Math.abs(Math.sin(th));
-            // V-dip in front & cheeky high-leg cut on sides!
             const highLeg = 0.065 * Math.pow(side, 1.6);
             const vDipFront = -0.028 * Math.pow(Math.max(0, cosT), 2);
             const vLo = 0.01 + highLeg * (1 - tv);
@@ -464,39 +459,40 @@
         });
 
         // 2. Style-specific Couture Upper Garment
-        if (style === 'monokini') {
-            // Plunging Riviera Cutout Monokini (connects front & back with dramatic open side-waist cutouts!)
-            addBand(0.20, 0.69, 24, 42, (v, th, tv) => {
+        if (style === 'monokini' || style === 'lifeguard') {
+            addBand(0.20, 0.72, 26, 42, (v, th, tv) => {
                 const side = Math.abs(Math.sin(th));
                 const cosT = Math.cos(th);
+                if (style === 'lifeguard') {
+                    // One-piece high-neck athletic lifeguard swimsuit
+                    const armhole = side > 0.68 && v > 0.58 && v < 0.72;
+                    const backDip = cosT < -0.42 && v > 0.66;
+                    return { v, off: 0.0042, inside: !(armhole || backDip) };
+                }
                 const waistCutout = side > 0.48 && v > 0.24 && v < 0.50;
                 const plungeCut = cosT > 0.88 && v > 0.56;
                 const openBack = cosT < -0.45 && v > 0.44;
                 return { v, off: 0.0042, inside: !(waistCutout || plungeCut || openBack) };
             });
         } else if (style === 'sport') {
-            // Sleek Contoured Volleyball Crop-Top (snug underbust band -> sculpted racerback)
             addBand(0.49, 0.72, 16, 40, (v, th, tv) => {
                 const side = Math.abs(Math.sin(th));
                 const armhole = side > 0.74 && v > 0.63;
                 return { v, off: 0.0042, inside: !armhole };
             });
         } else if (style === 'bustier' || style === 'frill') {
-            // Sweetheart Balconette Bustier Bikini Top (lifts & frames cleavage cleanly!)
             addBand(0.50, 0.675, 16, 42, (v, th, tv) => {
                 const cosT = Math.cos(th);
-                // Sweetheart V-notch dip at center sternum
                 const sweetheart = -0.038 * Math.pow(Math.max(0, cosT), 8) * tv;
                 const lowBack = cosT < -0.2 ? -0.045 * tv : 0;
                 return { v: v + sweetheart + lowBack, off: 0.0042 };
             });
         } else {
-            // Micro-Triangle / Scalloped Seashell String Bikini Cups + Thin Back Strap!
+            // Triangle or Shell cups
             addBand(0.515, 0.68, 16, 44, (v, th, tv) => {
                 const dL = Math.abs(Math.atan2(Math.sin(th - 0.50), Math.cos(th - 0.50)));
                 const dR = Math.abs(Math.atan2(Math.sin(th + 0.50), Math.cos(th + 0.50)));
                 const dCup = Math.min(dL, dR);
-                // Triangle cup narrows toward top apex (tv -> 1), plus thin underband wrap around back
                 const maxW = lerp(0.46, 0.11, Math.pow(tv, 0.85));
                 const isUnderStrap = tv < 0.16;
                 const scallop = style === 'shell' ? Math.sin(th * 18) * 0.008 * tv : 0;
@@ -510,7 +506,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // Cached 3D Sculpted Head, Real 3D Layered Jewel Eyes, 3D Lashes & Hair
+    // Static Geometries & Detailed 3D Props
     // ------------------------------------------------------------------------
     const GEO = {};
 
@@ -535,15 +531,19 @@
         g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         g.setIndex(idx);
-        g.computeVertexNormals();
+        geoCompute(g);
         return g;
+    }
+
+    function geoCompute(g) {
+        g.computeVertexNormals();
     }
 
     function getStaticGeos() {
         if (GEO.ready) return GEO;
         GEO.ready = true;
 
-        // 3D Sculpted Dead-or-Alive / FF7R Head (delicate V-chin, plush cheeks, 3D nose, 3D lips)
+        // 3D Sculpted Anime Head (chin, cheeks, nose, Cupid's bow lips)
         GEO.head = sculptStatic(28, 34, (v, th) => {
             const y = lerp(-0.012, 0.258, v);
             const sinT = Math.sin(th), cosT = Math.cos(th);
@@ -562,7 +562,7 @@
             return [(rx + cheek * 0.35) * sinT, y, (rz + cheek + noseTip + noseBridge + upperLip + lowerLip + chin) * cosT];
         });
 
-        // Feathery Razor-Thin Silk Forehead Bangs (3mm thin curved ribbons parted ABOVE/AROUND eyes!)
+        // Silk Bangs & Sidelocks
         const makeSilkRibbon = (len, wBase, curveZ, sweepX) => {
             const pts = [
                 new THREE.Vector3(0, 0, 0),
@@ -575,7 +575,6 @@
             for (let i = 0; i < p.count; i++) {
                 const y = p.getY(i);
                 const t = clamp(-y / len, 0, 1);
-                // Flatten Z into a sleek 3mm silk blade and taper tip to a razor point!
                 const wEnv = Math.sin(t * Math.PI * 0.88 + 0.12) * (1 - t * 0.72);
                 p.setX(i, p.getX(i) * (0.4 + wEnv * 1.1));
                 p.setZ(i, p.getZ(i) * 0.26 + curveZ * Math.sin(t * Math.PI) * 0.65);
@@ -583,13 +582,14 @@
             geo.computeVertexNormals();
             return geo;
         };
-        // Short wispy center bang (stops ABOVE eyes!) + graceful temple-swept side bangs!
+
         GEO.bangWispy = makeSilkRibbon(0.074, 0.016, 0.018, 0.008);
         GEO.bangPartL = makeSilkRibbon(0.118, 0.022, 0.020, -0.046);
         GEO.bangPartR = makeSilkRibbon(0.118, 0.022, 0.020, 0.046);
         GEO.sidelock = makeSilkRibbon(0.215, 0.022, 0.014, 0.016);
+        GEO.bobStrand = makeSilkRibbon(0.155, 0.028, 0.016, 0.038);
 
-        // Draped Off-Shoulder Sinusoidal Flounce
+        // Sinusoidal Flounce
         GEO.flounce = sculptStatic(10, 36, (v, th) => {
             const sinT = Math.sin(th), cosT = Math.cos(th);
             const y = lerp(0.145, 0.015, v);
@@ -598,7 +598,7 @@
             return [(flare + wave) * sinT * 1.08, y + Math.sin(th * 10) * 0.007 * v, (flare * 0.80 + wave) * cosT];
         });
 
-        // Volumetric flowing hair chain segments + spiral drill curl
+        // Hair segments
         GEO.hairSeg = sculptStatic(10, 12, (v, th) => {
             const y = lerp(0.01, -0.135, v);
             const r = 0.042 * (0.68 + 0.32 * Math.sin(v * Math.PI)) * (1 - v * 0.18);
@@ -621,25 +621,38 @@
         GEO.cornea = new THREE.SphereGeometry(0.022, 14, 10, 0, TAU, 0, Math.PI * 0.42);
         GEO.cornea.rotateX(Math.PI / 2);
 
+        // 3D Beach Props Geometries
+        GEO.coconutCup = new THREE.SphereGeometry(0.046, 14, 12, 0, TAU, Math.PI * 0.18, Math.PI * 0.82);
+        GEO.straw = new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8);
+        GEO.umbrellaPaper = new THREE.ConeGeometry(0.048, 0.024, 10, 1, true);
+
+        GEO.swimRing = new THREE.TorusGeometry(0.188, 0.048, 12, 24);
+        GEO.swimRing.scale(1.05, 0.88, 1.0);
+
+        GEO.star = new THREE.OctahedronGeometry(0.014, 0);
+        GEO.heartGem = new THREE.SphereGeometry(0.012, 8, 6);
+        GEO.heartGem.scale(1.2, 1.2, 0.5);
+
         return GEO;
     }
 
     // ------------------------------------------------------------------------
-    // LinearEncoding Normal Maps + Custom GLSL Subsurface Scattering Skin Shader
+    // Normal Maps & Subsurface Skin Shader
     // ------------------------------------------------------------------------
     function getSkinNormalMap() {
-        return linearCanvasTex('aaa26-skin-norm', 256, 256, (g, w, h) => {
+        return linearCanvasTex('aaa26-skin-norm-v3', 256, 256, (g, w, h) => {
             g.fillStyle = 'rgb(128,128,255)'; g.fillRect(0, 0, w, h);
-            for (let i = 0; i < 1600; i++) {
+            for (let i = 0; i < 2000; i++) {
                 const x = (i * 97) % w, y = (i * 53) % h;
-                g.fillStyle = `rgb(${125 + (i % 7)},${125 + ((i * 3) % 7)},253)`;
+                const tone = 125 + (i % 7);
+                g.fillStyle = `rgb(${tone},${tone},253)`;
                 g.fillRect(x, y, 2, 2);
             }
         });
     }
 
     function getFabricNormalMap() {
-        return linearCanvasTex('aaa26-fab-norm', 128, 128, (g, w, h) => {
+        return linearCanvasTex('aaa26-fab-norm-v3', 128, 128, (g, w, h) => {
             g.fillStyle = 'rgb(128,128,255)'; g.fillRect(0, 0, w, h);
             for (let y = 0; y < h; y += 4) for (let x = 0; x < w; x += 4) {
                 const odd = ((x + y) >> 2) & 1;
@@ -650,7 +663,7 @@
     }
 
     function getHairNormalMap() {
-        return linearCanvasTex('aaa26-hair-norm', 128, 128, (g, w, h) => {
+        return linearCanvasTex('aaa26-hair-norm-v3', 128, 128, (g, w, h) => {
             g.fillStyle = 'rgb(128,128,255)'; g.fillRect(0, 0, w, h);
             for (let x = 0; x < w; x += 2) {
                 const nx = Math.round(128 + Math.sin(x * 1.1) * 28);
@@ -660,7 +673,6 @@
         });
     }
 
-    // Inject Dead-or-Alive Soft-Engine Subsurface Scattering + Peach Fresnel Rim into PBR skin!
     function applySubsurfaceSkinShader(mat, sssHex) {
         const sssCol = new THREE.Color(sssHex);
         mat.onBeforeCompile = (shader) => {
@@ -669,22 +681,20 @@
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
                 `
-                // Soft-Engine Subsurface Scattering (warm blood-scatter in midtone terminator + satin rim)
                 float ndv = clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
-                float rim = pow(1.0 - ndv, 3.2);
+                float rim = pow(1.0 - ndv, 3.4);
                 float luma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-                float sssBand = smoothstep(0.08, 0.42, luma) * (1.0 - smoothstep(0.45, 0.85, luma));
-                gl_FragColor.rgb += uSSSColor * (sssBand * 0.16 + rim * 0.11);
+                float sssBand = smoothstep(0.06, 0.44, luma) * (1.0 - smoothstep(0.46, 0.88, luma));
+                gl_FragColor.rgb += uSSSColor * (sssBand * 0.18 + rim * 0.12);
                 #include <dithering_fragment>
                 `
             );
         };
-        mat.customProgramCacheKey = () => 'doa-sss-skin-v1';
+        mat.customProgramCacheKey = () => 'doa-sss-skin-v3';
     }
 
     function skinAlbedoTex(skinHex, blushHex) {
-        return L.canvasTex('aaa26-skin:' + skinHex + ':' + blushHex, 512, 512, (g, w, h) => {
-            // u=0/1 is +Z (front), u=0.5 is -Z (back); v=0 groin -> v=1 neck
+        return L.canvasTex('aaa26-skin-v3:' + skinHex + ':' + blushHex, 512, 512, (g, w, h) => {
             g.fillStyle = hexStr(skinHex);
             g.fillRect(0, 0, w, h);
 
@@ -695,54 +705,58 @@
                 g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             };
-            // Rosy subsurface warmth at chest/cleavage (u=0 & u=1), shoulders & hips
+
             for (const fx of [0, w]) {
-                blush(fx, h * 0.40, 95, 55, 0.20);
-                blush(fx, h * 0.82, 110, 65, 0.12);
-                // Crisp under-bust & cleavage AO shadow (v ~ 0.53 -> canvas y = h * (1 - 0.53) = 0.47)
-                blush(fx, h * 0.46, 85, 24, 0.28, shadeHex(skinHex, -65));
-                // Collarbone & athletic oblique definition
-                g.strokeStyle = shadeHex(skinHex, -52);
+                // Cheerful chest & shoulder sun-warmth
+                blush(fx, h * 0.40, 96, 56, 0.22);
+                blush(fx, h * 0.82, 110, 65, 0.14);
+                // Underbust depth
+                blush(fx, h * 0.46, 85, 24, 0.26, shadeHex(skinHex, -60));
+                // Clavicle highlights & subtle contours
+                g.strokeStyle = shadeHex(skinHex, -48);
                 g.lineCap = 'round';
-                g.globalAlpha = 0.34; g.lineWidth = 5;
+                g.globalAlpha = 0.32; g.lineWidth = 5;
                 g.beginPath(); g.moveTo(fx - 46, h * 0.22); g.quadraticCurveTo(fx, h * 0.25, fx + 46, h * 0.22); g.stroke();
-                g.globalAlpha = 0.24; g.lineWidth = 4;
+                // Abdominal definition
+                g.globalAlpha = 0.22; g.lineWidth = 4;
                 g.beginPath(); g.moveTo(fx, h * 0.44); g.lineTo(fx, h * 0.68); g.stroke();
                 g.beginPath(); g.moveTo(fx - 38, h * 0.52); g.quadraticCurveTo(fx - 26, h * 0.64, fx - 18, h * 0.74); g.stroke();
                 g.beginPath(); g.moveTo(fx + 38, h * 0.52); g.quadraticCurveTo(fx + 26, h * 0.64, fx + 18, h * 0.74); g.stroke();
-                // Sculpted navel
-                g.globalAlpha = 0.50; g.fillStyle = shadeHex(skinHex, -68);
+                // Cute navel
+                g.globalAlpha = 0.48; g.fillStyle = shadeHex(skinHex, -65);
                 g.beginPath(); g.ellipse(fx, h * 0.695, 5, 8.5, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             }
-            // Spinal furrow & gluteal cleft AO at u = 0.5 (back)
-            g.strokeStyle = shadeHex(skinHex, -55);
-            g.globalAlpha = 0.32; g.lineWidth = 6;
+
+            // Back spine & glute crease
+            g.strokeStyle = shadeHex(skinHex, -52);
+            g.globalAlpha = 0.30; g.lineWidth = 6;
             g.beginPath(); g.moveTo(w * 0.5, h * 0.24); g.lineTo(w * 0.5, h * 0.92); g.stroke();
             g.globalAlpha = 1;
         });
     }
 
     function hairAlbedoTex(hairHex, hiCol) {
-        return L.canvasTex('aaa26-hair:' + hairHex + ':' + hiCol, 512, 512, (g, w, h) => {
+        return L.canvasTex('aaa26-hair-v3:' + hairHex + ':' + hiCol, 512, 512, (g, w, h) => {
             const gr = g.createLinearGradient(0, 0, 0, h);
             gr.addColorStop(0, shadeHex(hairHex, -38));
             gr.addColorStop(0.26, hexStr(hairHex));
-            gr.addColorStop(0.42, shadeHex(hairHex, 22));
+            gr.addColorStop(0.42, shadeHex(hairHex, 24));
             gr.addColorStop(0.68, shadeHex(hairHex, -8));
-            gr.addColorStop(1, shadeHex(hairHex, -45));
+            gr.addColorStop(1, shadeHex(hairHex, -48));
             g.fillStyle = gr; g.fillRect(0, 0, w, h);
 
             for (let x = 0; x < w; x += 2) {
                 const v = Math.sin(x * 0.63) * 0.5 + 0.5;
-                g.fillStyle = x % 4 === 0 ? `rgba(255,255,255,${v * 0.18})` : `rgba(0,0,0,${v * 0.22})`;
+                g.fillStyle = x % 4 === 0 ? `rgba(255,255,255,${v * 0.20})` : `rgba(0,0,0,${v * 0.22})`;
                 g.fillRect(x, 0, 1.5, h);
             }
-            for (const [yc, hh, al] of [[0.30, 0.11, 0.62], [0.68, 0.06, 0.28]]) {
+            // Double lustrous angel-ring specular sheen
+            for (const [yc, hh, al] of [[0.30, 0.11, 0.65], [0.68, 0.06, 0.32]]) {
                 const halo = g.createLinearGradient(0, h * (yc - hh), 0, h * (yc + hh));
                 halo.addColorStop(0, 'rgba(255,255,255,0)');
                 halo.addColorStop(0.45, hiCol);
-                halo.addColorStop(0.55, 'rgba(255,255,255,0.88)');
+                halo.addColorStop(0.55, 'rgba(255,255,255,0.92)');
                 halo.addColorStop(1, 'rgba(255,255,255,0)');
                 g.globalAlpha = al; g.fillStyle = halo;
                 g.fillRect(0, h * (yc - hh), w, h * hh * 2);
@@ -753,14 +767,18 @@
 
     function fabricAlbedoTex(pattern, c1, c2) {
         const s1 = hexStr(c1), s2 = hexStr(c2);
-        return L.canvasTex('aaa26-fab:' + pattern + ':' + s1 + ':' + s2, 512, 512, (g, w, h) => {
+        return L.canvasTex('aaa26-fab-v3:' + pattern + ':' + s1 + ':' + s2, 512, 512, (g, w, h) => {
             g.fillStyle = s1; g.fillRect(0, 0, w, h);
             if (pattern === 'gingham') {
-                g.fillStyle = s2; g.globalAlpha = 0.45;
+                g.fillStyle = s2; g.globalAlpha = 0.48;
                 for (let i = 0; i < w; i += 48) { g.fillRect(i, 0, 24, h); g.fillRect(0, i, w, 24); }
                 g.globalAlpha = 1;
-                // Delicate top & bottom lace trim
+                // Delicate lace edges
                 g.fillStyle = s2; g.fillRect(0, 0, w, 16); g.fillRect(0, h - 16, w, 16);
+                for (let x = 8; x < w; x += 16) {
+                    g.beginPath(); g.arc(x, 16, 6, 0, Math.PI); g.fill();
+                    g.beginPath(); g.arc(x, h - 16, 6, Math.PI, TAU); g.fill();
+                }
             } else if (pattern === 'hibiscus') {
                 const drawFl = (cx, cy, r) => {
                     g.fillStyle = s2;
@@ -774,7 +792,7 @@
                 for (let y = 48; y < h; y += 96) for (let x = 48; x < w; x += 96) drawFl(x + ((y / 96) % 2) * 48, y, 34);
             } else if (pattern === 'nautical') {
                 g.fillStyle = s2;
-                for (let y = 0; y < h; y += 36) g.fillRect(0, y, w, 13);
+                for (let y = 0; y < h; y += 36) g.fillRect(0, y, w, 14);
                 g.fillStyle = '#f59e0b';
                 for (let y = 13; y < h; y += 72) g.fillRect(0, y, w, 4);
             } else if (pattern === 'polka') {
@@ -784,14 +802,14 @@
                 }
             } else if (pattern === 'stripe') {
                 g.fillStyle = s2;
-                for (let x = 0; x < w; x += 40) g.fillRect(x, 0, 12, h);
-                g.fillStyle = '#bef264';
+                for (let x = 0; x < w; x += 40) g.fillRect(x, 0, 13, h);
+                g.fillStyle = '#fde047';
                 for (let x = 14; x < w; x += 40) g.fillRect(x, 0, 5, h);
             } else if (pattern === 'ombre') {
                 const gr = g.createLinearGradient(0, 0, 0, h);
                 gr.addColorStop(0, s1); gr.addColorStop(0.5, s2); gr.addColorStop(1, '#581c87');
                 g.fillStyle = gr; g.fillRect(0, 0, w, h);
-                g.strokeStyle = 'rgba(250,204,21,0.55)'; g.lineWidth = 3;
+                g.strokeStyle = 'rgba(250,204,21,0.65)'; g.lineWidth = 3.5;
                 for (let y = 24; y < h; y += 40) { g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(w * 0.33, y - 14, w * 0.66, y + 14, w, y); g.stroke(); }
             } else if (pattern === 'shell') {
                 const gr = g.createLinearGradient(0, 0, w, h);
@@ -803,25 +821,45 @@
                 }
             } else if (pattern === 'mesh') {
                 g.fillStyle = s2; g.fillRect(0, 0, w, 24); g.fillRect(0, h - 24, w, 24);
-                g.strokeStyle = 'rgba(255,255,255,0.36)'; g.lineWidth = 2.5;
+                g.strokeStyle = 'rgba(255,255,255,0.42)'; g.lineWidth = 2.5;
                 for (let i = -h; i < w + h; i += 18) {
                     g.beginPath(); g.moveTo(i, 24); g.lineTo(i + h, h - 24); g.stroke();
                     g.beginPath(); g.moveTo(i + h, 24); g.lineTo(i, h - 24); g.stroke();
                 }
+            } else if (pattern === 'gamer') {
+                g.fillStyle = s2;
+                for (let y = 32; y < h; y += 64) for (let x = 32; x < w; x += 64) {
+                    const ox = x + ((y / 64) % 2) * 32;
+                    g.beginPath();
+                    g.moveTo(ox, y + 8);
+                    g.lineTo(ox - 10, y - 6);
+                    g.lineTo(ox - 5, y - 12);
+                    g.lineTo(ox, y - 6);
+                    g.lineTo(ox + 5, y - 12);
+                    g.lineTo(ox + 10, y - 6);
+                    g.closePath();
+                    g.fill();
+                }
+            } else if (pattern === 'lifeguard') {
+                g.fillStyle = s2;
+                // Crisp white cross & double sport stripe
+                g.fillRect(w * 0.44, h * 0.38, w * 0.12, h * 0.24);
+                g.fillRect(w * 0.38, h * 0.44, w * 0.24, h * 0.12);
+                g.strokeStyle = '#facc15'; g.lineWidth = 4;
+                g.strokeRect(w * 0.38, h * 0.38, w * 0.24, h * 0.24);
             }
-            // Border hem trim
             g.fillStyle = s2;
             g.fillRect(0, 0, w, 8); g.fillRect(0, h - 8, w, 8);
         });
     }
 
-    /** Ultra-crisp 512x512 Dead-or-Alive / Stellar-Blade jewel anime face + glossy 3D cornea support */
+    /** 512x512 Anime jewel face texture with multi-layer irises, catchlights & expressive lips */
     function faceOverlayTex(eyeCol, hairHex, blushCol, expr) {
-        return L.canvasTex(`aaa26-face:${eyeCol}:${hairHex}:${expr}`, 512, 512, (g, w, h) => {
+        return L.canvasTex(`aaa26-face-v3:${eyeCol}:${hairHex}:${expr}`, 512, 512, (g, w, h) => {
             g.clearRect(0, 0, w, h);
             const browCol = shadeHex(hairHex, -38);
 
-            // Soft rosy cheek & nose-tip blush
+            // Rosy cheek & nose-tip blush
             const drawBlush = (cx, cy, rx, ry, al) => {
                 const rg = g.createRadialGradient(cx, cy, 3, cx, cy, rx);
                 rg.addColorStop(0, blushCol); rg.addColorStop(1, 'rgba(255,100,140,0)');
@@ -829,9 +867,25 @@
                 g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             };
-            drawBlush(120, 322, 60, 28, expr === 'happy' ? 0.72 : 0.45);
-            drawBlush(392, 322, 60, 28, expr === 'happy' ? 0.72 : 0.45);
-            drawBlush(256, 312, 22, 12, 0.25);
+            drawBlush(120, 322, 62, 30, expr === 'happy' ? 0.78 : 0.48);
+            drawBlush(392, 322, 62, 30, expr === 'happy' ? 0.78 : 0.48);
+            drawBlush(256, 312, 24, 14, 0.28);
+
+            // Cheek cute sparkle stars
+            if (expr === 'happy') {
+                const drawStar = (x, y, sz) => {
+                    g.fillStyle = '#ffffff';
+                    g.beginPath();
+                    g.moveTo(x, y - sz);
+                    g.quadraticCurveTo(x, y, x + sz, y);
+                    g.quadraticCurveTo(x, y, x, y + sz);
+                    g.quadraticCurveTo(x, y, x - sz, y);
+                    g.quadraticCurveTo(x, y, x, y - sz);
+                    g.fill();
+                };
+                drawStar(106, 314, 8);
+                drawStar(406, 314, 8);
+            }
 
             g.lineCap = 'round'; g.lineJoin = 'round';
             if (expr === 'happy') {
@@ -840,11 +894,12 @@
                     g.strokeStyle = '#11061c'; g.lineWidth = 21;
                     g.beginPath(); g.moveTo(cx - 52, 260); g.quadraticCurveTo(cx, 188, cx + 52, 260); g.stroke();
                     g.lineWidth = 11;
-                    g.beginPath(); g.moveTo(cx + dir * 48, 252); g.lineTo(cx + dir * 70, 228); g.stroke();
-                    g.fillStyle = '#fef08a'; g.beginPath(); g.arc(cx + dir * 66, 204, 8.5, 0, TAU); g.fill();
+                    g.beginPath(); g.moveTo(cx + dir * 48, 252); g.lineTo(cx + dir * 72, 226); g.stroke();
+                    g.fillStyle = '#fef08a'; g.beginPath(); g.arc(cx + dir * 68, 202, 8.5, 0, TAU); g.fill();
                 }
                 g.strokeStyle = browCol; g.lineWidth = 10;
                 for (const cx of [158, 354]) { g.beginPath(); g.moveTo(cx - 42, 148); g.quadraticCurveTo(cx, 126, cx + 42, 148); g.stroke(); }
+                // Happy laughing mouth with cute tooth
                 g.fillStyle = '#881337';
                 g.beginPath(); g.moveTo(206, 356); g.quadraticCurveTo(256, 434, 306, 356); g.quadraticCurveTo(256, 368, 206, 356); g.closePath(); g.fill();
                 g.fillStyle = '#fb7185'; g.beginPath(); g.ellipse(256, 394, 26, 15, 0, 0, TAU); g.fill();
@@ -859,20 +914,20 @@
                 }
                 g.strokeStyle = browCol; g.lineWidth = 10;
                 for (const cx of [158, 354]) { g.beginPath(); g.moveTo(cx - 42, 162); g.quadraticCurveTo(cx, 144, cx + 42, 162); g.stroke(); }
-                g.fillStyle = 'rgba(225, 58, 114, 0.82)';
+                g.fillStyle = 'rgba(225, 58, 114, 0.85)';
                 g.beginPath(); g.ellipse(256, 378, 34, 13, 0, 0, TAU); g.fill();
                 g.strokeStyle = '#881337'; g.lineWidth = 7;
                 g.beginPath(); g.moveTo(222, 372); g.quadraticCurveTo(256, 392, 290, 372); g.stroke();
             } else {
                 for (const cx of [158, 354]) {
                     const dir = cx < 256 ? -1 : 1;
-                    // Crisp white sclera + upper-lash AO shadow
+                    // Crisp white sclera + shadow
                     g.fillStyle = '#ffffff';
                     g.beginPath(); g.ellipse(cx, 248, 54, 62, 0, 0, TAU); g.fill();
                     g.fillStyle = 'rgba(51, 65, 85, 0.36)';
                     g.beginPath(); g.ellipse(cx, 214, 52, 28, 0, 0, TAU); g.fill();
 
-                    // Multi-ring jewel iris with radial starlight fibers
+                    // Multi-ring jewel iris
                     const ig = g.createLinearGradient(0, 194, 0, 306);
                     ig.addColorStop(0, '#070312');
                     ig.addColorStop(0.28, eyeCol);
@@ -882,7 +937,7 @@
                     g.beginPath(); g.ellipse(cx, 254, 42, 53, 0, 0, TAU); g.fill();
 
                     // Radial iris spokes
-                    g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = 2;
+                    g.strokeStyle = 'rgba(255,255,255,0.32)'; g.lineWidth = 2;
                     for (let k = 0; k < 12; k++) {
                         const a = k * TAU / 12;
                         g.beginPath();
@@ -891,8 +946,8 @@
                         g.stroke();
                     }
 
-                    // Lower caustic glow + dark limbal ring + deep pupil
-                    g.fillStyle = 'rgba(255,255,255,0.62)';
+                    // Caustic reflection + deep pupil
+                    g.fillStyle = 'rgba(255,255,255,0.65)';
                     g.beginPath(); g.ellipse(cx, 284, 26, 14, 0, 0, TAU); g.fill();
                     g.strokeStyle = '#070312'; g.lineWidth = 7;
                     g.beginPath(); g.ellipse(cx, 254, 42, 53, 0, 0, TAU); g.stroke();
@@ -905,7 +960,7 @@
                     g.beginPath(); g.arc(cx + 17, 278, 9, 0, TAU); g.fill();
                     g.beginPath(); g.arc(cx + 14, 230, 5.5, 0, TAU); g.fill();
 
-                    // Bold lush upper eyelashes + winged outer flicks + double eyelid crease
+                    // Upper lashes & winged flicks
                     g.strokeStyle = '#090314'; g.lineWidth = 23;
                     g.beginPath(); g.ellipse(cx, 248, 56, 62, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
                     g.lineWidth = 11;
@@ -916,31 +971,34 @@
                     g.strokeStyle = 'rgba(9, 3, 20, 0.72)'; g.lineWidth = 5.5;
                     g.beginPath(); g.ellipse(cx, 250, 52, 58, 0, Math.PI * 0.22, Math.PI * 0.78); g.stroke();
                 }
+
                 g.strokeStyle = browCol; g.lineWidth = 11;
                 for (const cx of [158, 354]) {
                     g.beginPath(); g.moveTo(cx - 44, 156); g.quadraticCurveTo(cx, 134, cx + 44, 154); g.stroke();
                 }
-                // Cute nose highlight/shadow + luscious glossy Cupid's-bow lips
+
+                // Nose shadow & tip highlight
                 g.fillStyle = 'rgba(105, 48, 35, 0.42)';
                 g.beginPath(); g.moveTo(256, 300); g.lineTo(247, 322); g.lineTo(261, 324); g.closePath(); g.fill();
-                g.fillStyle = 'rgba(255,255,255,0.65)';
-                g.beginPath(); g.arc(255, 314, 4, 0, TAU); g.fill();
+                g.fillStyle = 'rgba(255,255,255,0.70)';
+                g.beginPath(); g.arc(255, 314, 4.5, 0, TAU); g.fill();
 
+                // Glossy Cupid's-bow lips
                 const lg = g.createLinearGradient(0, 354, 0, 400);
-                lg.addColorStop(0, 'rgba(225, 48, 108, 0.85)');
-                lg.addColorStop(1, 'rgba(244, 88, 124, 0.92)');
+                lg.addColorStop(0, 'rgba(225, 48, 108, 0.88)');
+                lg.addColorStop(1, 'rgba(244, 88, 124, 0.94)');
                 g.fillStyle = lg;
                 g.beginPath(); g.ellipse(256, 378, 35, 15, 0, 0, TAU); g.fill();
                 g.strokeStyle = '#7f1d3a'; g.lineWidth = 7;
                 g.beginPath(); g.moveTo(220, 372); g.quadraticCurveTo(256, 394, 292, 372); g.stroke();
-                g.fillStyle = 'rgba(255, 245, 250, 0.95)';
+                g.fillStyle = 'rgba(255, 245, 250, 0.96)';
                 g.beginPath(); g.ellipse(256, 386, 17, 5, 0, 0, TAU); g.fill();
             }
         });
     }
 
     // ------------------------------------------------------------------------
-    // Coupled 3-Axis Soft-Engine Spring-Damper Solver
+    // Spring-Damper Solver
     // ------------------------------------------------------------------------
     function makeSpring(k, c, maxDisp) {
         return { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, k, c, max: maxDisp };
@@ -963,16 +1021,16 @@
             color: 0xffffff,
             map: skinAlbedoTex(d.skin, d.blush),
             normalMap: getSkinNormalMap(),
-            normalScale: new THREE.Vector2(0.16, 0.16),
-            roughness: 0.40,
+            normalScale: new THREE.Vector2(0.18, 0.18),
+            roughness: 0.38,
             metalness: 0.01,
-            clearcoat: 0.28,
-            clearcoatRoughness: 0.32,
-            sheen: 0.22,
+            clearcoat: 0.32,
+            clearcoatRoughness: 0.28,
+            sheen: 0.25,
             sheenColor: new THREE.Color(d.blush),
-            sheenRoughness: 0.52,
+            sheenRoughness: 0.48,
             envMap: env,
-            envMapIntensity: 0.72,
+            envMapIntensity: 0.78,
             emissive: 0x000000
         }));
         applySubsurfaceSkinShader(skinM, d.blush);
@@ -981,13 +1039,13 @@
             color: 0xffffff,
             map: hairAlbedoTex(d.hair, d.hairHi),
             normalMap: getHairNormalMap(),
-            normalScale: new THREE.Vector2(0.32, 0.32),
-            roughness: 0.26,
+            normalScale: new THREE.Vector2(0.34, 0.34),
+            roughness: 0.24,
             metalness: 0.10,
-            clearcoat: 0.62,
-            clearcoatRoughness: 0.20,
+            clearcoat: 0.68,
+            clearcoatRoughness: 0.18,
             envMap: env,
-            envMapIntensity: 0.85,
+            envMapIntensity: 0.90,
             emissive: 0x000000
         }));
 
@@ -995,47 +1053,53 @@
             color: 0xffffff,
             map: fabricAlbedoTex(d.pattern, d.c1, d.c2),
             normalMap: getFabricNormalMap(),
-            normalScale: new THREE.Vector2(0.28, 0.28),
-            roughness: 0.36,
-            metalness: 0.06,
-            sheen: 0.30,
+            normalScale: new THREE.Vector2(0.30, 0.30),
+            roughness: 0.34,
+            metalness: 0.08,
+            sheen: 0.34,
             sheenColor: new THREE.Color(d.c2),
-            sheenRoughness: 0.44,
+            sheenRoughness: 0.42,
             side: THREE.DoubleSide,
             envMap: env,
-            envMapIntensity: 0.80,
+            envMapIntensity: 0.85,
             emissive: 0x000000
         }));
 
         const suit2 = push(new THREE.MeshPhysicalMaterial({
             color: d.c2,
             normalMap: getFabricNormalMap(),
-            normalScale: new THREE.Vector2(0.22, 0.22),
-            roughness: 0.40,
-            metalness: 0.05,
+            normalScale: new THREE.Vector2(0.24, 0.24),
+            roughness: 0.38,
+            metalness: 0.06,
             envMap: env,
-            envMapIntensity: 0.70,
+            envMapIntensity: 0.75,
             emissive: 0x000000
         }));
 
         const metalM = push(new THREE.MeshStandardMaterial({
-            color: d.metal, roughness: 0.14, metalness: 0.95, envMap: env, envMapIntensity: 1.45, emissive: 0x000000
+            color: d.metal, roughness: 0.12, metalness: 0.96, envMap: env, envMapIntensity: 1.55, emissive: 0x000000
         }));
 
         const accM = push(new THREE.MeshPhysicalMaterial({
-            color: d.accC, roughness: 0.28, metalness: 0.10, clearcoat: 0.42, envMap: env, envMapIntensity: 0.85, emissive: 0x000000
+            color: d.accC, roughness: 0.26, metalness: 0.12, clearcoat: 0.46, envMap: env, envMapIntensity: 0.90, emissive: 0x000000
         }));
 
         const nailM = push(new THREE.MeshPhysicalMaterial({
-            color: d.nail || d.c1, roughness: 0.08, metalness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.05, envMap: env, envMapIntensity: 1.2, emissive: 0x000000
+            color: d.nail || d.c1, roughness: 0.06, metalness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.04, envMap: env, envMapIntensity: 1.3, emissive: 0x000000
         }));
 
         const corneaM = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff, roughness: 0.02, metalness: 0.0, transparent: true, opacity: 0.28,
-            clearcoat: 1.0, clearcoatRoughness: 0.02, envMap: env, envMapIntensity: 1.8, depthWrite: false
+            color: 0xffffff, roughness: 0.02, metalness: 0.0, transparent: true, opacity: 0.30,
+            clearcoat: 1.0, clearcoatRoughness: 0.02, envMap: env, envMapIntensity: 2.0, depthWrite: false
         });
 
-        return { skinM, hairM, suit1, suit2, metalM, accM, nailM, corneaM, env };
+        // Translucent floatie / cup / sunglasses material
+        const glassM = push(new THREE.MeshPhysicalMaterial({
+            color: d.c1, roughness: 0.08, metalness: 0.02, transparent: true, opacity: 0.78,
+            clearcoat: 1.0, clearcoatRoughness: 0.05, envMap: env, envMapIntensity: 1.4, side: THREE.DoubleSide
+        }));
+
+        return { skinM, hairM, suit1, suit2, metalM, accM, nailM, corneaM, glassM, env };
     }
 
     BO.BeachAnatomy = {

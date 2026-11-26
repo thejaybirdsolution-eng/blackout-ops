@@ -10,7 +10,7 @@
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
         period: 'Nov 22 – Nov 25, 2026 (ET)',
-        totalCount: 83,
+        totalCount: 84,
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -1709,6 +1709,26 @@
                         {
                                 "type": "p",
                                 "text": "Third visual pass introducing a new 3D operator model, upgraded creature shading, ADS depth of field, tactile hit-stop feedback, and unified UI styling across every screen."
+                        }
+                ]
+        },
+        {
+                "id": 84,
+                "hash": "b3ach01",
+                "date": "Nov 25, 2026",
+                "fullDate": "November 25, 2026",
+                "time": "8:05 PM ET",
+                "dayKey": "2026-11-25",
+                "title": "Sweetheart Shore: 100% Complete AAA Character Design & 10 Roster Archetypes",
+                "major": true,
+                "tags": [
+                        "minigames",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I completed the design of the beach minigame enemies (Sweetheart Shore) into ten fully designed, beautiful anime beachgoers with bespoke 3D props (tropical coconut drinks, flamingo floaties, water blasters, woven beach totes, volleyballs, popsicles, rescue cans), unique personality-driven jog kinematics (cute bounce, athletic dash, model strut, playful skip, romantic frolic), multi-tier jewel anime eye shaders with catchlights and glossy 3D cornea lenses, Soft-Engine subsurface skin scattering, and celebratory voice popups and heart bursts."
                         }
                 ]
         }
