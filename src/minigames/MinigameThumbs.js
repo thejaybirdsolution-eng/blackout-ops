@@ -23,6 +23,17 @@
     ]);
 
     const THEMES = {
+        // Unified metallic-emblem themes for the 9 formerly static-art modes
+        whack_a_mole: { sky: ['#2e0410', '#881337', '#78350f'], bloom: '#fde047', scene: 'arena', label: 'CARNIVAL BOOTH', bx: 0.68, by: 0.24 },
+        fun_angry_birds: { sky: ['#0c4a6e', '#0284c7', '#15803d'], bloom: '#fde047', scene: 'peaks', label: 'SLINGSHOT SIEGE', bx: 0.72, by: 0.24 },
+        fun_master_zombie: { sky: ['#090414', '#3b0764', '#7f1d1d'], bloom: '#4ade80', scene: 'forest', label: 'SURVIVOR BASTION', bx: 0.66, by: 0.26 },
+        fun_snowboarding: { sky: ['#0c4a6e', '#2563eb', '#f97316'], bloom: '#fed7aa', scene: 'peaks', label: 'ALPINE DESCENT', bx: 0.72, by: 0.26 },
+        fun_360_trickshot: { sky: ['#0f172a', '#1e3a8a', '#f59e0b'], bloom: '#38bdf8', scene: 'skyline', label: 'SKYLINE SNIPER', bx: 0.68, by: 0.24 },
+        fun_mario_fps: { sky: ['#0369a1', '#2563eb', '#16a34a'], bloom: '#facc15', scene: 'peaks', label: 'RETRO KINGDOM FPS', bx: 0.72, by: 0.24 },
+        fun_final_fantasy: { sky: ['#05081a', '#1e1b4b', '#1e3a8a'], bloom: '#38bdf8', scene: 'space', label: 'CRYSTAL CITADEL RPG', bx: 0.66, by: 0.26 },
+        fun_pinball_arena: { sky: ['#090420', '#312e81', '#be185d'], bloom: '#22d3ee', scene: 'cyber', label: 'NEON PINBALL 3D', bx: 0.58, by: 0.30 },
+        contracts: { sky: ['#020617', '#0f172a', '#450a0a'], bloom: '#ef4444', scene: 'skyline', label: 'NOIR ASSASSINATION', bx: 0.68, by: 0.26 },
+
         // Fun & Specials (non-static)
         fun_inspection:      { sky: ['#090d14', '#1e293b', '#334155'], bloom: '#f59e0b', scene: 'skyline', label: 'CHECKPOINT SIM', bx: 0.72, by: 0.25 },
         fun_prophunt:        { sky: ['#1f1006', '#451a03', '#78350f'], bloom: '#fbbf24', scene: 'forest',  label: 'TOYSHOP STEALTH', bx: 0.68, by: 0.28 },
@@ -369,12 +380,10 @@
         STATIC_ART,
         artUrl(def) {
             if (!def || !def.id) return '';
-            if (STATIC_ART.has(def.id)) return `assets/minigames/${def.id}.webp?v=art2`;
-            return def.cardImage || this.get(def);
+            return this.get(def);
         },
         get(def) {
             if (!def || !def.id) return '';
-            if (STATIC_ART.has(def.id)) return `assets/minigames/${def.id}.webp?v=art2`;
             if (cache.has(def.id)) return cache.get(def.id);
             const url = renderPoster(def);
             cache.set(def.id, url);
