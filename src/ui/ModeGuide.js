@@ -71,14 +71,13 @@
             ['Split jobs in co-op', 'Watch different paths, call out damage to the heart, and protect whoever is shopping or reviving. Save powerful equipment for a breach rather than spending it all on early enemies.'],
             ['Wave and enemy settings', 'The Zombie Customizer changes which enemies can spawn, their weights and eligible starting settings. You can save a preset and reuse it with a different castle.']
         ] },
-        minigames: { name: 'Minigames', intro: 'Run short solo challenges, improve your score and earn stars.', sections: [
-            ['Pick a challenge', 'The hub has Target Practice, Boss Rush, and Whack-a-Mole. Select a category, then a course or variant. The panel shows the rules and personal best for that selection.'],
-            ['Scoring and stars', 'Hit targets without a miss to build a streak multiplier. A miss or an escaped target can break it. Bronze, Silver, Gold and Platinum mark increasing scores. Minigames have unlimited reserve ammunition.'],
-            ['Target Practice courses', 'Ten fixed 60-second courses cover pop-up targets, a roller coaster, a boulder chase, skeet, a bandit town, drones, long-range steel, a helicopter, balloons and a killhouse. The same course repeats the same pattern, so you can learn it.'],
-            ['Targets to avoid', 'Shoot valid targets as they appear. Avoid townsfolk in Bandit Town, skull balloons in Balloon Festival, and hostages in Killhouse Blitz. Some courses move you on rails, so focus on aiming.'],
-            ['Boss Rush', 'Fight bosses back to back with unlimited reserves and no health regeneration. You have only three heals for the run. Use the displayed heal key during a rest, or skip rest if you are ready. The hub lets you select variant and difficulty.'],
-            ['Whack-a-Mole', 'Shoot moles as they pop up. Classic has a smaller grid, Frenzy adds hard hats, and Mayhem adds bombs. Seek golden moles when they appear and avoid bombs.'],
-            ['Replay and keep improving', 'The results show your score, star rank and personal best. Retry the same challenge to practice its timing or return to the hub to choose another.']
+        minigames: { name: 'Minigames', intro: '63 solo challenges across 5 categories: Fun & Specials, Target & Action, Speed Runs, Arcade Hall, and Boss Rush.', sections: [
+            ['Pick a challenge & read its Start Menu Guide', 'Every minigame in the hub displays a dedicated How To Play Guide right in its detail panel (and via the Start Menu Guide button) covering objectives, controls, win conditions, and pro tips.'],
+            ['Fun & Specials (22 Modes)', 'Blockbuster genres including Angry Birds Slingshot, Master Zombie Fortress Siege, 5-Minute Downhill Snowboarding, Mid-Air 360 Trick Shots, FPS Mario 1-1 to 1-4 + 3-Form Bowser, ATB Final Fantasy Story RPG, Bunker Inspection, Prop Hunt, Kaiju Rampage, Mech Titan, Chess FPS, Gladiator Colosseum, and more.'],
+            ['Target & Action (16 Courses)', 'Practice on fixed-pattern courses, watch a first-person Beat Drop example, or try Whack-a-Mole, Sweetheart Shore and Mansion Raid.'],
+            ['Speed Runs (9 Timed Runs)', 'Race through timed challenges including Getaway Chase, Deagle Meteor Splitter, Ninja Stealth and Three-Headed Dragon.'],
+            ['Arcade Hall (15 Games) & Boss Rush', 'Try Quickdraw Duels, Ball Brawl and Switchyard in Arcade Hall, or face every boss in Boss Rush with three heals.'],
+            ['Scoring and stars', 'Chain hits to build a streak multiplier. Bronze, Silver, Gold and Platinum stars track your best score or fastest time. Reserve ammo is unlimited unless a mode rules otherwise.']
         ] }
     };
 

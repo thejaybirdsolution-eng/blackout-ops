@@ -135,7 +135,8 @@
             g.textAlign = 'center';
             g.textBaseline = 'middle';
             if (opts.glow) { g.shadowColor = opts.glow; g.shadowBlur = h * 0.18; }
-            g.fillText(text, w / 2, h / 2 + h * 0.03);
+            const maxW = Math.round(w * 0.88);
+            g.fillText(text, w / 2, h / 2 + h * 0.03, maxW);
         });
     }
 
@@ -500,7 +501,7 @@
     class MinigameRuntime {
         constructor() {
             this.defs = new Map();
-            this.order = { target: [], boss: [], mole: [], arcade: [], speed: [] };
+            this.order = { fun: [], target: [], boss: [], mole: [], arcade: [], speed: [] };
             this.active = false;
             this.blockingUI = false;
             this.session = null;
@@ -509,8 +510,8 @@
             this.matchRules = {};
             this.infiniteMag = false;
             this.pendingShot = null;
-            this.hubCat = 'target';
-            this.hubSel = { target: null, boss: null, mole: null, arcade: null, speed: null };
+            this.hubCat = 'fun';
+            this.hubSel = { fun: null, target: null, boss: null, mole: null, arcade: null, speed: null };
             this.hubOpts = { weapon: 'standard', difficulty: 'veteran', variant: 'gauntlet' };
             this.lib = { B, BMM, Ease, SFX, mulberry32, signTex, canvasTex, std, basic, HIDDEN_MAT, Target, clamp01, TAU, esc };
         }
@@ -518,6 +519,7 @@
         register(def) {
             def.cat = def.cat || 'target';
             this.defs.set(def.id, def);
+            if (!this.order[def.cat]) this.order[def.cat] = [];
             if (!this.order[def.cat].includes(def.id)) {
                 this.order[def.cat].push(def.id);
                 // keep each category in its declared order, whatever file registered it
@@ -575,7 +577,7 @@
             for (const k of Object.keys(m)) if (k === def.id || k.startsWith(def.id + ':')) best = Math.max(best, m[k].stars || 0);
             return best;
         }
-        list(cat) { return this.order[cat].map((id) => this.defs.get(id)); }
+        list(cat) { return (this.order[cat] || []).map((id) => this.defs.get(id)); }
 
         /* ---------------------------------------------------------- lifecycle */
         start(camera, opts) {
@@ -683,9 +685,11 @@
             if (def.cat === 'boss') {
                 return Object.assign({}, cls, { primary: cls.primary, secondary: cls.secondary });
             }
-            const primary = ((weaponPref === 'class' && !def.lockWeapon) || !def.standardWeapon) ? cls.primary : mk(def.standardWeapon);
+            const stdWep = typeof def.standardWeapon === 'function' ? def.standardWeapon(this.opts) : def.standardWeapon;
+            const primary = ((weaponPref === 'class' && !def.lockWeapon) || !stdWep) ? cls.primary : mk(stdWep);
+            const secondary = def.secondaryWeapon ? mk(def.secondaryWeapon) : null;
             return {
-                name: 'MINIGAME', primary, secondary: null, perks: [],
+                name: 'MINIGAME', primary, secondary, perks: [],
                 lethal: cls.lethal, tactical: cls.tactical, fieldUpgrade: cls.fieldUpgrade, ultimatePower: cls.ultimatePower
             };
         }
@@ -802,6 +806,33 @@
             if (this.infiniteMag && P.activeWeapon && P.activeWeapon.stats && P.activeWeapon.stats.magSize) {
                 P.activeWeapon.mag = P.activeWeapon.stats.magSize;
                 if (P.reloading) { P.reloading = false; P.reloadTimer = 0; }
+            }
+
+            if (def.maxScopeTime) {
+                if (S.data._scopeLock > 0) {
+                    S.data._scopeLock -= dt;
+                    P.adsHeld = false;
+                } else if (P.adsHeld) {
+                    S.data._scopeT = (S.data._scopeT || 0) + dt;
+                    if (S.data._scopeT >= def.maxScopeTime) {
+                        P.adsHeld = false;
+                        P.adsAlpha = 0;
+                        S.data._scopeT = 0;
+                        S.data._scopeLock = 0.40;
+                        this.toast('QUICKSCOPE ONLY — SCOPE RESET', '#fde68a');
+                    }
+                } else {
+                    S.data._scopeT = 0;
+                }
+            }
+
+            if (def.onMelee) {
+                if (P.meleeTimer > 0 && !S.data._meleeFired) {
+                    S.data._meleeFired = true;
+                    def.onMelee(S, this.lib);
+                } else if (P.meleeTimer <= 0) {
+                    S.data._meleeFired = false;
+                }
             }
 
             if (this.pendingShot) this._resolvePendingShot();
@@ -1069,15 +1100,19 @@
             const def = this.def;
             const S = this.session;
             const res = this._computeResult();
+            const isExample = !!(S && S.opts && S.opts.exampleMode);
+            if (isExample) { res.score = 0; res.stars = 0; res.xp = 0; }
             const key = this.bestKey(def, this.opts);
             const store = this._save();
             const prev = store.best[key] || null;
-            const better = def.betterThan ? def.betterThan(res, prev) : (!prev || res.score > prev.score);
-            store.plays = (store.plays || 0) + 1;
-            if (better) store.best[key] = { score: res.score, stars: Math.max(res.stars, prev ? prev.stars : 0), extra: res.saveExtra || null, at: Date.now() };
-            else if (prev && res.stars > prev.stars) prev.stars = res.stars;
-            if (res.xp) BO.Progression.grantPlayerXP(res.xp, 'minigame');
-            BO.Progression.flushSave ? BO.Progression.flushSave() : BO.Save.save();
+            const better = !isExample && (def.betterThan ? def.betterThan(res, prev) : (!prev || res.score > prev.score));
+            if (!isExample) {
+                store.plays = (store.plays || 0) + 1;
+                if (better) store.best[key] = { score: res.score, stars: Math.max(res.stars, prev ? prev.stars : 0), extra: res.saveExtra || null, at: Date.now() };
+                else if (prev && res.stars > prev.stars) prev.stars = res.stars;
+                if (res.xp) BO.Progression.grantPlayerXP(res.xp, 'minigame');
+                BO.Progression.flushSave ? BO.Progression.flushSave() : BO.Save.save();
+            }
 
             this.blockingUI = true;
             BO.State.paused = true;
@@ -1099,8 +1134,8 @@
                 <div class="mg-res-card">
                     <div class="mg-res-head">
                         <span class="mg-res-ico">${def.icon || '🎯'}</span>
-                        <div><small>${{ target: 'TARGET PRACTICE', boss: 'BOSS RUSH', arcade: 'ARCADE HALL', speed: 'SPEED RUN', mole: 'WHACK-A-MOLE' }[def.cat] || 'MINIGAME'}${this.hasWeaponChoice(def) ? (this.opts.weapon === 'class' ? ' • MY CLASS' : ' • COURSE WEAPON') : ''}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
-                        ${better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : '')}
+                        <div><small>${{ fun: 'FUN & SPECIALS', target: 'TARGET PRACTICE', boss: 'BOSS RUSH', arcade: 'ARCADE HALL', speed: 'SPEED RUN', mole: 'WHACK-A-MOLE' }[def.cat] || 'MINIGAME'}${this.hasWeaponChoice(def) ? (this.opts.weapon === 'class' ? ' • MY CLASS' : ' • COURSE WEAPON') : ''}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
+                        ${!isExample && better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!isExample && !prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : (isExample ? '<div class="mg-newbest">EXAMPLE POV</div>' : ''))}
                     </div>
                     <div class="mg-res-title">${esc(res.title)}</div>
                     <div class="mg-res-score"><span id="mg-res-score">0</span><small>${esc(res.scoreLabel || 'POINTS')}</small></div>
@@ -1108,7 +1143,7 @@
                     <div class="mg-res-grid">${res.stats.map(([k, v]) => `<div><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join('')}</div>
                     ${res.extraHtml || ''}
                     ${res.noGraph ? '' : `<div class="mg-res-graph"><canvas id="mg-res-canvas" width="640" height="120"></canvas><small>${esc(res.graphLabel || 'SCORE OVER TIME')}</small></div>`}
-                    <div class="mg-res-best">${prev ? 'PREVIOUS BEST: <b>' + esc(def.formatBest ? def.formatBest(prev) : Number(prev.score).toLocaleString()) + '</b>' : 'No previous record'} • +${res.xp || 0} XP</div>
+                    <div class="mg-res-best">${isExample ? '<b>EXAMPLE PLAYBACK ONLY — 0 POINTS / NO PROGRESS SAVED</b>' : (prev ? 'PREVIOUS BEST: <b>' + esc(def.formatBest ? def.formatBest(prev) : Number(prev.score).toLocaleString()) + '</b>' : 'No previous record') + ' • +' + (res.xp || 0) + ' XP'}</div>
                     <div class="mg-res-actions">
                         <button class="btn" data-act="hub">MINIGAMES <kbd>ESC</kbd></button>
                         <button class="btn" data-act="menu">MAIN MENU</button>

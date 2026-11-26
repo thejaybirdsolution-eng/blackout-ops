@@ -244,14 +244,22 @@
     function addCriminal(S, room, lx, lz, mode, rng, opts = {}) {
         const [cx, cz] = room.c;
         const boss = mode === 'boss';
+        const BEHAVIORS = ['hiding', 'running', 'knife_rush', 'fleeing', 'prone', 'knee_slide'];
+        const effMode = boss ? 'boss' : (mode === 'stand' ? BEHAVIORS[Math.floor(rng() * BEHAVIORS.length)] : mode);
         const pick = (a) => a[Math.floor(rng() * a.length) % a.length];
         const fig = F.human(boss
             ? { skin: pick(F.SKINS), coat: 0x111111, shirt: 0xf5f5f4, tie: 0x7f1d1d, pants: 0x111111, hair: 0x1c1917, glasses: 'shades', gun: 'pistol', eyes: 'angry', scale: 1.05 }
-            : { skin: pick(F.SKINS), shirt: pick([0x1f2937, 0x27272a, 0x3f3f46, 0x14532d]), pants: pick([0x111827, 0x1c1917]), mask: pick([0x0a0a0a, 0x1f2937, 0x3f3f46]), vest: rng() < 0.4 ? 0x3f4a2a : null, gun: mode === 'shield' ? 'pistol' : pick(['rifle', 'pistol']), eyes: 'angry' });
+            : { skin: pick(F.SKINS), shirt: pick([0x1f2937, 0x27272a, 0x3f3f46, 0x14532d]), pants: pick([0x111827, 0x1c1917]), mask: pick([0x0a0a0a, 0x1f2937, 0x3f3f46]), vest: rng() < 0.4 ? 0x3f4a2a : null, gun: effMode === 'knife_rush' ? null : (effMode === 'shield' ? 'pistol' : pick(['rifle', 'pistol'])), eyes: 'angry' });
+        if (effMode === 'knife_rush') {
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.34, 0.08), std(0xe2e8f0, 0.2, 0.9));
+            blade.position.set(0, -0.72, 0.14);
+            blade.rotation.x = Math.PI * 0.45;
+            fig.parts.armR.add(blade);
+        }
         const pos = V(cx + lx, 0, cz + lz);
         const face = A.yawTo(pos, V(cx, 0, cz + 6));
-        const st = { mode, active: false, t: 0, react: lerp(1.0, 1.6, rng()) - (room.depth || 0) * 0.12, fire: 0, up: mode !== 'cover', cycle: rng() * 2 };
-        F.pose(fig, mode === 'shield' ? 'shield' : 'idle');
+        const st = { mode: effMode, active: false, t: 0, react: lerp(0.8, 1.4, rng()) - (room.depth || 0) * 0.1, fire: 0, up: effMode !== 'cover', cycle: rng() * 2, orbitDir: rng() < 0.5 ? 1 : -1 };
+        F.pose(fig, effMode === 'shield' ? 'shield' : 'idle');
         const tg = S.addTarget({
             mesh: fig.root, hitMeshes: fig.hit, pos, yaw: face, points: boss ? 600 : 250, hp: boss ? 3 : 1, life: 0,
             appear: 'none', inT: 0.01, death: 'knock', deathColor: 0x7f1d1d,
@@ -261,19 +269,75 @@
                 if (st.mode === 'cover') {
                     if (!st.active) st.up = false;
                     else { st.cycle += dt; st.up = (st.cycle % 2.8) < 1.6; }
-                    const want = st.up ? 0 : -0.78;
-                    fig.body.position.y = lerp(fig.body.position.y, want, Math.min(1, dt * 10));
+                    const wantY = st.up ? 0 : -0.78;
+                    fig.body.position.y = lerp(fig.body.position.y, wantY, Math.min(1, dt * 10));
                 }
                 if (!st.active) { if (!fig.armsBusy) F.walk(fig, st.t * 0.8, 0.05); return; }
                 const cam = BO.App.worldCamera.position;
                 const want = Math.atan2(cam.x - t.root.position.x, cam.z - t.root.position.z);
-                t.root.rotation.y += wrapA(want - t.root.rotation.y) * Math.min(1, dt * 6);
+                // Shield criminals have limited turn speed (~1.05 rad/s) so the player can circle & flank them!
+                if (st.mode === 'shield') {
+                    const diff = wrapA(want - t.root.rotation.y);
+                    const maxStep = 1.05 * dt;
+                    t.root.rotation.y += BO.Math.clamp(diff, -maxStep, maxStep);
+                } else {
+                    t.root.rotation.y += wrapA(want - t.root.rotation.y) * Math.min(1, dt * 6);
+                }
+
+                // 8 Dynamic Criminal Behaviors inside the Mansion!
+                const clampRoom = () => {
+                    t.root.position.x = BO.Math.clamp(t.root.position.x, -16.8, 16.8);
+                    t.root.position.z = BO.Math.clamp(t.root.position.z, -36.8, -3.2);
+                };
+                if (st.mode === 'running' || st.mode === 'knife_rush' || st.mode === 'fleeing' || st.mode === 'prone' || st.mode === 'knee_slide') {
+                    const dx = cam.x - t.root.position.x, dz = cam.z - t.root.position.z;
+                    const dist = Math.max(0.2, Math.hypot(dx, dz));
+                    if (st.mode === 'knife_rush') {
+                        t.root.position.x += (dx / dist) * 3.1 * dt;
+                        t.root.position.z += (dz / dist) * 3.1 * dt;
+                        F.walk(fig, st.t * 11, 1, true);
+                        F.pose(fig, 'aimOne', st.t);
+                        if (dist < 2.2 && st.fire <= 0 && MG.state === 'running') {
+                            st.fire = 1.1;
+                            S.data.hp = Math.max(0, S.data.hp - 18);
+                            MG.flashScreen('rgba(220,38,38,0.42)');
+                            if (S.data.hp <= 0) MG.finish('YOU WERE DOWNED', { color: '#f87171' });
+                        }
+                    } else if (st.mode === 'fleeing') {
+                        t.root.position.x -= (dx / dist) * 2.7 * dt;
+                        t.root.position.z -= (dz / dist) * 2.7 * dt;
+                        F.walk(fig, st.t * 9, 1, true);
+                    } else if (st.mode === 'prone') {
+                        fig.body.rotation.x = Math.PI * 0.44;
+                        fig.body.position.y = -0.58;
+                        t.root.position.x += Math.cos(st.t * 0.9) * 1.1 * dt;
+                        t.root.position.z += Math.sin(st.t * 0.9) * 1.1 * dt;
+                    } else if (st.mode === 'knee_slide') {
+                        const sliding = (st.t % 2.6) < 0.9;
+                        fig.body.position.y = lerp(fig.body.position.y, sliding ? -0.48 : 0, Math.min(1, dt * 12));
+                        fig.body.rotation.x = lerp(fig.body.rotation.x, sliding ? -0.35 : 0, Math.min(1, dt * 12));
+                        const sp = sliding ? 4.4 : 2.1;
+                        t.root.position.x += st.orbitDir * (-dz / dist) * sp * dt;
+                        t.root.position.z += st.orbitDir * (dx / dist) * sp * dt;
+                        if (!sliding) F.walk(fig, st.t * 8, 1, true);
+                    } else {
+                        t.root.position.x += st.orbitDir * (-dz / dist) * 2.6 * dt;
+                        t.root.position.z += st.orbitDir * (dx / dist) * 2.6 * dt;
+                        F.walk(fig, st.t * 9, 1, true);
+                    }
+                    clampRoom();
+                } else if (st.mode === 'hiding') {
+                    const dist = Math.hypot(cam.x - t.root.position.x, cam.z - t.root.position.z);
+                    st.up = dist < 7.5 || (st.t % 3.2) > 1.7;
+                    fig.body.position.y = lerp(fig.body.position.y, st.up ? 0 : -0.68, Math.min(1, dt * 10));
+                }
+
                 if (st.t < st.react) return;
-                if (st.mode !== 'shield') F.pose(fig, 'aim');
-                if (!st.up) return;
+                if (st.mode !== 'shield' && st.mode !== 'knife_rush') F.pose(fig, 'aim', st.t);
+                if (!st.up || st.mode === 'knife_rush') return;
                 st.fire -= dt;
                 if (st.fire <= 0 && MG.state === 'running') {
-                    st.fire = boss ? 1.1 : 1.55;
+                    st.fire = boss ? 1.1 : 1.65;
                     const head = new THREE.Vector3();
                     fig.parts.head.getWorldPosition(head);
                     if (hasLOS(head, BO.App.worldCamera.position)) crimFire(S, t);
@@ -536,6 +600,7 @@
             }
         });
         tg.girl = d;
+        tg.gRef = g;
         return tg;
     }
 
@@ -593,8 +658,9 @@
         name: 'Sweetheart Shore', icon: '💖', accent: '#f472b6',
         tagline: 'The heart blaster. Spread the love.',
         desc: 'A sunlit tropical paradise where your gun fires hearts. Ten uniquely sculpted anime beachgoers — each with bespoke swimwear, signature beach props, layered hair, and real spring-damper motion — run up from the turquoise shoreline. Tag each one with a heart before she reaches the boardwalk. Bouncing beach balls award bonus points.',
-        hudSub: 'Tag every runner with a heart before she reaches you',
-        duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', tracerColor: 0xff5fa8, forgivingMisses: true,
+        hudSub: 'Weapon [1]: Heart Blaster • Weapon [2]: Deagle Armor Breaker',
+        duration: 60, stars: [4000, 8500, 13500, 19000], standardWeapon: 'five_seven', secondaryWeapon: 'deagle',
+        weaponLabel: 'FIVE-SEVEN (HEARTS) • [2] DEAGLE (ARMOR OFF)', tracerColor: 0xff5fa8, forgivingMisses: true,
         map: {
             atmosphere: {
                 skyTop: 0x0369a1, skyBottom: 0x7dd3fc, fogColor: 0xbae6fd, fogDensity: 0.0024,
@@ -605,12 +671,14 @@
             spawn: { x: 0, y: 0, z: 1.2, yaw: 0 }
         },
         build(S) {
-            // Studio 3-point tropical lighting: 45° golden key sun (from map) + turquoise ocean back-rim + soft peach fill
-            const oceanRim = new THREE.DirectionalLight(0x67e8f9, 0.62);
+            // Studio 3-point tropical beauty lighting: balanced golden front-key + turquoise ocean back-rim + soft coral sand bounce
+            const frontBeautyKey = new THREE.DirectionalLight(0xfff5e0, 0.30);
+            frontBeautyKey.position.set(16, 22, 36);
+            const oceanRim = new THREE.DirectionalLight(0x67e8f9, 0.58);
             oceanRim.position.set(-8, 16, -58);
-            const peachFill = new THREE.DirectionalLight(0xffe4d6, 0.26);
-            peachFill.position.set(-24, 12, 22);
-            S.add(oceanRim, peachFill);
+            const peachFill = new THREE.DirectionalLight(0xffd8c8, 0.24);
+            peachFill.position.set(-24, 10, 22);
+            S.add(frontBeautyKey, oceanRim, peachFill);
 
             // Rich warm golden beach sand (high contrast against light skin & bright swimwear)
             const sandTex = L.canvasTex('hq-beach-sand-v2', 256, 256, (g, w, h) => {
@@ -713,6 +781,9 @@
                 boats.push({ obj: bt, x0: bx, z0: bz });
             }
 
+            const palms = [];
+            const umbrellas = [];
+            let buoyMesh = null;
             let wt = 0;
             S.animate((dt) => {
                 wt += dt;
@@ -729,6 +800,22 @@
                     boats[i].obj.position.y = 0.15 + Math.sin(wt * 1.3 + i * 2) * 0.18;
                     boats[i].obj.rotation.z = Math.sin(wt * 1.1 + i) * 0.06;
                 }
+                const sunSc = 44 + Math.sin(wt * 0.8) * 1.8;
+                sunSpr.scale.set(sunSc, sunSc, 1);
+                for (let pi = 0; pi < palms.length; pi++) {
+                    const fronds = palms[pi].userData.fronds;
+                    if (!fronds) continue;
+                    for (let fi = 0; fi < fronds.length; fi++) {
+                        const fr = fronds[fi];
+                        fr.rotation.z = fr.userData.baseZ + Math.sin(wt * 1.9 + pi * 0.7 + fi * 0.55) * 0.065;
+                        fr.rotation.x = Math.cos(wt * 1.4 + pi + fi * 0.4) * 0.035;
+                    }
+                }
+                for (let ui = 0; ui < umbrellas.length; ui++) {
+                    const u = umbrellas[ui];
+                    u.obj.rotation.z = u.baseZ + Math.sin(wt * 1.6 + ui * 1.1) * 0.028;
+                }
+                if (buoyMesh) buoyMesh.rotation.z = Math.sin(wt * 2.1) * 0.09;
             });
 
             // Upgraded Boardwalk Deck with weathered planks, rope rails & warm string fairy lights
@@ -776,6 +863,7 @@
                 p.position.set(side * (18.5 + rnd() * 15), 0, 5 - i * 3.1);
                 p.rotation.y = rnd() * TAU;
                 S.add(p);
+                palms.push(p);
             }
             const umbCols = ['#f43f5e', '#0ea5e9', '#facc15', '#10b981', '#ec4899'];
             for (let i = 0; i < 10; i++) {
@@ -791,6 +879,7 @@
                 umb.position.set(side * (17 + rnd() * 6), 0, -7 - i * 4.8);
                 umb.rotation.z = (rnd() - 0.5) * 0.18;
                 S.add(umb);
+                umbrellas.push({ obj: umb, baseZ: umb.rotation.z });
                 if (i % 2 === 0) {
                     const ch = beachLounger(parseInt(c.slice(1), 16));
                     ch.position.set(umb.position.x - side * 1.1, 0, umb.position.z + 0.6);
@@ -828,6 +917,7 @@
             const win = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.65, 2.04), std(0x0f172a, 0.2, 0.5)); win.position.y = 3.55;
             const roofT = new THREE.Mesh(new THREE.ConeGeometry(1.9, 0.72, 4), std(0xf8fafc, 0.6)); roofT.position.y = 4.62; roofT.rotation.y = Math.PI / 4;
             const buoy = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 8, 18), std(0xf43f5e, 0.4)); buoy.position.set(-1.05, 3.1, 0); buoy.rotation.y = Math.PI / 2;
+            buoyMesh = buoy;
             tower.add(tp, hut, win, roofT, buoy);
             for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.6, 0.16), std(0xf8fafc, 0.6)); l.position.set(x, 1.3, z); tower.add(l); }
             tower.position.set(24, 0, -22);
@@ -902,6 +992,43 @@
             if (!ent.mgTarget || !ent.alive) return false;
             if (ent.girl) {
                 S.hits++;
+                if (BO.Player && BO.Player.activeSlot === 1 && ent.gRef && !ent.gRef.armorRemoved) {
+                    ent.gRef.armorRemoved = true;
+                    const armor = ent.gRef.parts.topArmor;
+                    if (armor) {
+                        const wp = new THREE.Vector3(), wq = new THREE.Quaternion(), ws = new THREE.Vector3();
+                        armor.getWorldPosition(wp); armor.getWorldQuaternion(wq); armor.getWorldScale(ws);
+                        if (armor.parent) armor.parent.remove(armor);
+                        armor.position.copy(wp); armor.quaternion.copy(wq); armor.scale.copy(ws);
+                        armor.traverse((m) => { m.userData.noHit = true; });
+                        S.scene.add(armor);
+                        const cam = BO.App && BO.App.worldCamera;
+                        const away = wp.clone().sub(cam ? cam.position : V(0, 1.5, 2));
+                        away.y = 0; if (away.lengthSq() < 0.01) away.set(0, 0, -1); away.normalize();
+                        const vel = away.multiplyScalar(5.8 + Math.random() * 2.2).add(V((Math.random() - 0.5) * 3.5, 5.8 + Math.random() * 2.0, 0));
+                        const spin = V((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 14);
+                        let lt = 0, bounces = 0;
+                        S.animate((dt) => {
+                            lt += dt;
+                            vel.y -= 16 * dt;
+                            armor.position.addScaledVector(vel, dt);
+                            armor.rotation.x += spin.x * dt;
+                            armor.rotation.y += spin.y * dt;
+                            armor.rotation.z += spin.z * dt;
+                            if (armor.position.y <= 0.09) {
+                                armor.position.y = 0.09;
+                                if (bounces < 2) { vel.y = Math.abs(vel.y) * 0.36; vel.x *= 0.55; vel.z *= 0.55; spin.multiplyScalar(0.5); bounces++; }
+                                else { vel.set(0, 0, 0); spin.set(0, 0, 0); }
+                            }
+                            if (lt > 3.8) { if (armor.parent) armor.parent.remove(armor); return false; }
+                        });
+                    }
+                    S.bumpCombo();
+                    S.award(120 * S.comboMult, ent.root.position.clone().add(V(0, 1.8, 0)), 'ARMOR KNOCKED OFF!', '#fde047');
+                    SFX.pop(); SFX.ding(1.5);
+                    if (info.pt) BO.FX.spawnParticles(info.pt, 18, 0xfde047, 5, 6, 0.5, 1.2);
+                    return true;
+                }
                 S.kills++;
                 S.bumpCombo();
                 const mult = S.comboMult;

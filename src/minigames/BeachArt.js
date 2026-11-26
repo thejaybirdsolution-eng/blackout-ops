@@ -287,7 +287,7 @@
             ankleStrap.position.set(0, 0.002 + k * 0.018, 0.0);
             g.add(ankleStrap);
         }
-        const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.009, 0), metalM);
+        const charm = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 10, 8), metalM);
         charm.position.set(0, -0.004, 0.116);
         g.add(charm);
         return g;
@@ -349,8 +349,8 @@
             const neck = new THREE.Mesh(neckGeo, ring.material);
             const head = new THREE.Mesh(new THREE.SphereGeometry(0.026, 10, 8), ring.material);
             head.position.set(0, 0.21, 0.24);
-            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.035, 8), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
-            beak.rotation.x = Math.PI / 2; beak.position.set(0, 0.205, 0.265);
+            const beak = new THREE.Mesh(new THREE.CapsuleGeometry(0.009, 0.022, 6, 10), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 }));
+            beak.rotation.x = Math.PI / 2 + 0.18; beak.position.set(0, 0.202, 0.264);
             flG.add(ring, neck, head, beak);
             P.hips.add(flG);
             P.sway.push({ obj: flG, kind: 'ribbon' });
@@ -435,9 +435,26 @@
         const G = AN.getStaticGeos();
         const mats = [];
         const matsPack = AN.createMaterials(d, mats);
-        const { skinM, hairM, suit1, suit2, metalM, accM, nailM, corneaM, env } = matsPack;
+        const { skinM, hairM, lashM, suit1, suit2, metalM, accM, nailM, corneaM, env } = matsPack;
 
         const root = new THREE.Group();
+        // Grounded soft contact shadow disc so beach runners sit firmly on the sand
+        const shTex = L.canvasTex('aaa26-girl-shadow-v1', 64, 64, (g, w, h) => {
+            const rg = g.createRadialGradient(32, 32, 4, 32, 32, 30);
+            rg.addColorStop(0, 'rgba(65, 40, 18, 0.42)');
+            rg.addColorStop(0.55, 'rgba(65, 40, 18, 0.18)');
+            rg.addColorStop(1, 'rgba(65, 40, 18, 0)');
+            g.fillStyle = rg; g.fillRect(0, 0, w, h);
+        });
+        const shadowDisc = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.84, 0.84),
+            new THREE.MeshBasicMaterial({ map: shTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })
+        );
+        shadowDisc.rotation.x = -Math.PI / 2;
+        shadowDisc.position.y = 0.015;
+        shadowDisc.userData.noHit = true;
+        root.add(shadowDisc);
+
         const body = new THREE.Group();
         body.scale.setScalar(d.height || 1.02);
         root.add(body);
@@ -527,7 +544,7 @@
             const garter = new THREE.Mesh(new THREE.TorusGeometry(0.084 * d.morph.thigh, 0.007, 8, 24), d.jewelry === 'bangle' ? metalM : accM);
             garter.rotation.x = Math.PI / 2;
             garter.position.y = -0.15;
-            const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.012, 0), metalM);
+            const charm = new THREE.Mesh(new THREE.SphereGeometry(0.010, 10, 8), metalM);
             charm.position.set(0.05, -0.15, 0.072);
             P.thighL.add(garter, charm);
         }
@@ -593,7 +610,7 @@
             bc.rotation.x = Math.PI / 2 + 0.14;
             bc.scale.set(1.04, 0.82, 1);
             bc.position.y = 0.035;
-            const drop = new THREE.Mesh(new THREE.OctahedronGeometry(0.010, 0), metalM);
+            const drop = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), metalM);
             drop.position.set(0, 0.012, 0.092);
             P.spine.add(bc, drop);
         }
@@ -687,7 +704,7 @@
         if (d.jewelry === 'pearl' || d.jewelry === 'choker') {
             const ch = new THREE.Mesh(new THREE.TorusGeometry(0.040, 0.0048, 6, 22), d.jewelry === 'pearl' ? suit2 : accM);
             ch.rotation.x = Math.PI / 2; ch.position.y = 0.045;
-            const pend = new THREE.Mesh(new THREE.OctahedronGeometry(0.010, 0), metalM);
+            const pend = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 8), metalM);
             pend.position.set(0, 0.032, 0.044);
             P.neck.add(ch, pend);
         } else if (d.acc === 'whistle') {
@@ -726,7 +743,8 @@
         const faceTexOpen = AN.faceOverlayTex(d.eyes, d.hair, d.blush, 'open');
         const faceTexBlink = AN.faceOverlayTex(d.eyes, d.hair, d.blush, 'blink');
         const faceTexHappy = AN.faceOverlayTex(d.eyes, d.hair, d.blush, 'happy');
-        const faceMat = new THREE.MeshBasicMaterial({ map: faceTexOpen, transparent: true, depthWrite: false });
+        const faceMat = AN.createFaceMaterial(faceTexOpen, d.blush);
+        mats.push(faceMat);
         const face = new THREE.Mesh(new THREE.SphereGeometry(0.115, 28, 20, Math.PI / 2 - 0.72, 1.44, Math.PI / 2 - 0.46, 0.96), faceMat);
         face.scale.set(0.98, 1.04, 0.98);
         face.position.set(0, 0.116, 0.006);
@@ -734,6 +752,18 @@
         P.head.add(face);
         P.faceMat = faceMat;
         P.faces = { open: faceTexOpen, blink: faceTexBlink, happy: faceTexHappy };
+
+        // 3D Curved Upper Eyelash Ribbons + Cute Ahoge Hair Strand
+        const lashL = new THREE.Mesh(G.lashL, lashM);
+        lashL.position.set(0, 0.125, 0.104);
+        const lashR = new THREE.Mesh(G.lashR, lashM);
+        lashR.position.set(0, 0.125, 0.104);
+        P.head.add(lashL, lashR);
+
+        const ahoge = new THREE.Mesh(G.ahoge, hairM);
+        ahoge.position.set(0, 0.258, 0.008);
+        ahoge.rotation.set(0.35, 0.2, 0.15);
+        P.head.add(ahoge);
 
         // Volumetric Hair
         const hairCap = new THREE.Mesh(
@@ -865,15 +895,15 @@
             P.head.add(pivot);
         }
 
-        // Head Couture Accessories
+        // Head Couture Accessories (all smoothly rounded)
         if (d.acc === 'bow') {
             const bow = new THREE.Group();
             for (const s of [-1, 1]) {
-                const wing = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.092, 8), accM);
-                wing.rotation.z = s * Math.PI / 2; wing.scale.set(0.75, 1, 0.42); wing.position.x = s * 0.044;
+                const wing = new THREE.Mesh(new THREE.TorusGeometry(0.028, 0.013, 10, 18), accM);
+                wing.scale.set(1.15, 0.85, 0.65); wing.position.x = s * 0.034; wing.rotation.z = s * 0.16;
                 bow.add(wing);
             }
-            bow.add(new THREE.Mesh(new THREE.SphereGeometry(0.020, 10, 8), accM));
+            bow.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 10), accM));
             bow.position.set(0.090, 0.240, 0.015); bow.rotation.z = -0.38;
             P.head.add(bow);
         } else if (d.acc === 'flower') {
@@ -943,7 +973,7 @@
             for (const s of [-1, 1]) {
                 const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.016, 12), metalM);
                 cup.position.set(s * 0.062, 0, 0); cup.rotation.z = Math.PI / 2;
-                const earTip = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.026, 4), accM);
+                const earTip = new THREE.Mesh(new THREE.CapsuleGeometry(0.010, 0.012, 6, 10), accM);
                 earTip.position.set(s * 0.048, 0.048, 0); earTip.rotation.z = -s * 0.35;
                 hpG.add(cup, earTip);
             }
@@ -951,8 +981,24 @@
             P.neck.add(hpG);
         }
 
+        // Removable outer top-armor beach jacket / vest (removed by Sweetheart Shore 2nd weapon!)
+        const topArmor = new THREE.Group();
+        const armorMat = new THREE.MeshStandardMaterial({
+            color: suit2.color, roughness: 0.38, metalness: 0.25,
+            emissive: accM.color, emissiveIntensity: 0.14
+        });
+        const chestPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.118 * bSc, 0.104, 0.165, 20), armorMat);
+        chestPlate.scale.set(1.06, 1.0, 0.94);
+        chestPlate.position.set(0, 0.068, 0.012);
+        const collarTrim = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.012, 8, 18), metalM);
+        collarTrim.rotation.x = Math.PI / 2 + 0.18;
+        collarTrim.position.set(0, 0.155, 0.008);
+        topArmor.add(chestPlate, collarTrim);
+        P.chest.add(topArmor);
+        P.topArmor = topArmor;
+
         const girlObj = {
-            root, body, parts: P, hit, mats, def: d,
+            root, body, parts: P, hit, mats, def: d, armorRemoved: false,
             prevY: 0.94, prevVy: 0, prevX: 0, prevVx: 0,
             blinkT: 1.4 + Math.random() * 2.5, blinking: false,
             breathT: Math.random() * TAU, lastStepSign: 1
@@ -1125,11 +1171,13 @@
                 g.blinking = true;
                 g.blinkT = 0.11;
                 P.faceMat.map = P.faces.blink;
+                P.faceMat.emissiveMap = P.faces.blink;
                 P.faceMat.needsUpdate = true;
             } else if (g.blinking && g.blinkT <= 0) {
                 g.blinking = false;
                 g.blinkT = 2.0 + Math.random() * 2.8;
                 P.faceMat.map = P.faces.open;
+                P.faceMat.emissiveMap = P.faces.open;
                 P.faceMat.needsUpdate = true;
             }
         }
@@ -1151,6 +1199,7 @@
         const P = g.parts;
         const r = g.root;
         P.faceMat.map = P.faces.happy;
+        P.faceMat.emissiveMap = P.faces.happy;
         P.faceMat.needsUpdate = true;
         for (const m of g.mats) { m.emissive.setHex(0xff5fa8); m.emissiveIntensity = 0.0; }
         giggleSound(pitch);

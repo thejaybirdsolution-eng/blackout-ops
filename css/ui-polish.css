@@ -108,3 +108,45 @@ dialog.elab::backdrop { background: rgba(3, 6, 12, 0.72); }
     .elab-row { grid-template-columns: minmax(120px, 1fr) repeat(5, 62px) 54px; }
     .elab-cats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---- Tactile UI Entrance & Spring-Eased Control Kinetics ---- */
+@keyframes boModalIn {
+    0% { opacity: 0; transform: translateY(8px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ui-modal:not(.hidden) .modal-box,
+dialog.elab[open] .elab-box {
+    animation: boModalIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.btn, .mode-card, .pick-card, .mode-tab, .mmx-tile {
+    transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.18s ease,
+                border-color 0.18s ease,
+                background-color 0.18s ease;
+}
+
+.btn:not(:disabled):not([aria-disabled="true"]):hover,
+.mode-card:not(:disabled):not([aria-disabled="true"]):hover,
+.pick-card:not(:disabled):not([aria-disabled="true"]):hover,
+.mmx-tile:not(:disabled):not([aria-disabled="true"]):hover {
+    transform: translateY(-2px);
+}
+
+.btn:not(:disabled):not([aria-disabled="true"]):active,
+.mode-card:not(:disabled):not([aria-disabled="true"]):active,
+.pick-card:not(:disabled):not([aria-disabled="true"]):active,
+.mmx-tile:not(:disabled):not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-modal:not(.hidden) .modal-box,
+    dialog.elab[open] .elab-box { animation: none; }
+    .btn, .mode-card, .pick-card, .mode-tab, .mmx-tile { transition: none; }
+    .btn:hover, .btn:active,
+    .mode-card:hover, .mode-card:active,
+    .pick-card:hover, .pick-card:active,
+    .mmx-tile:hover, .mmx-tile:active { transform: none; }
+}

@@ -159,125 +159,138 @@
         }
     }
 
-    function makeMoleGame(cfg) {
-        const holes = holeLayout(cfg.cols, cfg.rows);
-        MG.register({
-            id: cfg.id, cat: 'mole', order: cfg.order,
-            name: cfg.name, icon: cfg.icon, accent: cfg.accent,
-            tagline: cfg.tagline, desc: cfg.desc, hudSub: cfg.hudSub,
-            duration: 60, stars: cfg.stars, standardWeapon: cfg.weapon, standardOptic: 'iron',
-            map: {
-                atmosphere: { skyTop: 0x1c1917, skyBottom: 0x44403c, fogColor: 0x2a1f1a, fogDensity: 0.012, sunColor: 0xffe0b2, sunIntensity: 0.8, sunPos: [6, 40, 12], hemiSky: 0xffe4c4, hemiGround: 0x3f2a14, hemiIntensity: 0.8 },
-                boxes: [B(0, -0.5, -5, 40, 1, 40, 'wood_plank')],
-                spawn: { x: 0, y: 0, z: 0.4, yaw: 0 }
-            },
-            build(S) {
-                buildTent(S, cfg);
-                K.booth(S, { roof: false, w: 3.6, wood: 0xbe123c, trim: 0x881337 });
-                buildBoard(S, holes, cfg);
-                S.data.holes = holes.map((h) => Object.assign({ busy: false }, h));
-                S.data.lastWhack = -9;
-                S.data.streakFast = 0;
-            },
-            schedule(S) {
-                const spawnMole = (S2, hi, kind, life, behaviour) => {
-                    const H = S2.data.holes;
-                    let idx = hi % H.length;
-                    for (let n = 0; n < H.length && H[idx].busy; n++) idx = (idx + 1) % H.length;
-                    if (H[idx].busy) return;
-                    const h = H[idx];
-                    h.busy = true;
-                    const free = () => { h.busy = false; };
-                    const isBomb = kind === 'bomb';
-                    const art = isBomb ? A.bomb() : A.mole(kind);
-                    const pos = V(h.x, h.y - 0.02, h.z);
-                    const tg = S2.addTarget(Object.assign(art, {
-                        pos, yaw: A.yawTo(pos, V(0, 1.6, 0.4)),
-                        points: kind === 'gold' ? 500 : kind === 'helmet' ? 200 : 100,
-                        hp: kind === 'helmet' ? 2 : 1,
-                        penalty: isBomb ? 300 : 0, penaltyLabel: 'KABOOM!', bonus: kind === 'gold',
-                        life, inT: 0.16, outT: 0.16, appear: 'rise', riseDepth: 1.05, death: isBomb ? 'burst' : 'squash', deathColor: kind === 'gold' ? 0xfacc15 : isBomb ? 0xf97316 : 0x8b5a2b,
-                        onTick: (t2, dt) => {
-                            if (!t2.alive) return;
-                            const tt = t2.age;
-                            if (behaviour === 'peek') t2.pivot.rotation.y = Math.sin(tt * 6) * 0.5;
-                            else if (behaviour === 'taunt') { t2.pivot.rotation.z = Math.sin(tt * 18) * 0.12; t2.pivot.position.y += Math.abs(Math.sin(tt * 9)) * 0.06; }
-                            else if (behaviour === 'bob' && t2.phase === 'hold') t2.pivot.position.y = -Math.max(0, Math.sin(tt * 5)) * 0.55;
-                            if (art.eyes) for (const e of art.eyes) e.scale.y = (Math.sin(tt * 3.1) > 0.97) ? 0.15 : 1;
-                            if (art.spark) art.spark.scale.setScalar(0.7 + Math.random() * 0.8);
-                        },
-                        onDamage: (t2) => {
-                            // helmet pops off
-                            if (art.helmet) {
-                                const hw = art.helmet.getWorldPosition(new THREE.Vector3());
-                                art.helmet.visible = false;
-                                BO.FX.spawnParticles(hw, 10, 0xfacc15, 4, 9, 0.5, 1.1);
-                                SFX.ding(1.6);
-                                S2.rt.popup(hw, 'CLANG!', '#facc15');
-                            }
-                        },
-                        onKill: (t2, info) => {
-                            free();
-                            if (isBomb) { BO.Sound.playExplosion(0.5); return; }
-                            SFX.bonk();
-                            if (kind === 'gold') SFX.fanfare();
-                            const head = t2.root.position.clone().add(V(0, 0.9, 0));
-                            BO.FX.spawnParticles(head, 10, 0xfde047, 2.5, -1, 0.7, 0.9);
-                            // quick-draw bonus: two whacks inside 0.45 s
-                            if (S2.t - S2.data.lastWhack < 0.45) {
-                                S2.data.streakFast++;
-                                S2.award(50 * S2.data.streakFast, head.clone().add(V(0, 0.4, 0)), 'QUICK!', '#38bdf8');
-                            } else S2.data.streakFast = 0;
-                            S2.data.lastWhack = S2.t;
-                        },
-                        onExpire: () => { free(); if (!isBomb && kind !== 'gold') SFX.boing(); }
-                    }));
-                    return tg;
-                };
-                K.ramp(S, { from: cfg.gap[0], to: cfg.gap[1], start: 0.2, curve: 1.15 }, (at, k, rng) => {
-                    const pops = 1 + (rng() < cfg.multi * k ? 1 : 0) + (rng() < cfg.multi * k * 0.5 ? 1 : 0);
-                    for (let p = 0; p < pops; p++) {
-                        const roll = rng();
-                        let kind = 'normal';
-                        if (roll < cfg.gold) kind = 'gold';
-                        else if (k > 0.15 && roll < cfg.gold + cfg.bomb) kind = 'bomb';
-                        else if (k > 0.2 && roll < cfg.gold + cfg.bomb + cfg.helmet) kind = 'helmet';
-                        const hi = Math.floor(rng() * holes.length);
-                        const life = lerp(cfg.life[0], cfg.life[1], k) * (kind === 'gold' ? 0.65 : kind === 'helmet' ? 1.4 : kind === 'bomb' ? 1.3 : 1);
-                        const bRoll = rng();
-                        const behaviour = bRoll < 0.3 ? 'peek' : bRoll < 0.55 ? 'taunt' : (k > 0.5 && bRoll < 0.7) ? 'bob' : 'still';
-                        S.at(at + p * 0.07, (S2) => spawnMole(S2, hi, kind, life, behaviour));
-                    }
-                });
-            }
-        });
-    }
+    const MOLE_MODES = {
+        classic: {
+            id: 'mole_classic', label: 'CLASSIC (3x3)', name: 'Classic Whack',
+            desc: 'Original 3x3 carnival booth with an M1911 sidearm.',
+            hudSub: 'Classic 3x3 • Gold moles pay 5x — chain fast whacks for QUICK bonuses',
+            cols: 3, rows: 3, weapon: 'm1911', stripe: '#dc2626', board: 0x15803d, title: 'WHACK-A-MOLE',
+            gap: [0.95, 0.42], life: [1.45, 0.72], multi: 0.25, gold: 0.06, bomb: 0, helmet: 0,
+            stars: [2000, 4500, 7500, 11000]
+        },
+        frenzy: {
+            id: 'mole_frenzy', label: 'FRENZY (4x4)', name: 'Mole Frenzy',
+            desc: '16 holes and a full-auto G18. Hard-hat moles take 2 hits.',
+            hudSub: 'Frenzy 4x4 • Hard-hat moles need two hits',
+            cols: 4, rows: 4, weapon: 'glock18_auto', stripe: '#2563eb', board: 0x166534, title: 'MOLE FRENZY',
+            gap: [0.8, 0.32], life: [1.35, 0.68], multi: 0.75, gold: 0.05, bomb: 0, helmet: 0.2,
+            stars: [6000, 12000, 20000, 30000]
+        },
+        mayhem: {
+            id: 'mole_mayhem', label: 'MAYHEM (5x4)', name: 'Mole Mayhem',
+            desc: '20 holes packed with gold moles, hard hats & lit bombs.',
+            hudSub: 'Mayhem 5x4 • Never shoot the bombs!',
+            cols: 5, rows: 4, weapon: 'five_seven', stripe: '#7c3aed', board: 0x14532d, title: 'MOLE MAYHEM',
+            gap: [0.7, 0.28], life: [1.3, 0.62], multi: 0.85, gold: 0.06, bomb: 0.16, helmet: 0.16,
+            stars: [6000, 12000, 20000, 30000]
+        }
+    };
+    const modeOf = (o) => (o && MOLE_MODES[o.moleMode]) ? o.moleMode : 'classic';
 
-    makeMoleGame({
-        id: 'mole_classic', order: 1, name: 'Classic Whack', icon: '🐹', accent: '#f59e0b',
-        tagline: 'Nine holes, one pistol, a lot of moles',
-        desc: 'The original carnival booth: a 3x3 board and a sidearm. Moles pop up, peek around and taunt you before ducking back down. Gold moles pay 5x but vanish quickly. Two whacks within half a second earn a QUICK bonus.',
-        hudSub: 'Gold moles pay 5x — chain fast whacks for QUICK bonuses',
-        cols: 3, rows: 3, weapon: 'm1911', stripe: '#dc2626', board: 0x15803d, title: 'WHACK-A-MOLE',
-        gap: [0.95, 0.42], life: [1.45, 0.72], multi: 0.25, gold: 0.06, bomb: 0, helmet: 0,
-        stars: [2000, 4500, 7500, 11000]
-    });
-    makeMoleGame({
-        id: 'mole_frenzy', order: 2, name: 'Mole Frenzy', icon: '⛑️', accent: '#eab308',
-        tagline: 'Sixteen holes. Hard hats. Pure panic.',
-        desc: 'Sixteen holes and a full-auto G18. Moles burst up two or three at a time, and the miners among them wear hard hats: the first shot knocks the helmet off, the second finishes the job. Keep the streak alive for a massive multiplier.',
-        hudSub: 'Hard-hat moles need two hits',
-        cols: 4, rows: 4, weapon: 'glock18_auto', stripe: '#2563eb', board: 0x166534, title: 'MOLE FRENZY',
-        gap: [0.8, 0.32], life: [1.35, 0.68], multi: 0.75, gold: 0.05, bomb: 0, helmet: 0.2,
-        stars: [6000, 12000, 20000, 30000]
-    });
-    makeMoleGame({
-        id: 'mole_mayhem', order: 3, name: 'Mole Mayhem', icon: '💣', accent: '#ef4444',
-        tagline: 'Twenty holes. Some of them are bombs.',
-        desc: 'The board from hell: a 5x4 grid where moles share the holes with lit bombs. Shoot a bomb and it goes off, wiping out your streak and costing 300. Everything else is fair game: gold, hard hats, peekers and bobbers, faster and faster.',
-        hudSub: 'Never shoot the bombs',
-        cols: 5, rows: 4, weapon: 'five_seven', stripe: '#7c3aed', board: 0x14532d, title: 'MOLE MAYHEM',
-        gap: [0.7, 0.28], life: [1.3, 0.62], multi: 0.85, gold: 0.06, bomb: 0.16, helmet: 0.16,
-        stars: [6000, 12000, 20000, 30000]
+    MG.register({
+        id: 'whack_a_mole', cat: 'target', order: 16,
+        name: 'Whack-a-Mole', icon: '🐹', accent: '#f59e0b', badge: 'CLASSIC',
+        tagline: 'Three carnival booths inside one tile: Classic, Frenzy & Mayhem.',
+        desc: 'The flagship carnival booth shooter! Pick Classic (3x3 pistol), Frenzy (4x4 full-auto with hard hats), or Mayhem (5x4 with bombs). Moles pop, peek, and taunt from tiered holes under chasing marquee bulbs.',
+        hudSub: 'Gold moles pay 5x • switch booth variants in the hub!',
+        heroLabel: 'TARGET PRACTICE • WHACK-A-MOLE • 60 SECONDS',
+        duration: 60, stars: MOLE_MODES.classic.stars,
+        standardWeapon: (o) => MOLE_MODES[modeOf(o)].weapon,
+        standardOptic: 'iron',
+        hubOptions: [{
+            key: 'moleMode', label: 'VARIANT', default: 'classic',
+            choices: Object.entries(MOLE_MODES).map(([k, v]) => ({ val: k, label: v.label, desc: v.desc }))
+        }],
+        variantKey: (o) => modeOf(o) === 'classic' ? '' : modeOf(o),
+        variantLabel: (o) => MOLE_MODES[modeOf(o)].name.toUpperCase(),
+        starsFor: (o) => MOLE_MODES[modeOf(o)].stars,
+        map: {
+            atmosphere: { skyTop: 0x1c1917, skyBottom: 0x44403c, fogColor: 0x2a1f1a, fogDensity: 0.012, sunColor: 0xffe0b2, sunIntensity: 0.8, sunPos: [6, 40, 12], hemiSky: 0xffe4c4, hemiGround: 0x3f2a14, hemiIntensity: 0.8 },
+            boxes: [B(0, -0.5, -5, 40, 1, 40, 'wood_plank')],
+            spawn: { x: 0, y: 0, z: 0.4, yaw: 0 }
+        },
+        build(S) {
+            const cfg = MOLE_MODES[modeOf(S.opts)];
+            const holes = holeLayout(cfg.cols, cfg.rows);
+            S.data.cfg = cfg;
+            S.data.holesMeta = holes;
+            buildTent(S, cfg);
+            K.booth(S, { roof: false, w: 3.6, wood: 0xbe123c, trim: 0x881337 });
+            buildBoard(S, holes, cfg);
+            S.data.holes = holes.map((h) => Object.assign({ busy: false }, h));
+            S.data.lastWhack = -9;
+            S.data.streakFast = 0;
+        },
+        schedule(S) {
+            const cfg = S.data.cfg || MOLE_MODES[modeOf(S.opts)];
+            const holes = S.data.holesMeta || holeLayout(cfg.cols, cfg.rows);
+            const spawnMole = (S2, hi, kind, life, behaviour) => {
+                const H = S2.data.holes;
+                let idx = hi % H.length;
+                for (let n = 0; n < H.length && H[idx].busy; n++) idx = (idx + 1) % H.length;
+                if (H[idx].busy) return;
+                const h = H[idx];
+                h.busy = true;
+                const free = () => { h.busy = false; };
+                const isBomb = kind === 'bomb';
+                const art = isBomb ? A.bomb() : A.mole(kind);
+                const pos = V(h.x, h.y - 0.02, h.z);
+                const tg = S2.addTarget(Object.assign(art, {
+                    pos, yaw: A.yawTo(pos, V(0, 1.6, 0.4)),
+                    points: kind === 'gold' ? 500 : kind === 'helmet' ? 200 : 100,
+                    hp: kind === 'helmet' ? 2 : 1,
+                    penalty: isBomb ? 300 : 0, penaltyLabel: 'KABOOM!', bonus: kind === 'gold',
+                    life, inT: 0.16, outT: 0.16, appear: 'rise', riseDepth: 1.05, death: isBomb ? 'burst' : 'squash', deathColor: kind === 'gold' ? 0xfacc15 : isBomb ? 0xf97316 : 0x8b5a2b,
+                    onTick: (t2) => {
+                        if (!t2.alive) return;
+                        const tt = t2.age;
+                        if (behaviour === 'peek') t2.pivot.rotation.y = Math.sin(tt * 6) * 0.5;
+                        else if (behaviour === 'taunt') { t2.pivot.rotation.z = Math.sin(tt * 18) * 0.12; t2.pivot.position.y += Math.abs(Math.sin(tt * 9)) * 0.06; }
+                        else if (behaviour === 'bob' && t2.phase === 'hold') t2.pivot.position.y = -Math.max(0, Math.sin(tt * 5)) * 0.55;
+                        if (art.eyes) for (const e of art.eyes) e.scale.y = (Math.sin(tt * 3.1) > 0.97) ? 0.15 : 1;
+                        if (art.spark) art.spark.scale.setScalar(0.7 + Math.random() * 0.8);
+                    },
+                    onDamage: () => {
+                        if (art.helmet) {
+                            const hw = art.helmet.getWorldPosition(new THREE.Vector3());
+                            art.helmet.visible = false;
+                            BO.FX.spawnParticles(hw, 10, 0xfacc15, 4, 9, 0.5, 1.1);
+                            SFX.ding(1.6);
+                            S2.rt.popup(hw, 'CLANG!', '#facc15');
+                        }
+                    },
+                    onKill: (t2) => {
+                        free();
+                        if (isBomb) { BO.Sound.playExplosion(0.5); return; }
+                        SFX.bonk();
+                        if (kind === 'gold') SFX.fanfare();
+                        const head = t2.root.position.clone().add(V(0, 0.9, 0));
+                        BO.FX.spawnParticles(head, 10, 0xfde047, 2.5, -1, 0.7, 0.9);
+                        if (S2.t - S2.data.lastWhack < 0.45) {
+                            S2.data.streakFast++;
+                            S2.award(50 * S2.data.streakFast, head.clone().add(V(0, 0.4, 0)), 'QUICK!', '#38bdf8');
+                        } else S2.data.streakFast = 0;
+                        S2.data.lastWhack = S2.t;
+                    },
+                    onExpire: () => { free(); if (!isBomb && kind !== 'gold') SFX.boing(); }
+                }));
+                return tg;
+            };
+            K.ramp(S, { from: cfg.gap[0], to: cfg.gap[1], start: 0.2, curve: 1.15 }, (at, k, rng) => {
+                const pops = 1 + (rng() < cfg.multi * k ? 1 : 0) + (rng() < cfg.multi * k * 0.5 ? 1 : 0);
+                for (let p = 0; p < pops; p++) {
+                    const roll = rng();
+                    let kind = 'normal';
+                    if (roll < cfg.gold) kind = 'gold';
+                    else if (k > 0.15 && roll < cfg.gold + cfg.bomb) kind = 'bomb';
+                    else if (k > 0.2 && roll < cfg.gold + cfg.bomb + cfg.helmet) kind = 'helmet';
+                    const hi = Math.floor(rng() * holes.length);
+                    const life = lerp(cfg.life[0], cfg.life[1], k) * (kind === 'gold' ? 0.65 : kind === 'helmet' ? 1.4 : kind === 'bomb' ? 1.3 : 1);
+                    const bRoll = rng();
+                    const behaviour = bRoll < 0.3 ? 'peek' : bRoll < 0.55 ? 'taunt' : (k > 0.5 && bRoll < 0.7) ? 'bob' : 'still';
+                    S.at(at + p * 0.07, (S2) => spawnMole(S2, hi, kind, life, behaviour));
+                }
+            });
+        }
     });
 })(window);

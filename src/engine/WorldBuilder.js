@@ -16,6 +16,7 @@
             this.interactives = []; // doors, perks, wallbuys, box, pap, power, windows, teleporter, armor, exfil
             this.powerLights = [];
             this.fireFlames = [];
+            this.animatedProps = [];
             this.mysteryBoxObj = null;
             this.domFlagObjs = [];
             this.hardpointRing = null;
@@ -41,12 +42,14 @@
             this.interactives = [];
             this.powerLights = [];
             this.fireFlames = [];
+            this.animatedProps = [];
             this.mysteryBoxObj = null;
             this.domFlagObjs = [];
             this.hardpointRing = null;
             this.exfilBeacon = null;
             this.teleporterRings = [];
             this.rotatingLandmarks = [];
+            this.animatedProps = [];
             this.traps = [];
             this.elevators = [];
             this.defconSwitches = [];
@@ -63,6 +66,7 @@
             this.centrifugeHazards = [];
             this.unlockedZones = new Set(['spawn']);
             this.powerOn = false;
+            if (BO.MapDetail) BO.MapDetail.resetFrameState();
 
             this._setupLargeWorld();
 
@@ -107,21 +111,40 @@
             // Terrain worlds: heightfield first, then batched static geometry.
             if (this.large) this._buildLargeWorld(scene);
 
-            // Map Geometry (Boxes)
+            // Map Geometry (Boxes + Bespoke Hero Props)
+            const MD = BO.MapDetail;
             for (let i = 0; i < (this.large ? 0 : this.mapData.boxes.length); i++) {
                 const b = this.mapData.boxes[i];
-                const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
-                // Large flat slabs tile across their footprint (Survival ground, RPG arena floors).
-                const isSurvivalGround = (this.mapData.mode === 'survival' || this.mapData.mode === 'rpg') && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
-                const mat = isSurvivalGround
-                    ? BO.Textures.getWorldMaterial(b.mat, b.w, b.d)
-                    : BO.Textures.getWorldMaterial(b.mat, Math.max(b.w, b.d), b.h);
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(b.x, b.y, b.z);
-                mesh.receiveShadow = true;
-                mesh.castShadow = b.h > 0.7;
-                scene.add(mesh);
-                this.worldMeshes.push(mesh);
+                let propObj = null;
+                if (MD) {
+                    if (b.mat === 'wood_crate' && b.w <= 3.6 && b.h <= 2.4 && b.d <= 3.6) {
+                        propObj = MD.buildCrateProp(b);
+                    } else if (b.mat === 'sandbag') {
+                        propObj = MD.buildSandbagProp(b);
+                    } else if ((b.mat === 'wood_plank' || b.mat === 'pentagon_panel' || b.mat === 'diamond_plate')
+                        && b.h >= 0.65 && b.h <= 1.15 && Math.max(b.w, b.d) <= 3.2 && Math.min(b.w, b.d) >= 0.45 && b.y < 1.2) {
+                        propObj = MD.buildTableProp(b);
+                    }
+                }
+                if (propObj) {
+                    scene.add(propObj);
+                    propObj.traverse((child) => {
+                        if (child.isMesh) this.worldMeshes.push(child);
+                    });
+                } else {
+                    const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
+                    // Large flat slabs tile across their footprint (Survival ground, RPG arena floors).
+                    const isSurvivalGround = (this.mapData.mode === 'survival' || this.mapData.mode === 'rpg') && b.h <= 1.2 && Math.min(b.w, b.d) > 2;
+                    const mat = isSurvivalGround
+                        ? BO.Textures.getWorldMaterial(b.mat, b.w, b.d)
+                        : BO.Textures.getWorldMaterial(b.mat, Math.max(b.w, b.d), b.h);
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(b.x, b.y, b.z);
+                    mesh.receiveShadow = true;
+                    mesh.castShadow = b.h > 0.7;
+                    scene.add(mesh);
+                    this.worldMeshes.push(mesh);
+                }
 
                 this.colliders.push({
                     minX: b.x - b.w * 0.5,
@@ -161,6 +184,7 @@
                 this._buildTdProps(scene);
             }
             this._buildMapLandmarks(scene);
+            if (BO.MapDetail) BO.MapDetail.dressWorld(this);
 
             if (this.large) this._finishLargeWorld(scene);
 
@@ -267,6 +291,10 @@
         }
 
         _buildFireBarrel(scene, l) {
+            if (BO.MapDetail) {
+                BO.MapDetail.buildFireBarrel(scene, l, this);
+                return;
+            }
             const by = l.baseY || 0;
             const barrelMat = BO.Textures.getWorldMaterial('rusted_metal', 1, 1);
             const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.95, 12), barrelMat);
@@ -348,12 +376,16 @@
                 new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 0.18 })
             );
             glass.position.set(0, 1.02, 0.415);
+            const bottles = [];
             for (let b = -1; b <= 1; b++) {
+                const bg = new THREE.Group();
+                bg.position.set(b * 0.22, 0.95, 0.39);
                 const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.26, 8), neonMat);
-                bottle.position.set(b * 0.22, 0.95, 0.39);
                 const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 0.10, 8), chromeMat);
-                neck.position.set(b * 0.22, 1.12, 0.39);
-                g.add(bottle, neck);
+                neck.position.set(0, 0.17, 0);
+                bg.add(bottle, neck);
+                g.add(bg);
+                bottles.push({ obj: bg, baseY: 0.95 });
             }
 
             // Dispensing tray chute + chrome coin slot
@@ -373,6 +405,14 @@
             const perkLight = new THREE.PointLight(p.color, 1.25, 7.0);
             perkLight.position.set(0, 1.8, 0.85);
             g.add(plinth, body, crown, railL, railR, glass, chute, sign, neon, perkLight);
+            this.animatedProps.push({
+                kind: 'perk_machine',
+                bottles,
+                neon,
+                light: perkLight,
+                baseInt: 1.25,
+                phase: (p.x || 0) * 0.7 + (p.z || 0) * 0.3
+            });
 
             scene.add(g);
             this.worldMeshes.push(body);
@@ -423,7 +463,17 @@
                 new THREE.MeshBasicMaterial({ color: 0xc084fc })
             );
             slotGlow.position.set(0, 1.1, 0.52);
-            g.add(slotGlow);
+            const ringA = new THREE.Mesh(
+                new THREE.TorusGeometry(0.46, 0.024, 8, 22),
+                new THREE.MeshBasicMaterial({ color: 0xd8b4fe, transparent: true, opacity: 0.75 })
+            );
+            ringA.position.set(0, 1.1, 0.58);
+            const ringB = new THREE.Mesh(
+                new THREE.TorusGeometry(0.32, 0.018, 8, 18),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 })
+            );
+            ringB.position.set(0, 1.1, 0.59);
+            g.add(slotGlow, ringA, ringB);
 
             scene.add(g);
             this.worldMeshes.push(forge);
@@ -447,6 +497,7 @@
                 heldWeapon: null
             };
             this.interactives.push(inter);
+            this.animatedProps.push({ kind: 'pap_machine', slotGlow, ringA, ringB, inter, phase: pap.x || 0 });
             return inter;
         }
 
@@ -471,6 +522,7 @@
             handle.rotation.x = -0.45;
             g.add(panel, lamp, handle);
             this.scene.add(g);
+            this.animatedProps.push({ kind: 'switch_lamp', lamp, phase: x + z });
             return { group: g, lamp, handle };
         }
 
@@ -781,13 +833,50 @@
         _buildTdKeepBrazier(scene, x, y, z) {
             const g = new THREE.Group();
             g.position.set(x, y, z);
-            const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.38, 1.05, 8), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.75, roughness: 0.4 }));
-            stand.position.y = 0.525;
-            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.22, 0.28, 8), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85 }));
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x263140, metalness: 0.78, roughness: 0.42 });
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0x161e29, metalness: 0.86, roughness: 0.34 });
+            const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.36, 0.96, 12), ironMat);
+            ped.position.y = 0.48;
+            const ringCollar = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.032, 8, 16), rimMat);
+            ringCollar.rotation.x = Math.PI * 0.5;
+            ringCollar.position.y = 0.96;
+            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.24, 0.30, 14), rimMat);
             bowl.position.y = 1.12;
-            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.58, 7), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
-            flame.position.y = 1.48;
-            g.add(stand, bowl, flame);
+            const bowlLip = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.035, 8, 18), ironMat);
+            bowlLip.rotation.x = Math.PI * 0.5;
+            bowlLip.position.y = 1.26;
+            const embers = new THREE.Mesh(
+                new THREE.SphereGeometry(0.34, 14, 10),
+                new THREE.MeshStandardMaterial({ color: 0x3b1206, emissive: 0xff4500, emissiveIntensity: 1.4, roughness: 0.85 })
+            );
+            embers.scale.set(1.0, 0.34, 1.0);
+            embers.position.y = 1.22;
+            g.add(ped, ringCollar, bowl, bowlLip, embers);
+
+            const MD = BO.MapDetail;
+            let flame = embers;
+            if (MD && typeof MD._createFlameMaterial === 'function') {
+                const fMat = MD._createFlameMaterial();
+                const fg = new THREE.Group();
+                fg.position.y = 1.54;
+                for (let k = 0; k < 2; k++) {
+                    const p = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 0.72), fMat);
+                    p.rotation.y = k * Math.PI * 0.5 + 0.35;
+                    fg.add(p);
+                }
+                g.add(fg);
+                flame = fg;
+                if (typeof MD._createEmberPoints === 'function') {
+                    const pts = MD._createEmberPoints(12, 0.28);
+                    pts.position.y = 1.32;
+                    g.add(pts);
+                }
+            } else {
+                flame = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+                flame.scale.set(1.0, 1.7, 1.0);
+                flame.position.y = 1.48;
+                g.add(flame);
+            }
             scene.add(g);
             this.fireFlames.push({ flame, light: null, baseInt: 0 });
         }
@@ -1014,12 +1103,14 @@
             );
             pkGlass.position.set(0, 1.38, 0.525);
             const bottleColors = [0xef4444, 0x22c55e, 0xf59e0b, 0x38bdf8, 0xa855f7, 0xec4899, 0x10b981, 0xfde047];
+            const pkBottles = [];
             for (let bi = 0; bi < 8; bi++) {
                 const bx = -0.54 + (bi % 4) * 0.36;
                 const by = bi < 4 ? 1.55 : 1.15;
                 const bMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.24, 8), new THREE.MeshBasicMaterial({ color: bottleColors[bi] }));
                 bMesh.position.set(bx, by, 0.50);
                 pkG.add(bMesh);
+                pkBottles.push({ obj: bMesh, baseY: by });
             }
             const pkChute = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.32, 0.14), new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.75 }));
             pkChute.position.set(0, 0.52, 0.49);
@@ -1030,6 +1121,7 @@
             pkLight.position.set(0, 2.2, 1.0);
             pkG.add(pkPlinth, pkBody, pkCrown, pkTrim, pkRailL, pkRailR, pkScreen, pkGlass, pkChute, pkHalo, pkLight);
             scene.add(pkG);
+            this.animatedProps.push({ kind: 'wunderfizz', bottles: pkBottles, halo: pkHalo, light: pkLight, baseInt: 1.6 });
             this.interactives.push({
                 type: 'td_perk_kiosk',
                 id: 'td_perk_kiosk',
@@ -1060,6 +1152,7 @@
             bar.position.set(0, 2.15, 0);
             gongG.add(disc, pL, pR, bar);
             scene.add(gongG);
+            this.animatedProps.push({ kind: 'war_gong', disc });
             this.interactives.push({
                 type: 'td_overdrive_gong',
                 id: 'td_overdrive_gong',
@@ -1377,6 +1470,7 @@
                 chest.position.y = 0.325;
                 chest.castShadow = true;
                 boxGroup.add(chest);
+                if (BO.MapDetail) BO.MapDetail.dressMysteryBox(boxGroup, 1.75, 0.65, 0.85);
 
                 const lidPivot = new THREE.Group();
                 lidPivot.position.set(0, 0.65, -0.42);
@@ -1419,6 +1513,7 @@
                 };
                 this.mysteryBoxObj = boxInteractive;
                 this.interactives.push(boxInteractive);
+                this.animatedProps.push({ kind: 'mystery_box', beacon, previewAnchor, inter: boxInteractive });
             }
 
             // 6. Power Switch + Subtle Wall Markings
@@ -1811,23 +1906,56 @@
             if (!Array.isArray(this.mapData.landmarks)) return;
             for (const lm of this.mapData.landmarks) {
                 if (lm.kind === 'hanging_paratrooper') {
-                    // Shi No Numa Central Hut Hanging Paratrooper
+                    // Shi No Numa Central Hut Hanging Paratrooper (sculpted silhouette & rigging)
                     const g = new THREE.Group();
                     g.position.set(lm.x, lm.y || 2.2, lm.z);
-                    const ropeMat = new THREE.MeshBasicMaterial({ color: 0xd6d3d1 });
+                    const ropeMat = new THREE.MeshStandardMaterial({ color: 0xc2b8a3, roughness: 0.92 });
+                    const canopyMat = new THREE.MeshStandardMaterial({ color: 0x6b705c, roughness: 0.88, side: THREE.DoubleSide });
+                    const uniformMat = new THREE.MeshStandardMaterial({ color: 0x3f4d34, roughness: 0.82 });
+                    const harnessMat = new THREE.MeshStandardMaterial({ color: 0x5c5346, roughness: 0.75 });
+                    const skinMat = new THREE.MeshStandardMaterial({ color: 0x7a8072, roughness: 0.78 });
+                    const helmetMat = new THREE.MeshStandardMaterial({ color: 0x36402c, roughness: 0.55, metalness: 0.22 });
+
+                    // Draped parachute fabric tucked in rafters above
+                    const chute = new THREE.Mesh(new THREE.SphereGeometry(0.65, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), canopyMat);
+                    chute.scale.set(1.15, 0.55, 0.95);
+                    chute.position.set(0, 1.75, 0);
+                    g.add(chute);
+
+                    const swayPivot = new THREE.Group();
+                    swayPivot.position.set(0, 1.75, 0);
+                    g.add(swayPivot);
+
                     for (let r = -1; r <= 1; r += 2) {
-                        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 1.8, 6), ropeMat);
-                        rope.position.set(r * 0.18, 0.9, 0);
-                        g.add(rope);
+                        const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.016, 1.9, 8), ropeMat);
+                        rope.position.set(r * 0.19, -0.79, 0);
+                        rope.rotation.z = -r * 0.06;
+                        swayPivot.add(rope);
                     }
-                    const uniformMat = new THREE.MeshStandardMaterial({ color: 0x3f4d34, roughness: 0.85 });
-                    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.65, 0.24), uniformMat);
-                    const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshStandardMaterial({ color: 0x6b7280 }));
-                    head.position.y = -0.45;
-                    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.72, 0.20), uniformMat);
-                    legs.position.y = 0.68;
-                    g.add(torso, head, legs);
+
+                    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.38, 8, 12), uniformMat);
+                    torso.position.y = -1.75;
+                    torso.scale.set(1.18, 1.0, 0.72);
+                    const head = new THREE.Mesh(new THREE.SphereGeometry(0.135, 12, 12), skinMat);
+                    head.position.set(0, -2.19, 0.04);
+                    const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.58), helmetMat);
+                    helmet.position.set(0, -2.21, 0.03);
+                    for (let s = -1; s <= 1; s += 2) {
+                        const strap = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.50, 4, 8), harnessMat);
+                        strap.position.set(s * 0.11, -1.73, 0.01);
+                        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.54, 6, 10), uniformMat);
+                        leg.position.set(s * 0.11, -1.17, 0);
+                        const boot = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.12, 6, 10), harnessMat);
+                        boot.rotation.x = 0.65;
+                        boot.position.set(s * 0.11, -0.83, 0.06);
+                        const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.44, 6, 10), uniformMat);
+                        arm.rotation.z = s * 0.16;
+                        arm.position.set(s * 0.24, -1.99, 0.03);
+                        swayPivot.add(strap, leg, boot, arm);
+                    }
+                    swayPivot.add(torso, head, helmet);
                     scene.add(g);
+                    this.animatedProps.push({ kind: 'pendulum', obj: swayPivot, phase: (lm.x || 0) * 0.5 });
                 } else if (lm.kind === 'flogger') {
                     // Shi No Numa Spinning Spiked Flogger Trap Beam
                     const g = new THREE.Group();
@@ -2029,6 +2157,10 @@
                     scene.add(signMesh);
                     this.nuketownSign = { mesh: signMesh, tex };
                 } else if (lm.kind === 'nuketown_bus') {
+                    if (BO.MapDetail) {
+                        BO.MapDetail.buildNuketownBus(scene, lm, this);
+                        continue;
+                    }
                     // Walk-through 1950s Nuketown Teal School Bus Shell
                     const bx = lm.x, by = lm.y || 0, bz = lm.z;
                     const bg = new THREE.Group();
@@ -2070,22 +2202,69 @@
                 } else if (lm.kind === 'stage_curtains_static') {
                     // Optional helper
                 } else if (lm.kind === 'nuketown_mushroom_cloud') {
-                    // Nuketown Horizon Atomic Mushroom Cloud
+                    // Nuketown Horizon Atomic Mushroom Cloud (multi-lobed glowing plume + Wilson rings)
                     const g = new THREE.Group();
                     g.position.set(lm.x, lm.y || 0, lm.z);
-                    const stemMat = new THREE.MeshBasicMaterial({ color: 0x9a3412, fog: false });
-                    const capMat = new THREE.MeshBasicMaterial({ color: 0xf97316, fog: false });
-                    const glowMat = new THREE.MeshBasicMaterial({ color: 0xfde047, fog: false });
-                    const stem = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 6.5, 28, 14), stemMat);
-                    stem.position.y = 14;
-                    const cap = new THREE.Mesh(new THREE.SphereGeometry(12.5, 16, 12), capMat);
-                    cap.scale.set(1.4, 0.65, 1.4);
-                    cap.position.y = 28;
-                    const ring = new THREE.Mesh(new THREE.TorusGeometry(9.5, 1.6, 10, 24), glowMat);
-                    ring.rotation.x = Math.PI * 0.5;
-                    ring.position.y = 20;
-                    g.add(stem, cap, ring);
+                    const coreMat = new THREE.MeshBasicMaterial({ color: 0xfb923c, fog: false });
+                    const emberMat = new THREE.MeshBasicMaterial({ color: 0xea580c, fog: false });
+                    const smokeMat = new THREE.MeshBasicMaterial({ color: 0x7c2d12, fog: false });
+                    const ringMat = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.68, fog: false });
+
+                    // Pinched hourglass thermal stem via LatheGeometry
+                    const stemPts = [
+                        new THREE.Vector2(9.2, 0),
+                        new THREE.Vector2(6.2, 4.0),
+                        new THREE.Vector2(3.6, 11.0),
+                        new THREE.Vector2(3.2, 18.0),
+                        new THREE.Vector2(4.8, 25.0),
+                        new THREE.Vector2(8.0, 28.5)
+                    ];
+                    const stem = new THREE.Mesh(new THREE.LatheGeometry(stemPts, 20), emberMat);
+                    g.add(stem);
+
+                    // Ground surge dust collar
+                    const skirt = new THREE.Mesh(new THREE.TorusGeometry(10.5, 2.8, 10, 24), smokeMat);
+                    skirt.rotation.x = Math.PI * 0.5;
+                    skirt.position.y = 1.6;
+                    g.add(skirt);
+
+                    // Billowing multi-lobed mushroom cap (inner bright thermal crown + outer convective billows)
+                    const capGeo = new THREE.SphereGeometry(1, 14, 12);
+                    const crown = new THREE.Mesh(capGeo, coreMat);
+                    crown.scale.set(14.5, 6.8, 14.5);
+                    crown.position.y = 30.5;
+                    g.add(crown);
+
+                    const billows = [];
+                    for (let i = 0; i < 10; i++) {
+                        const a = (i / 10) * Math.PI * 2;
+                        const billow = new THREE.Mesh(capGeo, i % 2 === 0 ? emberMat : coreMat);
+                        billow.scale.set(7.2, 5.2, 7.2);
+                        const by = 28.2 + (i % 2) * 1.4;
+                        billow.position.set(Math.cos(a) * 11.2, by, Math.sin(a) * 11.2);
+                        g.add(billow);
+                        billows.push({ obj: billow, baseY: by });
+                    }
+                    const crests = [];
+                    for (let i = 0; i < 6; i++) {
+                        const a = (i / 6) * Math.PI * 2 + 0.3;
+                        const crest = new THREE.Mesh(capGeo, smokeMat);
+                        crest.scale.set(6.5, 4.0, 6.5);
+                        crest.position.set(Math.cos(a) * 6.5, 34.5, Math.sin(a) * 6.5);
+                        g.add(crest);
+                        crests.push({ obj: crest, baseY: 34.5 });
+                    }
+
+                    // Dual luminous condensation Wilson rings
+                    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(11.0, 1.35, 10, 28), ringMat);
+                    ring1.rotation.x = Math.PI * 0.5;
+                    ring1.position.y = 20.5;
+                    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(7.8, 0.95, 10, 24), ringMat);
+                    ring2.rotation.x = Math.PI * 0.5;
+                    ring2.position.y = 14.0;
+                    g.add(ring1, ring2);
                     scene.add(g);
+                    this.animatedProps.push({ kind: 'mushroom_cloud', crown, billows, crests, ring1, ring2 });
                 } else if (lm.kind === 'nuketown_sign_bo1') {
                     // Black Ops 1 Sunny Rainbow Nuketown Welcome Sign
                     const c = document.createElement('canvas');
@@ -2118,6 +2297,10 @@
                     board.rotation.y = lm.rotY || 0;
                     scene.add(board);
                 } else if (lm.kind === 'nuketown_mannequin') {
+                    if (BO.MapDetail) {
+                        BO.MapDetail.buildMannequin(scene, lm);
+                        continue;
+                    }
                     // Classic 1950s Nuketown Test Mannequin Figure
                     const g = new THREE.Group();
                     g.position.set(lm.x, lm.y || 0, lm.z);
@@ -2827,6 +3010,8 @@
         }
 
         updateAnimatedProps(dt, elapsed) {
+            if (BO.Textures && BO.Textures.updateWaterTime) BO.Textures.updateWaterTime(elapsed);
+            if (BO.MapDetail) BO.MapDetail.update(dt, elapsed);
             for (let i = 0; i < this.fireFlames.length; i++) {
                 const ff = this.fireFlames[i];
                 const flicker = 0.85 + Math.sin(elapsed * 14 + i) * 0.15 + Math.random() * 0.1;
@@ -2935,6 +3120,84 @@
                         BO.Events.emit('hud:banner', { title: `${sd.spec.name.toUpperCase()} DROPPED!`, sub: `LANDED AT ${sd.pad.label || 'BACKYARD'}`, color: sd.spec.color || '#38bdf8' });
                     }
                     this.activeSkyDrops.splice(i, 1);
+                }
+            }
+
+            // Procedural living-world prop & landmark animations (Perk machines, PaP, Switches, Mystery Box, Paratrooper, Mushroom Cloud)
+            for (let i = 0; i < this.animatedProps.length; i++) {
+                const ap = this.animatedProps[i];
+                if (ap.kind === 'perk_machine') {
+                    for (let bi = 0; bi < ap.bottles.length; bi++) {
+                        const b = ap.bottles[bi];
+                        b.obj.position.y = b.baseY + Math.sin(elapsed * 2.4 + bi * 1.4 + ap.phase) * 0.025;
+                        b.obj.rotation.y += dt * 1.1;
+                    }
+                    const pulse = 0.90 + Math.sin(elapsed * 3.1 + ap.phase) * 0.12;
+                    if (ap.light) ap.light.intensity = ap.baseInt * pulse;
+                    if (ap.neon) ap.neon.scale.setScalar(0.985 + Math.sin(elapsed * 3.1 + ap.phase) * 0.015);
+                } else if (ap.kind === 'pap_machine') {
+                    const spin = ap.inter?.upgrading ? 8.5 : 1.4;
+                    if (ap.ringA) ap.ringA.rotation.z += dt * spin;
+                    if (ap.ringB) ap.ringB.rotation.z -= dt * spin * 1.35;
+                    if (ap.slotGlow) {
+                        ap.slotGlow.scale.y = 0.88 + Math.sin(elapsed * (ap.inter?.upgrading ? 18 : 3.5) + ap.phase) * 0.16;
+                    }
+                } else if (ap.kind === 'switch_lamp') {
+                    if (ap.lamp) {
+                        const s = 0.88 + Math.sin(elapsed * 4.2 + ap.phase) * 0.16;
+                        ap.lamp.scale.setScalar(s);
+                    }
+                } else if (ap.kind === 'mystery_box') {
+                    if (ap.beacon) {
+                        ap.beacon.rotation.y += dt * 0.55;
+                        if (ap.beacon.material) ap.beacon.material.opacity = 0.20 + Math.sin(elapsed * 2.2) * 0.09;
+                    }
+                    if (ap.previewAnchor && ap.previewAnchor.children.length > 0) {
+                        ap.previewAnchor.position.y = 1.15 + Math.sin(elapsed * 4.0) * 0.06;
+                        ap.previewAnchor.rotation.y += dt * 1.8;
+                    }
+                } else if (ap.kind === 'wunderfizz') {
+                    for (let bi = 0; bi < ap.bottles.length; bi++) {
+                        const b = ap.bottles[bi];
+                        b.obj.position.y = b.baseY + Math.sin(elapsed * 2.8 + bi * 0.8) * 0.028;
+                        b.obj.rotation.y += dt * 1.25;
+                    }
+                    if (ap.halo) {
+                        ap.halo.rotation.z += dt * 1.2;
+                        const s = 0.96 + Math.sin(elapsed * 2.6) * 0.05;
+                        ap.halo.scale.set(s, s, 1);
+                    }
+                    if (ap.light) ap.light.intensity = ap.baseInt * (0.90 + Math.sin(elapsed * 3.0) * 0.15);
+                } else if (ap.kind === 'war_gong') {
+                    if (ap.disc) ap.disc.rotation.x = Math.PI * 0.5 + Math.sin(elapsed * 1.4) * 0.04;
+                } else if (ap.kind === 'pendulum') {
+                    if (ap.obj) {
+                        ap.obj.rotation.z = Math.sin(elapsed * 1.15 + ap.phase) * 0.075;
+                        ap.obj.rotation.x = Math.cos(elapsed * 0.85 + ap.phase) * 0.045;
+                        ap.obj.rotation.y += dt * 0.18;
+                    }
+                } else if (ap.kind === 'mushroom_cloud') {
+                    if (ap.crown) {
+                        const sx = 14.5 + Math.sin(elapsed * 0.65) * 0.55;
+                        const sy = 6.8 + Math.cos(elapsed * 0.55) * 0.35;
+                        ap.crown.scale.set(sx, sy, sx);
+                    }
+                    for (let bi = 0; bi < ap.billows.length; bi++) {
+                        const b = ap.billows[bi];
+                        b.obj.position.y = b.baseY + Math.sin(elapsed * 0.85 + bi * 0.7) * 0.45;
+                    }
+                    for (let ci = 0; ci < ap.crests.length; ci++) {
+                        const c = ap.crests[ci];
+                        c.obj.position.y = c.baseY + Math.cos(elapsed * 0.75 + ci * 1.1) * 0.40;
+                    }
+                    if (ap.ring1) {
+                        const s1 = 0.95 + Math.sin(elapsed * 0.9) * 0.08;
+                        ap.ring1.scale.set(s1, s1, 1);
+                    }
+                    if (ap.ring2) {
+                        const s2 = 0.95 + Math.cos(elapsed * 1.1) * 0.09;
+                        ap.ring2.scale.set(s2, s2, 1);
+                    }
                 }
             }
         }

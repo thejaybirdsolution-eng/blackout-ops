@@ -9,11 +9,11 @@
     const esc = BO.MinigameLib.esc;
 
     const CATS = [
-        { id: 'target', name: 'Target Practice', icon: '🎯', sub: '15 courses', accent: '#f59e0b', blurb: 'Fifteen courses, from the classic range to rhythm shooting (11 songs, 4 modes), a one-magazine trial, a horseback chase, a mansion raid with 15 situations and a heart-blaster beach party. Every course keeps two records: one with the course weapon, one with your class.' },
-        { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', sub: '15 mini games', accent: '#a855f7', blurb: 'Quickdraw duels, arcade cabinets, a hamster-ball brawl, an aim lab, assassination contracts, and nine more: juggling, colour rules, number order, memory panels, a rail switchyard, a meteor shield, fishing, paint wars and safe cracking.' },
-        { id: 'speed', name: 'Speed Runs', icon: '⏱️', sub: '7 timed runs', accent: '#06b6d4', blurb: 'Seven timed challenges, each with its own map, setup and rules. Beat the clock: clear a course, save three outposts, chase thieves by car, stop a splitting zombie, snipe pilots from a rooftop, survive on 50 bullets, and win a skydive fight before you land.' },
-        { id: 'boss', name: 'Boss Rush', icon: '💀', sub: 'Every boss • 3 max heals', accent: '#dc2626', blurb: 'Fight every boss in the game back to back. Bottomless ammo, no regen, three heals for the whole run.' },
-        { id: 'mole', name: 'Whack-a-Mole', icon: '🐹', sub: '3 carnival booths', accent: '#22c55e', blurb: 'Shoot the moles! Three booths of rising chaos with gold moles, hard hats and bombs.' }
+        { id: 'fun', name: 'Fun & Specials', icon: '🎉', unit: 'featured modes', accent: '#ec4899', blurb: '22 studio-flagship genres built inside Blackout Ops: Angry Birds, Master Zombie Siege, 5-min Snowboarding, 360 Trick Shots, FPS Mario 1-1 to 1-4 + Bowser, ATB Final Fantasy Story RPG, Bunker Inspection, Toyshop Prop Hunt, Kaiju Metropolis, Bumper-Car Derby, Hell\'s Combat Kitchen, Sky-Pirate Zeppelin, 5cm Toy-Soldier War, Grandmaster Battle-Chess, Ectoplasm Ghost-Hunters, Roman Colosseum, Zero-G Orbital Breach, Abyssal Trench Exo-Suit, Jurassic Jeep Safari, Ironkeep Castle Siege, Cyberpunk Hoverbike Highway & Pinball Wizard 3D!' },
+        { id: 'target', name: 'Target & Action', icon: '🎯', unit: 'courses', accent: '#f59e0b', blurb: '16 curated action courses: Classic Range, Thunderbolt Coaster, Beat Drop rhythm stage (with 1st-person example), Classic Whack-a-Mole, Sweetheart Shore, Mansion Raid, Outlaw Pursuit & more!' },
+        { id: 'speed', name: 'Speed Runs', icon: '⏱️', unit: 'timed runs', accent: '#06b6d4', blurb: '9 high-intensity timed gauntlets: Neon Gauntlet, Outpost Valley, Linear 3-Act Getaway Chase, Deagle Meteor Splitter, Last 50, Freefall, 3x-expanded Ninja Fortress & Titan Three-Headed Dragon!' },
+        { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', unit: 'mini games', accent: '#a855f7', blurb: '15 carnival booths & party brawlers: Quickdraw Duels, Ball Brawl, Aim Diagnostics, Contracts, Switchyard, Shell Game, Shooting Gallery & more!' },
+        { id: 'boss', name: 'Boss Rush', icon: '💀', unit: '3 max heals', accent: '#dc2626', blurb: 'Fight every boss in the game back to back. Bottomless ammo, no regen, three heals for the whole run.' }
     ];
 
     const STAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2.6l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
@@ -65,7 +65,7 @@
 
         render() {
             if (!this.el) this.init();
-            const cat = MG.hubCat || 'target';
+            const cat = (MG.hubCat && CATS.some((c) => c.id === MG.hubCat)) ? MG.hubCat : 'fun';
             const list = MG.list(cat);
             if (!MG.hubSel[cat] || !MG.get(MG.hubSel[cat])) MG.hubSel[cat] = list[0] && list[0].id;
             const sel = MG.get(MG.hubSel[cat]);
@@ -75,12 +75,16 @@
             const body = this.el.querySelector('#mgh-body');
             body.innerHTML = `
                 <nav class="mgh-cats">
-                    ${CATS.map((c, i) => `
+                    ${CATS.map((c, i) => {
+                        const cnt = MG.list(c.id).length;
+                        const subText = c.id === 'boss' ? c.unit : `${cnt} ${c.unit}`;
+                        return `
                         <button class="mgh-cat ${c.id === cat ? 'active' : ''}" data-cat="${c.id}" style="--mc:${c.accent}">
                             <span class="mgh-cat-ico">${c.icon}</span>
-                            <span class="mgh-cat-text"><b>${c.name}</b><small>${c.sub}</small></span>
+                            <span class="mgh-cat-text"><b>${c.name}</b><small>${subText}</small></span>
                             <span class="mgh-cat-stars">${STAR_SVG}<em>${totals[i].got}/${totals[i].max}</em></span>
-                        </button>`).join('')}
+                        </button>`;
+                    }).join('')}
                     <div class="mgh-total">
                         <small>TOTAL STARS</small>
                         <div class="mgh-total-bar"><i style="width:${allMax ? (allGot / allMax * 100).toFixed(1) : 0}%"></i></div>
@@ -109,13 +113,14 @@
         _card(def, i, active) {
             const best = def.cat === 'boss' ? null : this._best(def);
             const stars = def.cat === 'boss' ? 0 : MG.bestStarsAny(def);
-            const num = def.cat === 'target' || def.cat === 'arcade' || def.cat === 'speed' ? String(i + 1).padStart(2, '0') : '';
+            const num = (def.cat === 'fun' || def.cat === 'target' || def.cat === 'arcade' || def.cat === 'speed') ? String(i + 1).padStart(2, '0') : '';
+            const tag = def.badge ? `<span class="mgh-tag">${esc(def.badge)}</span>` : (def.rail ? '<span class="mgh-tag">ON RAILS</span>' : '');
             return `
                 <button class="mgh-card ${active ? 'active' : ''}" data-id="${def.id}" style="--mc:${def.accent}">
                     <div class="mgh-card-art">
                         <span class="mgh-card-ico">${def.icon}</span>
                         ${num ? `<span class="mgh-card-num">${num}</span>` : ''}
-                        ${def.rail ? '<span class="mgh-tag">ON RAILS</span>' : ''}
+                        ${tag}
                     </div>
                     <div class="mgh-card-body">
                         <b>${esc(def.name)}</b>
@@ -125,12 +130,60 @@
                 </button>`;
         },
 
+        _guideData(def) {
+            const g = def.guide || {};
+            const objective = g.objective || def.desc || def.tagline || 'Complete the challenge cleanly for Platinum stars.';
+            const tips = g.tips ? g.tips.slice() : [];
+            if (!tips.length) {
+                if (def.cat === 'speed') tips.push('Beat the clock thresholds shown on the star cards for Gold and Platinum.');
+                else if (def.cat === 'target') tips.push('Chain accurate hits without missing to build up to a 4x streak multiplier.');
+                else if (def.cat === 'arcade') tips.push('Focus on accuracy and avoid penalty targets to protect your streak.');
+                else if (def.cat === 'boss') tips.push('You only get 3 heals for the entire run—press [H] wisely during rest windows.');
+                else tips.push('Check the key bindings above before hitting Play; every mode has unique abilities.');
+                if (def.weaponNote) tips.push(def.weaponNote);
+            }
+            const controls = (def.keys && def.keys.length)
+                ? def.keys.map(([k, t]) => `<b>[${esc(k)}]</b> ${esc(t)}`).join(' • ')
+                : 'Standard FPS movement & shooting controls ([WASD], [MOUSE], [LMB]).';
+            return { objective, tips, controls };
+        },
+
+        _openGuideModal(def) {
+            const old = document.getElementById('mgh-guide-modal'); if (old) old.remove();
+            const g = this._guideData(def);
+            const modal = document.createElement('div');
+            modal.id = 'mgh-guide-modal';
+            modal.className = 'mgh-guide-modal';
+            modal.style.setProperty('--mc', def.accent || '#f59e0b');
+            modal.innerHTML = `
+                <div class="mgh-guide-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+                        <small style="color:var(--mc);letter-spacing:2px;font-weight:800;">START MENU GUIDE • ${esc((def.cat || '').toUpperCase())}</small>
+                        <button class="mgh-guide-btn" id="mgh-g-close">✕ CLOSE</button>
+                    </div>
+                    <h3>${def.icon} ${esc(def.name)}</h3>
+                    <div class="mgh-guide-sec"><small>OBJECTIVE &amp; RULES</small><p>${esc(g.objective)}</p></div>
+                    <div class="mgh-guide-sec"><small>CONTROLS</small><p>${g.controls}</p></div>
+                    <div class="mgh-guide-sec"><small>PRO TIPS &amp; WINNING STRATEGY</small><ul>${g.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>
+                    <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;">
+                        <button class="mgh-guide-btn" id="mgh-g-close2" style="padding:8px 14px;">CLOSE</button>
+                        <button class="mgh-play" id="mgh-g-play" style="position:static;margin:0;padding:10px 18px;font-size:13px;">▶ PLAY NOW</button>
+                    </div>
+                </div>`;
+            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            document.body.appendChild(modal);
+            modal.querySelector('#mgh-g-close').onclick = () => modal.remove();
+            modal.querySelector('#mgh-g-close2').onclick = () => modal.remove();
+            modal.querySelector('#mgh-g-play').onclick = () => { modal.remove(); this._play(def.id); };
+        },
+
         _detail(def) {
             const best = this._best(def);
-            const w = def.standardWeapon ? BO.WeaponsData.get(def.standardWeapon) : null;
             const cls = BO.Loadout.getActiveClass();
             const clsW = BO.WeaponsData.get(cls.primary.id);
             const opts = this._opts(def);
+            const stdId = typeof def.standardWeapon === 'function' ? def.standardWeapon(opts) : def.standardWeapon;
+            const w = stdId ? BO.WeaponsData.get(stdId) : null;
             const stars = MG.starsOf(def, opts);
             let options = (def.hubOptions || []).map((opt) => {
                 const cur = opt.choices.find((c) => c.val === opts[opt.key]) || opt.choices[0];
@@ -164,13 +217,22 @@
             const bestLine = best
                 ? `<div class="mgh-best"><small>PERSONAL BEST</small><b>${esc(def.formatBest ? def.formatBest(best) : Number(best.score).toLocaleString())}</b>${starsRow(best.stars || 0, 4, 'big')}</div>`
                 : `<div class="mgh-best mgh-best-none"><small>PERSONAL BEST</small><b>Not played yet</b></div>`;
+            const gd = this._guideData(def);
             return `
-                <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : def.cat === 'speed' ? 'SPEED RUN • TIMED' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
+                <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'fun' ? 'FUN & SPECIALS' : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : def.cat === 'speed' ? 'SPEED RUN • TIMED' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
                 <p class="mgh-d-desc">${esc(def.desc || '')}</p>
+                <div class="mgh-guide">
+                    <div class="mgh-guide-head"><b>📖 START MENU GUIDE</b><button class="mgh-guide-btn" data-guide="${def.id}">FULL GUIDE</button></div>
+                    <ul>
+                        <li><b>GOAL:</b> ${esc(gd.objective.length > 125 ? gd.objective.slice(0, 122) + '...' : gd.objective)}</li>
+                        ${gd.tips.slice(0, 2).map((t) => `<li><b>TIP:</b> ${esc(t)}</li>`).join('')}
+                    </ul>
+                </div>
                 ${bestLine}
                 ${dual}
                 ${options}
                 <div class="mgh-keys">${def.keys ? def.keys.map(([k, t]) => `<span><kbd>${esc(k)}</kbd> ${esc(t)}</span>`).join('') : def.cat === 'boss' ? '<span><kbd>H</kbd> Max heal (rest only)</span><span><kbd>N</kbd> Skip rest</span>' : '<span><kbd>R</kbd> Retry from results</span><span><kbd>N</kbd> Next course</span>'}<span><kbd>ESC</kbd> Pause</span></div>
+                ${def.hasExample ? `<button class="mgh-example" data-example="${def.id}">▶ WATCH 100% PERFECT EXAMPLE</button>` : ''}
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
         },
 
@@ -188,10 +250,16 @@
             body.querySelectorAll('[data-play]').forEach((b) => {
                 b.onclick = () => this._play(b.dataset.play);
             });
-            body.querySelectorAll('.mgh-card, .mgh-cat, .mgh-play').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
+            body.querySelectorAll('[data-example]').forEach((b) => {
+                b.onclick = () => this._play(b.dataset.example, { exampleMode: true });
+            });
+            body.querySelectorAll('[data-guide]').forEach((b) => {
+                b.onclick = () => { BO.Sound.playUIClick(); const d = MG.get(b.dataset.guide); if (d) this._openGuideModal(d); };
+            });
+            body.querySelectorAll('.mgh-card, .mgh-cat, .mgh-play, .mgh-example').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
         },
 
-        _play(id) {
+        _play(id, extraOpts) {
             const def = MG.get(id);
             if (!def) return;
             BO.Sound.playUIClick();
@@ -203,6 +271,7 @@
                 delete mgOptions.variant; delete mgOptions.difficulty;
                 if (def.variantLabel) mgOptions.variantLabel = def.variantLabel(mgOptions);
             }
+            if (extraOpts) Object.assign(mgOptions, extraOpts);
             MG.launch(id, mgOptions);
         }
     };

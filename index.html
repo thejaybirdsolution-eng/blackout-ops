@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="css/modifier-board.css?v=sv9g2">
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
-    <link rel="stylesheet" href="css/ui-polish.css?v=2">
-    <link rel="stylesheet" href="css/minigames.css?v=mg7">
+    <link rel="stylesheet" href="css/ui-polish.css?v=anim1">
+    <link rel="stylesheet" href="css/minigames.css?v=up5">
     <link rel="stylesheet" href="css/rpg.css?v=rogue-depths1">
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
     <link rel="stylesheet" href="css/owrpg.css?v=ow1">
@@ -27,7 +27,7 @@
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
     <script defer src="src/core/SaveSystem.js?v=20261124a"></script>
     <script defer src="src/core/Settings.js?v=aaa2"></script>
-    <script defer src="src/graphics/Bevel.js?v=aaa2"></script>
+    <script defer src="src/graphics/Bevel.js?v=aaa4"></script>
     <script defer src="src/net/NetworkManager.js?v=20261124a"></script>
 
     <!-- Game Data -->
@@ -60,11 +60,12 @@
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=rpg1"></script>
-    <script defer src="src/graphics/TextureFactory.js?v=aaa1"></script>
+    <script defer src="src/graphics/TextureFactory.js?v=aaa4"></script>
     <script defer src="src/graphics/ArsenalDetails.js?v=sv9"></script>
-    <script defer src="src/graphics/WeaponMeshBuilder.js?v=sv9"></script>
-    <script defer src="src/graphics/CharacterMeshBuilder.js?v=sv9"></script>
+    <script defer src="src/graphics/WeaponMeshBuilder.js?v=anim1"></script>
+    <script defer src="src/graphics/CharacterMeshBuilder.js?v=anim1"></script>
     <script defer src="src/graphics/SoldierModel.js?v=aaa3"></script>
+    <script defer src="src/graphics/ZombieModel.js?v=anim1"></script>
     <script defer src="src/graphics/CharacterShading.js?v=aaa3"></script>
     <script defer src="src/graphics/FXSystem.js?v=20261124a"></script>
     <script defer src="src/graphics/Atmosphere.js?v=aaa3"></script>
@@ -78,8 +79,9 @@
     <script defer src="src/systems/ModifierSystem.js?v=sv9"></script>
 
     <!-- Engine & Entities -->
-    <script defer src="src/engine/WorldBuilder.js?v=aaa1"></script>
-    <script defer src="src/engine/PlayerController.js?v=ow1"></script>
+    <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=anim1"></script>
+    <script defer src="src/engine/PlayerController.js?v=anim1"></script>
     <script defer src="src/engine/CombatSystem.js?v=sv9mg7"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
     <script defer src="src/entities/BotAI.js?v=z3"></script>
@@ -177,30 +179,40 @@
     <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
     <script defer src="src/ui/SurvivalUI.js?v=vaults1"></script>
-    <script defer src="src/ui/ModeGuide.js?v=ow1"></script>
+    <script defer src="src/ui/ModeGuide.js?v=up11"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
-    <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Whack-a-Mole) -->
-    <script defer src="src/minigames/MinigameCore.js?v=mg7"></script>
-    <script defer src="src/minigames/MinigameArt.js?v=mg1"></script>
-    <script defer src="src/minigames/TargetCoursesA.js?v=mg1"></script>
+    <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Fun & Specials) -->
+    <script defer src="src/minigames/MinigameCore.js?v=up4"></script>
+    <script defer src="src/minigames/MinigameArt.js?v=fun1"></script>
+    <script defer src="src/minigames/TargetCoursesA.js?v=fun1"></script>
     <script defer src="src/minigames/TargetCoursesB.js?v=mg1"></script>
-    <script defer src="src/minigames/MinigameFigures.js?v=mg2"></script>
+    <script defer src="src/minigames/MinigameFigures.js?v=anim1"></script>
     <script defer src="src/minigames/BeatSongs.js?v=mg7"></script>
-    <script defer src="src/minigames/TargetCoursesC.js?v=mg7"></script>
-    <script defer src="src/minigames/BeachAnatomy.js?v=mg8"></script>
-    <script defer src="src/minigames/BeachArt.js?v=mg8"></script>
+    <script defer src="src/minigames/TargetCoursesC.js?v=up2"></script>
+    <script defer src="src/minigames/BeachAnatomy.js?v=mg10"></script>
+    <script defer src="src/minigames/BeachArt.js?v=fun1"></script>
     <script defer src="src/minigames/MansionScenarios.js?v=mg7"></script>
-    <script defer src="src/minigames/TargetCoursesD.js?v=mg8"></script>
+    <script defer src="src/minigames/TargetCoursesD.js?v=up2"></script>
     <script defer src="src/minigames/BossAttacks.js?v=mg7"></script>
     <script defer src="src/minigames/BossRush.js?v=mg7"></script>
-    <script defer src="src/minigames/WhackAMole.js?v=mg1"></script>
-    <script defer src="src/minigames/ArcadeHall.js?v=mg2"></script>
-    <script defer src="src/minigames/ArcadeHall2.js?v=mg7"></script>
-    <script defer src="src/minigames/ArcadeHall3.js?v=mg7"></script>
-    <script defer src="src/minigames/ArcadeHall4.js?v=mg7"></script>
-    <script defer src="src/minigames/SpeedRuns.js?v=mg7"></script>
-    <script defer src="src/minigames/SpeedRuns2.js?v=mg7"></script>
-    <script defer src="src/minigames/MinigameHub.js?v=mg7"></script>
+    <script defer src="src/minigames/WhackAMole.js?v=up2"></script>
+    <script defer src="src/minigames/ArcadeHall.js?v=up2"></script>
+    <script defer src="src/minigames/ArcadeHall2.js?v=up2"></script>
+    <script defer src="src/minigames/ArcadeHall3.js?v=up9"></script>
+    <script defer src="src/minigames/ArcadeHall4.js?v=up9"></script>
+    <script defer src="src/minigames/SpeedRuns.js?v=up2"></script>
+    <script defer src="src/minigames/SpeedRuns2.js?v=up4"></script>
+    <script defer src="src/minigames/SpeedRuns3.js?v=up4"></script>
+    <script defer src="src/minigames/FunGamesA.js?v=up4"></script>
+    <script defer src="src/minigames/FunGamesB.js?v=up4"></script>
+    <script defer src="src/minigames/FunGamesC.js?v=up4"></script>
+    <script defer src="src/minigames/FunGamesD.js?v=up9"></script>
+    <script defer src="src/minigames/FunGamesE.js?v=up9"></script>
+    <script defer src="src/minigames/FunGamesF.js?v=up10"></script>
+    <script defer src="src/minigames/FunGamesG.js?v=up10"></script>
+    <script defer src="src/minigames/FunGamesH.js?v=up10"></script>
+    <script defer src="src/minigames/FunGamesI.js?v=up10"></script>
+    <script defer src="src/minigames/MinigameHub.js?v=up10"></script>
     <script defer src="src/ui/RPGUI.js?v=doors1"></script>
     <script defer src="src/ui/OWRPGUI.js?v=ow1"></script>
     <script defer src="src/ui/OWRPGPipPad.js?v=ow1"></script>
@@ -273,11 +285,11 @@
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
-                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Fifteen Target Practice courses (rhythm shooting with 11 songs and 4 modes, a one-mag trial, a horseback chase, a 15-situation mansion raid, a heart-blaster beach and more), a 15-game Arcade Hall, a Boss Rush of 5x-size bosses with unique attacks, seven timed Speed Runs and a carnival Whack-a-Mole.">
+                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Choose from 22 Fun &amp; Specials modes, 16 Target &amp; Action courses, nine Speed Runs, 15 Arcade Hall games and Boss Rush. Open a challenge guide for rules, controls and tips.">
                         <span class="mode-card-ico">🎪</span>
                         <span class="mode-card-text">
                             <b>MINIGAMES</b>
-                            <small>Target Practice • Arcade Hall • Boss Rush • Speed Runs • Whack-a-Mole</small>
+                            <small>Fun &amp; Specials (22) • Target (16) • Speed Runs (9) • Arcade Hall (15) • Boss Rush</small>
                         </span>
                         <span class="mg-new-badge">NEW</span>
                         <span class="mode-card-go">PLAY →</span>

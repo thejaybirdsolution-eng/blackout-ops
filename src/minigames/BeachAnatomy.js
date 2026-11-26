@@ -38,6 +38,12 @@
         const d = (x - mu) / sig;
         return Math.exp(-0.5 * d * d);
     }
+    // C2-continuous spherical dome: zero slope at r=0 (perfectly round, never pointy) and smooth blend to 0 at r=1
+    function roundDome(r) {
+        if (r >= 1.0) return 0.0;
+        const sphere = Math.sqrt(Math.max(0.0, 1.0 - r * r));
+        return sphere * smoothstep(1.0, 0.68, r);
+    }
 
     // Linear-space canvas texture helper (CRITICAL for normal maps so Three.js
     // does NOT gamma-decode 0.5 -> 0.215 and bend normals 45 degrees backward!)
@@ -194,24 +200,27 @@
         // S-curve lumbar lordosis (feminine lower-back arch)
         const spineZ = 0.022 * gauss(v, 0.37, 0.14) - 0.014 * gauss(v, 0.68, 0.15) - 0.008 * smoothstep(0.80, 0.95, v);
 
-        // Integrated 3D Sculpted Dual Glute Lobes + Gluteal Cleft + Under-Glute Crease!
-        const gluteAngL = gauss(th - (Math.PI - 0.52), 0, 0.42);
-        const gluteAngR = gauss(th - (Math.PI + 0.52), 0, 0.42);
-        const gluteProfile = gauss(v, 0.125, 0.085) * (1 - 0.35 * smoothstep(0.0, 0.05, v));
-        const gluteOut = 0.054 * hipSc * (gluteAngL + gluteAngR) * gluteProfile;
-        const gluteCleft = -0.022 * gauss(th, Math.PI, 0.14) * gauss(v, 0.12, 0.08);
+        // Integrated 3D Sculpted Plush Spherical Glute Lobes + Natural Medial Cleft!
+        const gThL = Math.atan2(Math.sin(th - (Math.PI - 0.48)), Math.cos(th - (Math.PI - 0.48)));
+        const gThR = Math.atan2(Math.sin(th - (Math.PI + 0.48)), Math.cos(th - (Math.PI + 0.48)));
+        const gRadL = Math.hypot(gThL / 0.56, (v - 0.125) / 0.125);
+        const gRadR = Math.hypot(gThR / 0.56, (v - 0.125) / 0.125);
+        const gDomeL = roundDome(gRadL);
+        const gDomeR = roundDome(gRadR);
+        const gluteOut = 0.060 * hipSc * (gDomeL + gDomeR);
+        const gluteCleft = -0.016 * gauss(th, Math.PI, 0.16) * gauss(v, 0.12, 0.085);
 
-        // Integrated 3D Sculpted Teardrop Breasts + Natural Medial Cleavage Valley!
-        const dThL = Math.atan2(Math.sin(th - 0.50), Math.cos(th - 0.50));
-        const dThR = Math.atan2(Math.sin(th + 0.50), Math.cos(th + 0.50));
-        const bRadL = Math.hypot(dThL / 0.46, (v - 0.605) / 0.105);
-        const bRadR = Math.hypot(dThR / 0.46, (v - 0.605) / 0.105);
-        const lobeL = bRadL < 1.35 ? Math.pow(Math.max(0, Math.cos(bRadL * 1.12)), 1.55) : 0;
-        const lobeR = bRadR < 1.35 ? Math.pow(Math.max(0, Math.cos(bRadR * 1.12)), 1.55) : 0;
-        const tearSlope = v < 0.605 ? 1.18 : lerp(1.0, 0.62, clamp((v - 0.605) / 0.11, 0, 1));
-        const breastProj = 0.086 * bustSc * (lobeL + lobeR) * tearSlope;
-        const breastDropY = -0.022 * bustSc * (lobeL + lobeR) * Math.pow(clamp(1.1 - Math.min(bRadL, bRadR), 0, 1), 1.3);
-        const breastSpreadX = 0.016 * bustSc * (lobeL - lobeR);
+        // Integrated 3D Sculpted Spherical-Dome Breasts + Soft Cleavage Valley (Zero Pointy Tips!)
+        const dThL = Math.atan2(Math.sin(th - 0.48), Math.cos(th - 0.48));
+        const dThR = Math.atan2(Math.sin(th + 0.48), Math.cos(th + 0.48));
+        const bRadL = Math.hypot(dThL / 0.54, (v - 0.602) / 0.122);
+        const bRadR = Math.hypot(dThR / 0.54, (v - 0.602) / 0.122);
+        const lobeL = roundDome(bRadL);
+        const lobeR = roundDome(bRadR);
+        const fullness = 1.0 + 0.12 * Math.tanh((0.60 - v) * 10.0);
+        const breastProj = 0.082 * bustSc * (lobeL + lobeR) * fullness;
+        const breastDropY = -0.016 * bustSc * (lobeL + lobeR);
+        const breastSpreadX = 0.015 * bustSc * (lobeL - lobeR);
 
         // Crisp sternum cleavage valley between breasts + spinal furrow + athletic abs + navel + clavicles
         const sternumValley = -0.010 * Math.pow(front, 12) * gauss(v, 0.59, 0.08);
@@ -233,8 +242,8 @@
 
         const wBL = clamp(lobeL * 0.88, 0, 0.88);
         const wBR = clamp(lobeR * 0.88, 0, 0.88);
-        const wGL = clamp(gluteAngL * gluteProfile * 0.85, 0, 0.85);
-        const wGR = clamp(gluteAngR * gluteProfile * 0.85, 0, 0.85);
+        const wGL = clamp(gDomeL * 0.85, 0, 0.85);
+        const wGR = clamp(gDomeR * 0.85, 0, 0.85);
         const wBelly = clamp(Math.pow(front, 2.5) * gauss(v, 0.25, 0.07) * 0.65, 0, 0.65);
 
         let skin;
@@ -304,14 +313,14 @@
         const hipSc = morph.hip || 1.08;
         const thighSc = morph.thigh || 1.04;
 
-        // 1. Unified Torso + Breasts + Pelvis + Glutes + Neck (46 slices x 42 segs)
-        appendTubePart(out, 46, 42, (v, th, u) => {
+        // 1. Unified Torso + Breasts + Pelvis + Glutes + Neck (72 slices x 64 segs for silky-round curves)
+        appendTubePart(out, 72, 64, (v, th, u) => {
             const r = evalUnifiedTorso(v, th, morph, 0);
             r.uv = [u, v];
             return r;
         });
 
-        // 2. Seamless Left & Right Sculpted Legs (Hip -> Thigh -> Knee -> Calf -> Ankle, 32 x 22)
+        // 2. Seamless Left & Right Sculpted Legs (Hip -> Thigh -> Knee -> Calf -> Ankle, 44 x 32)
         for (const s of [1, -1]) {
             const bThigh = s > 0 ? BONE.THIGH_L : BONE.THIGH_R;
             const bSoft = s > 0 ? BONE.THIGH_SOFT_L : BONE.THIGH_SOFT_R;
@@ -320,7 +329,7 @@
             const bGlute = s > 0 ? BONE.GLUTE_L : BONE.GLUTE_R;
             const cx = s * 0.092 * hipSc;
 
-            appendTubePart(out, 32, 22, (v, th, u) => {
+            appendTubePart(out, 44, 32, (v, th, u) => {
                 const y = lerp(0.935, 0.055, v);
                 const sinT = Math.sin(th), cosT = Math.cos(th);
                 const front = Math.max(0, cosT), back = Math.max(0, -cosT);
@@ -364,13 +373,13 @@
             });
         }
 
-        // 3. Seamless Left & Right Sculpted Arms (Shoulder -> Bicep -> Elbow -> Forearm -> Wrist, 22 x 16)
+        // 3. Seamless Left & Right Sculpted Arms (Shoulder -> Bicep -> Elbow -> Forearm -> Wrist, 28 x 22)
         for (const s of [1, -1]) {
             const bSh = s > 0 ? BONE.SH_L : BONE.SH_R;
             const bEl = s > 0 ? BONE.EL_L : BONE.EL_R;
             const bWr = s > 0 ? BONE.WR_L : BONE.WR_R;
 
-            appendTubePart(out, 22, 16, (v, th, u) => {
+            appendTubePart(out, 28, 22, (v, th, u) => {
                 let cx, cy, cz, rad;
                 if (v < 0.52) {
                     const t = v / 0.52;
@@ -449,54 +458,54 @@
         };
 
         // 1. Sculpted High-Leg V-Cut Bikini / Swimsuit Bottoms (all styles)
-        addBand(0.01, 0.23, 14, 40, (v, th, tv) => {
+        addBand(0.01, 0.23, 20, 64, (v, th, tv) => {
             const cosT = Math.cos(th), side = Math.abs(Math.sin(th));
             const highLeg = 0.065 * Math.pow(side, 1.6);
             const vDipFront = -0.028 * Math.pow(Math.max(0, cosT), 2);
             const vLo = 0.01 + highLeg * (1 - tv);
             const vHi = 0.215 + vDipFront + 0.02 * Math.pow(side, 2);
-            return { v: lerp(vLo, vHi, tv), off: 0.0040 };
+            return { v: lerp(vLo, vHi, tv), off: 0.0044 };
         });
 
         // 2. Style-specific Couture Upper Garment
         if (style === 'monokini' || style === 'lifeguard') {
-            addBand(0.20, 0.72, 26, 42, (v, th, tv) => {
+            addBand(0.20, 0.72, 36, 64, (v, th, tv) => {
                 const side = Math.abs(Math.sin(th));
                 const cosT = Math.cos(th);
                 if (style === 'lifeguard') {
                     // One-piece high-neck athletic lifeguard swimsuit
                     const armhole = side > 0.68 && v > 0.58 && v < 0.72;
                     const backDip = cosT < -0.42 && v > 0.66;
-                    return { v, off: 0.0042, inside: !(armhole || backDip) };
+                    return { v, off: 0.0046, inside: !(armhole || backDip) };
                 }
                 const waistCutout = side > 0.48 && v > 0.24 && v < 0.50;
                 const plungeCut = cosT > 0.88 && v > 0.56;
                 const openBack = cosT < -0.45 && v > 0.44;
-                return { v, off: 0.0042, inside: !(waistCutout || plungeCut || openBack) };
+                return { v, off: 0.0046, inside: !(waistCutout || plungeCut || openBack) };
             });
         } else if (style === 'sport') {
-            addBand(0.49, 0.72, 16, 40, (v, th, tv) => {
+            addBand(0.49, 0.72, 22, 64, (v, th, tv) => {
                 const side = Math.abs(Math.sin(th));
                 const armhole = side > 0.74 && v > 0.63;
-                return { v, off: 0.0042, inside: !armhole };
+                return { v, off: 0.0046, inside: !armhole };
             });
         } else if (style === 'bustier' || style === 'frill') {
-            addBand(0.50, 0.675, 16, 42, (v, th, tv) => {
+            addBand(0.50, 0.675, 22, 64, (v, th, tv) => {
                 const cosT = Math.cos(th);
-                const sweetheart = -0.038 * Math.pow(Math.max(0, cosT), 8) * tv;
+                const sweetheart = -0.036 * Math.pow(Math.max(0, cosT), 8) * tv;
                 const lowBack = cosT < -0.2 ? -0.045 * tv : 0;
-                return { v: v + sweetheart + lowBack, off: 0.0042 };
+                return { v: v + sweetheart + lowBack, off: 0.0046 };
             });
         } else {
             // Triangle or Shell cups
-            addBand(0.515, 0.68, 16, 44, (v, th, tv) => {
-                const dL = Math.abs(Math.atan2(Math.sin(th - 0.50), Math.cos(th - 0.50)));
-                const dR = Math.abs(Math.atan2(Math.sin(th + 0.50), Math.cos(th + 0.50)));
+            addBand(0.515, 0.68, 22, 64, (v, th, tv) => {
+                const dL = Math.abs(Math.atan2(Math.sin(th - 0.48), Math.cos(th - 0.48)));
+                const dR = Math.abs(Math.atan2(Math.sin(th + 0.48), Math.cos(th + 0.48)));
                 const dCup = Math.min(dL, dR);
-                const maxW = lerp(0.46, 0.11, Math.pow(tv, 0.85));
+                const maxW = lerp(0.52, 0.14, Math.pow(tv, 0.82));
                 const isUnderStrap = tv < 0.16;
-                const scallop = style === 'shell' ? Math.sin(th * 18) * 0.008 * tv : 0;
-                return { v: v + scallop, off: 0.0044, inside: (dCup <= maxW || isUnderStrap) };
+                const scallop = style === 'shell' ? Math.sin(th * 18) * 0.007 * tv : 0;
+                return { v: v + scallop, off: 0.0048, inside: (dCup <= maxW || isUnderStrap) };
             });
         }
 
@@ -543,24 +552,40 @@
         if (GEO.ready) return GEO;
         GEO.ready = true;
 
-        // 3D Sculpted Anime Head (chin, cheeks, nose, Cupid's bow lips)
-        GEO.head = sculptStatic(28, 34, (v, th) => {
+        // 3D Sculpted Anime Head (soft rounded chin, full cheeks, petite rounded nose, plush lips)
+        GEO.head = sculptStatic(40, 48, (v, th) => {
             const y = lerp(-0.012, 0.258, v);
             const sinT = Math.sin(th), cosT = Math.cos(th);
             const front = Math.max(0, cosT);
-            let rx = 0.114 * Math.pow(Math.sin(clamp(v, 0.001, 0.999) * Math.PI), 0.55);
-            if (v < 0.35) rx *= lerp(0.40, 1.0, smoothstep(0.0, 0.35, v));
+            let rx = 0.114 * Math.pow(Math.sin(clamp(v, 0.001, 0.999) * Math.PI), 0.50);
+            if (v < 0.36) rx *= lerp(0.52, 1.0, smoothstep(0.0, 0.36, v));
             const rz = rx * 0.98;
-            const cheek = 0.007 * (gauss(th, 0.58, 0.25) + gauss(th, TAU - 0.58, 0.25)) * gauss(v, 0.34, 0.09);
-            const noseC = Math.pow(front, 20);
-            const noseTip = 0.015 * noseC * gauss(v, 0.355, 0.028);
-            const noseBridge = 0.007 * Math.pow(front, 14) * gauss(v, 0.42, 0.05);
-            const mouthW = Math.pow(front, 12);
-            const upperLip = 0.006 * mouthW * gauss(v, 0.245, 0.015);
-            const lowerLip = 0.008 * mouthW * gauss(v, 0.215, 0.016);
-            const chin = 0.005 * Math.pow(front, 6) * gauss(v, 0.085, 0.045);
-            return [(rx + cheek * 0.35) * sinT, y, (rz + cheek + noseTip + noseBridge + upperLip + lowerLip + chin) * cosT];
+            const cheek = 0.009 * (gauss(th, 0.56, 0.28) + gauss(th, TAU - 0.56, 0.28)) * gauss(v, 0.34, 0.095);
+            const noseC = Math.pow(front, 10);
+            const noseTip = 0.010 * noseC * gauss(v, 0.355, 0.036);
+            const noseBridge = 0.005 * Math.pow(front, 8) * gauss(v, 0.42, 0.055);
+            const mouthW = Math.pow(front, 8);
+            const upperLip = 0.0055 * mouthW * gauss(v, 0.245, 0.018);
+            const lowerLip = 0.0075 * mouthW * gauss(v, 0.215, 0.019);
+            const chin = 0.004 * Math.pow(front, 4) * gauss(v, 0.09, 0.052);
+            return [(rx + cheek * 0.42) * sinT, y, (rz + cheek + noseTip + noseBridge + upperLip + lowerLip + chin) * cosT];
         });
+
+        // Curved 3D Upper Eyelash Ribbons
+        const makeLash = (side) => {
+            const pts = [
+                new THREE.Vector3(side * 0.018, 0.000, 0.000),
+                new THREE.Vector3(side * 0.036, 0.012, 0.004),
+                new THREE.Vector3(side * 0.056, 0.010, -0.002),
+                new THREE.Vector3(side * 0.072, 0.018, -0.010)
+            ];
+            const g = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, 0.0028, 5, false);
+            g.scale(1, 0.75, 1.2);
+            g.computeVertexNormals();
+            return g;
+        };
+        GEO.lashL = makeLash(1);
+        GEO.lashR = makeLash(-1);
 
         // Silk Bangs & Sidelocks
         const makeSilkRibbon = (len, wBase, curveZ, sweepX) => {
@@ -570,24 +595,25 @@
                 new THREE.Vector3(sweepX * 0.72, -len * 0.70, curveZ * 0.94),
                 new THREE.Vector3(sweepX, -len, curveZ * 0.45)
             ];
-            const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, wBase, 8, false);
+            const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, wBase, 8, false);
             const p = geo.attributes.position;
             for (let i = 0; i < p.count; i++) {
                 const y = p.getY(i);
                 const t = clamp(-y / len, 0, 1);
-                const wEnv = Math.sin(t * Math.PI * 0.88 + 0.12) * (1 - t * 0.72);
-                p.setX(i, p.getX(i) * (0.4 + wEnv * 1.1));
-                p.setZ(i, p.getZ(i) * 0.26 + curveZ * Math.sin(t * Math.PI) * 0.65);
+                const wEnv = Math.sin(t * Math.PI * 0.88 + 0.12) * (1 - t * 0.68);
+                p.setX(i, p.getX(i) * (0.42 + wEnv * 1.15));
+                p.setZ(i, p.getZ(i) * 0.24 + curveZ * Math.sin(t * Math.PI) * 0.65);
             }
             geo.computeVertexNormals();
             return geo;
         };
 
-        GEO.bangWispy = makeSilkRibbon(0.074, 0.016, 0.018, 0.008);
-        GEO.bangPartL = makeSilkRibbon(0.118, 0.022, 0.020, -0.046);
-        GEO.bangPartR = makeSilkRibbon(0.118, 0.022, 0.020, 0.046);
-        GEO.sidelock = makeSilkRibbon(0.215, 0.022, 0.014, 0.016);
-        GEO.bobStrand = makeSilkRibbon(0.155, 0.028, 0.016, 0.038);
+        GEO.bangWispy = makeSilkRibbon(0.082, 0.017, 0.019, 0.009);
+        GEO.bangPartL = makeSilkRibbon(0.126, 0.023, 0.021, -0.048);
+        GEO.bangPartR = makeSilkRibbon(0.126, 0.023, 0.021, 0.048);
+        GEO.sidelock = makeSilkRibbon(0.235, 0.024, 0.016, 0.018);
+        GEO.bobStrand = makeSilkRibbon(0.165, 0.030, 0.018, 0.040);
+        GEO.ahoge = makeSilkRibbon(0.068, 0.008, 0.024, 0.036);
 
         // Sinusoidal Flounce
         GEO.flounce = sculptStatic(10, 36, (v, th) => {
@@ -598,22 +624,23 @@
             return [(flare + wave) * sinT * 1.08, y + Math.sin(th * 10) * 0.007 * v, (flare * 0.80 + wave) * cosT];
         });
 
-        // Hair segments
-        GEO.hairSeg = sculptStatic(10, 12, (v, th) => {
-            const y = lerp(0.01, -0.135, v);
-            const r = 0.042 * (0.68 + 0.32 * Math.sin(v * Math.PI)) * (1 - v * 0.18);
-            return [r * Math.sin(th) * 1.15, y, r * Math.cos(th) * 0.72];
+        // Continuous overlapping silk hair ribbon segments (zero bead gaps!)
+        GEO.hairSeg = sculptStatic(12, 14, (v, th) => {
+            const y = lerp(0.032, -0.145, v);
+            const r = 0.048 * (0.88 + 0.12 * Math.sin(v * Math.PI)) * (1 - v * 0.14);
+            const waveX = Math.sin(v * Math.PI) * 0.007;
+            return [r * Math.sin(th) * 1.24 + waveX, y, r * Math.cos(th) * 0.62];
         });
-        GEO.hairTip = sculptStatic(12, 12, (v, th) => {
-            const y = lerp(0.01, -0.175, v);
-            const r = 0.038 * Math.pow(1 - v, 0.85);
-            return [r * Math.sin(th) * 1.12 + Math.sin(v * Math.PI) * 0.018, y, r * Math.cos(th) * 0.70];
+        GEO.hairTip = sculptStatic(16, 16, (v, th) => {
+            const y = lerp(0.030, -0.185, v);
+            const r = Math.max(0.006, 0.044 * Math.pow(1 - v * 0.88, 0.52));
+            return [r * Math.sin(th) * 1.20 + Math.sin(v * Math.PI) * 0.022, y, r * Math.cos(th) * 0.62];
         });
-        GEO.hairDrill = sculptStatic(14, 14, (v, th) => {
-            const y = lerp(0.01, -0.16, v);
-            const r = 0.038 * (1 - v * 0.45);
+        GEO.hairDrill = sculptStatic(16, 16, (v, th) => {
+            const y = lerp(0.028, -0.170, v);
+            const r = 0.041 * (1 - v * 0.35);
             const swirl = v * TAU * 1.5;
-            return [r * Math.sin(th) + Math.cos(swirl) * 0.016 * v, y, r * Math.cos(th) + Math.sin(swirl) * 0.016 * v];
+            return [r * Math.sin(th) + Math.cos(swirl) * 0.018 * v, y, r * Math.cos(th) + Math.sin(swirl) * 0.018 * v];
         });
 
         GEO.ear = new THREE.SphereGeometry(0.019, 10, 8); GEO.ear.scale(0.38, 1.22, 0.82);
@@ -626,10 +653,10 @@
         GEO.straw = new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8);
         GEO.umbrellaPaper = new THREE.ConeGeometry(0.048, 0.024, 10, 1, true);
 
-        GEO.swimRing = new THREE.TorusGeometry(0.188, 0.048, 12, 24);
+        GEO.swimRing = new THREE.TorusGeometry(0.188, 0.048, 16, 32);
         GEO.swimRing.scale(1.05, 0.88, 1.0);
 
-        GEO.star = new THREE.OctahedronGeometry(0.014, 0);
+        GEO.star = new THREE.SphereGeometry(0.012, 12, 10);
         GEO.heartGem = new THREE.SphereGeometry(0.012, 8, 6);
         GEO.heartGem.scale(1.2, 1.2, 0.5);
 
@@ -681,25 +708,50 @@
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
                 `
-                float ndv = clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
-                float rim = pow(1.0 - ndv, 3.4);
+                vec3 nView = normalize(vNormal);
+                vec3 vDir = normalize(vViewPosition);
+                float ndv = clamp(dot(nView, vDir), 0.0, 1.0);
+                float rim = pow(1.0 - ndv, 3.0);
                 float luma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-                float sssBand = smoothstep(0.06, 0.44, luma) * (1.0 - smoothstep(0.46, 0.88, luma));
-                gl_FragColor.rgb += uSSSColor * (sssBand * 0.18 + rim * 0.12);
+                float sssBand = smoothstep(0.05, 0.46, luma) * (1.0 - smoothstep(0.46, 0.88, luma));
+                gl_FragColor.rgb += uSSSColor * (sssBand * 0.14 + rim * 0.11) + vec3(1.0, 0.92, 0.84) * pow(rim, 2.0) * 0.05;
                 #include <dithering_fragment>
                 `
             );
         };
-        mat.customProgramCacheKey = () => 'doa-sss-skin-v3';
+        mat.customProgramCacheKey = () => 'doa-sss-skin-v5';
+    }
+
+    function applyHairAnisoShader(mat, hiHex) {
+        const hiCol = new THREE.Color(hiHex || '#ffffff');
+        mat.onBeforeCompile = (shader) => {
+            shader.uniforms.uHairHi = { value: hiCol };
+            shader.fragmentShader = 'uniform vec3 uHairHi;\n' + shader.fragmentShader;
+            shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <dithering_fragment>',
+                `
+                vec3 hN = normalize(vNormal);
+                vec3 hV = normalize(vViewPosition);
+                vec3 hHalf = normalize(hV + normalize(vec3(0.35, 0.85, 0.55)));
+                float anisoShift = hN.y * 0.72 + hHalf.y * 0.28;
+                float ring1 = exp(-pow((hN.y - 0.34) * 5.8, 2.0)) * pow(max(dot(hN, hV), 0.0), 0.65);
+                float ring2 = exp(-pow((hN.y + 0.18) * 7.2, 2.0)) * 0.55;
+                float rimSilk = pow(1.0 - clamp(dot(hN, hV), 0.0, 1.0), 3.2);
+                gl_FragColor.rgb += uHairHi * (ring1 * 0.34 + ring2 * 0.18) + uHairHi * rimSilk * 0.16;
+                #include <dithering_fragment>
+                `
+            );
+        };
+        mat.customProgramCacheKey = () => 'doa-hair-aniso-v4';
     }
 
     function skinAlbedoTex(skinHex, blushHex) {
-        return L.canvasTex('aaa26-skin-v3:' + skinHex + ':' + blushHex, 512, 512, (g, w, h) => {
+        return L.canvasTex('aaa26-skin-v4:' + skinHex + ':' + blushHex, 1024, 1024, (g, w, h) => {
             g.fillStyle = hexStr(skinHex);
             g.fillRect(0, 0, w, h);
 
             const blush = (x, y, rx, ry, a, col = blushHex) => {
-                const rg = g.createRadialGradient(x, y, 4, x, y, rx);
+                const rg = g.createRadialGradient(x, y, 6, x, y, rx);
                 rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(255,120,110,0)');
                 g.globalAlpha = a; g.fillStyle = rg;
                 g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
@@ -707,56 +759,60 @@
             };
 
             for (const fx of [0, w]) {
-                // Cheerful chest & shoulder sun-warmth
-                blush(fx, h * 0.40, 96, 56, 0.22);
-                blush(fx, h * 0.82, 110, 65, 0.14);
+                // Warm sun-kissed chest, bust top & shoulder glow
+                blush(fx, h * 0.40, 192, 112, 0.26);
+                blush(fx, h * 0.82, 220, 130, 0.16);
+                blush(fx, h * 0.33, 140, 48, 0.18, '#fff7ed');
                 // Underbust depth
-                blush(fx, h * 0.46, 85, 24, 0.26, shadeHex(skinHex, -60));
+                blush(fx, h * 0.46, 170, 48, 0.28, shadeHex(skinHex, -60));
                 // Clavicle highlights & subtle contours
                 g.strokeStyle = shadeHex(skinHex, -48);
                 g.lineCap = 'round';
-                g.globalAlpha = 0.32; g.lineWidth = 5;
-                g.beginPath(); g.moveTo(fx - 46, h * 0.22); g.quadraticCurveTo(fx, h * 0.25, fx + 46, h * 0.22); g.stroke();
+                g.globalAlpha = 0.32; g.lineWidth = 10;
+                g.beginPath(); g.moveTo(fx - 92, h * 0.22); g.quadraticCurveTo(fx, h * 0.25, fx + 92, h * 0.22); g.stroke();
+                g.strokeStyle = 'rgba(255,250,240,0.28)'; g.lineWidth = 6;
+                g.beginPath(); g.moveTo(fx - 86, h * 0.215); g.quadraticCurveTo(fx, h * 0.244, fx + 86, h * 0.215); g.stroke();
                 // Abdominal definition
-                g.globalAlpha = 0.22; g.lineWidth = 4;
+                g.strokeStyle = shadeHex(skinHex, -46);
+                g.globalAlpha = 0.22; g.lineWidth = 8;
                 g.beginPath(); g.moveTo(fx, h * 0.44); g.lineTo(fx, h * 0.68); g.stroke();
-                g.beginPath(); g.moveTo(fx - 38, h * 0.52); g.quadraticCurveTo(fx - 26, h * 0.64, fx - 18, h * 0.74); g.stroke();
-                g.beginPath(); g.moveTo(fx + 38, h * 0.52); g.quadraticCurveTo(fx + 26, h * 0.64, fx + 18, h * 0.74); g.stroke();
+                g.beginPath(); g.moveTo(fx - 76, h * 0.52); g.quadraticCurveTo(fx - 52, h * 0.64, fx - 36, h * 0.74); g.stroke();
+                g.beginPath(); g.moveTo(fx + 76, h * 0.52); g.quadraticCurveTo(fx + 52, h * 0.64, fx + 36, h * 0.74); g.stroke();
                 // Cute navel
                 g.globalAlpha = 0.48; g.fillStyle = shadeHex(skinHex, -65);
-                g.beginPath(); g.ellipse(fx, h * 0.695, 5, 8.5, 0, 0, TAU); g.fill();
+                g.beginPath(); g.ellipse(fx, h * 0.695, 10, 17, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             }
 
             // Back spine & glute crease
             g.strokeStyle = shadeHex(skinHex, -52);
-            g.globalAlpha = 0.30; g.lineWidth = 6;
+            g.globalAlpha = 0.30; g.lineWidth = 12;
             g.beginPath(); g.moveTo(w * 0.5, h * 0.24); g.lineTo(w * 0.5, h * 0.92); g.stroke();
             g.globalAlpha = 1;
         });
     }
 
     function hairAlbedoTex(hairHex, hiCol) {
-        return L.canvasTex('aaa26-hair-v3:' + hairHex + ':' + hiCol, 512, 512, (g, w, h) => {
+        return L.canvasTex('aaa26-hair-v4:' + hairHex + ':' + hiCol, 1024, 1024, (g, w, h) => {
             const gr = g.createLinearGradient(0, 0, 0, h);
-            gr.addColorStop(0, shadeHex(hairHex, -38));
-            gr.addColorStop(0.26, hexStr(hairHex));
-            gr.addColorStop(0.42, shadeHex(hairHex, 24));
-            gr.addColorStop(0.68, shadeHex(hairHex, -8));
-            gr.addColorStop(1, shadeHex(hairHex, -48));
+            gr.addColorStop(0, shadeHex(hairHex, -42));
+            gr.addColorStop(0.24, hexStr(hairHex));
+            gr.addColorStop(0.42, shadeHex(hairHex, 28));
+            gr.addColorStop(0.70, shadeHex(hairHex, -6));
+            gr.addColorStop(1, shadeHex(hairHex, -44));
             g.fillStyle = gr; g.fillRect(0, 0, w, h);
 
             for (let x = 0; x < w; x += 2) {
-                const v = Math.sin(x * 0.63) * 0.5 + 0.5;
-                g.fillStyle = x % 4 === 0 ? `rgba(255,255,255,${v * 0.20})` : `rgba(0,0,0,${v * 0.22})`;
+                const v = Math.sin(x * 0.42) * 0.5 + 0.5;
+                g.fillStyle = x % 4 === 0 ? `rgba(255,255,255,${v * 0.22})` : `rgba(0,0,0,${v * 0.20})`;
                 g.fillRect(x, 0, 1.5, h);
             }
             // Double lustrous angel-ring specular sheen
-            for (const [yc, hh, al] of [[0.30, 0.11, 0.65], [0.68, 0.06, 0.32]]) {
+            for (const [yc, hh, al] of [[0.30, 0.11, 0.72], [0.68, 0.06, 0.36]]) {
                 const halo = g.createLinearGradient(0, h * (yc - hh), 0, h * (yc + hh));
                 halo.addColorStop(0, 'rgba(255,255,255,0)');
                 halo.addColorStop(0.45, hiCol);
-                halo.addColorStop(0.55, 'rgba(255,255,255,0.92)');
+                halo.addColorStop(0.55, 'rgba(255,255,255,0.95)');
                 halo.addColorStop(1, 'rgba(255,255,255,0)');
                 g.globalAlpha = al; g.fillStyle = halo;
                 g.fillRect(0, h * (yc - hh), w, h * hh * 2);
@@ -853,13 +909,15 @@
         });
     }
 
-    /** 512x512 Anime jewel face texture with multi-layer irises, catchlights & expressive lips */
+    /** 1024x1024 Anime jewel face texture with crystalline multi-layer irises, feathered lashes & glossy Cupid's-bow lips */
     function faceOverlayTex(eyeCol, hairHex, blushCol, expr) {
-        return L.canvasTex(`aaa26-face-v3:${eyeCol}:${hairHex}:${expr}`, 512, 512, (g, w, h) => {
+        return L.canvasTex(`aaa26-face-v4:${eyeCol}:${hairHex}:${expr}`, 1024, 1024, (g, w, h) => {
             g.clearRect(0, 0, w, h);
+            g.save();
+            g.scale(2, 2);
             const browCol = shadeHex(hairHex, -38);
 
-            // Rosy cheek & nose-tip blush
+            // Soft airbrushed cheek & nose-tip blush
             const drawBlush = (cx, cy, rx, ry, al) => {
                 const rg = g.createRadialGradient(cx, cy, 3, cx, cy, rx);
                 rg.addColorStop(0, blushCol); rg.addColorStop(1, 'rgba(255,100,140,0)');
@@ -867,11 +925,15 @@
                 g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             };
-            drawBlush(120, 322, 62, 30, expr === 'happy' ? 0.78 : 0.48);
-            drawBlush(392, 322, 62, 30, expr === 'happy' ? 0.78 : 0.48);
-            drawBlush(256, 312, 24, 14, 0.28);
+            drawBlush(120, 322, 66, 32, expr === 'happy' ? 0.80 : 0.52);
+            drawBlush(392, 322, 66, 32, expr === 'happy' ? 0.80 : 0.52);
+            drawBlush(256, 312, 26, 15, 0.30);
 
-            // Cheek cute sparkle stars
+            // Subtle luminous cheek highlight dots
+            g.fillStyle = 'rgba(255,255,255,0.45)';
+            g.beginPath(); g.ellipse(108, 312, 9, 4.5, -0.25, 0, TAU); g.fill();
+            g.beginPath(); g.ellipse(404, 312, 9, 4.5, 0.25, 0, TAU); g.fill();
+
             if (expr === 'happy') {
                 const drawStar = (x, y, sz) => {
                     g.fillStyle = '#ffffff';
@@ -883,8 +945,8 @@
                     g.quadraticCurveTo(x, y, x, y - sz);
                     g.fill();
                 };
-                drawStar(106, 314, 8);
-                drawStar(406, 314, 8);
+                drawStar(106, 314, 9);
+                drawStar(406, 314, 9);
             }
 
             g.lineCap = 'round'; g.lineJoin = 'round';
@@ -894,12 +956,11 @@
                     g.strokeStyle = '#11061c'; g.lineWidth = 21;
                     g.beginPath(); g.moveTo(cx - 52, 260); g.quadraticCurveTo(cx, 188, cx + 52, 260); g.stroke();
                     g.lineWidth = 11;
-                    g.beginPath(); g.moveTo(cx + dir * 48, 252); g.lineTo(cx + dir * 72, 226); g.stroke();
-                    g.fillStyle = '#fef08a'; g.beginPath(); g.arc(cx + dir * 68, 202, 8.5, 0, TAU); g.fill();
+                    g.beginPath(); g.moveTo(cx + dir * 48, 252); g.lineTo(cx + dir * 74, 224); g.stroke();
+                    g.fillStyle = '#fef08a'; g.beginPath(); g.arc(cx + dir * 68, 200, 9, 0, TAU); g.fill();
                 }
-                g.strokeStyle = browCol; g.lineWidth = 10;
+                g.strokeStyle = browCol; g.lineWidth = 9;
                 for (const cx of [158, 354]) { g.beginPath(); g.moveTo(cx - 42, 148); g.quadraticCurveTo(cx, 126, cx + 42, 148); g.stroke(); }
-                // Happy laughing mouth with cute tooth
                 g.fillStyle = '#881337';
                 g.beginPath(); g.moveTo(206, 356); g.quadraticCurveTo(256, 434, 306, 356); g.quadraticCurveTo(256, 368, 206, 356); g.closePath(); g.fill();
                 g.fillStyle = '#fb7185'; g.beginPath(); g.ellipse(256, 394, 26, 15, 0, 0, TAU); g.fill();
@@ -910,9 +971,9 @@
                     g.strokeStyle = '#11061c'; g.lineWidth = 19;
                     g.beginPath(); g.moveTo(cx - 50, 254); g.quadraticCurveTo(cx, 282, cx + 50, 254); g.stroke();
                     g.lineWidth = 10;
-                    g.beginPath(); g.moveTo(cx + dir * 46, 254); g.lineTo(cx + dir * 66, 242); g.stroke();
+                    g.beginPath(); g.moveTo(cx + dir * 46, 254); g.lineTo(cx + dir * 68, 240); g.stroke();
                 }
-                g.strokeStyle = browCol; g.lineWidth = 10;
+                g.strokeStyle = browCol; g.lineWidth = 9;
                 for (const cx of [158, 354]) { g.beginPath(); g.moveTo(cx - 42, 162); g.quadraticCurveTo(cx, 144, cx + 42, 162); g.stroke(); }
                 g.fillStyle = 'rgba(225, 58, 114, 0.85)';
                 g.beginPath(); g.ellipse(256, 378, 34, 13, 0, 0, TAU); g.fill();
@@ -921,58 +982,60 @@
             } else {
                 for (const cx of [158, 354]) {
                     const dir = cx < 256 ? -1 : 1;
-                    // Crisp white sclera + shadow
+                    // Crisp white sclera + soft upper-lid drop shadow
                     g.fillStyle = '#ffffff';
-                    g.beginPath(); g.ellipse(cx, 248, 54, 62, 0, 0, TAU); g.fill();
-                    g.fillStyle = 'rgba(51, 65, 85, 0.36)';
-                    g.beginPath(); g.ellipse(cx, 214, 52, 28, 0, 0, TAU); g.fill();
+                    g.beginPath(); g.ellipse(cx, 248, 56, 64, 0, 0, TAU); g.fill();
+                    g.fillStyle = 'rgba(71, 85, 105, 0.32)';
+                    g.beginPath(); g.ellipse(cx, 212, 54, 28, 0, 0, TAU); g.fill();
 
                     // Multi-ring jewel iris
-                    const ig = g.createLinearGradient(0, 194, 0, 306);
-                    ig.addColorStop(0, '#070312');
-                    ig.addColorStop(0.28, eyeCol);
-                    ig.addColorStop(0.76, eyeCol);
+                    const ig = g.createLinearGradient(0, 192, 0, 310);
+                    ig.addColorStop(0, '#090314');
+                    ig.addColorStop(0.26, eyeCol);
+                    ig.addColorStop(0.74, eyeCol);
                     ig.addColorStop(1, '#ffffff');
                     g.fillStyle = ig;
-                    g.beginPath(); g.ellipse(cx, 254, 42, 53, 0, 0, TAU); g.fill();
+                    g.beginPath(); g.ellipse(cx, 254, 44, 55, 0, 0, TAU); g.fill();
 
-                    // Radial iris spokes
-                    g.strokeStyle = 'rgba(255,255,255,0.32)'; g.lineWidth = 2;
-                    for (let k = 0; k < 12; k++) {
-                        const a = k * TAU / 12;
+                    // Crystalline radial iris facets
+                    g.strokeStyle = 'rgba(255,255,255,0.38)'; g.lineWidth = 1.8;
+                    for (let k = 0; k < 16; k++) {
+                        const a = k * TAU / 16;
                         g.beginPath();
-                        g.moveTo(cx + Math.cos(a) * 18, 254 + Math.sin(a) * 22);
-                        g.lineTo(cx + Math.cos(a) * 36, 254 + Math.sin(a) * 46);
+                        g.moveTo(cx + Math.cos(a) * 16, 254 + Math.sin(a) * 20);
+                        g.lineTo(cx + Math.cos(a) * 39, 254 + Math.sin(a) * 49);
                         g.stroke();
                     }
 
-                    // Caustic reflection + deep pupil
-                    g.fillStyle = 'rgba(255,255,255,0.65)';
-                    g.beginPath(); g.ellipse(cx, 284, 26, 14, 0, 0, TAU); g.fill();
-                    g.strokeStyle = '#070312'; g.lineWidth = 7;
-                    g.beginPath(); g.ellipse(cx, 254, 42, 53, 0, 0, TAU); g.stroke();
+                    // Luminous lower caustic crescent + deep pupil
+                    g.fillStyle = 'rgba(255,255,255,0.72)';
+                    g.beginPath(); g.ellipse(cx, 286, 28, 15, 0, 0, TAU); g.fill();
+                    g.strokeStyle = '#070312'; g.lineWidth = 6.5;
+                    g.beginPath(); g.ellipse(cx, 254, 44, 55, 0, 0, TAU); g.stroke();
                     g.fillStyle = '#070312';
                     g.beginPath(); g.ellipse(cx, 254, 18, 25, 0, 0, TAU); g.fill();
 
-                    // Triple studio catchlights
+                    // Triple studio catchlights + star glint
                     g.fillStyle = '#ffffff';
-                    g.beginPath(); g.ellipse(cx - 16, 222, 16, 17, -0.25, 0, TAU); g.fill();
-                    g.beginPath(); g.arc(cx + 17, 278, 9, 0, TAU); g.fill();
-                    g.beginPath(); g.arc(cx + 14, 230, 5.5, 0, TAU); g.fill();
+                    g.beginPath(); g.ellipse(cx - 17, 221, 16, 17, -0.25, 0, TAU); g.fill();
+                    g.beginPath(); g.arc(cx + 18, 280, 9.5, 0, TAU); g.fill();
+                    g.beginPath(); g.arc(cx + 15, 229, 5.5, 0, TAU); g.fill();
 
-                    // Upper lashes & winged flicks
+                    // Feathered upper lashes & winged tips
                     g.strokeStyle = '#090314'; g.lineWidth = 23;
-                    g.beginPath(); g.ellipse(cx, 248, 56, 62, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
-                    g.lineWidth = 11;
-                    g.beginPath(); g.moveTo(cx + dir * 50, 222); g.lineTo(cx + dir * 76, 196); g.stroke();
-                    g.beginPath(); g.moveTo(cx + dir * 52, 238); g.lineTo(cx + dir * 70, 226); g.stroke();
-                    g.strokeStyle = 'rgba(75, 35, 25, 0.70)'; g.lineWidth = 5;
-                    g.beginPath(); g.ellipse(cx, 232, 59, 66, 0, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
-                    g.strokeStyle = 'rgba(9, 3, 20, 0.72)'; g.lineWidth = 5.5;
-                    g.beginPath(); g.ellipse(cx, 250, 52, 58, 0, Math.PI * 0.22, Math.PI * 0.78); g.stroke();
+                    g.beginPath(); g.ellipse(cx, 248, 57, 63, 0, Math.PI * 1.04, Math.PI * 1.96); g.stroke();
+                    g.lineWidth = 10;
+                    g.beginPath(); g.moveTo(cx + dir * 50, 220); g.lineTo(cx + dir * 79, 192); g.stroke();
+                    g.beginPath(); g.moveTo(cx + dir * 53, 236); g.lineTo(cx + dir * 74, 222); g.stroke();
+                    g.lineWidth = 5;
+                    g.beginPath(); g.moveTo(cx + dir * 32, 194); g.lineTo(cx + dir * 44, 176); g.stroke();
+                    g.strokeStyle = 'rgba(85, 38, 28, 0.72)'; g.lineWidth = 5;
+                    g.beginPath(); g.ellipse(cx, 230, 61, 68, 0, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+                    g.strokeStyle = 'rgba(9, 3, 20, 0.72)'; g.lineWidth = 5;
+                    g.beginPath(); g.ellipse(cx, 250, 53, 59, 0, Math.PI * 0.22, Math.PI * 0.78); g.stroke();
                 }
 
-                g.strokeStyle = browCol; g.lineWidth = 11;
+                g.strokeStyle = browCol; g.lineWidth = 10;
                 for (const cx of [158, 354]) {
                     g.beginPath(); g.moveTo(cx - 44, 156); g.quadraticCurveTo(cx, 134, cx + 44, 154); g.stroke();
                 }
@@ -980,20 +1043,21 @@
                 // Nose shadow & tip highlight
                 g.fillStyle = 'rgba(105, 48, 35, 0.42)';
                 g.beginPath(); g.moveTo(256, 300); g.lineTo(247, 322); g.lineTo(261, 324); g.closePath(); g.fill();
-                g.fillStyle = 'rgba(255,255,255,0.70)';
+                g.fillStyle = 'rgba(255,255,255,0.75)';
                 g.beginPath(); g.arc(255, 314, 4.5, 0, TAU); g.fill();
 
-                // Glossy Cupid's-bow lips
-                const lg = g.createLinearGradient(0, 354, 0, 400);
+                // Plump glossy Cupid's-bow lips
+                const lg = g.createLinearGradient(0, 354, 0, 402);
                 lg.addColorStop(0, 'rgba(225, 48, 108, 0.88)');
                 lg.addColorStop(1, 'rgba(244, 88, 124, 0.94)');
                 g.fillStyle = lg;
-                g.beginPath(); g.ellipse(256, 378, 35, 15, 0, 0, TAU); g.fill();
-                g.strokeStyle = '#7f1d3a'; g.lineWidth = 7;
-                g.beginPath(); g.moveTo(220, 372); g.quadraticCurveTo(256, 394, 292, 372); g.stroke();
-                g.fillStyle = 'rgba(255, 245, 250, 0.96)';
-                g.beginPath(); g.ellipse(256, 386, 17, 5, 0, 0, TAU); g.fill();
+                g.beginPath(); g.ellipse(256, 378, 36, 16, 0, 0, TAU); g.fill();
+                g.strokeStyle = '#7f1d3a'; g.lineWidth = 6.5;
+                g.beginPath(); g.moveTo(218, 372); g.quadraticCurveTo(256, 394, 294, 372); g.stroke();
+                g.fillStyle = 'rgba(255, 245, 250, 0.98)';
+                g.beginPath(); g.ellipse(256, 386, 18, 5.5, 0, 0, TAU); g.fill();
             }
+            g.restore();
         });
     }
 
@@ -1021,16 +1085,16 @@
             color: 0xffffff,
             map: skinAlbedoTex(d.skin, d.blush),
             normalMap: getSkinNormalMap(),
-            normalScale: new THREE.Vector2(0.18, 0.18),
-            roughness: 0.38,
+            normalScale: new THREE.Vector2(0.16, 0.16),
+            roughness: 0.42,
             metalness: 0.01,
-            clearcoat: 0.32,
-            clearcoatRoughness: 0.28,
-            sheen: 0.25,
+            clearcoat: 0.22,
+            clearcoatRoughness: 0.30,
+            sheen: 0.22,
             sheenColor: new THREE.Color(d.blush),
-            sheenRoughness: 0.48,
+            sheenRoughness: 0.50,
             envMap: env,
-            envMapIntensity: 0.78,
+            envMapIntensity: 0.56,
             emissive: 0x000000
         }));
         applySubsurfaceSkinShader(skinM, d.blush);
@@ -1039,14 +1103,19 @@
             color: 0xffffff,
             map: hairAlbedoTex(d.hair, d.hairHi),
             normalMap: getHairNormalMap(),
-            normalScale: new THREE.Vector2(0.34, 0.34),
-            roughness: 0.24,
-            metalness: 0.10,
-            clearcoat: 0.68,
-            clearcoatRoughness: 0.18,
+            normalScale: new THREE.Vector2(0.36, 0.36),
+            roughness: 0.22,
+            metalness: 0.12,
+            clearcoat: 0.74,
+            clearcoatRoughness: 0.16,
             envMap: env,
-            envMapIntensity: 0.90,
+            envMapIntensity: 0.95,
             emissive: 0x000000
+        }));
+        applyHairAnisoShader(hairM, d.hairHi);
+
+        const lashM = push(new THREE.MeshStandardMaterial({
+            color: 0x0b0414, roughness: 0.32, metalness: 0.05
         }));
 
         const suit1 = push(new THREE.MeshPhysicalMaterial({
@@ -1099,12 +1168,31 @@
             clearcoat: 1.0, clearcoatRoughness: 0.05, envMap: env, envMapIntensity: 1.4, side: THREE.DoubleSide
         }));
 
-        return { skinM, hairM, suit1, suit2, metalM, accM, nailM, corneaM, glassM, env };
+        return { skinM, hairM, lashM, suit1, suit2, metalM, accM, nailM, corneaM, glassM, env };
+    }
+
+    function createFaceMaterial(faceTexOpen, blushHex) {
+        const mat = new THREE.MeshPhysicalMaterial({
+            map: faceTexOpen,
+            transparent: true,
+            depthWrite: false,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            roughness: 0.48,
+            metalness: 0.0,
+            clearcoat: 0.14,
+            clearcoatRoughness: 0.32,
+            emissive: new THREE.Color(0xffffff),
+            emissiveMap: faceTexOpen,
+            emissiveIntensity: 0.18
+        });
+        applySubsurfaceSkinShader(mat, blushHex || '#fb7185');
+        return mat;
     }
 
     BO.BeachAnatomy = {
         BONE, createSkeleton, getSkinnedBodyGeo, getSkinnedSuitGeo, getStaticGeos,
-        getEnvMap, createMaterials, fabricAlbedoTex, faceOverlayTex,
+        getEnvMap, createMaterials, createFaceMaterial, fabricAlbedoTex, faceOverlayTex,
         makeSpring, stepSpring, hexStr, shadeHex, clamp, lerp
     };
 })(window);

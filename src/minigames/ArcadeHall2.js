@@ -190,13 +190,20 @@
                 c.rotation.x = Math.PI; c.position.y = -r * 0.8 - 0.5;
                 isl.add(t, c);
                 const tr = A.tree(0.8 + rnd() * 0.6); tr.position.y = 0.5; isl.add(tr);
-                const a = i / 9 * TAU, d = 40 + rnd() * 30;
-                isl.position.set(Math.cos(a) * d, -8 + rnd() * 20, Math.sin(a) * d);
+                // Cheering mascot fans on the floating islands!
+                for (let f = 0; f < 3; f++) {
+                    const fan = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), std(BALL_COLS[(i + f) % BALL_COLS.length], 0.5));
+                    fan.position.set((f - 1) * 1.1, 1.0, 0.9); isl.add(fan);
+                }
+                const a = i / 9 * TAU, d = 32 + rnd() * 24;
+                isl.position.set(Math.cos(a) * d, -4 + rnd() * 14, Math.sin(a) * d);
                 S.add(isl);
                 const sp = 0.3 + rnd() * 0.4, ph = rnd() * 6;
                 const y0 = isl.position.y;
                 S.animate(() => { isl.position.y = y0 + Math.sin(performance.now() * 0.001 * sp + ph) * 1.2; });
             }
+            const arenaBanner = A.sign('HAMSTER BALL ARENA', 8, 1.4, { bg: '#1e1b4b', color: '#fde047', borderColor: '#facc15', size: 0.5, glow: '#facc15' });
+            arenaBanner.position.set(0, 7.5, -24); S.add(arenaBanner);
             K.cloudLayer(S, 18, -30, 140, 0xffffff, 0.9);
             K.cloudLayer(S, 10, 50, 160);
             // balls in a ring

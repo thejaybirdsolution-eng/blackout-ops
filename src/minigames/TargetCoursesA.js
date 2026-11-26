@@ -16,7 +16,9 @@
     const K = BO.MGCourseKit = {
         /** Shooting booth around the spawn, facing -Z. */
         booth(S, o = {}) {
-            const w = o.w || 3.4, hw = w / 2;
+            const w = o.w || (o.tall ? 7.4 : 3.4), hw = w / 2;
+            const wallH = o.roofY || (o.tall ? 5.3 : 2.7);
+            const depthBack = o.tall ? 2.4 : 1.8;
             const wood = std(o.wood || 0x7c5a35, 0.8);
             const dark = std(o.trim || 0x3f2a14, 0.85);
             // counter
@@ -27,22 +29,22 @@
             S.add(top);
             counter.userData.keep = true;
             // side walls & back
-            S.box(-hw - 0.1, 1.35, 0.4, 0.2, 2.7, 2.7, wood);
-            S.box(hw + 0.1, 1.35, 0.4, 0.2, 2.7, 2.7, wood);
-            S.box(0, 1.35, 1.8, w + 0.4, 2.7, 0.2, wood);
+            S.box(-hw - 0.1, wallH * 0.5, 0.5, 0.2, wallH, depthBack + 1.4, wood);
+            S.box(hw + 0.1, wallH * 0.5, 0.5, 0.2, wallH, depthBack + 1.4, wood);
+            S.box(0, wallH * 0.5, depthBack, w + 0.4, wallH, 0.2, wood);
             // keep players from vaulting the counter
-            S.collider(-hw, 1.04, -1.0, hw, 3.4, -0.95);
+            S.collider(-hw, 1.04, -1.0, hw, wallH + 0.8, -0.95);
             if (o.roof !== false) {
-                const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 1.0, 0.12, 3.4), dark);
-                roof.position.set(0, 2.78, 0.25);
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 1.0, 0.12, depthBack + 1.9), dark);
+                roof.position.set(0, wallH + 0.08, 0.45);
                 roof.castShadow = true;
                 S.add(roof);
                 if (o.awning) {
                     const stripes = L.canvasTex('awning:' + o.awning, 256, 32, (g, W, H) => {
                         for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#f8fafc' : o.awning; g.fillRect(i * 32, 0, 32, H); }
                     });
-                    const aw = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.0, 0.32), new THREE.MeshStandardMaterial({ map: stripes, side: THREE.DoubleSide, roughness: 0.8 }));
-                    aw.position.set(0, 2.68, -1.42);
+                    const aw = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.0, 0.34), new THREE.MeshStandardMaterial({ map: stripes, side: THREE.DoubleSide, roughness: 0.8 }));
+                    aw.position.set(0, wallH - 0.08, -1.52);
                     aw.rotation.x = -0.35;
                     S.add(aw);
                 }
@@ -273,21 +275,29 @@
     ================================================================ */
     const COASTER_PTS = (() => {
         const pts = [];
-        const N = 30;
+        const N = 36;
         for (let i = 0; i < N; i++) {
             const a = i / N * Math.PI * 2;
-            const r = 92 + Math.sin(a * 3) * 26 + Math.cos(a * 2) * 10;
-            const y = 5 + Math.max(0, Math.sin(a * 2 + 0.4)) * 15 + Math.sin(a * 5) * 3.2 + (i < 3 ? 6 : 0);
-            pts.push(V(Math.cos(a) * r, Math.max(3.2, y), Math.sin(a) * r));
+            const r = 98 + Math.sin(a * 3) * 24 + Math.cos(a * 2) * 10;
+            // Towering lift hill -> EPIC near-vertical 48m drop at u~0.18..0.32 -> second jump hill before broken gap
+            let y = 7 + Math.sin(a * 4) * 3.5;
+            if (i >= 1 && i <= 5) y = 10 + (i / 5) * 44;         // lift climb up to 54m!
+            else if (i === 6) y = 52;
+            else if (i === 7) y = 26;                              // steep plunge!
+            else if (i === 8) y = 4.5;                             // valley floor recover
+            else if (i >= 17 && i <= 20) y = 18 + (20 - i) * 1.2;  // launch ramp buildup before gap
+            else if (i >= 21 && i <= 23) y = 15 + (i - 21) * 1.5;  // far landing deck
+            pts.push(V(Math.cos(a) * r, Math.max(3.6, y), Math.sin(a) * r));
         }
         return pts;
     })();
+    const COASTER_GAP_U0 = 0.565, COASTER_GAP_U1 = 0.625;
     MG.register({
         id: 'coaster', cat: 'target', order: 2,
         name: 'Coaster Chaos', icon: '🎢', accent: '#ec4899',
-        tagline: 'Hang on. Aim true. Scream later.',
-        desc: 'Strap into the front car of the Thunderbolt coaster. Targets flip up beside the track, hang off the supports and float above the drops. Speed comes from gravity: slow on the crests, blistering in the dips, banking through every turn.',
-        hudSub: 'Your view turns with the car — look ahead into the curves',
+        tagline: 'Hang on. Giant drop. Broken tracks ahead!',
+        desc: 'Strap into the Thunderbolt coaster for an epic 50-meter plunge and a death-defying broken-track ramp jump across mid-air! Targets flip beside the track and float over the drops.',
+        hudSub: 'Epic 50m drop + Broken Track Airborne Ramp Jump!',
         duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'mp7_navy', ringScoring: true, rail: true,
         map: {
             atmosphere: { skyTop: 0x0ea5e9, skyBottom: 0xe0f2fe, fogColor: 0xcde9f6, fogDensity: 0.004, sunColor: 0xfff7e6, sunIntensity: 1.8, sunPos: [60, 90, 40], hemiSky: 0xe0f2fe, hemiGround: 0x4d7c0f, hemiIntensity: 0.9 },
@@ -299,42 +309,64 @@
             S.data.rail = R;
             S.data.dist = 0;
             S.data.speed = 6;
-            // rails
-            const samples = 900;
-            const left = [], right = [];
-            const frames = [];
+            S.data.inAirGap = false;
+            // rails & spine split into 2 open segments omitting the broken track gap [COASTER_GAP_U0..COASTER_GAP_U1]
             const up = V(0, 1, 0);
-            for (let i = 0; i < samples; i++) {
-                const u = i / samples;
-                const p = R.curve.getPointAt(u);
-                const t = R.curve.getTangentAt(u);
-                const side = new THREE.Vector3().crossVectors(t, up).normalize();
-                frames.push({ p, t, side });
-                left.push(p.clone().addScaledVector(side, -0.62));
-                right.push(p.clone().addScaledVector(side, 0.62));
-            }
             const railMat = std(0xe11d48, 0.35, 0.7);
-            for (const pts of [left, right]) {
-                const c = new THREE.CatmullRomCurve3(pts, true);
-                const tube = new THREE.Mesh(new THREE.TubeGeometry(c, 1600, 0.08, 6, true), railMat);
-                tube.castShadow = true;
-                S.add(tube);
+            const spineMat = std(0x9f1239, 0.4, 0.6);
+            const addSegment = (uStart, uEnd, segCount) => {
+                const lPts = [], rPts = [], sPts = [];
+                for (let i = 0; i <= segCount; i++) {
+                    const u = (lerp(uStart, uEnd, i / segCount) % 1 + 1) % 1;
+                    const p = R.curve.getPointAt(u);
+                    const t = R.curve.getTangentAt(u);
+                    const side = new THREE.Vector3().crossVectors(t, up).normalize();
+                    lPts.push(p.clone().addScaledVector(side, -0.62));
+                    rPts.push(p.clone().addScaledVector(side, 0.62));
+                    sPts.push(p.clone().add(V(0, -0.35, 0)));
+                }
+                for (const pts of [lPts, rPts]) {
+                    const tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false), segCount, 0.08, 6, false), railMat);
+                    tube.castShadow = true;
+                    S.add(tube);
+                }
+                S.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sPts, false), segCount, 0.16, 6, false), spineMat));
+            };
+            addSegment(COASTER_GAP_U1, 1.0 + COASTER_GAP_U0, 960);
+
+            // Launch & landing steel ramps + hazard beacons on the broken edges!
+            for (const [edgeU, label, col] of [[COASTER_GAP_U0, 'BROKEN TRACK!', 0xf97316], [COASTER_GAP_U1, 'LANDING RAMP', 0xfacc15]]) {
+                const ep = R.curve.getPointAt(edgeU);
+                const et = R.curve.getTangentAt(edgeU);
+                const ramp = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.25, 3.8), std(0xf59e0b, 0.4, 0.7));
+                ramp.position.copy(ep).add(V(0, -0.1, 0));
+                ramp.lookAt(ep.clone().add(et));
+                ramp.rotateX(edgeU === COASTER_GAP_U0 ? -0.24 : 0.22);
+                S.add(ramp);
+                const flare = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), basic(col));
+                flare.position.copy(ep).add(V(0, 1.6, 0));
+                S.add(flare);
+                const sg = A.sign(label, 3.6, 0.9, { bg: '#7f1d1d', color: '#fef08a', borderColor: '#f97316', size: 0.48 });
+                sg.position.copy(ep).add(V(0, 3.2, 0));
+                sg.lookAt(ep.clone().sub(et));
+                S.add(sg);
             }
-            const spine = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(frames.map((f) => f.p.clone().add(V(0, -0.35, 0))), true), 1600, 0.16, 6, true), std(0x9f1239, 0.4, 0.6));
-            S.add(spine);
-            // ties + supports (instanced)
+            // ties + supports (instanced, skipping broken gap)
             const tieCount = Math.floor(R.len / 1.3);
             const ties = new THREE.InstancedMesh(new THREE.BoxGeometry(1.5, 0.08, 0.16), std(0x3f3f46, 0.6, 0.5), tieCount);
             const dummy = new THREE.Object3D();
+            let ti = 0;
             for (let i = 0; i < tieCount; i++) {
                 const u = i / tieCount;
+                if (u > COASTER_GAP_U0 && u < COASTER_GAP_U1) continue;
                 const p = R.curve.getPointAt(u);
                 const t = R.curve.getTangentAt(u);
                 dummy.position.copy(p).add(V(0, -0.1, 0));
                 dummy.lookAt(p.clone().add(t));
                 dummy.updateMatrix();
-                ties.setMatrixAt(i, dummy.matrix);
+                ties.setMatrixAt(ti++, dummy.matrix);
             }
+            ties.count = ti;
             S.add(ties);
             const supCount = Math.floor(R.len / 7);
             const supGeo = new THREE.CylinderGeometry(0.18, 0.26, 1, 6);
@@ -343,6 +375,7 @@
             let si = 0;
             for (let i = 0; i < supCount; i++) {
                 const u = i / supCount;
+                if (u > COASTER_GAP_U0 && u < COASTER_GAP_U1) continue;
                 const p = R.curve.getPointAt(u);
                 const t = R.curve.getTangentAt(u);
                 const side = new THREE.Vector3().crossVectors(t, up).normalize();
@@ -420,24 +453,40 @@
         preUpdate(S, dt, lib, state) {
             const R = S.data.rail;
             if (!R) return;
+            const uNow = (((S.data.dist / R.len) % 1) + 1) % 1;
+            const inGap = uNow >= COASTER_GAP_U0 && uNow <= COASTER_GAP_U1;
+            const gapFrac = inGap ? clamp01((uNow - COASTER_GAP_U0) / (COASTER_GAP_U1 - COASTER_GAP_U0)) : 0;
             if (state === 'running' || state === 'finish' || state === 'results') {
-                const p = R.curve.getPointAt(((S.data.dist / R.len) % 1 + 1) % 1);
-                const target = Math.sqrt(Math.max(0, 2 * 9.8 * (26 - p.y))) * 0.92;
-                const want = BO.Math.clamp(target, 9, 30) * (state === 'running' ? 1 : 0.6);
-                S.data.speed = lerp(S.data.speed, want, Math.min(1, dt * 1.6));
+                const p = R.curve.getPointAt(uNow);
+                const target = Math.sqrt(Math.max(0, 2 * 9.8 * (56 - p.y))) * 0.85;
+                const want = (inGap ? 28 : BO.Math.clamp(target, 11, 34)) * (state === 'running' ? 1 : 0.6);
+                S.data.speed = lerp(S.data.speed, want, Math.min(1, dt * 1.8));
                 S.data.dist += S.data.speed * dt;
                 S.data.clackT = (S.data.clackT || 0) - dt;
-                if (S.data.speed < 12 && S.data.clackT <= 0) { SFX.clack(); S.data.clackT = 0.18; }
+                if (!inGap && S.data.speed < 13 && S.data.clackT <= 0) { SFX.clack(); S.data.clackT = 0.18; }
                 S.data.windT = (S.data.windT || 0) - dt;
                 if (S.data.windT <= 0 && S.data.speed > 18) { SFX.whoosh(0.08 + (S.data.speed - 18) * 0.01); S.data.windT = 0.32; }
                 BO.Player.cameraShake = Math.max(BO.Player.cameraShake, (S.data.speed - 10) * 0.0009);
             }
-            const r = K.driveRail(S, R, S.data.dist, dt, { lift: 0.55, bank: 0.32, pitchFollow: 0.5 });
+            if (inGap && !S.data.inAirGap) {
+                S.data.inAirGap = true;
+                SFX.launch();
+                MG.toast('BROKEN TRACK — AIRBORNE!', '#facc15');
+            } else if (!inGap && S.data.inAirGap) {
+                S.data.inAirGap = false;
+                SFX.thunk();
+                BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.065);
+                MG.toast('BACK ON THE RAILS!', '#86efac');
+            }
+            const airLift = inGap ? Math.sin(gapFrac * Math.PI) * 9.5 : 0;
+            const airPitch = inGap ? (0.5 - gapFrac) * 0.42 : 0;
+            const r = K.driveRail(S, R, S.data.dist, dt, { lift: 0.55 + airLift, bank: 0.32, pitchFollow: 0.5, pitchAdd: airPitch });
             if (r && S.data.car) {
                 const car = S.data.car;
-                car.position.copy(r.p).add(V(0, -0.05, 0));
-                car.lookAt(r.p.clone().sub(r.tan));
+                car.position.copy(r.p).add(V(0, -0.05 + airLift, 0));
+                car.lookAt(r.p.clone().add(V(0, airLift, 0)).sub(r.tan));
                 car.rotateZ(BO.Player.rideState.roll * 0.6);
+                if (inGap) car.rotateX(airPitch);
             }
             S.data.cur = r;
         },
@@ -970,7 +1019,7 @@
                     const sl = slots[idx];
                     S2.data.busy.add(idx);
                     const type = civ ? 'civilian' : (outlaw ? 'outlaw' : 'bandit');
-                    const t = A.silhouette(type, sl.scale);
+                    const t = A.silhouette(type, sl.scale * 1.18);
                     const yaw = A.yawTo(sl.pos, V(0, 0, 0));
                     const appear = sl.kind === 'door' ? 'slide' : sl.kind === 'window' ? 'rise' : sl.kind === 'roof' ? 'flip' : 'rise';
                     if (sl.shutters) sl.shutters.forEach((sh) => { sh.open = 1; });

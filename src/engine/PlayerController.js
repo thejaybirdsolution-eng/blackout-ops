@@ -1714,7 +1714,8 @@
             const horizSpeed = Math.hypot(this.vel.x, this.vel.z);
             const moveFactor = BO.Math.clamp(horizSpeed / 6.5, 0, 1) * (1 - this.adsAlpha * 0.85);
             const idleT = performance.now() * 0.0016;
-            const idleFactor = (1 - moveFactor) * (1 - this.adsAlpha * 0.78);
+            const breathMult = this.holdBreath ? 0.18 : 1.0;
+            const idleFactor = (1 - moveFactor) * (1 - this.adsAlpha * 0.78) * breathMult;
             const bobX = Math.cos(this.bobPhase) * 0.015 * moveFactor + Math.sin(idleT) * 0.0028 * idleFactor;
             const bobY = Math.abs(Math.sin(this.bobPhase)) * -0.017 * moveFactor + Math.cos(idleT * 1.7) * 0.0024 * idleFactor;
 
@@ -1726,13 +1727,20 @@
             const adsY = -this.vmBuild.sightY;
             const adsZ = w.stats.adsPos[2];
 
+            // Smooth spring-damped transitions for tactical sprint, slide & airborne lag
+            const wantTac = (this.tacSprinting && this.adsAlpha < 0.05 && !this.reloading) ? 1 : 0;
+            this._tacSprintBlend = BO.Math.damp(this._tacSprintBlend || 0, wantTac, 10, dt);
+            this._slideBlend = BO.Math.damp(this._slideBlend || 0, this.sliding ? 1 : 0, 11, dt);
+            const targetAirLag = this.onGround ? 0 : BO.Math.clamp(this.vel.y * 0.0045, -0.045, 0.035);
+            this._airLag = BO.Math.damp(this._airLag || 0, targetAirLag, 9, dt);
+
             let px = BO.Math.lerp(hip[0], adsX, this.adsAlpha) + bobX + this.swayX * (1 - this.adsAlpha * 0.7);
-            let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0);
+            let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0) - this._airLag;
             let pz = BO.Math.lerp(hip[2], adsZ, this.adsAlpha) + this.recoilZ;
 
-            let rx = this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65;
+            let rx = this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2;
             let ry = this.recoilYaw * 0.45;
-            let rz = (this.sliding ? 0.35 : 0) + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
+            let rz = this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
 
             // Parkour Vault / Mantle one-handed weapon tuck
             if (this.rideState && this.rideState.kind === 'parkour') {
@@ -1743,17 +1751,20 @@
                 rz += pkWave * (this.rideState.sub === 'vault' ? -0.36 : 0.28);
             }
 
-            // Tactical Sprint 45-degree weapon-up pose
-            if (this.tacSprinting && this.adsAlpha < 0.05 && !this.reloading) {
-                px -= 0.06;
-                py += 0.02;
-                rx += 0.38;
-                ry += 0.55;
-                rz += 0.25;
+            // Tactical Sprint 45-degree weapon-up pose (smoothly damped)
+            if (this._tacSprintBlend > 0.001) {
+                const tb = this._tacSprintBlend;
+                px -= 0.06 * tb;
+                py += 0.02 * tb;
+                rx += 0.38 * tb;
+                ry += 0.55 * tb;
+                rz += 0.25 * tb;
             }
 
             // Multi-stage Tactical Reload Choreography (Mag Release -> Magwell Seat -> Bolt Rack)
             let reloadBoltOffset = 0;
+            let magHandDrop = 0;
+            let boltHandPull = 0;
             if (this.reloading) {
                 const p = BO.Math.clamp(1 - (this.reloadTimer / Math.max(0.01, this.reloadDuration)), 0, 1);
                 if (w.stats.shellReload) {
@@ -1761,6 +1772,7 @@
                     py -= dip * 0.075;
                     rx += dip * 0.22;
                     rz += dip * 0.36;
+                    magHandDrop = dip * 0.6;
                 } else {
                     const env = Math.sin(p * Math.PI);
                     const seatBump = Math.exp(-Math.pow((p - 0.62) / 0.075, 2));
@@ -1771,19 +1783,39 @@
                     ry += Math.sin(p * Math.PI * 2) * 0.08;
                     rz += (p < 0.68 ? Math.sin((p / 0.68) * Math.PI) * 0.42 : -Math.sin(((p - 0.68) / 0.32) * Math.PI) * 0.20);
                     reloadBoltOffset = boltPull * 0.058;
+                    boltHandPull = boltPull;
+                    magHandDrop = p < 0.34
+                        ? Math.sin((p / 0.34) * Math.PI * 0.5)
+                        : (p < 0.64 ? Math.cos(((p - 0.34) / 0.30) * Math.PI * 0.5) : 0);
                     if (this.vmBuild.magGroup) {
-                        const magDrop = p < 0.34
-                            ? Math.sin((p / 0.34) * Math.PI * 0.5)
-                            : (p < 0.64 ? Math.cos(((p - 0.34) / 0.30) * Math.PI * 0.5) : 0);
-                        this.vmBuild.magGroup.position.y = -magDrop * 0.17;
-                        this.vmBuild.magGroup.position.x = -magDrop * 0.025;
-                        this.vmBuild.magGroup.rotation.z = magDrop * 0.18;
+                        this.vmBuild.magGroup.position.y = -magHandDrop * 0.17;
+                        this.vmBuild.magGroup.position.x = -magHandDrop * 0.025;
+                        this.vmBuild.magGroup.rotation.z = magHandDrop * 0.18;
                     }
                 }
             } else if (this.vmBuild.magGroup) {
                 this.vmBuild.magGroup.position.y = 0;
                 this.vmBuild.magGroup.position.x = 0;
                 this.vmBuild.magGroup.rotation.z = 0;
+            }
+
+            // Support-arm reload choreography + tactical wristwatch health pulse
+            const arms = this.vmBuild.arms || this.vmBuild.root?.userData?.arms;
+            if (arms) {
+                if (arms.lArm) {
+                    const targetLY = -magHandDrop * 0.12 + boltHandPull * 0.035;
+                    const targetLZ = magHandDrop * 0.055 + boltHandPull * 0.075;
+                    arms.lArm.position.y = BO.Math.damp(arms.lArm.position.y, targetLY, 18, dt);
+                    arms.lArm.position.z = BO.Math.damp(arms.lArm.position.z, targetLZ, 18, dt);
+                    arms.lArm.rotation.x = BO.Math.damp(arms.lArm.rotation.x, magHandDrop * 0.22 - boltHandPull * 0.18, 16, dt);
+                }
+                if (arms.watchDial?.material) {
+                    const lowHp = this.hp < 35;
+                    const spd = lowHp ? 8.5 : 2.6;
+                    const tNow = performance.now() * 0.001;
+                    arms.watchDial.material.emissive.setHex(lowHp ? 0xef4444 : 0x0ea5e9);
+                    arms.watchDial.material.emissiveIntensity = (lowHp ? 0.85 : 0.65) + Math.sin(tNow * spd) * (lowHp ? 0.55 : 0.25);
+                }
             }
 
             // Swap dip

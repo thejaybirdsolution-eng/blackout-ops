@@ -21,6 +21,9 @@
         constructor() {
             this.textures = Object.create(null);
             this.materials = Object.create(null);
+            this.heightMaps = Object.create(null);
+            this.roughMaps = Object.create(null);
+            this._waterUniforms = [];
             this.camoTextures = Object.create(null);
             this.darkMatterCanvas = null;
             this.darkMatterCtx = null;
@@ -137,6 +140,59 @@
             return tex;
         }
 
+        /** Generate a LinearEncoding tangent-space normal map from an authored [0..1] heightfield. */
+        _normalFromHeight(height, w, h, strength = 2.4) {
+            const c = this._makeCanvas(w, h);
+            const ctx = c.getContext('2d');
+            const out = ctx.createImageData(w, h);
+            const o = out.data;
+            const at = (x, y) => height[((y + h) % h) * w + ((x + w) % w)];
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const tl = at(x - 1, y - 1), t = at(x, y - 1), tr = at(x + 1, y - 1);
+                    const l = at(x - 1, y), r = at(x + 1, y);
+                    const bl = at(x - 1, y + 1), b = at(x, y + 1), br = at(x + 1, y + 1);
+                    const dx = (tr + 2 * r + br) - (tl + 2 * l + bl);
+                    const dy = (bl + 2 * b + br) - (tl + 2 * t + tr);
+                    let nx = -dx * strength, ny = dy * strength, nz = 1.0;
+                    const len = Math.hypot(nx, ny, nz);
+                    nx /= len; ny /= len; nz /= len;
+                    const k = (y * w + x) * 4;
+                    o[k] = Math.round((nx * 0.5 + 0.5) * 255);
+                    o[k + 1] = Math.round((ny * 0.5 + 0.5) * 255);
+                    o[k + 2] = Math.round((nz * 0.5 + 0.5) * 255);
+                    o[k + 3] = 255;
+                }
+            }
+            ctx.putImageData(out, 0, 0);
+            const tex = this._toTex(c, 1, 1, false);
+            if (THREE.LinearEncoding) tex.encoding = THREE.LinearEncoding;
+            return tex;
+        }
+
+        /** Generate a LinearEncoding grayscale roughness CanvasTexture from a [0..1] Float32Array. */
+        _roughnessTex(rough, w, h) {
+            const c = this._makeCanvas(w, h);
+            const ctx = c.getContext('2d');
+            const out = ctx.createImageData(w, h);
+            const o = out.data;
+            for (let i = 0, j = 0; i < rough.length; i++, j += 4) {
+                const v = Math.max(0, Math.min(255, Math.round(rough[i] * 255)));
+                o[j] = v; o[j + 1] = v; o[j + 2] = v; o[j + 3] = 255;
+            }
+            ctx.putImageData(out, 0, 0);
+            const tex = this._toTex(c, 1, 1, false);
+            if (THREE.LinearEncoding) tex.encoding = THREE.LinearEncoding;
+            return tex;
+        }
+
+        /** Animated GLSL water update called every frame by WorldBuilder. */
+        updateWaterTime(elapsed) {
+            for (let i = 0; i < this._waterUniforms.length; i++) {
+                this._waterUniforms[i].value = elapsed;
+            }
+        }
+
         /** Neutral detail map multiplied over terrain vertex colours (grass, grit, pebbles). */
         getTerrainDetailTexture() {
             if (this.textures.__terrainDetail) return this.textures.__terrainDetail;
@@ -163,15 +219,15 @@
 
             switch (matName) {
                 case 'bunker_stone':
-                    map = this._createNoiseTexture('bunker_stone', 256, 256, '#43464b', 42, 'rgba(20,22,25,0.28)', { color: 'rgba(15,17,20,0.38)', stepX: 64, stepY: 32, lineWidth: 2 });
+                    map = this._createNoiseTexture('bunker_stone', 256, 256, '#484c52', 42, 'rgba(20,22,25,0.28)', { color: 'rgba(15,17,20,0.42)', stepX: 64, stepY: 32, lineWidth: 2 });
                     roughness = 0.92;
                     break;
                 case 'concrete':
-                    map = this._createNoiseTexture('concrete', 256, 256, '#5c6066', 36, 'rgba(255,255,255,0.08)', { color: 'rgba(30,32,36,0.25)', stepX: 128, stepY: 128, lineWidth: 2 });
-                    roughness = 0.88;
+                    map = this._createNoiseTexture('concrete', 256, 256, '#62676e', 36, 'rgba(255,255,255,0.08)', { color: 'rgba(30,32,36,0.25)', stepX: 128, stepY: 128, lineWidth: 2 });
+                    roughness = 0.89;
                     break;
                 case 'asphalt':
-                    map = this._createNoiseTexture('asphalt', 256, 256, '#30343a', 32, 'rgba(180,185,195,0.12)', null);
+                    map = this._createNoiseTexture('asphalt', 256, 256, '#32363c', 32, 'rgba(180,185,195,0.12)', null);
                     roughness = 0.94;
                     break;
                 case 'desert_sand':
@@ -180,48 +236,48 @@
                     break;
                 case 'brick':
                     map = this._makeBrickTexture();
-                    roughness = 0.90;
+                    roughness = 0.92;
                     break;
                 case 'wood_plank':
-                    map = this._makeWoodTexture('wood_plank', '#745334', '#523820');
-                    roughness = 0.82;
+                    map = this._makeWoodTexture('wood_plank', '#765334', '#4d331d');
+                    roughness = 0.86;
                     break;
                 case 'wood_crate':
                     map = this._makeCrateTexture();
-                    roughness = 0.80;
+                    roughness = 0.84;
                     break;
                 case 'sandbag':
-                    map = this._createNoiseTexture('sandbag', 128, 128, '#8d7b5d', 34, 'rgba(60,50,35,0.2)', { color: 'rgba(45,38,26,0.45)', stepX: 64, stepY: 32, lineWidth: 3 });
+                    map = this._createNoiseTexture('sandbag', 256, 256, '#8f7d60', 34, 'rgba(60,50,35,0.22)', { color: 'rgba(45,38,26,0.45)', stepX: 64, stepY: 32, lineWidth: 3 });
                     roughness = 0.95;
                     break;
                 case 'diamond_plate':
                     map = this._makeDiamondPlateTexture();
-                    roughness = 0.42;
-                    metalness = 0.72;
+                    roughness = 0.44;
+                    metalness = 0.74;
                     break;
                 case 'rusted_metal':
-                    map = this._createNoiseTexture('rusted_metal', 256, 256, '#4c3830', 55, 'rgba(145,75,35,0.32)', null);
-                    roughness = 0.65;
-                    metalness = 0.55;
+                    map = this._createNoiseTexture('rusted_metal', 256, 256, '#523b32', 55, 'rgba(145,75,35,0.34)', null);
+                    roughness = 0.68;
+                    metalness = 0.56;
                     break;
                 case 'lab_panel':
                     map = this._makeLabPanelTexture();
-                    roughness = 0.38;
+                    roughness = 0.40;
                     metalness = 0.58;
                     break;
                 case 'container_blue':
-                    map = this._makeContainerTexture('container_blue', '#1e4a7a', '#143356');
-                    roughness = 0.55;
-                    metalness = 0.45;
+                    map = this._makeContainerTexture('container_blue', '#214e7d', '#143252');
+                    roughness = 0.62;
+                    metalness = 0.44;
                     break;
                 case 'container_red':
-                    map = this._makeContainerTexture('container_red', '#7f2424', '#561515');
-                    roughness = 0.55;
-                    metalness = 0.45;
+                    map = this._makeContainerTexture('container_red', '#822828', '#521616');
+                    roughness = 0.62;
+                    metalness = 0.44;
                     break;
                 case 'container_olive':
-                    map = this._makeContainerTexture('container_olive', '#435334', '#2d3923');
-                    roughness = 0.60;
+                    map = this._makeContainerTexture('container_olive', '#465637', '#2b3622');
+                    roughness = 0.65;
                     metalness = 0.40;
                     break;
                 case 'swamp_mud':
@@ -229,13 +285,10 @@
                     roughness = 0.94;
                     break;
                 case 'swamp_water':
-                    map = this._createNoiseTexture('swamp_water', 256, 256, '#17281e', 28, 'rgba(60,110,75,0.16)', null);
-                    roughness = 0.22;
-                    metalness = 0.15;
-                    break;
+                    return this._makeAnimatedWaterMaterial(cacheKey, repX, repY);
                 case 'theater_carpet':
                     map = this._makeTheaterCarpetTexture();
-                    roughness = 0.90;
+                    roughness = 0.92;
                     break;
                 case 'velvet_red':
                     map = this._createNoiseTexture('velvet_red', 256, 256, '#7f1d1d', 24, 'rgba(40,6,6,0.28)', null);
@@ -247,34 +300,36 @@
                     metalness = 0.12;
                     break;
                 case 'pentagon_panel':
-                    map = this._makeWoodTexture('pentagon_panel', '#3c2415', '#24140b');
-                    roughness = 0.65;
+                    map = this._makeWoodTexture('pentagon_panel', '#422818', '#26160b');
+                    roughness = 0.68;
                     break;
                 case 'soviet_concrete':
                     map = this._createNoiseTexture('soviet_concrete', 256, 256, '#5a5f58', 42, 'rgba(30,34,28,0.22)', { color: 'rgba(24,28,24,0.32)', stepX: 128, stepY: 64, lineWidth: 3 });
                     roughness = 0.90;
                     break;
                 case 'green_siding':
-                    map = this._makeSidingTexture('green_siding', '#3b6e52', '#264b36');
-                    roughness = 0.78;
+                    map = this._makeSidingTexture('green_siding', '#3d634d', '#233b2d');
+                    roughness = 0.92;
+                    metalness = 0.02;
                     break;
                 case 'yellow_siding':
-                    map = this._makeSidingTexture('yellow_siding', '#c8a93e', '#947a25');
-                    roughness = 0.78;
+                    map = this._makeSidingTexture('yellow_siding', '#bfa043', '#7d6624');
+                    roughness = 0.92;
+                    metalness = 0.02;
                     break;
                 case 'nuketown_grass':
-                    map = this._createNoiseTexture('nuketown_grass', 256, 256, '#526334', 44, 'rgba(95,78,42,0.26)', null);
+                    map = this._makeNuketownGrassTexture();
                     roughness = 0.95;
                     break;
                 case 'bus_teal':
-                    map = this._makeSidingTexture('bus_teal', '#2c7a7b', '#1b4f50');
-                    roughness = 0.45;
-                    metalness = 0.38;
+                    map = this._makeVehiclePaintTexture('bus_teal', '#2c7576', '#1c4d4e', '#d6d3c9');
+                    roughness = 0.42;
+                    metalness = 0.46;
                     break;
                 case 'truck_yellow':
-                    map = this._makeSidingTexture('truck_yellow', '#d4a017', '#9c740c');
-                    roughness = 0.48;
-                    metalness = 0.35;
+                    map = this._makeVehiclePaintTexture('truck_yellow', '#cca024', '#8e6b12', '#f1f5f9');
+                    roughness = 0.46;
+                    metalness = 0.42;
                     break;
                 case 'ceiling_plaster':
                     map = this._createNoiseTexture('ceiling_plaster', 256, 256, '#3a3532', 26, 'rgba(18,16,15,0.22)', { color: 'rgba(20,18,16,0.42)', stepX: 128, stepY: 128, lineWidth: 3 });
@@ -285,12 +340,12 @@
                     roughness = 0.90;
                     break;
                 case 'privacy_fence':
-                    map = this._createNoiseTexture('privacy_fence', 256, 256, '#7b5e3f', 32, 'rgba(42,28,16,0.22)', { color: 'rgba(35,24,14,0.48)', stepX: 24, stepY: 128, lineWidth: 2 });
-                    roughness = 0.86;
+                    map = this._makeWoodTexture('privacy_fence', '#7b5e3f', '#4d3720');
+                    roughness = 0.90;
                     break;
                 case 'dark_slate_roof':
-                    map = this._createNoiseTexture('dark_slate_roof', 256, 256, '#272b33', 28, 'rgba(12,14,18,0.25)', { color: 'rgba(15,17,22,0.45)', stepX: 64, stepY: 32, lineWidth: 2 });
-                    roughness = 0.88;
+                    map = this._makeRoofShingleTexture();
+                    roughness = 0.92;
                     break;
                 case 'airport_tile':
                     map = this._createNoiseTexture('airport_tile', 256, 256, '#c7cdd6', 22, 'rgba(70,80,95,0.12)', { color: 'rgba(90,100,115,0.28)', stepX: 64, stepY: 64, lineWidth: 2 });
@@ -302,9 +357,9 @@
                     roughness = 0.55;
                     break;
                 case 'plane_hull':
-                    map = this._createNoiseTexture('plane_hull', 256, 256, '#e2e8f0', 18, 'rgba(100,116,139,0.14)', { color: 'rgba(100,116,139,0.30)', stepX: 64, stepY: 128, lineWidth: 2 });
-                    roughness = 0.34;
-                    metalness = 0.55;
+                    map = this._makeVehiclePaintTexture('plane_hull', '#dce3ec', '#94a3b8', '#475569');
+                    roughness = 0.36;
+                    metalness = 0.58;
                     break;
                 case 'rust_steel':
                     map = this._createNoiseTexture('rust_steel', 256, 256, '#7c4529', 48, 'rgba(40,18,8,0.30)', { color: 'rgba(55,28,14,0.38)', stepX: 64, stepY: 64, lineWidth: 2 });
@@ -321,7 +376,7 @@
                     break;
                 case 'wood_fort':
                     map = this._makeWoodTexture('wood_fort', '#5c3c22', '#3d2614');
-                    roughness = 0.85;
+                    roughness = 0.88;
                     break;
                 default:
                     map = this._createNoiseTexture('concrete', 256, 256, '#5c6066', 36, null, null);
@@ -332,25 +387,85 @@
             clonedMap.repeat.set(repX, repY);
             clonedMap.needsUpdate = true;
 
+            const roughSrc = this.roughMaps[matName];
+            let clonedRough = null;
+            if (roughSrc) {
+                clonedRough = roughSrc.clone();
+                clonedRough.repeat.set(repX, repY);
+                clonedRough.needsUpdate = true;
+            }
+
             const mat = new THREE.MeshStandardMaterial({
                 map: clonedMap,
-                roughness,
+                roughness: clonedRough ? 1.0 : roughness,
+                roughnessMap: clonedRough || undefined,
                 metalness,
                 emissive,
                 emissiveIntensity
             });
-            // Surface relief derived from the albedo, so every procedural surface gets lit detail.
-            const nrm = this._normalFromMap(map, matName);
+            // Prefer authored heightfield normal map when present; fall back to softer Sobel on albedo.
+            const nrm = this.heightMaps[matName] || this._normalFromMap(map, matName);
             if (nrm) {
                 const n = nrm.clone();
                 n.repeat.set(repX, repY);
                 n.needsUpdate = true;
                 mat.normalMap = n;
+                const isSiding = /siding/.test(matName);
                 const flat = /water|marble|glass|metal_clean/.test(matName);
-                const k = flat ? 0.25 : 0.85;
+                const k = flat ? 0.25 : (isSiding ? 0.42 : (this.heightMaps[matName] ? 0.72 : 0.58));
                 mat.normalScale.set(k, k);
             }
             this._applyMacroVariation(mat, matName);
+            this.materials[cacheKey] = mat;
+            return mat;
+        }
+
+        _makeAnimatedWaterMaterial(cacheKey, repX, repY) {
+            const map = this._createNoiseTexture('swamp_water', 256, 256, '#142a22', 24, 'rgba(72,125,92,0.14)', null);
+            const clonedMap = map.clone();
+            clonedMap.repeat.set(repX, repY);
+            clonedMap.needsUpdate = true;
+            const mat = new THREE.MeshStandardMaterial({
+                map: clonedMap,
+                color: 0x9ecbb8,
+                roughness: 0.10,
+                metalness: 0.22,
+                transparent: true,
+                opacity: 0.90
+            });
+            const uTime = { value: 0 };
+            this._waterUniforms.push(uTime);
+            mat.onBeforeCompile = (shader) => {
+                shader.uniforms.uWaterTime = uTime;
+                shader.vertexShader = shader.vertexShader
+                    .replace('#include <common>', `#include <common>
+varying vec3 vWPos;`)
+                    .replace('#include <begin_vertex>', `#include <begin_vertex>
+vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+                shader.fragmentShader = shader.fragmentShader
+                    .replace('#include <common>', `#include <common>
+uniform float uWaterTime;
+varying vec3 vWPos;
+float wHash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+float wNoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(wHash(i),wHash(i+vec2(1.,0.)),f.x),mix(wHash(i+vec2(0.,1.)),wHash(i+vec2(1.,1.)),f.x),f.y); }`)
+                    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{
+    vec2 wp = vWPos.xz;
+    float t = uWaterTime;
+    float w1 = wNoise(wp * 0.85 + vec2(t * 0.35, t * 0.22));
+    float w2 = wNoise(wp * 1.9 - vec2(t * 0.42, -t * 0.28));
+    float w3 = sin(wp.x * 2.4 + t * 1.6) * cos(wp.y * 2.1 - t * 1.3) * 0.15;
+    vec3 rippleN = normalize(vec3((w1 - 0.5) * 0.32 + (w2 - 0.5) * 0.22 + w3, 1.0, (w2 - 0.5) * 0.32 - (w1 - 0.5) * 0.22));
+    normal = normalize(normal + vec3(rippleN.x, 0.0, rippleN.z) * 0.55);
+}`)
+                    .replace('#include <color_fragment>', `#include <color_fragment>
+{
+    float rippleTint = wNoise(vWPos.xz * 0.45 + uWaterTime * 0.18);
+    diffuseColor.rgb *= mix(0.78, 1.18, rippleTint);
+}`);
+            };
+            mat.customProgramCacheKey = () => 'boWater1';
             this.materials[cacheKey] = mat;
             return mat;
         }
@@ -371,7 +486,7 @@
             const ctx = c.getContext('2d');
             const out = ctx.createImageData(w, h);
             const o = out.data;
-            const strength = /grass|dirt|sand|mud/.test(name || '') ? 2.2 : 3.2;
+            const strength = /grass|dirt|sand|mud/.test(name || '') ? 1.5 : 1.85;
             const at = (x, y) => lum[((y + h) % h) * w + ((x + w) % w)];
             for (let y = 0; y < h; y++) {
                 for (let x = 0; x < w; x++) {
@@ -392,6 +507,7 @@
             }
             ctx.putImageData(out, 0, 0);
             const tex = this._toTex(c, 1, 1, false);
+            if (THREE.LinearEncoding) tex.encoding = THREE.LinearEncoding;
             this._normalCache.set(img, tex);
             return tex;
         }
@@ -423,6 +539,7 @@ float boNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 
                         .replace('#include <normalmap_pars_fragment>', SC.normalmap_pars_fragment.replace(/vUv/g, 'boUV'))
                         .replace('#include <normal_fragment_maps>', SC.normal_fragment_maps.replace(/vUv/g, 'boUV'))
                         .replace('#include <map_fragment>', SC.map_fragment.replace(/vUv/g, 'boUV'))
+                        .replace('#include <roughnessmap_fragment>', SC.roughnessmap_fragment.replace(/vUv/g, 'boUV'))
                         .replace('void main() {', `void main() {
     vec3 boA = abs(vBoNormal);
     boUV = (boA.y > max(boA.x, boA.z) ? vBoWorld.xz : (boA.x > boA.z ? vec2(vBoWorld.z, vBoWorld.y) : vBoWorld.xy)) * 0.25;`);
@@ -433,135 +550,335 @@ float boNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 
                     .replace('#include <color_fragment>', `#include <color_fragment>
 vec2 boP = vBoWorld.xz + vBoWorld.y * 0.37;
 float boN = boNoise(boP * 0.06) * 0.6 + boNoise(boP * 0.21) * 0.3 + boNoise(boP * 0.9) * 0.1;
-diffuseColor.rgb *= mix(0.8, 1.12, boN);`)
+diffuseColor.rgb *= mix(0.84, 1.10, boN);`)
                     .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-roughnessFactor = clamp(roughnessFactor * mix(0.88, 1.08, boN), 0.04, 1.0);`);
+roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 shader.fragmentShader = fs;
             };
-            mat.customProgramCacheKey = () => worldUV ? 'boMacroW2' : 'boMacro2';
+            mat.customProgramCacheKey = () => worldUV ? 'boMacroW3' : 'boMacro3';
         }
 
         _makeBrickTexture() {
             if (this.textures.brick) return this.textures.brick;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
             const rng = seededNoise(9911);
-            ctx.fillStyle = '#9a846b';
-            ctx.fillRect(0, 0, 256, 256);
-            const bw = 64, bh = 32;
-            for (let row = 0; row < 8; row++) {
+            const fbm = this._fbmField(S, S, seededNoise(9912));
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            // Base mortar fill
+            ctx.fillStyle = '#8b8376';
+            ctx.fillRect(0, 0, S, S);
+            height.fill(0.18);
+            rough.fill(0.96);
+
+            const bw = 64, bh = 32, gap = 3;
+            for (let row = 0; row < 16; row++) {
                 const offset = (row % 2) * 32;
-                for (let col = -1; col < 5; col++) {
-                    const shade = Math.floor(rng() * 35);
-                    ctx.fillStyle = `rgb(${155 + shade}, ${112 + shade}, ${84 + Math.floor(shade * 0.7)})`;
-                    ctx.fillRect(col * bw + offset + 2, row * bh + 2, bw - 4, bh - 4);
+                for (let col = -1; col < 9; col++) {
+                    const bx = col * bw + offset + gap;
+                    const by = row * bh + gap;
+                    const w = bw - gap * 2, h = bh - gap * 2;
+                    const tone = (rng() - 0.5) * 28;
+                    const r = Math.min(220, Math.max(85, Math.round(148 + tone)));
+                    const g = Math.min(180, Math.max(60, Math.round(92 + tone * 0.72)));
+                    const b = Math.min(150, Math.max(48, Math.round(70 + tone * 0.55)));
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(bx, by, w, h);
+                    // Subtle top highlight & bottom kiln-char bevel
+                    ctx.fillStyle = 'rgba(255,240,220,0.08)';
+                    ctx.fillRect(bx, by, w, 3);
+                    ctx.fillStyle = 'rgba(25,14,10,0.18)';
+                    ctx.fillRect(bx, by + h - 3, w, 3);
+
+                    for (let py = Math.max(0, by); py < Math.min(S, by + h); py++) {
+                        for (let px = Math.max(0, bx); px < Math.min(S, bx + w); px++) {
+                            const idx = py * S + px;
+                            const edgeDist = Math.min(px - bx, bx + w - 1 - px, py - by, by + h - 1 - py);
+                            const bevel = Math.min(1, edgeDist / 2.5);
+                            height[idx] = 0.45 + bevel * 0.40 + (fbm[idx] - 0.5) * 0.14;
+                            rough[idx] = 0.86 + (1 - bevel) * 0.08 + (fbm[idx] - 0.5) * 0.06;
+                        }
+                    }
                 }
             }
+            // Subtle micro-grime & weathering overlay
+            const img = ctx.getImageData(0, 0, S, S);
+            const d = img.data;
+            for (let i = 0, j = 0; i < fbm.length; i++, j += 4) {
+                const n = (fbm[i] - 0.5) * 34;
+                d[j] = Math.max(0, Math.min(255, d[j] + n));
+                d[j + 1] = Math.max(0, Math.min(255, d[j + 1] + n * 0.92));
+                d[j + 2] = Math.max(0, Math.min(255, d[j + 2] + n * 0.85));
+            }
+            ctx.putImageData(img, 0, 0);
+
+            this.heightMaps.brick = this._normalFromHeight(height, S, S, 2.2);
+            this.roughMaps.brick = this._roughnessTex(rough, S, S);
             return (this.textures.brick = this._toTex(c, 1, 1, true));
         }
 
         _makeWoodTexture(key, c1, c2) {
             if (this.textures[key]) return this.textures[key];
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
-            const rng = seededNoise(4421);
-            ctx.fillStyle = c1;
-            ctx.fillRect(0, 0, 256, 256);
-            for (let y = 0; y < 256; y += 32) {
-                ctx.fillStyle = c2;
-                ctx.fillRect(0, y, 256, 2);
-                for (let g = 0; g < 14; g++) {
-                    ctx.fillStyle = `rgba(30,18,10,${0.08 + rng() * 0.14})`;
-                    ctx.fillRect(0, y + rng() * 30, 256, 1 + rng() * 2);
+            const rng = seededNoise(4421 + key.length * 197);
+            const fbm = this._fbmField(S, S, seededNoise(4423 + key.length * 71));
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            const col1 = new THREE.Color(c1);
+            const col2 = new THREE.Color(c2);
+            const img = ctx.createImageData(S, S);
+            const d = img.data;
+
+            const plankH = 64;
+            for (let y = 0; y < S; y++) {
+                const row = Math.floor(y / plankH);
+                const py = y % plankH;
+                const rowSeed = (row * 17 + 5) % 13;
+                const seamY = py < 3 || py >= plankH - 2;
+                const jointX = ((row * 193 + 96) % S);
+
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    const seamX = Math.abs(x - jointX) < 2;
+                    const seam = seamY || seamX;
+                    // Continuous wood grain ring waves along X
+                    const grainPhase = (y * 0.34 + fbm[idx] * 9.5 + Math.sin(x * 0.025 + rowSeed) * 3.8);
+                    const ring = 0.5 + 0.5 * Math.sin(grainPhase);
+                    const fineFiber = (fbm[(y * S + ((x * 3) % S))] - 0.5) * 0.25;
+                    const plankTone = ((row % 3) - 1) * 0.06;
+
+                    let mixT = seam ? 0.92 : (0.18 + ring * 0.35 + fineFiber + plankTone);
+                    mixT = Math.max(0, Math.min(1, mixT));
+
+                    const r = col1.r * (1 - mixT) + col2.r * mixT;
+                    const g = col1.g * (1 - mixT) + col2.g * mixT;
+                    const b = col1.b * (1 - mixT) + col2.b * mixT;
+                    const j = idx * 4;
+                    d[j] = Math.max(0, Math.min(255, Math.round(r * 255)));
+                    d[j + 1] = Math.max(0, Math.min(255, Math.round(g * 255)));
+                    d[j + 2] = Math.max(0, Math.min(255, Math.round(b * 255)));
+                    d[j + 3] = 255;
+
+                    height[idx] = seam ? 0.15 : (0.72 + ring * 0.16 + fineFiber * 0.12);
+                    rough[idx] = seam ? 0.95 : (0.78 + ring * 0.12 + (fbm[idx] - 0.5) * 0.08);
                 }
             }
+            ctx.putImageData(img, 0, 0);
+
+            // Subtle nail heads near plank joints
+            ctx.fillStyle = 'rgba(22,18,16,0.72)';
+            for (let row = 0; row < S / plankH; row++) {
+                const jx = (row * 193 + 96) % S;
+                const cy1 = row * plankH + 14;
+                const cy2 = row * plankH + plankH - 14;
+                for (const nx of [(jx + 12) % S, (jx - 12 + S) % S]) {
+                    ctx.beginPath(); ctx.arc(nx, cy1, 2.2, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(nx, cy2, 2.2, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            this.heightMaps[key] = this._normalFromHeight(height, S, S, 1.85);
+            this.roughMaps[key] = this._roughnessTex(rough, S, S);
             return (this.textures[key] = this._toTex(c, 1, 1, true));
         }
 
         _makeCrateTexture() {
             if (this.textures.wood_crate) return this.textures.wood_crate;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#6f5130';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.strokeStyle = '#3b2914';
-            ctx.lineWidth = 18;
-            ctx.strokeRect(9, 9, 238, 238);
+            const fbm = this._fbmField(S, S, seededNoise(7731));
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            // Base slatted wood planks
+            ctx.fillStyle = '#6d4f2e';
+            ctx.fillRect(0, 0, S, S);
+            for (let y = 0; y < S; y += 64) {
+                ctx.fillStyle = y % 128 === 0 ? '#735331' : '#654829';
+                ctx.fillRect(0, y, S, 62);
+                ctx.fillStyle = '#332210';
+                ctx.fillRect(0, y + 62, S, 2);
+                for (let g = 0; g < 18; g++) {
+                    ctx.fillStyle = g % 2 ? 'rgba(30,18,8,0.14)' : 'rgba(210,165,110,0.08)';
+                    ctx.fillRect(0, y + ((g * 19) % 60), S, 2);
+                }
+            }
+
+            // Outer frame & diagonal brace
+            ctx.fillStyle = '#4e361c';
+            ctx.fillRect(0, 0, S, 42);
+            ctx.fillRect(0, S - 42, S, 42);
+            ctx.fillRect(0, 0, 42, S);
+            ctx.fillRect(S - 42, 0, 42, S);
+
+            ctx.save();
+            ctx.strokeStyle = '#4a3319';
+            ctx.lineWidth = 34;
             ctx.beginPath();
-            ctx.moveTo(18, 18); ctx.lineTo(238, 238);
-            ctx.moveTo(238, 18); ctx.lineTo(18, 238);
-            ctx.lineWidth = 14;
+            ctx.moveTo(28, 28); ctx.lineTo(S - 28, S - 28);
             ctx.stroke();
+            ctx.restore();
+
+            // Inner frame shadow bevel
+            ctx.strokeStyle = 'rgba(18,10,4,0.65)';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(42, 42, S - 84, S - 84);
+
+            // Stamped dark steel corner brackets + rivets
+            ctx.fillStyle = '#232830';
+            for (const [cx, cy] of [[0, 0], [S - 52, 0], [0, S - 52], [S - 52, S - 52]]) {
+                ctx.fillRect(cx, cy, 52, 52);
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(cx + 8, cy + 8, 6, 6);
+                ctx.fillRect(cx + 38, cy + 8, 6, 6);
+                ctx.fillRect(cx + 8, cy + 38, 6, 6);
+                ctx.fillStyle = '#232830';
+            }
+
+            // Faded military ammo stencil
+            ctx.save();
+            ctx.fillStyle = 'rgba(226, 212, 168, 0.42)';
+            ctx.font = 'bold 26px Consolas, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('ORDNANCE • 7.62', S * 0.5, S * 0.30);
+            ctx.font = 'bold 20px Consolas, monospace';
+            ctx.fillText('LOT 44-B', S * 0.5, S * 0.74);
+            ctx.restore();
+
+            for (let y = 0; y < S; y++) {
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    const inFrame = x < 42 || x >= S - 42 || y < 42 || y >= S - 42;
+                    const onDiag = Math.abs(x - y) < 22;
+                    height[idx] = (inFrame || onDiag ? 0.85 : 0.48) + (fbm[idx] - 0.5) * 0.14;
+                    rough[idx] = (inFrame ? 0.82 : 0.88) + (fbm[idx] - 0.5) * 0.08;
+                }
+            }
+            this.heightMaps.wood_crate = this._normalFromHeight(height, S, S, 2.0);
+            this.roughMaps.wood_crate = this._roughnessTex(rough, S, S);
             return (this.textures.wood_crate = this._toTex(c, 1, 1, true));
         }
 
         _makeDiamondPlateTexture() {
             if (this.textures.diamond_plate) return this.textures.diamond_plate;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#3a414c';
-            ctx.fillRect(0, 0, 256, 256);
-            ctx.fillStyle = '#5a6474';
-            for (let y = 8; y < 256; y += 24) {
-                for (let x = 8; x < 256; x += 24) {
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+            height.fill(0.35);
+            rough.fill(0.48);
+
+            ctx.fillStyle = '#38404b';
+            ctx.fillRect(0, 0, S, S);
+            ctx.fillStyle = '#606b7b';
+            for (let y = 16; y < S; y += 32) {
+                for (let x = 16; x < S; x += 32) {
+                    const alt = ((x + y) / 32) % 2 === 0;
                     ctx.save();
                     ctx.translate(x, y);
-                    ctx.rotate(((x + y) / 24) % 2 === 0 ? 0.78 : -0.78);
-                    ctx.fillRect(-5, -2, 10, 4);
+                    ctx.rotate(alt ? 0.785 : -0.785);
+                    ctx.fillRect(-8, -3, 16, 6);
                     ctx.restore();
+                    for (let dy = -6; dy <= 6; dy++) {
+                        for (let dx = -6; dx <= 6; dx++) {
+                            const px = (x + dx + S) % S, py = (y + dy + S) % S;
+                            if (Math.abs(dx) + Math.abs(dy) < 7) {
+                                height[py * S + px] = 0.88;
+                                rough[py * S + px] = 0.28;
+                            }
+                        }
+                    }
                 }
             }
-            ctx.strokeStyle = '#20252c';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(1, 1, 254, 254);
+            ctx.strokeStyle = '#1e232b';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(2, 2, S - 4, S - 4);
+            this.heightMaps.diamond_plate = this._normalFromHeight(height, S, S, 2.4);
+            this.roughMaps.diamond_plate = this._roughnessTex(rough, S, S);
             return (this.textures.diamond_plate = this._toTex(c, 1, 1, true));
         }
 
         _makeLabPanelTexture() {
             if (this.textures.lab_panel) return this.textures.lab_panel;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
             ctx.fillStyle = '#242e3b';
-            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillRect(0, 0, S, S);
             ctx.strokeStyle = '#121820';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(4, 4, 248, 248);
-            ctx.strokeRect(4, 128, 248, 124);
+            ctx.lineWidth = 6;
+            ctx.strokeRect(6, 6, S - 12, S - 12);
+            ctx.strokeRect(6, 256, S - 12, 250);
             ctx.fillStyle = '#38bdf8';
-            ctx.fillRect(20, 20, 40, 6);
+            ctx.fillRect(32, 32, 72, 10);
             ctx.fillStyle = '#1d2734';
-            ctx.fillRect(20, 146, 216, 86);
+            ctx.fillRect(32, 286, S - 64, 180);
             return (this.textures.lab_panel = this._toTex(c, 1, 1, true));
         }
 
         _makeContainerTexture(key, mainHex, darkHex) {
             if (this.textures[key]) return this.textures[key];
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
-            ctx.fillStyle = mainHex;
-            ctx.fillRect(0, 0, 256, 256);
-            for (let x = 0; x < 256; x += 16) {
-                ctx.fillStyle = darkHex;
-                ctx.fillRect(x, 0, 7, 256);
-                ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                ctx.fillRect(x + 7, 0, 3, 256);
+            const fbm = this._fbmField(S, S, seededNoise(key.length * 2999));
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            const colMain = new THREE.Color(mainHex);
+            const colDark = new THREE.Color(darkHex);
+            const img = ctx.createImageData(S, S);
+            const d = img.data;
+
+            const period = 32;
+            for (let y = 0; y < S; y++) {
+                const topRail = y < 18 || y >= S - 18;
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    const u = (x % period) / period;
+                    // Trapezoidal steel corrugation profile
+                    let h = 0;
+                    if (u < 0.25) h = u / 0.25;
+                    else if (u < 0.55) h = 1.0;
+                    else if (u < 0.80) h = 1.0 - (u - 0.55) / 0.25;
+                    else h = 0.0;
+                    if (topRail) h = 0.92;
+
+                    const rustMask = fbm[idx] > 0.72 && (y < 70 || y > S - 70 || (fbm[(y * S + ((x + 128) % S))] > 0.64));
+                    const grime = (fbm[idx] - 0.5) * 0.18;
+                    let r = (colDark.r + (colMain.r - colDark.r) * (0.35 + h * 0.65)) + grime;
+                    let g = (colDark.g + (colMain.g - colDark.g) * (0.35 + h * 0.65)) + grime;
+                    let b = (colDark.b + (colMain.b - colDark.b) * (0.35 + h * 0.65)) + grime;
+                    if (rustMask) { r = 0.36; g = 0.20; b = 0.12; }
+
+                    const j = idx * 4;
+                    d[j] = Math.max(0, Math.min(255, Math.round(r * 255)));
+                    d[j + 1] = Math.max(0, Math.min(255, Math.round(g * 255)));
+                    d[j + 2] = Math.max(0, Math.min(255, Math.round(b * 255)));
+                    d[j + 3] = 255;
+
+                    height[idx] = h * 0.85;
+                    rough[idx] = rustMask ? 0.88 : (0.50 + (1 - h) * 0.14 + grime * 0.2);
+                }
             }
-            ctx.fillStyle = darkHex;
-            ctx.fillRect(0, 0, 256, 10);
-            ctx.fillRect(0, 246, 256, 10);
+            ctx.putImageData(img, 0, 0);
+            this.heightMaps[key] = this._normalFromHeight(height, S, S, 2.2);
+            this.roughMaps[key] = this._roughnessTex(rough, S, S);
             return (this.textures[key] = this._toTex(c, 1, 1, true));
         }
 
         _makeTheaterCarpetTexture() {
             if (this.textures.theater_carpet) return this.textures.theater_carpet;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
             ctx.fillStyle = '#5e141c';
-            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillRect(0, 0, S, S);
             ctx.strokeStyle = '#ca9e3b';
-            ctx.lineWidth = 3;
-            for (let y = 0; y < 256; y += 64) {
-                for (let x = 0; x < 256; x += 64) {
+            ctx.lineWidth = 4;
+            for (let y = 0; y < S; y += 64) {
+                for (let x = 0; x < S; x += 64) {
                     ctx.beginPath();
                     ctx.moveTo(x + 32, y + 6);
                     ctx.lineTo(x + 58, y + 32);
@@ -578,41 +895,228 @@ roughnessFactor = clamp(roughnessFactor * mix(0.88, 1.08, boN), 0.04, 1.0);`);
 
         _makePentagonMarbleTexture() {
             if (this.textures.pentagon_marble) return this.textures.pentagon_marble;
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
             const rng = seededNoise(5551);
             ctx.fillStyle = '#cfd4dc';
-            ctx.fillRect(0, 0, 256, 256);
+            ctx.fillRect(0, 0, S, S);
             ctx.strokeStyle = 'rgba(100,116,139,0.32)';
-            ctx.lineWidth = 2;
-            for (let i = 0; i < 18; i++) {
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 28; i++) {
                 ctx.beginPath();
-                ctx.moveTo(rng() * 256, rng() * 256);
-                ctx.bezierCurveTo(rng() * 256, rng() * 256, rng() * 256, rng() * 256, rng() * 256, rng() * 256);
+                ctx.moveTo(rng() * S, rng() * S);
+                ctx.bezierCurveTo(rng() * S, rng() * S, rng() * S, rng() * S, rng() * S, rng() * S);
                 ctx.stroke();
             }
             ctx.strokeStyle = 'rgba(51,65,85,0.42)';
-            ctx.lineWidth = 3;
-            for (let g = 0; g <= 256; g += 128) {
-                ctx.beginPath(); ctx.moveTo(g, 0); ctx.lineTo(g, 256); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, g); ctx.lineTo(256, g); ctx.stroke();
+            ctx.lineWidth = 4;
+            for (let g = 0; g <= S; g += 128) {
+                ctx.beginPath(); ctx.moveTo(g, 0); ctx.lineTo(g, S); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, g); ctx.lineTo(S, g); ctx.stroke();
             }
             return (this.textures.pentagon_marble = this._toTex(c, 1, 1, true));
         }
 
+        /** Authentic 512x512 painted clapboard wood siding: sloped planks, crisp bottom lip shadow, fine horizontal wood grain, butt joints & matte roughness. */
         _makeSidingTexture(key, mainHex, lineHex) {
             if (this.textures[key]) return this.textures[key];
-            const c = this._makeCanvas(256, 256);
+            const S = 512, c = this._makeCanvas(S, S);
             const ctx = c.getContext('2d');
-            ctx.fillStyle = mainHex;
-            ctx.fillRect(0, 0, 256, 256);
-            for (let y = 0; y < 256; y += 24) {
-                ctx.fillStyle = lineHex;
-                ctx.fillRect(0, y, 256, 4);
-                ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                ctx.fillRect(0, y + 4, 256, 2);
+            const rng = seededNoise(key.length * 6131 + mainHex.charCodeAt(1) * 149);
+            const fbm = this._fbmField(S, S, rng);
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            const colMain = new THREE.Color(mainHex);
+            const colShadow = new THREE.Color(lineHex);
+            const img = ctx.createImageData(S, S);
+            const d = img.data;
+
+            const courses = 12;
+            const courseH = S / courses;
+
+            for (let y = 0; y < S; y++) {
+                const courseIdx = Math.floor(y / courseH);
+                const localY = y - courseIdx * courseH;
+                const t = localY / courseH; // 0 = top tucked edge, 1 = projecting bottom lip
+                const jointX = ((courseIdx * 173 + 64) % S);
+
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    // Fine horizontal painted wood grain (high-frequency along Y, elongated along X)
+                    const grainX = (x * 0.04 + courseIdx * 11.3);
+                    const grainSample = fbm[(Math.floor(y * 1.4) % S) * S + (Math.floor(x * 0.25) % S)];
+                    const brush = Math.sin(y * 1.35 + grainSample * 6.0) * 0.024 + (grainSample - 0.5) * 0.065;
+
+                    // Crisp clapboard contact shadow right underneath the upper plank's bottom lip (top 3 px of each course)
+                    const underShadow = localY < 3.5 ? (1.0 - localY / 3.5) * 0.62 : 0.0;
+                    // Subtle chalky dust / sun-fade variation per plank
+                    const plankTone = ((courseIdx * 7) % 5 - 2) * 0.015;
+                    const buttJoint = Math.abs(x - jointX) < 1.5 ? 0.28 : 0.0;
+
+                    // Subtle bottom-edge specular catch (very soft, non-plastic)
+                    const lipLight = localY >= courseH - 2.0 ? 0.045 : 0.0;
+                    const slopeShade = (1.0 - t) * 0.05; // top slightly recessed in shadow
+
+                    const shade = Math.max(0.25, 1.0 - underShadow - buttJoint - slopeShade + plankTone + brush + lipLight);
+                    const r = colMain.r * shade + colShadow.r * underShadow * 0.45;
+                    const g = colMain.g * shade + colShadow.g * underShadow * 0.45;
+                    const b = colMain.b * shade + colShadow.b * underShadow * 0.45;
+
+                    const j = idx * 4;
+                    d[j] = Math.max(0, Math.min(255, Math.round(r * 255)));
+                    d[j + 1] = Math.max(0, Math.min(255, Math.round(g * 255)));
+                    d[j + 2] = Math.max(0, Math.min(255, Math.round(b * 255)));
+                    d[j + 3] = 255;
+
+                    // Linear clapboard slope heightfield: crisp step at course boundary, flat-sloped plank face!
+                    const jointDip = buttJoint > 0 ? -0.18 : 0.0;
+                    height[idx] = Math.max(0, Math.min(1, 0.15 + t * 0.72 + brush * 0.5 + jointDip));
+                    // Exterior matte painted wood: 0.85..0.96 roughness so it NEVER looks like plastic!
+                    rough[idx] = Math.max(0.82, Math.min(0.98, 0.86 + (1.0 - t) * 0.05 + underShadow * 0.08 + (fbm[idx] - 0.5) * 0.06));
+                }
             }
+            ctx.putImageData(img, 0, 0);
+
+            // Subtle countersunk nail heads along stud spacing (every 128px)
+            ctx.fillStyle = 'rgba(18,22,20,0.22)';
+            for (let row = 0; row < courses; row++) {
+                const ny = Math.round((row + 0.72) * courseH);
+                for (let nx = 32; nx < S; nx += 128) {
+                    ctx.beginPath(); ctx.arc(nx + (row % 2) * 16, ny, 1.4, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            this.heightMaps[key] = this._normalFromHeight(height, S, S, 1.55);
+            this.roughMaps[key] = this._roughnessTex(rough, S, S);
             return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        _makeNuketownGrassTexture() {
+            if (this.textures.nuketown_grass) return this.textures.nuketown_grass;
+            const S = 512, c = this._makeCanvas(S, S);
+            const ctx = c.getContext('2d');
+            const rng = seededNoise(8812);
+            const fbm = this._fbmField(S, S, rng);
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+            const img = ctx.createImageData(S, S);
+            const d = img.data;
+
+            for (let y = 0; y < S; y++) {
+                const stripe = Math.sin(y / S * Math.PI * 4) * 0.03;
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    const n = fbm[idx];
+                    const blade = (fbm[((y * 3) % S) * S + ((x * 3) % S)] - 0.5) * 0.16;
+                    const dryPatch = Math.max(0, n - 0.62) * 0.45;
+                    const r = 0.28 + blade * 0.5 + dryPatch * 0.35 + stripe;
+                    const g = 0.36 + blade * 0.7 + dryPatch * 0.15 + stripe;
+                    const b = 0.17 + blade * 0.3 + dryPatch * 0.10;
+                    const j = idx * 4;
+                    d[j] = Math.max(0, Math.min(255, Math.round(r * 255)));
+                    d[j + 1] = Math.max(0, Math.min(255, Math.round(g * 255)));
+                    d[j + 2] = Math.max(0, Math.min(255, Math.round(b * 255)));
+                    d[j + 3] = 255;
+                    height[idx] = 0.5 + blade * 1.4;
+                    rough[idx] = 0.90 + n * 0.08;
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+            this.heightMaps.nuketown_grass = this._normalFromHeight(height, S, S, 1.35);
+            this.roughMaps.nuketown_grass = this._roughnessTex(rough, S, S);
+            return (this.textures.nuketown_grass = this._toTex(c, 1, 1, true));
+        }
+
+        /** Painted sheet metal with riveted panel seams and subtle clearcoat wear for vehicles/aircraft. */
+        _makeVehiclePaintTexture(key, mainHex, darkHex, trimHex) {
+            if (this.textures[key]) return this.textures[key];
+            const S = 512, c = this._makeCanvas(S, S);
+            const ctx = c.getContext('2d');
+            const fbm = this._fbmField(S, S, seededNoise(key.length * 4111));
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            ctx.fillStyle = mainHex;
+            ctx.fillRect(0, 0, S, S);
+            // Subtle painted steel mottling
+            const img = ctx.getImageData(0, 0, S, S);
+            const d = img.data;
+            for (let i = 0, j = 0; i < fbm.length; i++, j += 4) {
+                const n = (fbm[i] - 0.5) * 18;
+                d[j] = Math.max(0, Math.min(255, d[j] + n));
+                d[j + 1] = Math.max(0, Math.min(255, d[j + 1] + n));
+                d[j + 2] = Math.max(0, Math.min(255, d[j + 2] + n));
+                height[i] = 0.72 + (fbm[i] - 0.5) * 0.04;
+                rough[i] = 0.36 + (fbm[i] - 0.5) * 0.16;
+            }
+            ctx.putImageData(img, 0, 0);
+
+            // Clean riveted sheet-metal panel seams & horizontal rub rail
+            ctx.strokeStyle = darkHex;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(2, 2, S - 4, S - 4);
+            ctx.beginPath(); ctx.moveTo(0, S * 0.5); ctx.lineTo(S, S * 0.5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(S * 0.5, 0); ctx.lineTo(S * 0.5, S); ctx.stroke();
+
+            ctx.fillStyle = trimHex;
+            ctx.fillRect(0, S * 0.46, S, 10);
+
+            ctx.fillStyle = darkHex;
+            for (let p = 24; p < S; p += 48) {
+                ctx.beginPath(); ctx.arc(p, 16, 2.2, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.arc(p, S * 0.5 + 14, 2.2, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // Carve panel seam lines into heightfield
+            for (let x = 0; x < S; x++) {
+                height[x] = 0.25;
+                height[(S >> 1) * S + x] = 0.28;
+            }
+            for (let y = 0; y < S; y++) {
+                height[y * S] = 0.25;
+                height[y * S + (S >> 1)] = 0.28;
+            }
+            this.heightMaps[key] = this._normalFromHeight(height, S, S, 1.4);
+            this.roughMaps[key] = this._roughnessTex(rough, S, S);
+            return (this.textures[key] = this._toTex(c, 1, 1, true));
+        }
+
+        _makeRoofShingleTexture() {
+            if (this.textures.dark_slate_roof) return this.textures.dark_slate_roof;
+            const S = 512, c = this._makeCanvas(S, S);
+            const ctx = c.getContext('2d');
+            const rng = seededNoise(6619);
+            const fbm = this._fbmField(S, S, rng);
+            const height = new Float32Array(S * S);
+            const rough = new Float32Array(S * S);
+
+            ctx.fillStyle = '#252930';
+            ctx.fillRect(0, 0, S, S);
+            const rows = 16, rh = S / rows, sw = 64;
+            for (let r = 0; r < rows; r++) {
+                const ox = (r % 2) * 32;
+                for (let col = -1; col < 9; col++) {
+                    const sx = col * sw + ox;
+                    const sy = r * rh;
+                    const v = Math.round((rng() - 0.5) * 18);
+                    ctx.fillStyle = `rgb(${38 + v},${42 + v},${49 + v})`;
+                    ctx.fillRect(sx + 1, sy + 1, sw - 2, rh - 2);
+                    ctx.fillStyle = 'rgba(10,12,16,0.55)';
+                    ctx.fillRect(sx, sy, sw, 3);
+                }
+            }
+            for (let y = 0; y < S; y++) {
+                const ly = (y % rh) / rh;
+                for (let x = 0; x < S; x++) {
+                    const idx = y * S + x;
+                    height[idx] = 0.2 + ly * 0.65 + (fbm[idx] - 0.5) * 0.15;
+                    rough[idx] = 0.88 + (fbm[idx] - 0.5) * 0.08;
+                }
+            }
+            this.heightMaps.dark_slate_roof = this._normalFromHeight(height, S, S, 1.6);
+            this.roughMaps.dark_slate_roof = this._roughnessTex(rough, S, S);
+            return (this.textures.dark_slate_roof = this._toTex(c, 1, 1, true));
         }
 
         getCamoMaterial(camoId, baseHex = 0x2a2f38, isPaP = false) {

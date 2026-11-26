@@ -160,6 +160,20 @@
                 tw.rotation.z -= dt * 6;
             });
             for (let i = 0; i < 10; i++) { const r = A.rock(0.4 + (i % 3) * 0.3, 0x9a6a44); r.position.set((i % 2 ? 1 : -1) * (3 + i * 0.7), 0.1, -3 - i * 3); S.add(r); }
+            // Western hitching rails + desert mesas + circling hawk
+            for (const sx of [-5.2, 5.2]) {
+                const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.1, 6), std(0x451a03, 0.9)); post1.position.set(sx, 0.55, -5.5);
+                const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 6), std(0x451a03, 0.9)); bar.rotation.x = Math.PI / 2; bar.position.set(sx, 0.95, -5.5);
+                S.add(post1, bar);
+            }
+            for (const [mx, mz, mr, mh] of [[-24, -62, 12, 16], [26, -66, 14, 18]]) {
+                const mesa = new THREE.Mesh(new THREE.CylinderGeometry(mr * 0.65, mr, mh, 10), std(0x9a3412, 0.95));
+                mesa.position.set(mx, mh * 0.5, mz); S.add(mesa);
+            }
+            const hawk = new THREE.Group();
+            for (const hs of [-1, 1]) { const hw = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.04, 0.25), std(0x292524, 0.8)); hw.position.x = hs * 0.45; hw.rotation.z = hs * 0.2; hawk.add(hw); }
+            S.add(hawk);
+            S.animate(() => { const t = performance.now() * 0.0008; hawk.position.set(Math.cos(t) * 14, 15 + Math.sin(t * 2), -20 + Math.sin(t) * 10); hawk.rotation.y = -t; });
         },
         onGo(S) { startRound(S); },
         hideViewmodel(S) { return S.data.phase === 'ready' || S.data.phase === 'intro'; },
@@ -315,6 +329,14 @@
             p.position.set(-5 + i * 3.4, 2.6, -11.8);
             S.add(p);
         }
+        // Neon ceiling strips & token change machine on wall
+        for (const sx of [-3.5, 3.5]) {
+            const tube = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 14), basic(sx < 0 ? 0x22d3ee : 0xf472b6));
+            tube.position.set(sx, 5.2, -3.5); S.add(tube);
+        }
+        const tok = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.9, 0.8), std(0xfacc15, 0.35, 0.6)); tok.position.set(-4.6, 0.95, -5.0);
+        const tokSg = A.sign('TOKENS', 0.9, 0.35, { bg: '#111827', color: '#fde047', borderColor: '#eab308', size: 0.55 }); tokSg.position.set(-4.6, 1.5, -4.58);
+        S.add(tok, tokSg);
         if (BO.Settings.getQualityPreset().pointLights) {
             const pl = new THREE.PointLight(0xc4b5fd, 1.2, 14, 1.6);
             pl.position.set(0, 4, -2);
@@ -448,8 +470,15 @@
                 arcadeRoom(S, cfg.accentHex || cfg.accent);
                 S.data.cab = buildCabinet(S, cfg);
                 S.data.game = newGame(S, S.data.cab);
-                lockPlayer(S, 0, 0.9, 1.62);
-                BO.Player.pitch = 0.09;
+                if (cfg.freeMove) {
+                    S.collider(-5.6, 0, -0.6, -5.2, 4, 4.4);
+                    S.collider(5.2, 0, -0.6, 5.6, 4, 4.4);
+                    S.collider(-5.6, 0, 4.1, 5.6, 4, 4.5);
+                    S.collider(-1.4, 0, -1.6, 1.4, 3, -0.5);
+                } else {
+                    lockPlayer(S, 0, 0.9, 1.62);
+                    BO.Player.pitch = 0.09;
+                }
                 this.draw(S, 0);
             },
             schedule(S) {
@@ -760,8 +789,8 @@
     }
 
     cabinet({
-        id: 'cab_wild_hunt', order: 2, name: 'Wild Hunt', icon: '🦌', accent: '#65a30d',
-        tagline: 'Retro hunting shooter in a real cabinet',
+        id: 'cab_wild_hunt', order: 2, name: 'Wild Hunt', icon: '🦌', accent: '#65a30d', freeMove: true,
+        tagline: 'Retro hunting shooter in a real cabinet (free move!)',
         desc: 'Walk up to the Wild Hunt cabinet and shoot the screen. Deer run across the meadow, rabbits hop, ducks burst out of the grass, boars charge and bears lumber towards you and take four hits. A golden pheasant is worth a fortune. Do not shoot hikers or cows.',
         title: 'WILD HUNT', neon: 0x84cc16, body: 0x14532d, trim: 0x052e16, marqColor: '#fde68a', hudCol: '#fde68a',
         stars: [4000, 8000, 13000, 19000],
@@ -926,8 +955,8 @@
     }
 
     cabinet({
-        id: 'cab_night_terrors', order: 3, name: 'Night Terrors', icon: '🧟', accent: '#a855f7',
-        tagline: 'Zombies, aliens and monsters on a cabinet',
+        id: 'cab_night_terrors', order: 3, name: 'Night Terrors', icon: '🧟', accent: '#a855f7', freeMove: true,
+        tagline: 'Zombies, aliens and monsters on a cabinet (free move!)',
         desc: 'A haunted-graveyard light-gun game. Zombies shamble towards the screen and take two hits. Bats swoop, flying saucers zigzag overhead, ghosts flicker in and out, and werewolves charge. Anything that reaches you costs a life, and you have three. At 40 seconds the Eye Beast rises: only its eye can be hurt. Never shoot a survivor.',
         title: 'NIGHT TERRORS', neon: 0xa855f7, body: 0x2e1065, trim: 0x13002e, marqColor: '#e9d5ff', hudCol: '#d8b4fe',
         stars: [5000, 10000, 16000, 23000],

@@ -17,7 +17,7 @@
 
     const BO = global.BO;
     const BaseBox = THREE.BoxGeometry;
-    const CFG = { ratio: 0.14, max: 0.045, min: 0.0015 };
+    const CFG = { ratio: 0.14, max: 0.045, archMax: 0.014, archRatio: 0.04, min: 0.0015 };
 
     function bevelEnabled() {
         try {
@@ -69,7 +69,11 @@
             const explicitSegments = arguments.length > 3;
             const unit = width === 1 && height === 1 && depth === 1;
             const m = Math.min(Math.abs(width), Math.abs(height), Math.abs(depth));
-            const r = Math.min(CFG.max, m * CFG.ratio);
+            const maxDim = Math.max(Math.abs(width), Math.abs(height), Math.abs(depth));
+            const isArch = maxDim >= 2.2;
+            const r = isArch
+                ? Math.min(CFG.archMax, m * CFG.archRatio)
+                : Math.min(CFG.max, m * CFG.ratio);
             const plain = explicitSegments || unit || !(r >= CFG.min) || !isFinite(r) || !bevelEnabled();
             if (plain) {
                 super(width, height, depth, widthSegments, heightSegments, depthSegments);

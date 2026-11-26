@@ -59,7 +59,8 @@
         hudSub: 'Fire when the ring meets the disc • on-time hits build the song',
         heroLabel: 'TARGET PRACTICE • RHYTHM • 11 SONGS • 4 MODES',
         duration: 61, stars: [15000, 35000, 60000, 85000], standardWeapon: 'p90', customMusic: true, forgivingMisses: true, infiniteMag: true,
-        oneTargetPerShot: true,
+        oneTargetPerShot: true, hasExample: true,
+        blockFire: (S) => !!(S && S.opts && S.opts.exampleMode),
         hubOptions: [
             { key: 'song', label: 'SONG', default: 'original', choices: BS.SONGS.map((s) => ({ val: s.id, label: (s.id === 'original' ? '★ ' : s.diff + ' • ') + s.name.toUpperCase(), desc: `${s.name} — ${s.artist} • ${s.bpm} BPM • difficulty ${s.diff}/10. ${s.desc}` })) },
             { key: 'mode', label: 'MODE', default: 'medium', choices: Object.entries(BS.MODES).map(([k, m]) => ({ val: k, label: m.label, desc: m.desc })) }
@@ -253,6 +254,41 @@
                     }
                 } else S.data.songT = S.t;
                 if (state === 'running') S.data.grooveTime[S.data.level] += dt;
+                if (state === 'running' && S.opts.exampleMode) {
+                    let best = null, bestT = Infinity;
+                    for (const tg of S.targets) {
+                        if (tg.alive && tg.hitT !== undefined && tg.hitT < bestT) { bestT = tg.hitT; best = tg; }
+                    }
+                    if (best) {
+                        const cam = BO.App.worldCamera;
+                        if (cam) {
+                            const dx = best.root.position.x - cam.position.x;
+                            const dy = best.root.position.y - cam.position.y;
+                            const dz = best.root.position.z - cam.position.z;
+                            const dist = Math.max(0.1, Math.hypot(dx, dz));
+                            const wy = Math.atan2(-dx, -dz);
+                            const wp = BO.Math.clamp(Math.atan2(dy, dist), -1.2, 1.2);
+                            const trackSpd = Math.min(1, dt * ((best.hitT - S.data.songT) < 0.16 ? 26 : 12));
+                            BO.Player.yaw += BO.Math.angleDiff(BO.Player.yaw, wy) * trackSpd;
+                            BO.Player.pitch = BO.Math.lerp(BO.Player.pitch, wp, trackSpd);
+                        }
+                        if (S.data.songT >= best.hitT - 0.008) {
+                            S.shots++;
+                            S.shotHits++;
+                            if (cam) {
+                                const fwd = new THREE.Vector3(), right = new THREE.Vector3();
+                                cam.getWorldDirection(fwd);
+                                right.crossVectors(fwd, V(0, 1, 0)).normalize();
+                                const muzzle = cam.position.clone().addScaledVector(fwd, 0.55).addScaledVector(right, 0.22).add(V(0, -0.16, 0));
+                                BO.FX.spawnTracer(muzzle, best.root.position.clone(), 0x22d3ee, 0.045, 0.12);
+                                BO.FX.spawnParticles(muzzle, 4, 0xfef08a, 2.2, 0, 0.12, 0.55);
+                                BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.006);
+                            }
+                            this.gunSound(S);
+                            this.onHit(S, best, { pt: best.root.position.clone() });
+                        }
+                    }
+                }
             }
             // groove decays slowly; layers follow it
             if (state === 'running') S.data.groove = Math.max(0, S.data.groove - dt * 1.5);
@@ -313,7 +349,8 @@
             S.kills++;
             if (j !== 'OFF') S.bumpCombo(); else S.breakCombo(d < 0 ? 'EARLY' : 'LATE');
             const mult = S.comboMult;
-            S.award(base * mult, info.pt, (j === 'OFF' ? S.data.lastJudge : j) + (mult > 1 ? ' x' + mult.toFixed(1).replace('.0', '') : ''), col);
+            const pts = S.opts.exampleMode ? 0 : base * mult;
+            S.award(pts, info.pt, (j === 'OFF' ? S.data.lastJudge : j) + (S.opts.exampleMode ? ' (DEMO)' : (mult > 1 ? ' x' + mult.toFixed(1).replace('.0', '') : '')), col);
             if (j === 'PERFECT' && S.data.bus) {
                 const t = S.data.bus.ctx.currentTime;
                 bOsc(S.data.bus, 'fx', t + 0.02, 1760, 1760, 0.25, 'sine', 0.05);
@@ -325,7 +362,8 @@
         hud(S) {
             const g = S.data.groove;
             const fresh = performance.now() - (S.data.lastJudgeT || 0) < 450;
-            return `<div class="mgx-groove"><small>GROOVE</small><div class="mgx-groove-bar"><i style="width:${g.toFixed(0)}%"></i>${LAYERS.map((ly) => `<em style="left:${ly.at}%"></em>`).join('')}</div>
+            const demoBadge = S.opts.exampleMode ? '<div class="mgx-chip mgx-hot">🎬 1ST-PERSON EXAMPLE POV • 0 PTS EARNED • [ESC] EXIT</div>' : '';
+            return `${demoBadge}<div class="mgx-groove"><small>GROOVE</small><div class="mgx-groove-bar"><i style="width:${g.toFixed(0)}%"></i>${LAYERS.map((ly) => `<em style="left:${ly.at}%"></em>`).join('')}</div>
                 <div class="mgx-layers"><span class="on">DRUMS</span>${LAYERS.map((ly, i) => `<span class="${i < S.data.level ? 'on' : ''}">${ly.id.toUpperCase()}</span>`).join('')}</div></div>
                 ${fresh ? `<div class="mgx-judge mgx-j-${S.data.lastJudge}">${S.data.lastJudge}</div>` : ''}`;
         },
@@ -336,10 +374,23 @@
             }
         },
         result(S) {
-            const stars = BS.stars(S.data.song, S.data.mode).filter((th) => S.score >= th).length;
             const j = S.data.judge;
             const total = S.data.noteCount || 1;
             const fullMix = S.data.grooveTime[4];
+            if (S.opts.exampleMode) {
+                return {
+                    score: 0, stars: 0,
+                    title: '100% PERFECT POV EXAMPLE (0 POINTS AWARDED)',
+                    stats: [
+                        ['PERFECT', j.PERFECT], ['GREAT', j.GREAT], ['GOOD', j.GOOD],
+                        ['MISSED', j.MISS + ' / ' + total], ['FULL MIX TIME', fullMix.toFixed(1) + 's'],
+                        ['NOTE', 'Play yourself to earn points & stars!']
+                    ],
+                    accuracy: S.shots ? S.shotHits / S.shots : 0,
+                    xp: 0
+                };
+            }
+            const stars = BS.stars(S.data.song, S.data.mode).filter((th) => S.score >= th).length;
             return {
                 score: S.score, stars,
                 title: stars >= 4 ? 'PLATINUM RECORD' : stars === 3 ? 'GOLD RECORD' : stars === 2 ? 'SILVER' : stars === 1 ? 'BRONZE' : 'KEEP PRACTISING',
@@ -465,21 +516,24 @@
     });
 
     /* =====================================================================
-       13. OUTLAW PURSUIT — gallop through the desert, bandits close in
+       13. OUTLAW PURSUIT — linear expedition across 5 frontier biomes!
     ===================================================================== */
     const TRAIL_PTS = (() => {
         const pts = [];
-        const N = 30;
+        const N = 34;
         for (let i = 0; i < N; i++) {
-            const a = i / N * TAU;
-            const r = 125 + Math.sin(a * 3) * 22 + Math.cos(a * 5) * 9;
-            pts.push(V(Math.cos(a) * r, 0, Math.sin(a) * r * 0.82));
+            const t = i / (N - 1);
+            const z = -t * 1050;
+            const x = Math.sin(t * Math.PI * 3.2) * 34 + Math.cos(t * Math.PI * 1.5) * 16;
+            // Subtle elevation changes: high Mountain Pass early, dipping to River valley, flat Town & Highway
+            const y = t < 0.22 ? Math.sin(t / 0.22 * Math.PI) * 5.5 : (t > 0.38 && t < 0.58 ? -Math.sin((t - 0.38) / 0.20 * Math.PI) * 1.4 : 0);
+            pts.push(V(x, y, z));
         }
         return pts;
     })();
 
     function railFrame(R, s) {
-        const u = (((s / R.len) % 1) + 1) % 1;
+        const u = R.closed ? (((s / R.len) % 1) + 1) % 1 : clamp01(s / R.len);
         const p = R.curve.getPointAt(u);
         const t = R.curve.getTangentAt(u);
         const side = V(t.z, 0, -t.x).normalize();   // right-hand side of travel
@@ -541,118 +595,116 @@
     MG.register({
         id: 'outlaw_pursuit', cat: 'target', order: 13,
         name: 'Outlaw Pursuit', icon: '🐎', accent: '#d97706',
-        tagline: 'Ride hard. The gang is closing in.',
-        desc: 'You are a lawman at full gallop across the desert, and the whole gang is after you. Riders close in from behind, pull up alongside, cut across the trail ahead and turn in the saddle to fire back. Look all around you. Any bandit left alive too long takes a shot at you. Snipers wait on the rocks.',
-        hudSub: 'Look behind you! Bandits fire if you leave them alive',
+        tagline: 'Linear chase across mountains, forests, rivers & streets.',
+        desc: 'Gallop straight across the frontier through five vivid regions: high Mountain Pass cliffs, deep Pine Forest, a gleaming River Bank, Frontier Town streets, and busy Wagon & Motorcar Traffic. Outlaws close in from every angle!',
+        hudSub: '5 Biomes • Look behind & ahead for bandits!',
         duration: 60, stars: [3500, 7000, 11000, 15500], standardWeapon: 'python_magnum', rail: true,
         map: {
-            atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xe7b98a, fogDensity: 0.0045, sunColor: 0xffc58a, sunIntensity: 1.8, sunPos: [-80, 30, -40], hemiSky: 0xfed7aa, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
-            boxes: [B(0, -0.5, 0, 460, 1, 460, 'desert_sand')],
-            spawn: { x: TRAIL_PTS[0].x, y: 0, z: TRAIL_PTS[0].z, yaw: 0 }
+            atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xe7b98a, fogDensity: 0.0042, sunColor: 0xffc58a, sunIntensity: 1.8, sunPos: [-80, 30, -40], hemiSky: 0xfed7aa, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
+            boxes: [B(0, -1.2, -525, 520, 1, 1300, 'desert_sand')],
+            spawn: { x: TRAIL_PTS[0].x, y: TRAIL_PTS[0].y, z: TRAIL_PTS[0].z, yaw: 0 }
         },
         build(S) {
-            const R = K.rail(TRAIL_PTS, true, 0.5);
+            const R = K.rail(TRAIL_PTS, false, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
             S.data.speed = 0;
             S.data.hitsTaken = 0;
-            S.add(ribbon(R, 7, 0xb98a5a, 0.02, 400));
-            S.add(ribbon(R, 3.2, 0xa47548, 0.03, 400));
+            S.add(ribbon(R, 8, 0xb98a5a, 0.04, 480));
+            S.add(ribbon(R, 3.6, 0xa47548, 0.06, 480));
             // your horse
             const mine = F.horse({ coat: 0xe7e5e4, mane: 0x44403c, saddle: 0x7c2d12 });
             mine.root.traverse((m) => { if (m.isMesh) m.castShadow = false; });
             S.add(mine.root);
             S.data.mine = mine;
-            // scenery: cacti, mesas, rocks, telegraph poles, a ghost town
             const rnd = L.mulberry32(1849);
-            const cactusMat = std(0x3f6212, 0.85);
-            for (let i = 0; i < 110; i++) {
-                const f = railFrame(R, rnd() * R.len);
-                const off = (rnd() < 0.5 ? -1 : 1) * (9 + rnd() * 40);
-                const c = new THREE.Group();
-                const h = 2 + rnd() * 2.5;
-                const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, h, 8), cactusMat);
-                trunk.position.y = h / 2;
-                c.add(trunk);
-                for (const s of [-1, 1]) {
-                    if (rnd() < 0.3) continue;
-                    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 1.1, 7), cactusMat);
-                    arm.position.set(s * 0.55, h * (0.45 + rnd() * 0.25) + 0.45, 0);
-                    const elbow = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.55, 7), cactusMat);
-                    elbow.rotation.z = Math.PI / 2;
-                    elbow.position.set(s * 0.3, arm.position.y - 0.5, 0);
-                    c.add(arm, elbow);
-                }
-                c.position.copy(f.p).addScaledVector(f.side, off);
-                c.rotation.y = rnd() * TAU;
-                S.add(c);
+            const vehicles = [];
+            // 1. Mountain Pass (0..22%) -> Towering cliffs, peaks & mountain boulders
+            for (let i = 0; i < 36; i++) {
+                const f = railFrame(R, (i / 36) * R.len * 0.22);
+                const side = i % 2 ? 1 : -1;
+                const h = 14 + rnd() * 20, w = 8 + rnd() * 10;
+                const peak = new THREE.Mesh(new THREE.ConeGeometry(w, h, 7), std(rnd() < 0.5 ? 0x6b7280 : 0x57534e, 0.95));
+                peak.position.copy(f.p).addScaledVector(f.side, side * (16 + rnd() * 14)).add(V(0, h * 0.4, 0));
+                S.add(peak);
             }
-            for (let i = 0; i < 26; i++) {
-                const a = i / 26 * TAU + rnd() * 0.2;
-                const r = 210 + rnd() * 25;
-                const w = 18 + rnd() * 30, h = 14 + rnd() * 22;
-                const mesa = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.75, w, h, 7), std(rnd() < 0.5 ? 0xb45309 : 0x9a3412, 1));
-                mesa.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
-                S.add(mesa);
+            // 2. Pine Forest (20..42%) -> Dense evergreens flanking the trail
+            for (let i = 0; i < 65; i++) {
+                const s = R.len * (0.20 + rnd() * 0.23);
+                const f = railFrame(R, s);
+                const side = rnd() < 0.5 ? -1 : 1;
+                const tr = A.tree(1.4 + rnd() * 1.1, rnd() < 0.5 ? 0x166534 : 0x14532d);
+                tr.position.copy(f.p).addScaledVector(f.side, side * (7.5 + rnd() * 18));
+                S.add(tr);
             }
-            for (let i = 0; i < 40; i++) {
-                const f = railFrame(R, i / 40 * R.len);
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6, 6), std(0x57391c, 0.9));
-                pole.position.copy(f.p).addScaledVector(f.side, -6.5).add(V(0, 3, 0));
-                const bar = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), std(0x57391c, 0.9));
-                bar.position.set(0, 2.6, 0);
-                bar.rotation.y = f.yaw + Math.PI / 2;
-                pole.add(bar);
-                S.add(pole);
+            // 3. Silver River Bank (40..62%) -> Shimmering flowing river alongside the path
+            const riverPts = [];
+            for (let i = 0; i <= 80; i++) {
+                const f = railFrame(R, R.len * (0.38 + (i / 80) * 0.26));
+                riverPts.push(f.p.clone().addScaledVector(f.side, 14).add(V(0, -0.45, 0)));
             }
-            // sniper rocks along the trail
-            S.data.rocks = [];
-            for (let i = 0; i < 9; i++) {
-                const s = (i + 0.5) / 9 * R.len;
+            const riverMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(riverPts), 80, 5.2, 8, false), new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.18, metalness: 0.35 }));
+            riverMesh.scale.y = 0.08;
+            S.add(riverMesh);
+            // 4. Frontier Town Streets (60..82%) -> Saloons, bank, general store & street lanterns
+            for (let i = 0; i < 24; i++) {
+                const s = R.len * (0.60 + (i / 24) * 0.22);
                 const f = railFrame(R, s);
                 const side = i % 2 ? 1 : -1;
-                const p = f.p.clone().addScaledVector(f.side, side * 15);
-                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(3.2, 0), std(0x9a6a44, 1));
+                const b = new THREE.Group();
+                const w = 5.5, h = 4.4 + (i % 3) * 0.8;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, 6.2), std([0x8b5a2b, 0x7c4a1e, 0xa16207, 0x5b3a1e][i % 4], 0.88));
+                body.position.y = h / 2;
+                const facade = new THREE.Mesh(new THREE.BoxGeometry(w, 1.4, 0.3), std(0x3f2a14, 0.85));
+                facade.position.set(0, h + 0.6, 3);
+                const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), basic(0xfde047));
+                lamp.position.set(0, 3.0, 3.8);
+                b.add(body, facade, lamp);
+                b.position.copy(f.p).addScaledVector(f.side, side * 11.5);
+                b.rotation.y = f.yaw + (side > 0 ? -Math.PI / 2 : Math.PI / 2);
+                S.add(b);
+            }
+            // 5. Busy Road & Traffic (78..100%) -> Moving wagons & vintage motorcars
+            for (let i = 0; i < 14; i++) {
+                const vg = new THREE.Group();
+                const col = [0xef4444, 0x3b82f6, 0x16a34a, 0x78350f, 0xfacc15][i % 5];
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.1, 3.6), std(col, 0.45, 0.3));
+                body.position.y = 0.85;
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.65, 2.2), std(i % 2 ? 0x1f2937 : 0xf5f5f4, 0.6));
+                roof.position.y = 1.7;
+                vg.add(body, roof);
+                for (const [wx, wz] of [[-0.95, 1.1], [0.95, 1.1], [-0.95, -1.1], [0.95, -1.1]]) {
+                    const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.22, 10), std(0x111827, 0.9));
+                    wh.rotation.z = Math.PI / 2;
+                    wh.position.set(wx, 0.36, wz);
+                    vg.add(wh);
+                }
+                S.add(vg);
+                vehicles.push({ obj: vg, s: R.len * (0.78 + (i / 14) * 0.22), dir: i % 2 ? 1 : -1, lane: i % 2 ? 3.2 : -3.2, spd: 8 + (i % 4) * 2.5 });
+            }
+            S.animate((dt) => {
+                for (const v of vehicles) {
+                    v.s += v.dir * v.spd * dt;
+                    if (v.s > R.len - 5) v.s = R.len * 0.76;
+                    if (v.s < R.len * 0.76) v.s = R.len - 6;
+                    const f = railFrame(R, v.s);
+                    v.obj.position.copy(f.p).addScaledVector(f.side, v.lane);
+                    v.obj.rotation.y = f.yaw + (v.dir < 0 ? Math.PI : 0);
+                }
+            });
+            // sniper rocks along the whole route
+            S.data.rocks = [];
+            for (let i = 0; i < 14; i++) {
+                const s = (i + 0.5) / 14 * R.len;
+                const f = railFrame(R, s);
+                const side = i % 2 ? 1 : -1;
+                const p = f.p.clone().addScaledVector(f.side, side * 14);
+                const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(3.0, 0), std(0x9a6a44, 1));
                 rock.scale.set(1.3, 0.7, 1.1);
-                rock.position.set(p.x, 1.2, p.z);
+                rock.position.set(p.x, p.y + 1.1, p.z);
                 S.add(rock);
                 S.solid(rock);
-                S.data.rocks.push({ s, p: V(p.x, 3.25, p.z) });
-            }
-            // ghost town near the start/finish
-            for (let i = 0; i < 6; i++) {
-                const f = railFrame(R, R.len - 60 + i * 14);
-                for (const side of [-1, 1]) {
-                    const b = new THREE.Group();
-                    const w = 5, h = 4 + (i % 3);
-                    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, 6), std([0x8b5a2b, 0x7c4a1e, 0xa16207][i % 3], 0.9));
-                    body.position.y = h / 2;
-                    const facade = new THREE.Mesh(new THREE.BoxGeometry(w, 1.5, 0.3), std(0x5b3a1e, 0.9));
-                    facade.position.set(0, h + 0.6, 3);
-                    const porch = new THREE.Mesh(new THREE.BoxGeometry(w, 0.15, 2), std(0x3f2a14, 0.9));
-                    porch.position.set(0, 2.8, 3.8);
-                    b.add(body, facade, porch);
-                    b.position.copy(f.p).addScaledVector(f.side, side * 11);
-                    b.rotation.y = f.yaw + (side > 0 ? -Math.PI / 2 : Math.PI / 2);
-                    S.add(b);
-                }
-            }
-            // tumbleweeds
-            for (let i = 0; i < 8; i++) {
-                const tw = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), new THREE.MeshStandardMaterial({ color: 0xa16207, wireframe: true }));
-                const f = railFrame(R, rnd() * R.len);
-                tw.position.copy(f.p).addScaledVector(f.side, -30).add(V(0, 0.5, 0));
-                S.add(tw);
-                const dir = f.side.clone();
-                const sp = 2 + rnd() * 3;
-                let tt = rnd() * 10;
-                S.animate((dt) => {
-                    tt += dt;
-                    tw.position.addScaledVector(dir, sp * dt);
-                    tw.position.y = 0.5 + Math.abs(Math.sin(tt * 3)) * 0.6;
-                    tw.rotation.x += dt * sp;
-                    if (tt > 30) { tt = 0; tw.position.addScaledVector(dir, -sp * 30); }
-                });
+                S.data.rocks.push({ s, p: V(p.x, p.y + 3.15, p.z) });
             }
             this.preUpdate(S, 0, L, 'countdown');
         },
@@ -727,13 +779,13 @@
         const mounted = kind !== 'ridge';
         const fig = makeBandit(rng, mounted);
         let rock = null;
-        if (!mounted) {
-            rock = S.data.rocks.find((r) => {
-                const ahead = ((r.s - S.data.dist) % R.len + R.len) % R.len;
-                return ahead > 35 && ahead < 110;
-            });
-            if (!rock) return;
-        }
+            if (!mounted) {
+                rock = S.data.rocks.find((r) => {
+                    const ahead = r.s - S.data.dist;
+                    return ahead > 35 && ahead < 110;
+                });
+                if (!rock) return;
+            }
         const grp = new THREE.Group();
         grp.add(mounted ? fig.horse.root : fig.rider.root);
         F.pose(fig.rider, 'aimOne');

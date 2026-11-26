@@ -131,34 +131,77 @@
             const receiver = new THREE.Mesh(new THREE.BoxGeometry(recW, recH, recL), bodyMat);
             gun.add(receiver);
 
-            // Top Picatinny rail
-            const rail = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.52, 0.008, recL * 0.86), darkMat);
-            rail.position.set(0, topY + 0.004, -recL * 0.02);
+            // Chamfered upper receiver spine & ejection-side contour
+            const upperSpine = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.82, recH * 0.22, recL * 0.94), bodyMat);
+            upperSpine.position.set(0, topY - recH * 0.04, 0);
+            gun.add(upperSpine);
+
+            // Pistol / SMG slide machining serrations (tactile close-up viewmodel detail)
+            if (ms.isPistol || recL <= 0.28) {
+                const serCount = 5;
+                for (let s = 0; s < serCount; s++) {
+                    const sz = recL * 0.24 + s * 0.0085;
+                    const sMesh = new THREE.Mesh(new THREE.BoxGeometry(recW * 1.04, recH * 0.56, 0.0032), darkMat);
+                    sMesh.position.set(0, recH * 0.08, sz);
+                    gun.add(sMesh);
+                }
+            }
+
+            // Top Picatinny rail + milled cross-slots
+            const railLen = recL * 0.86;
+            const rail = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.50, 0.007, railLen), darkMat);
+            rail.position.set(0, topY + 0.0045, -recL * 0.02);
             gun.add(rail);
+            const lugCount = Math.max(4, Math.min(10, Math.round(railLen / 0.022)));
+            const lugGeo = new THREE.BoxGeometry(recW * 0.56, 0.0035, 0.0065);
+            for (let i = 0; i < lugCount; i++) {
+                const t = (i + 0.5) / lugCount - 0.5;
+                const lug = new THREE.Mesh(lugGeo, steelMat);
+                lug.position.set(0, topY + 0.009, -recL * 0.02 + t * railLen * 0.90);
+                gun.add(lug);
+            }
 
-            // Pistol Grip (or bullpup offset grip)
-            const grip = new THREE.Mesh(new THREE.BoxGeometry(recW * 0.62, 0.092, 0.036), accentMat);
+            // Ergonomic contoured pistol grip (curved palm-swell capsule + textured baseplate)
             const gripZ = profile.mag === 'stanag_rear' || profile.mag === 'waffle_rear' ? -recL * 0.04 : (ms.isPistol ? recL * 0.24 : recL * 0.28);
-            grip.position.set(0, -recH * 0.5 - 0.036, gripZ);
-            grip.rotation.x = 0.28;
-            gun.add(grip);
+            const gripGroup = new THREE.Group();
+            gripGroup.position.set(0, -recH * 0.5 - 0.038, gripZ);
+            gripGroup.rotation.x = 0.28;
+            const gripCoreGeo = new THREE.CapsuleGeometry(recW * 0.34, 0.064, 6, 12);
+            gripCoreGeo.scale(0.86, 1.0, 1.24);
+            const gripCore = new THREE.Mesh(gripCoreGeo, accentMat);
+            const gripBackstrap = new THREE.Mesh(new THREE.CapsuleGeometry(recW * 0.26, 0.056, 5, 10), darkMat);
+            gripBackstrap.position.set(0, 0.003, 0.009);
+            const gripBase = new THREE.Mesh(new THREE.CylinderGeometry(recW * 0.36, recW * 0.39, 0.009, 12), steelMat);
+            gripBase.scale.set(0.88, 1.0, 1.26);
+            gripBase.position.set(0, -0.044, 0);
+            gripGroup.add(gripCore, gripBackstrap, gripBase);
+            gun.add(gripGroup);
 
-            const trigGuard = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.024, 0.038), darkMat);
-            trigGuard.position.set(0, -recH * 0.5 - 0.012, gripZ - (ms.isPistol ? 0.04 : 0.14));
+            // Curved trigger guard loop + contoured trigger shoe
+            const trigZ = gripZ - (ms.isPistol ? 0.04 : 0.14);
+            const trigLoopGeo = new THREE.TorusGeometry(0.017, 0.0038, 6, 14, Math.PI * 1.15);
+            trigLoopGeo.rotateY(Math.PI * 0.5);
+            trigLoopGeo.rotateX(Math.PI * 0.92);
+            const trigGuard = new THREE.Mesh(trigLoopGeo, darkMat);
+            trigGuard.position.set(0, -recH * 0.5 - 0.006, trigZ);
             gun.add(trigGuard);
 
             // Bolt / Charging Handle
             const boltGroup = new THREE.Group();
-            const boltMesh = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.014, 0.048), steelMat);
-            boltMesh.position.set(recW * 0.52, topY * 0.35, -0.02);
-            boltGroup.add(boltMesh);
+            const boltCarrier = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.046, 10), steelMat);
+            boltCarrier.rotation.x = Math.PI * 0.5;
+            boltCarrier.position.set(recW * 0.50, topY * 0.34, -0.02);
+            const boltKnob = new THREE.Mesh(new THREE.CapsuleGeometry(0.0055, 0.010, 4, 8), darkMat);
+            boltKnob.rotation.z = Math.PI * 0.5;
+            boltKnob.position.set(recW * 0.55, topY * 0.34, -0.005);
+            boltGroup.add(boltCarrier, boltKnob);
             gun.add(boltGroup);
 
             const ejPort = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.018, 0.044), new THREE.MeshStandardMaterial({ color: 0x090c12, roughness: 0.7 }));
             ejPort.position.set(recW * 0.505, topY * 0.25, -0.02);
-            const trigBlade = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.022, 0.008), steelMat);
-            trigBlade.position.set(0, -recH * 0.5 - 0.012, gripZ - (ms.isPistol ? 0.04 : 0.14));
-            trigBlade.rotation.x = 0.28;
+            const trigBlade = new THREE.Mesh(new THREE.CapsuleGeometry(0.0026, 0.015, 4, 8), steelMat);
+            trigBlade.position.set(0, -recH * 0.5 - 0.010, trigZ + 0.002);
+            trigBlade.rotation.x = 0.32;
             gun.add(ejPort, trigBlade);
 
             // Handguard (unless replaced by bespoke sculptural forend in profile)
@@ -420,66 +463,115 @@
         _attachOptic(gun, ms, attachments, darkMat, steelMat, topY, recL, hgLen) {
             const optic = attachments.optic || (ms.defaultScope ? 'sniper_scope' : 'iron');
             let sightY = topY + 0.022;
+            const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false, side: THREE.DoubleSide });
+            const glassMat = (hex, op) => new THREE.MeshStandardMaterial({
+                color: hex, roughness: 0.06, metalness: 0.28, transparent: true, opacity: op, side: THREE.DoubleSide
+            });
+
             if (optic === 'iron') {
-                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.022, 0.018), darkMat);
-                rearL.position.set(-0.010, topY + 0.015, recL * 0.34);
-                const rearR = new THREE.Mesh(new THREE.BoxGeometry(0.007, 0.022, 0.018), darkMat);
-                rearR.position.set(0.010, topY + 0.015, recL * 0.34);
-                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.024, 0.010), darkMat);
+                const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.008, 0.018), darkMat);
+                rearBase.position.set(0, topY + 0.007, recL * 0.34);
+                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.016, 0.014), darkMat);
+                rearL.position.set(-0.009, topY + 0.016, recL * 0.34);
+                const rearR = rearL.clone(); rearR.position.x = 0.009;
+                const tritiumMat = new THREE.MeshBasicMaterial({ color: 0x4ade80, toneMapped: false });
+                const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), tritiumMat);
+                rearDotL.position.set(-0.009, topY + 0.019, recL * 0.34 + 0.0075);
+                const rearDotR = rearDotL.clone(); rearDotR.position.x = 0.009;
+
                 const frontZ = ms.isPistol ? (-recL * 0.44) : (-recL * 0.5 - Math.max(hgLen, 0.08) * 0.85);
-                frontPost.position.set(0, topY + 0.016, frontZ);
-                const tritium = new THREE.Mesh(new THREE.BoxGeometry(0.0035, 0.005, 0.004), new THREE.MeshBasicMaterial({ color: 0x4ade80 }));
-                tritium.position.set(0, topY + 0.025, frontZ + 0.002);
-                gun.add(rearL, rearR, frontPost, tritium);
+                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.010), darkMat);
+                frontPost.position.set(0, topY + 0.014, frontZ);
+                if (!ms.isPistol) {
+                    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0022, 6, 14, Math.PI * 1.25), darkMat);
+                    hood.rotation.z = -Math.PI * 0.125;
+                    hood.position.set(0, topY + 0.018, frontZ);
+                    gun.add(hood);
+                }
+                const tritium = new THREE.Mesh(new THREE.SphereGeometry(0.0020, 8, 8), tritiumMat);
+                tritium.position.set(0, topY + 0.023, frontZ + 0.002);
+                gun.add(rearBase, rearL, rearR, rearDotL, rearDotR, frontPost, tritium);
                 sightY = topY + 0.024;
             } else if (optic === 'reflex') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.012, 0.056), darkMat);
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.011, 0.056), darkMat);
                 base.position.set(0, topY + 0.010, -0.02);
-                const hoodTop = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.005, 0.026), darkMat);
-                hoodTop.position.set(0, topY + 0.044, -0.02);
-                const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.032, 0.026), darkMat);
-                sideL.position.set(-0.014, topY + 0.028, -0.02);
-                const sideR = sideL.clone(); sideR.position.x = 0.014;
-                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.024, 0.026), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.16, side: THREE.DoubleSide }));
-                lens.position.set(0, topY + 0.028, -0.02);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0020, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2a2a }));
-                dot.position.set(0, topY + 0.028, -0.02);
-                gun.add(base, hoodTop, sideL, sideR, lens, dot);
-                sightY = topY + 0.028;
+                const lockNut = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.008, 10), steelMat);
+                lockNut.rotation.z = Math.PI * 0.5;
+                lockNut.position.set(-0.018, topY + 0.010, -0.02);
+                const shroudGeo = new THREE.TorusGeometry(0.014, 0.0032, 8, 18, Math.PI * 1.15);
+                const shroud = new THREE.Mesh(shroudGeo, darkMat);
+                shroud.rotation.z = -Math.PI * 0.075;
+                shroud.position.set(0, topY + 0.025, -0.02);
+                const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0125, 18), glassMat(0x38bdf8, 0.22));
+                lens.position.set(0, topY + 0.026, -0.02);
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0019, 8, 8), reticleMat);
+                dot.position.set(0, topY + 0.026, -0.02);
+                gun.add(base, lockNut, shroud, lens, dot);
+                sightY = topY + 0.026;
             } else if (optic === 'holo') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.014, 0.072), darkMat);
-                base.position.set(0, topY + 0.011, -0.02);
-                const hood = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.006, 0.044), darkMat);
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.013, 0.072), darkMat);
+                base.position.set(0, topY + 0.0105, -0.02);
+                const qdLever = new THREE.Mesh(new THREE.CapsuleGeometry(0.0035, 0.016, 4, 8), steelMat);
+                qdLever.rotation.x = Math.PI * 0.5;
+                qdLever.position.set(-0.021, topY + 0.0105, -0.015);
+                const hood = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.0055, 0.046), darkMat);
                 hood.position.set(0, topY + 0.048, -0.02);
                 const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.036, 0.044), darkMat);
                 sideL.position.set(-0.017, topY + 0.031, -0.02);
                 const sideR = sideL.clone(); sideR.position.x = 0.017;
-                const ring = new THREE.Mesh(new THREE.RingGeometry(0.0055, 0.0068, 20), new THREE.MeshBasicMaterial({ color: 0xff3b3b, side: THREE.DoubleSide }));
-                ring.position.set(0, topY + 0.031, -0.02);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff3b3b }));
-                dot.position.set(0, topY + 0.031, -0.02);
-                gun.add(base, hood, sideL, sideR, ring, dot);
+                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 0.028), glassMat(0x22d3ee, 0.16));
+                lens.position.set(0, topY + 0.031, -0.02);
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.0054, 0.0068, 22), reticleMat);
+                ring.position.set(0, topY + 0.031, -0.019);
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), reticleMat);
+                dot.position.set(0, topY + 0.031, -0.019);
+                gun.add(base, qdLever, hood, sideL, sideR, lens, ring, dot);
                 sightY = topY + 0.031;
             } else {
                 const isSniper = (optic === 'sniper_scope' || optic === 'var_zoom_20x');
                 const len = isSniper ? 0.22 : 0.115;
                 const rad = isSniper ? 0.022 : 0.019;
-                const scopeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.45, metalness: 0.78, side: THREE.DoubleSide });
-                const tubeGeo = new THREE.CylinderGeometry(rad, rad * 0.90, len, 16, 1, !isSniper);
+                const scopeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.36, metalness: 0.82, side: THREE.DoubleSide });
+                const tubeGeo = new THREE.CylinderGeometry(rad * 0.84, rad * 0.84, len * 0.64, 18, 1, !isSniper);
                 tubeGeo.rotateX(Math.PI * 0.5);
                 const scopeTube = new THREE.Mesh(tubeGeo, scopeMat);
                 scopeTube.position.set(0, topY + 0.032, -0.02);
-                const mount1 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.020, 0.018), steelMat);
-                mount1.position.set(0, topY + 0.014, 0.02);
-                const mount2 = mount1.clone(); mount2.position.z = -0.06;
-                const lensMat = new THREE.MeshBasicMaterial({ color: isSniper ? 0x0ea5e9 : 0x38bdf8, transparent: true, opacity: isSniper ? 0.26 : 0.14, side: THREE.DoubleSide });
-                const glint = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.86, 16), lensMat);
-                glint.position.set(0, topY + 0.032, -0.02 - len * 0.48);
-                const rearLens = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.82, 16), lensMat);
+
+                // Stepped objective & ocular bells
+                const objBellGeo = new THREE.CylinderGeometry(rad * 1.18, rad * 0.86, len * 0.24, 18, 1, false);
+                objBellGeo.rotateX(Math.PI * 0.5);
+                const objBell = new THREE.Mesh(objBellGeo, scopeMat);
+                objBell.position.set(0, topY + 0.032, -0.02 - len * 0.38);
+
+                const ocBellGeo = new THREE.CylinderGeometry(rad * 0.86, rad * 1.04, len * 0.20, 18, 1, false);
+                ocBellGeo.rotateX(Math.PI * 0.5);
+                const ocBell = new THREE.Mesh(ocBellGeo, scopeMat);
+                ocBell.position.set(0, topY + 0.032, -0.02 + len * 0.38);
+
+                // Elevation & windage adjustment turrets
+                const topTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.009, 0.012, 12), steelMat);
+                topTurret.position.set(0, topY + 0.032 + rad * 0.95, -0.02);
+                const sideTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.008, 0.011, 12), steelMat);
+                sideTurret.rotation.z = Math.PI * 0.5;
+                sideTurret.position.set(rad * 0.95, topY + 0.032, -0.02);
+
+                // Twin machined ring mounts
+                const ringGeo = new THREE.TorusGeometry(rad * 0.90, 0.0042, 8, 18);
+                const rMount1 = new THREE.Mesh(ringGeo, steelMat);
+                rMount1.position.set(0, topY + 0.032, 0.018);
+                const rMount2 = rMount1.clone(); rMount2.position.z = -0.056;
+                const foot1 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.014, 0.018), darkMat);
+                foot1.position.set(0, topY + 0.011, 0.018);
+                const foot2 = foot1.clone(); foot2.position.z = -0.056;
+
+                const lMat = glassMat(isSniper ? 0x0284c7 : 0x38bdf8, isSniper ? 0.30 : 0.18);
+                const glint = new THREE.Mesh(new THREE.CircleGeometry(rad * 1.02, 18), lMat);
+                glint.position.set(0, topY + 0.032, -0.02 - len * 0.49);
+                const rearLens = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.92, 18), lMat);
                 rearLens.position.set(0, topY + 0.032, -0.02 + len * 0.48);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2a2a }));
+                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 8, 8), reticleMat);
                 dot.position.set(0, topY + 0.032, -0.02);
-                gun.add(scopeTube, mount1, mount2, glint, rearLens, dot);
+                gun.add(scopeTube, objBell, ocBell, topTurret, sideTurret, rMount1, rMount2, foot1, foot2, glint, rearLens, dot);
                 sightY = topY + 0.032;
             }
             return sightY;
@@ -1062,36 +1154,89 @@
             const clothMap = T?.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture('bdu', 0x2d3729) : null;
             const clothBump = T?.createBumpTexture ? T.createBumpTexture('cloth') : null;
             const gloveMap = T?.createPolymerGripTexture ? T.createPolymerGripTexture() : null;
-            const sleeveMat = new THREE.MeshStandardMaterial({ color: clothMap ? 0xffffff : 0x2c3429, map: clothMap, bumpMap: clothBump, bumpScale: 0.012, roughness: 0.86, metalness: 0.06 });
-            const gloveMat = new THREE.MeshStandardMaterial({ color: gloveMap ? 0xffffff : 0x15181d, map: gloveMap, roughness: 0.65, metalness: 0.24 });
-            const accentMat = new THREE.MeshStandardMaterial({ color: 0x3f4754, roughness: 0.45, metalness: 0.48 });
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xb98b6c, roughness: 0.72, metalness: 0.04 });
+            const sleeveMat = new THREE.MeshStandardMaterial({ color: clothMap ? 0xffffff : 0x2c3429, map: clothMap, bumpMap: clothBump, bumpScale: 0.012, roughness: 0.84, metalness: 0.06 });
+            const cuffMat = new THREE.MeshStandardMaterial({ color: 0x22291f, map: clothMap, roughness: 0.88, metalness: 0.04 });
+            const gloveMat = new THREE.MeshStandardMaterial({ color: gloveMap ? 0xffffff : 0x161a20, map: gloveMap, roughness: 0.62, metalness: 0.24 });
+            const carbonMat = new THREE.MeshStandardMaterial({ color: 0x28303b, roughness: 0.34, metalness: 0.62 });
+            const watchBezelMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.24, metalness: 0.88 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xb98b6c, roughness: 0.66, metalness: 0.04 });
 
+            const makeGloveHand = (isLeft) => {
+                const g = new THREE.Group();
+                const palmGeo = new THREE.CapsuleGeometry(0.023, 0.044, 6, 12);
+                palmGeo.rotateX(Math.PI * 0.5);
+                palmGeo.scale(1.08, 0.82, 1.0);
+                const palm = new THREE.Mesh(palmGeo, gloveMat);
+                const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.027, 0.020, 12), cuffMat);
+                strap.rotation.x = Math.PI * 0.5;
+                strap.position.set(0, 0.002, 0.036);
+                const knuck = new THREE.Mesh(new THREE.CapsuleGeometry(0.0085, 0.030, 5, 10), carbonMat);
+                knuck.rotation.z = Math.PI * 0.5;
+                knuck.position.set(0, 0.017, -0.008);
+                const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.026, 4, 8), skinMat);
+                thumb.rotation.set(0.45, 0, isLeft ? -0.42 : 0.42);
+                thumb.position.set(isLeft ? 0.022 : -0.022, 0.008, -0.016);
+                g.add(palm, strap, knuck, thumb);
+                for (let f = -1; f <= 1; f++) {
+                    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.0062, 0.024, 4, 8), gloveMat);
+                    finger.rotation.x = 1.15;
+                    finger.position.set(f * 0.013, -0.006, -0.034);
+                    g.add(finger);
+                }
+                return g;
+            };
+
+            // Right firing arm
             const rArm = new THREE.Group();
-            const rForearm = new THREE.Mesh(new THREE.BoxGeometry(0.068, 0.068, 0.34), sleeveMat);
-            rForearm.position.set(0.055, -0.085, 0.24); rForearm.rotation.set(0.18, -0.18, 0);
-            const rGlove = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.058, 0.082), gloveMat);
-            rGlove.position.set(0.01, -0.052, 0.085);
-            const rGuard = new THREE.Mesh(new THREE.BoxGeometry(0.050, 0.018, 0.042), accentMat);
-            rGuard.position.set(0.01, -0.025, 0.085);
-            rArm.add(rForearm, rGlove, rGuard);
+            const rForeGeo = new THREE.CapsuleGeometry(0.034, 0.27, 8, 14);
+            rForeGeo.rotateX(Math.PI * 0.5);
+            const rForearm = new THREE.Mesh(rForeGeo, sleeveMat);
+            rForearm.position.set(0.056, -0.084, 0.245);
+            rForearm.rotation.set(0.18, -0.18, 0);
+            const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.038, 0.024, 14), cuffMat);
+            rCuff.rotation.x = Math.PI * 0.5;
+            rCuff.position.set(0.034, -0.068, 0.125);
+            rCuff.rotation.set(0.18, -0.18, 0);
+            const rHand = makeGloveHand(false);
+            rHand.position.set(0.010, -0.050, 0.086);
+            rArm.add(rForearm, rCuff, rHand);
             root.add(rArm);
 
+            // Left support arm + tactile wrist watch
             const lArm = new THREE.Group();
-            const lForearm = new THREE.Mesh(new THREE.BoxGeometry(0.066, 0.066, 0.36), sleeveMat);
             const targetZ = isPistol ? 0.05 : -0.14;
             const targetX = isPistol ? -0.038 : -0.045;
-            lForearm.position.set(targetX - 0.08, -0.075, targetZ + 0.19); lForearm.rotation.set(0.15, 0.42, 0);
-            const lGlove = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.048, 0.080), gloveMat);
-            lGlove.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.050 : -0.024, targetZ);
-            const knuckle = new THREE.Mesh(new THREE.BoxGeometry(0.044, 0.014, 0.042), skinMat);
-            knuckle.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.032 : -0.006, targetZ);
-            const lBrace = new THREE.Mesh(new THREE.BoxGeometry(0.058, 0.020, 0.034), accentMat);
-            lBrace.position.set(isPistol ? -0.018 : -0.018, isPistol ? -0.048 : -0.022, targetZ + 0.038);
-            const watchFace = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.006, 0.022), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-            watchFace.position.set(isPistol ? -0.018 : -0.018, isPistol ? -0.037 : -0.011, targetZ + 0.038);
-            lArm.add(lForearm, lGlove, knuckle, lBrace, watchFace);
+            const lForeGeo = new THREE.CapsuleGeometry(0.033, 0.29, 8, 14);
+            lForeGeo.rotateX(Math.PI * 0.5);
+            const lForearm = new THREE.Mesh(lForeGeo, sleeveMat);
+            lForearm.position.set(targetX - 0.078, -0.074, targetZ + 0.19);
+            lForearm.rotation.set(0.15, 0.42, 0);
+            const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.037, 0.024, 14), cuffMat);
+            lCuff.rotation.x = Math.PI * 0.5;
+            lCuff.position.set(targetX - 0.022, -0.058, targetZ + 0.072);
+            lCuff.rotation.set(0.15, 0.42, 0);
+
+            const lHand = makeGloveHand(true);
+            lHand.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.048 : -0.022, targetZ);
+
+            // Round tactical wristwatch on left forearm
+            const watchX = isPistol ? -0.018 : -0.018;
+            const watchY = isPistol ? -0.044 : -0.020;
+            const watchZ = targetZ + 0.044;
+            const lStrap = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.031, 0.022, 16), carbonMat);
+            lStrap.rotation.x = Math.PI * 0.5;
+            lStrap.position.set(watchX, watchY - 0.006, watchZ);
+            const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.013, 0.0026, 8, 18), watchBezelMat);
+            bezel.rotation.x = Math.PI * 0.5;
+            bezel.position.set(watchX, watchY + 0.024, watchZ);
+            const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 16),
+                new THREE.MeshStandardMaterial({ color: 0x09111c, emissive: 0x0ea5e9, emissiveIntensity: 0.65, roughness: 0.25 }));
+            dial.position.set(watchX, watchY + 0.022, watchZ);
+
+            lArm.add(lForearm, lCuff, lHand, lStrap, bezel, dial);
             root.add(lArm);
+            root.userData.arms = { rArm, lArm, watchDial: dial };
+            return root.userData.arms;
         }
     }
 

@@ -153,12 +153,28 @@
             const grp = new THREE.Group();
             const h = 1.8 * scale, w = 0.9 * scale;
             const tex = A.silhouetteTex(type);
-            const card = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, transparent: false }));
-            // the texture has transparent background; give it alpha by drawing on transparent canvas
+            const card = new THREE.Mesh(
+                new THREE.PlaneGeometry(w, h),
+                new THREE.MeshStandardMaterial({
+                    map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.72,
+                    emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.34
+                })
+            );
             card.position.y = h / 2;
             card.castShadow = true;
             card.userData.noHit = true;
             grp.add(card);
+            const isFriend = type === 'civilian' || type === 'hostage';
+            const halo = new THREE.Mesh(
+                new THREE.PlaneGeometry(w * 1.12, h * 1.06),
+                new THREE.MeshBasicMaterial({
+                    color: isFriend ? 0x38bdf8 : 0xef4444,
+                    transparent: true, opacity: 0.28, side: THREE.DoubleSide
+                })
+            );
+            halo.position.set(0, h / 2, -0.025);
+            halo.userData.noHit = true;
+            grp.add(halo);
             const torso = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.52, h * 0.62), HIDDEN_MAT);
             torso.position.set(0, h * 0.5, 0.01);
             torso.userData.hitbox = 'torso';
@@ -478,39 +494,94 @@
 
         tree(scale = 1, color = 0x166534) {
             const grp = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * scale, 0.18 * scale, 1.4 * scale, 6), std(0x5b3a1f, 0.9));
-            trunk.position.y = 0.7 * scale;
+            const bark = std(0x5b3a1f, 0.92);
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.11 * scale, 0.21 * scale, 1.5 * scale, 9), bark);
+            trunk.position.y = 0.75 * scale;
+            trunk.castShadow = true;
             grp.add(trunk);
-            for (let i = 0; i < 3; i++) {
-                const c = new THREE.Mesh(new THREE.ConeGeometry((1.3 - i * 0.3) * scale, 1.6 * scale, 8), std(color, 0.9));
-                c.position.y = (1.6 + i * 0.85) * scale;
-                c.castShadow = true;
-                grp.add(c);
+            const c1 = std(color, 0.88);
+            const c2 = std(new THREE.Color(color).offsetHSL(0.02, 0.04, 0.06).getHex(), 0.86);
+            const lobes = [
+                [0, 2.05, 0, 1.05, 0.85, c1],
+                [-0.52, 1.75, 0.35, 0.72, 0.68, c1],
+                [0.54, 1.80, -0.30, 0.70, 0.66, c2],
+                [0.10, 2.72, 0.08, 0.82, 0.76, c2]
+            ];
+            const crown = new THREE.Group();
+            crown.position.y = 1.45 * scale;
+            for (const [lx, ly, lz, r, sy, mat] of lobes) {
+                const cl = new THREE.Mesh(new THREE.IcosahedronGeometry(r * scale, 1), mat);
+                cl.position.set(lx * scale, (ly - 1.45) * scale, lz * scale);
+                cl.scale.set(1.08, sy, 1.08);
+                cl.castShadow = true;
+                crown.add(cl);
             }
+            grp.add(crown);
+            grp.userData.crown = crown;
             return grp;
         },
 
         palm(scale = 1) {
             const grp = new THREE.Group();
-            let y = 0;
-            for (let i = 0; i < 7; i++) {
-                const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.13 * scale, 0.16 * scale, 0.7 * scale, 6), std(0x7c5a35, 0.9));
-                seg.position.set(i * 0.06 * scale, y + 0.35 * scale, 0);
-                seg.rotation.z = -0.05 * i;
+            const bark = std(0x745333, 0.92);
+            const frondMat = new THREE.MeshStandardMaterial({ color: 0x1a7f3e, roughness: 0.76, side: THREE.DoubleSide });
+            const cocoMat = std(0x4a2c14, 0.85);
+            let y = 0, x = 0;
+            for (let i = 0; i < 8; i++) {
+                const seg = new THREE.Mesh(new THREE.CylinderGeometry((0.16 - i * 0.011) * scale, (0.19 - i * 0.010) * scale, 0.64 * scale, 10), bark);
+                seg.position.set(x, y + 0.30 * scale, 0);
+                seg.rotation.z = -0.045 * i;
+                seg.castShadow = true;
                 grp.add(seg);
-                y += 0.66 * scale;
+                x += Math.sin(0.045 * i) * 0.56 * scale;
+                y += 0.58 * scale;
             }
-            for (let i = 0; i < 7; i++) {
-                const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.25 * scale, 2.2 * scale, 4), std(0x15803d, 0.8));
-                leaf.position.set(0.4 * scale, y, 0);
-                leaf.rotation.set(0, i / 7 * Math.PI * 2, Math.PI / 2.4);
+            // Cluster of 3 coconuts nestled under the crown
+            for (let c = 0; c < 3; c++) {
+                const ca = (c / 3) * Math.PI * 2;
+                const coco = new THREE.Mesh(new THREE.SphereGeometry(0.14 * scale, 10, 8), cocoMat);
+                coco.scale.set(1, 1.15, 1);
+                coco.position.set(x + Math.cos(ca) * 0.17 * scale, y - 0.14 * scale, Math.sin(ca) * 0.17 * scale);
+                grp.add(coco);
+            }
+            // 10 gracefully arching drooping tropical palm fronds (zero spiky cones!)
+            if (!A._palmFrondGeo) {
+                const segs = 10;
+                const pos = [], uvs = [], idx = [];
+                for (let i = 0; i <= segs; i++) {
+                    const t = i / segs;
+                    const fx = t * 2.45;
+                    const fy = Math.sin(t * Math.PI * 0.65) * 0.52 - Math.pow(t, 2.2) * 0.95;
+                    const hw = 0.28 * Math.sin(Math.pow(t, 0.65) * Math.PI) + 0.03 * (1 - t);
+                    pos.push(fx, fy, -hw, fx, fy + 0.04 * (1 - t), 0, fx, fy, hw);
+                    uvs.push(t, 0, t, 0.5, t, 1);
+                }
+                for (let i = 0; i < segs; i++) {
+                    const b = i * 3;
+                    idx.push(b, b + 3, b + 1, b + 1, b + 3, b + 4, b + 1, b + 4, b + 2, b + 2, b + 4, b + 5);
+                }
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+                g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+                g.setIndex(idx);
+                g.computeVertexNormals();
+                A._palmFrondGeo = g;
+            }
+            const fronds = [];
+            for (let i = 0; i < 10; i++) {
                 const holder = new THREE.Group();
-                holder.rotation.y = i / 7 * Math.PI * 2;
-                leaf.rotation.set(0, 0, -Math.PI / 2.3);
-                leaf.position.set(1.0 * scale, y - 0.2 * scale, 0);
-                holder.add(leaf);
+                holder.position.set(x, y, 0);
+                holder.rotation.y = (i / 10) * Math.PI * 2 + (i % 2) * 0.16;
+                holder.rotation.z = (i % 2 === 0 ? 0.18 : -0.06);
+                holder.userData.baseZ = holder.rotation.z;
+                const frond = new THREE.Mesh(A._palmFrondGeo, frondMat);
+                frond.scale.setScalar(scale * (i % 2 === 0 ? 0.95 : 1.08));
+                frond.castShadow = true;
+                holder.add(frond);
                 grp.add(holder);
+                fronds.push(holder);
             }
+            grp.userData.fronds = fronds;
             return grp;
         },
 
@@ -529,13 +600,25 @@
 
         torch(S, pos, color = 0xf97316, light = true) {
             const grp = new THREE.Group();
-            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 1.4, 6), std(0x3f2a14, 0.9));
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.075, 1.4, 8), std(0x3f2a14, 0.9));
             pole.position.y = 0.7;
-            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.12, 0.22, 10), std(0x27272a, 0.5, 0.7));
+            const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.13, 0.24, 12), std(0x27272a, 0.45, 0.75));
             bowl.position.y = 1.45;
-            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 8), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 }));
-            flame.position.y = 1.78;
-            grp.add(pole, bowl, flame);
+            const coals = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), new THREE.MeshStandardMaterial({ color: 0x1a0a04, emissive: color, emissiveIntensity: 1.4, roughness: 0.9 }));
+            coals.scale.y = 0.35;
+            coals.position.y = 1.55;
+            const flameGroup = new THREE.Group();
+            flameGroup.position.y = 1.78;
+            const fMat = (BO.MapDetail && BO.MapDetail._createFlameMaterial)
+                ? BO.MapDetail._createFlameMaterial()
+                : new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+            const pGeo = new THREE.PlaneGeometry(0.38, 0.56, 4, 8);
+            for (let k = 0; k < 3; k++) {
+                const fl = new THREE.Mesh(pGeo, fMat);
+                fl.rotation.y = (k / 3) * Math.PI;
+                flameGroup.add(fl);
+            }
+            grp.add(pole, bowl, coals, flameGroup);
             grp.position.copy(pos);
             let pl = null;
             if (light && BO.Settings.getQualityPreset().pointLights) {
@@ -547,7 +630,10 @@
             S.animate((dt) => {
                 const t = performance.now() * 0.001 + seed;
                 const f = 0.85 + Math.sin(t * 13) * 0.1 + Math.sin(t * 29) * 0.06;
-                flame.scale.set(0.9 + Math.sin(t * 7) * 0.1, f, 0.9);
+                flameGroup.scale.set(0.92 + Math.sin(t * 7) * 0.08, f, 0.92);
+                if (BO.MapDetail && BO.MapDetail._fireUniforms) {
+                    for (let u = 0; u < BO.MapDetail._fireUniforms.length; u++) BO.MapDetail._fireUniforms[u].value = t;
+                }
                 if (pl) pl.intensity = 1.4 * f;
             });
             return grp;

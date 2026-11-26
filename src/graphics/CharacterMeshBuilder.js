@@ -988,26 +988,73 @@
 
         animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0) {
             const amp = BO.Math.clamp(speed / 4.0, 0, 1) * 0.68;
+
+            if (parts.isQuadruped) {
+                // Authentic 4-legged gallop gait + spine rock + head stabilize + tail lash + jaw snap
+                const gAmp = BO.Math.clamp(speed / 5.0, 0, 1);
+                const fL = Math.sin(phase) * 0.72 * gAmp;
+                const fR = Math.sin(phase + 0.55) * 0.72 * gAmp;
+                const hL = -Math.sin(phase + 0.15) * 0.72 * gAmp;
+                const hR = -Math.sin(phase + 0.70) * 0.72 * gAmp;
+                if (parts.armL) parts.armL.rotation.x = fL;
+                if (parts.armR) parts.armR.rotation.x = fR;
+                if (parts.legL) parts.legL.rotation.x = hL;
+                if (parts.legR) parts.legR.rotation.x = hR;
+                if (parts.bodyPivot) {
+                    const baseY = parts.bodyPivot.userData.baseY ?? parts.bodyPivot.position.y;
+                    parts.bodyPivot.position.y = baseY + Math.abs(Math.cos(phase)) * 0.08 * gAmp + Math.sin(phase * 0.5) * 0.012;
+                    parts.bodyPivot.rotation.x = (parts.bodyPivot.userData.baseRotX || 0) + Math.sin(phase) * 0.11 * gAmp - flinch * 0.22;
+                }
+                if (parts.headGroup) {
+                    parts.headGroup.rotation.x = -Math.sin(phase) * 0.08 * gAmp + flinch * -0.25 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.25 : 0);
+                    parts.headGroup.rotation.y = Math.sin(phase * 0.45) * 0.08;
+                }
+                if (parts.tail) {
+                    parts.tail.rotation.y = Math.sin(phase * 1.8) * 0.38;
+                    parts.tail.rotation.x = 0.58 + Math.cos(phase) * 0.16;
+                }
+                if (parts.jaws && parts.jaws.length) {
+                    const snap = Math.PI * 0.5 + 0.24 + Math.abs(Math.sin(phase * 0.9)) * 0.14 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.36 : 0);
+                    for (let j = 0; j < parts.jaws.length; j++) parts.jaws[j].rotation.x = snap;
+                }
+                return;
+            }
+
             if (parts.legL && parts.legL.visible) parts.legL.rotation.x = Math.sin(phase) * amp;
             if (parts.legR && parts.legR.visible) parts.legR.rotation.x = -Math.sin(phase) * amp;
             if (parts.haloGroup) parts.haloGroup.rotation.y = phase * 0.6;
+
+            const moving = amp > 0.05;
             if (parts.bodyPivot) {
                 const baseY = parts.bodyPivot.userData.baseY ?? parts.bodyPivot.position.y;
-                parts.bodyPivot.position.y = baseY + Math.abs(Math.sin(phase)) * 0.05 * (amp > 0.05 ? 1 : 0);
+                const walkBob = moving ? Math.abs(Math.sin(phase)) * 0.05 : 0;
+                const breathBob = Math.sin(phase * 0.6) * 0.012;
+                parts.bodyPivot.position.y = baseY + walkBob + breathBob;
                 parts.bodyPivot.rotation.x = (parts.bodyPivot.userData.baseRotX || 0) + flinch * -0.25 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.28 : 0);
-                // Expressive undead shambling lateral sway
-                parts.bodyPivot.rotation.z = Math.sin(phase * 0.5) * 0.08 * (amp > 0.05 ? 1 : 0);
+                // Expressive undead shambling lateral sway (soft idle sway even when standing)
+                parts.bodyPivot.rotation.z = Math.sin(phase * 0.5) * (moving ? 0.08 : 0.025);
             }
             if (parts.headGroup) {
                 parts.headGroup.rotation.z = Math.sin(phase * 0.5 + 0.8) * 0.10;
+                parts.headGroup.rotation.y = Math.sin(phase * 0.35) * 0.12;
+                parts.headGroup.rotation.x = flinch * -0.35;
+            }
+            if (parts.jaws && parts.jaws.length) {
+                const jawOpen = 0.16 + Math.abs(Math.sin(phase * 0.9)) * 0.16 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.42 : 0);
+                for (let j = 0; j < parts.jaws.length; j++) parts.jaws[j].rotation.x = jawOpen;
             }
             if (attackSwing > 0) {
                 const sw = Math.sin(attackSwing * Math.PI) * 1.15;
                 if (parts.armL) parts.armL.rotation.x = -1.25 - sw;
                 if (parts.armR) parts.armR.rotation.x = -1.35 - sw;
-            } else if (amp > 0.05) {
-                if (parts.armL) parts.armL.rotation.x = -1.25 + Math.sin(phase) * 0.18 * amp;
-                if (parts.armR) parts.armR.rotation.x = -1.35 - Math.sin(phase) * 0.18 * amp;
+                if (parts.forearmL) parts.forearmL.rotation.x = -0.24 - sw * 0.38;
+                if (parts.forearmR) parts.forearmR.rotation.x = -0.24 - sw * 0.38;
+            } else {
+                const armAmp = moving ? 0.18 * amp : 0.04;
+                if (parts.armL) parts.armL.rotation.x = -1.25 + Math.sin(phase) * armAmp;
+                if (parts.armR) parts.armR.rotation.x = -1.35 - Math.sin(phase) * armAmp;
+                if (parts.forearmL) parts.forearmL.rotation.x = -0.24 - Math.sin(phase) * (moving ? 0.18 * amp : 0.05);
+                if (parts.forearmR) parts.forearmR.rotation.x = -0.24 + Math.sin(phase) * (moving ? 0.18 * amp : 0.05);
             }
         }
     }
