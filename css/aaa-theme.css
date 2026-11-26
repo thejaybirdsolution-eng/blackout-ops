@@ -476,6 +476,204 @@
 #hud-layer .ammo-mag.aaa-kick { animation: aaaKick 0.16s var(--aaa-ease); }
 #hud-layer .ammo-mag.aaa-low { color: #ff6b5a !important; text-shadow: 0 0 18px rgba(255, 77, 77, 0.45); }
 
+/* ============================================================================
+   PASS 3 — One design language across every screen and every mode's UI
+============================================================================ */
+
+/* ---- Every front-end screen shares the menu's graded backdrop, haze and scanlines. */
+.ui-screen:not(#screen-main-menu) {
+    background:
+        radial-gradient(60% 50% at 80% 20%, rgba(255, 178, 63, 0.06), transparent 70%),
+        radial-gradient(50% 60% at 10% 90%, rgba(127, 168, 201, 0.06), transparent 70%),
+        linear-gradient(180deg, rgba(8, 11, 15, 0.94), rgba(6, 8, 11, 0.97)) !important;
+}
+.ui-screen:not(#screen-main-menu)::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: var(--aaa-grain), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px);
+    opacity: 0.8;
+}
+.ui-screen:not(#screen-main-menu) > * { position: relative; z-index: 1; }
+
+/* ---- Top bars everywhere: hairline rule, condensed brand, accent tag. */
+.ui-screen .top-bar {
+    background: none !important; border: 0 !important; border-bottom: 1px solid var(--aaa-line) !important;
+    box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; padding-bottom: 14px !important;
+}
+.ui-screen .top-bar::before, .ui-screen .top-bar::after { display: none !important; }
+.ui-screen .brand-title {
+    font-family: var(--aaa-display) !important; font-stretch: 75%; font-weight: 700;
+    letter-spacing: 0.05em !important; color: var(--aaa-text) !important;
+    background: none !important; -webkit-text-fill-color: currentColor !important; text-shadow: 0 2px 24px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ---- Rank plate with segmented, animated XP gauge. */
+.rank-pill {
+    background: var(--aaa-grain), linear-gradient(180deg, rgba(26, 31, 38, 0.92), rgba(12, 15, 20, 0.95)) !important;
+    border: 1px solid var(--aaa-line-strong) !important; border-radius: 2px !important; box-shadow: var(--aaa-bevel) !important;
+}
+.rank-pill .rank-emblem { border-radius: 2px !important; box-shadow: inset 0 0 0 1px rgba(255, 178, 63, 0.4), 0 0 14px rgba(255, 178, 63, 0.15) !important; }
+.rank-pill .callsign { font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.08em; font-size: 15px; }
+.rank-pill .rank-sub { font-family: var(--font-mono); letter-spacing: 0.14em; color: var(--aaa-dim) !important; }
+.xp-track {
+    height: 4px !important; border-radius: 0 !important; background: rgba(255, 255, 255, 0.07) !important; overflow: hidden; transform: skewX(-20deg);
+    background-image: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), rgba(0, 0, 0, 0.6) calc(10% - 1px) 10%) !important;
+}
+.xp-fill {
+    border-radius: 0 !important; position: relative;
+    background: linear-gradient(90deg, #d9861a, #ffb23f 70%, #ffe1a8) !important;
+    box-shadow: 0 0 10px rgba(255, 178, 63, 0.55); transition: width 0.6s var(--aaa-ease) !important;
+}
+.xp-fill::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: aaaXpShine 2.8s ease-in-out infinite; transform: translateX(-100%);
+}
+@keyframes aaaXpShine { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+
+/* ---- Lobby wizard: numbered steps as engraved plates, mode tabs as machined toggles. */
+.lobby-step {
+    border-radius: 0 !important; background: transparent !important; border: 0 !important;
+    border-bottom: 2px solid transparent !important; font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.1em;
+    transition: color 0.2s, border-color 0.3s var(--aaa-ease), background 0.2s !important;
+}
+.lobby-step:hover { background: linear-gradient(0deg, rgba(255, 178, 63, 0.08), transparent) !important; }
+.lobby-step.active { border-bottom-color: var(--aaa-accent) !important; background: linear-gradient(0deg, rgba(255, 178, 63, 0.14), transparent) !important; }
+.lobby-step-num {
+    border-radius: 1px !important; font-family: var(--font-mono); box-shadow: var(--aaa-bevel);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.3)) !important; border: 1px solid var(--aaa-line-strong);
+}
+.lobby-step.active .lobby-step-num { background: linear-gradient(180deg, #ffc35f, #e8961f) !important; color: #1a1206 !important; border-color: #ffd27f; }
+.mode-tab {
+    border-radius: 2px !important; box-shadow: var(--aaa-bevel) !important;
+    background: linear-gradient(180deg, rgba(26, 31, 38, 0.9), rgba(12, 15, 20, 0.92)) !important;
+    border: 1px solid var(--aaa-line) !important; transition: transform 0.3s var(--aaa-spring), border-color 0.2s, background 0.2s !important;
+}
+.mode-tab b { font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.08em; font-size: 15px; }
+.mode-tab:hover { transform: translateY(-1px); border-color: var(--aaa-line-strong) !important; }
+.mode-tab.active {
+    --aaa-bk: 8px; background: var(--aaa-brackets), linear-gradient(180deg, rgba(255, 178, 63, 0.16), rgba(255, 178, 63, 0.04)) !important;
+    border-color: rgba(255, 178, 63, 0.55) !important; box-shadow: var(--aaa-bevel), 0 0 22px rgba(255, 178, 63, 0.14) !important;
+}
+.lobby-section-head, .side-title {
+    font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.18em !important; color: var(--aaa-dim) !important;
+    display: flex; align-items: center; gap: 12px;
+}
+.lobby-section-head::after, .side-title::after { content: ""; flex: 1; height: 1px; background: var(--aaa-line); }
+
+/* ---- Selection cards (maps, modes, bots, weapons, classes): framed, spring-lift, bracketed when chosen. */
+.pick-card {
+    border-radius: 2px !important;
+    background: var(--aaa-grain), linear-gradient(165deg, rgba(24, 29, 36, 0.92), rgba(11, 14, 19, 0.95)) !important;
+    border: 1px solid var(--aaa-line) !important; box-shadow: var(--aaa-bevel) !important;
+    transition: transform 0.35s var(--aaa-spring), border-color 0.2s, box-shadow 0.25s, background 0.2s !important;
+}
+.pick-card:hover:not(:disabled) { transform: translateY(-3px) !important; border-color: var(--aaa-line-strong) !important; box-shadow: var(--aaa-bevel), 0 14px 30px rgba(0, 0, 0, 0.45) !important; }
+.pick-card:active:not(:disabled) { transform: translateY(0) scale(0.985) !important; transition-duration: 0.06s !important; }
+.pick-card.active {
+    --aaa-bk: 12px;
+    background: var(--aaa-brackets), var(--aaa-grain), linear-gradient(165deg, rgba(255, 178, 63, 0.14), rgba(14, 17, 22, 0.95) 60%) !important;
+    border-color: rgba(255, 178, 63, 0.55) !important;
+    box-shadow: var(--aaa-bevel), 0 0 0 1px rgba(255, 178, 63, 0.2), 0 16px 40px rgba(255, 178, 63, 0.10) !important;
+}
+.pick-card .pick-name { font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.06em; font-size: 16px; }
+.pick-card .pick-sub { font-family: var(--font-mono); letter-spacing: 0.08em; font-size: 10px; color: var(--aaa-accent) !important; }
+.pick-card .pick-desc { color: var(--aaa-dim) !important; }
+.side-card, .round-picker-card, .card-grid > * { border-radius: 2px !important; }
+.side-card {
+    background: var(--aaa-grain), linear-gradient(165deg, rgba(22, 27, 34, 0.92), rgba(11, 14, 19, 0.95)) !important;
+    border: 1px solid var(--aaa-line) !important; box-shadow: var(--aaa-bevel) !important;
+}
+.class-mini-row { border-bottom: 1px solid var(--aaa-line) !important; }
+.class-mini-row > :first-child { font-family: var(--font-mono); letter-spacing: 0.14em; color: var(--aaa-faint) !important; }
+
+/* ---- Inputs and selects: machined wells. */
+.ui-screen select, .ui-modal select, .ui-screen input[type="text"], .ui-screen input[type="number"], .ui-modal input[type="text"], .ui-modal input[type="number"], .ep-input {
+    background: linear-gradient(180deg, rgba(4, 6, 9, 0.9), rgba(14, 17, 22, 0.9)) !important;
+    border: 1px solid var(--aaa-line-strong) !important; border-radius: 2px !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.02) !important;
+    color: var(--aaa-text) !important; font-family: var(--font-mono);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ui-screen select:focus, .ui-modal select:focus, .ui-screen input:focus, .ui-modal input:focus {
+    outline: none; border-color: rgba(255, 178, 63, 0.7) !important;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 178, 63, 0.14) !important;
+}
+
+/* ---- Mode-specific interfaces: Survival terminal, Rogue Lite, Open World RPG, perk picks, shops, modifiers, minigames.
+        Each keeps its signature accent hue; all gain the same materiality, frame language and feedback. */
+.sv-btn, .rpg-nav-btn, .ow-btn, .mmx-chip, .ow-chip, .mgx-chip, .shop-tabs > *, .sv-tab, .modal-tab-bar > * {
+    border-radius: 2px !important; position: relative;
+    box-shadow: var(--aaa-bevel) !important;
+    transition: transform 0.3s var(--aaa-spring), background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.2s !important;
+}
+.sv-btn:hover, .rpg-nav-btn:hover, .ow-btn:hover, .sv-tab:hover, .modal-tab-bar > *:hover { transform: translateY(-1px); }
+.sv-btn:active, .rpg-nav-btn:active, .ow-btn:active, .sv-tab:active, .modal-tab-bar > *:active { transform: translateY(1px) scale(0.97) !important; transition-duration: 0.05s !important; }
+.zt-card, .mmx-tile, .expansion-shop-card, .rpg-class, .rpg-talent, .rpg-boon, .rpg-elixir, .ow-perk, .ow-qcard, .ow-item, .rpg-card, .gm-compare {
+    border-radius: 2px !important;
+    box-shadow: var(--aaa-bevel), 0 10px 26px rgba(0, 0, 0, 0.35) !important;
+    transition: transform 0.35s var(--aaa-spring), box-shadow 0.25s, border-color 0.2s !important;
+}
+.zt-card:hover, .mmx-tile:hover, .expansion-shop-card:hover, .rpg-class:hover, .rpg-talent:hover, .rpg-boon:hover, .ow-perk:hover, .ow-qcard:hover, .ow-item:hover {
+    transform: translateY(-3px); box-shadow: var(--aaa-bevel), 0 18px 36px rgba(0, 0, 0, 0.5) !important;
+}
+.zt-card:active, .mmx-tile:active, .expansion-shop-card:active, .rpg-class:active, .rpg-boon:active, .ow-perk:active { transform: scale(0.985) !important; transition-duration: 0.06s !important; }
+.rpg-modal-box, .rpg-top, .expansion-shop, #ow-modal > *, .mgx-dossier {
+    border-radius: 2px !important;
+    box-shadow: var(--aaa-bevel), 0 30px 80px rgba(3, 5, 8, 0.55) !important;
+}
+
+/* ---- Survival field HUD: vitals as segmented gauges, compass as a floating tape. */
+#hud-survival .sv-vital, .sv-vital {
+    border-radius: 0 !important; background: linear-gradient(90deg, rgba(6, 8, 10, 0.6), rgba(6, 8, 10, 0.15)) !important;
+    border: 0 !important; border-left: 2px solid rgba(255, 255, 255, 0.4) !important; box-shadow: none !important;
+}
+.svh-v { font-family: var(--aaa-display) !important; font-stretch: 75%; font-variant-numeric: tabular-nums; text-shadow: var(--aaa-shadow-text); }
+.sv-compass {
+    background: linear-gradient(90deg, transparent, rgba(6, 8, 10, 0.55) 25%, rgba(6, 8, 10, 0.55) 75%, transparent) !important;
+    border: 0 !important; border-bottom: 1px solid rgba(255, 255, 255, 0.18) !important; border-radius: 0 !important;
+    font-family: var(--font-mono); letter-spacing: 0.3em; text-shadow: var(--aaa-shadow-text);
+}
+
+/* ---- Tooltips: framed dossier cards. */
+#bo-tooltip {
+    --aaa-bk: 8px;
+    background: var(--aaa-brackets), var(--aaa-grain), linear-gradient(165deg, rgba(22, 27, 34, 0.97), rgba(10, 13, 18, 0.98)) !important;
+    border: 1px solid var(--aaa-line-strong) !important; border-radius: 2px !important;
+    box-shadow: var(--aaa-bevel), 0 18px 40px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ---- Scrollbars: thin graphite rails with an accent thumb on hover. */
+.ui-screen ::-webkit-scrollbar, .ui-modal ::-webkit-scrollbar { width: 8px; height: 8px; }
+.ui-screen ::-webkit-scrollbar-track, .ui-modal ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+.ui-screen ::-webkit-scrollbar-thumb, .ui-modal ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 0; border: 2px solid transparent; background-clip: padding-box; }
+.ui-screen ::-webkit-scrollbar-thumb:hover, .ui-modal ::-webkit-scrollbar-thumb:hover { background: rgba(255, 178, 63, 0.55); background-clip: padding-box; }
+
+/* ---- Kill-confirm burst (spawned by Juice.js at the crosshair). */
+#hud-layer .aaa-burst-layer { position: fixed; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 28; }
+#hud-layer .aaa-spark {
+    position: absolute; left: 0; top: 0; width: 2px; height: var(--len); margin: calc(var(--len) / -2) 0 0 -1px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0), #ffffff 40%, #ffd9a0);
+    border-radius: 1px; box-shadow: 0 0 6px rgba(255, 210, 150, 0.8);
+    transform: rotate(var(--rot)) translateY(0) scaleY(0.4);
+    animation: aaaSpark 0.42s var(--aaa-ease) forwards;
+}
+#hud-layer .aaa-spark-gold { background: linear-gradient(180deg, rgba(255, 200, 80, 0), #fff2c4 40%, #ffb23f); box-shadow: 0 0 8px rgba(255, 178, 63, 0.95); }
+@keyframes aaaSpark {
+    0% { opacity: 1; transform: translate(0, 0) rotate(var(--rot)) scaleY(0.4); }
+    35% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scaleY(1.1); }
+}
+#hud-layer .aaa-ring {
+    position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+    animation: aaaRing 0.38s var(--aaa-ease) forwards;
+}
+#hud-layer .aaa-ring-gold { border-color: #ffc35f; box-shadow: 0 0 16px rgba(255, 178, 63, 0.8); }
+@keyframes aaaRing { 0% { opacity: 0.95; transform: scale(0.3); } 100% { opacity: 0; transform: scale(2.4); } }
+/* Hitmarker pops instead of blinking. */
+#hud-layer #hitmarker { transition: opacity 0.08s ease, transform 0.12s var(--aaa-spring); }
+
 @media (prefers-reduced-motion: reduce) {
+    #hud-layer .aaa-spark, #hud-layer .aaa-ring { animation: none !important; display: none; }
     #screen-main-menu::before, .ui-modal:not(.hidden) .modal-box, #hud-layer .ammo-mag.aaa-kick, #screen-main-menu .mode-card:hover .mode-card-text::after { animation: none !important; }
 }

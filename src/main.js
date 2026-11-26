@@ -50,6 +50,7 @@
                 if (BO.Player && BO.Player.vmScene) BO.Player.vmScene.environment = studio;
             }
             if (BO.Ambience) BO.Ambience.init();
+            if (BO.Juice) BO.Juice.init();
             this._bindHudFeedback();
             BO.Tooltips.init();
             BO.HUD.init();

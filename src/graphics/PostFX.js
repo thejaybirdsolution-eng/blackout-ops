@@ -205,6 +205,8 @@
         uniform sampler2D tAO; uniform float uAO;
         uniform sampler2D tShaft; uniform vec3 uShaftCol; uniform float uShaft;
         uniform sampler2D tAdapt; uniform float uAuto;
+        uniform sampler2D tDOF; uniform sampler2D tDepthC; uniform float uADS;
+        uniform float uNearC; uniform float uFarC; uniform float uPunch;
         uniform vec2 uRes; uniform float uTime;
         uniform float uExposure; uniform float uBloom; uniform float uDirt;
         uniform float uContrast; uniform float uSaturation;
@@ -243,10 +245,21 @@
 
             // Lens fringe grows toward the frame edge (and with damage shock).
             vec2 off = dc * r2 * (uFringe + uDamage * 0.012);
+            off += dc * uPunch * 0.02;
             vec3 col;
             col.r = texture2D(tScene, uv - off).r;
             col.g = texture2D(tScene, uv).g;
             col.b = texture2D(tScene, uv + off).b;
+
+            // Aim-down-sights depth of field: focus on whatever sits under the crosshair,
+            // blur what lies well beyond it and soften the periphery (the eye locks onto the sight).
+            if (uADS > 0.001) {
+                float zc = (uNearC * uFarC) / (uFarC - texture2D(tDepthC, vec2(0.5)).x * (uFarC - uNearC));
+                float z = (uNearC * uFarC) / (uFarC - texture2D(tDepthC, uv).x * (uFarC - uNearC));
+                float coc = smoothstep(zc * 1.35 + 1.5, zc * 3.0 + 6.0, z);
+                coc = max(coc, smoothstep(0.08, 0.32, r2) * 0.85);
+                col = mix(col, texture2D(tDOF, uv).rgb, clamp(coc * uADS, 0.0, 1.0));
+            }
 
             // Ambient occlusion grounds contact points and crevices (world only).
             col *= mix(1.0, texture2D(tAO, uv).r, uAO);
@@ -260,6 +273,7 @@
             // Faint anamorphic lens dirt: bloom picks up extra energy toward the edges.
             col += bloom * (uBloom + uDirt * smoothstep(0.05, 0.35, r2));
 
+            col *= 1.0 + uPunch * 0.18;
             col = aces(col);
             col = toSRGB(col);
 
@@ -348,8 +362,12 @@
                 tVM: { value: null }, uHasVM: { value: 0 },
                 tAO: { value: null }, uAO: { value: 0 },
                 tShaft: { value: null }, uShaftCol: { value: new THREE.Color(1, 0.9, 0.75) }, uShaft: { value: 0 },
-                tAdapt: { value: null }, uAuto: { value: 0 }
+                tAdapt: { value: null }, uAuto: { value: 0 },
+                tDOF: { value: null }, tDepthC: { value: null }, uADS: { value: 0 },
+                uNearC: { value: 0.1 }, uFarC: { value: 1000 }, uPunch: { value: 0 }
             });
+            this.punch = 0;
+            this.adsSmooth = 0;
             this.matAO = mk(AO_FRAG, {
                 tDepth: { value: null }, uRes: { value: new THREE.Vector2() },
                 uProj: { value: new THREE.Matrix4() }, uProjInv: { value: new THREE.Matrix4() },
@@ -415,6 +433,11 @@
             this.adaptA = new THREE.WebGLRenderTarget(1, 1, one);
             this.adaptB = new THREE.WebGLRenderTarget(1, 1, one);
             this.adaptFresh = true;
+            const blur = { type, format: THREE.RGBAFormat, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false };
+            this.dofA = new THREE.WebGLRenderTarget(hw, hh, blur);
+            this.dofB = new THREE.WebGLRenderTarget(Math.max(1, w >> 2), Math.max(1, h >> 2), blur);
+            this.dofA.texture.generateMipmaps = false;
+            this.dofB.texture.generateMipmaps = false;
             [this.vmRT, this.aoRT, this.aoBlurRT, this.shaftRT, this.lumRT, this.adaptA, this.adaptB].forEach((rt) => { rt.texture.generateMipmaps = false; });
             let mw = w, mh = h;
             for (let i = 0; i < this.mipCount; i++) {
@@ -431,7 +454,7 @@
                 if (this.sceneRT.depthTexture) this.sceneRT.depthTexture.dispose();
                 this.sceneRT.dispose();
             }
-            ['vmRT', 'aoRT', 'aoBlurRT', 'shaftRT', 'lumRT', 'adaptA', 'adaptB'].forEach((k) => {
+            ['vmRT', 'aoRT', 'aoBlurRT', 'shaftRT', 'lumRT', 'adaptA', 'adaptB', 'dofA', 'dofB'].forEach((k) => {
                 if (this[k]) this[k].dispose();
                 this[k] = null;
             });
@@ -480,6 +503,32 @@
         }
 
         _quality() { return BO.Settings.get('quality') || 'high'; }
+
+        /** Brief lens punch on impacts/kills: fringe spike + exposure flash, decays in ~150 ms. */
+        impact(strength) {
+            if (BO.Settings.get('reducedMotion')) return;
+            this.punch = Math.min(1.2, this.punch + strength);
+        }
+
+        _depthOfField(camera, dt) {
+            const P = BO.Player;
+            const want = (BO.State.screen === 'playing' && P && P.adsAlpha > 0 && BO.Settings.get('adsDof') !== false) ? P.adsAlpha : 0;
+            this.adsSmooth += (want - this.adsSmooth) * Math.min(1, dt * 10);
+            if (this.adsSmooth < 0.01 || !camera) return 0;
+            const d = this.matDown.uniforms;
+            d.tSrc.value = this.sceneRT.texture;
+            d.uTexel.value.set(1 / this.w, 1 / this.h);
+            this._pass(this.matDown, this.dofA);
+            d.tSrc.value = this.dofA.texture;
+            d.uTexel.value.set(1 / this.dofA.width, 1 / this.dofA.height);
+            this._pass(this.matDown, this.dofB);
+            const c = this.matComposite.uniforms;
+            c.tDOF.value = this.dofB.texture;
+            c.tDepthC.value = this.sceneRT.depthTexture;
+            c.uNearC.value = camera.near;
+            c.uFarC.value = camera.far;
+            return this.adsSmooth;
+        }
 
         _ambientOcclusion(camera) {
             if (!camera || BO.Settings.get('ssao') === false) return 0;
@@ -576,6 +625,9 @@
             c.uShaft.value = this._sunShafts(camera);
             c.tShaft.value = this.shaftRT.texture;
             c.tAdapt.value = this._eyeAdaptation(dt);
+            c.uADS.value = this._depthOfField(camera, dt);
+            this.punch = Math.max(0, this.punch - dt * 7);
+            c.uPunch.value = this.punch;
             c.uAuto.value = inGame && BO.Settings.get('autoExposure') !== false ? 1 : 0;
             c.tVM.value = this.vmRT.texture;
             c.uHasVM.value = this.vmUsed ? 1 : 0;

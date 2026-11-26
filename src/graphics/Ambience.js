@@ -213,6 +213,7 @@
         update(dt) {
             this.time += dt;
             if (this.dust) this.dust.material.uniforms.uTime.value = this.time;
+            if (BO.CharacterShading) BO.CharacterShading.update(dt);
         }
     }
 

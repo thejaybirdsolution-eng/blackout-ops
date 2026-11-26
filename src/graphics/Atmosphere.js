@@ -286,9 +286,9 @@
                 if (ry) m.rotation.z = ry;
                 s.add(m);
             };
-            panel(5, 1.2, 0, 3.6, 1, 0, 0xffffff, 3.2);    // overhead softbox
-            panel(1.6, 4, -5.5, 0.5, 2, 0, 0xffd7a8, 2.2);   // warm key strip
-            panel(1.2, 3.5, 5.5, 0.4, -2, 0, 0x9cc8ff, 1.6); // cool rim strip
+            panel(5, 1.2, 0, 3.6, 1, 0, 0xffffff, 1.3);    // overhead softbox
+            panel(1.6, 4, -5.5, 0.5, 2, 0, 0xffd7a8, 1.2);   // warm key strip
+            panel(1.2, 3.5, 5.5, 0.4, -2, 0, 0x9cc8ff, 0.9); // cool rim strip
             panel(8, 1, 0, -3.5, 0, 0, 0x30363f, 1);        // floor bounce
             const prevTM = renderer.toneMapping;
             renderer.toneMapping = THREE.NoToneMapping;
