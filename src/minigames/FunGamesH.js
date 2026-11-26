@@ -190,7 +190,7 @@
         },
         heroLabel: 'FUN & SPECIALS • DEEP-SEA TRENCH DEFENSE', duration: 165,
         stars: [2800, 5600, 9200, 13400],
-        standardWeapon: 'galil_ar', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'galil_ar', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'HARPOON GALIL + DEPTH TORPEDO [Q] + SONAR [E]', weaponNote: '[Q] Concussion Depth-Charge (9s) • [E] Sonar Stun Pulse (11s) • Hold [SPACE] Hydro-Jets!',
         keys: [['WASD', 'Exo-Suit Stride'], ['HOLD SPACE', 'Hydro-Thruster Boost'], ['Q', 'Depth-Charge Torpedo'], ['E', 'Active Sonar Stun']],
         map: {
@@ -204,6 +204,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('abyssal');
             const D = S.data;
             Object.assign(D, {
                 domeHp: 100, beasts: [], torpedoes: [], vents: [], torpCd: 0, sonarCd: 0,
@@ -235,6 +236,11 @@
             sign.position.set(0, 7.2, 0);
             domeG.add(baseRing, glass, beacon, sign);
             S.add(domeG);
+            // Bioluminescent Perimeter Beacon Bulbs around Habitat NEREUS-7!
+            const dPts = [];
+            for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; dPts.push(V(Math.cos(a) * 5.4, 1.18, 18.5 + Math.sin(a) * 5.4)); }
+            const dBulbs = A.bulbs(dPts, [0x22d3ee, 0xfacc15, 0x4ade80], 0.12);
+            S.add(dBulbs); A.animateBulbs(S, dBulbs, 4, 'chase');
             S.collider(-5.0, 0, 13.5, 5.0, 5.5, 23.5);
             D.domePos = V(0, 2.0, 18.5);
 
@@ -295,6 +301,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
             if (S.data.exoRig && S.data.exoRig.parent) S.data.exoRig.parent.remove(S.data.exoRig);
         },
@@ -319,7 +326,7 @@
             const D = S.data, P = BO.Player;
             if (D.sonarCd > 0) return;
             D.sonarCd = 11.0;
-            tone(880, 440, 0.35, 'sine', 0.13);
+            if (BO.MinigameAudio) BO.MinigameAudio.sonarPing(); else tone(880, 440, 0.35, 'sine', 0.13);
             BO.FX.spawnParticles(P.pos.clone().add(V(0, 1.2, 0)), 28, 0x22d3ee, 8, 2, 0.55, 0.9);
             P.hp = Math.min(P.maxHp, P.hp + 25);
             let stunned = 0;
@@ -360,6 +367,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.torpCd = Math.max(0, D.torpCd - dt);
             D.sonarCd = Math.max(0, D.sonarCd - dt);
@@ -602,7 +610,7 @@
         },
         heroLabel: 'FUN & SPECIALS • PREHISTORIC PADDOCK SURVIVAL', duration: 165,
         stars: [2800, 5600, 9200, 13600],
-        standardWeapon: 'm249', secondaryWeapon: 'spas12_tac', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'm249', secondaryWeapon: 'spas12_tac', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'RANGER M249 SAW + SPAS-12 + FLARE [E]', weaponNote: '[E] Toss Red Dino-Lure Flare (10s) • [Q] 10,000V Fence Surge (14s)',
         keys: [['WASD', 'Evade Through Mud'], ['E', 'Throw Red Flare (10s)'], ['Q', '10,000V Fence Surge (14s)'], ['1 / 2', 'Swap LMG / Shotgun']],
         map: {
@@ -616,6 +624,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('jurassic');
             const D = S.data;
             Object.assign(D, {
                 jeepHp: 100, dinos: [], flares: [], pylons: [], flareCd: 0, surgeCd: 0,
@@ -641,6 +650,11 @@
             S.box(0, 9.6, -24, 18.0, 2.0, 2.4, gateWood, { solid: false });
             const pSign = A.sign('⚠️ CAUTION: 10,000 VOLTS — TYRANNOSAUR PADDOCK 09 ⚠️', 13.5, 1.15, { bg: '#450a0a', color: '#fde047', borderColor: '#ef4444', size: 0.34, glow: '#f59e0b' });
             pSign.position.set(0, 9.6, -22.65); S.add(pSign);
+            // Chasing Red/Amber High-Voltage Warning Bulbs along the Jurassic Paddock Arch!
+            const archPts = [];
+            for (let x = -7.5; x <= 7.5; x += 1.5) archPts.push(V(x, 10.65, -22.5));
+            const archBulbs = A.bulbs(archPts, [0xef4444, 0xfacc15], 0.14);
+            S.add(archBulbs); A.animateBulbs(S, archBulbs, 6, 'chase');
 
             // 10,000V Perimeter Fence Pylons with Red Warning Insulators & Steel Cables!
             const cableMat = basic(0x94a3b8);
@@ -685,6 +699,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _tossRoadFlare(S) {
@@ -757,12 +772,14 @@
             D.dinos.push(entry);
             if (isRex) {
                 D.trex = entry;
+                if (BO.MinigameAudio) BO.MinigameAudio.kaijuRoar();
                 SFX.rumble(1.0);
                 MG.toast('🦖 SEISMIC TREMOR: ALPHA TYRANNOSAURUS REX HAS BREACHED THE GATE!', '#ef4444');
             }
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.flareCd = Math.max(0, D.flareCd - dt);
             D.surgeCd = Math.max(0, D.surgeCd - dt);
@@ -901,7 +918,7 @@
         },
         heroLabel: 'FUN & SPECIALS • MEDIEVAL RAMPART SIEGE', duration: 165,
         stars: [2800, 5600, 9400, 13800],
-        standardWeapon: 'mk14', secondaryWeapon: 'kar98k_irons', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'mk14', secondaryWeapon: 'kar98k_irons', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'ROYAL MARKSMAN MK14 + BALLISTA & BOILING OIL [E]', weaponNote: '[E] at Ballistae (Flaming Bolt) or Gate Cauldrons (Pour Boiling Oil!)',
         keys: [['WASD', 'Patrol Ramparts'], ['E', 'Fire Ballista / Tip Oil'], ['1 / 2', 'Swap Marksman / Bolt'], ['LMB', 'Snipe Siege Horde']],
         map: {
@@ -927,6 +944,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('castle');
             const D = S.data;
             Object.assign(D, {
                 gateHp: 100, units: [], bolts: [], ballistae: [], cauldrons: [],
@@ -988,6 +1006,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _useRampartEmplacement(S) {
@@ -1025,7 +1044,7 @@
                     bolt.position.copy(start);
                     bolt.lookAt(start.clone().add(fwd));
                     S.add(bolt);
-                    tone(220, 95, 0.20, 'sawtooth', 0.13);
+                    if (BO.MinigameAudio) BO.MinigameAudio.ballistaTwang(); else tone(220, 95, 0.20, 'sawtooth', 0.13);
                     D.bolts.push({ mesh: bolt, vel: fwd.multiplyScalar(44), life: 2.0 });
                     return;
                 }
@@ -1101,6 +1120,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             for (const b of D.ballistae) b.cd = Math.max(0, b.cd - dt);
             for (const c of D.cauldrons) c.cd = Math.max(0, c.cd - dt);

@@ -182,7 +182,7 @@
         },
         heroLabel: 'FUN & SPECIALS • IMPERIAL ARENA SPECTACLE', duration: 165,
         stars: [2800, 5600, 9200, 13500],
-        standardWeapon: 'spas12_tac', secondaryWeapon: 'python_magnum', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'spas12_tac', secondaryWeapon: 'python_magnum', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'GLADIATOR SPAS-12 + PYTHON + SHIELD BASH [E]', weaponNote: '[E] Taunt & Shield-Bash Knockback (+25% Favor) • Lure foes onto Spike Grates!',
         keys: [['WASD', 'Circle the Sand'], ['E', 'Taunt & Shield Bash (8s)'], ['1 / 2', 'Swap Shotgun / Magnum'], ['SPACE', 'Leap Chariots & Spikes']],
         map: {
@@ -192,6 +192,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('colosseum');
             const D = S.data;
             const R = 25.5;
             Object.assign(D, {
@@ -246,6 +247,12 @@
             empSign.position.set(0, 4.5, 1.85);
             boxG.add(canopy, caesar.root, empSign);
             S.add(boxG);
+            D.caesar = caesar;
+            // Chasing Imperial Gold Torch-Bulbs along Caesar's Royal Box & Colosseum Rim!
+            const rimPts = [];
+            for (let i = 0; i < 32; i++) { const a = (i / 32) * TAU; rimPts.push(V(Math.cos(a) * (R + 0.9), 5.65, Math.sin(a) * (R + 0.9))); }
+            const colBulbs = A.bulbs(rimPts, [0xfde047, 0xf97316, 0xfef3c7], 0.14);
+            S.add(colBulbs); A.animateBulbs(S, colBulbs, 5, 'chase');
 
             // 4 Marble Victory Columns for chariot cover + 4 Rising Iron Spike-Trap Grates!
             for (const [px, pz] of [[-9.5, -9.5], [9.5, -9.5], [-9.5, 9.5], [9.5, 9.5]]) {
@@ -282,6 +289,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _addFavor(S, amt) {
@@ -388,8 +396,10 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.tauntCd = Math.max(0, D.tauntCd - dt);
+            if (D.caesar) D.caesar.root.position.y = 0.2 + Math.abs(Math.sin(S.t * 3.5)) * (D.favor > 60 ? 0.22 : 0.05);
 
             // Collect Caesar's Golden Supply Chests
             for (let i = D.gifts.length - 1; i >= 0; i--) {
@@ -428,8 +438,8 @@
                 } else if (gr.phase === 'up' && gr.timer <= 0) {
                     gr.phase = 'idle'; gr.timer = 5.5 + Math.random() * 2.5;
                     gr.warnGlow.material.opacity = 0;
-                    gr.spikesG.position.y = -1.3;
                 }
+                gr.spikesG.position.y = lerp(gr.spikesG.position.y, gr.phase === 'up' ? 0 : -1.3, dt * 14);
             }
 
             // Spawn Lions, Legionaries, War-Chariots & Spartacus Rex Boss (after 14 kills or 65s)!
@@ -587,7 +597,7 @@
         },
         heroLabel: 'FUN & SPECIALS • ORBITAL EVA DEFENSE', duration: 165,
         stars: [2800, 5600, 9200, 13400],
-        standardWeapon: 'acr_68', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'acr_68', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'ORBITAL ACR 6.8 + EVA THRUSTERS + WELDER [E]', weaponNote: 'Hold [SPACE] EVA Thrust • [Q] Mag-Boot Slam • [E] Plasma-Weld Hull Breach',
         keys: [['WASD', 'EVA Glide'], ['HOLD SPACE', 'RCS Jetpack Up'], ['Q', 'Mag-Boot Slam'], ['E', 'Weld Hull Breach'], ['LMB', 'Fire Orbital Rifle']],
         map: {
@@ -603,6 +613,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('orbital');
             const D = S.data;
             Object.assign(D, {
                 o2: 100, breaches: [], drones: [], welds: 0, droneKills: 0,
@@ -660,6 +671,11 @@
             }
             const sign = A.sign('🛰️ ORBITAL STATION HELIOS-9 — WELD HULL BREACHES [E]! 🛰️', 11.5, 1.0, { bg: '#082f49', color: '#67e8f9', borderColor: '#38bdf8', size: 0.32, glow: '#38bdf8' });
             sign.position.set(0, 6.8, -22.5); S.add(sign);
+            // Chasing Orbital Runway Nav-Bulbs along the HELIOS-9 hull spine!
+            const navPts = [];
+            for (let z = -20; z <= 18; z += 3.5) { navPts.push(V(-8.8, 1.02, z), V(8.8, 1.02, z)); }
+            const navBulbs = A.bulbs(navPts, [0x22d3ee, 0xfacc15, 0xffffff], 0.11);
+            S.add(navBulbs); A.animateBulbs(S, navBulbs, 6, 'chase');
 
             // 4 Hull Breach Bulkhead Nodes (2 start ruptured so player has immediate EVA action!)
             const breachCoords = [[-5.5, 0.1, -14], [5.5, 0.1, -14], [-14.5, 2.65, -6], [14.5, 2.65, -6]];
@@ -689,6 +705,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _weldBreach(S) {
@@ -701,7 +718,7 @@
                     D.welds++;
                     D.o2 = Math.min(100, D.o2 + 18);
                     BO.FX.spawnParticles(br.pos.clone().add(V(0, 0.4, 0)), 22, 0x38bdf8, 5, 3, 0.45, 0.9);
-                    tone(480, 1120, 0.24, 'triangle', 0.12);
+                    if (BO.MinigameAudio) BO.MinigameAudio.plasmaWeld(); else tone(480, 1120, 0.24, 'triangle', 0.12);
                     S.award(500, br.pos.clone().add(V(0, 1.4, 0)), '🔧 HULL SEALED (+18% O2)!', '#67e8f9');
                     return;
                 }
@@ -738,6 +755,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
 
             // Authentic Low-Gravity EVA Physics + Hold [SPACE] RCS Jetpack Thrust + Tether Safety Recovery!

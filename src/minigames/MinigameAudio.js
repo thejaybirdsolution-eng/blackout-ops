@@ -568,6 +568,74 @@
                 if (bass) this._osc(bass, 0.11, 'sawtooth', 0.13, { cutoff: 1450, cutoffEnd: 360, q: 3.0 });
                 const spooky = [0, 0, N.Fs5, 0, 0, N.G5, 0, N.Fs5, 0, 0, N.E5, 0, N.D5, 0, N.Cs5, 0][st];
                 if (spooky) this._osc(spooky, 0.24, 'sine', 0.068, { slideTo: spooky * 1.03, pan: Math.sin(s) * 0.35 });
+            } else if (this.mode === 'colosseum') {
+                // 136 BPM Imperial Gladiator War-Drums & Brass Fanfare
+                this.timer = 0.110;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                if (st === 0 || st === 3 || st === 6 || st === 8 || st === 12) this._kick(0.28, 120, 38, 0.24);
+                if (st === 4 || st === 10 || st === 14) this._snare(0.16, 170, 0.15);
+                const horn = [N.D4, 0, 0, N.D4, N.F4, 0, N.A4, 0, N.G4, 0, N.F4, N.E4, N.D4, 0, N.A3, 0][st];
+                if (horn) {
+                    this._osc(horn, 0.22, 'sawtooth', 0.08, { cutoff: 1900, pan: -0.18 });
+                    this._osc(horn * 0.5, 0.24, 'sawtooth', 0.06, { cutoff: 950, pan: 0.18 });
+                }
+                if (st === 0) this._supersaw([N.D3, N.Bb2, N.C3, N.A2][bar], 0.8, 0.04, 1300);
+            } else if (this.mode === 'orbital') {
+                // Ethereal Zero-G Sci-Fi Ambient Arp & Pulse
+                this.timer = 0.155;
+                const N = NOTE, st = s % 16;
+                const arp = [N.C4, N.G4, N.B4, N.D5, N.E5, N.D5, N.B4, N.G4, N.A3, N.E4, N.A4, N.C5, N.E5, N.C5, N.A4, N.E4];
+                this._osc(arp[st], 0.32, 'sine', 0.065, { pan: Math.sin(s * 0.45) * 0.4 });
+                if (st % 8 === 0) this._supersaw(st === 0 ? N.C3 : N.A2, 1.15, 0.035, 1100);
+                if (st === 0 || st === 10) this._kick(0.16, 90, 36, 0.22);
+            } else if (this.mode === 'abyssal') {
+                // Deep-Sea Bioluminescent Sub-Sonar & Leviathan Pulse
+                this.timer = 0.185;
+                const N = NOTE, st = s % 16;
+                if (st === 0) this._osc(N.D2, 1.4, 'sine', 0.16, { attack: 0.1 });
+                if (st === 0 || st === 8) this._kick(0.20, 74, 30, 0.26);
+                const ping = [N.A4, 0, 0, N.D5, 0, 0, N.F5, 0, N.E5, 0, 0, N.C5, 0, 0, N.A4, 0][st];
+                if (ping) this._osc(ping, 0.42, 'triangle', 0.062, { pan: Math.cos(s * 0.5) * 0.4 });
+            } else if (this.mode === 'jurassic') {
+                // Rainforest Tribal Timpani & Adventure Brass
+                this.timer = 0.125;
+                const N = NOTE, st = s % 16;
+                if (st === 0 || st === 6 || st === 8 || st === 11 || st === 14) this._kick(0.26, 130, 44, 0.20);
+                if (st === 4 || st === 12) this._snare(0.14, 185, 0.12);
+                const mel = [N.Bb4, N.A4, N.Bb4, 0, N.F4, 0, N.Eb4, 0, N.Bb4, N.A4, N.Bb4, 0, N.D5, 0, N.C5, 0][st];
+                if (mel) this._osc(mel, 0.22, 'sawtooth', 0.072, { cutoff: 2100 });
+            } else if (this.mode === 'castle') {
+                // Medieval Siege War-Drums & Brass Battle March
+                this.timer = 0.116;
+                const N = NOTE, st = s % 16;
+                if (st % 4 === 0 || st === 14) this._kick(0.28, 118, 38, 0.22);
+                if (st === 4 || st === 12) this._snare(0.19, 190, 0.15);
+                const mel = [N.E4, N.G4, N.A4, N.B4, N.B4, 0, N.A4, N.G4, N.E4, N.D4, N.E4, N.G4, N.Fs4, 0, N.E4, 0][st];
+                if (mel) {
+                    this._osc(mel, 0.18, 'sawtooth', 0.075, { cutoff: 2200, pan: -0.2 });
+                    this._osc(mel * 0.5, 0.20, 'triangle', 0.08, { pan: 0.2 });
+                }
+            } else if (this.mode === 'cyberpunk') {
+                // 160 BPM Outrun Synthwave Neon Highway!
+                this.timer = 0.094;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const root = [N.A2, N.F2, N.C3, N.G2][bar];
+                if (st % 4 === 0) this._kick(0.28, 165, 44, 0.18);
+                if (st === 4 || st === 12) this._snare(0.20, 235, 0.14);
+                if (st % 2 === 1) this._hat(0.055, st === 15, (st % 4 === 1 ? -0.3 : 0.3));
+                this._osc(root * (st % 2 ? 2 : 1), 0.085, 'sawtooth', 0.12, { cutoff: 1700, cutoffEnd: 420, q: 2.6 });
+                const lead = [N.A5, 0, N.E5, N.A5, N.C6, 0, N.B5, N.A5, N.G5, 0, N.E5, N.G5, N.A5, 0, N.E5, 0][st];
+                if (lead) this._supersaw(lead, 0.13, 0.055, 3600);
+            } else if (this.mode === 'pinball') {
+                // 146 BPM Carnival Arcade Pinball Organ-Chiptune!
+                this.timer = 0.103;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const root = [N.C3, N.F2, N.G2, N.C3][bar];
+                if (st % 4 === 0) this._kick(0.22, 155, 50, 0.15);
+                if (st === 4 || st === 12) this._snare(0.16, 230, 0.11);
+                this._osc(root * (st % 2 ? 1.5 : 1), 0.09, 'triangle', 0.11);
+                const mel = [N.C5, N.E5, N.G5, N.C6, N.A5, N.G5, N.E5, N.C5, N.D5, N.F5, N.A5, N.G5, N.E5, N.D5, N.C5, 0][st];
+                if (mel) this._osc(mel, 0.10, 'square', 0.068, { cutoff: 3200, pan: (st % 4 - 1.5) * 0.22 });
             }
         }
 
@@ -834,6 +902,31 @@
             this._osc(280, 0.22, 'sawtooth', 0.16, { slideTo: 880, cutoff: 2600, sfx: true });
             this._kick(0.25, 160, 52, 0.14, true);
             this._osc(NOTE.E5, 0.28, 'triangle', 0.13, { sfx: true, delay: 0.12 });
+        }
+        plasmaWeld() {
+            this._noise(0.26, 3600, 'bandpass', 1.8, 0.22, 0, true);
+            this._osc(620, 0.24, 'triangle', 0.14, { slideTo: 1240, sfx: true });
+        }
+        sonarPing() {
+            this._osc(1046, 0.55, 'sine', 0.18, { sfx: true });
+            this._osc(2093, 0.35, 'triangle', 0.07, { sfx: true, delay: 0.06 });
+        }
+        ballistaTwang() {
+            this._osc(180, 0.22, 'sawtooth', 0.18, { slideTo: 72, cutoff: 1400, sfx: true });
+            this._noise(0.14, 1800, 'bandpass', 1.5, 0.20, 0, true);
+        }
+        katanaSlash() {
+            this._noise(0.16, 4800, 'highpass', 1.2, 0.24, 0, true);
+            this._osc(1280, 0.15, 'sawtooth', 0.14, { slideTo: 280, sfx: true });
+        }
+        pinballBumper() {
+            this._osc(784, 0.09, 'square', 0.12, { slideTo: 1175, sfx: true });
+            this._osc(1568, 0.10, 'triangle', 0.10, { sfx: true, delay: 0.03 });
+        }
+        pinballJackpot() {
+            [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6].forEach((f, i) => {
+                this._osc(f, 0.18, 'square', 0.12, { sfx: true, delay: i * 0.055 });
+            });
         }
     }
 

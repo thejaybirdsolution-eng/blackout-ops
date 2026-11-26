@@ -139,7 +139,7 @@
         },
         heroLabel: 'FUN & SPECIALS • HIGH-SPEED CYBER VEHICULAR COMBAT', duration: 155,
         stars: [3000, 6200, 9800, 14500],
-        standardWeapon: 'vector_kriss', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'vector_kriss', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'VECTOR SMG + HOVERBIKE + THERMAL KATANA [E]', weaponNote: '[A/D] Steer Bike • [SPACE] Boost-Jump Gates • [E] Katana Slash • [Q] Nitro!',
         keys: [['A / D', 'Steer Hoverbike'], ['SPACE', 'Jump Laser Gates'], ['E', 'Thermal Katana (3.5s)'], ['Q', 'Nitro Overdrive (12s)']],
         map: {
@@ -149,6 +149,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('cyberpunk');
             const D = S.data;
             Object.assign(D, {
                 bikeX: 0, bikeY: 0, bikeVy: 0, bikeTilt: 0, bikeHp: 100, kmh: 260,
@@ -236,6 +237,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _katanaSlash(S) {
@@ -243,7 +245,7 @@
             if (D.katanaCd > 0) return;
             D.katanaCd = 3.5;
             D.katanaAnim = 0.28;
-            tone(920, 260, 0.16, 'sawtooth', 0.13);
+            if (BO.MinigameAudio) BO.MinigameAudio.katanaSlash(); else tone(920, 260, 0.16, 'sawtooth', 0.13);
             let cleaved = 0;
             for (const b of D.bikers.slice()) {
                 if (!b.isGunship && b.tgt.alive && b.tgt.basePos.distanceTo(P.pos) < 8.2) {
@@ -286,6 +288,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.katanaCd = Math.max(0, D.katanaCd - dt);
             D.nitroCd = Math.max(0, D.nitroCd - dt);
@@ -462,7 +465,7 @@
         },
         heroLabel: 'FUN & SPECIALS • GIANT CARNIVAL PINBALL ARENA', duration: 160,
         stars: [3200, 6500, 10500, 15500],
-        standardWeapon: 'p90', lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'p90', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         weaponLabel: 'JACKPOT P90 + TABLE NUDGE [E] + PLUNGER LAUNCH', weaponNote: 'Shoot [M-A-G-I-C] Drop-Targets • [E] Table Nudge (7s) • Plunger Lane on Right!',
         keys: [['WASD', 'Run Playfield'], ['E', 'Table NudgeSlam (7s)'], ['SPACE', 'Jump Rolling Chrome Balls'], ['LMB', 'Shatter Pinballs & Targets']],
         map: {
@@ -478,6 +481,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('pinball');
             const D = S.data;
             Object.assign(D, {
                 balls: [], bumpers: [], flippers: [], magicLetters: [], magicLit: [false, false, false, false, false],
@@ -571,6 +575,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
         _triggerMultiballJackpot(S) {
@@ -578,7 +583,7 @@
             D.jackpots++;
             D.magicLit = [false, false, false, false, false];
             for (const ml of D.magicLetters) ml.mesh.position.y = 1.6;
-            SFX.fanfare();
+            if (BO.MinigameAudio) BO.MinigameAudio.pinballJackpot(); else SFX.fanfare();
             S.award(1500, V(-2, 4, -12), '🎰 M-A-G-I-C MULTIBALL JACKPOT (+1,500)!', '#fde047');
             MG.toast('🎰 MULTIBALL JACKPOT — GOLDEN 2X BONUS PINBALLS UNLEASHED!', '#fde047');
             for (let i = 0; i < 3; i++) this._spawnPinball(S, true);
@@ -637,6 +642,7 @@
         },
         update(S, dt, lib, state) {
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.nudgeCd = Math.max(0, D.nudgeCd - dt);
 
@@ -695,7 +701,7 @@
                         b.vel.set(nx * 19, 0, nz * 19);
                         bmp.pulse = 0.2;
                         S.score += 75;
-                        tone(660, 990, 0.09, 'triangle', 0.07);
+                        if (BO.MinigameAudio) BO.MinigameAudio.pinballBumper(); else tone(660, 990, 0.09, 'triangle', 0.07);
                         BO.FX.spawnParticles(bmp.pos.clone().add(V(0, 1.4, 0)), 8, bmp.col, 4, 2, 0.25, 0.6);
                     }
                 }
