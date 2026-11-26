@@ -10,7 +10,7 @@
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
         period: 'Nov 22 – Nov 26, 2026 (ET)',
-        totalCount: 85,
+        totalCount: 86,
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -1758,6 +1758,35 @@
                                         "Take on Ninja Stealth and Three-Headed Dragon, or replay the reworked Getaway Chase and Deagle Meteor Splitter.",
                                         "Find Whack-a-Mole under Target & Action and watch a first-person Beat Drop example without affecting personal records.",
                                         "Explore refreshed map props and materials, reworked zombie and Sweetheart Shore models, and smoother first-person sprint, slide and reload animations."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 86,
+                "hash": "tour86a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "2:48 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Flagship Fun Overhaul: Bastion Warden, Summit Rally, Flight Circuit & Prism Foundry",
+                "major": true,
+                "tags": [
+                        "minigames",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Completed the flagship overhaul across Master Zombie, Snowboarding, 360 Trick Shot, Mario FPS and Skybreak Sling—upgrading 3D map architecture with PBR textures, adding deep gameplay systems, and introducing a dedicated multi-track Web Audio music & DSP sound engine (MinigameAudio.js)."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Master Zombie: textured Bastion Omega citadel with wrecked Humvees, searchlight cones, automated sentry turrets, explosive fuel barrels, 3-stage Bio-Evolution (Biomass orbs, Triple Acid Pools, Predator Pounce [C]), Infected Soldier conversion, 2-Phase Warden boss, and dark industrial bio-horror music.",
+                                        "Snowboarding (Summit Rally + Alpine Endurance): Peak 9 Resort with alpine chalets, Crystal Ice Cavern, orange B-netting, high-line rail transfers, neon speed pads, gold big-air kickers, Indy/Method/Flip/Superman Uber [Q] tricks, slipstream drafting, avalanche finale, 172 BPM DnB synthwave soundtrack, and dynamic snow-carve & copper rail-grind DSP audio.",
+                                        "360 Trick Shot (Flight Circuit): 5 detailed industrial towers, corrugated shipping container yard, 3 Pneumatic Bounce Pads for 720°/1080° double-bounce chains, Steel Ricochet Gongs, Explosive Propane Barrels, UAV bonus drone, mid-air Nac-Swap [F] & Barrel Roll [Q] style moves, and slow-mo lowpass bass-drop chase replays.",
+                                        "Mario FPS (Prism Foundry + Classic Worlds): Prism Foundry adds Clockwork Sentinel drones, rotating laser sweepers, 8 aerial Prism cells, a rotating Governor seal rotor & reactive Cyan/Amber synthwave; Classic Worlds 1-1 to 1-4 add 4-channel chiptune music, kickable Koopa shells, Castle Thwomps, Starman invincibility & flagpole height bonuses."
                                 ]
                         }
                 ]

@@ -1,6 +1,6 @@
 /* ============================================================================
    BLACKOUT OPS — MINIGAMES: FUN SECTION (Part 1: 1–3)
-     1. Angry Birds   — contained slingshot deck launching Angry Birds at fortresses
+     1. Skybreak Sling— see SkybreakSling.js
      2. Master Zombie — siege a detailed multi-zone Human Fortress (strict LOS, sniper tower, kiting AI)
      3. Snowboarding  — 5-minute mountain run with unavoidable -> tight-avoid obstacles + Zombie Chasers
 ============================================================================ */
@@ -16,268 +16,6 @@
     const SR = BO.SpeedRunKit;
     const { B, SFX, std, basic, TAU, clamp01 } = L;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-
-    /* =====================================================================
-       1. ANGRY BIRDS FPS — Contained Slingshot Deck + Piggy Fortresses
-    ===================================================================== */
-    const BIRD_KINDS = [
-        { name: 'RED', col: 0xef4444, belly: 0xfef3c7, r: 0.36, spd: 34, rad: 3.1, blast: 0, msg: 'RED STRIKE!' },
-        { name: 'CHUCK (TURBO)', col: 0xfacc15, belly: 0xfef9c3, r: 0.34, spd: 50, rad: 2.9, blast: 0, msg: 'TURBO CHUCK!' },
-        { name: 'BOMB (TNT)', col: 0x18181b, belly: 0x6b7280, r: 0.43, spd: 29, rad: 6.4, blast: 1, msg: 'BOOM!' }
-    ];
-
-    function buildBirdMesh(col, bellyCol, r, enemy, isKing = false) {
-        const g = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 12), std(col, 0.42));
-        const belly = new THREE.Mesh(new THREE.SphereGeometry(r * 0.72, 10, 8), std(bellyCol, 0.5));
-        belly.position.set(0, -r * 0.25, r * 0.25);
-        g.add(body, belly);
-        for (const s of [-1, 1]) {
-            const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.23, 8, 6), basic(0xffffff));
-            eye.position.set(s * r * 0.34, r * 0.18, r * 0.78);
-            const pup = new THREE.Mesh(new THREE.SphereGeometry(r * 0.11, 6, 6), basic(0x09090b));
-            pup.position.set(s * r * 0.34, r * 0.18, r * 0.94);
-            const brow = new THREE.Mesh(new THREE.BoxGeometry(r * 0.36, r * 0.08, r * 0.08), basic(enemy ? 0x166534 : 0x18181b));
-            brow.position.set(s * r * 0.34, r * 0.40, r * 0.88);
-            brow.rotation.z = s * (enemy ? -0.25 : 0.32);
-            g.add(eye, pup, brow);
-            if (enemy) {
-                const ear = new THREE.Mesh(new THREE.SphereGeometry(r * 0.18, 8, 6), std(col, 0.5));
-                ear.position.set(s * r * 0.72, r * 0.65, 0);
-                g.add(ear);
-            }
-        }
-        if (enemy) {
-            const snout = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.32, r * 0.36, r * 0.26, 12), std(0x86efac, 0.5));
-            snout.rotation.x = Math.PI / 2; snout.position.set(0, -r * 0.02, r * 0.96);
-            g.add(snout);
-            if (isKing) {
-                const crown = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.45, r * 0.32, r * 0.42, 8), std(0xfacc15, 0.25, 0.7));
-                crown.position.set(0, r * 1.15, 0);
-                g.add(crown);
-            }
-        } else {
-            const beak = new THREE.Mesh(new THREE.ConeGeometry(r * 0.26, r * 0.5, 8), std(0xf97316, 0.4));
-            beak.rotation.x = Math.PI / 2; beak.position.set(0, -r * 0.04, r * 0.95);
-            const crest = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.12, r * 0.28, 4, 8), std(col, 0.5));
-            crest.position.set(0, r * 0.98, 0);
-            g.add(beak, crest);
-        }
-        return { g, body };
-    }
-
-    MG.register({
-        id: 'fun_angry_birds', cat: 'fun', order: 1, name: 'Angry Birds FPS', icon: '🐦', accent: '#ef4444', badge: 'SLINGSHOT',
-        tagline: 'Fenced Slingshot Deck! Fire Red, Chuck & Bomb Birds to smash fortresses!',
-        desc: 'Take command inside the timber Slingshot Perch overlooking four pig-bird fortresses! Switch manually with [1-3] or auto-cycle between Red, Turbo Chuck, and Explosive Bomb birds, aim carefully from inside your firing bay, and topple wood, stone, and ice towers!',
-        heroLabel: 'FUN • SLINGSHOT DESTRUCTION', duration: 90, stars: [2200, 4800, 8000, 12000],
-        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, weaponLabel: 'ANGRY BIRD SLINGSHOT', weaponNote: 'LMB fire • [1] Red • [2] Chuck • [3] Bomb',
-        keys: [['LMB', 'Launch Bird'], ['1 / 2 / 3', 'Pick Bird Type'], ['WASD', 'Move on Firing Deck']],
-        map: {
-            atmosphere: { skyTop: 0x0284c7, skyBottom: 0xbae6fd, fogColor: 0xbae6fd, fogDensity: 0.0028, sunColor: 0xfff7e6, sunIntensity: 1.7, sunPos: [40, 70, 30], hemiSky: 0xe0f2fe, hemiGround: 0x3f6212, hemiIntensity: 0.9 },
-            boxes: [B(0, -0.5, -20, 180, 1, 180, 'nuketown_grass')],
-            spawn: { x: 0, y: 0.35, z: 4.5, yaw: 0 }
-        },
-        build(S) {
-            K.groundPlane(S, 180, 0x4d7c0f, 0.002);
-            K.cloudLayer(S, 10, 32, 160);
-            const rnd = L.mulberry32(710);
-            for (let i = 0; i < 36; i++) {
-                const tr = A.tree(1.4 + rnd() * 0.8, i % 3 ? 0x166534 : 0x15803d);
-                const side = i % 2 ? 1 : -1;
-                tr.position.set(side * (21 + rnd() * 24), 0, 8 - i * 2.2);
-                S.add(tr);
-            }
-            for (const [hx, hz, hr] of [[-28, -58, 18], [26, -64, 22], [0, -72, 26]]) {
-                const hill = new THREE.Mesh(new THREE.SphereGeometry(hr, 18, 10), std(0x3f6212, 0.95));
-                hill.scale.y = 0.35; hill.position.set(hx, 0, hz); S.add(hill);
-            }
-
-            // CONTAINED SLINGSHOT FIRING DECK (player stays strictly inside [-4.8..4.8, 2.0..6.8])
-            const woodDeckM = std(0x78350f, 0.85), trimM = std(0x451a03, 0.8), slingshotM = std(0x92400e, 0.72);
-            const deck = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.6, 5.8), woodDeckM);
-            deck.position.set(0, 0.05, 4.5); deck.receiveShadow = true; S.add(deck);
-            const rug = new THREE.Mesh(new THREE.PlaneGeometry(8.8, 4.4), std(0x7f1d1d, 0.9));
-            rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.36, 4.5); S.add(rug);
-            for (const [x1, z1, x2, z2, h] of [[-5.1, 1.6, 5.1, 1.85, 0.95], [-5.1, 7.1, 5.1, 7.35, 1.35], [-5.2, 1.6, -4.95, 7.35, 1.35], [4.95, 1.6, 5.2, 7.35, 1.35]]) {
-                const rail = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x2 - x1), h, Math.abs(z2 - z1)), trimM);
-                rail.position.set((x1 + x2) / 2, 0.35 + h / 2, (z1 + z2) / 2); S.add(rail);
-                S.collider(x1, 0, z1, x2, 4, z2);
-            }
-            // Twin Giant Slingshot Y-Forks at deck front corners + Overhead Chasing Marquee
-            for (const s of [-1, 1]) {
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 3.8, 10), slingshotM);
-                post.position.set(s * 4.5, 2.1, 1.8);
-                const fork = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 1.5, 8), slingshotM);
-                fork.position.set(s * 4.9, 4.2, 1.8); fork.rotation.z = -s * 0.45;
-                const band = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 6), std(0x1f2937, 0.6));
-                band.rotation.z = Math.PI / 2; band.position.set(s * 3.1, 3.8, 1.8);
-                S.add(post, fork, band);
-            }
-            const sign = A.sign('ANGRY BIRDS SLINGSHOT', 7.2, 1.05, { bg: '#450a0a', color: '#fde047', borderColor: '#facc15', size: 0.55, glow: '#f97316' });
-            sign.position.set(0, 4.95, 1.75); S.add(sign);
-            const mbPts = [];
-            for (let i = 0; i <= 22; i++) { const x = -3.7 + (i / 22) * 7.4; mbPts.push(V(x, 5.55, 1.82), V(x, 4.35, 1.82)); }
-            const bulbs = A.bulbs(mbPts, [0xfacc15, 0xef4444, 0xffffff], 0.06);
-            S.add(bulbs); A.animateBulbs(S, bulbs, 8, 'chase');
-
-            // Decorative reserve bird perch crate on left of deck
-            for (let b = 0; b < 3; b++) {
-                const disp = buildBirdMesh(BIRD_KINDS[b].col, BIRD_KINDS[b].belly, 0.26, false);
-                disp.g.position.set(-4.1 + b * 0.75, 1.38, 2.1); S.add(disp.g);
-            }
-
-            const woodM = std(0x92400e, 0.8), stoneM = std(0x64748b, 0.85), glassM = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.58, roughness: 0.1 });
-            S.data.blocks = [];
-            S.data.foes = [];
-            S.data.projectiles = [];
-            S.data.birdIdx = 0;
-            S.data.fireCd = 0;
-
-            const addBlock = (x, y, z, w, h, d, kind) => {
-                const mat = kind === 'stone' ? stoneM : kind === 'glass' ? glassM : woodM;
-                const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-                m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true;
-                S.add(m);
-                S.data.blocks.push({ mesh: m, w, h, d, hp: kind === 'stone' ? 3 : kind === 'wood' ? 2 : 1, vy: 0, vx: 0, vz: 0, falling: false, floorY: y });
-            };
-            const addEnemyBird = (x, y, z, pts = 350, king = false) => {
-                const bm = buildBirdMesh(0x4ade80, 0xbef264, king ? 0.58 : 0.45, true, king);
-                bm.g.position.set(x, y, z);
-                S.add(bm.g);
-                S.data.foes.push({ mesh: bm.g, basePos: V(x, y, z), vx: 0, vy: 0, vz: 0, fallen: false, dead: false, pts, bobPh: Math.random() * 6 });
-            };
-
-            const forts = [
-                { cx: -11, cz: -19, rows: 2, label: 'PIG OUTPOST' },
-                { cx: 0, cz: -26, rows: 3, label: 'CENTRAL TOWER' },
-                { cx: 11, cz: -20, rows: 2, label: 'EAST KEEP' },
-                { cx: 0, cz: -40, rows: 4, label: 'KING PIG CITADEL' }
-            ];
-            for (const f of forts) {
-                const plat = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.6, 4.8), std(0x44403c, 0.9));
-                plat.position.set(f.cx, 0.3, f.cz); S.add(plat);
-                const fSign = A.sign(f.label, 4.6, 0.65, { bg: '#14532d', color: '#bef264', borderColor: '#4ade80', size: 0.45 });
-                fSign.position.set(f.cx, 0.45, f.cz + 2.45); S.add(fSign);
-                for (let r = 0; r < f.rows; r++) {
-                    const py = 1.65 + r * 2.2;
-                    addBlock(f.cx - 2.1, py, f.cz, 0.55, 2.0, 2.6, r === 0 ? 'stone' : 'wood');
-                    addBlock(f.cx + 2.1, py, f.cz, 0.55, 2.0, 2.6, r === 0 ? 'stone' : 'wood');
-                    addBlock(f.cx, py + 1.15, f.cz, 5.2, 0.36, 2.8, r % 2 ? 'glass' : 'wood');
-                    addEnemyBird(f.cx + (r % 2 ? -0.8 : 0.8), py - 0.5, f.cz, 350 + r * 120, false);
-                }
-                addEnemyBird(f.cx, 1.05 + f.rows * 2.2 + 0.55, f.cz, 750, f.rows >= 4);
-            }
-            S.data.totalFoes = S.data.foes.length;
-            S.data.knocked = 0;
-        },
-        onKey(S, code) {
-            if (MG.state !== 'running') return false;
-            if (code === 'Digit1') { S.data.birdIdx = 0; SFX.clack(); return true; }
-            if (code === 'Digit2') { S.data.birdIdx = 1; SFX.clack(); return true; }
-            if (code === 'Digit3') { S.data.birdIdx = 2; SFX.clack(); return true; }
-            return false;
-        },
-        update(S, dt, lib, state) {
-            const D = S.data, P = BO.Player;
-            // Strictly contain player inside the Slingshot Deck!
-            P.pos.x = BO.Math.clamp(P.pos.x, -4.45, 4.45);
-            P.pos.z = BO.Math.clamp(P.pos.z, 2.15, 6.75);
-            if (P.pos.y < 0.35) P.pos.y = 0.35;
-
-            if (D.fireCd > 0) D.fireCd -= dt;
-            if (state !== 'running') return;
-
-            if (P.triggerHeld && !D._latch && D.fireCd <= 0) {
-                D._latch = true; D.fireCd = 0.28;
-                const kind = BIRD_KINDS[D.birdIdx % BIRD_KINDS.length];
-                D.birdIdx++;
-                const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
-                const bm = buildBirdMesh(kind.col, kind.belly, kind.r, false);
-                bm.g.position.copy(cam.position).addScaledVector(dir, 1.0); S.add(bm.g);
-                D.projectiles.push({ mesh: bm.g, vel: dir.multiplyScalar(kind.spd).add(V(0, 2.4, 0)), kind, life: 4.5 });
-                SFX.launch(); SFX.tone(540, 880, 0.14, 'triangle', 0.14);
-                S.shots++;
-            } else if (!P.triggerHeld) D._latch = false;
-
-            const detonate = (pos, rad, blast, col) => {
-                BO.FX.spawnParticles(pos, blast ? 28 : 14, col, 6, 4, 0.65, 1.4);
-                if (blast) { BO.FX.spawnExplosion(pos, rad, 0xf97316); SFX.rumble(0.55); P.cameraShake = Math.max(P.cameraShake, 0.045); }
-                else SFX.bonk();
-                for (const b of D.blocks) {
-                    const d = b.mesh.position.distanceTo(pos);
-                    if (d < rad) {
-                        const out = b.mesh.position.clone().sub(pos).normalize();
-                        b.vx += out.x * (6.5 + (rad - d) * 2.5);
-                        b.vy += 4.5 + (rad - d) * 1.4;
-                        b.vz += out.z * (6.5 + (rad - d) * 2.5);
-                        b.falling = true; b.hp -= blast ? 3 : 1;
-                    }
-                }
-                for (const f of D.foes) {
-                    if (f.dead) continue;
-                    if (f.mesh.position.distanceTo(pos) < rad + 0.7) {
-                        const out = f.mesh.position.clone().sub(pos).normalize();
-                        f.vx += out.x * 9; f.vy += 7; f.vz += out.z * 9; f.fallen = true;
-                        S.shotHits++; S.hits++;
-                    }
-                }
-            };
-
-            for (let i = D.projectiles.length - 1; i >= 0; i--) {
-                const pr = D.projectiles[i];
-                pr.life -= dt; pr.vel.y -= 14.5 * dt;
-                pr.mesh.position.addScaledVector(pr.vel, dt);
-                pr.mesh.rotation.x += dt * 7;
-                if (Math.random() < 0.45) BO.FX.spawnParticles(pr.mesh.position, 1, pr.kind.col, 1, 0.5, 0.25, 0.6);
-                let hit = pr.mesh.position.y <= 0.35;
-                if (!hit) for (const b of D.blocks) { const p = b.mesh.position; if (Math.abs(pr.mesh.position.x - p.x) < b.w * 0.5 + 0.4 && Math.abs(pr.mesh.position.y - p.y) < b.h * 0.5 + 0.4 && Math.abs(pr.mesh.position.z - p.z) < b.d * 0.5 + 0.4) { hit = true; break; } }
-                if (!hit) for (const f of D.foes) { if (!f.dead && pr.mesh.position.distanceTo(f.mesh.position) < 0.9) { hit = true; break; } }
-                if (hit || pr.life <= 0) {
-                    detonate(pr.mesh.position.clone(), pr.kind.rad, pr.kind.blast, pr.kind.col);
-                    S.scene.remove(pr.mesh); D.projectiles.splice(i, 1);
-                }
-            }
-            for (let i = D.blocks.length - 1; i >= 0; i--) {
-                const b = D.blocks[i];
-                if (!b.falling) continue;
-                b.vy -= 18 * dt;
-                b.mesh.position.x += b.vx * dt; b.mesh.position.y += b.vy * dt; b.mesh.position.z += b.vz * dt;
-                b.mesh.rotation.x += b.vz * dt * 0.6; b.mesh.rotation.z -= b.vx * dt * 0.6;
-                if (b.hp <= 0 || b.mesh.position.y < -1) {
-                    S.award(40, b.mesh.position.clone(), null); S.scene.remove(b.mesh); D.blocks.splice(i, 1);
-                } else if (b.mesh.position.y < b.h * 0.5) {
-                    b.mesh.position.y = b.h * 0.5; b.vy = 0; b.vx *= 0.6; b.vz *= 0.6;
-                }
-            }
-            for (const f of D.foes) {
-                if (f.dead) continue;
-                if (!f.fallen) {
-                    f.mesh.position.y = f.basePos.y + Math.abs(Math.sin(S.t * 3 + f.bobPh)) * 0.08;
-                    if (f.basePos.y > 1.2) {
-                        const hasSup = D.blocks.some((b) => Math.abs(b.mesh.position.x - f.mesh.position.x) < 2.8 && Math.abs(b.mesh.position.z - f.mesh.position.z) < 2.5 && b.mesh.position.y < f.mesh.position.y);
-                        if (!hasSup) f.fallen = true;
-                    }
-                }
-                if (f.fallen) {
-                    f.vy -= 18 * dt;
-                    f.mesh.position.x += f.vx * dt; f.mesh.position.y += f.vy * dt; f.mesh.position.z += f.vz * dt;
-                    f.mesh.rotation.z += dt * 7;
-                    if (f.mesh.position.y <= 0.7 || Math.hypot(f.mesh.position.x - f.basePos.x, f.mesh.position.z - f.basePos.z) > 2.2) {
-                        f.dead = true; D.knocked++; S.kills++; S.bumpCombo();
-                        S.award(f.pts * S.comboMult, f.mesh.position.clone().add(V(0, 1.2, 0)), 'PIG DOWN!', '#4ade80');
-                        BO.FX.spawnParticles(f.mesh.position, 18, 0x4ade80, 4.5, 3, 0.55, 1.2);
-                        SFX.pop(); S.scene.remove(f.mesh);
-                    }
-                }
-            }
-            if (D.knocked >= D.totalFoes) MG.finish('ALL ENEMY PIGS TOPPLED!', { color: '#86efac' });
-        },
-        hud(S) {
-            const nxt = BIRD_KINDS[S.data.birdIdx % BIRD_KINDS.length];
-            return `<div class="fun-panel"><div class="mgx-chip">SLINGSHOT BIRD <b style="color:#${nxt.col.toString(16).padStart(6, '0')}">${nxt.name}</b></div><div class="mgx-chip">PIGS LEFT <b>${S.data.totalFoes - S.data.knocked} / ${S.data.totalFoes}</b></div></div>`;
-        }
-    });
 
     /* =====================================================================
        2. MASTER ZOMBIE — Multi-Zone Bastion Fortress + Strict LOS + Player-Like AI
@@ -302,28 +40,29 @@
     }
 
     MG.register({
-        id: 'fun_master_zombie', cat: 'fun', order: 2, name: 'Master Zombie', icon: '👑', accent: '#22c55e', badge: 'SIEGE',
-        tagline: 'Siege a Fortress! 4x HP, 2x DMG Defenders with Full Loadouts & Grenades. Doubled Cooldowns!',
-        desc: 'You are the Master Zombie attacking a heavily fortified Human Bastion! All 4 defenders have 4x HP, 2x damage, and full custom loadouts (LMG + Frags, Sniper + Concussion, Shotgun Spread + Incendiary, Medic + Smoke). All player cooldowns are doubled and special moves start on cooldown!',
-        heroLabel: 'FUN • FORTRESS SIEGE COMMANDER', duration: 300, stars: [2500, 6000, 10500, 16000],
-        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, weaponNote: 'Master Zombie Horde Abilities (Specials start on cooldown!)',
-        keys: [['LMB', 'Acid Shot (2s)'], ['RMB / V', 'Claw Swipe (1.1s)'], ['1', '5 Zombies (30s)'], ['2', 'Uncommon (30s)'], ['3', '+50% Speed (80s)'], ['4 / Q', 'Epic Boss Ult']],
+        id: 'fun_master_zombie', cardImage: 'assets/minigames/fun_master_zombie.webp', cat: 'fun', order: 2, name: 'Master Zombie', icon: '👑', accent: '#22c55e', badge: 'SIEGE',
+        tagline: 'Evolve through 3 Bio-Stages, breach Bastion Omega, convert fallen defenders & dismantle the 2-Phase Warden.',
+        desc: 'Storm a floodlit military quarantine citadel. Smash the steel Pressure Lock doors, detonate red fuel barrels, destroy automated sentry turrets, collect Biomass to evolve from Alpha Infected to Apex Overlord (Triple Acid Pools + Predator Pounce), convert slain defenders into Infected Soldiers, and defeat the 2-Phase Bastion Warden!',
+        heroLabel: 'CITADEL SIEGE • 3-STAGE BIO-EVOLUTION', duration: 300, stars: [2500, 6000, 10500, 16000],
+        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, customMusic: true, weaponNote: 'Bio-Evolution Abilities • Collect green Biomass orbs to evolve!',
+        keys: [['LMB', 'Acid Spit (Triple at Stage 2)'], ['RMB / V', 'Dual-Claw Rend'], ['C', 'Predator Pounce Leap'], ['F', 'Spore Rupture AoE'], ['E', 'Mark Defender / Rally Horde'], ['1 / 2 / 3 / 4', 'Horde Summons & Boss Ult']],
         guide: {
-            objective: 'Eliminate all 4 elite Human Bastion defenders inside Fortress Omega while managing doubled cooldown timers.',
+            objective: 'Breach the Pressure Lock doors, destroy the bastion defenders and turrets, evolve with Biomass, and destroy the 2-Phase Bastion Warden.',
             tips: [
-                'Special abilities [1], [2], [3], and Ult [4/Q] start ON COOLDOWN at match start—open with Acid [LMB] and Claws [RMB/V] from cover!',
-                'Defenders obey strict wall Line-of-Sight: use wrecked cars, perimeter walls, and bunkers to avoid Kestrel the Tower Sniper.',
-                'Focus down Medic Reed first inside the northwest Med Bay so he stops healing the 4x-HP squad.'
+                'Press [C] to Predator Pounce 14m forward with a landing shockwave. Spit acid at red fuel barrels to nuke defenders!',
+                'Collect green Biomass orbs to reach Stage 2 (Triple Acid + Acid Pools) and Stage 3 (Acid Pools heal you & your horde!).',
+                'Every defender you kill rises as an Infected Soldier ally! Capture the Inner Yard nest to cut defender healing.'
             ]
         },
         map: {
-            atmosphere: { skyTop: 0x090d16, skyBottom: 0x2e1065, fogColor: 0x1e1b4b, fogDensity: 0.0085, sunColor: 0xc084fc, sunIntensity: 1.05, sunPos: [20, 45, 20], hemiSky: 0x6b21a8, hemiGround: 0x1c1917, hemiIntensity: 0.9 },
-            boxes: [B(0, -0.5, -10, 110, 1, 110, 'concrete')],
+            atmosphere: { skyTop: 0x070b14, skyBottom: 0x261447, fogColor: 0x161430, fogDensity: 0.0085, sunColor: 0xc084fc, sunIntensity: 1.1, sunPos: [20, 48, 22], hemiSky: 0x7e22ce, hemiGround: 0x1c1917, hemiIntensity: 0.95 },
+            boxes: [B(0, -0.5, -10, 110, 1, 110, 'asphalt')],
             spawn: { x: 0, y: 0, z: 18, yaw: 0 }
         },
         build(S) {
-            K.groundPlane(S, 110, 0x1e293b, 0.002);
-            const wallM = std(0x475569, 0.85), darkWallM = std(0x334155, 0.88), woodM = std(0x78350f, 0.82), sandM = std(0xc2a26b, 0.95), metalM = std(0x1f2937, 0.5, 0.7);
+            const CS = BO.CourseScenery;
+            const wallM = CS.texMat('bunker_stone', 12, 4), darkWallM = CS.texMat('soviet_concrete', 4, 5);
+            const woodM = CS.texMat('wood_crate', 4, 2), sandM = CS.texMat('sandbag', 4, 2), metalM = CS.texMat('diamond_plate', 4, 4);
             const losMeshes = [];
             const addOpaque = (x, y, z, w, h, d, m) => {
                 const bx = S.box(x, y, z, w, h, d, m, { solid: true });
@@ -331,53 +70,100 @@
                 return bx;
             };
 
-            const road = new THREE.Mesh(new THREE.PlaneGeometry(14, 34), std(0x0f172a, 0.95));
-            road.rotation.x = -Math.PI / 2; road.position.set(0, 0.02, 8); S.add(road);
-            for (const [vx, vz, col] of [[-5.5, 7, 0x7f1d1d], [6.2, 2, 0x1e3a8a], [-8, -2, 0x3f6212]]) {
-                addOpaque(vx, 0.8, vz, 2.4, 1.6, 4.4, std(col, 0.7, 0.35));
+            // Highway approach markings & concrete jersey barriers
+            for (let rz = 22; rz >= -6; rz -= 5.5) {
+                const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 2.4), basic(0xeab308));
+                stripe.rotation.x = -Math.PI / 2; stripe.position.set(0, 0.03, rz); S.add(stripe);
             }
-            for (const [tx, tz] of [[-13, 12], [13, 12], [-15, 0], [15, 0], [-14, -36], [14, -36]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, false));
+            // Detailed 3D Wrecked Armored Humvees as tactical LOS cover!
+            for (const [vx, vz, yaw, col] of [[-5.8, 7.5, 0.28, 0x7f1d1d], [6.4, 2.2, -0.35, 0x1e3a5f], [-8.5, -2.5, 0.65, 0x3f4d36]]) {
+                const hv = CS.humvee(S.scene, vx, 0, vz, yaw, col, true);
+                S.collider(vx - 1.35, 0, vz - 2.2, vx + 1.35, 1.85, vz + 2.2);
+                losMeshes.push(hv.blocker, hv.cabin);
+            }
+            for (const [tx, tz] of [[-13, 12], [13, 12], [-15, 0], [15, 0], [-14, -36], [14, -36]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, true));
 
-            addOpaque(-11.5, 1.9, -10, 13, 3.8, 1.2, wallM);
-            addOpaque(11.5, 1.9, -10, 13, 3.8, 1.2, wallM);
-            addOpaque(-18, 1.9, -14.5, 1.2, 3.8, 9, wallM);
-            addOpaque(-18, 1.9, -30.5, 1.2, 3.8, 13, wallM);
-            addOpaque(18, 1.9, -14.5, 1.2, 3.8, 9, wallM);
-            addOpaque(18, 1.9, -30.5, 1.2, 3.8, 13, wallM);
-            addOpaque(0, 1.9, -37, 37, 3.8, 1.2, wallM);
+            // Fortress Perimeter Walls with Textured Stone & Battlements
+            addOpaque(-11.5, 2.0, -10, 13, 4.0, 1.3, wallM);
+            addOpaque(11.5, 2.0, -10, 13, 4.0, 1.3, wallM);
+            addOpaque(-18, 2.0, -14.5, 1.3, 4.0, 9, wallM);
+            addOpaque(-18, 2.0, -30.5, 1.3, 4.0, 13, wallM);
+            addOpaque(18, 2.0, -14.5, 1.3, 4.0, 9, wallM);
+            addOpaque(18, 2.0, -30.5, 1.3, 4.0, 13, wallM);
+            addOpaque(0, 2.0, -37, 37, 4.0, 1.3, wallM);
 
             for (const [cx, cz] of [[-18, -10], [18, -10], [-18, -37], [18, -37]]) {
-                addOpaque(cx, 2.5, cz, 3.2, 5.0, 3.2, darkWallM);
+                addOpaque(cx, 2.7, cz, 3.4, 5.4, 3.4, darkWallM);
             }
-            const sign = A.sign('BASTION OMEGA — SURVIVOR FORT', 8.5, 1.1, { bg: '#0f172a', color: '#fde047', borderColor: '#ef4444', size: 0.42 });
-            sign.position.set(0, 4.6, -9.8); S.add(sign);
+            const sign = A.sign('BASTION OMEGA — QUARANTINE CITADEL', 9.2, 1.15, { bg: '#0f172a', color: '#fde047', borderColor: '#ef4444', size: 0.40 });
+            sign.position.set(0, 5.4, -9.7); S.add(sign);
 
-            addOpaque(0, 0.75, -15, 4.4, 1.5, 1.1, sandM);
-            addOpaque(-9, 1.1, -21, 3.8, 2.2, 1.6, woodM);
-            addOpaque(0, 0.9, -25, 3.0, 1.8, 3.0, metalM);
-            addOpaque(-11.5, 1.4, -31.5, 5.5, 2.8, 4.5, std(0xe2e8f0, 0.85));
-            const medSign = A.sign('MED BAY +', 3.2, 0.6, { bg: '#991b1b', color: '#ffffff', borderColor: '#ffffff', size: 0.45 });
-            medSign.position.set(-11.5, 3.1, -29.2); S.add(medSign);
+            // Inner Tactical Cover: Sculpted Sandbags, Military Crates, Corrugated Quarantine Container & Med-Bay Bunker
+            if (BO.MapDetail && BO.MapDetail.buildSandbagProp) {
+                S.add(BO.MapDetail.buildSandbagProp({ x: 0, y: 0.72, z: -15, w: 4.6, h: 1.44, d: 1.1 }));
+                const sbCol = S.box(0, 0.72, -15, 4.5, 1.4, 1.0, L.HIDDEN_MAT, { solid: true });
+                losMeshes.push(sbCol);
+            } else {
+                addOpaque(0, 0.75, -15, 4.4, 1.5, 1.1, sandM);
+            }
+            const cont = CS.cargoContainer(S, -10.5, 0, -21, 3.2, 2.6, 6.4, 'olive', 0);
+            losMeshes.push(cont.body);
+            if (BO.MapDetail && BO.MapDetail.buildCrateProp) {
+                S.add(BO.MapDetail.buildCrateProp({ x: 0, y: 0.9, z: -25, w: 2.8, h: 1.8, d: 2.8 }));
+                const crCol = S.box(0, 0.9, -25, 2.8, 1.8, 2.8, L.HIDDEN_MAT, { solid: true });
+                losMeshes.push(crCol);
+            } else {
+                addOpaque(0, 0.9, -25, 3.0, 1.8, 3.0, woodM);
+            }
+            addOpaque(-11.5, 1.5, -31.5, 5.8, 3.0, 4.6, CS.texMat('lab_panel', 6, 3));
+            const medSign = A.sign('MED BAY + TRIAGE', 3.8, 0.65, { bg: '#991b1b', color: '#ffffff', borderColor: '#ffffff', size: 0.42 });
+            medSign.position.set(-11.5, 3.3, -29.1); S.add(medSign);
 
+            // Sniper Watchtower with Diamond-Plate Deck & Steel Struts
             for (const [px, pz] of [[9.5, -22.5], [14.5, -22.5], [9.5, -27.5], [14.5, -27.5]]) {
                 addOpaque(px, 2.1, pz, 0.65, 4.2, 0.65, metalM);
             }
-            addOpaque(12, 4.1, -25, 6.2, 0.45, 6.2, woodM);
-            const twRoof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 1.8, 4), std(0x334155, 0.8));
+            addOpaque(12, 4.1, -25, 6.2, 0.45, 6.2, CS.texMat('wood_plank', 6, 6));
+            const twRoof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 1.8, 4), darkWallM);
             twRoof.rotation.y = Math.PI / 4; twRoof.position.set(12, 7.6, -25); S.add(twRoof);
             addOpaque(12, 4.85, -22.05, 6.0, 1.0, 0.35, sandM);
             const twSign = A.sign('SNIPER WATCHTOWER', 4.6, 0.6, { bg: '#064e3b', color: '#a7f3d0', borderColor: '#10b981', size: 0.42 });
             twSign.position.set(12, 6.5, -22.0); S.add(twSign);
 
+            S.spawned = HUMAN_SPECS.length + 1;
+            BO.BastionWarden.build(S, losMeshes);
+            if (BO.MinigameAudio) BO.MinigameAudio.start('siege');
+            S.data.nests = [[-3, 5, 'Motor pool'], [5, -18, 'Inner yard']].map(([x, z, name]) => {
+                const root = new THREE.Group();
+                root.position.set(x, 0.08, z);
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(2.25, 0.07, 6, 36), basic(0xdbad62).clone());
+                rim.rotation.x = Math.PI / 2; root.add(rim);
+                const buds = new THREE.Group();
+                for (let i = 0; i < 7; i++) {
+                    const a = i * TAU / 7;
+                    const bud = new THREE.Mesh(new THREE.IcosahedronGeometry(0.31, 0), std(0x706299, 0.42));
+                    bud.position.set(Math.cos(a) * 2.2, 0.25, Math.sin(a) * 2.2);
+                    bud.scale.y = 1.8; buds.add(bud);
+                }
+                root.add(buds); S.add(root);
+                return { root, rim, buds, name, fill: 0, captured: false };
+            });
+            S.data.mark = null; S.data.markTime = 0;
+            const marker = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), basic(0xffba68));
+            marker.visible = false; S.add(marker); S.data.marker = marker;
             S.data.losMeshes = losMeshes;
             S.data.humans = HUMAN_SPECS.map((hs, i) => {
                 const fig = F.human({ shirt: hs.coat, pants: 0x111827, hat: hs.hat, hatColor: hs.coat, gun: hs.gun, eyes: 'angry' });
                 // Extra loaded gear props (backpack + tactical shoulder pads)
                 const pack = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.44, 0.18), std(0x1e293b, 0.7));
                 pack.position.set(0, 1.15, -0.22); fig.root.add(pack);
+                const plate = new THREE.Group();
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.13, 0.055), std(0x172327, 0.7));
+                const vitality = new THREE.Mesh(new THREE.BoxGeometry(1.28, 0.075, 0.062), basic([0xe4b575,0x8fd8ed,0xed8778,0x8ce5bb][i]));
+                plate.position.y = 2.2; plate.add(rail, vitality); fig.root.add(plate);
                 const startWp = hs.wps[0];
                 const tg = S.addTarget({ mesh: fig.root, hitMeshes: [], pos: V(startWp[0], hs.y, startWp[1]), life: 0, appear: 'none', inT: 0.01, death: 'knock', deathColor: 0xef4444, bonus: true });
-                return Object.assign(tg, { spec: hs, fig, hp: hs.hp, maxHp: hs.hp, mag: hs.magMax, reloadT: 0, fireCd: 0.8 + i * 0.3, healCd: 5.0, nadeCd: 6.0 + i * 2.0, smokeDropped: false, wpIdx: 0, walkPh: i * 1.4, strafeSign: i % 2 ? 1 : -1 });
+                return Object.assign(tg, { spec: hs, fig, plate, vitality, hp: Math.round(hs.hp * 0.55), maxHp: Math.round(hs.hp * 0.55), mag: hs.magMax, reloadT: 0, fireCd: 0.8 + i * 0.3, healCd: 5.0, nadeCd: 6.0 + i * 2.0, smokeDropped: false, wpIdx: 0, walkPh: i * 1.4, strafeSign: i % 2 ? 1 : -1 });
             });
             S.data.allies = [];
             S.data.acid = [];
@@ -391,6 +177,11 @@
             const spec = BO.ZombiesData.get(kindId);
             const ent = new BO.ZombieEntity({ id: S.data.zid++, spec, round: 10, hp: isBoss ? 1800 : spec.hp * 1.5, speed: spec.speed * 1.25, damage: isBoss ? 70 : Math.max(26, spec.attack), x, y: 0, z, splitCount: 0, hasGun: false, sizeMult: isBoss ? 1.35 : 1.0 });
             ent.allyTeam = true; S.data.allies.push(ent); return ent;
+        },
+        _reinforce(S, kind) {
+            const nest = S.data.nests[1].captured ? S.data.nests[1] : S.data.nests[0];
+            const pos = nest.captured ? nest.root.position : { x: 0, z: 12 };
+            this._spawnAlly(S, kind, pos.x + (S.rng() - 0.5) * 2, pos.z);
         },
         _summon5(S) {
             if (S.data.cd5 > 0) return false;
@@ -419,6 +210,29 @@
         },
         onKey(S, code) {
             if (MG.state !== 'running') return false;
+            if (code === 'KeyF') { BO.BastionWarden.slam(S, this); return true; }
+            if (code === 'KeyC') return BO.BastionWarden.pounce(S, this);
+            if (code === 'KeyE') {
+                const eye = BO.App.worldCamera.position, facing = BO.App.worldCamera.getWorldDirection(V());
+                let best = 0.90, chosen = null;
+                for (const h of S.data.humans) {
+                    if (!h.alive) continue;
+                    const chest = h.root.position.clone().add(V(0, 1.2, 0));
+                    const alignment = chest.clone().sub(eye).normalize().dot(facing);
+                    if (alignment > best && hasLOS(eye, chest, S.data.losMeshes)) { best = alignment; chosen = h; }
+                }
+                if (chosen) {
+                    S.data.mark = chosen; S.data.markTime = 8;
+                    if (BO.MinigameAudio) BO.MinigameAudio.hordeRoar();
+                    MG.toast('HORDE FOCUS (+35% DMG): ' + chosen.spec.name, '#ffc685');
+                } else {
+                    // Rally nearby allies and heal them slightly!
+                    for (const al of S.data.allies) if (al.alive) al.hp = Math.min(al.maxHp, al.hp + 35);
+                    if (BO.MinigameAudio) BO.MinigameAudio.hordeRoar();
+                    MG.toast('HORDE RALLIED & HEALED!', '#86efac');
+                }
+                return true;
+            }
             if (code === 'Digit1') return this._summon5(S);
             if (code === 'Digit2') return this._summonUncommon(S);
             if (code === 'Digit3') return this._speedBoost(S);
@@ -428,51 +242,84 @@
         },
         _clawMelee(S) {
             if (S.data.cdMelee > 0) return false;
-            S.data.cdMelee = 1.1;
-            const P = BO.Player, fwd = P.getMoveDirectionVectors().forward;
-            BO.FX.spawnParticles(P.pos.clone().addScaledVector(fwd, 2.2).add(V(0, 1.2, 0)), 14, 0x4ade80, 5, 2, 0.35, 1.0);
-            SFX.thunk();
+            S.data.cdMelee = 1.0; S.data.siege.handBeat = 1;
+            const P = BO.Player, fwd = P.getMoveDirectionVectors().forward, evo = S.data.siege.evoStage || 1;
+            const range = evo >= 3 ? 6.0 : 4.8, dmg = evo >= 3 ? 155 : evo >= 2 ? 125 : 105;
+            BO.FX.spawnParticles(P.pos.clone().addScaledVector(fwd, 2.2).add(V(0, 1.2, 0)), evo >= 3 ? 22 : 14, 0x4ade80, 5.5, 2, 0.35, 1.1);
+            if (BO.MinigameAudio) BO.MinigameAudio.clawRend(); else SFX.thunk();
+            BO.BastionWarden.damage(S, dmg + 15, P.pos.clone().addScaledVector(fwd, 2.2), range * 0.85, this);
             for (const h of S.data.humans) {
-                if (h.alive && h.root.position.distanceTo(P.pos) <= 4.6) this._damageHuman(S, h, 105, 'CLAW SLASH!');
+                if (h.alive && h.root.position.distanceTo(P.pos) <= range) this._damageHuman(S, h, dmg, evo >= 3 ? 'APEX CLEAVE!' : 'CLAW SLASH!');
             }
             return true;
         },
         _damageHuman(S, h, dmg, tag) {
             if (!h.alive) return;
-            h.hp -= dmg;
-            S.data.ult = Math.min(100, S.data.ult + 10);
+            if (S.data.mark === h) dmg = Math.round(dmg * 1.35);
+            dmg = Math.min(h.hp, dmg); h.hp -= dmg;
+            S.data.ult = Math.min(100, S.data.ult + (S.data.siege.evoStage >= 3 ? 14 : 10));
             S.award(Math.round(dmg * 1.5), h.root.position.clone().add(V(0, 1.8, 0)), tag || null, '#86efac');
             if (h.hp <= 0) {
-                h.kill({ pt: h.root.position.clone().add(V(0, 1.2, 0)) });
-                S.data.humansLeft--; S.kills++; S.data.ult = Math.min(100, S.data.ult + 28);
-                MG.toast(`${h.spec.name} ELIMINATED!`, '#86efac');
-                if (S.data.humansLeft <= 0) MG.finish('FORTRESS OVERRUN!', { color: '#4ade80' });
+                const pos = h.root.position.clone();
+                h.kill({ pt: pos.clone().add(V(0, 1.2, 0)) });
+                S.data.humansLeft--; S.kills++; S.bumpCombo(); S.data.ult = Math.min(100, S.data.ult + 28);
+                BO.BastionWarden.dropBiomass(S, pos, 3);
+                // Infected Conversion: slain defender rises as an Infected Soldier ally!
+                this._spawnAlly(S, 'armored_brute', pos.x, pos.z);
+                MG.toast(`${h.spec.name} INFECTED & CONVERTED TO YOUR HORDE!`, '#86efac');
+                if (S.data.humansLeft <= 0) BO.BastionWarden.wake(S);
             }
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
+            BO.BastionWarden.update(S, dt, state, this);
             if (state !== 'running') return;
             D.cdAcid = Math.max(0, D.cdAcid - dt); D.cdMelee = Math.max(0, D.cdMelee - dt);
             D.cd5 = Math.max(0, D.cd5 - dt); D.cdUnc = Math.max(0, D.cdUnc - dt); D.cdSpd = Math.max(0, D.cdSpd - dt);
             if (!P.alive) { MG.finish('MASTER ZOMBIE DEFEATED', { color: '#f87171' }); return; }
 
+            for (const nest of D.nests) {
+                const inside = P.pos.distanceToSquared(nest.root.position) < 5.1;
+                if (!nest.captured) {
+                    nest.fill = BO.Math.clamp(nest.fill + dt * (inside ? 1 : -0.6), 0, 3);
+                    nest.buds.scale.y = 1 + nest.fill * 0.5;
+                    if (nest.fill >= 3) {
+                        nest.captured = true; MG.toast(nest.name + (nest === D.nests[1] ? ' captured • medical supply cut' : ' captured • forward spawn active'), '#84ffb0'); nest.rim.material.color.setHex(0x84ffb0);
+                        P.hp = Math.min(P.maxHp, P.hp + 70); S.award(600, nest.root.position, 'NEST ROOTED');
+                        BO.BastionWarden.dropBiomass(S, nest.root.position, 2);
+                        SFX.star(2); BO.FX.spawnParticles(nest.root.position, 18, 0x84ffb0, 4, 2, 0.7, 1);
+                    }
+                }
+                nest.buds.rotation.y += dt * (nest.captured ? 0.28 : 0.08);
+            }
+            D.markTime = Math.max(0, D.markTime - dt);
+            if (!D.markTime || !D.mark?.alive) D.mark = null;
+            D.marker.visible = !!D.mark;
+            if (D.mark) {
+                D.marker.position.copy(D.mark.root.position); D.marker.position.y += 2.5 + Math.sin(S.t * 5) * 0.1;
+                D.marker.rotation.y += dt * 3;
+            }
             if (D.spdActive > 0) {
                 D.spdActive -= dt;
                 if (Math.hypot(P.vel.x, P.vel.z) > 0.5) { P.pos.x += P.vel.x * 0.5 * dt; P.pos.z += P.vel.z * 0.5 * dt; }
             }
-            D.ult = Math.min(100, D.ult + dt * 1.6);
+            D.ult = Math.min(100, D.ult + dt * 1.8);
             D.autoComT -= dt;
-            if (D.autoComT <= 0) { D.autoComT = 10; this._spawnAlly(S, 'shambler', (Math.random() - 0.5) * 8, 12); MG.toast('AUTO HORDE: +1 ZOMBIE', '#86efac'); }
+            if (D.autoComT <= 0) { D.autoComT = 10; this._reinforce(S, 'shambler'); MG.toast('AUTO HORDE: +1 ZOMBIE', '#86efac'); }
             D.autoUncT -= dt;
-            if (D.autoUncT <= 0) { D.autoUncT = 25; this._spawnAlly(S, Math.random() < 0.5 ? 'sprinter' : 'hopper', (Math.random() - 0.5) * 8, 12); MG.toast('AUTO HORDE: +1 UNCOMMON', '#38bdf8'); }
+            if (D.autoUncT <= 0) { D.autoUncT = 25; this._reinforce(S, S.rng() < 0.5 ? 'sprinter' : 'hopper'); MG.toast('AUTO HORDE: +1 UNCOMMON', '#38bdf8'); }
 
             if (P.triggerHeld && !D._lmb && D.cdAcid <= 0) {
-                D._lmb = true; D.cdAcid = 2.0;
-                const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
-                const m = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), basic(0x4ade80));
-                m.position.copy(cam.position).addScaledVector(dir, 0.9); S.add(m);
-                D.acid.push({ mesh: m, prev: m.position.clone(), vel: dir.multiplyScalar(28).add(V(0, 1.5, 0)), life: 3.0 });
-                SFX.pop();
+                D._lmb = true; D.cdAcid = 0.85; D.siege.handBeat = 0.85;
+                const cam = BO.App.worldCamera, baseDir = new THREE.Vector3(); cam.getWorldDirection(baseDir);
+                const spreads = D.siege.evoStage >= 2 ? [-0.08, 0, 0.08] : [0];
+                for (const ang of spreads) {
+                    const dir = baseDir.clone().applyAxisAngle(V(0, 1, 0), ang);
+                    const m = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), basic(0x4ade80));
+                    m.position.copy(cam.position).addScaledVector(dir, 0.9); S.add(m);
+                    D.acid.push({ mesh: m, prev: m.position.clone(), vel: dir.multiplyScalar(29).add(V(0, 1.5, 0)), life: 3.0 });
+                }
+                if (BO.MinigameAudio) BO.MinigameAudio.acidSpit(); else SFX.pop();
             } else if (!P.triggerHeld) D._lmb = false;
             if (P.adsHeld && !D._rmb) { D._rmb = true; this._clawMelee(S); } else if (!P.adsHeld) D._rmb = false;
 
@@ -481,19 +328,28 @@
                 ac.prev.copy(ac.mesh.position);
                 ac.life -= dt; ac.vel.y -= 9.8 * dt;
                 ac.mesh.position.addScaledVector(ac.vel, dt);
-                let hit = ac.mesh.position.y <= 0.15 || !hasLOS(ac.prev, ac.mesh.position, D.losMeshes);
+                const w = D.siege, pos = ac.mesh.position;
+                const lockHit = !w.gateOpen && Math.abs(pos.z + 9.4) < 0.88 && Math.abs(pos.x) < 4.8 && pos.y < 3.5;
+                const engineHit = w.awake && Math.hypot(pos.x - w.root.position.x, pos.z - w.root.position.z) < 2.6 && pos.y < 4.8;
+                const barrelHit = w.barrels.some((b) => b.alive && Math.hypot(pos.x - b.x, pos.z - b.z) < 0.9 && pos.y < 1.3);
+                const turretHit = w.turrets.some((t) => t.alive && Math.hypot(pos.x - t.x, pos.z - t.z) < 0.9 && pos.y < 1.6);
+                let hit = lockHit || engineHit || barrelHit || turretHit || ac.mesh.position.y <= 0.15 || !hasLOS(ac.prev, ac.mesh.position, D.losMeshes);
                 if (!hit) for (const h of D.humans) if (h.alive && h.root.position.clone().add(V(0, 1.1, 0)).distanceTo(ac.mesh.position) < 1.25) { hit = true; break; }
                 if (hit || ac.life <= 0) {
                     BO.FX.spawnExplosion(ac.mesh.position.clone(), 3.2, 0x4ade80);
-                    SFX.pop();
-                    for (const h of D.humans) if (h.alive && h.root.position.distanceTo(ac.mesh.position) < 3.6) this._damageHuman(S, h, 75, 'ACID BURN!');
+                    if (BO.MinigameAudio) BO.MinigameAudio.acidSplash(); else SFX.pop();
+                    if (w.evoStage >= 2 && ac.mesh.position.y <= 0.6) BO.BastionWarden.spawnAcidPool(S, ac.mesh.position);
+                    BO.BastionWarden.damage(S, 108, ac.mesh.position, 3.7, this);
+                    for (const h of D.humans) if (h.alive && h.root.position.distanceTo(ac.mesh.position) < 3.7) this._damageHuman(S, h, 80, 'ACID BURN!');
                     S.scene.remove(ac.mesh); D.acid.splice(i, 1);
                 }
             }
 
             // Defender Grenades & Tactical Explosives
             for (let i = D.nades.length - 1; i >= 0; i--) {
-                const nd = D.nades[i]; nd.life -= dt; nd.vel.y -= 14 * dt; nd.mesh.position.addScaledVector(nd.vel, dt);
+                const nd = D.nades[i]; nd.life -= dt;
+                const warning = 1 + 0.45 * (0.5 + 0.5 * Math.sin(nd.life * (nd.life < 0.55 ? 28 : 13)));
+                nd.mesh.scale.setScalar(warning); nd.vel.y -= 14 * dt; nd.mesh.position.addScaledVector(nd.vel, dt);
                 if (nd.mesh.position.y <= 0.15) { nd.mesh.position.y = 0.15; nd.vel.y *= -0.35; nd.vel.x *= 0.6; nd.vel.z *= 0.6; }
                 if (nd.life <= 0) {
                     const ep = nd.mesh.position.clone();
@@ -506,7 +362,11 @@
 
             for (const h of D.humans) {
                 if (!h.alive) continue;
-                if (h.spec.medic) {
+                const fraction = Math.max(0, h.hp / h.maxHp);
+                h.vitality.scale.x = fraction; h.vitality.position.x = (fraction - 1) * 0.64;
+                const camera = BO.App.worldCamera.position;
+                h.plate.rotation.y = Math.atan2(camera.x - h.root.position.x, camera.z - h.root.position.z) - h.root.rotation.y;
+                if (h.spec.medic && !D.nests[1].captured) {
                     h.healCd -= dt;
                     if (h.healCd <= 0) {
                         h.healCd = 5.0;
@@ -598,53 +458,90 @@
             for (let i = D.allies.length - 1; i >= 0; i--) {
                 const z = D.allies[i];
                 let nearest = null, nd = Infinity;
-                for (const h of D.humans) {
-                    if (!h.alive) continue;
-                    const d = z.pos.distanceTo(h.root.position);
-                    if (d < nd) { nd = d; nearest = h; }
+                if (D.siege.gateOpen) {
+                    for (const h of D.humans) {
+                        if (!h.alive) continue;
+                        const d = z.pos.distanceTo(h.root.position);
+                        if (d < nd) { nd = d; nearest = h; }
+                    }
+                    if (D.mark && D.mark.alive) nearest = D.mark;
                 }
+                const gateLock = !D.siege.gateOpen ? D.siege.doors.find((d) => d.hp > 0) : null;
                 const keep = z.update(dt, D.allies, {
                     allowProjectiles: false,
-                    getTarget: () => nearest ? { x: nearest.root.position.x, y: 0, z: nearest.root.position.z, attackRange: 2.3 } : null,
-                    onAttackCustomTarget: (zz) => { if (nearest && nearest.alive) this._damageHuman(S, nearest, Math.max(14, zz.damage * 0.6)); },
+                    getTarget: () => gateLock
+                        ? { x: gateLock.side * 2.35, y: 0, z: -9.15, attackRange: 2.2 }
+                        : nearest
+                            ? { x: nearest.root.position.x, y: 0, z: nearest.root.position.z, attackRange: 2.3 }
+                            : D.siege.awake ? { x: D.siege.root.position.x, y: 0, z: D.siege.root.position.z, attackRange: 3.2 } : null,
+                    onAttackCustomTarget: (zz) => {
+                        if (gateLock) BO.BastionWarden.damage(S, 60, V(gateLock.side * 2.35, 1.2, -9.35), 1.8);
+                        else if (nearest && nearest.alive) this._damageHuman(S, nearest, Math.max(14, zz.damage * 0.6));
+                        else if (D.siege.awake) BO.BastionWarden.damage(S, zz.damage * 0.45, zz.pos, 4);
+                    },
                     onMeleePlayer: () => {}
                 });
                 if (!keep) { z.destroy(); D.allies.splice(i, 1); }
             }
         },
-        dispose(S) { for (const z of S.data.allies || []) z.destroy(); S.data.allies = []; },
+        result(S) {
+            const d = S.data, stars = S.def.stars.filter(n => S.score >= n).length;
+            return { score: S.score, stars, xp: 120 + Math.round(S.score * 0.06) + stars * 150,
+                title: d.siege.hp <= 0 ? 'BASTION OVERRUN' : 'SIEGE REPORT',
+                stats: [['DEFENDERS DEFEATED', (4 - d.humansLeft) + '/4'], ['NESTS ROOTED', d.nests.filter(n => n.captured).length + '/2'],
+                    ['REINFORCEMENTS', d.zid - 1], ['WARDEN INTEGRITY', Math.ceil(d.siege.hp/d.siege.maxHp*100)+'%']] };
+        },
+        dispose(S) {
+            for (const z of S.data.allies || []) z.destroy();
+            S.data.allies = [];
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+        },
         hud(S) {
             const D = S.data;
+            const rooting = D.nests.find(n => n.fill > 0 && !n.captured);
             const sk = (k, lbl, cd, readyTxt) => `<div class="fun-sk ${cd <= 0 ? 'ready' : ''}"><b>[${k}] ${lbl}</b><small>${cd <= 0 ? readyTxt : cd.toFixed(1) + 's'}</small></div>`;
-            return `<div class="fun-panel"><div class="mgx-chip">FORTRESS DEFENDERS <b>${D.humansLeft} / 4</b></div><div class="mgx-chip">HORDE ALIVE <b>${D.allies.filter((a) => a.alive).length}</b></div><div class="mgx-chip">NEXT AUTO <b>${Math.ceil(D.autoComT)}s</b></div></div>
+            const siege = D.siege;
+            const evoNames = ['', 'STAGE 1 ALPHA', 'STAGE 2 TYRANT', 'STAGE 3 APEX'];
+            const wardenPct = Math.max(0, Math.ceil((100 * siege.hp) / siege.maxHp));
+            const mission = !siege.gateOpen ? 'BREACH • Shatter both green pressure locks' : siege.awake ? (siege.attack === 'recover' ? 'WARDEN CORE EXPOSED • STRIKE NOW!' : (siege.phase2 ? 'WARDEN OVERCLOCKED • ' : 'WARDEN ONLINE • ') + siege.attack.toUpperCase()) : 'INNER YARD • Eliminate defenders & turrets';
+            const wardenBar = siege.awake && siege.hp > 0 ? `<div class="fun-panel"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>BASTION WARDEN ${siege.phase2 ? '• PHASE 2' : ''} ${siege.attack === 'recover' ? '• EXPOSED 1.9x' : ''}</span><b>${siege.hp} / ${siege.maxHp} (${wardenPct}%)</b></div><div class="fun-bar"><i style="width:${wardenPct}%;background:${siege.attack === 'recover' ? 'linear-gradient(90deg,#84cc16,#fde047)' : siege.phase2 ? 'linear-gradient(90deg,#0284c7,#38bdf8)' : 'linear-gradient(90deg,#ea580c,#fbbf24)'}"></i></div></div></div>` : '';
+            return `<div class="course-console siege-console"><strong>${mission}</strong><span><b>${evoNames[siege.evoStage || 1]}</b> (${siege.biomass} BIO)</span><span>[C] POUNCE <b>${siege.pounceCd > 0 ? siege.pounceCd.toFixed(1) + 's' : 'READY'}</b></span><span>[F] RUPTURE <b>${siege.slamCd > 0 ? siege.slamCd.toFixed(1) + 's' : 'READY'}</b></span><span>HORDE <b>${D.allies.filter((a) => a.alive).length}</b></span></div>${wardenBar}<div class="fun-panel"><div class="mgx-chip">DEFENDERS <b>${D.humansLeft} / 4</b></div><div class="mgx-chip">TURRETS <b>${siege.turrets.filter((t) => t.alive).length}/2</b></div><div class="mgx-chip">NESTS <b>${D.nests.filter((n) => n.captured).length}/2</b></div><div class="mgx-chip">${rooting ? 'ROOTING ' + Math.floor(rooting.fill / 3 * 100) + '%' : D.mark ? 'MARKED ' + Math.ceil(D.markTime) + 's' : '[E] MARK / RALLY'}</div></div>
                 <div class="fun-skills">
-                    ${sk('LMB', 'ACID (2s)', D.cdAcid, 'READY')}
-                    ${sk('RMB/V', 'CLAWS (1.1s)', D.cdMelee, 'READY')}
-                    ${sk('1', '5 ZOMBIES', D.cd5, 'SPAWN (30s)')}
-                    ${sk('2', 'UNCOMMON', D.cdUnc, 'SPAWN (30s)')}
-                    ${sk('3', '+50% SPD', D.cdSpd, D.spdActive > 0 ? 'ACTIVE!' : 'BOOST (80s)')}
+                    ${sk('LMB', siege.evoStage >= 2 ? 'TRIPLE ACID' : 'ACID', D.cdAcid, 'READY')}
+                    ${sk('RMB/V', siege.evoStage >= 3 ? 'APEX CLAWS' : 'CLAWS', D.cdMelee, 'READY')}
+                    ${sk('1', '5 ZOMBIES', D.cd5, 'SPAWN')}
+                    ${sk('2', 'UNCOMMON', D.cdUnc, 'SPAWN')}
+                    ${sk('3', '+50% SPD', D.cdSpd, D.spdActive > 0 ? 'ACTIVE!' : 'FRENZY')}
                     <div class="fun-sk ${D.ult >= 100 ? 'ready' : ''}"><b>[4/Q] EPIC BOSS</b><small>${D.ult >= 100 ? 'SUMMON!' : Math.floor(D.ult) + '%'}</small></div>
                 </div>`;
         }
     });
 
     /* =====================================================================
-       3. SNOWBOARDING — 5-Minute Mountain Run + Random Traps + Zombie Chasers
+       3. SNOWBOARDING — Summit Rally Boardercross & Alpine Endurance
     ===================================================================== */
     const SNOW_LEN = 7400; // ~5 minutes at 16..33 m/s
     MG.register({
-        id: 'fun_snowboarding', cat: 'fun', order: 3, name: 'Snowboarding', icon: '🏂', accent: '#38bdf8', badge: '5 MIN',
-        tagline: '5-minute alpine descent! Unavoidable walls + random Rolling Boulders, Falling Icicles, Geysers & Ramps!',
-        desc: 'Carve a 5-minute alpine run! Main traps, overhead beams, and ice walls force Jump ([SPACE]), Slide ([C/CTRL]), and Shoot ([LMB]), while RANDOM traps spawn along the slope between them: rolling snowballs, dropping icicles, frost geysers, slalom hazard gates, and jump ramps!',
-        heroLabel: 'FUN • 5-MINUTE ALPINE ENDURANCE', duration: 0, stars: [4500, 10000, 16500, 24000],
-        standardWeapon: 'mp7_navy', lockWeapon: true, infiniteMag: true, weaponLabel: 'MP7 + ALPINE BOARD', weaponNote: 'A/D steer • SPACE jump • C/CTRL slide • LMB blast ice & zombies',
-        keys: [['A / D', 'Carve left / right'], ['SPACE', 'Jump traps'], ['C / CTRL', 'Slide under beams'], ['LMB', 'Shoot ice walls & zombies']],
+        id: 'fun_snowboarding', cardImage: 'assets/minigames/fun_snowboarding.webp', cat: 'fun', order: 3, name: 'Snowboarding', icon: '🏂', accent: '#38bdf8', badge: 'BOARDERCROSS',
+        tagline: 'Race rivals down Peak 9 Resort. Chain Indy/Backflip/Uber tricks, rail transfers & slipstream boost!',
+        desc: 'Two alpine events in one: race three rival riders down the 1.84 km Summit Rally resort circuit (timber chalets, Crystal Ice Cavern, copper rail transfers, gold big-air kickers, Indy/Backflip/Superman Uber Tricks, slipstream drafting & avalanche finale), or tackle the 7.4 km Alpine Endurance obstacle run!',
+        hubOptions: [{ key:'snowCourse', label:'EVENT', default:'rally', choices:[
+            {val:'rally',label:'Summit Rally',desc:'1.84 km Boardercross: W/S tuck/brake, A/D carve, Space jump, E+WASD grabs & flips, Q Superman Uber, F boost, C camera.'},
+            {val:'endurance',label:'Alpine Endurance',desc:'Classic 7.4 km obstacle run with ice walls, random hazards and zombie chasers.'}] }],
+        variantKey: o => o.snowCourse === 'endurance' ? '' : 'rally',
+        variantLabel: o => o.snowCourse === 'endurance' ? 'ALPINE ENDURANCE' : 'SUMMIT RALLY',
+        starsFor: o => o.snowCourse === 'endurance' ? [4500,10000,16500,24000] : [1800,4300,6800,9500],
+        hideViewmodel: S => !!S.data.rally, blockFire: S => !!S.data.rally, customMusic: true,
+        heroLabel: 'BOARDERCROSS • TWO EVENTS', duration: 0, stars: [4500, 10000, 16500, 24000],
+        standardWeapon: 'mp7_navy', lockWeapon: true, infiniteMag: true, weaponLabel: 'SUMMIT BOARD / MP7', weaponNote: 'Rally: [E+WASD] Spins/Flips • [Q] Uber Trick • [F] Nitro | Endurance: [LMB] Shoot Ice',
+        keys: [['W / S', 'Tuck / Flip'], ['A / D', 'Carve / Spin'], ['SPACE', 'Jump / Rail Pop'], ['Hold & Release E', 'Indy / Method / Flip'], ['Q (Mid-Air)', 'Superman Uber (45% Boost)'], ['F / C', 'Nitro Boost / Camera']],
+        dispose(S) { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         guide: {
-            objective: 'Reach the 7,400m Alpine Finish Line alive across a 5-minute mountain descent.',
+            objective: 'In Summit Rally, race three riders to the finish. Tuck with W, brake with S and use F to spend 35 boost. Approach a rail head-on to grind. C switches cameras. Alpine Endurance uses the original five-zone obstacle course.',
             tips: [
                 'Red floor chevrons = JUMP [SPACE] over spike traps; Yellow = SLIDE [C] under timber beams; Blue = SHOOT ice walls.',
                 'Watch between main obstacles for RANDOM TRAPS: carve around lateral Rolling Snowballs, Falling Icicles (cyan rings), and Frost Geysers!',
-                'Hit glowing Gold Ramps to launch high over upcoming hazards and earn +350 style points.'
+                'Thread consecutive blue gates for a growing bonus. Hold E while airborne, then release before landing to bank a grab.'
             ]
         },
         blockKeys: ['KeyW', 'KeyS', 'Space', 'KeyC', 'ControlLeft'],
@@ -654,14 +551,33 @@
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (S.opts.snowCourse !== 'endurance') { BO.SummitRally.build(S); return; }
+            if (BO.MinigameAudio) BO.MinigameAudio.start('snow');
             const slopeM = std(0xf1f5f9, 0.85), cliffM = std(0x475569, 0.9);
             const snowPlane = new THREE.Mesh(new THREE.PlaneGeometry(34, SNOW_LEN + 160), slopeM);
             snowPlane.rotation.x = -Math.PI / 2; snowPlane.position.set(0, 0.02, -SNOW_LEN * 0.5); S.add(snowPlane);
-            for (const s of [-1, 1]) {
-                const cliff = new THREE.Mesh(new THREE.BoxGeometry(10, 14, SNOW_LEN + 160), cliffM);
-                cliff.position.set(s * 16.5, 6.5, -SNOW_LEN * 0.5); S.add(cliff);
-            }
             const rnd = L.mulberry32(8801);
+            // Both ranges use the same transforms at the snow line. Four draw calls
+            // cover the full descent, including the distant second ridge.
+            for (const distant of [false, true]) {
+                const count = distant ? 128 : 224;
+                const rock = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), cliffM, count);
+                const caps = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), slopeM, count);
+                const placement = new THREE.Object3D();
+                for (let i = 0; i < count; i++) {
+                    const side = i % 2 ? -1 : 1, radius = (distant ? 26 : 12) + rnd() * 16;
+                    const height = (distant ? 40 : 9) + rnd() * (distant ? 48 : 29);
+                    const x = side * (13 + radius + (distant ? 46 : 0));
+                    const z = 20 - (i / count) * (SNOW_LEN + 120);
+                    placement.position.set(x, height / 2 - 1, z); placement.rotation.y = rnd() * TAU;
+                    placement.scale.set(radius, height, radius * 1.8); placement.updateMatrix(); rock.setMatrixAt(i, placement.matrix);
+                    const cap = 0.42 + rnd() * 0.23;
+                    placement.position.y += height * (1 - cap) / 2 + 0.02;
+                    placement.scale.multiplyScalar(cap); placement.scale.x *= 1.07; placement.scale.z *= 1.07;
+                    placement.updateMatrix(); caps.setMatrixAt(i, placement.matrix);
+                }
+                S.add(rock); S.add(caps);
+            }
             for (let z = -30; z > -SNOW_LEN; z -= 65) {
                 const tr = A.tree(1.8 + rnd() * 0.9, 0x0f766e);
                 tr.position.set((rnd() < 0.5 ? -1 : 1) * (12.2 + rnd() * 2), 0, z); S.add(tr);
@@ -674,6 +590,12 @@
             });
 
             const board = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.04, 1.45), std(0xf43f5e, 0.35, 0.2));
+            for (const side of [-1, 1]) {
+                const tip = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8), board.material);
+                tip.scale.set(1, 0.19, 1.2); tip.position.set(0, 0.025, side * 0.69); board.add(tip);
+                const binding = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.038, 6, 12, Math.PI), std(0x273746, 0.68));
+                binding.position.set(0, 0.05, side * 0.29); board.add(binding);
+            }
             S.add(board);
 
             S.data.obstacles = []; S.data.extraTraps = []; S.data.riders = []; S.data.projs = [];
@@ -716,14 +638,14 @@
                 }
 
                 // RANDOM EXTRA TRAPS between main obstacles!
-                const randZ = z - 24 - Math.random() * 6;
-                const randX = (Math.random() - 0.5) * 14;
-                const tRoll = Math.random();
+                const randZ = z - 24 - rnd() * 6;
+                const randX = (rnd() - 0.5) * 14;
+                const tRoll = rnd();
                 if (tRoll < 0.28) {
                     // Rolling Giant Snowball crossing the slope
                     const ball = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 10), snowBallM);
                     ball.position.set(randX, 1.15, randZ); S.add(ball);
-                    S.data.extraTraps.push({ type: 'boulder', mesh: ball, x: randX, z: randZ, vx: (Math.random() < 0.5 ? -1 : 1) * (4.2 + Math.random() * 3.5), rad: 1.35, hit: false });
+                    S.data.extraTraps.push({ type: 'boulder', mesh: ball, x: randX, z: randZ, vx: (rnd() < 0.5 ? -1 : 1) * (4.2 + rnd() * 3.5), rad: 1.35, hit: false });
                 } else if (tRoll < 0.54) {
                     // Dropping Icicle Spire with cyan warning circle on snow
                     const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.4, 18), basic(0x38bdf8, { side: THREE.DoubleSide }));
@@ -737,7 +659,7 @@
                     vent.position.set(randX, 0.1, randZ); S.add(vent);
                     const plume = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 1.0, 3.2, 10), basic(0xbae6fd, { transparent: true, opacity: 0.72 }));
                     plume.position.set(randX, 1.7, randZ); S.add(plume);
-                    S.data.extraTraps.push({ type: 'geyser', mesh: plume, vent, x: randX, z: randZ, ph: Math.random() * 6, rad: 1.5, hit: false });
+                    S.data.extraTraps.push({ type: 'geyser', mesh: plume, vent, x: randX, z: randZ, ph: rnd() * 6, rad: 1.5, hit: false });
                 } else if (tRoll < 0.90) {
                     // Neon Laser Slalom Gate
                     const gate = new THREE.Group();
@@ -756,48 +678,90 @@
             const finish = A.sign('ALPINE FINISH LINE!', 14, 2.6, { bg: '#0c4a6e', color: '#fde68a', borderColor: '#38bdf8', size: 0.56 });
             finish.position.set(0, 4.2, -SNOW_LEN); S.add(finish);
 
-            S.data.sb = { x: 0, z: 0, y: 0, vy: 0, speed: 16, slideT: 0, hp: 150, chasersSpawned: false, board };
+            const gates = [];
+            const gateMat = basic(0x1ed5df), orange = basic(0xff8d4e);
+            for (let n = 0; 140 + n * 162 < SNOW_LEN - 40; n++) {
+                const x = Math.sin(n * 2.17) * 6.5, z = -140 - n * 162;
+                const group = new THREE.Group(); group.position.set(x, 0, z);
+                for (const side of [-1, 1]) {
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.08, 2.6, 6), gateMat);
+                    pole.position.set(side * 2.2, 1.3, 0); group.add(pole);
+                    const pennant = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.47, 0.06), side < 0 ? orange : gateMat);
+                    pennant.position.set(side * 2.6, 2.29, 0); group.add(pennant);
+                }
+                S.add(group); gates.push({ x, z });
+            }
+            S.data.sb = { gates, gateIndex: 0, streak: 0, cleanGates: 0, grabs: 0, grabTime: 0, bank: 0, edge: 0, scoreFraction: 0, x: 0, z: 0, y: 0, vy: 0, speed: 16, slideT: 0, hp: 150, chasersSpawned: false, board };
             BO.Player.rideState = { kind: 'minigame', pos: V(0, 0, 0), roll: 0, pitch: 0, eye: 1.62 };
         },
-        progress: (S) => clamp01(-S.data.sb.z / SNOW_LEN),
+        progress: (S) => S.data.rally ? S.data.rally.s / BO.SummitRally.length : clamp01(-S.data.sb.z / SNOW_LEN),
         onKey(S, code) {
-            const sb = S.data.sb;
             if (MG.state !== 'running') return false;
+            if (S.data.rally) return BO.SummitRally.key(S, code);
+            const sb = S.data.sb;
             if (code === 'Space' && sb.y <= 0.04) { sb.vy = 11.2; sb.slideT = 0; SFX.boing(); return true; }
             if (code === 'KeyC' || code === 'ControlLeft') { sb.slideT = 0.95; SFX.whoosh(0.18); return true; }
             return false;
         },
         preUpdate(S, dt, lib, state) {
+            if (S.data.rally) { BO.SummitRally.tick(S, dt, state); return; }
             const sb = S.data.sb, P = BO.Player, k = P.keys;
             if (state === 'running') {
                 sb.speed = Math.min(33, sb.speed + dt * 0.062);
                 sb.z -= sb.speed * dt;
                 const steer = (k.KeyD ? 1 : 0) - (k.KeyA ? 1 : 0);
-                sb.x = BO.Math.clamp(sb.x + steer * 13 * dt, -10.8, 10.8);
+                sb.edge = BO.Math.damp(sb.edge, steer, 9, dt);
+                sb.x = BO.Math.clamp(sb.x + sb.edge * 15 * dt, -10.8, 10.8);
                 if (sb.y > 0 || sb.vy > 0) { sb.vy -= 25 * dt; sb.y = Math.max(0, sb.y + sb.vy * dt); }
                 if (sb.slideT > 0) sb.slideT -= dt;
-                S.award(Math.round(dt * 42));
+                sb.scoreFraction += dt * 42;
+                const points = Math.floor(sb.scoreFraction);
+                if (points) { S.award(points); sb.scoreFraction -= points; }
+                if (sb.y > 0.12 && k.KeyE) sb.grabTime += dt;
+                if (sb.y === 0 && sb.grabTime > 0) {
+                    if (!k.KeyE && sb.grabTime >= 0.18) {
+                        sb.grabs++; S.award(180 + Math.floor(sb.grabTime * 400), V(sb.x, 1, sb.z), 'CLEAN GRAB');
+                        SFX.ding(1.1);
+                    } else if (k.KeyE) { sb.speed = Math.max(15, sb.speed - 2); MG.toast('Release the grab before landing', '#ffc997'); }
+                    sb.grabTime = 0;
+                }
+                sb.bank = BO.Math.damp(sb.bank, k.KeyE && sb.y > 0.12 ? 0.72 : 0, 10, dt);
+                const gate = sb.gates[sb.gateIndex];
+                if (gate && sb.z <= gate.z) {
+                    sb.gateIndex++;
+                    if (Math.abs(sb.x - gate.x) < 2.2) {
+                        sb.cleanGates++; sb.streak++; S.award(100 * Math.min(5, sb.streak), V(gate.x, 2, gate.z), 'GATE ' + sb.streak);
+                        SFX.ding(1 + Math.min(5, sb.streak) * 0.08);
+                    } else sb.streak = 0;
+                }
                 if (Math.random() < dt * 16) BO.FX.spawnParticles(V(sb.x, 0.1, sb.z), 1, 0xffffff, 2, 1, 0.3, 0.7);
             }
             const eyeH = sb.slideT > 0 ? 0.68 : 1.62;
             if (P.rideState) {
                 P.rideState.pos.set(sb.x, sb.y, sb.z);
                 P.rideState.eye = eyeH;
-                P.rideState.roll = ((k.KeyD ? -1 : 0) + (k.KeyA ? 1 : 0)) * 0.14;
+                P.rideState.roll = -sb.edge * 0.14;
             }
             sb.board.position.set(sb.x, sb.y + 0.04, sb.z - 0.55);
-            sb.board.rotation.y = ((k.KeyA ? 1 : 0) - (k.KeyD ? 1 : 0)) * 0.25;
+            sb.board.rotation.y = -sb.edge * 0.25; sb.board.rotation.z = sb.bank - sb.edge * 0.16;
         },
         update(S, dt, lib, state) {
+            if (S.data.rally) return;
             const D = S.data, sb = D.sb;
             if (state !== 'running') return;
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.tick(dt, { boost: sb.speed > 26 });
+                BO.MinigameAudio.updateBoardAudio(sb.speed, sb.edge, sb.y <= 0.04, false, sb.speed > 26);
+            }
 
             for (const o of D.obstacles) {
                 if (o.hit || Math.abs(sb.z - o.z) > 1.2) continue;
                 if (o.kind === 'ice' && o.tg && !o.tg.alive) { o.hit = true; continue; }
                 if (Math.abs(sb.x - o.x) < o.w * 0.5 + 0.28) {
                     const dodged = (o.kind === 'trap' && sb.y > 0.62) || (o.kind === 'beam' && sb.slideT > 0);
-                    if (!dodged) {
+                    if (dodged) {
+                        o.hit = true; S.award(90, V(sb.x, sb.y + 1, sb.z), o.kind === 'beam' ? 'LOW LINE' : 'CLEAN CLEAR');
+                    } else {
                         o.hit = true;
                         sb.hp = Math.max(0, sb.hp - 25);
                         sb.speed = Math.max(15, sb.speed - 4);
@@ -888,10 +852,21 @@
             }
             if (-sb.z >= SNOW_LEN) { S.award(3000 + sb.hp * 20); MG.finish('5-MINUTE MOUNTAIN CONQUERED!', { color: '#38bdf8' }); }
         },
+        result(S) {
+            if (S.data.rally) return BO.SummitRally.result(S);
+            const b = S.data.sb, stars = S.def.stars.filter(n => S.score >= n).length;
+            return { score: S.score, stars, xp: 120 + Math.round(S.score * 0.06) + stars * 150,
+                title: -b.z >= SNOW_LEN ? 'MOUNTAIN CLEARED' : 'RUN REPORT',
+                stats: [['DISTANCE', Math.min(SNOW_LEN, Math.round(-b.z)) + ' m'], ['GATES CLEARED', b.cleanGates + '/' + b.gateIndex],
+                    ['CLEAN GRABS', b.grabs], ['BOARD HEALTH', b.hp + '/150']] };
+        },
         hud(S) {
+            if (S.data.rally) return BO.SummitRally.hud(S);
             const sb = S.data.sb, pct = Math.round(clamp01(-sb.z / SNOW_LEN) * 100);
-            const modeLbl = pct >= 72 ? 'CHICANE GAPS + ZOMBIES' : 'UNAVOIDABLE WALLS + TRAPS';
-            return `<div class="fun-panel"><div class="mgx-chip">SPEED <b>${Math.round(sb.speed * 3.2)} KM/H</b></div><div class="mgx-chip">SLOPE <b>${pct}%</b></div><div class="mgx-chip ${sb.hp < 45 ? 'mgx-bad' : ''}">HP <b>${sb.hp}</b></div><div class="mgx-chip">${modeLbl}</div></div>`;
+            const next = S.data.obstacles.find(o => !o.hit && o.z < sb.z && o.z > sb.z - 75 && (o.kind !== 'ice' || o.tg?.alive));
+            const action = next ? ({ trap: 'JUMP', beam: 'DUCK', ice: 'BREAK ICE' }[next.kind] + ' · ' + Math.ceil(sb.z - next.z) + ' m') : '';
+            const modeLbl = sb.grabTime > 0 ? 'GRAB ' + sb.grabTime.toFixed(1) + 's' : 'GATES ' + sb.cleanGates + '/' + sb.gateIndex + ' • GRABS ' + sb.grabs;
+            return `<div class="fun-panel"><div class="mgx-chip">SPEED <b>${Math.round(sb.speed * 3.6)} KM/H</b></div><div class="mgx-chip">SLOPE <b>${pct}%</b></div><div class="mgx-chip ${sb.hp < 45 ? 'mgx-bad' : ''}">HP <b>${sb.hp}</b></div><div class="mgx-chip">${modeLbl}</div>${action ? '<div class="mgx-chip">' + action + '</div>' : ''}</div>`;
         }
     });
 })(window);

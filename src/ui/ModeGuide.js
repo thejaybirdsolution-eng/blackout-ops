@@ -73,7 +73,7 @@
         ] },
         minigames: { name: 'Minigames', intro: '63 solo challenges across 5 categories: Fun & Specials, Target & Action, Speed Runs, Arcade Hall, and Boss Rush.', sections: [
             ['Pick a challenge & read its Start Menu Guide', 'Every minigame in the hub displays a dedicated How To Play Guide right in its detail panel (and via the Start Menu Guide button) covering objectives, controls, win conditions, and pro tips.'],
-            ['Fun & Specials (22 Modes)', 'Blockbuster genres including Angry Birds Slingshot, Master Zombie Fortress Siege, 5-Minute Downhill Snowboarding, Mid-Air 360 Trick Shots, FPS Mario 1-1 to 1-4 + 3-Form Bowser, ATB Final Fantasy Story RPG, Bunker Inspection, Prop Hunt, Kaiju Rampage, Mech Titan, Chess FPS, Gladiator Colosseum, and more.'],
+            ['Fun & Specials (22 Modes)', 'Blockbuster genres including Skybreak Sling FPS, Master Zombie Fortress Siege, 5-Minute Downhill Snowboarding, Mid-Air 360 Trick Shots, FPS Mario 1-1 to 1-4 + 3-Form Bowser, ATB Final Fantasy Story RPG, Bunker Inspection, Prop Hunt, Kaiju Rampage, Mech Titan, Chess FPS, Gladiator Colosseum, and more.'],
             ['Target & Action (16 Courses)', 'Practice on fixed-pattern courses, watch a first-person Beat Drop example, or try Whack-a-Mole, Sweetheart Shore and Mansion Raid.'],
             ['Speed Runs (9 Timed Runs)', 'Race through timed challenges including Getaway Chase, Deagle Meteor Splitter, Ninja Stealth and Three-Headed Dragon.'],
             ['Arcade Hall (15 Games) & Boss Rush', 'Try Quickdraw Duels, Ball Brawl and Switchyard in Arcade Hall, or face every boss in Boss Rush with three heals.'],

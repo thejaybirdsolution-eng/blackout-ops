@@ -19,23 +19,51 @@
        4. 360 TRICK SHOT — Jump Down + Mid-Air 360° + 0.5s Window + Miss Respawn
     ===================================================================== */
     const TOWER_H = 26;
+    const FLIGHTS = [
+        { name: 'Apron', width: 8, depth: 2, rate: 0.78, cross: 1 },
+        { name: 'Switchback', width: 10, depth: 4, rate: 0.96, cross: 2 },
+        { name: 'Far lane', width: 12, depth: 2, rate: 1.12, cross: 1 },
+        { name: 'Figure eight', width: 11, depth: 6, rate: 1.21, cross: 2 },
+        { name: 'Night shift', width: 14, depth: 5, rate: 1.48, cross: 3 }
+    ];
+    function runnerPosition(flight, phase, round, out) {
+        return out.set(Math.sin(phase) * flight.width, 0,
+            -15 - round * 2 + Math.sin(phase * flight.cross + 0.5) * flight.depth);
+    }
     MG.register({
-        id: 'fun_360_trickshot', cat: 'fun', order: 4, name: '360 Trick Shot', icon: '🌀', accent: '#f59e0b', badge: 'SKILL',
-        tagline: 'Jump off the tower! Spin 360° mid-air & shoot inside 0.5s—or respawn at the top!',
-        desc: 'Leap off the open ledge of a 26-metre crane tower down toward the moving target in the floodlit yard below. Spin a full 360° IN MID-AIR to unlock your sniper for ONLY 0.5 SECONDS (1s max quickscope). Land the mid-air kill for an epic slow-mo Killcam—miss and hit the floor, and you immediately respawn back at the top!',
-        heroLabel: 'FUN • LEAP QUICKSCOPE KILLCAM • 5 ROUNDS', duration: 120, stars: [1800, 3600, 5600, 8200],
-        standardWeapon: 'intervention', lockWeapon: true, infiniteMag: true, maxScopeTime: 1.0,
+        id: 'fun_360_trickshot', cardImage: 'assets/minigames/fun_360_trickshot.webp', cat: 'fun', order: 4, name: '360 Trick Shot', icon: '🌀', accent: '#f59e0b', badge: 'SKILL',
+        tagline: 'Launch from five industrial rooftops. Spin 360°, hit the runner, then watch your jump from the chase camera.',
+        desc: 'Take off from five distinct industrial towers—Dispatch Roof, Freight Bridge, Cable Crane, Signal Mast and Chimney Crown—toward the moving runner below. Spin a full 360° in mid-air to arm your Intervention .408 for a crisp quickscope window, then watch your world-space slow-mo flight replay!',
+        heroLabel: 'FLIGHT CIRCUIT • 5 LAUNCH TOWERS', duration: 120, stars: [1800, 3600, 5600, 8200],
+        standardWeapon: 'intervention', lockWeapon: true, infiniteMag: true, maxScopeTime: 1.0, customMusic: true,
         blockFire: (S) => !(S && S.data && S.data.armedT > 0) || !!(S && S.data && S.data.killcamT > 0),
-        weaponLabel: 'INTERVENTION .408 (MID-AIR 360)', weaponNote: 'Must jump down + spin 360° mid-air • 0.5s fire window!',
-        keys: [['W + SPACE', 'Jump off open ledge'], ['MOUSE', 'Spin 360° mid-air'], ['RMB', 'Quickscope (1s max)'], ['LMB', 'Fire inside 0.5s window!']],
+        hubOptions: [{ key:'flightRules', label:'SESSION', default:'tour', choices:[
+            {val:'tour',label:'Tower Tour',desc:'Five launch platforms, two minutes, 0.50 s shot window.'},
+            {val:'studio',label:'Practice Studio',desc:'Unlimited session time and a 1.25 s shot window.'}] }],
+        variantKey: o => o.flightRules === 'studio' ? 'studio' : '',
+        variantLabel: o => o.flightRules === 'studio' ? 'PRACTICE STUDIO' : 'TOWER TOUR',
+        hideViewmodel: S => S.data.killcamT > 0,
+        onKey(S,code){
+            if (MG.state !== 'running') return false;
+            if (code === 'KeyE' || (code === 'Space' && S.data.killcamT > 0)) return BO.FlightCircuit.launch(S);
+            if (code === 'KeyF' || code === 'KeyQ') return BO.FlightCircuit.styleKey(S, code);
+            return false;
+        },
+        guide: { objective: 'Land five airborne 360°/720°/1080° trick shots across five industrial launch platforms.', tips: [
+            'Press [E] to launch cleanly off the deck. Hit a cyan Bounce Pad below to rocket 24 m back up for 720°/1080° double-bounce shots!',
+            'Press [F] mid-air for a Nac-Swap twirl (+450) and [Q] for a Barrel Roll (+550). Shoot suspended gold Gongs for a Ricochet Bank-Shot!',
+            'Shoot red Propane Barrels near the runner for an Explosive Collateral, or snipe the orbiting UAV drone!'
+        ] },
+        weaponLabel: 'INTERVENTION .408 (MID-AIR 360)', weaponNote: 'Launch [E] • 360°/720° Spin • [F] Nac-Swap • [Q] Barrel Roll • Bounce Pads!',
+        keys: [['E', 'Launch from pad / skip replay'], ['MOUSE', 'Spin 360°/720°/1080° mid-air'], ['F / Q', 'Nac-Swap / Barrel Roll'], ['RMB / LMB', 'Quickscope / Fire armed!']],
         map: {
-            atmosphere: { skyTop: 0x0f172a, skyBottom: 0xea580c, fogColor: 0x431407, fogDensity: 0.0045, sunColor: 0xfdba74, sunIntensity: 1.55, sunPos: [-40, 28, -40], hemiSky: 0xfdba74, hemiGround: 0x1e293b, hemiIntensity: 0.9 },
-            boxes: [B(0, -0.5, -16, 130, 1, 130, 'concrete'), B(0, TOWER_H * 0.5, 0, 5.6, TOWER_H, 5.6, 'concrete')],
+            atmosphere: { skyTop: 0x0b1224, skyBottom: 0xd9561a, fogColor: 0x3b180a, fogDensity: 0.0042, sunColor: 0xfdba74, sunIntensity: 1.6, sunPos: [-40, 28, -40], hemiSky: 0xfdba74, hemiGround: 0x1e293b, hemiIntensity: 0.92 },
+            boxes: [B(0, -0.5, -16, 130, 1, 130, 'asphalt'), B(0, TOWER_H * 0.5, 0, 5.6, TOWER_H, 5.6, 'soviet_concrete')],
             spawn: { x: 0, y: TOWER_H + 0.15, z: 0.6, yaw: 0 }
         },
         build(S) {
-            K.groundPlane(S, 130, 0x1e293b, 0.002);
-            const steelM = std(0x475569, 0.4, 0.75), railM = std(0xfacc15, 0.4, 0.6);
+            const CS = BO.CourseScenery;
+            const steelM = CS.texMat('diamond_plate', 4, 4), railM = std(0xfacc15, 0.38, 0.62);
             // Crane tower trusses & 3 safety rails ONLY (Front ledge z = -2.8 is OPEN for jumping down!)
             for (const [x1, z1, x2, z2] of [[-2.7, 2.7, 2.7, 2.8], [-2.8, -2.7, -2.65, 2.8], [2.65, -2.7, 2.8, 2.8]]) {
                 const bar = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x2 - x1), 1.0, Math.abs(z2 - z1)), railM);
@@ -44,30 +72,54 @@
             }
             const arrow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.8), basic(0xfacc15));
             arrow.rotation.x = -Math.PI / 2; arrow.position.set(0, TOWER_H + 0.03, -1.7); S.add(arrow);
-            const towerSign = A.sign('JUMP OFF -> 360° -> 0.5s WINDOW!', 5.8, 0.85, { bg: '#451a03', color: '#fef08a', borderColor: '#facc15', size: 0.44 });
+            const towerSign = A.sign('LAUNCH [E] -> 360°/720° -> [F] SWAP / [Q] ROLL!', 6.4, 0.85, { bg: '#451a03', color: '#fef08a', borderColor: '#facc15', size: 0.36 });
             towerSign.position.set(0, TOWER_H + 3.6, -2.7); S.add(towerSign);
             for (const sx of [-2.8, 2.8]) {
                 const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.6, 0.35), steelM);
                 post.position.set(sx, TOWER_H + 1.8, -2.7); S.add(post);
             }
-            // Shipping containers & floodlights in courtyard below
-            for (const [cx, cz, col, w, d] of [[-16, -20, 0xb91c1c, 3.2, 8.5], [16, -22, 0x1d4ed8, 3.2, 8.5], [-10, -35, 0x047857, 8.5, 3.2], [11, -35, 0xd97706, 8.5, 3.2]]) {
-                S.box(cx, 1.45, cz, w, 2.9, d, std(col, 0.65, 0.3), { solid: true });
-            }
-            for (const [tx, tz] of [[-18, -10], [18, -10], [-18, -32], [18, -32]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, false));
+            // Textured Corrugated Shipping Containers & Parked Tactical Humvee in Floodlit Courtyard!
+            CS.cargoContainer(S, -16, 0, -20, 3.2, 2.9, 8.5, 'red', 0);
+            CS.cargoContainer(S, 16, 0, -22, 3.2, 2.9, 8.5, 'blue', 0);
+            CS.cargoContainer(S, -10, 0, -35, 8.5, 2.9, 3.2, 'olive', 0);
+            CS.cargoContainer(S, 11, 0, -35, 8.5, 2.9, 3.2, 'red', 0);
+            CS.humvee(S.scene, -16, 0, -7.5, 0.45, 0x3f4d36, false);
+            for (const [tx, tz] of [[-18, -10], [18, -10], [-18, -32], [18, -32]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, true));
 
             Object.assign(S.data, { spinAccum: 0, lastYaw: BO.Player.yaw, armedT: 0, jumped: false, inAir: false, round: 1, killcamT: 0, kills: 0, totalRounds: 5, attempts: 0 });
+            BO.FlightCircuit.build(S);
+            S.spawned = FLIGHTS.length;
+            // Apron lighting and a suspended gantry frame the runner from the ledge.
+            for (const side of [-1, 1]) {
+                for (let i = 0; i < 9; i++) {
+                    const strip = S.box(side * 15.8, 0.045, -7 - i * 3.7, 0.18, 0.08, 1.7, basic(0xffc777));
+                    strip.receiveShadow = false;
+                }
+                S.box(side * 19, 4.4, -41, 0.42, 8.8, 0.42, steelM);
+            }
+            S.box(0, 8.6, -41, 38.5, 0.55, 0.6, steelM);
+            for (let x = -16; x <= 16; x += 4) S.box(x, 8.22, -40.8, 1.6, 0.16, 0.24, basic(0x98e6ed));
+            const route = new THREE.BufferGeometry();
+            route.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(97 * 3), 3));
+            S.data.route = new THREE.Line(route, new THREE.LineBasicMaterial({ color: 0x69d8e5 }));
+            S.data.route.position.y = 0.09; S.data.route.frustumCulled = false; S.add(S.data.route);
+            S.data.clean = 0; S.data.airTime = 0; S.data.windowUsed = false;
             this._spawnRunner(S, 1);
         },
         _respawnTop(S) {
             const P = BO.Player, D = S.data;
-            P.pos.set(0, TOWER_H + 0.15, 0.6);
-            P.vel.set(0, 0, 0);
-            P.yaw = 0; P.pitch = -0.35;
             P.hp = P.maxHp;
-            D.jumped = false; D.inAir = false; D.spinAccum = 0; D.armedT = 0; D.lastYaw = P.yaw;
+            D.windowUsed = false; D.airTime = 0;
+            D.jumped = false; D.inAir = false; D.spinAccum = 0; D.armedT = 0;
+            BO.FlightCircuit.reset(S);
         },
         _spawnRunner(S, rndNum) {
+            const flight = FLIGHTS[rndNum - 1], v = V(), path = S.data.route.geometry.attributes.position;
+            for (let i = 0; i < path.count; i++) {
+                runnerPosition(flight, i / (path.count - 1) * TAU, rndNum, v);
+                path.setXYZ(i, v.x, v.y, v.z);
+            }
+            path.needsUpdate = true;
             const fig = F.human({ skin: F.SKINS[rndNum % F.SKINS.length], shirt: 0xef4444, pants: 0x111827, helmet: true, hat: 'helmet', hatColor: 0xfacc15, gun: 'rifle', eyes: 'angry' });
             const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.45, 24), basic(0xef4444, { side: THREE.DoubleSide }));
             ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.userData.noHit = true;
@@ -75,12 +127,9 @@
             const tg = S.addTarget({
                 mesh: fig.root, hitMeshes: fig.hit, pos: V(0, 0, -20), life: 0, appear: 'scale', inT: 0.2, death: 'knock', deathColor: 0xef4444, bonus: true,
                 onTick: (t) => {
-                    const spd = 2.4 + rndNum * 0.65;
-                    const ph = S.t * spd * 0.28 + rndNum;
-                    const x = Math.sin(ph) * (9 + rndNum * 1.4), z = -20 + Math.cos(ph * 1.3) * 4.5;
-                    const dx = x - t.root.position.x, dz = z - t.root.position.z;
-                    t.root.position.set(x, 0, z);
-                    t.root.rotation.y = Math.atan2(dx, dz);
+                    runnerPosition(flight, S.t * flight.rate + rndNum, rndNum, v);
+                    const dx = v.x - t.root.position.x, dz = v.z - t.root.position.z;
+                    t.root.position.copy(v); t.root.rotation.y = Math.atan2(dx, dz);
                     F.walk(fig, S.t * 9, 1, true);
                 }
             });
@@ -91,8 +140,12 @@
             if (P.alive) { P.hp = P.maxHp; P.armor = 0; }
             if (D.killcamT > 0) {
                 D.killcamT -= dt;
-                if (BO.State) BO.State.timeScale = 0.28;
+                if (D.round > D.totalRounds && S.duration) S.t = Math.min(S.t, S.duration - 0.05);
+                BO.FlightCircuit.replay(S, THREE.MathUtils.clamp(1 - D.killcamT / 1.65, 0, 1));
+                if (D.shotTrace) D.shotTrace.material.opacity = BO.Math.clamp(D.killcamT / 0.8, 0, 1);
+                if (BO.State) BO.State.timeScale = 0.75;
                 if (D.killcamT <= 0) {
+                    if (D.shotTrace) D.shotTrace.visible = false;
                     if (BO.State) BO.State.timeScale = 1.0;
                     if (D.round > D.totalRounds) { MG.finish('360 TRICKSHOT MASTER!', { color: '#facc15' }); }
                     else { this._respawnTop(S); this._spawnRunner(S, D.round); }
@@ -101,62 +154,133 @@
             }
             if (BO.State) BO.State.timeScale = 1.0;
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
+            if (BO.FlightCircuit.checkBouncePads(S, dt)) return;
 
-            // Player can start a 360 ANY TIME while airborne (including right on jumping off the tower)!
-            const inAir = !P.onGround && (P.pos.y > TOWER_H + 0.14 || P.pos.y < TOWER_H - 0.14 || Math.abs(P.vel.y) > 0.3);
+            // Player can start a 360/720/1080 ANY TIME while airborne!
+            const inAir = BO.FlightCircuit.airborne(S);
+            const height = BO.FlightCircuit.pad(D).y;
             D.inAir = inAir;
-            if (!D.jumped && P.pos.y < TOWER_H - 1.0) D.jumped = true;
-            if (!inAir && P.pos.y >= TOWER_H - 0.5 && D.armedT <= 0) D.spinAccum = 0;
+            if (inAir) D.airTime += dt;
+            else { D.armedT = 0; D.windowUsed = false; D.airTime = 0; }
+            const lit = D.armedT > 0 ? 12 : Math.floor(Math.abs(D.spinAccum) / TAU * 12);
+            D.lamps.forEach((lamp, i) => lamp.material.color.setHex(i < lit ? 0xffc65c : 0x254451));
+            if (!D.jumped && P.pos.y < height - 1.0) D.jumped = true;
+            if (!inAir) D.spinAccum = 0;
 
-            if (D.jumped && P.pos.y <= 0.45) {
+            if (D.jumped && (P.pos.y <= 0.45 || (P.onGround && P.pos.y < height - 1))) {
                 D.attempts++;
                 SFX.buzzer();
                 MG.flashScreen('rgba(239,68,68,0.3)');
-                MG.toast('MISSED — RESPAWNED BACK AT TOP!', '#fca5a5');
+                MG.toast('MISSED — RESPAWNED BACK AT PAD!', '#fca5a5');
                 this._respawnTop(S);
                 return;
             }
 
+            BO.FlightCircuit.record(S, dt);
             const dy = BO.Math.angleDiff(D.lastYaw, P.yaw);
             D.lastYaw = P.yaw;
-            if (inAir && D.armedT <= 0) {
+            if (inAir) {
                 D.spinAccum += dy;
-                if (Math.abs(D.spinAccum) >= Math.PI * 1.85) {
-                    D.armedT = 0.50; // STRICT 0.5 SECOND SHOT WINDOW!
-                    D.spinAccum = 0;
-                    SFX.ding(1.3);
-                    MG.toast('360° ARMED — 0.5s FIRE NOW!', '#4ade80');
+                const q = Math.floor((Math.abs(D.spinAccum) / TAU) * 4);
+                if (q > D.flight.lastQuarter && q < 4) {
+                    D.flight.lastQuarter = q;
+                    if (BO.MinigameAudio) BO.MinigameAudio.spinTick(q - 1);
                 }
-            } else if (D.armedT > 0) {
+                if (Math.abs(D.spinAccum) >= TAU - 0.00001) {
+                    D.flight.spinsDone++;
+                    D.flight.lastQuarter = 0;
+                    D.windowUsed = true;
+                    D.armedT = D.flight.practice ? 1.25 : 0.58;
+                    D.spinAccum = 0;
+                    if (BO.MinigameAudio) BO.MinigameAudio.spinTick(3); else SFX.ding(1.3);
+                    MG.toast((D.flight.spinsDone * 360) + '° ARMED — FIRE NOW!', '#4ade80');
+                }
+            }
+            if (D.armedT > 0) {
                 D.armedT -= dt;
-                if (D.armedT <= 0) MG.toast('0.5s WINDOW EXPIRED!', '#fde68a');
+                if (D.armedT <= 0) MG.toast('SHOT WINDOW EXPIRED!', '#fde68a');
             }
         },
         onHit(S, ent, info) {
-            const D = S.data;
+            const D = S.data, f = D.flight;
             if (!ent.alive || D.armedT <= 0 || D.killcamT > 0) return false;
+            if (!D.inAir || BO.Player.onGround) return false;
+            if (ent.isBonusUav) {
+                ent.kill(info); S.award(550 * S.comboMult, info.pt, 'MID-AIR UAV SNIPE!', '#22d3ee');
+                SFX.star(2); return true;
+            }
+            let trickBonus = 0, trickLabel = '';
+            if (ent.isRicochetGong && D.runner && D.runner.alive) {
+                if (BO.MinigameAudio) BO.MinigameAudio.gongRicochet();
+                BO.FX.spawnTracer(info.pt, D.runner.root.position.clone().add(V(0, 1.2, 0)), 0xfacc15, 0.07, 0.35);
+                trickBonus = 900; trickLabel = 'RICOCHET GONG BANK SHOT!';
+                ent = D.runner; info = Object.assign({}, info, { pt: D.runner.root.position.clone().add(V(0, 1.2, 0)) });
+            } else if (ent.isPropaneBarrel && D.runner && D.runner.alive) {
+                ent.kill(info); BO.FX.spawnExplosion(info.pt, 6.5, 0xf97316); SFX.rumble(0.75);
+                if (D.runner.root.position.distanceTo(info.pt) < 10.5) {
+                    trickBonus = 850; trickLabel = 'EXPLOSIVE COLLATERAL!';
+                    ent = D.runner; info = Object.assign({}, info, { pt: D.runner.root.position.clone().add(V(0, 1.2, 0)) });
+                } else { S.award(300, info.pt, 'PROPANE BLAST!', '#fb923c'); return true; }
+            }
+            if (ent !== D.runner) return false;
+            const winMax = f.practice ? 1.25 : 0.58;
+            const snap = Math.max(0, winMax - D.armedT);
+            D.lastSnap = snap; BO.FlightCircuit.beginReplay(S, info.pt);
+            if (!D.shotTrace) {
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+                D.shotTrace = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffe8a6, transparent: true }));
+                D.shotTrace.frustumCulled = false; S.add(D.shotTrace);
+            }
+            const origin = BO.App.worldCamera.position, points = D.shotTrace.geometry.attributes.position;
+            points.setXYZ(0, origin.x, origin.y, origin.z); points.setXYZ(1, info.pt.x, info.pt.y, info.pt.z);
+            points.needsUpdate = true; D.shotTrace.visible = true;
+            if (snap <= 0.20) D.clean++;
             D.armedT = 0; D.spinAccum = 0;
-            const bonus = (info.hitbox === 'head' ? 750 : 0) + (BO.Player.adsAlpha > 0.2 ? 550 : 250);
+            const spinBonus = f.spinsDone >= 3 ? 1400 : f.spinsDone === 2 ? 600 : 0;
+            const styleBonus = (f.nacSwap ? 450 : 0) + (f.barrelRoll ? 550 : 0) + (f.bounceCount > 0 ? 500 : 0) + trickBonus;
+            const bonus = (info.hitbox === 'head' ? 750 : 0) + (BO.Player.adsAlpha > 0.2 ? 550 : 300) + spinBonus + styleBonus;
+            const spinTag = (Math.max(1, f.spinsDone) * 360) + '°';
+            const banner = [spinTag, ...f.styleTags, trickLabel || (info.hitbox === 'head' ? 'HEADSHOT' : BO.Player.adsAlpha > 0.2 ? 'QUICKSCOPE' : 'NO-SCOPE')].filter(Boolean).join(' + ');
             ent.kill(info);
             D.kills++; D.round++; S.kills++; S.bumpCombo();
-            S.award((1200 + bonus) * S.comboMult, info.pt, 'MID-AIR 360° KILLCAM!', '#facc15');
-            SFX.star(3); BO.FX.spawnExplosion(info.pt, 3.2, 0xfacc15);
-            D.killcamT = 1.65;
-            MG.toast('🎬 SLOW-MO 360° KILLCAM!', '#facc15');
+            S.award((1200 + bonus + (snap <= 0.20 ? 300 : 0)) * S.comboMult, info.pt, banner, '#facc15');
+            SFX.star(3); BO.FX.spawnExplosion(info.pt, 3.6, 0xfacc15);
+            D.killcamT = 1.85;
+            MG.toast('🎬 ' + banner + '!', '#facc15');
             return true;
         },
-        dispose() { if (BO.State) BO.State.timeScale = 1.0; },
+        result(S) {
+            const d = S.data, stars = S.def.stars.filter(n => S.score >= n).length;
+            return { score: S.score, stars, xp: 120 + Math.round(S.score * 0.06) + stars * 150,
+                title: d.kills === 5 ? 'FLIGHT SERIES COMPLETE' : 'FLIGHT REPORT',
+                stats: [['FLIGHTS LANDED', d.kills + '/5'], ['QUICK RELEASES', d.clean], ['MISSED LANDINGS', d.attempts],
+                    ['LAST RELEASE', d.lastSnap == null ? '—' : Math.round(d.lastSnap * 1000) + ' ms']] };
+        },
+        dispose(S) {
+            BO.FlightCircuit.stop(S);
+            for (const line of [S.data.route, S.data.shotTrace]) if (line) { line.geometry.dispose(); line.material.dispose(); }
+            if (BO.State) BO.State.timeScale = 1.0;
+        },
         hud(S) {
             const D = S.data;
             const deg = Math.min(360, Math.round(Math.abs(D.spinAccum) * 180 / Math.PI));
             const scopeLeft = Math.max(0, 1.0 - (S.data._scopeT || 0));
-            const status = !D.inAir ? 'JUMP OFF & SPIN ANYTIME IN AIR!' : D.armedT > 0 ? `🔫 FIRE <b>${D.armedT.toFixed(2)}s</b>` : `MID-AIR SPIN <b>${deg}° / 360°</b>`;
-            return `<div class="fun-panel"><div class="mgx-chip">ROUND <b>${Math.min(D.round, D.totalRounds)} / ${D.totalRounds}</b></div><div class="mgx-chip ${D.armedT > 0 ? 'mgx-hot' : ''}">${status}</div><div class="mgx-chip">SCOPE MAX <b>${scopeLeft.toFixed(2)}s</b></div><div class="mgx-chip">FALLS <b>${D.attempts}</b></div></div>`;
+            const padName = BO.FlightCircuit.pad(D).name.toUpperCase();
+            const status = D.killcamT > 0
+                ? `REPLAY • RELEASE <b>${Math.round(D.lastSnap * 1000)} ms</b> [SPACE SKIP]`
+                : !D.inAir
+                    ? `PRESS <b>[E]</b> LAUNCH • ${padName}`
+                    : D.armedT > 0
+                        ? `<b style="color:#4ade80">ARMED • FIRE ${D.armedT.toFixed(2)}s!</b>`
+                        : `SPIN <b>${deg}° / 360°</b>`;
+            return `<div class="course-console flight-console"><strong>${FLIGHTS[Math.min(D.round, 5) - 1].name} (${Math.min(D.round, D.totalRounds)}/${D.totalRounds})</strong><span>${status}</span><span>SCOPE <b>${scopeLeft.toFixed(2)}s</b></span><span>FALLS <b>${D.attempts}</b></span></div>`;
         }
     });
 
     /* =====================================================================
-       5. MARIO FPS — Faithful 1-1, 1-2, 1-3, 1-4 + Chiptune Music + 3-Form Bowser
+       5. MARIO FPS — Prism Foundry & Classic Worlds 1-1 to 1-4 + Bowser
     ===================================================================== */
     const N = { C4: 261.6, D4: 293.7, E4: 329.6, F4: 349.2, Fs4: 370.0, G4: 392.0, Gs4: 415.3, A4: 440.0, Bb4: 466.2, B4: 493.9, C5: 523.3, Cs5: 554.4, D5: 587.3, Eb5: 622.3, E5: 659.3, F5: 698.5, Fs5: 740.0, G5: 784.0, Gs5: 830.6, A5: 880.0, B5: 987.8, C6: 1046.5, G3: 196.0, A3: 220.0, B3: 246.9, C3: 130.8, D3: 146.8, E3: 164.8, F3: 174.6 };
     const TRACKS = {
@@ -175,9 +299,9 @@
         o.connect(g); g.connect(ctx.destination);
         o.start(t0); o.stop(t0 + dur + 0.02);
     };
-    const mCoinSfx = () => { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); };
-    const mPowerSfx = () => { [523, 659, 784, 1047, 1319].forEach((f, i) => mTone(f, 0.1, 'square', 0.09, i * 0.055)); };
-    const mPipeSfx = () => { [620, 480, 340, 220].forEach((f, i) => mTone(f, 0.09, 'square', 0.1, i * 0.07)); };
+    const mCoinSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioCoin(); else { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); } };
+    const mPowerSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPowerup(); else [523, 659, 784, 1047, 1319].forEach((f, i) => mTone(f, 0.1, 'square', 0.09, i * 0.055)); };
+    const mPipeSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPipe(); else [620, 480, 340, 220].forEach((f, i) => mTone(f, 0.09, 'square', 0.1, i * 0.07)); };
 
     function marioTex(kind) {
         return L.canvasTex('mario-' + kind, 128, 128, (g, w, h) => {
@@ -215,30 +339,48 @@
     ];
 
     MG.register({
-        id: 'fun_mario_fps', cat: 'fun', order: 5, name: 'Mario FPS (1-1 to 1-4 + Bowser)', icon: '🍄', accent: '#ef4444', badge: 'EPIC',
-        tagline: 'Faithful 1-1 to 1-4 clones with Mario Music, Pipes, Powerups, FAMAS + Deagle & 3-Form Bowser!',
-        desc: 'Play faithful FPS recreations of World 1-1 (Overworld + Secret Coin Pipe!), 1-2 (Underground Piranha Pipes), 1-3 (Moving Sky Lifts & Koopa Treetops), and 1-4 (Castle Firebars & Lava). Grab the FAMAS & Desert Eagle beside "You are going to need this." before battling 3-Form Bowser!',
-        heroLabel: 'FUN • 4 CLASSIC WORLDS + BOWSER • CHIPTUNE OST', duration: 0, stars: [4500, 9000, 14500, 22000],
+        id: 'fun_mario_fps', cardImage: 'assets/minigames/fun_mario_fps.webp', cat: 'fun', order: 5, name: 'Mario FPS', icon: '🍄', accent: '#ef4444', badge: 'EPIC',
+        tagline: 'Flip the factory’s bridge polarity, swing across the presses and restart the runaway governor.',
+        desc: 'Two first-person platforming campaigns: traverse Prism Foundry by toggling Cyan/Amber bridge polarity [E], swinging from magnetic gold anchors [Q], air-boosting [V] and cracking the rotating Governor’s seals—or play Classic Worlds 1-1 through 1-4 with secret warp pipes, chiptune music, FAMAS + Desert Eagle and 3-Form Bowser!',
+        hubOptions: [{key:'platformCourse',label:'CAMPAIGN',default:'foundry',choices:[
+            {val:'foundry',label:'Prism Foundry',desc:'Shift bridges with E, grapple gold anchors with Q, air boost with V and fire matching pulses with LMB.'},
+            {val:'classic',label:'Classic Worlds',desc:'Four retro worlds (1-1 to 1-4), secret warp pipes, FAMAS + Deagle and three Bowser forms.'}]}],
+        variantKey: o => o.platformCourse==='classic' ? '' : 'foundry',
+        variantLabel: o => o.platformCourse==='classic' ? 'CLASSIC WORLDS' : 'PRISM FOUNDRY',
+        starsFor: o => o.platformCourse==='classic' ? [4500,9000,14500,22000] : [1000,3000,6000,8100],
+        dispose(S) {
+            BO.PrismFoundry.dispose(S);
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+        },
+        heroLabel: 'PLATFORM ADVENTURE • TWO CAMPAIGNS', duration: 0, stars: [4500, 9000, 14500, 22000],
         standardWeapon: 'famas_f1', secondaryWeapon: 'deagle', lockWeapon: true, infiniteMag: true, customMusic: true,
         hideViewmodel: (S) => !(S && S.data && S.data.hasGuns),
         blockFire: (S) => !(S && S.data && (S.data.hasGuns || S.data.power === 'fire')),
-        weaponLabel: 'STOMP & FIRE FLOWER -> FAMAS + DEAGLE', weaponNote: 'Grab FAMAS & Desert Eagle at the 1-4 Boss Door!',
-        keys: [['WASD', 'Run'], ['SPACE', 'Jump / Stomp'], ['E / C', 'Go down Green Pipe'], ['LMB', 'Fireball / Shoot Bowser']],
+        weaponLabel: 'PHASE CASTER / FAMAS + DEAGLE', weaponNote: 'Prism Foundry: [E] Polarity • [Q] Tether • [LMB] Pulse | Classic: Stomp -> FAMAS + Deagle',
+        guide: { objective: 'In Prism Foundry, bring all three Drives online and crack the rotating Governor’s three polarity seals. In Classic Worlds, clear 1-1 through 1-4 and defeat 3-Form Bowser.', tips: ['Press [E] in Prism Foundry to toggle Cyan and Amber phase bridges—and match the lit Governor seal’s color before firing [LMB].', 'Aim at gold magnetic rings and press [Q] to swing across the smelter, and press [V] mid-air for a second lift (refilled by Prism rings).', 'In Classic Worlds, press [E / C] atop green warp pipes to discover secret coin rooms or shortcuts, and grab the FAMAS + Deagle before Bowser’s door.'] },
+        keys: [['E', 'Shift polarity (Foundry) / Pipe (Classic)'], ['Q', 'Magnetic tether (Foundry)'], ['V', 'Mid-air boost lift'], ['SPACE', 'Jump / Stomp'], ['LMB', 'Phase pulse / Fireball / Shoot']],
         map: {
             atmosphere: { skyTop: 0x0284c7, skyBottom: 0xbae6fd, fogColor: 0xbae6fd, fogDensity: 0.0045, sunColor: 0xffffff, sunIntensity: 1.65, sunPos: [20, 60, 20], hemiSky: 0xe0f2fe, hemiGround: 0x166534, hemiIntensity: 0.9 },
             boxes: [],
             spawn: { x: 0, y: 0.1, z: 0, yaw: 0 }
         },
         build(S) {
+            S.data.ringsTaken = 0; S.data.recoveries = 0; S.data.beaconsLit = 0;
             S.data.stageIdx = 0; S.data.power = 'small'; S.data.hasGuns = false; S.data.coins = 0;
             S.data.stageObjs = []; S.data.fireballs = []; S.data.bFire = [];
             S.data.bowser = null; S.data.bowserForm = 0; S.data.musicStep = 0; S.data.musicTimer = 0;
-            this._loadWorld(S, 0);
+            if (S.opts.platformCourse !== 'classic') BO.PrismFoundry.build(S);
+            else this._loadWorld(S, 0);
         },
         _clearWorld(S) {
-            for (const o of S.data.stageObjs) if (o.parent) o.parent.remove(o);
+            const retired = new THREE.Group();
+            for (const o of S.data.stageObjs) if (o.parent) retired.add(o);
+            for (const p of [...S.data.fireballs, ...S.data.bFire]) if (p.mesh.parent) retired.add(p.mesh);
+            S.data.fireballs.length = 0; S.data.bFire.length = 0;
+            for (const target of S.targets) if (target.root.parent) retired.add(target.root);
+            MG._releaseGpu(retired);
             S.data.stageObjs = [];
-            for (const tg of S.targets.slice()) tg.remove();
+            S.clearTargets();
             BO.World.colliders = [];
             S.data.qBlocks = []; S.data.pipes = []; S.data.goombas = []; S.data.piranhas = [];
             S.data.coinMeshes = []; S.data.firebars = []; S.data.pits = []; S.data.movers = [];
@@ -277,22 +419,44 @@
         _addGoomba(S, x, z, koopa = false) {
             const gm = new THREE.Group();
             if (koopa) {
-                const shell = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), std(0x16a34a, 0.45)); shell.scale.set(1, 0.9, 1.2); shell.position.y = 0.65;
-                const hd = new THREE.Mesh(new THREE.SphereGeometry(0.35, 10, 8), std(0xfacc15, 0.6)); hd.position.set(0, 1.25, 0.35);
-                gm.add(shell, hd);
+                const shell = new THREE.Mesh(new THREE.SphereGeometry(0.56, 14, 10), std(0x16a34a, 0.35, 0.18)); shell.scale.set(1.02, 0.92, 1.24); shell.position.y = 0.68;
+                const rim = new THREE.Mesh(new THREE.TorusGeometry(0.54, 0.07, 6, 16), std(0xf8fafc, 0.6)); rim.rotation.x = Math.PI / 2; rim.position.y = 0.44;
+                const hd = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), std(0xfacc15, 0.55)); hd.position.set(0, 1.28, 0.38);
+                for (const s of [-1, 1]) {
+                    const ft = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.18, 0.38), std(0xf97316, 0.6)); ft.position.set(s * 0.24, 0.10, 0.08); gm.add(ft);
+                    const ey = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), basic(0x111111)); ey.position.set(s * 0.14, 1.36, 0.66); gm.add(ey);
+                }
+                gm.add(shell, rim, hd);
             } else {
-                const cap = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 10), std(0x78350f, 0.7)); cap.scale.set(1.2, 0.8, 1.1); cap.position.y = 0.85;
-                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 0.55, 10), std(0xfef3c7, 0.8)); stem.position.y = 0.4;
-                for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), basic(0x111111)); e.position.set(s * 0.24, 0.88, 0.55); gm.add(e); }
+                const cap = new THREE.Mesh(new THREE.SphereGeometry(0.62, 14, 10), std(0x854d0e, 0.65)); cap.scale.set(1.22, 0.84, 1.12); cap.position.y = 0.88;
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.44, 0.52, 10), std(0xfef3c7, 0.78)); stem.position.y = 0.42;
+                for (const s of [-1, 1]) {
+                    const ft = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), std(0x291509, 0.85)); ft.scale.set(1.1, 0.6, 1.4); ft.position.set(s * 0.28, 0.14, 0.06); gm.add(ft);
+                    const e = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), basic(0x111111)); e.position.set(s * 0.24, 0.90, 0.58); gm.add(e);
+                    const br = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.06), basic(0x111111)); br.position.set(s * 0.24, 1.06, 0.58); br.rotation.z = s * -0.35; gm.add(br);
+                }
                 gm.add(cap, stem);
             }
-            const tg = S.addTarget({ mesh: gm, pos: V(x, 0, z), life: 0, appear: 'none', inT: 0.01, death: 'pop', deathColor: koopa ? 0x16a34a : 0x78350f, points: koopa ? 350 : 200, bonus: true });
-            tg.vx = (z % 4 === 0 ? -3.1 : 3.1); S.data.goombas.push(tg);
+            const tg = S.addTarget({ mesh: gm, pos: V(x, 0, z), life: 0, appear: 'none', inT: 0.01, death: 'squash', deathColor: koopa ? 0x16a34a : 0x78350f, points: koopa ? 350 : 200, bonus: true });
+            tg.vx = (z % 4 === 0 ? -3.1 : 3.1); tg.isKoopa = koopa; S.data.goombas.push(tg);
+        },
+        _spawnKickShell(S, x, z, dirZ = -1) {
+            const sh = new THREE.Mesh(new THREE.SphereGeometry(0.52, 14, 10), std(0x16a34a, 0.3, 0.25));
+            sh.scale.set(1.05, 0.72, 1.15); sh.position.set(x, 0.42, z);
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(0.50, 0.065, 6, 16), basic(0xf8fafc));
+            rim.rotation.x = Math.PI / 2; sh.add(rim);
+            this._addObj(S, sh);
+            if (BO.MinigameAudio) BO.MinigameAudio.marioShellKick();
+            S.data.shells.push({ mesh: sh, vx: 0, vz: dirZ * 17.5, life: 4.5, streak: 0 });
         },
         _loadWorld(S, idx) {
             this._clearWorld(S);
-            const W = MARIO_WORLDS[idx];
+            const W = MARIO_WORLDS[idx], D = S.data;
+            D.checkpoint = V(0, 0.3, 0); D.boostReady = true; D.beaconLit = false;
+            D.rings = [];
             S.data.stageIdx = idx; S.data.world = W; S.data.musicTrack = W.id; S.data.musicStep = 0; S.data.inBonus = false;
+            S.data.shells = []; S.data.starT = 0; S.data.thwomps = [];
+            if (BO.MinigameAudio) BO.MinigameAudio.start('mario:' + W.id);
             const P = BO.Player;
             P.pos.set(0, 0.15, 0); P.vel.set(0, 0, 0); P.yaw = 0; P.pitch = 0;
             if (S.scene.fog) S.scene.fog.color.setHex(W.sky);
@@ -368,9 +532,9 @@
                 for (let cz = -53; cz >= -64; cz -= 2.2) for (const cx of [-2.4, 0, 2.4]) this._addCoin(S, cx, -18.5, cz);
                 this._addPipe(S, 0, -20, -66, 1.6, false, () => { mPipeSfx(); S.data.inBonus = false; P.pos.set(0, 0.2, -92); MG.toast('WARPED TO END OF 1-1!', '#4ade80'); });
 
-                this._addBox(S, 0, 2.8, -66, 4.5, 1.2, 1.4, brickM); addQ(0, 2.8, -68, 'coin');
+                this._addBox(S, 0, 2.8, -66, 4.5, 1.2, 1.4, brickM); addQ(0, 2.8, -68, 'star');
                 for (let step = 0; step < 6; step++) this._addBox(S, -2.5, 0.5 + step * 0.45, -110 - step * 1.4, 4.5, 1 + step * 0.9, 1.35, brickM);
-                for (const gz of [-15, -36, -64, -88, -102]) this._addGoomba(S, 1.5, gz, gz === -88);
+                for (const gz of [-15, -36, -64, -88, -102]) this._addGoomba(S, 1.5, gz, gz === -88 || gz === -36);
             } else if (W.id === '1-2') {
                 this._addBox(S, -8, 3.5, -W.len * 0.5, 1, 8, W.len + 16, brickM);
                 this._addBox(S, 8, 3.5, -W.len * 0.5, 1, 8, W.len + 16, brickM);
@@ -400,12 +564,12 @@
                 treePlat(0, 0.5, -26, 7.5, 14, 0xdc2626);
                 addQ(0, 3.6, -26, 'fire');
                 const mv1 = this._addBox(S, 0, 1.2, -44, 5.2, 0.65, 5.2, std(0xfacc15, 0.4), true);
-                S.data.movers.push({ mesh: mv1, base: V(0, 1.2, -44), axis: 'x', amp: 3.5, spd: 1.4 });
+                S.data.movers.push({ mesh: mv1, collider: BO.World.colliders.at(-1), base: V(0, 1.2, -44), axis: 'x', amp: 3.5, spd: 1.4 });
                 treePlat(-2.5, 2.0, -64, 8, 16, 0x16a34a);
                 addQ(-2.5, 5.0, -64, 'mushroom');
                 this._addPipe(S, -4.5, 2.45, -66, 1.5, false, () => { mPipeSfx(); D.power = 'fire'; P.pos.set(0, 1.8, -102); MG.toast('SECRET SKY PIPE! FIRE FLOWER + SKIP!', '#f97316'); });
                 const mv2 = this._addBox(S, 2, 2.0, -84, 5.5, 0.65, 5.5, std(0xfacc15, 0.4), true);
-                S.data.movers.push({ mesh: mv2, base: V(2, 2.0, -84), axis: 'y', amp: 1.6, spd: 1.6 });
+                S.data.movers.push({ mesh: mv2, collider: BO.World.colliders.at(-1), base: V(2, 2.0, -84), axis: 'y', amp: 1.6, spd: 1.6 });
                 treePlat(0, 1.2, -104, 8.5, 16, 0xdc2626);
                 this._addBox(S, 0, -0.5, -124, 14, 1, 18, grMat, true);
                 for (let cz = -20; cz >= -96; cz -= 8) this._addCoin(S, 0, 3.2, cz);
@@ -430,6 +594,17 @@
                         fb.position.set(k * 0.82, 0, 0); piv.add(fb);
                     }
                     this._addObj(S, piv); S.data.firebars.push({ piv, z: fz });
+                }
+                // 2 Castle Thwomps that slam down when you approach!
+                for (const tz of [-58, -94]) {
+                    const th = new THREE.Group();
+                    const blk = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.0, 2.0), std(0x475569, 0.72));
+                    for (const sx of [-0.6, 0.6]) {
+                        const ey = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.35, 0.12), basic(0xef4444));
+                        ey.position.set(sx, 0.35, 1.02); th.add(ey);
+                    }
+                    th.add(blk); th.position.set(0, 5.2, tz); this._addObj(S, th);
+                    S.data.thwomps.push({ mesh: th, z: tz, y: 5.2, baseY: 5.2, state: 'idle', wait: 0 });
                 }
             }
 
@@ -457,14 +632,35 @@
                 S.data.goalZ = -W.len + 1.5;
                 void door; void ped;
             }
+            const [cx, cy, cz] = [[3.5, 0, -62], [2.5, 0, -64], [-2.5, 2.45, -60], [3, 0, -64]][idx];
+            const beacon = new THREE.Group(); beacon.position.set(cx, cy, cz);
+            const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.86, 0.2, 8), std(0x244358, 0.6));
+            const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.48), basic(0x63e2df).clone());
+            eye.position.y = 1.35; beacon.add(foot, eye); this._addObj(S, beacon);
+            D.beacon = beacon; D.beaconEye = eye;
+            const ringGeo = new THREE.TorusGeometry(1.22, 0.085, 8, 32), ringMat = basic(0x92f7ea);
+            for (const [rx, ry, rz] of [
+                [[-1, 3, -18], [2, 3.7, -43], [0, 4, -80]],
+                [[2, 3, -18], [-2, 3.6, -54], [1, 4, -90]],
+                [[0, 3.6, -29], [1, 4.2, -44], [2, 4.8, -84]],
+                [[-1, 3, -20], [2, 3.8, -49], [0, 4.2, -84]]
+            ][idx]) {
+                const ring = new THREE.Mesh(ringGeo, ringMat); ring.position.set(rx, ry, rz);
+                const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), basic(0xffca76));
+                ring.add(shard); this._addObj(S, ring); D.rings.push(ring);
+            }
             MG.toast(W.name, '#fde047');
         },
         _spawnBowser(S, form) {
             this._clearWorld(S);
             const D = S.data, P = BO.Player;
+            D.warningRing = new THREE.Mesh(new THREE.RingGeometry(1.05, 1.22, 32), basic(0xffb05b, { side: THREE.DoubleSide }));
+            D.warningRing.rotation.x = -Math.PI / 2; D.warningRing.visible = false;
+            this._addObj(S, D.warningRing); D.aimPoint = V();
             P.pos.set(0, 0.2, 10); P.vel.set(0, 0, 0); P.yaw = 0; P.pitch = 0;
             if (form === 1 && !D.hasGuns) D.hasGuns = true;
             D.musicTrack = 'bowser'; D.musicStep = 0;
+            if (BO.MinigameAudio) BO.MinigameAudio.start('mario:bowser');
             D.bowserForm = form;
             const formMeta = [
                 null,
@@ -494,6 +690,14 @@
         onKey(S, code) {
             const D = S.data, P = BO.Player;
             if (MG.state !== 'running') return false;
+            if (D.foundry) return BO.PrismFoundry.key(S,code);
+            if (code === 'KeyV' && !D.bowserForm) {
+                if (!P.onGround && D.boostReady) {
+                    D.boostReady = false; P.vel.y = Math.max(P.vel.y, 8.2);
+                    BO.FX.spawnParticles(P.pos, 12, 0x8cf8e7, 3, 2, 0.45, 0.8); SFX.boing();
+                }
+                return true;
+            }
             if (code === 'Space' && P.pos.y < 0.3) mTone(380, 0.14, 'square', 0.08, 0);
             if (code === 'KeyE' || code === 'KeyC' || code === 'ControlLeft') {
                 for (const pp of D.pipes || []) {
@@ -516,24 +720,74 @@
             popMesh.position.set(q.x, q.y + 0.9, q.z); this._addObj(S, popMesh);
             let pt = 0; S.animate((dt) => { pt += dt; popMesh.position.y += dt * 1.4; popMesh.rotation.y += dt * 6; if (pt > 0.65) { S.scene.remove(popMesh); return false; } });
             if (q.gift === 'fire') { D.power = 'fire'; mPowerSfx(); MG.toast('🔥 FIRE FLOWER! LMB SHOOTS FIREBALLS!', '#f97316'); }
+            else if (q.gift === 'star') {
+                D.starT = 12.0; mPowerSfx();
+                if (BO.MinigameAudio) BO.MinigameAudio.start('mario:starman');
+                MG.toast('★ SUPER STARMAN INVINCIBILITY (12s)! RUN THROUGH ENEMIES!', '#fde047');
+            }
             else if (q.gift === 'mushroom') { D.power = 'big'; P.maxHp = 160; P.hp = 160; mPowerSfx(); MG.toast('🍄 SUPER MUSHROOM! +60 HP', '#ef4444'); }
             else { D.coins++; S.award(250, V(q.x, q.y + 1, q.z), 'COIN!'); mCoinSfx(); }
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
             if (state !== 'running') return;
-            D._prevVy = P.vel.y;
+            if (D.foundry) { BO.PrismFoundry.tick(S,dt,state); return; }
+            if (!D.bowserForm && !D.inBonus) {
+                if (P.onGround) D.boostReady = true;
+                D.beaconEye.rotation.y += dt * 2.1;
+                D.beaconEye.position.y = 1.35 + Math.sin(S.t * 3.2) * 0.14;
+                if (!D.beaconLit && P.pos.distanceTo(D.beacon.position) < 2.3) {
+                    D.checkpoint.copy(D.beacon.position); D.checkpoint.y += 0.35;
+                    D.beaconLit = true; D.beaconsLit++; D.beaconEye.material.color.setHex(0xffc87d);
+                    SFX.star(1); MG.toast('Return beacon active', '#91f7ea');
+                }
+                for (const ring of D.rings) {
+                    if (!ring.visible) continue;
+                    ring.children[0].rotation.y += dt * 3;
+                    if (Math.abs(P.pos.z - ring.position.z) < 0.85 && Math.hypot(P.pos.x - ring.position.x, P.pos.y + 1 - ring.position.y) < 1.25) {
+                        ring.visible = false; D.ringsTaken++; D.boostReady = true;
+                        S.award(500, ring.position, 'PRISM • BOOST REFILLED'); SFX.star(2);
+                    }
+                }
+            }
 
-            // Live Mario Chiptune Theme Sequencer
-            const tr = TRACKS[D.musicTrack] || TRACKS['1-1'];
-            D.musicTimer -= dt;
-            if (D.musicTimer <= 0) {
-                D.musicTimer = tr.tempo;
-                const mn = tr.mel[D.musicStep % tr.mel.length];
-                const bn = tr.bass[D.musicStep % tr.bass.length];
-                if (mn) mTone(mn, tr.tempo * 0.85, 'square', 0.045);
-                if (bn) mTone(bn, tr.tempo * 0.9, 'triangle', 0.055);
-                D.musicStep++;
+            // Live 4-Channel Mario Chiptune & Bowser Metal Sequencer
+            if (D.starT > 0) {
+                D.starT = Math.max(0, D.starT - dt);
+                if (Math.hypot(P.vel.x, P.vel.z) > 0.5) { P.pos.x += P.vel.x * 0.42 * dt; P.pos.z += P.vel.z * 0.42 * dt; }
+                if (D.starT === 0 && BO.MinigameAudio) BO.MinigameAudio.start('mario:' + (D.musicTrack || '1-1'));
+            }
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
+
+            // Kickable Koopa Shells bowling through enemies!
+            for (let i = (D.shells || []).length - 1; i >= 0; i--) {
+                const sh = D.shells[i]; sh.life -= dt;
+                sh.mesh.position.z += sh.vz * dt; sh.mesh.rotation.y += dt * 18;
+                for (const g of D.goombas || []) {
+                    if (g.alive && g.root.position.distanceTo(sh.mesh.position) < 1.35) {
+                        sh.streak++; g.kill({ pt: g.root.position.clone() }); S.kills++; S.bumpCombo();
+                        S.award(200 * Math.pow(2, Math.min(3, sh.streak - 1)), g.root.position.clone(), 'SHELL STRIKE x' + sh.streak + '!', '#4ade80');
+                        SFX.ding(1.1 + sh.streak * 0.12);
+                    }
+                }
+                if (sh.life <= 0) { S.scene.remove(sh.mesh); D.shells.splice(i, 1); }
+            }
+
+            // Castle Thwomps slamming down
+            for (const th of D.thwomps || []) {
+                if (th.state === 'idle' && Math.abs(P.pos.z - th.z) < 4.2) { th.state = 'drop'; SFX.rumble(0.45); }
+                else if (th.state === 'drop') {
+                    th.y = Math.max(1.5, th.y - 22 * dt);
+                    if (th.y <= 1.55) {
+                        th.state = 'wait'; th.wait = 1.0; SFX.thunk();
+                        if (Math.abs(P.pos.z - th.z) < 2.1 && Math.abs(P.pos.x) < 2.2 && D.starT <= 0) {
+                            P.takeDamage(32, V(0, 1.5, th.z), true);
+                            if (!P.alive) MG.finish('CRUSHED BY THWOMP!', { color: '#f87171' });
+                        }
+                    }
+                } else if (th.state === 'wait') { th.wait -= dt; if (th.wait <= 0) th.state = 'rise'; }
+                else if (th.state === 'rise') { th.y = Math.min(th.baseY, th.y + 3.8 * dt); if (th.y >= th.baseY) th.state = 'idle'; }
+                th.mesh.position.y = th.y;
             }
 
             // Auto-warp check for obvious boss shortcut pipe behind 1-1 spawn + prompt detection
@@ -546,15 +800,22 @@
 
             for (const q of D.qBlocks || []) {
                 if (q.bumpT > 0) { q.bumpT = Math.max(0, q.bumpT - dt); q.mesh.position.y = q.baseY + Math.sin((q.bumpT / 0.24) * Math.PI) * 0.36; }
-                if (!q.used && Math.abs(P.pos.x - q.x) < 1.25 && Math.abs(P.pos.z - q.z) < 1.25 && P.pos.y + 2.05 >= q.y - 0.72 && P.pos.y < q.y + 0.3 && (P.vel.y > -0.8 || D._prevVy > 0.3)) {
+                if (!q.used && Math.abs(P.pos.x - q.x) < 1.25 && Math.abs(P.pos.z - q.z) < 1.25 && P.pos.y + 2.05 >= q.y - 0.72 && P.pos.y < q.y + 0.3 && (P.vel.y > 0.1)) {
                     this._triggerQBlock(S, q);
                 }
             }
 
             // Animate moving platforms, piranha plants, coins
             for (const mv of D.movers || []) {
-                if (mv.axis === 'x') mv.mesh.position.x = mv.base.x + Math.sin(S.t * mv.spd) * mv.amp;
-                else mv.mesh.position.y = mv.base.y + Math.sin(S.t * mv.spd) * mv.amp;
+                const axis = mv.axis, bounds = mv.collider;
+                const riding = P.vel.y <= 0.1 && Math.abs(P.pos.y - bounds.maxY) < 0.16 &&
+                    P.pos.x >= bounds.minX && P.pos.x <= bounds.maxX && P.pos.z >= bounds.minZ && P.pos.z <= bounds.maxZ;
+                const next = mv.base[axis] + Math.sin(S.t * mv.spd) * mv.amp;
+                const delta = next - mv.mesh.position[axis];
+                mv.mesh.position[axis] = next;
+                if (axis === 'x') { bounds.minX += delta; bounds.maxX += delta; }
+                else { bounds.minY += delta; bounds.maxY += delta; }
+                if (riding) P.pos[axis] += delta;
             }
             for (const pr of D.piranhas || []) pr.mesh.position.y = pr.baseY + Math.max(0, Math.sin(S.t * 2.2 + pr.ph)) * 1.1;
             for (const cm of D.coinMeshes || []) {
@@ -603,14 +864,21 @@
                 bw.root.position.x = BO.Math.lerp(bw.root.position.x, Math.sin(bw.walkT * 1.25) * 9, dt * 2.0);
                 bw.root.position.z = BO.Math.lerp(bw.root.position.z, -15 + Math.cos(bw.walkT * 0.9) * 3.5, dt * 2.0);
                 bw.root.rotation.y = Math.atan2(P.pos.x - bw.root.position.x, P.pos.z - bw.root.position.z);
+                const lead = 0.48;
+                if (bw.fireT > lead) D.aimPoint.copy(P.pos);
                 bw.fireT -= dt;
+                D.warningRing.visible = bw.fireT <= lead;
+                if (D.warningRing.visible) {
+                    D.warningRing.position.set(D.aimPoint.x, 0.045, D.aimPoint.z);
+                    D.warningRing.scale.setScalar(0.7 + Math.max(0, bw.fireT) * 2.5);
+                }
                 if (bw.fireT <= 0) {
                     bw.fireT = D.formMeta.rate;
                     const count = D.bowserForm === 1 ? 1 : D.bowserForm === 2 ? 3 : 5;
                     for (let c = 0; c < count; c++) {
                         const fm = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), basic(D.bowserForm === 3 ? 0xc084fc : 0xf97316));
                         fm.position.copy(bw.root.position).add(V(0, 3.2, 0)); S.add(fm);
-                        const tgt = P.pos.clone().add(V((c - (count - 1) * 0.5) * 2.5, 1.0, 0));
+                        const tgt = D.aimPoint.clone().add(V((c - (count - 1) * 0.5) * 2.5, 1.0, 0));
                         D.bFire.push({ mesh: fm, vel: tgt.sub(fm.position).normalize().multiplyScalar(17 + D.bowserForm * 3), life: 3.5 });
                     }
                     SFX.launch();
@@ -632,8 +900,17 @@
                 g.root.position.x += g.vx * dt;
                 if (Math.abs(g.root.position.x) > 5.5) g.vx *= -1;
                 const d = Math.hypot(P.pos.x - g.root.position.x, P.pos.z - g.root.position.z);
-                if (d < 1.3 && P.pos.y > 0.55 && P.vel.y < 0) {
-                    g.kill({ pt: g.root.position.clone() }); P.vel.y = 8.5; S.kills++; S.award(250, g.root.position.clone(), 'STOMPED!'); SFX.boing();
+                if (d < 1.35 && D.starT > 0) {
+                    g.kill({ pt: g.root.position.clone() }); S.kills++; S.bumpCombo();
+                    S.award(400, g.root.position.clone(), 'STARMAN KO!', '#fde047'); SFX.star(1);
+                } else if (d < 1.3 && P.pos.y > 0.55 && P.vel.y < 0) {
+                    const gPos = g.root.position.clone();
+                    g.kill({ pt: gPos }); P.vel.y = 8.8; S.kills++; S.bumpCombo();
+                    if (g.isKoopa) {
+                        this._spawnKickShell(S, gPos.x, gPos.z, -1);
+                        S.award(350, gPos, 'KOOPA SHELL KICK!', '#4ade80');
+                    } else S.award(250, gPos, 'STOMPED!');
+                    SFX.boing();
                 } else if (d < 1.0 && P.pos.y <= 0.55) {
                     P.takeDamage(18, g.root.position, false); g.vx *= -1;
                     if (!P.alive) MG.finish('SQUISHED BY GOOMBA', { color: '#f87171' });
@@ -646,16 +923,20 @@
                 }
             }
             if (!D.inBonus) {
-                for (const pt of D.pits || []) {
-                    if (Math.abs(P.pos.z - pt.z) < pt.half && P.pos.y < -0.2) {
-                        P.pos.set(0, 0.4, pt.z + 4.0); P.vel.set(0, 0, 0); P.takeDamage(28, V(0, 0, pt.z), true);
-                        MG.toast('JUMP OVER THE PIT!', '#f97316');
-                        if (!P.alive) MG.finish('FELL IN THE ABYSS', { color: '#f87171' });
-                    }
+                const gap = D.pits.some(pt => Math.abs(P.pos.z - pt.z) < pt.half);
+                const belowSkyDeck = D.stageIdx === 2 && P.pos.z < -16 && P.pos.z > -115 && P.pos.y < 0.1;
+                if ((gap && P.pos.y < 0.1) || belowSkyDeck || P.pos.y < -3 || Math.abs(P.pos.x) > 12) {
+                    D.recoveries++; P.pos.copy(D.checkpoint); P.vel.set(0, 0, 0); D.boostReady = true;
+                    P.takeDamage(28, P.pos.clone(), true);
+                    MG.toast('Back at the return beacon', '#91f7ea');
+                    if (!P.alive) MG.finish('OUT OF ENERGY', { color: '#f87171' });
+                    return;
                 }
             }
             if (P.pos.z <= D.goalZ + 1.2 && !D.inBonus) {
-                S.award(1200 * (D.stageIdx + 1)); SFX.fanfare();
+                const heightBonus = D.stageIdx < 3 ? Math.round(BO.Math.clamp(P.pos.y / 5.5, 0.2, 1.0) * 2000) : 0;
+                S.award(1200 * (D.stageIdx + 1) + heightBonus, P.pos.clone().add(V(0, 2, 0)), heightBonus >= 1600 ? 'TOP OF THE FLAGPOLE!' : 'STAGE CLEAR!', '#fde047');
+                if (D.stageIdx < 3 && BO.MinigameAudio) BO.MinigameAudio.marioFlagpole(); else SFX.fanfare();
                 if (D.stageIdx < 3) this._loadWorld(S, D.stageIdx + 1);
                 else this._spawnBowser(S, 1);
             }
@@ -674,13 +955,22 @@
             }
             return false;
         },
+        result(S) {
+            if (S.data.foundry) return BO.PrismFoundry.result(S);
+            const d = S.data, stars = S.def.stars.filter(n => S.score >= n).length;
+            return { score: S.score, stars, xp: 120 + Math.round(S.score * 0.06) + stars * 150,
+                title: d.bowserForm === 3 && !d.bowser ? 'COURSE CLEARED' : 'COURSE REPORT',
+                stats: [['PRISMS', d.ringsTaken + '/12'], ['RETURN BEACONS', d.beaconsLit + '/4'],
+                    ['RECOVERIES', d.recoveries], ['COINS', d.coins]] };
+        },
         hud(S) {
             const D = S.data;
+            if (D.foundry) return BO.PrismFoundry.hud(S);
             if (D.bowserForm > 0 && D.bowser) {
                 const pct = Math.max(0, Math.round(D.bowser.hp / D.bowser.maxHp * 100));
                 return `<div class="fun-panel"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>${D.formMeta.name}</span><b>${Math.round(D.bowser.hp)} / ${D.bowser.maxHp}</b></div><div class="fun-bar"><i style="width:${pct}%;background:linear-gradient(90deg,#ef4444,#facc15)"></i></div></div></div>`;
             }
-            return `<div class="fun-panel"><div class="mgx-chip"><b>${D.world ? D.world.name : ''}</b></div><div class="mgx-chip">COINS <b>${D.coins}</b></div><div class="mgx-chip">POWER <b>${D.hasGuns ? 'FAMAS + DEAGLE' : D.power.toUpperCase()}</b></div><div class="mgx-chip">GOAL <b>${Math.max(0, Math.round(BO.Player.pos.z - (D.goalZ || -120)))} m</b></div>${D.nearPipe ? '<div class="mgx-chip mgx-hot">PRESS <b>[E / C]</b> ENTER PIPE</div>' : ''}</div>`;
+            return `<div class="fun-panel"><div class="mgx-chip"><b>${D.world ? D.world.name : ''}</b></div><div class="mgx-chip">PRISMS <b>${D.ringsTaken}</b></div><div class="mgx-chip">LIFT <b>${D.boostReady ? 'READY [V]' : 'SPENT'}</b></div><div class="mgx-chip">COINS <b>${D.coins}</b></div><div class="mgx-chip">POWER <b>${D.hasGuns ? 'FAMAS + DEAGLE' : D.power.toUpperCase()}</b></div><div class="mgx-chip">GOAL <b>${Math.max(0, Math.round(BO.Player.pos.z - (D.goalZ || -120)))} m</b></div>${D.nearPipe ? '<div class="mgx-chip mgx-hot">PRESS <b>[E / C]</b> ENTER PIPE</div>' : ''}</div>`;
         }
     });
 })(window);
