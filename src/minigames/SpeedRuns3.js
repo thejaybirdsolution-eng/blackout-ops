@@ -385,107 +385,327 @@
                 const vLight = new THREE.PointLight(0xf97316, 2.0, 58, 1.2); vLight.position.set(0, 12, -16); S.add(vLight);
             }
 
-            // DRASTICALLY UPGRADED TITAN DRAGON SCULPT (Layered Scales, Magma Heart, Coiled Tail, Articulated Wings, Curved S-Necks, Distinct Head Archetypes)
+            // SCULPTED TITAN HYDRA DRAGON (Armored Volcanic Torso, Energy-Ringed Magma Heart, Claws, Scalloped Wings, Anchored Bezier S-Curve Necks)
             const titan = new THREE.Group();
             titan.position.set(0, -14, -46);
-            const torso = new THREE.Mesh(new THREE.SphereGeometry(18, 22, 16), obsM); torso.scale.set(1.28, 1.48, 1.05); torso.position.y = 22; titan.add(torso);
-            // Overlapping chest armor plates + dorsal magma spine ridge
-            for (let r = 0; r < 6; r++) {
-                const rib = new THREE.Mesh(new THREE.TorusGeometry(14.2 - r * 1.15, 0.85, 8, 20), goldM);
-                rib.rotation.x = Math.PI / 2 + 0.16; rib.position.set(0, 12 + r * 4.4, 4.5); titan.add(rib);
-                const plate = new THREE.Mesh(new THREE.BoxGeometry(10 - r * 0.9, 2.2, 2.4), obsM);
-                plate.position.set(0, 14 + r * 4.2, 16.5 - r * 0.5); plate.rotation.x = -0.25; titan.add(plate);
-            }
-            const heartCore = new THREE.Mesh(new THREE.OctahedronGeometry(4.8, 1), basic(0xf97316));
-            heartCore.position.set(0, 26, 15.2); titan.add(heartCore);
-            // Coiled spiked tail sweeping behind caldera rim
-            for (let ts = 0; ts < 10; ts++) {
-                const seg = new THREE.Mesh(new THREE.ConeGeometry(2.6 - ts * 0.18, 5.5, 8), obsM);
-                seg.position.set(Math.sin(ts * 0.45) * 18, 8 + ts * 1.2, -16 - ts * 3.5);
-                seg.rotation.z = Math.cos(ts * 0.45) * 0.5; titan.add(seg);
-            }
-            // Giant multi-jointed clawed forearms gripping cliff
-            for (const s of [-1, 1]) {
-                const sh = new THREE.Mesh(new THREE.SphereGeometry(4.2, 12, 10), goldM); sh.position.set(s * 16, 26, 8); titan.add(sh);
-                const arm = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 3.4, 24, 12), obsM);
-                arm.position.set(s * 20, 16, 15); arm.rotation.set(0.75, 0, -s * 0.35); titan.add(arm);
-                for (let c = -2; c <= 2; c++) {
-                    const claw = new THREE.Mesh(new THREE.ConeGeometry(0.75, 3.6, 6), hornM);
-                    claw.position.set(s * 23 + c * 1.1, 14.5, 23); claw.rotation.x = Math.PI * 0.7; titan.add(claw);
-                }
-            }
-            const wings = [];
-            for (const s of [-1, 1]) {
-                const wg = new THREE.Group(); wg.position.set(s * 14, 34, -2);
-                const inner = new THREE.Mesh(new THREE.BoxGeometry(20, 1.8, 1.8), goldM); inner.position.set(s * 10, 4, 0); inner.rotation.z = s * 0.35;
-                const outer = new THREE.Group(); outer.position.set(s * 18, 7, 0);
-                for (let f = 0; f < 4; f++) {
-                    const spar = new THREE.Mesh(new THREE.BoxGeometry(24, 0.9, 0.9), obsM);
-                    spar.position.set(s * 12, -f * 4.5, 0); spar.rotation.z = s * (0.2 - f * 0.25); outer.add(spar);
-                }
-                const mem = new THREE.Mesh(new THREE.PlaneGeometry(42, 28), std(0x991b1b, 0.45, 0.2, { emissive: 0x7f1d1d, emissiveIntensity: 0.55, transparent: true, opacity: 0.92, side: THREE.DoubleSide }));
-                mem.position.set(s * 10, -8, 0); outer.add(mem);
-                wg.add(inner, outer); titan.add(wg); wings.push({ wg, outer, s });
-            }
-            S.add(titan); S.data.wings = wings; S.data.heartCore = heartCore;
 
-            // THREE UNIQUE SCULPTED ARTICULATED HEADS (Frostmaw / Pyroclast / Voltscale) with 10-segment S-curve necks!
-            S.data.heads = HEAD_CFG.map((hc, idx) => {
-                const hg = new THREE.Group(); hg.position.set(hc.x, 12, -26);
-                const armorScale = std(0x3f3f46, 0.28, 0.6, { emissive: hc.col, emissiveIntensity: 0.52 });
-                const elemGlow = basic(hc.col);
-                const neckSegs = [];
-                for (let k = 0; k < 10; k++) {
-                    const segG = new THREE.Group();
-                    const ns = new THREE.Mesh(new THREE.CylinderGeometry(1.75 - k * 0.08, 1.95 - k * 0.08, 3.2, 12), armorScale);
-                    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.58, 2.4, 5), elemGlow);
-                    fin.position.set(0, 0.4, -1.8); fin.rotation.x = -0.8;
-                    const chestBand = new THREE.Mesh(new THREE.TorusGeometry(1.75 - k * 0.07, 0.22, 6, 14), goldM);
-                    chestBand.rotation.x = Math.PI / 2;
-                    segG.add(ns, fin, chestBand);
-                    segG.position.set(0, k * 2.1, k * 1.15);
-                    hg.add(segG); neckSegs.push(segG);
-                }
-                const headPivot = new THREE.Group(); headPivot.position.set(0, 19.5, 11.2);
-                const cranium = new THREE.Mesh(new THREE.BoxGeometry(4.8, 3.4, 6.8), armorScale);
-                const snout = new THREE.Mesh(new THREE.BoxGeometry(3.1, 1.9, 5.2), armorScale); snout.position.set(0, -0.2, 5.0);
-                const throatGlow = new THREE.Mesh(new THREE.SphereGeometry(1.4, 12, 10), elemGlow); throatGlow.position.set(0, -0.9, 4.0);
-                const jaw = new THREE.Group(); jaw.position.set(0, -1.4, 2.2);
-                const jawMesh = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.05, 4.8), armorScale); jawMesh.position.set(0, 0, 2.4); jaw.add(jawMesh);
-                for (const fx of [-1.0, -0.45, 0.45, 1.0]) {
-                    const fangU = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.95, 6), hornM); fangU.position.set(fx, -1.1, 6.8); fangU.rotation.x = Math.PI; headPivot.add(fangU);
-                    const fangL = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.75, 6), hornM); fangL.position.set(fx, 0.55, 4.4); jaw.add(fangL);
-                }
-                for (const fx of [-1, 1]) {
-                    const brow = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.65, 2.4), goldM); brow.position.set(fx * 1.5, 1.35, 2.6); brow.rotation.z = fx > 0 ? -0.35 : 0.35; headPivot.add(brow);
-                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), basic(hc.accent)); eye.position.set(fx * 1.55, 0.85, 3.6); headPivot.add(eye);
-                    if (hc.id === 'frost') {
-                        // Crystalline Ice Crown & Cheek Frills
-                        for (let ic = 0; ic < 3; ic++) {
-                            const sp = new THREE.Mesh(new THREE.ConeGeometry(0.42, 4.6 - ic * 0.8, 5), elemGlow);
-                            sp.position.set(fx * (1.8 + ic * 0.4), 2.5 - ic * 0.6, -1.2 - ic * 0.5); sp.rotation.set(-0.6, 0, -fx * (0.28 + ic * 0.2)); headPivot.add(sp);
-                        }
-                    } else if (hc.id === 'pyro') {
-                        // Massive Curved Obsidian Ram Horns
-                        const horn1 = new THREE.Mesh(new THREE.ConeGeometry(0.78, 5.8, 7), elemGlow); horn1.position.set(fx * 1.9, 3.0, -1.5); horn1.rotation.set(-0.5, 0, -fx * 0.35); headPivot.add(horn1);
-                        const crest = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 3.6), goldM); crest.position.set(0, 2.2, 0); headPivot.add(crest);
-                    } else {
-                        // Crackling Twin Lightning-Rod Antlers & Serpent Frill
-                        const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.45, 5.6, 6), elemGlow); ant.position.set(fx * 1.6, 3.4, -1.0); ant.rotation.set(-0.3, 0, -fx * 0.4); headPivot.add(ant);
-                        const frill = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.2, 0.25), elemGlow); frill.position.set(fx * 2.4, 0, 0.6); frill.rotation.y = fx * 0.55; headPivot.add(frill);
+            // Muscular obsidian torso + tapered armored pectoral plates + sternal ribs
+            const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(17.5, 1), obsM);
+            torso.scale.set(1.22, 1.48, 0.98); torso.position.set(0, 22, -1); titan.add(torso);
+            for (const s of [-1, 1]) {
+                const pec = new THREE.Mesh(new THREE.DodecahedronGeometry(7.6, 0), obsM);
+                pec.scale.set(1.25, 0.85, 0.72); pec.position.set(s * 7.8, 28, 10.5); pec.rotation.set(0.22, s * 0.25, -s * 0.18); titan.add(pec);
+                const trim = new THREE.Mesh(new THREE.BoxGeometry(10.5, 1.1, 1.4), goldM);
+                trim.position.set(s * 7.8, 24.5, 14.2); trim.rotation.z = s * 0.22; titan.add(trim);
+            }
+            for (let r = 0; r < 6; r++) {
+                const rib = new THREE.Mesh(new THREE.TorusGeometry(13.6 - r * 1.1, 0.82, 8, 22), goldM);
+                rib.rotation.x = Math.PI / 2 + 0.18; rib.position.set(0, 12 + r * 4.3, 4.2); titan.add(rib);
+                const belly = new THREE.Mesh(new THREE.CylinderGeometry(7.2 - r * 0.65, 8.2 - r * 0.65, 2.5, 6), obsM);
+                belly.scale.set(1.15, 1, 0.48); belly.position.set(0, 13.5 + r * 4.1, 14.5 - r * 0.55); belly.rotation.x = -0.22; titan.add(belly);
+                const backRidge = new THREE.Mesh(new THREE.ConeGeometry(1.6 - r * 0.12, 4.8, 5), obsM);
+                backRidge.position.set(0, 15 + r * 4.4, -14.5 + r * 0.4); backRidge.rotation.x = -0.75; titan.add(backRidge);
+            }
+
+            // Magma Heart Core + Counter-Rotating Obsidian/Gold Energy Rings
+            const heartCore = new THREE.Mesh(new THREE.OctahedronGeometry(4.4, 1), basic(0xf97316));
+            heartCore.position.set(0, 26.5, 14.8); titan.add(heartCore);
+            const heartInner = new THREE.Mesh(new THREE.SphereGeometry(2.6, 12, 10), basic(0xfef08a));
+            heartInner.position.copy(heartCore.position); titan.add(heartInner);
+            const heartRingA = new THREE.Mesh(new THREE.TorusGeometry(6.2, 0.48, 8, 24), goldM);
+            heartRingA.position.copy(heartCore.position); titan.add(heartRingA);
+            const heartRingB = new THREE.Mesh(new THREE.TorusGeometry(7.6, 0.42, 8, 24), obsM);
+            heartRingB.position.copy(heartCore.position); titan.add(heartRingB);
+
+            // Coiled Spiked Tail (12 overlapping segments + magma spine fins + forked spade tip)
+            const tailSegs = [];
+            for (let ts = 0; ts < 12; ts++) {
+                const sg = new THREE.Group();
+                const rBase = Math.max(0.75, 2.8 - ts * 0.17);
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(rBase * 0.82, rBase, 4.4, 8), obsM);
+                body.rotation.x = Math.PI / 2;
+                const spine = new THREE.Mesh(new THREE.ConeGeometry(0.65 - ts * 0.03, 2.6, 5), basic(ts % 2 === 0 ? 0xf97316 : 0xfacc15));
+                spine.position.set(0, rBase + 0.7, 0); spine.rotation.x = -0.5;
+                sg.add(body, spine);
+                if (ts === 11) {
+                    for (const fs of [-1, 1]) {
+                        const fluke = new THREE.Mesh(new THREE.ConeGeometry(1.1, 4.8, 4), obsM);
+                        fluke.position.set(fs * 1.4, 0, -2.8); fluke.rotation.set(-Math.PI / 2, 0, -fs * 0.48); sg.add(fluke);
                     }
                 }
-                headPivot.add(cranium, snout, throatGlow, jaw); hg.add(headPivot);
+                const bx = Math.sin(ts * 0.46) * 19, by = 7 + ts * 1.05, bz = -15 - ts * 3.4;
+                sg.position.set(bx, by, bz);
+                sg.userData = { bx, by, bz, ts };
+                titan.add(sg); tailSegs.push(sg);
+            }
 
-                const tg = S.addTarget({ mesh: hg, hitMeshes: [cranium, snout, jawMesh], pos: V(hc.x, 10, -26), life: 0, appear: 'none', inT: 0.01, death: 'none', bonus: true });
-                return Object.assign(tg, {
+            // Sculpted Multi-Jointed Clawed Forearms Gripping the Caldera Rim
+            for (const s of [-1, 1]) {
+                const pauldron = new THREE.Mesh(new THREE.DodecahedronGeometry(4.8, 0), obsM);
+                pauldron.scale.set(1.25, 0.9, 1.1); pauldron.position.set(s * 16.5, 27.5, 7); titan.add(pauldron);
+                const pTrim = new THREE.Mesh(new THREE.TorusGeometry(4.2, 0.48, 6, 16), goldM);
+                pTrim.position.set(s * 16.5, 26.8, 7.6); pTrim.rotation.y = s * 0.4; titan.add(pTrim);
+                const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 13, 10), obsM);
+                upperArm.position.set(s * 19.5, 21.5, 11); upperArm.rotation.set(0.55, 0, -s * 0.35); titan.add(upperArm);
+                const elbow = new THREE.Mesh(new THREE.SphereGeometry(2.8, 10, 8), goldM);
+                elbow.position.set(s * 22, 16.5, 14.5); titan.add(elbow);
+                const elbowSpike = new THREE.Mesh(new THREE.ConeGeometry(0.95, 3.6, 6), obsM);
+                elbowSpike.position.set(s * 23.2, 16.5, 12.2); elbowSpike.rotation.x = -0.8; titan.add(elbowSpike);
+                const forearm = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.8, 13, 10), obsM);
+                forearm.position.set(s * 22.8, 14.8, 19.5); forearm.rotation.set(1.05, 0, -s * 0.12); titan.add(forearm);
+                const hand = new THREE.Mesh(new THREE.DodecahedronGeometry(2.6, 0), obsM);
+                hand.scale.set(1.2, 0.65, 1.2); hand.position.set(s * 23.2, 13.6, 24.5); titan.add(hand);
+                for (let c = 0; c < 4; c++) {
+                    const cx = s * 23.2 + (c - 1.5) * 1.15;
+                    const knuckle = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 1.5, 6), obsM);
+                    knuckle.position.set(cx, 13.4, 26.2); knuckle.rotation.x = Math.PI * 0.42; titan.add(knuckle);
+                    const talon = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.4, 6), hornM);
+                    talon.position.set(cx, 12.4, 27.3); talon.rotation.x = Math.PI * 0.78; titan.add(talon);
+                }
+            }
+
+            // Scalloped Bat-Like Dragon Wings (Three.js Shape membrane + articulated finger spars + thumb claw)
+            const wingShape = new THREE.Shape();
+            wingShape.moveTo(0, 0);
+            wingShape.quadraticCurveTo(14, 9, 32, 3);
+            wingShape.quadraticCurveTo(25, -4, 27, -14);
+            wingShape.quadraticCurveTo(19, -8, 16, -18);
+            wingShape.quadraticCurveTo(10, -10, 7, -19);
+            wingShape.quadraticCurveTo(3, -10, 0, -15);
+            wingShape.closePath();
+            const wingMemGeo = new THREE.ShapeGeometry(wingShape, 10);
+            const wingMemMat = std(0x991b1b, 0.42, 0.2, { emissive: 0x7f1d1d, emissiveIntensity: 0.62, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+            const wings = [];
+            for (const s of [-1, 1]) {
+                const wg = new THREE.Group(); wg.position.set(s * 12, 34, -4);
+                const innerBone = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.25, 19, 8), goldM);
+                innerBone.rotation.z = s * 1.24; innerBone.position.set(s * 8.8, 3.2, 0);
+                const wristThumb = new THREE.Mesh(new THREE.ConeGeometry(0.58, 2.8, 6), hornM);
+                wristThumb.position.set(s * 17.5, 8.2, 0.4); wristThumb.rotation.z = -s * 0.28;
+                const outer = new THREE.Group(); outer.position.set(s * 17.5, 6.4, 0);
+                const mem = new THREE.Mesh(wingMemGeo, wingMemMat);
+                mem.scale.x = s;
+                outer.add(mem);
+                const fingerTips = [[32, 3], [27, -14], [16, -18], [7, -19], [0, -15]];
+                for (const [fx, fy] of fingerTips) {
+                    const len = Math.hypot(fx, fy);
+                    const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.58, len, 6), obsM);
+                    spar.position.set((s * fx) * 0.5, fy * 0.5, 0);
+                    spar.rotation.z = Math.atan2(fy, s * fx) - Math.PI / 2;
+                    outer.add(spar);
+                }
+                wg.add(innerBone, wristThumb, outer); titan.add(wg);
+                wings.push({ wg, outer, s });
+            }
+            S.add(titan);
+            S.data.wings = wings; S.data.heartCore = heartCore; S.data.heartRingA = heartRingA; S.data.heartRingB = heartRingB; S.data.tailSegs = tailSegs;
+
+            // THREE UNIQUE SCULPTED ELEMENTAL DRAGON HEADS WITH ANCHORED 12-SEGMENT BEZIER S-CURVE NECKS
+            const NECK_ANCHORS = {
+                frost: V(-9, 10, -34),
+                pyro: V(0, 13, -33),
+                volt: V(9, 10, -34)
+            };
+            const HEAD_POS = {
+                frost: V(-14, 27.5, -15.5),
+                pyro: V(0, 30.5, -14.5),
+                volt: V(14, 27.5, -15.5)
+            };
+            const invisibleHitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+
+            S.data.heads = HEAD_CFG.map((hc, idx) => {
+                const hg = new THREE.Group();
+                const armorScale = std(0x3f3f46, 0.28, 0.62, { emissive: hc.col, emissiveIntensity: 0.45 });
+                const elemGlow = basic(hc.col);
+                const eyeIrisMat = basic(hc.accent);
+                const pupilMat = basic(0x050508);
+
+                // 12 overlapping tapered neck segments oriented along +Z for smooth Bezier lookAt
+                const neckSegs = [];
+                for (let k = 0; k < 12; k++) {
+                    const u = k / 11;
+                    const r = 2.05 - u * 0.72;
+                    const segG = new THREE.Group();
+                    const ns = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r * 1.04, 2.75, 10), armorScale);
+                    ns.rotation.x = Math.PI / 2;
+                    const scute = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.65, r * 0.72, 2.2, 6), goldM);
+                    scute.rotation.x = Math.PI / 2; scute.scale.set(1.2, 0.42, 1); scute.position.set(0, -r * 0.68, 0);
+                    const ribRing = new THREE.Mesh(new THREE.TorusGeometry(r * 0.96, 0.16, 6, 12), goldM);
+                    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.55 - u * 0.18, 2.6 - u * 0.6, 5), elemGlow);
+                    fin.position.set(0, r + 0.65, -0.35); fin.rotation.x = -0.68;
+                    segG.add(ns, scute, ribRing, fin);
+                    hg.add(segG); neckSegs.push(segG);
+                }
+
+                // Sculpted Organic Dragon Head Pivot (world position animated in update())
+                const basePos = HEAD_POS[hc.id].clone();
+                const neckBase = NECK_ANCHORS[hc.id].clone();
+                const headPivot = new THREE.Group();
+                headPivot.position.copy(basePos);
+
+                const cranium = new THREE.Mesh(new THREE.DodecahedronGeometry(2.55, 0), armorScale);
+                cranium.scale.set(1.0, 0.78, 1.32); cranium.position.set(0, 0.3, -0.2);
+                const snoutBase = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 1.88, 4.9, 6), armorScale);
+                snoutBase.rotation.x = Math.PI / 2; snoutBase.scale.set(1.05, 1, 0.72); snoutBase.position.set(0, -0.1, 3.6);
+                const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, 4.2), goldM);
+                noseBridge.position.set(0, 0.72, 3.2);
+                const nasalHorn = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.85, 6), hornM);
+                nasalHorn.position.set(0, 1.25, 4.8); nasalHorn.rotation.x = 0.52;
+                const throatGlow = new THREE.Mesh(new THREE.SphereGeometry(1.35, 12, 10), elemGlow);
+                throatGlow.position.set(0, -0.82, 2.8);
+
+                // Articulated Lower Jaw + Chin Spikes + Fangs
+                const jaw = new THREE.Group(); jaw.position.set(0, -1.05, 1.15);
+                const jawMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 1.58, 4.5, 6), armorScale);
+                jawMesh.rotation.x = Math.PI / 2; jawMesh.scale.set(1.02, 1, 0.56); jawMesh.position.set(0, -0.15, 2.25);
+                const chinSp = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.35, 5), hornM);
+                chinSp.position.set(0, -0.78, 3.6); chinSp.rotation.x = Math.PI * 0.72;
+                jaw.add(jawMesh, chinSp);
+
+                for (const fx of [-1.08, -0.68, -0.32, 0.32, 0.68, 1.08]) {
+                    const isCanine = Math.abs(fx) > 0.6 && Math.abs(fx) < 0.85;
+                    const zF = 5.4 - Math.abs(fx) * 1.4;
+                    const fangU = new THREE.Mesh(new THREE.ConeGeometry(isCanine ? 0.24 : 0.16, isCanine ? 1.05 : 0.62, 6), hornM);
+                    fangU.position.set(fx, -0.92, zF); fangU.rotation.x = Math.PI; headPivot.add(fangU);
+                    const fangL = new THREE.Mesh(new THREE.ConeGeometry(isCanine ? 0.2 : 0.14, isCanine ? 0.85 : 0.5, 6), hornM);
+                    fangL.position.set(fx * 0.88, 0.42, zF - 1.2); jaw.add(fangL);
+                }
+
+                // Bilateral Eyes, Cheek Plates, Nostril Vents & Elemental Crowns
+                const voltRings = [];
+                for (const fx of [-1, 1]) {
+                    const cheek = new THREE.Mesh(new THREE.ConeGeometry(1.15, 3.2, 5), armorScale);
+                    cheek.position.set(fx * 2.15, -0.25, -0.6); cheek.rotation.set(-Math.PI * 0.48, fx * 0.35, -fx * 0.38); headPivot.add(cheek);
+                    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.34, 8, 6), elemGlow);
+                    nostril.position.set(fx * 0.65, 0.32, 5.65); headPivot.add(nostril);
+                    const brow = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.56, 2.3), goldM);
+                    brow.position.set(fx * 1.55, 1.25, 1.7); brow.rotation.set(0.18, fx * 0.2, fx > 0 ? -0.35 : 0.35); headPivot.add(brow);
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.48, 10, 8), eyeIrisMat);
+                    eye.position.set(fx * 1.62, 0.82, 2.25); headPivot.add(eye);
+                    const slit = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.68, 0.28), pupilMat);
+                    slit.position.set(fx * 1.88, 0.82, 2.55); headPivot.add(slit);
+
+                    if (hc.id === 'frost') {
+                        // Glacial crystal crown spikes + frost cheek beard
+                        for (let ic = 0; ic < 3; ic++) {
+                            const sp = new THREE.Mesh(new THREE.ConeGeometry(0.46 - ic * 0.06, 4.9 - ic * 0.85, 5), elemGlow);
+                            sp.position.set(fx * (1.2 + ic * 0.72), 2.35 - ic * 0.52, -1.6 - ic * 0.35);
+                            sp.rotation.set(-0.68, 0, -fx * (0.24 + ic * 0.22)); headPivot.add(sp);
+                            const beard = new THREE.Mesh(new THREE.ConeGeometry(0.28, 2.1 - ic * 0.3, 5), eyeIrisMat);
+                            beard.position.set(fx * (1.45 + ic * 0.28), -1.1 - ic * 0.25, 0.8 - ic * 0.8);
+                            beard.rotation.set(Math.PI * 0.8, 0, -fx * 0.35); headPivot.add(beard);
+                        }
+                        const iceFissure = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 2.8), eyeIrisMat);
+                        iceFissure.position.set(fx * 1.15, -0.45, 3.2); jaw.add(iceFissure);
+                    } else if (hc.id === 'pyro') {
+                        // Curved multi-segment obsidian & molten-gold ram horns + snout magma cracks
+                        for (let seg = 0; seg < 3; seg++) {
+                            const hSeg = new THREE.Mesh(new THREE.ConeGeometry(0.82 - seg * 0.18, 2.55, 7), seg === 1 ? goldM : elemGlow);
+                            hSeg.position.set(fx * (1.55 + seg * 0.78), 1.95 + seg * 1.05, -1.35 - seg * 1.15);
+                            hSeg.rotation.set(-0.65 + seg * 0.18, 0, -fx * (0.48 - seg * 0.08)); headPivot.add(hSeg);
+                        }
+                        const crack = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 3.2), elemGlow);
+                        crack.position.set(fx * 0.92, 0.25, 3.4); headPivot.add(crack);
+                    } else {
+                        // Forked twin lightning antlers + orbiting plasma rings + serrated storm frill
+                        const antMain = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.46, 5.8, 6), elemGlow);
+                        antMain.position.set(fx * 1.65, 3.4, -1.2); antMain.rotation.set(-0.35, 0, -fx * 0.42); headPivot.add(antMain);
+                        const antFork = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.26, 2.8, 6), eyeIrisMat);
+                        antFork.position.set(fx * 2.4, 4.4, -0.4); antFork.rotation.set(0.25, 0, -fx * 0.78); headPivot.add(antFork);
+                        const pRing = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.1, 6, 14), eyeIrisMat);
+                        pRing.position.set(fx * 2.25, 4.2, -1.5); pRing.rotation.x = Math.PI / 2; headPivot.add(pRing);
+                        voltRings.push(pRing);
+                        const frillWeb = new THREE.Mesh(new THREE.CircleGeometry(2.4, 6, -Math.PI * 0.4, Math.PI * 0.8), std(hc.col, 0.35, 0.1, { emissive: hc.col, emissiveIntensity: 0.75, transparent: true, opacity: 0.72, side: THREE.DoubleSide }));
+                        frillWeb.position.set(fx * 1.9, 0.1, 0.2); frillWeb.rotation.y = fx > 0 ? 0.55 : Math.PI - 0.55; headPivot.add(frillWeb);
+                        for (let rs = -1; rs <= 1; rs++) {
+                            const fSpine = new THREE.Mesh(new THREE.ConeGeometry(0.16, 3.1, 5), goldM);
+                            fSpine.position.set(fx * 2.65, rs * 0.95, 0.1); fSpine.rotation.set(rs * 0.35, 0, -fx * 1.25); headPivot.add(fSpine);
+                        }
+                    }
+                }
+                if (hc.id === 'frost') {
+                    const centerIce = new THREE.Mesh(new THREE.ConeGeometry(0.55, 5.2, 5), elemGlow);
+                    centerIce.position.set(0, 2.75, -1.7); centerIce.rotation.x = -0.62; headPivot.add(centerIce);
+                } else if (hc.id === 'pyro') {
+                    for (let vc = 0; vc < 3; vc++) {
+                        const crest = new THREE.Mesh(new THREE.ConeGeometry(0.45, 2.4 - vc * 0.35, 5), goldM);
+                        crest.position.set(0, 2.1 - vc * 0.25, 0.4 - vc * 1.3); crest.rotation.x = -0.45; headPivot.add(crest);
+                    }
+                }
+
+                const hitSphere = new THREE.Mesh(new THREE.SphereGeometry(4.1, 10, 8), invisibleHitMat);
+                hitSphere.position.set(0, 0.2, 2.0);
+                headPivot.add(cranium, snoutBase, noseBridge, nasalHorn, throatGlow, jaw, hitSphere);
+                hg.add(headPivot);
+
+                const tg = S.addTarget({ mesh: hg, hitMeshes: [cranium, snoutBase, jawMesh, hitSphere], pos: V(0, 0, 0), life: 0, appear: 'none', inT: 0.01, death: 'none', bonus: true });
+                const hObj = Object.assign(tg, {
                     dragonHead: true, idx, id: hc.id, name: hc.name, col: hc.col, accent: hc.accent,
-                    hp: hc.hp, maxHp: hc.hp, basePos: V(hc.x, 10, -26), headPivot, jaw, throatGlow, neckSegs,
+                    hp: hc.hp, maxHp: hc.hp, basePos, curPos: basePos.clone(), neckBase, headPivot, jaw, throatGlow, neckSegs, voltRings,
                     atkT: 1.5 + idx * 1.0, rate: hc.fireRate, deadHead: false, empowered: false
                 });
+                return hObj;
             });
 
             S.data.shots = []; S.data.hazards = []; S.data.phase2 = false; S.data.climbT = 0; S.data.headsDown = 0;
+            this._poseHeads(S, 0, performance.now() * 0.001, false);
+        },
+        _poseHeads(S, dt, tNow, canAttack) {
+            const D = S.data, P = BO.Player;
+            const cubic = (p0, c1, c2, p3, u, out) => {
+                const m = 1 - u;
+                return out.set(
+                    m * m * m * p0.x + 3 * m * m * u * c1.x + 3 * m * u * u * c2.x + u * u * u * p3.x,
+                    m * m * m * p0.y + 3 * m * m * u * c1.y + 3 * m * u * u * c2.y + u * u * u * p3.y,
+                    m * m * m * p0.z + 3 * m * m * u * c1.z + 3 * m * u * u * c2.z + u * u * u * p3.z
+                );
+            };
+            const ptA = V(), ptB = V(), ctrl1 = V(), ctrl2 = V();
+            for (const h of D.heads || []) {
+                if (h.voltRings) for (let vi = 0; vi < h.voltRings.length; vi++) h.voltRings[vi].rotation.z = tNow * (vi ? -4.2 : 4.2);
+
+                if (h.deadHead) {
+                    h.curPos.lerp(V(h.basePos.x, -10, h.basePos.z - 5), Math.min(1, dt * 1.6));
+                    h.headPivot.position.copy(h.curPos);
+                    h.headPivot.rotation.x = BO.Math.lerp(h.headPivot.rotation.x, 1.05, Math.min(1, dt * 2.4));
+                    h.jaw.rotation.x = 0.08;
+                } else {
+                    const spd = h.empowered ? 2.4 : 1.45;
+                    h.curPos.set(
+                        h.basePos.x + Math.sin(tNow * spd + h.idx * 2.1) * 2.5,
+                        h.basePos.y + Math.cos(tNow * 1.7 + h.idx) * 1.85,
+                        h.basePos.z + Math.sin(tNow * 1.1 + h.idx) * 1.2
+                    );
+                    h.headPivot.position.copy(h.curPos);
+                    h.headPivot.lookAt(P.pos.x, P.pos.y + 1.5, P.pos.z);
+
+                    const charging = canAttack && h.atkT < 0.7;
+                    h.jaw.rotation.x = charging ? 0.62 : 0.14 + Math.abs(Math.sin(tNow * 2.6 + h.idx)) * 0.22;
+                    h.throatGlow.scale.setScalar(charging ? 1.65 : 1.0);
+                    if (charging && Math.random() < dt * 22) {
+                        const mp = V(); h.throatGlow.getWorldPosition(mp);
+                        BO.FX.spawnParticles(mp, 1, h.col, 1.4, -1.2, 0.35, 0.7);
+                    }
+                    if (canAttack) {
+                        h.atkT -= dt;
+                        if (h.atkT <= 0) { h.atkT = h.rate * (h.empowered ? 0.65 : 1.0); this._fireHeadAttack(S, h); }
+                    }
+                }
+
+                // Evaluate continuous cubic Bezier S-curve from titan chest socket to live head position
+                const swayC = Math.sin(tNow * 1.8 + h.idx * 2.0) * 2.4;
+                ctrl1.set(h.neckBase.x + swayC, h.neckBase.y + 11.5, h.neckBase.z - 2.5);
+                ctrl2.set(h.curPos.x - swayC * 0.85, h.curPos.y - 4.0, h.curPos.z - 9.5);
+                const segCount = h.neckSegs.length;
+                for (let k = 0; k < segCount; k++) {
+                    const u = k / segCount;
+                    const uNext = (k + 1) / segCount;
+                    cubic(h.neckBase, ctrl1, ctrl2, h.curPos, u, ptA);
+                    cubic(h.neckBase, ctrl1, ctrl2, h.curPos, uNext, ptB);
+                    h.neckSegs[k].position.copy(ptA);
+                    h.neckSegs[k].lookAt(ptB);
+                }
+            }
         },
         progress: (S) => {
             const hs = S.data.heads || []; if (!hs.length) return 0;
@@ -495,33 +715,22 @@
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player, tNow = performance.now() * 0.001;
             for (const w of D.wings || []) {
-                w.wg.rotation.z = w.s * Math.sin(tNow * 1.35) * 0.24;
-                if (w.outer) w.outer.rotation.z = w.s * Math.sin(tNow * 1.35 - 0.6) * 0.22;
+                w.wg.rotation.z = w.s * Math.sin(tNow * 1.35) * 0.22;
+                if (w.outer) w.outer.rotation.z = w.s * Math.sin(tNow * 1.35 - 0.65) * 0.24;
             }
             if (D.heartCore) D.heartCore.scale.setScalar(1 + Math.sin(tNow * 5) * 0.16);
+            if (D.heartRingA) { D.heartRingA.rotation.z = tNow * 1.1; D.heartRingA.rotation.x = Math.sin(tNow * 0.8) * 0.35; }
+            if (D.heartRingB) { D.heartRingB.rotation.z = -tNow * 0.85; D.heartRingB.rotation.y = Math.cos(tNow * 0.7) * 0.4; }
+            for (const ts of D.tailSegs || []) {
+                const u = ts.userData;
+                ts.position.x = u.bx + Math.sin(tNow * 1.2 + u.ts * 0.42) * (0.4 + u.ts * 0.25);
+            }
+            this._poseHeads(S, dt, tNow, state === 'running');
             if (Math.random() < dt * 18) BO.FX.spawnParticles(V((Math.random() - 0.5) * 44, -2, (Math.random() - 0.5) * 44), 1, 0xf97316, 1.5, -2.5, 1.4, 0.7);
             if (state !== 'running') return;
 
             const rad = Math.hypot(P.pos.x, P.pos.z);
             if (rad > 22.5) { P.pos.x *= 22.5 / rad; P.pos.z *= 22.5 / rad; }
-
-            for (const h of D.heads || []) {
-                if (h.deadHead) { h.root.position.y = BO.Math.lerp(h.root.position.y, -20, dt * 1.5); h.headPivot.rotation.x = BO.Math.lerp(h.headPivot.rotation.x, 0.9, dt * 2); continue; }
-                const sway = Math.sin(tNow * (h.empowered ? 2.4 : 1.5) + h.idx * 2.1);
-                h.root.position.set(h.basePos.x + sway * 2.4, h.basePos.y + Math.cos(tNow * 1.8 + h.idx) * 1.8, h.basePos.z);
-                h.headPivot.lookAt(P.pos.x, P.pos.y + 1.5, P.pos.z);
-                // Smooth undulating serpentine S-curve across all 10 neck segments!
-                h.neckSegs.forEach((seg, si) => {
-                    const u = si / 9;
-                    seg.position.x = Math.sin(tNow * 2.2 + h.idx * 1.7 + u * 3.2) * (1 - u) * 2.2;
-                    seg.rotation.y = Math.cos(tNow * 2.0 + u * 2.5) * 0.22;
-                });
-                const mouthCharge = h.atkT < 0.65 ? 0.55 : 0.14 + Math.abs(Math.sin(tNow * 2.6 + h.idx)) * 0.25;
-                h.jaw.rotation.x = mouthCharge;
-                h.throatGlow.scale.setScalar(h.atkT < 0.65 ? 1.55 : 1.0);
-                h.atkT -= dt;
-                if (h.atkT <= 0) { h.atkT = h.rate * (h.empowered ? 0.65 : 1.0); this._fireHeadAttack(S, h); }
-            }
 
             if (!D.phase2 && D.headsDown >= 2) {
                 D.phase2 = true;

@@ -769,9 +769,9 @@
             D.bowserForm = form;
             const formMeta = [
                 null,
-                { name: 'BOWSER (NORMAL)', hp: 1450, sc: 1.0, shell: 0x166534, skin: 0xfacc15, horn: 0xfef3c7, rate: 1.9 },
-                { name: 'BOWSER — FINAL FORM!', hp: 2100, sc: 1.38, shell: 0x7f1d1d, skin: 0xf97316, horn: 0xfde047, rate: 1.3 },
-                { name: 'OMEGA BOWSER — FINAL FINAL FORM!!', hp: 2800, sc: 1.72, shell: 0x3b0764, skin: 0xc084fc, horn: 0xfef08a, rate: 0.9 }
+                { name: 'BOWSER (NORMAL)', hp: 1450, sc: 1.0, shell: 0x166534, skin: 0xfacc15, horn: 0xfef3c7, mane: 0xdc2626, rim: 0xf8fafc, seam: 0x14532d, seamGlow: 0x000000, eyeIris: 0xef4444, fireCol: 0xf97316, fireHalo: 0xfacc15, rate: 1.9 },
+                { name: 'BOWSER — FINAL FORM!', hp: 2100, sc: 1.38, shell: 0x270909, skin: 0xf97316, horn: 0xfde047, mane: 0xf97316, rim: 0xfdba74, seam: 0xf97316, seamGlow: 0xea580c, eyeIris: 0xfef08a, fireCol: 0xf97316, fireHalo: 0xfef08a, rate: 1.3 },
+                { name: 'OMEGA BOWSER — FINAL FINAL FORM!!', hp: 2800, sc: 1.72, shell: 0x1e0636, skin: 0xc084fc, horn: 0xfef08a, mane: 0xe879f9, rim: 0xe9d5ff, seam: 0xe879f9, seamGlow: 0xc026d3, eyeIris: 0xfef9c3, fireCol: 0xc084fc, fireHalo: 0xf0abfc, rate: 0.9 }
             ][form];
             D.formMeta = formMeta;
             const cBrick = new THREE.MeshStandardMaterial({ map: marioTex('cbrick'), roughness: 0.82 });
@@ -783,40 +783,167 @@
                 const fl = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 7), basic(0xfacc15)); fl.position.set(px, 5.3, pz); this._addObj(S, fl);
             }
 
-            // Detailed Articulated 3D Bowser (Spiked Shell, Plated Belly, Dragon Snout, Fiery Mane, Spiked Cuffs!)
+            // Sculpted Articulated 3D Bowser (Hex-Plated Shell, Flared Spike Collars, Plastron Belly, Articulated Jaw/Limbs/Tail, Form Evolutions)
             const bg = new THREE.Group();
-            const shell = new THREE.Mesh(new THREE.SphereGeometry(1.85, 16, 14), std(formMeta.shell, 0.38, 0.22)); shell.scale.set(1.12, 1.32, 0.96); shell.position.set(0, 2.35, -0.45);
-            const shellRim = new THREE.Mesh(new THREE.TorusGeometry(1.88, 0.24, 10, 24), std(0xf8fafc, 0.55)); shellRim.scale.set(1.06, 1.24, 1); shellRim.position.set(0, 2.35, 0.15);
-            const belly = new THREE.Mesh(new THREE.SphereGeometry(1.52, 14, 12), std(0xfef3c7, 0.62)); belly.scale.set(1.0, 1.18, 0.85); belly.position.set(0, 2.15, 0.45);
-            for (let b = 0; b < 4; b++) {
-                const rib = new THREE.Mesh(new THREE.BoxGeometry(1.85 - b * 0.14, 0.12, 0.18), std(0xd97706, 0.7));
-                rib.position.set(0, 1.35 + b * 0.48, 1.66 - b * 0.04); bg.add(rib);
-            }
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.16, 8, 18), std(0x18181b, 0.4, 0.5)); collar.rotation.x = Math.PI / 2; collar.position.set(0, 3.35, 0.55);
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.98, 14, 12), std(formMeta.shell, 0.45)); head.position.set(0, 4.15, 0.55);
-            const snout = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.78, 1.15), std(formMeta.skin, 0.55)); snout.position.set(0, 3.88, 1.32);
-            const mane = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.25, 8), std(0xef4444, 0.45, 0.1, { emissive: 0x991b1b, emissiveIntensity: 0.35 }));
-            mane.position.set(0, 5.15, 0.48); mane.rotation.x = -0.25;
-            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.1, 8), std(formMeta.skin, 0.6)); tail.position.set(0, 1.0, -2.1); tail.rotation.x = -1.25;
-            bg.add(shell, shellRim, belly, collar, head, snout, mane, tail);
+            const bodyGroup = new THREE.Group(); bg.add(bodyGroup);
+            const shellMat = std(formMeta.shell, 0.36, 0.25);
+            const skinMat = std(formMeta.skin, 0.56);
+            const hornMat = std(formMeta.horn, 0.32);
+            const rimMat = std(formMeta.rim, 0.52);
+            const seamMat = std(formMeta.seam, 0.35, 0.2, { emissive: formMeta.seamGlow, emissiveIntensity: form > 1 ? 0.85 : 0 });
+            const maneMat = std(formMeta.mane, 0.42, 0.1, { emissive: formMeta.mane, emissiveIntensity: form > 1 ? 0.65 : 0.32 });
+            const leatherMat = std(0x18181b, 0.4, 0.52);
+            const silverMat = std(0xe2e8f0, 0.22, 0.85);
 
+            const shellCenter = V(0, 2.45, -0.42);
+            const shell = new THREE.Mesh(new THREE.SphereGeometry(1.9, 18, 14), shellMat);
+            shell.scale.set(1.12, 1.32, 0.96); shell.position.copy(shellCenter);
+            const shellRim = new THREE.Mesh(new THREE.TorusGeometry(1.92, 0.26, 10, 24), rimMat);
+            shellRim.scale.set(1.06, 1.24, 1); shellRim.position.set(0, 2.42, 0.18);
+            const belly = new THREE.Mesh(new THREE.SphereGeometry(1.56, 16, 12), std(0xfef3c7, 0.58));
+            belly.scale.set(1.0, 1.18, 0.85); belly.position.set(0, 2.28, 0.46);
+            bodyGroup.add(shell, shellRim, belly);
+
+            // 5 curved horizontal plastron belly plates
+            for (let b = 0; b < 5; b++) {
+                const rib = new THREE.Mesh(new THREE.TorusGeometry(1.38 - b * 0.08, 0.07, 6, 16, Math.PI * 0.58), std(0xd97706, 0.65));
+                rib.rotation.x = Math.PI / 2; rib.rotation.z = Math.PI * 0.21;
+                rib.position.set(0, 1.32 + b * 0.42, 0.68 - b * 0.03); bodyGroup.add(rib);
+            }
+
+            // Hexagonal scute tiles + 10 iconic spikes with flared base collars
+            const spikeCoords = [
+                [0, 3.85, -1.75], [0, 3.1, -2.18], [0, 2.25, -2.35], [0, 1.45, -2.05],
+                [-1.12, 3.35, -1.65], [1.12, 3.35, -1.65],
+                [-1.25, 2.38, -1.92], [1.25, 2.38, -1.92],
+                [-1.02, 1.52, -1.78], [1.02, 1.52, -1.78]
+            ];
+            for (const [sx, sy, sz] of spikeCoords) {
+                const p = V(sx, sy, sz);
+                const dir = p.clone().sub(shellCenter).normalize();
+                const scute = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.52, 0.14, 6), seamMat);
+                scute.position.copy(p); scute.quaternion.setFromUnitVectors(V(0, 1, 0), dir); bodyGroup.add(scute);
+                const collarBase = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.4, 0.22, 10), rimMat);
+                collarBase.position.copy(p).addScaledVector(dir, 0.12); collarBase.quaternion.setFromUnitVectors(V(0, 1, 0), dir); bodyGroup.add(collarBase);
+                const sp = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.88, 10), hornMat);
+                sp.position.copy(p).addScaledVector(dir, 0.54); sp.quaternion.setFromUnitVectors(V(0, 1, 0), dir); bodyGroup.add(sp);
+            }
+
+            // Spiked Black Leather Neck Collar
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.98, 0.18, 8, 18), leatherMat);
+            collar.rotation.x = Math.PI / 2; collar.position.set(0, 3.45, 0.52); bodyGroup.add(collar);
+            for (let ci = 0; ci < 6; ci++) {
+                const a = (ci / 6) * TAU;
+                const cs = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.34, 6), silverMat);
+                cs.position.set(Math.cos(a) * 1.12, 3.45, 0.52 + Math.sin(a) * 1.12);
+                cs.lookAt(Math.cos(a) * 3, 3.45, 0.52 + Math.sin(a) * 3); cs.rotateX(Math.PI / 2); bodyGroup.add(cs);
+            }
+
+            // Articulated Head Group + Hinged Lower Jaw + Multi-Segment Horns + Fiery 5-Spike Mane
+            const headGroup = new THREE.Group(); headGroup.position.set(0, 3.72, 0.56);
+            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.98, 1), shellMat);
+            head.scale.set(1.06, 0.94, 1.08); head.position.set(0, 0.42, 0);
+            const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.82, 1.25, 8), skinMat);
+            snout.rotation.x = Math.PI / 2; snout.scale.set(1.22, 1, 0.62); snout.position.set(0, 0.16, 0.82);
+            const mouthGlow = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8), basic(formMeta.fireCol));
+            mouthGlow.position.set(0, 0.04, 0.92);
+            const jawGroup = new THREE.Group(); jawGroup.position.set(0, -0.02, 0.32);
+            const lowerJaw = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.7, 1.05, 8), skinMat);
+            lowerJaw.rotation.x = Math.PI / 2; lowerJaw.scale.set(1.18, 1, 0.48); lowerJaw.position.set(0, -0.14, 0.55);
+            jawGroup.add(lowerJaw);
+            headGroup.add(head, snout, mouthGlow, jawGroup);
+
+            // Fiery 5-Spike Hair Mane
+            for (let mi = 0; mi < 5; mi++) {
+                const flame = new THREE.Mesh(new THREE.ConeGeometry(0.32 - mi * 0.03, 0.98 - mi * 0.08, 7), maneMat);
+                flame.position.set(Math.sin(mi * 0.7) * 0.12, 1.48 - mi * 0.16, -0.05 - mi * 0.24);
+                flame.rotation.x = -0.35 - mi * 0.16; headGroup.add(flame);
+            }
             for (const s of [-1, 1]) {
-                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.25, 9), std(formMeta.horn, 0.35)); horn.position.set(s * 0.78, 5.0, 0.42); horn.rotation.z = -s * 0.52; bg.add(horn);
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.20, 8, 6), basic(0xef4444)); eye.position.set(s * 0.42, 4.32, 1.42); bg.add(eye);
-                const brow = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.22), std(0xef4444, 0.5)); brow.position.set(s * 0.45, 4.58, 1.46); brow.rotation.z = -s * 0.35; bg.add(brow);
-                const fang = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.34, 6), basic(0xffffff)); fang.position.set(s * 0.42, 3.45, 1.78); fang.rotation.x = Math.PI; bg.add(fang);
-                // Muscular arms with black spiked cuffs + sturdy legs
-                const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.32, 1.65, 10), std(formMeta.skin, 0.58)); arm.position.set(s * 1.85, 2.35, 0.55); arm.rotation.z = s * 0.55; bg.add(arm);
-                const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.11, 6, 12), std(0x18181b, 0.4, 0.6)); cuff.position.set(s * 2.15, 1.85, 0.65); cuff.rotation.y = Math.PI / 2; bg.add(cuff);
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.54, 1.35, 10), std(formMeta.skin, 0.6)); leg.position.set(s * 0.88, 0.68, 0.15); bg.add(leg);
+                // Cheek jowl, nostril, sclera/iris/slit eye, V-shaped brow
+                const jowl = new THREE.Mesh(new THREE.SphereGeometry(0.44, 10, 8), skinMat); jowl.position.set(s * 0.68, 0.06, 0.48); headGroup.add(jowl);
+                const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), basic(0x18181b)); nostril.position.set(s * 0.34, 0.34, 1.38); headGroup.add(nostril);
+                const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), basic(0xfef08a)); sclera.position.set(s * 0.44, 0.64, 0.86); headGroup.add(sclera);
+                const iris = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), basic(formMeta.eyeIris)); iris.position.set(s * 0.47, 0.64, 1.02); headGroup.add(iris);
+                const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.1), basic(0x050508)); pupil.position.set(s * 0.48, 0.64, 1.12); headGroup.add(pupil);
+                const brow = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.2, 0.28), maneMat); brow.position.set(s * 0.46, 0.92, 0.92); brow.rotation.z = -s * 0.42; headGroup.add(brow);
+                // Upper & lower fangs
+                const fangU = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.32, 6), basic(0xffffff)); fangU.position.set(s * 0.4, -0.08, 1.18); fangU.rotation.x = Math.PI; headGroup.add(fangU);
+                const fangL = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 6), basic(0xffffff)); fangL.position.set(s * 0.36, 0.04, 0.92); jawGroup.add(fangL);
+                // Multi-segment curved bull horns
+                for (let hs = 0; hs < 3; hs++) {
+                    const hSeg = new THREE.Mesh(new THREE.CylinderGeometry(0.18 - hs * 0.04, 0.24 - hs * 0.04, 0.48, 8), hornMat);
+                    hSeg.position.set(s * (0.72 + hs * 0.28), 1.05 + hs * 0.28, -0.08 + hs * 0.14);
+                    hSeg.rotation.set(0.25 * hs, 0, -s * (0.85 - hs * 0.22)); headGroup.add(hSeg);
+                }
             }
-            for (const [sx, sy, sz] of [[0, 3.2, -1.9], [-0.95, 2.75, -1.75], [0.95, 2.75, -1.75], [0, 2.2, -2.15], [-0.95, 1.7, -1.8], [0.95, 1.7, -1.8], [0, 1.25, -1.9]]) {
-                const sp = new THREE.Mesh(new THREE.ConeGeometry(0.30, 0.85, 8), std(formMeta.horn, 0.35));
-                sp.position.set(sx, sy, sz); sp.rotation.x = -Math.PI * 0.48; bg.add(sp);
+            bodyGroup.add(headGroup);
+
+            // Articulated Arms (Shoulder, Bicep Band, Forearm, Spiked Wrist Cuff, Clawed Hand) + Legs + Spiked Tail
+            const limbs = {}, limbMeshes = [];
+            for (const s of [-1, 1]) {
+                const armPiv = new THREE.Group(); armPiv.position.set(s * 1.65, 2.95, 0.38);
+                const deltoid = new THREE.Mesh(new THREE.SphereGeometry(0.46, 10, 8), skinMat);
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.34, 0.95, 10), skinMat); upper.position.set(s * 0.22, -0.42, 0.12); upper.rotation.z = s * 0.38;
+                const bicepBand = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.09, 6, 12), leatherMat); bicepBand.position.set(s * 0.32, -0.58, 0.15); bicepBand.rotation.x = Math.PI / 2;
+                const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.38, 0.92, 10), skinMat); forearm.position.set(s * 0.46, -1.02, 0.42); forearm.rotation.set(-0.55, 0, s * 0.18);
+                const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.11, 6, 14), leatherMat); cuff.position.set(s * 0.5, -1.25, 0.56); cuff.rotation.x = Math.PI / 2 + 0.55;
+                for (let st = 0; st < 4; st++) {
+                    const a = (st / 4) * TAU;
+                    const stud = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 6), silverMat);
+                    stud.position.set(s * 0.5 + Math.cos(a) * 0.48, -1.25, 0.56 + Math.sin(a) * 0.48);
+                    stud.lookAt(s * 0.5 + Math.cos(a) * 2, -1.25, 0.56 + Math.sin(a) * 2); stud.rotateX(Math.PI / 2); armPiv.add(stud);
+                }
+                const hand = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), skinMat); hand.position.set(s * 0.54, -1.55, 0.72);
+                for (let cl = 0; cl < 4; cl++) {
+                    const claw = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.34, 6), hornMat);
+                    claw.position.set(s * 0.54 + (cl - 1.5) * 0.16, -1.78, 0.92); claw.rotation.x = Math.PI * 0.75; armPiv.add(claw);
+                }
+                armPiv.add(deltoid, upper, bicepBand, forearm, cuff, hand); bodyGroup.add(armPiv);
+                limbs[s < 0 ? 'armL' : 'armR'] = armPiv;
+
+                const legPiv = new THREE.Group(); legPiv.position.set(s * 0.92, 1.38, 0.12);
+                const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.42, 0.85, 10), skinMat); thigh.position.y = -0.35;
+                const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.75, 10), skinMat); shin.position.y = -0.92;
+                const foot = new THREE.Mesh(new THREE.SphereGeometry(0.56, 10, 8), skinMat); foot.scale.set(1.05, 0.58, 1.32); foot.position.set(0, -1.22, 0.22);
+                for (let tc = -1; tc <= 1; tc++) {
+                    const toeClaw = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.36, 6), hornMat);
+                    toeClaw.position.set(tc * 0.24, -1.28, 0.92); toeClaw.rotation.x = Math.PI / 2; legPiv.add(toeClaw);
+                }
+                legPiv.add(thigh, shin, foot); bodyGroup.add(legPiv);
+                limbs[s < 0 ? 'legL' : 'legR'] = legPiv;
+                limbMeshes.push(deltoid, upper, forearm, hand, thigh, shin, foot);
             }
+
+            const tailGroup = new THREE.Group(); tailGroup.position.set(0, 1.18, -1.18);
+            for (let t = 0; t < 4; t++) {
+                const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.36 - t * 0.08, 0.48 - t * 0.08, 0.65, 8), skinMat);
+                seg.rotation.x = Math.PI * 0.42; seg.position.set(0, -0.05 * t, -0.35 - t * 0.48); tailGroup.add(seg);
+                if (t < 3) {
+                    const tsp = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.36, 6), hornMat);
+                    tsp.position.set(0, 0.34 - t * 0.06, -0.45 - t * 0.48); tsp.rotation.x = -0.35; tailGroup.add(tsp);
+                }
+            }
+            bodyGroup.add(tailGroup);
+
+            let omegaRing = null;
+            if (form === 3) {
+                omegaRing = new THREE.Group(); omegaRing.position.set(0, 2.05, -0.15);
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 8, 24), maneMat); halo.rotation.x = Math.PI / 2; omegaRing.add(halo);
+                for (let os = 0; os < 6; os++) {
+                    const a = (os / 6) * TAU;
+                    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), basic(0xfef08a));
+                    shard.position.set(Math.cos(a) * 1.15, 0, Math.sin(a) * 1.15); omegaRing.add(shard);
+                }
+                headGroup.add(omegaRing);
+            }
+
             bg.scale.setScalar(formMeta.sc);
-            const tg = S.addTarget({ mesh: bg, hitMeshes: [shell, belly, head, snout], pos: V(0, 0, -16), life: 0, appear: 'scale', inT: 0.25, death: 'none', bonus: true });
-            tg.hp = formMeta.hp; tg.maxHp = formMeta.hp; tg.fireT = 1.2; tg.walkT = 0;
+            const tg = S.addTarget({ mesh: bg, hitMeshes: [shell, belly, head, snout, lowerJaw, ...limbMeshes], pos: V(0, 0, 0), life: 0, appear: 'scale', inT: 0.25, death: 'none', bonus: true });
+            // Move target root cleanly to Bowser boss spawn
+            tg.root.position.set(0, 0, -16);
+            tg.hp = formMeta.hp; tg.maxHp = formMeta.hp; tg.fireT = 1.2; tg.walkT = 0; tg.flinchT = 0;
+            Object.assign(tg, { bodyGroup, headGroup, jawGroup, mouthGlow, tailGroup, omegaRing, ...limbs });
             D.bowser = tg;
             MG.toast(formMeta.name, '#facc15'); SFX.rumble(0.7);
         },
@@ -1017,27 +1144,59 @@
                 bw.root.position.x = BO.Math.lerp(bw.root.position.x, Math.sin(bw.walkT * 1.25) * 9, dt * 2.0);
                 bw.root.position.z = BO.Math.lerp(bw.root.position.z, -15 + Math.cos(bw.walkT * 0.9) * 3.5, dt * 2.0);
                 bw.root.rotation.y = Math.atan2(P.pos.x - bw.root.position.x, P.pos.z - bw.root.position.z);
-                const lead = 0.48;
-                if (bw.fireT > lead) D.aimPoint.copy(P.pos);
+
+                // Heavy stomping walk, swinging arms, tail counter-swish & hit recoil
+                const step = Math.sin(bw.walkT * 4.2);
+                bw.legL.rotation.x = step * 0.42;
+                bw.legR.rotation.x = -step * 0.42;
+                bw.bodyGroup.position.y = Math.abs(step) * 0.14;
+                bw.bodyGroup.rotation.z = step * 0.045;
+                bw.tailGroup.rotation.y = Math.sin(bw.walkT * 2.6) * 0.25;
+                if (bw.omegaRing) { bw.omegaRing.rotation.y += dt * 1.9; bw.omegaRing.position.y = 2.05 + Math.sin(bw.walkT * 3) * 0.14; }
+                if (bw.flinchT > 0) bw.flinchT = Math.max(0, bw.flinchT - dt);
+                bw.bodyGroup.rotation.x = -bw.flinchT * 0.9;
+
+                if (D.bowserForm === 2 && Math.random() < dt * 16) {
+                    BO.FX.spawnParticles(bw.root.position.clone().add(V((Math.random() - 0.5) * 3.2, 2.6, (Math.random() - 0.5) * 2.4)), 1, 0xf97316, 1.4, -1.8, 0.55, 0.8);
+                }
+
+                const lead = 0.55;
+                if (bw.fireT > 0.48) D.aimPoint.copy(P.pos);
                 bw.fireT -= dt;
-                D.warningRing.visible = bw.fireT <= lead;
+                const charging = bw.fireT <= lead;
+                D.warningRing.visible = bw.fireT <= 0.48;
                 if (D.warningRing.visible) {
                     D.warningRing.position.set(D.aimPoint.x, 0.045, D.aimPoint.z);
                     D.warningRing.scale.setScalar(0.7 + Math.max(0, bw.fireT) * 2.5);
                 }
+                // Fire-breath telegraph pose + mouth charge flare
+                bw.headGroup.rotation.x = BO.Math.lerp(bw.headGroup.rotation.x, (charging ? -0.22 : 0) - bw.flinchT * 1.1, Math.min(1, dt * 10));
+                bw.jawGroup.rotation.x = BO.Math.lerp(bw.jawGroup.rotation.x, charging ? 0.68 : 0.06, Math.min(1, dt * 12));
+                bw.mouthGlow.scale.setScalar(charging ? 1.55 : 0.65);
+                bw.armL.rotation.x = charging ? -0.55 : -step * 0.35;
+                bw.armR.rotation.x = charging ? -0.55 : step * 0.35;
+                if (charging && Math.random() < dt * 24) {
+                    const mp = V(); bw.mouthGlow.getWorldPosition(mp);
+                    BO.FX.spawnParticles(mp, 1, D.formMeta.fireCol, 1.5, -1.0, 0.35, 0.7);
+                }
+
                 if (bw.fireT <= 0) {
                     bw.fireT = D.formMeta.rate;
                     const count = D.bowserForm === 1 ? 1 : D.bowserForm === 2 ? 3 : 5;
+                    const mOrig = V(); bw.mouthGlow.getWorldPosition(mOrig);
                     for (let c = 0; c < count; c++) {
-                        const fm = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 6), basic(D.bowserForm === 3 ? 0xc084fc : 0xf97316));
-                        fm.position.copy(bw.root.position).add(V(0, 3.2, 0)); S.add(fm);
+                        const fm = new THREE.Group();
+                        fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), basic(D.formMeta.fireHalo)));
+                        fm.add(new THREE.Mesh(new THREE.SphereGeometry(0.56, 10, 8), basic(D.formMeta.fireCol, { transparent: true, opacity: 0.48 })));
+                        fm.position.copy(mOrig); S.add(fm);
                         const tgt = D.aimPoint.clone().add(V((c - (count - 1) * 0.5) * 2.5, 1.0, 0));
-                        D.bFire.push({ mesh: fm, vel: tgt.sub(fm.position).normalize().multiplyScalar(17 + D.bowserForm * 3), life: 3.5 });
+                        D.bFire.push({ mesh: fm, vel: tgt.sub(mOrig).normalize().multiplyScalar(17 + D.bowserForm * 3), life: 3.5 });
                     }
                     SFX.launch();
                 }
                 for (let i = D.bFire.length - 1; i >= 0; i--) {
                     const bf = D.bFire[i]; bf.life -= dt; bf.mesh.position.addScaledVector(bf.vel, dt);
+                    bf.mesh.rotation.y += dt * 7; bf.mesh.scale.setScalar(0.92 + Math.sin(bw.walkT * 18 + i) * 0.12);
                     if (bf.mesh.position.distanceTo(P.pos.clone().add(V(0, 1.1, 0))) < 1.1) {
                         P.takeDamage(14 + D.bowserForm * 4, bf.mesh.position, true);
                         S.scene.remove(bf.mesh); D.bFire.splice(i, 1);
@@ -1097,7 +1256,7 @@
         onHit(S, ent, info) {
             const D = S.data;
             if (ent === D.bowser) {
-                D.bowser.hp -= info.dmg * 1.4; S.hits++; SFX.thunk();
+                D.bowser.hp -= info.dmg * 1.4; D.bowser.flinchT = 0.14; S.hits++; SFX.thunk();
                 if (D.bowser.hp <= 0) {
                     BO.FX.spawnExplosion(D.bowser.root.position.clone().add(V(0, 2, 0)), 8, 0xfacc15);
                     D.bowser.kill(info); D.bowser = null; S.kills++; S.award(2500 * D.bowserForm);
