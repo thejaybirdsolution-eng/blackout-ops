@@ -971,17 +971,71 @@
             ];
             const spec = forcedKind ? (types.find((t) => t.id === forcedKind) || types[0]) : BO.Math.pick(types);
 
-            const mesh = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.32, 0),
-                new THREE.MeshBasicMaterial({ color: spec.color })
-            );
-            mesh.position.set(x, y + 0.85, z);
+            const mesh = new THREE.Group();
+            mesh.position.set(x, y + 0.92, z);
+            const gMat = new THREE.MeshStandardMaterial({ color: spec.color, emissive: spec.color, emissiveIntensity: 0.85, roughness: 0.25, metalness: 0.65 });
+            const trimMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const darkMat = new THREE.MeshBasicMaterial({ color: 0x090d14 });
+
+            if (spec.id === 'max_ammo') {
+                // Military Ammo Crate w/ Carry Handle & Golden Latch
+                mesh.add(new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.34, 0.32), gMat));
+                const lid = new THREE.Mesh(new THREE.BoxGeometry(0.60, 0.08, 0.36), trimMat); lid.position.y = 0.20;
+                const handle = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 6, 12, Math.PI), trimMat); handle.position.y = 0.24;
+                const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.14, 0.38), trimMat); clasp.position.y = 0.08;
+                mesh.add(lid, handle, clasp);
+            } else if (spec.id === 'insta_kill') {
+                // Sculpted Glowing Skull Emblem
+                const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), gMat); cranium.position.y = 0.08; cranium.scale.set(1, 1.08, 0.95);
+                const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.22), gMat); jaw.position.set(0, -0.14, 0.04);
+                mesh.add(cranium, jaw);
+                for (const ex of [-0.09, 0.09]) {
+                    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), darkMat); eye.position.set(ex, 0.07, 0.21); mesh.add(eye);
+                }
+                const nose = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.08, 4), darkMat); nose.position.set(0, -0.02, 0.23); mesh.add(nose);
+            } else if (spec.id === 'double_points') {
+                // Bold Sculpted "2X" Emblem
+                const barA = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.54, 0.10), gMat); barA.position.x = 0.14; barA.rotation.z = 0.65;
+                const barB = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.54, 0.10), gMat); barB.position.x = 0.14; barB.rotation.z = -0.65;
+                const twoTop = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.09, 0.10), gMat); twoTop.position.set(-0.16, 0.19, 0);
+                const twoDiag = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.34, 0.10), gMat); twoDiag.position.set(-0.16, 0.02, 0); twoDiag.rotation.z = -0.55;
+                const twoBot = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.09, 0.10), gMat); twoBot.position.set(-0.16, -0.18, 0);
+                mesh.add(barA, barB, twoTop, twoDiag, twoBot);
+            } else if (spec.id === 'nuke') {
+                // Sculpted Fat-Man Atomic Warhead
+                const body = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), gMat); body.scale.set(1, 1.38, 1); body.rotation.z = 0.35;
+                const shroud = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.035, 6, 14), trimMat); shroud.position.set(-0.12, -0.30, 0); shroud.rotation.set(Math.PI * 0.5, -0.35, 0);
+                mesh.add(body, shroud);
+                for (let f = 0; f < 4; f++) {
+                    const ang = (f / 4) * Math.PI * 2;
+                    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.18, 0.03), trimMat);
+                    fin.position.set(-0.10 + Math.cos(ang) * 0.14, -0.26, Math.sin(ang) * 0.14); fin.rotation.y = -ang; mesh.add(fin);
+                }
+            } else if (spec.id === 'carpenter') {
+                // Sculpted Glowing Claw Hammer
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.58, 8), trimMat); handle.rotation.z = -0.35;
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.13, 0.14), gMat); head.position.set(0.08, 0.24, 0); head.rotation.z = -0.35;
+                mesh.add(handle, head);
+            } else {
+                // Fire Sale Price-Tag + Flame Emblem
+                const tag = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.10), gMat); tag.rotation.z = 0.25;
+                const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 8), darkMat); hole.rotation.x = Math.PI * 0.5; hole.position.set(-0.04, 0.15, 0);
+                const flame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.28, 6), trimMat); flame.position.set(0.10, 0.26, 0);
+                mesh.add(tag, hole, flame);
+            }
+
             const ring = new THREE.Mesh(
-                new THREE.TorusGeometry(0.45, 0.03, 6, 16),
+                new THREE.TorusGeometry(0.48, 0.032, 6, 20),
                 new THREE.MeshBasicMaterial({ color: spec.color })
             );
             ring.rotation.x = Math.PI * 0.5;
-            mesh.add(ring);
+            ring.position.y = -0.25;
+            const beam = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.28, 1.5, 10, 1, true),
+                new THREE.MeshBasicMaterial({ color: spec.color, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
+            );
+            beam.position.y = 0.25;
+            mesh.add(ring, beam);
             BO.World.scene.add(mesh);
 
             this.powerUps.push({
@@ -989,7 +1043,8 @@
                 label: spec.label,
                 color: spec.color,
                 mesh,
-                pos: new THREE.Vector3(x, y + 0.85, z),
+                ring,
+                pos: new THREE.Vector3(x, y + 0.92, z),
                 life: BO.Player.zombiePerks.has('long_life') ? 28.0 : 16.0
             });
         }
@@ -1829,8 +1884,10 @@
             for (let i = this.powerUps.length - 1; i >= 0; i--) {
                 const pu = this.powerUps[i];
                 pu.life -= dt;
-                pu.mesh.rotation.y += dt * 2.4;
+                pu.mesh.rotation.y += dt * 2.2;
+                if (pu.ring) pu.ring.rotation.z -= dt * 3.4;
                 pu.mesh.position.y = pu.pos.y + Math.sin(this.elapsed * 4) * 0.14;
+                if (Math.random() < dt * 7) BO.FX.spawnParticles(pu.mesh.position.clone(), 1, pu.color, 1.3, -1.6, 0.35, 0.6);
                 if (pu.life < 4.0) pu.mesh.visible = Math.floor(pu.life * 8) % 2 === 0;
                 const extendedPickup = P.zombiePerks.has('long_reach') && Math.abs(P.pos.y + 0.85 - pu.pos.y) < 1.15;
                 if (BO.Math.dist2D(P.pos.x, P.pos.z, pu.pos.x, pu.pos.z) < (extendedPickup ? 3 : 1.55)) {

@@ -1377,28 +1377,80 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             const ctx = c.getContext('2d');
             ctx.clearRect(0, 0, 512, 256);
 
-            // Chalk border & glowing rifle silhouette
-            ctx.strokeStyle = 'rgba(226, 238, 255, 0.85)';
-            ctx.lineWidth = 5;
-            ctx.setLineDash([14, 7]);
+            // Soft arcane chalk halo behind drawing
+            const glow = ctx.createRadialGradient(256, 128, 12, 256, 128, 220);
+            glow.addColorStop(0, 'rgba(56, 189, 248, 0.24)');
+            glow.addColorStop(0.6, 'rgba(186, 230, 253, 0.08)');
+            glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Double distressed chalk frame + corner crosshairs
+            ctx.strokeStyle = 'rgba(224, 242, 254, 0.88)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([16, 6]);
             ctx.strokeRect(14, 14, 484, 228);
+            ctx.strokeStyle = 'rgba(186, 230, 253, 0.40)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 10]);
+            ctx.strokeRect(22, 22, 468, 212);
             ctx.setLineDash([]);
 
-            ctx.fillStyle = 'rgba(220, 240, 255, 0.90)';
-            ctx.fillRect(96, 86, 220, 26); // receiver silhouette
-            ctx.fillRect(316, 94, 110, 10); // barrel
-            ctx.fillRect(190, 112, 26, 48); // mag
-            ctx.fillRect(130, 112, 20, 42); // grip
-            ctx.fillRect(56, 92, 46, 28); // stock
+            const upper = String(weaponName || '').toUpperCase();
+            ctx.save();
+            ctx.shadowColor = 'rgba(125, 211, 252, 0.75)';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = 'rgba(224, 244, 255, 0.94)';
+            ctx.strokeStyle = 'rgba(224, 244, 255, 0.94)';
+
+            if (upper.includes('GRENADE')) {
+                // Sculpted Pineapple Frag Grenade Chalk Mural
+                ctx.beginPath();
+                ctx.ellipse(256, 134, 34, 44, 0, 0, Math.PI * 2);
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                ctx.fillRect(240, 74, 32, 16);
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(270, 78); ctx.lineTo(304, 92); ctx.lineTo(298, 136);
+                ctx.stroke();
+                ctx.beginPath(); ctx.arc(230, 82, 11, 0, Math.PI * 2); ctx.stroke();
+            } else if (upper.includes('ARMOR')) {
+                // Tactical Ballistic Plate Vest + Chevron Chalk Mural
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.moveTo(212, 82); ctx.lineTo(234, 72); ctx.lineTo(278, 72); ctx.lineTo(300, 82);
+                ctx.lineTo(294, 162); ctx.lineTo(256, 178); ctx.lineTo(218, 162); ctx.closePath();
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(232, 116); ctx.lineTo(256, 98); ctx.lineTo(280, 116);
+                ctx.moveTo(232, 136); ctx.lineTo(256, 118); ctx.lineTo(280, 136);
+                ctx.stroke();
+            } else {
+                // Detailed Rifle Chalk Silhouette w/ Optic, Barrel, Mag & Grip
+                ctx.fillRect(114, 96, 200, 24);
+                ctx.fillRect(314, 102, 108, 9);
+                ctx.fillRect(422, 98, 16, 17);
+                ctx.fillRect(166, 78, 64, 14);
+                ctx.fillRect(184, 92, 10, 5);
+                ctx.fillRect(220, 92, 10, 5);
+                ctx.save(); ctx.translate(216, 120); ctx.rotate(0.22); ctx.fillRect(0, 0, 26, 48); ctx.restore();
+                ctx.fillRect(138, 120, 20, 42);
+                ctx.beginPath(); ctx.moveTo(56, 98); ctx.lineTo(114, 98); ctx.lineTo(114, 122); ctx.lineTo(56, 134); ctx.closePath(); ctx.fill();
+            }
+            ctx.restore();
 
             ctx.font = 'bold 34px Consolas, monospace';
             ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(125, 211, 252, 0.85)';
+            ctx.shadowBlur = 12;
             ctx.fillStyle = '#e0f2fe';
-            ctx.fillText(weaponName.toUpperCase(), 256, 56);
+            ctx.fillText(upper, 256, 56);
 
+            ctx.shadowColor = 'rgba(250, 204, 21, 0.7)';
             ctx.font = 'bold 32px Consolas, monospace';
             ctx.fillStyle = '#fde047';
-            ctx.fillText(cost + ' PTS', 256, 214);
+            ctx.fillText(cost + ' PTS', 256, 218);
 
             const tex = new THREE.CanvasTexture(c);
             if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
@@ -1408,16 +1460,53 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         createPerkSignTexture(perkName, colorHex) {
             const c = this._makeCanvas(256, 128);
             const ctx = c.getContext('2d');
-            ctx.fillStyle = '#090d14';
+            const bgGrad = ctx.createRadialGradient(128, 64, 10, 128, 64, 136);
+            bgGrad.addColorStop(0, '#182236');
+            bgGrad.addColorStop(1, '#070a12');
+            ctx.fillStyle = bgGrad;
             ctx.fillRect(0, 0, 256, 128);
-            ctx.strokeStyle = colorHex;
-            ctx.lineWidth = 8;
-            ctx.strokeRect(6, 6, 244, 116);
+
+            // Art-Deco backlit neon inner aura
+            ctx.save();
+            ctx.globalAlpha = 0.22;
             ctx.fillStyle = colorHex;
-            ctx.font = 'bold 28px Bahnschrift, Segoe UI, sans-serif';
+            ctx.fillRect(14, 14, 228, 100);
+            ctx.restore();
+
+            // Double Art-Deco bezel border + corner rivets
+            ctx.strokeStyle = colorHex;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(6, 6, 244, 116);
+            ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(14, 14, 228, 100);
+            ctx.fillStyle = '#e2e8f0';
+            for (const [rx, ry] of [[20, 20], [236, 20], [20, 108], [236, 108]]) {
+                ctx.beginPath(); ctx.arc(rx, ry, 3.2, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // Glass highlight streak
+            ctx.save();
+            ctx.globalAlpha = 0.12;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(14, 14); ctx.lineTo(130, 14); ctx.lineTo(54, 114); ctx.lineTo(14, 114); ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.shadowColor = colorHex;
+            ctx.shadowBlur = 14;
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 26px Bahnschrift, Segoe UI, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(perkName.toUpperCase(), 128, 64);
+            ctx.fillText(String(perkName || '').toUpperCase(), 128, 64, 212);
+            ctx.strokeStyle = colorHex;
+            ctx.lineWidth = 1.2;
+            ctx.strokeText(String(perkName || '').toUpperCase(), 128, 64, 212);
+            ctx.restore();
+
             const tex = new THREE.CanvasTexture(c);
             if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
             return tex;

@@ -787,9 +787,9 @@
         subtitle: 'COD World at War (100% 1:1 Official Replica) • Abandoned Airfield Bunker',
         description: '100% 1:1 Official WaW Layout: 5-Window Spawn Room with twin pillars, blood-painted "HELP" Door (1,000 PTS) to the fixed Mystery Box room, Couch Staircase Debris, 2nd Floor Overlook w/ Drop-Down Hole & Sniper Cabinet (1,500 PTS), and 10 windows!',
         atmosphere: {
-            skyTop: 0x05070b, skyBottom: 0x121820, fogColor: 0x0d1218, fogDensity: 0.025,
-            sunColor: 0x94a3b8, sunIntensity: 0.55, sunPos: [20, 35, 18],
-            hemiSky: 0x334155, hemiGround: 0x090b0e, hemiIntensity: 0.50, moon: true
+            skyTop: 0x05070b, skyBottom: 0x121820, fogColor: 0x0d1218, fogDensity: 0.024,
+            sunColor: 0x94a3b8, sunIntensity: 0.72, sunPos: [20, 35, 18],
+            hemiSky: 0x475569, hemiGround: 0x090b0e, hemiIntensity: 0.62, moon: true
         },
         playerSpawn: { x: 0, y: 0, z: 10.0, yaw: 0 },
         ramps: [
@@ -948,9 +948,9 @@
         subtitle: 'COD World at War (100% 1:1 Official Replica) • Swamp of Death & 4 Outer Huts',
         description: '100% 1:1 Official WaW Layout: Spawn upstairs under Hanging Paratrooper Peter McCain, open stairs to 1F Mystery Box, wade or stay on wooden boardwalks across the mud to Fishing Hut (Flogger), Doctor\'s Quarters (Zipline), Storage Hut, and Comm Room (Telephone Easter Egg) with randomized Perks!',
         atmosphere: {
-            skyTop: 0x09140e, skyBottom: 0x1b2e20, fogColor: 0x132217, fogDensity: 0.022,
-            sunColor: 0xa3e635, sunIntensity: 0.70, sunPos: [-25, 35, 20],
-            hemiSky: 0x3f6212, hemiGround: 0x0f170e, hemiIntensity: 0.55, moon: true
+            skyTop: 0x09140e, skyBottom: 0x1b2e20, fogColor: 0x132217, fogDensity: 0.021,
+            sunColor: 0xa3e635, sunIntensity: 0.85, sunPos: [-25, 35, 20],
+            hemiSky: 0x4d7c0f, hemiGround: 0x0f170e, hemiIntensity: 0.66, moon: true
         },
         playerSpawn: { x: -1.5, y: 3.2, z: 2.5, yaw: 0 },
         slowZones: [
@@ -1221,9 +1221,9 @@
         subtitle: 'COD World at War / BO1 (100% 1:1 Official Replica) • Group 935 Weapon Factory',
         description: '100% 1:1 Official Der Riese Layout: Link all 3 Teleporters (Z-A, Z-B, Z-C) to the Mainframe within 30s to retract the Pack-a-Punch steel cage, lower the Suspended Bridge with Power, and hold out on the iconic Steel Catwalk!',
         atmosphere: {
-            skyTop: 0x050912, skyBottom: 0x101c30, fogColor: 0x0b1322, fogDensity: 0.018,
-            sunColor: 0x93c5fd, sunIntensity: 0.85, sunPos: [25, 42, -20],
-            hemiSky: 0x3b82f6, hemiGround: 0x0f172a, hemiIntensity: 0.60, moon: true
+            skyTop: 0x050912, skyBottom: 0x101c30, fogColor: 0x0b1322, fogDensity: 0.017,
+            sunColor: 0x93c5fd, sunIntensity: 0.98, sunPos: [25, 42, -20],
+            hemiSky: 0x3b82f6, hemiGround: 0x0f172a, hemiIntensity: 0.68, moon: true
         },
         playerSpawn: { x: 0, y: 0, z: 12.0, yaw: 0 },
         ramps: [
@@ -1405,9 +1405,9 @@
         subtitle: 'COD Black Ops 1 (100% 1:1 Official Replica) • Berlin Theater of the Damned',
         description: '100% 1:1 Official BO1 Layout: Theater Lobby & Grand Staircase, Foyer & Dressing Room, Rainy Alley & Fire Trap, Main Stage with Red Velvet Curtains & Auto-Turret, and Link-to-Booth 30s Projection Room Pack-a-Punch!',
         atmosphere: {
-            skyTop: 0x09060c, skyBottom: 0x1e1328, fogColor: 0x120c18, fogDensity: 0.018,
-            sunColor: 0xfbbf24, sunIntensity: 0.80, sunPos: [15, 38, -20],
-            hemiSky: 0x6b21a8, hemiGround: 0x140f1a, hemiIntensity: 0.55, moon: true
+            skyTop: 0x09060c, skyBottom: 0x1e1328, fogColor: 0x120c18, fogDensity: 0.017,
+            sunColor: 0xfbbf24, sunIntensity: 0.95, sunPos: [15, 38, -20],
+            hemiSky: 0x7e22ce, hemiGround: 0x140f1a, hemiIntensity: 0.65, moon: true
         },
         playerSpawn: { x: 0, y: 0, z: 16.5, yaw: 0 },
         ramps: [

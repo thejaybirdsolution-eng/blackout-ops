@@ -353,22 +353,35 @@
 
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0x161b26, roughness: 0.35, metalness: 0.72 });
             const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.90 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.26, metalness: 0.85 });
             const colHex = new THREE.Color(p.color || '#38bdf8').getHex();
             const neonMat = new THREE.MeshBasicMaterial({ color: colHex });
 
-            // Base plinth + main armored vending cabinet + beveled crown
-            const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.16, 0.90), chromeMat);
+            // Base plinth + floor glow halo ring + armored cabinet + Art-Deco arch dome
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.16, 0.94), chromeMat);
             plinth.position.y = 0.08;
+            const floorHalo = new THREE.Mesh(new THREE.RingGeometry(0.68, 0.82, 24), new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+            floorHalo.rotation.x = -Math.PI * 0.5; floorHalo.position.y = 0.02;
             const body = new THREE.Mesh(new THREE.BoxGeometry(1.08, 2.25, 0.80), bodyMat);
-            body.position.y = 1.20;
-            body.castShadow = true;
-            const crown = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.18, 0.88), bodyMat);
+            body.position.y = 1.20; body.castShadow = true;
+            const crown = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.18, 0.88), brassMat);
             crown.position.y = 2.38;
+            const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.78, 12, 1, false, 0, Math.PI), bodyMat);
+            dome.rotation.x = Math.PI * 0.5; dome.rotation.z = Math.PI * 0.5; dome.position.y = 2.48;
+            const finial = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), neonMat);
+            finial.position.y = 3.05;
+            g.add(floorHalo, dome, finial);
 
-            // Side neon rails
+            // Side neon rails + brass cooling louvers
             const railL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.15, 0.06), neonMat);
             railL.position.set(-0.55, 1.22, 0.39);
             const railR = railL.clone(); railR.position.x = 0.55;
+            for (const s of [-1, 1]) {
+                for (let lv = 0; lv < 3; lv++) {
+                    const louver = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.48), brassMat);
+                    louver.position.set(s * 0.55, 0.7 + lv * 0.16, 0); g.add(louver);
+                }
+            }
 
             // Illuminated glass bottle display showcase + 3 glowing perk bottles inside!
             const glass = new THREE.Mesh(
@@ -388,9 +401,14 @@
                 bottles.push({ obj: bg, baseY: 0.95 });
             }
 
-            // Dispensing tray chute + chrome coin slot
-            const chute = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.28, 0.12), new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.7 }));
-            chute.position.set(0, 0.44, 0.38);
+            // Dispensing tray chute + illuminated push-button panel + chrome coin slot
+            const chute = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.28, 0.12), new THREE.MeshStandardMaterial({ color: 0x050811, roughness: 0.7 }));
+            chute.position.set(-0.08, 0.44, 0.38);
+            const coinSlot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.06), brassMat);
+            coinSlot.position.set(0.34, 0.46, 0.41);
+            const btn = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), neonMat);
+            btn.position.set(0.34, 0.50, 0.445);
+            g.add(coinSlot, btn);
 
             const signTex = BO.Textures.createPerkSignTexture(p.name, p.color);
             const sign = new THREE.Mesh(
@@ -442,38 +460,54 @@
             g.position.set(pap.x, pap.y, pap.z);
             g.rotation.y = pap.rotY || 0;
 
-            const forge = new THREE.Mesh(
-                new THREE.BoxGeometry(1.85, 2.35, 1.05),
-                new THREE.MeshStandardMaterial({ color: 0x231936, roughness: 0.35, metalness: 0.8 })
-            );
-            forge.position.y = 1.175;
-            forge.castShadow = true;
-            g.add(forge);
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0x201836, roughness: 0.34, metalness: 0.82 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.26, metalness: 0.88 });
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.92 });
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.78 });
+
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.22, 1.22), ironMat);
+            plinth.position.y = 0.11;
+            const forge = new THREE.Mesh(new THREE.BoxGeometry(1.86, 2.28, 1.05), steelMat);
+            forge.position.y = 1.32; forge.castShadow = true;
+            const crownTrim = new THREE.Mesh(new THREE.BoxGeometry(2.00, 0.16, 1.14), brassMat);
+            crownTrim.position.y = 2.48;
+            const archDome = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.98, 14, 1, false, 0, Math.PI), steelMat);
+            archDome.rotation.x = Math.PI * 0.5; archDome.rotation.z = Math.PI * 0.5; archDome.position.y = 2.54;
+            g.add(plinth, forge, crownTrim, archDome);
+
+            // Twin side brass boiler pipes & glowing arcane vacuum tubes
+            for (const s of [-1, 1]) {
+                const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 2.1, 8), brassMat);
+                pipe.position.set(s * 1.02, 1.3, 0);
+                const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.75, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                tube.position.set(s * 0.68, 2.75, 0.12);
+                const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.10, 10), brassMat);
+                cap.position.set(s * 0.68, 3.16, 0.12);
+                g.add(pipe, tube, cap);
+            }
 
             const signTex = BO.Textures.createPerkSignTexture('PACK-A-PUNCH', '#c084fc');
-            const sign = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.5, 0.65),
-                new THREE.MeshBasicMaterial({ map: signTex })
-            );
-            sign.position.set(0, 1.85, 0.54);
+            const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.56, 0.66), new THREE.MeshBasicMaterial({ map: signTex }));
+            sign.position.set(0, 1.98, 0.54);
             g.add(sign);
 
-            const slotGlow = new THREE.Mesh(
-                new THREE.BoxGeometry(0.75, 0.24, 0.12),
-                new THREE.MeshBasicMaterial({ color: 0xc084fc })
-            );
-            slotGlow.position.set(0, 1.1, 0.52);
-            const ringA = new THREE.Mesh(
-                new THREE.TorusGeometry(0.46, 0.024, 8, 22),
-                new THREE.MeshBasicMaterial({ color: 0xd8b4fe, transparent: true, opacity: 0.75 })
-            );
-            ringA.position.set(0, 1.1, 0.58);
-            const ringB = new THREE.Mesh(
-                new THREE.TorusGeometry(0.32, 0.018, 8, 18),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.75 })
-            );
-            ringB.position.set(0, 1.1, 0.59);
+            // Chrome intake rollers framing glowing upgrade slot + dual arcane energy rings
+            for (const ry of [0.95, 1.32]) {
+                const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.95, 10), chromeMat);
+                roller.rotation.z = Math.PI * 0.5; roller.position.set(0, ry, 0.54);
+                g.add(roller);
+            }
+            const slotGlow = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.24, 0.12), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
+            slotGlow.position.set(0, 1.14, 0.52);
+            const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.026, 8, 24), new THREE.MeshBasicMaterial({ color: 0xd8b4fe, transparent: true, opacity: 0.82 }));
+            ringA.position.set(0, 1.14, 0.59);
+            const ringB = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.020, 8, 20), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.82 }));
+            ringB.position.set(0, 1.14, 0.60);
             g.add(slotGlow, ringA, ringB);
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pLight = new THREE.PointLight(0xc084fc, 1.4, 8.0);
+                pLight.position.set(0, 1.6, 1.1); g.add(pLight);
+            }
 
             scene.add(g);
             this.worldMeshes.push(forge);
@@ -505,22 +539,25 @@
             const g = new THREE.Group();
             g.position.set(x, y, z);
             g.rotation.y = rotY;
-            const panel = new THREE.Mesh(
-                new THREE.BoxGeometry(0.42, 0.62, 0.16),
-                new THREE.MeshStandardMaterial({ color: 0x262c35, roughness: 0.5, metalness: 0.7 })
-            );
-            const lamp = new THREE.Mesh(
-                new THREE.SphereGeometry(0.065, 8, 8),
-                new THREE.MeshBasicMaterial({ color: initialHex })
-            );
-            lamp.position.set(0, 0.18, 0.10);
-            const handle = new THREE.Mesh(
-                new THREE.BoxGeometry(0.06, 0.26, 0.08),
-                new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4, metalness: 0.6 })
-            );
-            handle.position.set(0.11, -0.02, 0.12);
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.78 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 });
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.70, 0.18), steelMat);
+            const trim = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.08, 0.20), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            trim.position.y = -0.30;
+            const conduitTop = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.55, 8), brassMat);
+            conduitTop.position.set(0, 0.58, 0);
+            const cage = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.015, 6, 12), brassMat);
+            cage.position.set(0, 0.20, 0.11);
+            const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), new THREE.MeshBasicMaterial({ color: initialHex }));
+            lamp.position.set(0, 0.20, 0.11);
+            const handle = new THREE.Group();
+            handle.position.set(0.14, -0.02, 0.12);
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.28, 0.06), brassMat); arm.position.y = 0.08;
+            const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.5 }));
+            grip.rotation.z = Math.PI * 0.5; grip.position.y = 0.22;
+            handle.add(arm, grip);
             handle.rotation.x = -0.45;
-            g.add(panel, lamp, handle);
+            g.add(panel, trim, conduitTop, cage, lamp, handle);
             this.scene.add(g);
             this.animatedProps.push({ kind: 'switch_lamp', lamp, phase: x + z });
             return { group: g, lamp, handle };
@@ -1370,7 +1407,12 @@
                     barUpper.position.y = d.h * 0.28;
                     const barLower = barUpper.clone();
                     barLower.position.y = -d.h * 0.28;
-                    mesh.add(barUpper, barLower);
+                    const lockMed = new THREE.Mesh(
+                        new THREE.OctahedronGeometry(0.22, 0),
+                        new THREE.MeshBasicMaterial({ color: d.requiresPower ? 0xc084fc : 0xfacc15 })
+                    );
+                    lockMed.scale.set(1, 1.3, 0.6);
+                    mesh.add(barUpper, barLower, lockMed);
 
                     if (d.h >= 2.5) {
                         const frameMat = new THREE.MeshStandardMaterial({ color: 0x262b33, roughness: 0.55, metalness: 0.65 });
@@ -1421,10 +1463,14 @@
                 });
             }
 
-            // 2. Barricaded Windows w/ 6 repairable wood planks each (multi-floor Y aware!)
+            // 2. Barricaded Windows w/ Timber Jambs & 6 Repairable Nail-Studded Wood Planks
             const plankMat = BO.Textures.getWorldMaterial('wood_plank', 1, 1);
+            const nailMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.3 });
             for (const w of this.mapData.windows) {
                 const wy = w.y || 0;
+                const sill = new THREE.Mesh(new THREE.BoxGeometry(w.axis === 'z' ? w.w + 0.24 : 0.45, 0.12, w.axis === 'z' ? 0.45 : w.w + 0.24), plankMat);
+                sill.position.set(w.x, wy + 0.96, w.z);
+                scene.add(sill);
                 const plankMeshes = [];
                 for (let i = 0; i < 6; i++) {
                     const pw = w.axis === 'z' ? (w.w - 0.1) : 0.12;
@@ -1438,6 +1484,11 @@
                         w.z + (w.axis === 'z' ? offset : 0)
                     );
                     pm.rotation.z = (i % 2 === 0 ? 0.08 : -0.07);
+                    for (const ns of [-0.42, 0.42]) {
+                        const nail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.16), nailMat);
+                        nail.position.set(w.axis === 'z' ? (w.w - 0.2) * ns : 0, 0, w.axis === 'z' ? 0 : (w.w - 0.2) * ns);
+                        pm.add(nail);
+                    }
                     scene.add(pm);
                     plankMeshes.push(pm);
                 }
@@ -1535,24 +1586,29 @@
                     const cg = new THREE.Group();
                     cg.position.set(sc.x, sc.y, sc.z);
                     cg.rotation.y = sc.rotY || 0;
-                    const body = new THREE.Mesh(
-                        new THREE.BoxGeometry(1.5, 1.9, 0.36),
-                        new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 0.75 })
-                    );
-                    const gunBar = new THREE.Mesh(
-                        new THREE.BoxGeometry(0.10, 1.15, 0.08),
-                        new THREE.MeshStandardMaterial({ color: 0x4b5563, metalness: 0.7 })
-                    );
-                    gunBar.position.set(0, 0, 0.14);
+                    const oak = new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 0.72 });
+                    const brass = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
+                    const body = new THREE.Mesh(new THREE.BoxGeometry(1.56, 1.96, 0.38), oak);
+                    const crown = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.14, 0.44), brass); crown.position.y = 1.02;
+                    const velvet = new THREE.Mesh(new THREE.PlaneGeometry(1.36, 1.72), new THREE.MeshStandardMaterial({ color: 0x450a0a, roughness: 0.92 }));
+                    velvet.position.z = 0.195;
+                    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.75, 0.09), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.65 }));
+                    stock.position.set(0, -0.35, 0.22);
+                    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.15, 8), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.85 }));
+                    barrel.position.set(0, 0.28, 0.22);
+                    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.44, 8), brass);
+                    scope.position.set(0.06, 0.16, 0.24);
                     const doorPivot = new THREE.Group();
-                    doorPivot.position.set(-0.72, 0, 0.20);
+                    doorPivot.position.set(-0.72, 0, 0.22);
                     const glass = new THREE.Mesh(
                         new THREE.BoxGeometry(1.42, 1.78, 0.04),
-                        new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.38, roughness: 0.1 })
+                        new THREE.MeshStandardMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.34, roughness: 0.1 })
                     );
                     glass.position.set(0.71, 0, 0);
-                    doorPivot.add(glass);
-                    cg.add(body, gunBar, doorPivot);
+                    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.06), brass);
+                    handle.position.set(1.32, 0, 0.04);
+                    doorPivot.add(glass, handle);
+                    cg.add(body, crown, velvet, stock, barrel, scope, doorPivot);
                     scene.add(cg);
 
                     this.interactives.push({
@@ -1604,22 +1660,33 @@
                 chest.castShadow = true;
                 boxGroup.add(chest);
                 if (BO.MapDetail) BO.MapDetail.dressMysteryBox(boxGroup, 1.75, 0.65, 0.85);
+                const sigil = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                sigil.position.set(0, 0.62, 0.45);
+                boxGroup.add(sigil);
 
                 const lidPivot = new THREE.Group();
                 lidPivot.position.set(0, 0.65, -0.42);
                 const lid = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.78, 0.14, 0.88),
+                    new THREE.CylinderGeometry(0.42, 0.42, 1.78, 8, 1, false, 0, Math.PI),
                     new THREE.MeshStandardMaterial({ color: 0x5c3c22, roughness: 0.7 })
                 );
-                lid.position.set(0, 0.07, 0.42);
-                lidPivot.add(lid);
+                lid.rotation.z = Math.PI * 0.5;
+                lid.position.set(0, 0.0, 0.42);
+                const lidTrim = new THREE.Mesh(new THREE.BoxGeometry(1.80, 0.07, 0.88), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 }));
+                lidTrim.position.set(0, 0.03, 0.42);
+                lidPivot.add(lid, lidTrim);
                 boxGroup.add(lidPivot);
 
                 const beacon = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.18, 0.35, 36, 12, 1, true),
+                    new THREE.CylinderGeometry(0.16, 0.36, 36, 12, 1, true),
                     new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
                 );
                 beacon.position.y = 18;
+                const innerBeam = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.06, 0.14, 36, 8, 1, true),
+                    new THREE.MeshBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+                );
+                beacon.add(innerBeam);
                 boxGroup.add(beacon);
 
                 const previewAnchor = new THREE.Group();
@@ -1678,7 +1745,17 @@
                     const fxGroup = new THREE.Group();
                     fxGroup.position.set(tr.x, baseY, tr.z);
                     if (tr.kind === 'electro_shock') {
-                        const boltMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.78 });
+                        const pylonMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.78, roughness: 0.32 });
+                        const copMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.24 });
+                        for (const s of [-1, 1]) {
+                            const py = new THREE.Group();
+                            py.position.set(tr.x + (tr.axis === 'z' ? s * 1.65 : 0), baseY, tr.z + (tr.axis === 'z' ? 0 : s * 1.65));
+                            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.13, 2.6, 8), pylonMat); pole.position.y = 1.3;
+                            const coil = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 6, 12), copMat); coil.rotation.x = Math.PI * 0.5; coil.position.y = 2.4;
+                            const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0x38bdf8 })); tip.position.y = 2.65;
+                            py.add(pole, coil, tip); scene.add(py);
+                        }
+                        const boltMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.82 });
                         for (let i = 0; i < 4; i++) {
                             const bar = new THREE.Mesh(
                                 new THREE.BoxGeometry(tr.axis === 'z' ? 3.2 : 0.10, 0.08, tr.axis === 'z' ? 0.10 : 3.2),
@@ -1689,21 +1766,27 @@
                         }
                         fxGroup.visible = false;
                     } else if (tr.kind === 'fire_trap') {
-                        const fMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.72 });
+                        const grate = new THREE.Mesh(
+                            new THREE.BoxGeometry(tr.axis === 'z' ? 3.2 : 0.75, 0.06, tr.axis === 'z' ? 0.75 : 3.2),
+                            new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.35 })
+                        );
+                        grate.position.set(tr.x, baseY + 0.03, tr.z); scene.add(grate);
+                        const fMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.74 });
+                        const fCore = new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.82 });
                         for (let i = -2; i <= 2; i++) {
-                            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.1, 8), fMat);
-                            cone.position.set(tr.axis === 'z' ? i * 0.62 : 0, 1.05, tr.axis === 'z' ? 0 : i * 0.62);
-                            fxGroup.add(cone);
+                            const px = tr.axis === 'z' ? i * 0.62 : 0, pz = tr.axis === 'z' ? 0 : i * 0.62;
+                            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.2, 8), fMat); cone.position.set(px, 1.1, pz);
+                            const inner = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.4, 6), fCore); inner.position.set(px, 0.75, pz);
+                            fxGroup.add(cone, inner);
                         }
                         fxGroup.visible = false;
                     } else if (tr.kind === 'auto_turret') {
-                        const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.38, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 }));
-                        stand.position.y = 0.65;
-                        const gunHead = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.95), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85 }));
-                        gunHead.position.y = 1.38;
-                        fxGroup.add(stand, gunHead);
+                        const turBuilt = BO.CharacterMesh ? BO.CharacterMesh.buildSentryTurret() : null;
+                        if (turBuilt) {
+                            fxGroup.add(turBuilt.root);
+                            fxGroup.userData.gunHead = turBuilt.headGroup;
+                        }
                         fxGroup.visible = true;
-                        fxGroup.userData.gunHead = gunHead;
                     } else if (tr.kind === 'zipline') {
                         const wireLen = Math.hypot((tr.destX - tr.x), (tr.destY - baseY), (tr.destZ - tr.z));
                         const wire = new THREE.Mesh(
@@ -1759,13 +1842,25 @@
             }
             tpPads.forEach((pad, idx) => {
                 const py = pad.y || 0;
-                const ring = new THREE.Mesh(
-                    new THREE.TorusGeometry(1.35, 0.12, 10, 28),
-                    new THREE.MeshBasicMaterial({ color: pad.color || (idx % 2 === 0 ? 0x38bdf8 : 0xa855f7) })
-                );
-                ring.rotation.x = Math.PI * 0.5;
-                ring.position.set(pad.x, py + 0.12, pad.z);
-                scene.add(ring);
+                const tpCol = pad.color || (idx % 2 === 0 ? 0x38bdf8 : 0xa855f7);
+                const tpGrp = new THREE.Group(); tpGrp.position.set(pad.x, py, pad.z);
+                const deck = new THREE.Mesh(new THREE.CylinderGeometry(1.52, 1.72, 0.18, 8), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 }));
+                deck.position.y = 0.09;
+                const vortex = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.25, 2.2, 12, 1, true), new THREE.MeshBasicMaterial({ color: tpCol, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+                vortex.position.y = 1.25;
+                tpGrp.add(deck, vortex);
+                for (let pi = 0; pi < 3; pi++) {
+                    const a = (pi / 3) * Math.PI * 2;
+                    const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.65, 0.22), new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.82 }));
+                    pylon.position.set(Math.cos(a) * 1.48, 0.92, Math.sin(a) * 1.48); pylon.rotation.y = -a;
+                    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), new THREE.MeshBasicMaterial({ color: tpCol }));
+                    orb.position.set(Math.cos(a) * 1.42, 1.82, Math.sin(a) * 1.42);
+                    tpGrp.add(pylon, orb);
+                }
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(1.36, 0.11, 10, 28), new THREE.MeshBasicMaterial({ color: tpCol }));
+                ring.rotation.x = Math.PI * 0.5; ring.position.y = 0.22;
+                tpGrp.add(ring);
+                scene.add(tpGrp);
                 this.teleporterRings.push(ring);
 
                 this.interactives.push({
@@ -1923,20 +2018,32 @@
             if (Array.isArray(this.mapData.lunarLanders)) {
                 for (const ll of this.mapData.lunarLanders) {
                     const py = ll.y || 0;
+                    const lCol = ll.color || 0xf59e0b;
                     const lg = new THREE.Group();
                     lg.position.set(ll.x, py, ll.z);
                     const deck = new THREE.Mesh(
-                        new THREE.CylinderGeometry(2.1, 2.3, 0.28, 12),
-                        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.4 })
+                        new THREE.CylinderGeometry(2.15, 2.4, 0.30, 8),
+                        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.74, roughness: 0.36 })
                     );
-                    deck.position.y = 0.14;
+                    deck.position.y = 0.15;
+                    const trim = new THREE.Mesh(new THREE.TorusGeometry(2.22, 0.08, 6, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+                    trim.rotation.x = Math.PI * 0.5; trim.position.y = 0.28;
+                    for (let si = 0; si < 4; si++) {
+                        const a = (si / 4) * Math.PI * 2 + Math.PI * 0.25;
+                        const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 1.35, 6), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85 }));
+                        strut.position.set(Math.cos(a) * 1.9, 0.72, Math.sin(a) * 1.9);
+                        strut.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25);
+                        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), new THREE.MeshBasicMaterial({ color: lCol }));
+                        beacon.position.set(Math.cos(a) * 1.75, 1.42, Math.sin(a) * 1.75);
+                        lg.add(strut, beacon);
+                    }
                     const podRing = new THREE.Mesh(
                         new THREE.TorusGeometry(1.75, 0.10, 8, 24),
-                        new THREE.MeshBasicMaterial({ color: ll.color || 0xf59e0b })
+                        new THREE.MeshBasicMaterial({ color: lCol })
                     );
                     podRing.rotation.x = Math.PI * 0.5;
-                    podRing.position.y = 0.30;
-                    lg.add(deck, podRing);
+                    podRing.position.y = 0.34;
+                    lg.add(deck, trim, podRing);
                     scene.add(lg);
                     this.teleporterRings.push(podRing);
 
@@ -1958,27 +2065,29 @@
                 const rg = new THREE.Group();
                 rg.position.set(rc.x, rc.y, rc.z);
                 rg.rotation.y = rc.rotY || 0;
+                const ped = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.45, 0.55), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8 })); ped.position.y = -0.35;
                 const box = new THREE.Mesh(
-                    new THREE.BoxGeometry(1.1, 1.0, 0.45),
-                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.65, roughness: 0.45 })
+                    new THREE.BoxGeometry(1.18, 0.98, 0.48),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.72, roughness: 0.38 })
                 );
-                rg.add(box);
+                const crt = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.32), new THREE.MeshBasicMaterial({ color: 0x0284c7 })); crt.position.set(-0.22, -0.02, 0.25);
+                rg.add(ped, box, crt);
                 this.ascensionConsoleBulbs = [];
                 for (let b = 0; b < 3; b++) {
                     const bulb = new THREE.Mesh(
-                        new THREE.SphereGeometry(0.08, 8, 8),
+                        new THREE.SphereGeometry(0.085, 8, 8),
                         new THREE.MeshBasicMaterial({ color: 0xef4444 })
                     );
-                    bulb.position.set((b - 1) * 0.28, 0.24, 0.24);
+                    bulb.position.set((b - 1) * 0.30, 0.30, 0.25);
                     rg.add(bulb);
                     this.ascensionConsoleBulbs.push(bulb);
                 }
                 const btn = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.10, 0.10, 0.08, 10),
+                    new THREE.CylinderGeometry(0.11, 0.11, 0.08, 12),
                     new THREE.MeshBasicMaterial({ color: 0x22c55e })
                 );
                 btn.rotation.x = Math.PI * 0.5;
-                btn.position.set(0, -0.14, 0.25);
+                btn.position.set(0.28, -0.06, 0.26);
                 rg.add(btn);
                 scene.add(rg);
 
@@ -2090,24 +2199,30 @@
                     scene.add(g);
                     this.animatedProps.push({ kind: 'pendulum', obj: swayPivot, phase: (lm.x || 0) * 0.5 });
                 } else if (lm.kind === 'flogger') {
-                    // Shi No Numa Spinning Spiked Flogger Trap Beam
+                    // Shi No Numa Iron-Banded A-Frame Spinning Spiked Flogger Trap Beam
                     const g = new THREE.Group();
                     g.position.set(lm.x, lm.y || 2.8, lm.z);
                     const woodMat = BO.Textures.getWorldMaterial('wood_plank', 1, 1);
-                    const postL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.4, 0.35), woodMat);
-                    postL.position.set(-2.1, -1.1, 0);
-                    const postR = postL.clone();
-                    postR.position.x = 2.1;
+                    const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.85, roughness: 0.3 });
+                    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.22 });
+                    const postL = new THREE.Mesh(new THREE.BoxGeometry(0.38, 3.5, 0.38), woodMat); postL.position.set(-2.15, -1.1, 0);
+                    const postR = postL.clone(); postR.position.x = 2.15;
+                    for (const px of [-2.15, 2.15]) {
+                        const collar = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.36, 0.46), ironMat); collar.position.set(px, 0, 0); g.add(collar);
+                    }
                     const rotor = new THREE.Group();
-                    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.8, 12), woodMat);
+                    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 3.9, 12), woodMat);
                     drum.rotation.z = Math.PI * 0.5;
                     rotor.add(drum);
-                    const spikeMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
                     for (let i = 0; i < 8; i++) {
                         const ang = (i / 8) * Math.PI * 2;
-                        const blade = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.12, 0.75), spikeMat);
-                        blade.rotation.x = ang;
-                        rotor.add(blade);
+                        const blade = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.12, 0.78), ironMat);
+                        blade.rotation.x = ang; rotor.add(blade);
+                        for (let sp = -1.2; sp <= 1.2; sp += 0.8) {
+                            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.34, 5), spikeMat);
+                            spike.position.set(sp, Math.sin(ang) * 0.45, Math.cos(ang) * 0.45);
+                            spike.rotation.x = ang; rotor.add(spike);
+                        }
                     }
                     g.add(postL, postR, rotor);
                     scene.add(g);

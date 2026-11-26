@@ -557,17 +557,31 @@
                 if (this.elKsDock) this.elKsDock.classList.add('hidden');
 
                 if (this.elRoundChalk) this.elRoundChalk.textContent = BO.Math.toRoman(zm.round);
-                if (this.elPointsVal) this.elPointsVal.textContent = zm.points.toLocaleString('en-US');
+                if (this.elPointsVal) {
+                    this.elPointsVal.textContent = zm.points.toLocaleString('en-US');
+                    const pBox = this.elPointsVal.parentElement;
+                    if (pBox) {
+                        let zSub = pBox.querySelector('.z-hostiles-sub');
+                        if (!zSub) {
+                            zSub = document.createElement('div');
+                            zSub.className = 'z-hostiles-sub';
+                            pBox.appendChild(zSub);
+                        }
+                        const aliveN = zm.zombies ? zm.zombies.filter((z) => z.alive).length : 0;
+                        const totalLeft = aliveN + (zm.remainingToSpawn || 0);
+                        zSub.textContent = `HOSTILES ${totalLeft} • ${zm.kills || 0} KILLS`;
+                    }
+                }
 
                 // Live Boss Health Bar (handled by multi-boss HUD)
                 if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
 
                 if (this.elZPowerUps) {
                     const badges = [];
-                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge" style="border-color:#facc15;color:#facc15">INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
-                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge" style="border-color:#38bdf8;color:#38bdf8">2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
-                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge" style="border-color:#ec4899;color:#ec4899">FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
-                    if (zm.exfilActive) badges.push(`<div class="pu-badge" style="border-color:#22c55e;color:#22c55e">EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
+                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge ${zm.instaKillTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#facc15;color:#facc15">💀 INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
+                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge ${zm.doublePointsTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#38bdf8;color:#38bdf8">⚡ 2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
+                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge ${zm.fireSaleTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#ec4899;color:#ec4899">🔥 FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
+                    if (zm.exfilActive) badges.push(`<div class="pu-badge ${zm.exfilTimer < 12 ? 'pu-badge-urgent' : ''}" style="border-color:#22c55e;color:#22c55e">🚁 EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
                     if (zm.getMapStatusBadges) {
                         for (const mb of zm.getMapStatusBadges()) {
                             badges.push(`<div class="pu-badge" style="border-color:${mb.color};color:${mb.color}">${mb.text}</div>`);
