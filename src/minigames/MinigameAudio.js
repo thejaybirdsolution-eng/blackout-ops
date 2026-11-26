@@ -677,6 +677,17 @@
                     const whistle = [0, 0, N.A4, 0, N.D5, 0, 0, 0, N.A4, 0, N.C5, 0, N.G4, 0, 0, 0][st];
                     if (whistle) this._osc(whistle, 0.36, 'sine', 0.065, { pan: Math.sin(s * 0.25) * 0.25 });
                 }
+            } else if (this.mode === 'tactical') {
+                // 136 BPM High-Energy CQB / Neon Synth-Action Pulse
+                this.timer = 0.110;
+                const N = NOTE, st = s % 16, bar = Math.floor(s / 16) % 4;
+                const root = [N.E2, N.E2, N.G2, N.D2][bar];
+                if (st % 4 === 0 || st === 14) this._kick(0.26, 148, 44, 0.18);
+                if (st === 4 || st === 12) this._snare(0.18, 205, 0.13);
+                if (st % 2 === 1) this._hat(0.05, false, (st % 4 === 1 ? -0.25 : 0.25));
+                this._osc(root * (st % 4 === 2 ? 1.5 : 1), 0.10, 'sawtooth', 0.095, { cutoff: 950 });
+                const stab = [N.E4, 0, N.B4, N.E5, 0, N.D5, N.B4, 0, N.G4, 0, N.A4, N.B4, 0, N.G4, N.Fs4, 0][st];
+                if (stab) this._osc(stab, 0.10, 'triangle', 0.072, { pan: (st % 4 - 1.5) * 0.2 });
             }
         }
 

@@ -961,15 +961,17 @@
         tagline: 'Outlaws in the windows. Townsfolk in the crossfire.',
         desc: 'High noon on Main Street. Cardboard outlaws burst from windows, doorways, rooftops and barrels. Draw fast: any outlaw left standing fires back and costs you points. Townsfolk wander into view too, and shooting one is a big penalty. Headshots pay 1.5x.',
         hudSub: "Outlaws shoot back if you're slow — spare the townsfolk",
-        duration: 60, stars: [2500, 5000, 8000, 11000], standardWeapon: 'python_magnum',
+        duration: 60, stars: [2500, 5000, 8000, 11000], standardWeapon: 'python_magnum', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x9a3412, skyBottom: 0xfcd34d, fogColor: 0xe7b97a, fogDensity: 0.008, sunColor: 0xffd59e, sunIntensity: 1.8, sunPos: [-30, 30, -50], hemiSky: 0xfde68a, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
             boxes: [B(0, -0.5, -30, 200, 1, 200, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('western');
             K.booth(S, { awning: '#78350f', wood: 0x8b5a2b });
             const slots = [];
+            const lanternPts = [];
             const woodCols = [0x8b5a2b, 0xa16207, 0x7c2d12, 0x9a3412, 0x854d0e, 0x6b4423];
             const sideBuilding = (x, z, w, h, col, name, sideSign) => {
                 const g = new THREE.Group();
@@ -991,6 +993,7 @@
                     post.position.set(fx - sideSign * 2.1, 1.5, pz);
                     g.add(post);
                 }
+                lanternPts.push(V(x + fx - sideSign * 2.05, 2.75, z - w * 0.28), V(x + fx - sideSign * 2.05, 2.75, z + w * 0.28));
                 const sign = A.sign(name, w * 0.8, 0.8, { bg: '#3f2a14', color: '#fde68a', borderColor: '#a16207', size: 0.5 });
                 sign.position.set(fx - sideSign * 0.12, h + 0.6, 0);
                 sign.rotation.y = -sideSign * Math.PI / 2;
@@ -1037,6 +1040,14 @@
             const endSign = A.sign('BANDIT TOWN', 9, 1.4, { bg: '#3f2a14', color: '#fde68a', borderColor: '#f59e0b', size: 0.6 });
             endSign.position.set(0, 7.2, -51.9);
             S.add(endSign);
+            for (let lx = -4.5; lx <= 4.5; lx += 0.9) lanternPts.push(V(lx, 6.3, -51.8));
+            const lanterns = A.bulbs(lanternPts, [0xfbbf24, 0xf59e0b, 0xfde68a], 0.11);
+            S.add(lanterns);
+            A.animateBulbs(S, lanterns, 4, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl1 = new THREE.PointLight(0xffb454, 1.6, 36, 1.4); pl1.position.set(0, 4.5, -14); S.add(pl1);
+                const pl2 = new THREE.PointLight(0xffb454, 1.6, 36, 1.4); pl2.position.set(0, 5.0, -34); S.add(pl2);
+            }
             for (const ex of [-5, 0, 5]) {
                 const w = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.4), basic(0x1c1008));
                 w.position.set(ex, 4.6, -51.98);
@@ -1143,6 +1154,7 @@
             });
         },
         update(S, dt) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { draw: true });
             for (const sl of S.data.slots || []) {
                 if (!sl.shutters) continue;
                 for (const sh of sl.shutters) {
@@ -1151,6 +1163,7 @@
                     sh.g.rotation.y = base + sh.s * sh.cur * 1.9 * (sl.yawSide || 1);
                 }
             }
-        }
+        },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); }
     });
 })(window);

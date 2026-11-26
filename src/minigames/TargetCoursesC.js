@@ -418,7 +418,7 @@
         heroLabel: 'TARGET PRACTICE • CHALLENGE • 31 SECONDS',
         duration: 31, stars: [18, 24, 28, 30], starLabel: (th) => th + ' / 30',
         standardWeapon: 'mk14',
-        fireInterval: 0.5, noReload: true, ringScoring: true,
+        fireInterval: 0.5, noReload: true, ringScoring: true, customMusic: true,
         formatBest: (b) => (b.extra && b.extra.hits !== undefined ? b.extra.hits + '/30 • ' : '') + Number(b.score).toLocaleString(),
         map: {
             atmosphere: { skyTop: 0x1e293b, skyBottom: 0xfb923c, fogColor: 0x9a6b4b, fogDensity: 0.008, sunColor: 0xffb070, sunIntensity: 1.5, sunPos: [-50, 14, -60], hemiSky: 0xfed7aa, hemiGround: 0x3b2f2a, hemiIntensity: 0.7 },
@@ -427,10 +427,26 @@
         },
         keys: [['LMB', 'Fire (0.5s between shots)'], ['R', 'Retry from results']],
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('range');
             K.booth(S, { wood: 0x3f3f46, trim: 0x18181b, awning: '#475569' });
             const sign = A.sign('ONE MAG • NO RELOAD', 3.2, 0.5, { bg: '#0f172a', color: '#e2e8f0', borderColor: '#94a3b8', size: 0.5 });
             sign.position.set(0, 2.45, -1.42);
             S.add(sign);
+            // Tactical 30-round magazine prop on counter + steel range gantry arch at z=-12
+            const magBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.14), std(0x1f2937, 0.4, 0.8));
+            magBody.position.set(-1.1, 1.18, -0.76); magBody.rotation.set(0.15, 0.3, Math.PI / 2); S.add(magBody);
+            const gM = std(0x334155, 0.5, 0.7);
+            for (const gx of [-8.5, 8.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.26, 5.8, 0.26), gM); p.position.set(gx, 2.9, -12); S.add(p); }
+            const gTop = new THREE.Mesh(new THREE.BoxGeometry(17.6, 0.32, 0.32), gM); gTop.position.set(0, 5.7, -12); S.add(gTop);
+            const gSign = A.sign('ONE MAG • 30 ROUNDS • NO RELOAD', 7.2, 1.0, { bg: '#0f172a', color: '#f8fafc', borderColor: '#f59e0b', size: 0.52 });
+            gSign.position.set(0, 5.85, -11.82); S.add(gSign);
+            const bPts = [];
+            for (let i = 0; i <= 18; i++) bPts.push(V(-8.1 + i * 0.9, 5.45, -11.85));
+            const bulbs = A.bulbs(bPts, [0xfef08a, 0xf8fafc, 0xf59e0b], 0.08);
+            S.add(bulbs); A.animateBulbs(S, bulbs, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xffcf87, 1.5, 24, 1.5); pl.position.set(0, 3.2, -1.6); S.add(pl);
+            }
             // berms and barricades at staggered distances
             for (const [x, z, w] of [[-9, -14, 4], [7, -18, 5], [-3, -26, 6], [11, -32, 4], [-12, -36, 5], [2, -42, 8]]) {
                 const b = new THREE.Mesh(new THREE.BoxGeometry(w, 0.9, 0.9), std(0x7c6248, 1));
@@ -451,6 +467,7 @@
             // round counter pips
             S.data.hitsByShot = [];
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         start(S) {
             const w = BO.Player.activeWeapon;
             if (w) { w.mag = ONE_MAG_ROUNDS; w.reserve = 0; }
@@ -471,18 +488,27 @@
                 const amp = 1.4 + rng() * 2.5;
                 const spd = lerp(1.0, 2.6, k) * (rng() < 0.5 ? 1 : -1);
                 const ph = rng() * TAU;
+                const isGold = (i % 5 === 4);
                 S.at(at, (S2) => {
-                    const t = A.steelPlate(radius, i % 5 === 4 ? 0xfde68a : 0xd4d4d8);
+                    const t = A.steelPlate(radius, isGold ? 0xfde68a : 0xd4d4d8);
+                    if (isGold && t.hitMeshes[0] && t.hitMeshes[0].material[1]) {
+                        t.hitMeshes[0].material[1].emissive = new THREE.Color(0xa16207);
+                        t.hitMeshes[0].material[1].emissiveIntensity = 0.45;
+                    }
                     const pos = V(x, y, -dist);
                     S2.addTarget(Object.assign(t, {
-                        pos, yaw: A.yawTo(pos, V(0, 1.6, 0)), points: 1000, life, appear: 'flip', death: 'knock', deathColor: 0xe5e7eb,
+                        pos, yaw: A.yawTo(pos, V(0, 1.6, 0)), points: 1000, life, appear: 'flip', death: 'knock', deathColor: isGold ? 0xfacc15 : 0xe5e7eb,
                         motion: mover ? K.sweep(amp, spd, ph) : null,
-                        onKill: () => SFX.ding(1 + (i % 4) * 0.08)
+                        onKill: () => {
+                            SFX.ding(1 + (i % 4) * 0.08);
+                            if (BO.MinigameAudio) BO.MinigameAudio.steelPing(isGold ? 1.4 : 1.0 + (i % 4) * 0.06);
+                        }
                     }));
                 });
             }
         },
         update(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             if (state !== 'running') return;
             const w = BO.Player.activeWeapon;
             const all = S.spawned >= 30 && !S.targets.some((t) => t.alive);

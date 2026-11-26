@@ -22,13 +22,14 @@
         tagline: 'A rooftop at midnight. The sky is buzzing.',
         desc: 'Hold a skyscraper rooftop while quadcopters weave, strafe and dive out of the neon skyline. Scouts are quick, speeders are quicker, and armoured drones take three hits. Late in the run they start arriving from behind, so keep moving.',
         hudSub: 'Armoured drones take 3 hits — watch your six late game',
-        duration: 60, stars: [4000, 8500, 14000, 20000], standardWeapon: 'g36c_tac',
+        duration: 60, stars: [4000, 8500, 14000, 20000], standardWeapon: 'g36c_tac', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x020617, skyBottom: 0x1e1b4b, fogColor: 0x0b1026, fogDensity: 0.006, sunColor: 0x93c5fd, sunIntensity: 0.55, sunPos: [-20, 50, 30], hemiSky: 0x6366f1, hemiGround: 0x0f172a, hemiIntensity: 0.65, moon: true },
             boxes: [B(0, -0.5, 0, 26, 1, 26, 'concrete')],
             spawn: { x: 0, y: 0, z: 4, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('tactical');
             // parapet
             const par = std(0x3f3f46, 0.8);
             S.box(0, 0.55, -13, 26, 1.1, 0.4, par);
@@ -39,7 +40,12 @@
             S.collider(-13, 1.1, 12.8, 13, 4, 13.2);
             S.collider(-13.2, 1.1, -13, -12.8, 4, 13);
             S.collider(12.8, 1.1, -13, 13.2, 4, 13);
-            // helipad
+            // chasing cyan/magenta neon parapet bulbs
+            const pPts = [];
+            for (let i = -12; i <= 12; i += 2) pPts.push(V(i, 1.18, -13), V(13, 1.18, i), V(-i, 1.18, 13), V(-13, 1.18, -i));
+            const pBulbs = A.bulbs(pPts, [0x22d3ee, 0xf472b6, 0x38bdf8], 0.09);
+            S.add(pBulbs); A.animateBulbs(S, pBulbs, 6, 'chase');
+            // helipad + pulsing neon torus
             const pad = new THREE.Mesh(new THREE.CircleGeometry(5, 40), new THREE.MeshStandardMaterial({ map: L.canvasTex('helipad', 256, 256, (g, w) => {
                 g.fillStyle = '#334155'; g.fillRect(0, 0, w, w);
                 g.strokeStyle = '#facc15'; g.lineWidth = 10; g.beginPath(); g.arc(128, 128, 112, 0, Math.PI * 2); g.stroke();
@@ -48,11 +54,19 @@
             pad.rotation.x = -Math.PI / 2;
             pad.position.set(0, 0.01, 2);
             S.add(pad);
+            const hRing = new THREE.Mesh(new THREE.TorusGeometry(5.1, 0.08, 8, 40), new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.55 }));
+            hRing.rotation.x = Math.PI / 2; hRing.position.set(0, 0.04, 2); S.add(hRing);
+            S.animate(() => { hRing.material.opacity = 0.35 + Math.sin(performance.now() * 0.005) * 0.25; });
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0x38bdf8, 1.8, 28, 1.4); pl.position.set(0, 5, 2); S.add(pl);
+            }
             // rooftop clutter (cover + flavour)
             const ac = std(0x9ca3af, 0.5, 0.6);
             S.box(-9, 0.8, 8, 2.4, 1.6, 2.4, ac);
             S.box(9, 0.8, -8, 2.4, 1.6, 3.2, ac);
             S.box(9.5, 1.6, 9, 3, 3.2, 3, std(0x52525b, 0.8));
+            const rSign = A.sign('ROOFTOP DEFENSE • WATCH SIX', 2.8, 0.55, { bg: '#090d26', color: '#67e8f9', borderColor: '#22d3ee', size: 0.45 });
+            rSign.position.set(9.5, 3.55, 7.45); S.add(rSign);
             const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 10, 6), std(0xd4d4d8, 0.4, 0.8));
             antenna.position.set(-10, 5, -10);
             S.add(antenna);
@@ -96,6 +110,8 @@
             }
             K.cloudLayer(S, 8, 40, 200, 0x312e81, 0.35);
         },
+        update(S, dt) { if (BO.MinigameAudio) BO.MinigameAudio.tick(dt); },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         schedule(S) {
             K.ramp(S, { from: 1.25, to: 0.5, start: 0.3 }, (at, k, rng) => {
                 const roll = rng();
@@ -159,14 +175,24 @@
         tagline: 'Steel at 200 metres. Listen for the ding.',
         desc: 'A clifftop hide above a mountain valley. Steel gongs drop and rise across the slopes from 45 to 200 metres, and distance adds to every hit. The ring arrives late because sound travels. Later plates slide along rails and stay up for less time.',
         hudSub: 'Farther plates are worth more — hold breath with SHIFT',
-        duration: 60, stars: [3000, 6500, 10500, 14000], standardWeapon: 'dragunov_svd', ringScoring: true,
+        duration: 60, stars: [3000, 6500, 10500, 14000], standardWeapon: 'dragunov_svd', ringScoring: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x0c4a6e, skyBottom: 0xe0f2fe, fogColor: 0xc5dcea, fogDensity: 0.0022, sunColor: 0xfff1d6, sunIntensity: 1.9, sunPos: [80, 60, -40], hemiSky: 0xe0f2fe, hemiGround: 0x3f6212, hemiIntensity: 0.85 },
             boxes: [B(0, -0.5, 1, 12, 1, 10, 'wood_plank')],
             spawn: { x: 0, y: 0, z: 1.5, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('contracts');
             K.booth(S, { roof: true, wood: 0x6b4423 });
+            const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.055, 0.32, 12), std(0x1f2937, 0.4, 0.7));
+            scope.rotation.x = Math.PI / 2; scope.position.set(0.65, 1.2, -0.72); S.add(scope);
+            const rPts = [];
+            for (let x = -1.6; x <= 1.6; x += 0.8) rPts.push(V(x, 2.68, -1.48));
+            const rBulbs = A.bulbs(rPts, [0xfde68a, 0xa3e635], 0.06);
+            S.add(rBulbs); A.animateBulbs(S, rBulbs, 3, 'twinkle');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const lp = new THREE.PointLight(0xffe0a3, 1.4, 16, 1.6); lp.position.set(0, 2.4, -0.4); S.add(lp);
+            }
             S.collider(-6, 0, -4, 6, 4, -3.6);
             // cliff
             const cliff = new THREE.Mesh(new THREE.CylinderGeometry(14, 24, 30, 9), std(0x57534e, 1, 0, { flatShading: true }));
@@ -245,6 +271,8 @@
             }
             S.data.busy = new Set();
         },
+        update(S, dt) { if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { urgent: S.k > 0.65 }); },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         schedule(S) {
             K.ramp(S, { from: 1.9, to: 0.95, start: 0.3, end: 58 }, (at, k, rng) => {
                 const si = Math.floor(rng() * RIDGE_SPOTS.length);
@@ -265,7 +293,13 @@
                     S2.addTarget(Object.assign(t, {
                         pos, yaw, points: 150 + Math.round(sp.d * 1.5), life, appear: style, riseDepth: 2.2, death: 'spin', deathColor: 0xfde68a,
                         motion: moving ? (tg, tt, out) => { const s = Math.sin(tt * 1.4 + ph) * 1.0; out.set(Math.cos(yaw) * s, 0, -Math.sin(yaw) * s); } : null,
-                        onKill: () => { S2.data.busy.delete(idx); setTimeout(() => SFX.ding(0.9 + (200 - sp.d) / 400), sp.d / 340 * 1000); },
+                        onKill: () => {
+                            S2.data.busy.delete(idx);
+                            setTimeout(() => {
+                                SFX.ding(0.9 + (200 - sp.d) / 400);
+                                if (BO.MinigameAudio) BO.MinigameAudio.steelPing(0.85 + (200 - sp.d) / 360);
+                            }, sp.d / 340 * 1000);
+                        },
                         onExpire: () => S2.data.busy.delete(idx)
                     }));
                 });
@@ -291,13 +325,14 @@
         tagline: 'Door seat, open sky, rooftops full of trouble',
         desc: 'Ride in the open door of a Black Hawk circling a downtown block. Hostiles pop up on the rooftops; hostages and civilians do too. The helicopter climbs and dips as it orbits, so read the roofline and lead your shots.',
         hudSub: 'Hostiles on rooftops — hostages are a heavy penalty',
-        duration: 60, stars: [3000, 6500, 10500, 15000], standardWeapon: 'm249', rail: true,
+        duration: 60, stars: [3000, 6500, 10500, 15000], standardWeapon: 'm249', rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xd8b494, fogDensity: 0.004, sunColor: 0xffc58a, sunIntensity: 1.6, sunPos: [-60, 40, 80], hemiSky: 0xfed7aa, hemiGround: 0x334155, hemiIntensity: 0.8 },
             boxes: [B(0, -0.5, 0, 400, 1, 400, 'asphalt')],
             spawn: { x: HELI_PTS[0].x, y: HELI_PTS[0].y, z: HELI_PTS[0].z, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('tactical');
             const R = K.rail(HELI_PTS, true, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
@@ -369,13 +404,20 @@
             }
             rotor.position.set(-0.6, 2.6, 0);
             heli.add(rotor);
+            const dash = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 1.1), basic(0x22c55e));
+            dash.position.set(-0.2, 1.1, -1.35); heli.add(dash);
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const cLight = new THREE.PointLight(0xf97316, 1.2, 8, 1.6); cLight.position.set(-0.4, 1.8, 0); heli.add(cLight);
+            }
             heli.traverse((o) => { if (o.isMesh) o.castShadow = true; });
             S.add(heli);
             S.data.heli = heli;
             S.data.rotor = rotor;
             K.cloudLayer(S, 12, 80, 220, 0xfff7ed, 0.7);
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         preUpdate(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const R = S.data.rail;
             if (!R) return;
             if (state !== 'countdown') S.data.dist += 15 * dt;
@@ -437,14 +479,24 @@
         tagline: 'Pop the colours. Spare the skulls.',
         desc: 'Dusk at the county fair. Balloons drift up from launch baskets across the field, swaying in the breeze, in bunches and then in whole bouquets. Gold balloons pay 5x. Black skull balloons are rigged, so leave them alone. The finale ends in fireworks.',
         hudSub: 'Gold = big bonus • Skull balloons = penalty',
-        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'famas_f1',
+        duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'famas_f1', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x312e81, skyBottom: 0xfb923c, fogColor: 0xc38a73, fogDensity: 0.006, sunColor: 0xffb070, sunIntensity: 1.3, sunPos: [-50, 14, -80], hemiSky: 0xfda4af, hemiGround: 0x365314, hemiIntensity: 0.8 },
             boxes: [B(0, -0.5, -25, 200, 1, 200, 'nuketown_grass')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('pinball');
             K.booth(S, { awning: '#db2777', wood: 0xf5f5f4, trim: 0xbe185d });
+            const arch = A.sign('BALLOON FESTIVAL', 7.2, 1.15, { bg: '#4c0519', color: '#fde68a', borderColor: '#f472b6', size: 0.62 });
+            arch.position.set(0, 6.2, -10.2); S.add(arch);
+            const archPts = [];
+            for (let lx = -3.8; lx <= 3.8; lx += 0.76) archPts.push(V(lx, 6.9, -10.1), V(lx, 5.5, -10.1));
+            const archBulbs = A.bulbs(archPts, [0xfde047, 0xf472b6, 0x60a5fa], 0.06);
+            S.add(archBulbs); A.animateBulbs(S, archBulbs, 7, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xffd7a8, 1.6, 26, 1.4); pl.position.set(0, 4.5, -4); S.add(pl);
+            }
             const basketMat = std(0x92400e, 0.9);
             for (const [x, z] of BASKETS) {
                 const b = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.55, 0.7, 12), basketMat);
@@ -549,7 +601,9 @@
                 }
             });
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         update(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             if (state !== 'running' || S.k < 0.75) return;
             S.data.fwT = (S.data.fwT || 0) - dt;
             if (S.data.fwT <= 0) {
@@ -572,13 +626,14 @@
         tagline: 'Clear every room. Save every hostage.',
         desc: 'The final exam. You walk at a steady pace through a plywood killhouse. Hostiles snap out of doorways, rise from behind crates and drop from the rafters. Hostages appear without warning. Headshots pay 1.5x, and every hostage you hit costs 400. Clear it clean.',
         hudSub: 'Hostiles = red outline • Hostages = yellow outline',
-        duration: 60, stars: [2500, 5000, 8500, 12000], standardWeapon: 'mp5', rail: true,
+        duration: 60, stars: [2500, 5000, 8500, 12000], standardWeapon: 'mp5', rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x0a0a0a, skyBottom: 0x1c1917, fogColor: 0x141210, fogDensity: 0.035, sunColor: 0xfef3c7, sunIntensity: 0.35, sunPos: [10, 60, 10], hemiSky: 0xfef3c7, hemiGround: 0x292524, hemiIntensity: 0.6 },
             boxes: [B(0, -0.5, -140, 160, 1, 340, 'concrete')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('tactical');
             const R = K.rail(KH_PTS, false, 0.35);
             S.data.rail = R;
             S.data.dist = 1;
@@ -603,6 +658,7 @@
             const seg = 2.4;
             const n = Math.floor(R.len / seg);
             const doors = [];
+            const strobePts = [];
             const wallGeo = new THREE.BoxGeometry(0.2, 3.2, seg + 0.02);
             for (let i = 0; i < n; i++) {
                 const u = (i + 0.5) / n;
@@ -640,6 +696,7 @@
                     beam.position.set(p.x, 3.3, p.z);
                     beam.rotation.y = yaw;
                     S.add(beam);
+                    if (i % 6 === 0) strobePts.push(V(p.x, 3.1, p.z));
                 }
                 if (i % 9 === 4) {
                     const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.1), std(0x78552b, 0.9));
@@ -659,8 +716,23 @@
             const sign = A.sign('KILLHOUSE • LIVE FIRE', 4, 0.6, { bg: '#7f1d1d', color: '#fef2f2', borderColor: '#fca5a5', size: 0.5 });
             sign.position.set(0, 2.7, -6);
             S.add(sign);
+            if (strobePts.length) {
+                const strobes = A.bulbs(strobePts, [0xef4444, 0xf59e0b, 0xfef08a], 0.08);
+                S.add(strobes); A.animateBulbs(S, strobes, 5, 'chase');
+            }
+            const hazTex = L.canvasTex('kh-haz', 128, 32, (g, w, h) => {
+                g.fillStyle = '#18181b'; g.fillRect(0, 0, w, h);
+                g.fillStyle = '#facc15';
+                for (let x = -32; x < w + 32; x += 24) {
+                    g.beginPath(); g.moveTo(x, h); g.lineTo(x + 12, h); g.lineTo(x + 22, 0); g.lineTo(x + 10, 0); g.closePath(); g.fill();
+                }
+            });
+            const startStrip = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 0.6), new THREE.MeshBasicMaterial({ map: hazTex }));
+            startStrip.rotation.x = -Math.PI / 2; startStrip.position.set(0, 0.015, -5.2); S.add(startStrip);
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         preUpdate(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const R = S.data.rail;
             if (!R) return;
             const run = state === 'running' || state === 'finish' || state === 'results';

@@ -443,6 +443,106 @@
             g.strokeStyle = '#facc15'; g.lineWidth = 10; g.lineCap = 'round';
             g.beginPath(); g.moveTo(86, 140); g.lineTo(138, 158); g.moveTo(234, 140); g.lineTo(182, 158); g.stroke();
             g.fillStyle = '#e2e8f0'; g.beginPath(); g.arc(160, 114, 12, 0, Math.PI * 2); g.fill();
+        },
+
+        bandit_town(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#9a3412'); bg.addColorStop(0.55, '#fcd34d'); bg.addColorStop(1, '#78350f');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#3f2a14'; g.fillRect(8, 28, 70, 126); g.fillRect(W - 78, 28, 70, 126);
+            drawBulbsRow(g, 16, 94, 70, 94, 3, ['#fbbf24', '#f59e0b']);
+            drawBulbsRow(g, W - 70, 94, W - 16, 94, 3, ['#fbbf24', '#f59e0b']);
+            // Outlaw window silhouette
+            g.fillStyle = '#c8a36a'; g.beginPath(); g.arc(160, 72, 18, 0, Math.PI * 2); g.fill();
+            g.fillRect(142, 90, 36, 56);
+            g.fillStyle = '#3f2a14'; g.beginPath(); g.ellipse(160, 56, 30, 6, 0, 0, Math.PI * 2); g.fill();
+            g.fillRect(146, 36, 28, 20);
+            drawBullseye(g, 160, 114, 15, 'classic');
+            drawCrosshair(g, 160, 114, 24, '#facc15');
+        },
+
+        drone_swarm(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(0.65, '#1e1b4b'); bg.addColorStop(1, '#0f172a');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // City towers & searchlights
+            g.fillStyle = '#0f172a';
+            for (const [x, h] of [[12, 82], [58, 106], [220, 94], [268, 78]]) g.fillRect(x, H - h, 36, h);
+            drawBulbsRow(g, 14, 156, W - 14, 156, 12, ['#22d3ee', '#f472b6']);
+            // Hovering quadcopters
+            for (const [dx, dy, c] of [[98, 66, '#f43f5e'], [178, 52, '#22d3ee'], [242, 82, '#f59e0b']]) {
+                g.strokeStyle = '#94a3b8'; g.lineWidth = 3;
+                g.beginPath(); g.moveTo(dx - 20, dy - 6); g.lineTo(dx + 20, dy + 6); g.moveTo(dx + 20, dy - 6); g.lineTo(dx - 20, dy + 6); g.stroke();
+                g.fillStyle = '#27272a'; g.fillRect(dx - 11, dy - 7, 22, 14);
+                g.fillStyle = c; g.beginPath(); g.arc(dx, dy + 8, 5, 0, Math.PI * 2); g.fill();
+            }
+            drawCrosshair(g, 178, 52, 24, '#22d3ee');
+        },
+
+        sniper_ridge(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0c4a6e'); bg.addColorStop(0.65, '#e0f2fe'); bg.addColorStop(1, '#3f6212');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Snow-capped peaks
+            g.fillStyle = '#44403c';
+            g.beginPath(); g.moveTo(10, 124); g.lineTo(86, 36); g.lineTo(160, 124); g.closePath(); g.fill();
+            g.beginPath(); g.moveTo(150, 124); g.lineTo(236, 26); g.lineTo(314, 124); g.closePath(); g.fill();
+            g.fillStyle = '#f8fafc';
+            g.beginPath(); g.moveTo(64, 62); g.lineTo(86, 36); g.lineTo(108, 62); g.closePath(); g.fill();
+            g.beginPath(); g.moveTo(212, 54); g.lineTo(236, 26); g.lineTo(260, 54); g.closePath(); g.fill();
+            g.fillStyle = '#4d7c0f'; g.fillRect(0, 124, W, 56);
+            drawBullseye(g, 160, 96, 16, 'gold');
+            drawCrosshair(g, 160, 96, 44, '#a3e635');
+        },
+
+        heli_gunner(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e3a8a'); bg.addColorStop(0.6, '#fdba74'); bg.addColorStop(1, '#1e293b');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Skyline blocks + heli open door frame
+            g.fillStyle = '#334155';
+            for (const [x, w, h] of [[42, 48, 86], [104, 52, 108], [174, 48, 92], [234, 44, 78]]) g.fillRect(x, H - h, w, h);
+            g.fillStyle = '#18181b'; g.fillRect(0, 0, 22, H); g.fillRect(W - 22, 0, 22, H); g.fillRect(0, 0, W, 18);
+            g.fillStyle = '#ef4444'; g.beginPath(); g.arc(130, 62, 10, 0, Math.PI * 2); g.fill();
+            drawCrosshair(g, 130, 62, 22, '#a3e635');
+        },
+
+        balloon_fest(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#312e81'); bg.addColorStop(0.65, '#fb923c'); bg.addColorStop(1, '#365314');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            drawBulbsRow(g, 12, 24, W - 12, 34, 12, ['#fde047', '#f472b6', '#60a5fa', '#4ade80']);
+            for (const [bx, by, col] of [[72, 92, '#ef4444'], [128, 66, '#facc15'], [190, 84, '#22d3ee'], [246, 102, '#18181b']]) {
+                g.fillStyle = col; g.beginPath(); g.ellipse(bx, by, 18, 22, 0, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#e2e8f0'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(bx, by + 22); g.lineTo(bx, by + 48); g.stroke();
+            }
+            g.fillStyle = '#f43f5e'; g.beginPath(); g.arc(246, 98, 7, 0, Math.PI * 2); g.fill();
+        },
+
+        killhouse_blitz(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#18181b'); bg.addColorStop(0.6, '#78552b'); bg.addColorStop(1, '#292524');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Plywood walls + doorway
+            g.fillStyle = '#b08d57'; g.fillRect(14, 24, 92, 136); g.fillRect(W - 106, 24, 92, 136);
+            g.fillStyle = '#09090b'; g.fillRect(106, 24, 108, 136);
+            drawBulbsRow(g, 36, 18, W - 36, 18, 8, ['#ef4444', '#f59e0b']);
+            // Hostile silhouette in doorway
+            g.fillStyle = '#ef4444'; g.beginPath(); g.arc(160, 66, 16, 0, Math.PI * 2); g.fill();
+            g.fillRect(142, 84, 36, 62);
+            drawCrosshair(g, 160, 74, 24, '#fef08a');
+        },
+
+        one_mag(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e293b'); bg.addColorStop(0.6, '#fb923c'); bg.addColorStop(1, '#451a03');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            drawBulbsRow(g, 20, 20, W - 20, 20, 10, ['#fef08a', '#f8fafc']);
+            // Giant 30-round mag silhouette on left + gleaming gold plate right
+            g.fillStyle = '#1f2937'; g.fillRect(42, 48, 34, 88);
+            g.fillStyle = '#94a3b8'; g.font = '900 18px Bahnschrift, sans-serif'; g.textAlign = 'center'; g.fillText('30', 59, 98);
+            drawBullseye(g, 205, 86, 30, 'gold');
+            drawCrosshair(g, 205, 86, 22, '#e2e8f0');
         }
     };
 
