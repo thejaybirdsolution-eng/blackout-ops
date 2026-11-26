@@ -49,6 +49,8 @@
                 this.showcaseScene.environment = studio;
                 if (BO.Player && BO.Player.vmScene) BO.Player.vmScene.environment = studio;
             }
+            if (BO.Ambience) BO.Ambience.init();
+            this._bindHudFeedback();
             BO.Tooltips.init();
             BO.HUD.init();
             if (BO.RPGUI) BO.RPGUI.init();
@@ -73,6 +75,27 @@
             BO.Menus.showScreen('main_menu');
             this.lastTime = performance.now();
             requestAnimationFrame((t) => this._loop(t));
+        }
+
+        /** Ammo counter feedback: a kick on every round fired, warm-red glow when the mag runs low. */
+        _bindHudFeedback() {
+            const el = document.getElementById('hud-ammo-mag');
+            if (!el || typeof MutationObserver === 'undefined') return;
+            let last = null;
+            let full = 0;
+            const obs = new MutationObserver(() => {
+                const v = parseInt(el.textContent, 10);
+                if (!Number.isFinite(v)) { el.classList.remove('aaa-low'); last = null; return; }
+                if (last === null || v > last) full = Math.max(v, 1);
+                if (last !== null && v < last) {
+                    el.classList.remove('aaa-kick');
+                    void el.offsetWidth; // restart the animation
+                    el.classList.add('aaa-kick');
+                }
+                el.classList.toggle('aaa-low', full >= 4 && v <= Math.ceil(full * 0.25));
+                last = v;
+            });
+            obs.observe(el, { childList: true, characterData: true, subtree: true });
         }
 
         _applyRendererQuality() {
@@ -727,9 +750,9 @@
                 if (BO.World.scene) {
                     this.renderer.render(BO.World.scene, this.worldCamera);
                 }
-                this.renderer.clearDepth();
+                if (BO.PostFX) BO.PostFX.viewmodelPass(this.renderer); else this.renderer.clearDepth();
                 this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
-                if (post) BO.PostFX.end(this.renderer, dt);
+                if (post) BO.PostFX.end(this.renderer, dt, this.worldCamera);
             } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
@@ -752,7 +775,7 @@
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 this.renderer.render(this.showcaseScene, this.showcaseCamera);
-                if (post) BO.PostFX.end(this.renderer, dt);
+                if (post) BO.PostFX.end(this.renderer, dt, this.showcaseCamera);
             }
         }
     }

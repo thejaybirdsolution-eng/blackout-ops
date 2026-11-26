@@ -2286,7 +2286,22 @@
                         <span>Chromatic Aberration</span>
                         <input type="checkbox" id="set-ca" ${s.chromaticAberration !== false ? 'checked' : ''}>
                     </div>
+                    <div class="setting-row" data-tip-title="Ambient Occlusion" data-tip="Soft contact shadows in corners, under objects and where walls meet the floor. Costs some performance.">
+                        <span>Ambient Occlusion</span>
+                        <input type="checkbox" id="set-ssao" ${s.ssao !== false ? 'checked' : ''}>
+                    </div>
+                    <div class="setting-row" data-tip-title="Eye Adaptation" data-tip="Exposure adjusts gradually when you move between dark interiors and bright exteriors, like a real eye or camera.">
+                        <span>Eye Adaptation (Auto Exposure)</span>
+                        <input type="checkbox" id="set-autoexp" ${s.autoExposure !== false ? 'checked' : ''}>
+                    </div>
+                    <div class="setting-row" data-tip-title="Ambient Particles" data-tip="Dust motes drifting in the air around you. Applies from the next match.">
+                        <span>Ambient Dust Particles</span>
+                        <input type="checkbox" id="set-ambient" ${s.ambientParticles !== false ? 'checked' : ''}>
+                    </div>
                 `;
+                document.getElementById('set-ssao').onchange = (e) => BO.Settings.set('ssao', e.target.checked);
+                document.getElementById('set-autoexp').onchange = (e) => BO.Settings.set('autoExposure', e.target.checked);
+                document.getElementById('set-ambient').onchange = (e) => BO.Settings.set('ambientParticles', e.target.checked);
                 document.getElementById('set-postfx').onchange = (e) => BO.Settings.set('postFx', e.target.checked);
                 document.getElementById('set-bloom').oninput = (e) => {
                     const v = Number(e.target.value);

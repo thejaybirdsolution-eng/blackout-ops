@@ -203,6 +203,9 @@
             if (s.bloom === undefined) s.bloom = 1.0;
             if (s.filmGrain === undefined) s.filmGrain = true;
             if (s.chromaticAberration === undefined) s.chromaticAberration = true;
+            if (s.ssao === undefined) s.ssao = true;
+            if (s.autoExposure === undefined) s.autoExposure = true;
+            if (s.ambientParticles === undefined) s.ambientParticles = true;
             if (s.damageNumbers === undefined) s.damageNumbers = true;
             if (s.showControlHints === undefined) s.showControlHints = true;
             if (s.contextualHud === undefined) s.contextualHud = true;

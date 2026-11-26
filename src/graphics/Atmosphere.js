@@ -182,6 +182,7 @@
             this.envTimer = 0;
             this.lightScan = 0;
             this._sync(0);
+            if (BO.Ambience) BO.Ambience.attachDust(scene);
         }
 
         _scanLights() {
@@ -255,6 +256,7 @@
         update(renderer, dt) {
             if (!this.dome || !this.scene || BO.World.scene !== this.scene) return;
             this._sync(dt);
+            if (BO.Ambience) BO.Ambience.update(dt);
             if (!this.enabled()) {
                 if (this.scene.environment) this.scene.environment = null;
                 if (BO.Player && BO.Player.vmScene) BO.Player.vmScene.environment = this.studio(renderer);
