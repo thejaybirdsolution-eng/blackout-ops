@@ -1,5 +1,5 @@
 /* ============================================================================
-   BLACKOUT OPS — Official Update Log Data (79 Updates, Nov 22–25, 2026)
+   BLACKOUT OPS — Official Update Log Data
    ============================================================================ */
 (function (global) {
     'use strict';
@@ -9,8 +9,8 @@
         project: 'Blackout Ops',
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
-        period: 'Nov 22 – Nov 25, 2026 (ET)',
-        totalCount: 84,
+        period: 'Nov 22 – Nov 26, 2026 (ET)',
+        totalCount: 85,
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -1714,10 +1714,10 @@
         },
         {
                 "id": 84,
-                "hash": "b3ach01",
+                "hash": "b3790b1",
                 "date": "Nov 25, 2026",
                 "fullDate": "November 25, 2026",
-                "time": "8:05 PM ET",
+                "time": "8:10 PM ET",
                 "dayKey": "2026-11-25",
                 "title": "Sweetheart Shore: 100% Complete AAA Character Design & 10 Roster Archetypes",
                 "major": true,
@@ -1729,6 +1729,36 @@
                         {
                                 "type": "p",
                                 "text": "I completed the design of the beach minigame enemies (Sweetheart Shore) into ten fully designed, beautiful anime beachgoers with bespoke 3D props (tropical coconut drinks, flamingo floaties, water blasters, woven beach totes, volleyballs, popsicles, rescue cans), unique personality-driven jog kinematics (cute bounce, athletic dash, model strut, playful skip, romantic frolic), multi-tier jewel anime eye shaders with catchlights and glossy 3D cornea lenses, Soft-Engine subsurface skin scattering, and celebratory voice popups and heart bursts."
+                        }
+                ]
+        },
+        {
+                "id": 85,
+                "hash": "7da385f",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "2:05 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Minigame Expansion & Visual Refresh",
+                "major": true,
+                "tags": [
+                        "minigames",
+                        "engine",
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The Minigames hub now has 63 challenges across five categories. The release adds 22 Fun & Specials modes, two Speed Runs and guides with objectives, controls and tips."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Try snowboarding, toyshop prop hunt, orbital breach, hoverbike racing and 3D pinball in Fun & Specials.",
+                                        "Take on Ninja Stealth and Three-Headed Dragon, or replay the reworked Getaway Chase and Deagle Meteor Splitter.",
+                                        "Find Whack-a-Mole under Target & Action and watch a first-person Beat Drop example without affecting personal records.",
+                                        "Explore refreshed map props and materials, reworked zombie and Sweetheart Shore models, and smoother first-person sprint, slide and reload animations."
+                                ]
                         }
                 ]
         }

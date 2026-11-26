@@ -1,5 +1,5 @@
 /* ============================================================================
-   BLACKOUT OPS — Update Log UI (Home Screen Preview + Full 79-Update Modal)
+   BLACKOUT OPS — Update Log UI (Home Screen Preview + Full Log Modal)
    ============================================================================ */
 (function (global) {
     'use strict';
@@ -7,6 +7,7 @@
 
     const DAY_FILTERS = [
         { id: 'all', label: 'All Days' },
+        { id: '2026-11-26', label: 'Nov 26' },
         { id: '2026-11-25', label: 'Nov 25' },
         { id: '2026-11-24', label: 'Nov 24' },
         { id: '2026-11-23', label: 'Nov 23' },
