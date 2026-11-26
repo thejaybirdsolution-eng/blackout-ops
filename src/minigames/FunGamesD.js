@@ -233,9 +233,9 @@
         tagline: '10 Poltergeist Mimics hide among 44 handcrafted toys! Ping [E], Ring Decoy Bell [Q] & bust them!',
         desc: 'Step inside Barnaby\'s Grand Toy & Antique Emporium at midnight! Among 44 sculpted gumball dispensers, retro arcade cabs, nutcrackers, brass gramophones, gift stacks, and chime clocks hide 10 mischievous Poltergeist Mimics. Listen for musical giggles, watch them tiptoe when your back is turned, fire Sonar Pings ([E]) & Decoy Bells ([Q]), and chase down fleeing googly-eyed mimics!',
         heroLabel: 'FUN • POLTERGEIST TOYSHOP HUNT', duration: 165, stars: [2400, 4800, 7600, 11000],
-        standardWeapon: 'spas12_tac', lockWeapon: true, infiniteMag: true,
-        weaponLabel: 'ECTO-BREACHER SPAS-12', weaponNote: 'Mimics take 2 hits (1st hit sprouts legs & panic-sprint!)',
-        keys: [['WASD', 'Patrol Emporium'], ['LMB', 'Check / Bust Prop'], ['E', 'Sonar Ping (8s)'], ['Q', 'Decoy Bell (12s)']],
+        standardWeapon: 'spas12_tac', lockWeapon: true, infiniteMag: true, customMusic: true,
+        weaponLabel: 'ECTO-BREACHER SPAS-12', weaponNote: 'Mimics take 2 hits • [E] Sonar • [Q] Decoy Bell • [R] Flashbulb Stun',
+        keys: [['WASD', 'Patrol Emporium'], ['LMB', 'Check / Bust Prop'], ['E', 'Sonar Ping (8s)'], ['Q', 'Decoy Bell (12s)'], ['R', 'Flashbulb Stun (10s)']],
         guide: {
             objective: 'Find and bust all 10 Poltergeist Mimics disguised among 44 handcrafted antique & toyshop props before midnight ends.',
             tips: [
@@ -250,11 +250,31 @@
             spawn: { x: 0, y: 0, z: 13.5, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('toyshop');
             // Parquet Floor + Velvet Rug Runners
             const floorTex = toyshopFloorTex();
             floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(8, 8);
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(42, 42), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.72 }));
             floor.rotation.x = -Math.PI / 2; floor.position.set(0, 0.01, -4); floor.receiveShadow = true; S.add(floor);
+
+            // Grand Spinning Brass Toy Carousel Centerpiece!
+            const carG = new THREE.Group(); carG.position.set(0, 0, -6.5);
+            const cDeck = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.8, 0.36, 20), std(0x78350f, 0.55)); cDeck.position.y = 0.18;
+            const cCore = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 3.6, 14), std(0xfacc15, 0.25, 0.85)); cCore.position.y = 2.0;
+            const cRoof = new THREE.Mesh(new THREE.ConeGeometry(2.85, 1.45, 16), std(0xbe123c, 0.6)); cRoof.position.y = 4.4;
+            const cTrim = new THREE.Mesh(new THREE.TorusGeometry(2.75, 0.10, 8, 24), basic(0xfde047)); cTrim.rotation.x = Math.PI / 2; cTrim.position.y = 3.68;
+            carG.add(cDeck, cCore, cRoof, cTrim);
+            const horseCols = [0xf8fafc, 0xf472b6, 0x38bdf8, 0xfacc15, 0xa78bfa, 0x4ade80];
+            for (let i = 0; i < 6; i++) {
+                const a = (i / 6) * TAU, r = 1.95;
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 3.3, 6), std(0xfacc15, 0.25, 0.85));
+                pole.position.set(Math.cos(a) * r, 2.0, Math.sin(a) * r);
+                const hBody = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 0.78), std(horseCols[i], 0.45));
+                hBody.position.set(Math.cos(a) * r, 1.3 + (i % 2) * 0.35, Math.sin(a) * r); hBody.rotation.y = -a;
+                carG.add(pole, hBody);
+            }
+            S.add(carG); S.data.carousel = carG;
+            S.collider(-2.6, 0, -9.1, 2.6, 3.8, -3.9);
 
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 34), std(0x9f1239, 0.9));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.02, -4); S.add(rug);
@@ -324,44 +344,69 @@
             const chosen = spots.slice(0, 44);
             const mimicSet = new Set();
             while (mimicSet.size < 10) mimicSet.add(Math.floor(Math.random() * chosen.length));
+            const goldenIdx = [...mimicSet][0];
 
             S.data.props = chosen.map(([px, pz], idx) => {
-                const isMimic = mimicSet.has(idx);
+                const isMimic = mimicSet.has(idx), isGolden = idx === goldenIdx;
                 const art = buildToyProp(idx % 6, idx);
+                if (isGolden) {
+                    const gHalo = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.54, 18), basic(0xfde047, { side: THREE.DoubleSide, transparent: true, opacity: 0.55 }));
+                    gHalo.rotation.x = -Math.PI / 2; gHalo.position.y = 0.04; art.root.add(gHalo);
+                }
                 const yaw = Math.floor(Math.random() * 4) * (Math.PI / 2) + (Math.random() - 0.5) * 0.35;
                 const tg = S.addTarget({
                     mesh: art.root, hitMeshes: art.hit, pos: V(px, 0, pz), yaw, life: 0,
                     appear: 'scale', inT: 0.2, death: isMimic ? 'burst' : 'shatter',
-                    deathColor: isMimic ? 0xf472b6 : 0x92400e, bonus: true
+                    deathColor: isGolden ? 0xfacc15 : isMimic ? 0xf472b6 : 0x92400e, bonus: true
                 });
                 return Object.assign(tg, {
-                    isToyProp: true, isMimic, art, exposed: false, hpLeft: isMimic ? 2 : 1,
+                    isToyProp: true, isMimic, isGolden, art, exposed: false, hpLeft: isMimic ? 2 : 1, stunT: 0,
                     giggleT: 3 + Math.random() * 7, hopT: 0, fleeDir: V(Math.random() - 0.5, 0, Math.random() - 0.5).normalize(),
                     sneakVx: 0, sneakVz: 0, sneakT: 2 + Math.random() * 4
                 });
             });
 
-            Object.assign(S.data, { mimicsLeft: 10, falseShots: 0, sonarCd: 0, bellCd: 0, bells: [], pings: 0 });
+            Object.assign(S.data, { mimicsLeft: 10, falseShots: 0, sonarCd: 0, bellCd: 0, flashCd: 0, bells: [], pings: 0 });
             BO.Player.maxHp = 120; BO.Player.hp = 120;
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         onKey(S, code) {
             const D = S.data, P = BO.Player;
             if (MG.state !== 'running') return false;
             if (code === 'KeyE' && D.sonarCd <= 0) {
                 D.sonarCd = 8.0; D.pings++;
-                tone(520, 1240, 0.28, 'sine', 0.11);
+                if (BO.MinigameAudio) BO.MinigameAudio.toySonar(); else tone(520, 1240, 0.28, 'sine', 0.11);
                 const ring = new THREE.Mesh(new THREE.RingGeometry(0.4, 0.75, 32), basic(0x22d3ee, { transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
                 ring.rotation.x = -Math.PI / 2; ring.position.set(P.pos.x, 0.08, P.pos.z); S.add(ring);
                 let rt = 0; S.animate((dt) => { rt += dt; ring.scale.setScalar(1 + rt * 22); ring.material.opacity = Math.max(0, 0.85 - rt * 1.1); if (rt > 0.75) { S.scene.remove(ring); return false; } });
-                let near = 0;
+                let near = 0, closest = Infinity;
                 for (const p of D.props) {
-                    if (p.alive && p.isMimic && p.root.position.distanceTo(P.pos) <= 12) { near++; p.hopT = Math.max(p.hopT, 1.3); }
+                    if (!p.alive || !p.isMimic) continue;
+                    const dist = p.root.position.distanceTo(P.pos);
+                    if (dist < closest) closest = dist;
+                    if (dist <= 12) { near++; p.hopT = Math.max(p.hopT, 1.3); }
                 }
-                MG.toast(near > 0 ? `📡 SONAR: ${near} MIMIC${near > 1 ? 'S' : ''} SHIVERING WITHIN 12m!` : '📡 SONAR CLEAR WITHIN 12m — MOVE FURTHER IN!', near > 0 ? '#22d3ee' : '#cbd5e1');
+                MG.toast(near > 0 ? `📡 SONAR: ${near} MIMIC${near > 1 ? 'S' : ''} WITHIN 12m (NEAREST ${Math.round(closest)}m)!` : `📡 CLEAR WITHIN 12m • NEAREST MIMIC ~${Math.round(closest)}m`, near > 0 ? '#22d3ee' : '#cbd5e1');
+                return true;
+            }
+            if (code === 'KeyR' && D.flashCd <= 0) {
+                D.flashCd = 10.0;
+                const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
+                const flashPos = cam.position.clone().addScaledVector(dir, 5);
+                BO.FX.spawnExplosion(flashPos, 4.5, 0xfef08a);
+                SFX.ding(1.7);
+                let stunned = 0;
+                for (const p of D.props) {
+                    if (p.alive && p.isMimic && p.root.position.distanceTo(P.pos) <= 13) {
+                        p.stunT = 2.6; p.hopT = Math.max(p.hopT, 1.2); stunned++;
+                    }
+                }
+                MG.toast(stunned ? `📸 FLASHBULB STUNNED ${stunned} MIMIC${stunned > 1 ? 'S' : ''} (2.6s)!` : '📸 FLASHBULB FIRED!', '#fde047');
                 return true;
             }
             if (code === 'KeyQ' && D.bellCd <= 0) {
                 D.bellCd = 12.0;
+                if (BO.MinigameAudio) BO.MinigameAudio.toyBell();
                 const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
                 const bell = new THREE.Group();
                 const cup = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.30, 14), std(0xfacc15, 0.22, 0.88)); cup.position.y = 0.16;
@@ -375,9 +420,12 @@
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
+            if (D.carousel) D.carousel.rotation.y += dt * 0.55;
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             D.sonarCd = Math.max(0, D.sonarCd - dt);
             D.bellCd = Math.max(0, D.bellCd - dt);
+            D.flashCd = Math.max(0, (D.flashCd || 0) - dt);
 
             // Decoy Bells physics & ringing lure
             for (let i = D.bells.length - 1; i >= 0; i--) {
@@ -402,6 +450,11 @@
             const camDir = new THREE.Vector3(); BO.App.worldCamera.getWorldDirection(camDir);
             for (const p of D.props) {
                 if (!p.alive || !p.isMimic) continue;
+                if (p.stunT > 0) {
+                    p.stunT -= dt;
+                    p.art.body.rotation.z = Math.sin(S.t * 36) * 0.18;
+                    continue;
+                }
                 if (p.exposed) {
                     // Startled googly-eyed mimic sprints around the shop dropping ectoplasm sparks!
                     p.sneakT -= dt;
@@ -430,8 +483,8 @@
                     p.giggleT = 5.5 + Math.random() * 5.5;
                     p.hopT = Math.max(p.hopT, 0.55);
                     if (p.root.position.distanceTo(P.pos) < 18) {
-                        tone(740, 990, 0.08, 'sine', 0.06, 0);
-                        tone(990, 1320, 0.09, 'sine', 0.06, 0.08);
+                        if (BO.MinigameAudio) BO.MinigameAudio.toyGiggle(); else { tone(740, 990, 0.08, 'sine', 0.06, 0); tone(990, 1320, 0.09, 'sine', 0.06, 0.08); }
+                        BO.FX.spawnParticles(p.root.position.clone().add(V(0, 1.35, 0)), 5, 0xf472b6, 2.2, 1.8, 0.45, 0.85);
                     }
                 }
                 const toProp = p.root.position.clone().sub(P.pos);
@@ -476,8 +529,13 @@
                 ent.kill(info);
                 D.mimicsLeft--; S.kills++; S.bumpCombo();
                 SFX.pop(); tone(660, 1320, 0.18, 'triangle', 0.11);
-                BO.FX.spawnExplosion(ent.root.position.clone().add(V(0, 0.8, 0)), 2.4, 0xec4899);
-                S.award(650 * S.comboMult, info.pt, 'POLTERGEIST BUSTED!', '#4ade80');
+                BO.FX.spawnExplosion(ent.root.position.clone().add(V(0, 0.8, 0)), ent.isGolden ? 3.5 : 2.4, ent.isGolden ? 0xfacc15 : 0xec4899);
+                if (ent.isGolden) {
+                    BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 30);
+                    S.award(1300 * S.comboMult, info.pt, '★ GOLDEN MIMIC BUSTED! +30 HP', '#fde047');
+                } else {
+                    S.award(650 * S.comboMult, info.pt, 'POLTERGEIST BUSTED!', '#4ade80');
+                }
                 if (D.mimicsLeft <= 0) {
                     S.award(Math.round(Math.max(0, 165 - S.t) * 25));
                     MG.finish('ALL 10 POLTERGEISTS BUSTED!', { color: '#4ade80' });
@@ -500,6 +558,7 @@
                 <div class="mgx-chip">MIMICS LEFT <b>${D.mimicsLeft} / 10</b></div>
                 <div class="mgx-chip ${D.sonarCd <= 0 ? 'mgx-hot' : ''}">SONAR [E] <b>${D.sonarCd <= 0 ? 'READY' : D.sonarCd.toFixed(1) + 's'}</b></div>
                 <div class="mgx-chip ${D.bellCd <= 0 ? 'mgx-hot' : ''}">DECOY BELL [Q] <b>${D.bellCd <= 0 ? 'READY' : D.bellCd.toFixed(1) + 's'}</b></div>
+                <div class="mgx-chip ${(D.flashCd || 0) <= 0 ? 'mgx-hot' : ''}">FLASH [R] <b>${(D.flashCd || 0) <= 0 ? 'READY' : D.flashCd.toFixed(1) + 's'}</b></div>
                 ${D.falseShots ? `<div class="mgx-chip mgx-bad">ANTIQUES HIT <b>${D.falseShots}</b></div>` : ''}
             </div>`;
         },
@@ -657,8 +716,8 @@
         tagline: 'Rampage through Neo-Tokyo with First-Person Kaiju Claws, Atomic Breath & duel MECHA-TITAN MK-IX!',
         desc: 'Tower 16 metres above Neo-Tokyo Harbor! Crush neon-lit skyscrapers into rubble piles, swipe Attack Choppers out of the sky with your twin Kaiju Claws ([RMB/V]), incinerate JSDF Tank Columns with Atomic Plasma Breath ([LMB]), slam down Tectonic Belly-Stomps ([SPACE]), and battle the 22-metre MECHA-TITAN MK-IX when it drops from orbit!',
         heroLabel: 'FUN • KAIJU RAMPAGE + MECHA DUEL', duration: 180, stars: [4500, 9000, 14500, 21000],
-        standardWeapon: 'scarh', lockWeapon: true, blockFire: true, hideViewmodel: true,
-        weaponLabel: 'ATOMIC BREATH + KAIJU CLAWS', weaponNote: 'Level 60% of Neo-Tokyo to summon MECHA-TITAN MK-IX!',
+        standardWeapon: 'scarh', lockWeapon: true, blockFire: true, hideViewmodel: true, customMusic: true,
+        weaponLabel: 'ATOMIC BREATH + KAIJU CLAWS', weaponNote: 'Chain 5 kills for OVERDRIVE ATOMIC BREATH! Level 60% to summon MECHA-TITAN MK-IX!',
         keys: [['WASD', 'Stomp Metropolis'], ['LMB', 'Atomic Plasma Breath'], ['RMB / V', 'Twin Claw Cleave'], ['SPACE', 'Tectonic Leap-Stomp (6s)'], ['Q', 'Nuclear Pulse (14s)']],
         guide: {
             objective: 'Demolish 60% of Neo-Tokyo\'s skyscrapers & military forces to draw out MECHA-TITAN MK-IX, then defeat the giant robot!',
@@ -675,12 +734,23 @@
             spawn: { x: 0, y: 14, z: 58, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('kaiju');
             const roadTex = cityRoadTex(); roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping; roadTex.repeat.set(4, 4);
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.86 }));
             ground.rotation.x = -Math.PI / 2; ground.position.y = 0.02; S.add(ground);
-            // Harbor Bay along the North edge
-            const bay = new THREE.Mesh(new THREE.PlaneGeometry(240, 60), std(0x0369a1, 0.18, 0.4));
-            bay.rotation.x = -Math.PI / 2; bay.position.set(0, 0.05, -118); S.add(bay);
+            // Harbor Bay + Iconic Neo-Tokyo Red Suspension Bridge & Searchlight Beams!
+            const bay = new THREE.Mesh(new THREE.PlaneGeometry(260, 80), std(0x0369a1, 0.16, 0.45));
+            bay.rotation.x = -Math.PI / 2; bay.position.set(0, 0.05, -124); S.add(bay);
+            const bridgeM = std(0xdc2626, 0.45, 0.4);
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(220, 1.8, 6.5), std(0x334155, 0.8)); deck.position.set(0, 14, -112); S.add(deck);
+            for (const tx of [-52, 52]) {
+                const tower = new THREE.Mesh(new THREE.BoxGeometry(4.5, 42, 4.5), bridgeM); tower.position.set(tx, 21, -112); S.add(tower);
+                const bar = new THREE.Mesh(new THREE.BoxGeometry(10, 2.2, 2.2), bridgeM); bar.position.set(tx, 34, -112); S.add(bar);
+            }
+            for (const [sx, sz] of [[-48, 42], [48, 42], [-56, -42], [56, -42]]) {
+                const beam = new THREE.Mesh(new THREE.ConeGeometry(4.5, 58, 12, 1, true), basic(0xfef08a, { transparent: true, opacity: 0.10, side: THREE.DoubleSide }));
+                beam.position.set(sx, 28, sz); beam.rotation.set(0.28, 0, sx > 0 ? 0.25 : -0.25); S.add(beam);
+            }
 
             // 20 Multi-Part Neo-Tokyo Skyscrapers with progressive collapse!
             S.data.buildings = [];
@@ -716,13 +786,14 @@
             S.add(handsObj.rig);
 
             Object.assign(S.data, {
-                kj: { pos: V(0, 14.0, 58), vy: 0, hp: 600, maxHp: 600, atomic: 100, stompCd: 0, pulseCd: 0, clawCd: 0, clawAnim: 0, firingBeam: false },
+                kj: { pos: V(0, 14.0, 58), vy: 0, hp: 600, maxHp: 600, atomic: 100, overdriveT: 0, stepT: 0, stompCd: 0, pulseCd: 0, clawCd: 0, clawAnim: 0, firingBeam: false },
                 handsObj, destroyedBldgs: 0, totalBldgs: S.data.buildings.length,
                 mecha: null, mechaSpawned: false, missiles: [], beamTick: 0
             });
             BO.Player.maxHp = 600; BO.Player.hp = 600;
             BO.Player.rideState = { kind: 'minigame', pos: V(0, 14.0, 58), roll: 0, pitch: 0, eye: 1.6 };
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         onKey(S, code) {
             const D = S.data, kj = D.kj;
             if (MG.state !== 'running') return false;
@@ -734,7 +805,8 @@
             }
             if (code === 'KeyQ' && kj.pulseCd <= 0) {
                 kj.pulseCd = 14.0;
-                tone(180, 60, 0.45, 'sawtooth', 0.16); SFX.rumble(0.7);
+                if (BO.MinigameAudio) BO.MinigameAudio.kaijuRoar(); else tone(180, 60, 0.45, 'sawtooth', 0.16);
+                SFX.rumble(0.7);
                 BO.FX.spawnExplosion(kj.pos.clone(), 14, 0x22d3ee);
                 const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), basic(0x22d3ee, { transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
                 dome.position.copy(kj.pos); S.add(dome);
@@ -800,7 +872,8 @@
             D.mechaSpawned = true;
             const built = buildMechaTitan();
             const tg = S.addTarget({ mesh: built.root, hitMeshes: built.hit, pos: V(0, 48, -45), life: 0, appear: 'none', inT: 0.01, death: 'none', bonus: true });
-            D.mecha = Object.assign(tg, { isMecha: true, hp: 2200, maxHp: 2200, reactor: built.reactor, atkCd: 2.8, salvoCd: 5.5, walkT: 0, dropY: 48 });
+            D.mecha = Object.assign(tg, { isMecha: true, hp: 2200, maxHp: 2200, phase2: false, reactor: built.reactor, atkCd: 2.8, salvoCd: 5.5, walkT: 0, dropY: 48 });
+            if (BO.MinigameAudio) { BO.MinigameAudio.start('kaiju:mecha'); BO.MinigameAudio.kaijuRoar(); }
             SFX.rumble(0.9); tone(440, 110, 0.6, 'sawtooth', 0.15);
             MG.toast('⚠️ ORBITAL DROP: MECHA-TITAN MK-IX ENGAGING!', '#fde047');
         },
@@ -864,17 +937,29 @@
         update(S, dt, lib, state) {
             const D = S.data, kj = D.kj, P = BO.Player;
             if (state !== 'running') return;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             kj.stompCd = Math.max(0, kj.stompCd - dt);
             kj.pulseCd = Math.max(0, kj.pulseCd - dt);
             kj.clawCd = Math.max(0, kj.clawCd - dt);
             kj.clawAnim = Math.max(0, kj.clawAnim - dt);
+            kj.overdriveT = Math.max(0, (kj.overdriveT || 0) - dt);
+            if (S.combo >= 5 && kj.overdriveT <= 0) {
+                kj.overdriveT = 6.5; kj.atomic = 100;
+                if (BO.MinigameAudio) BO.MinigameAudio.kaijuRoar();
+                MG.toast('🔥 ATOMIC OVERDRIVE! 1.75x HYPER-BEAM (6.5s)!', '#f472b6');
+            }
+            if ((P.keys.KeyW || P.keys.KeyS || P.keys.KeyA || P.keys.KeyD) && kj.pos.y <= 14.2) {
+                kj.stepT = (kj.stepT || 0) - dt;
+                if (kj.stepT <= 0) { kj.stepT = 0.58; if (BO.MinigameAudio) BO.MinigameAudio.kaijuStep(); }
+            }
 
             if (P.adsHeld && !D._rmb) { D._rmb = true; this._clawSwipe(S); } else if (!P.adsHeld) D._rmb = false;
 
-            // Atomic Plasma Breath [LMB]
-            if (P.triggerHeld && kj.atomic > 4) {
+            // Atomic Plasma Breath [LMB] (Overdrive = Magenta-Cyan Hyper-Beam, 1.75x DMG, 0 Drain!)
+            if (P.triggerHeld && (kj.atomic > 4 || kj.overdriveT > 0)) {
                 kj.firingBeam = true;
-                kj.atomic = Math.max(0, kj.atomic - dt * 26);
+                const ov = kj.overdriveT > 0;
+                if (!ov) kj.atomic = Math.max(0, kj.atomic - dt * 26);
                 D.beamTick -= dt;
                 if (D.beamTick <= 0) {
                     D.beamTick = 0.11;
@@ -885,25 +970,26 @@
                         const tG = -cam.position.y / dir.y;
                         if (tG > 0 && tG < 95) endPt = cam.position.clone().addScaledVector(dir, tG);
                     }
-                    BO.FX.spawnTracer(cam.position.clone().add(V(0, -0.45, 0)), endPt, 0x22d3ee, 0.38, 0.15);
-                    BO.FX.spawnParticles(endPt, 6, 0x38bdf8, 6, 3, 0.35, 1.1);
-                    SFX.noise(0.08, 520, 'bandpass', 0.9, 0.14);
+                    BO.FX.spawnTracer(cam.position.clone().add(V(0, -0.45, 0)), endPt, ov ? 0xf472b6 : 0x22d3ee, ov ? 0.56 : 0.38, 0.15);
+                    BO.FX.spawnParticles(endPt, ov ? 10 : 6, ov ? 0xf472b6 : 0x38bdf8, 6, 3, 0.35, 1.1);
+                    SFX.noise(0.08, ov ? 720 : 520, 'bandpass', 0.9, 0.14);
+                    const bMult = ov ? 1.75 : 1.0;
                     // Ray/Cone check against buildings, units & Mecha-Titan
                     for (const b of D.buildings) {
                         if (b.collapsing) continue;
                         const c = b.root.position.clone().add(V(0, b.h * 0.5, 0));
                         const v = c.clone().sub(cam.position), d = v.length();
-                        if (d < 105 && v.normalize().dot(dir) > 0.965) this._hitBuilding(S, b, 24, 'ATOMIC INCINERATION!');
+                        if (d < 105 && v.normalize().dot(dir) > 0.965) this._hitBuilding(S, b, 24 * bMult, ov ? 'HYPER-BEAM MELTDOWN!' : 'ATOMIC INCINERATION!');
                     }
                     for (const u of D.units) {
                         if (!u.alive) continue;
                         const v = u.root.position.clone().sub(cam.position), d = v.length();
-                        if (d < 105 && v.normalize().dot(dir) > 0.96) this._hitUnit(S, u, 28, 'VAPORIZED!');
+                        if (d < 105 && v.normalize().dot(dir) > 0.96) this._hitUnit(S, u, 28 * bMult, 'VAPORIZED!');
                     }
                     if (D.mecha && D.mecha.alive) {
                         const mc = D.mecha.root.position.clone().add(V(0, 14, 0));
                         const v = mc.sub(cam.position), d = v.length();
-                        if (d < 115 && v.normalize().dot(dir) > 0.95) this._hitMecha(S, 38);
+                        if (d < 115 && v.normalize().dot(dir) > 0.95) this._hitMecha(S, 38 * bMult);
                     }
                     void rc;
                 }
@@ -960,19 +1046,25 @@
                     if (m.dropY === 0) { BO.FX.spawnExplosion(m.root.position.clone(), 9, 0xfacc15); SFX.rumble(0.8); }
                 } else {
                     m.walkT += dt;
+                    if (!m.phase2 && m.hp <= m.maxHp * 0.5) {
+                        m.phase2 = true;
+                        m.reactor.material.color.setHex(0xfacc15);
+                        BO.FX.spawnExplosion(m.root.position.clone().add(V(0, 16, 0)), 10, 0xfacc15);
+                        SFX.rumble(0.8); MG.toast('⚡ MECHA-TITAN MK-IX PHASE 2: GOLDEN OVERDRIVE!', '#facc15');
+                    }
                     const dx = kj.pos.x - m.root.position.x, dz = kj.pos.z - m.root.position.z, dist = Math.max(0.1, Math.hypot(dx, dz));
                     if (dist > 22) {
-                        m.root.position.x += (dx / dist) * 7.5 * dt;
-                        m.root.position.z += (dz / dist) * 7.5 * dt;
+                        m.root.position.x += (dx / dist) * (m.phase2 ? 11.5 : 7.5) * dt;
+                        m.root.position.z += (dz / dist) * (m.phase2 ? 11.5 : 7.5) * dt;
                     }
                     m.root.rotation.y = Math.atan2(dx, dz);
-                    if (m.root.userData.drill) m.root.userData.drill.rotation.z += dt * 18;
+                    if (m.root.userData.drill) m.root.userData.drill.rotation.z += dt * (m.phase2 ? 28 : 18);
                     m.reactor.scale.setScalar(1 + Math.sin(S.t * 8) * 0.18);
                     m.atkCd -= dt;
                     if (m.atkCd <= 0) {
-                        m.atkCd = 2.4;
-                        BO.FX.spawnTracer(m.root.position.clone().add(V(0, 20, 0)), kj.pos.clone(), 0xef4444, 0.22, 0.18);
-                        P.takeDamage(16, m.root.position, true);
+                        m.atkCd = m.phase2 ? 1.55 : 2.4;
+                        BO.FX.spawnTracer(m.root.position.clone().add(V(0, 20, 0)), kj.pos.clone(), m.phase2 ? 0xfacc15 : 0xef4444, 0.24, 0.18);
+                        P.takeDamage(m.phase2 ? 20 : 16, m.root.position, true);
                     }
                     m.salvoCd -= dt;
                     if (m.salvoCd <= 0) {
@@ -1006,7 +1098,7 @@
             const m = D.mecha;
             return `<div class="fun-panel">
                 <div class="mgx-chip">CITY RAZED <b>${pct}%</b></div>
-                <div class="mgx-chip">ATOMIC <b>${Math.round(kj.atomic)}%</b></div>
+                <div class="mgx-chip ${kj.overdriveT > 0 ? 'mgx-hot' : ''}">${kj.overdriveT > 0 ? '🔥 OVERDRIVE' : 'ATOMIC'} <b>${kj.overdriveT > 0 ? kj.overdriveT.toFixed(1) + 's' : Math.round(kj.atomic) + '%'}</b></div>
                 <div class="mgx-chip ${kj.stompCd <= 0 ? 'mgx-hot' : ''}">STOMP [SPACE] <b>${kj.stompCd <= 0 ? 'READY' : kj.stompCd.toFixed(1) + 's'}</b></div>
                 <div class="mgx-chip ${kj.pulseCd <= 0 ? 'mgx-hot' : ''}">PULSE [Q] <b>${kj.pulseCd <= 0 ? 'READY' : kj.pulseCd.toFixed(1) + 's'}</b></div>
             </div>

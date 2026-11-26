@@ -386,6 +386,125 @@
                 if (b) this._osc(b, 0.14, 'triangle', 0.11);
             } else if (this.mode && this.mode.startsWith('mario:')) {
                 this._tickMario(this.mode.slice(6), s);
+            } else if (this.mode && this.mode.startsWith('ff:')) {
+                // Final Fantasy JRPG: Explore (Prelude Harp), Battle (ATB 152 BPM), Boss (168 BPM Orchestral Organ)
+                const sub = this.mode.slice(3);
+                const N = NOTE;
+                if (sub === 'explore') {
+                    this.timer = 0.145;
+                    const harp = [N.C4, N.D4, N.E4, N.G4, N.C5, N.D5, N.E5, N.G5, N.C6, N.G5, N.E5, N.D5, N.C5, N.G4, N.E4, N.D4,
+                                  N.A3, N.B3, N.C4, N.E4, N.A4, N.B4, N.C5, N.E5, N.A5, N.E5, N.C5, N.B4, N.A4, N.E4, N.C4, N.B3];
+                    const st = s % harp.length;
+                    this._osc(harp[st], 0.34, 'triangle', 0.068, { pan: Math.sin(s * 0.4) * 0.35 });
+                    if (st % 8 === 0) this._supersaw(st < 16 ? N.C3 : N.A2, 1.1, 0.032, 950);
+                    if (st === 0 || st === 12 || st === 16 || st === 28) {
+                        const fl = [N.E5, N.G5, N.C5, N.E5][Math.floor(st / 8)];
+                        this._osc(fl, 0.65, 'sine', 0.055, { attack: 0.06, pan: 0.15 });
+                    }
+                } else if (sub === 'boss') {
+                    this.timer = 0.095;
+                    const st = s % 16;
+                    const bar = Math.floor(s / 16) % 4;
+                    const root = [N.D2, N.Bb2 * 0.5, N.C2, N.A2 * 0.5][bar];
+                    if (st === 0 || st === 3 || st === 6 || st === 10 || st === 14) this._kick(0.28, 145, 42, 0.22);
+                    if (st === 4 || st === 12) this._snare(0.19, 195, 0.14);
+                    this._hat(st % 2 ? 0.055 : 0.035, st === 15, (st % 4 - 1.5) * 0.2);
+                    this._osc(root * (st % 2 ? 2 : 1), 0.09, 'sawtooth', 0.11, { cutoff: 1100 });
+                    const lead = [N.D5, 0, N.F5, N.E5, N.D5, 0, N.A4, N.Bb4, N.C5, 0, N.D5, N.F5, N.E5, N.D5, N.Cs5, 0][st];
+                    if (lead) {
+                        this._osc(lead, 0.17, 'sawtooth', 0.075, { cutoff: 3200, pan: -0.22 });
+                        this._osc(lead * 0.5, 0.17, 'square', 0.045, { pan: 0.22 });
+                    }
+                    if (st === 0) this._supersaw(root * 4, 0.72, 0.042, 2200);
+                } else {
+                    // Classic 152 BPM JRPG ATB Battle Theme!
+                    this.timer = 0.102;
+                    const st = s % 16;
+                    const bar = Math.floor(s / 16) % 4;
+                    const bass = [N.E2, N.E2, N.G2, N.A2][bar];
+                    if (st === 0 || st === 6 || st === 10) this._kick(0.24, 150, 48, 0.18);
+                    if (st === 4 || st === 12) this._snare(0.16, 210, 0.12);
+                    if (st % 2 === 0) this._hat(0.045, st === 14, 0.15);
+                    this._osc(bass * (st % 4 === 2 ? 1.5 : 1), 0.095, 'triangle', 0.13);
+                    const mel = [N.E5, N.G5, N.B5, 0, N.A5, N.G5, N.Fs5, 0, N.E5, N.Fs5, N.G5, N.A5, N.B5, 0, N.G5, 0][st];
+                    if (mel) this._osc(mel, 0.12, 'square', 0.068, { cutoff: 2600, pan: -0.15 });
+                }
+            } else if (this.mode === 'bunker') {
+                // Tense Cold-War Quarantine Ambience + Heartbeat when outbreak/infected
+                const alert = !!state.outbreak;
+                this.timer = alert ? 0.14 : 0.28;
+                const st = s % 16;
+                if (st === 0) this._osc(NOTE.C2, 2.2, 'sine', 0.14, { attack: 0.12 });
+                if (st === 0 || (alert && st === 8)) this._kick(alert ? 0.24 : 0.12, 78, 36, 0.22);
+                if (alert && (st === 2 || st === 10)) this._kick(0.16, 68, 34, 0.16);
+                if (st === 4 || st === 12) {
+                    this._osc(alert ? NOTE.Eb5 : NOTE.G4, 0.18, 'sine', alert ? 0.075 : 0.032, { pan: st === 4 ? -0.35 : 0.35 });
+                }
+                if (alert && st % 4 === 0) this._osc(840, 0.14, 'sawtooth', 0.055, { slideTo: 620, cutoff: 1400 });
+            } else if (this.mode === 'toyshop') {
+                // Whimsical Spooky-Cozy 3/4 Midnight Music-Box Waltz
+                this.timer = 0.175;
+                const N = NOTE;
+                const st = s % 24;
+                const waltz = [
+                    N.E5, N.B4, N.C5, N.D5, N.C5, N.B4,
+                    N.A4, N.E5, N.C5, N.B4, 0, N.G4,
+                    N.Fs4, N.A4, N.D5, N.C5, N.B4, N.A4,
+                    N.B4, N.E5, N.G5, N.Fs5, 0, 0
+                ];
+                const bass = [N.E3, N.B3, N.B3, N.A2, N.E3, N.E3, N.D3, N.A3, N.A3, N.E3, N.B3, N.B3];
+                if (waltz[st]) {
+                    this._osc(waltz[st], 0.36, 'sine', 0.075, { pan: Math.sin(s * 0.6) * 0.32 });
+                    this._osc(waltz[st] * 2, 0.14, 'triangle', 0.03, { pan: -Math.sin(s * 0.6) * 0.28 });
+                }
+                if (st % 2 === 0) {
+                    const b = bass[(st / 2) % bass.length];
+                    this._osc(b, 0.22, 'triangle', st % 6 === 0 ? 0.10 : 0.055);
+                }
+            } else if (this.mode && this.mode.startsWith('kaiju')) {
+                // Godzilla Brass & Taiko Stomp March / Mecha-Titan Synth-Rock Anthem
+                const boss = this.mode === 'kaiju:mecha';
+                const N = NOTE;
+                this.timer = boss ? 0.098 : 0.135;
+                const st = s % 16;
+                const bar = Math.floor(s / 16) % 4;
+                if (boss) {
+                    const root = [N.E2, N.G2, N.A2, N.B2][bar];
+                    if (st === 0 || st === 6 || st === 10 || st === 14) this._kick(0.30, 148, 38, 0.22);
+                    if (st === 4 || st === 12) this._snare(0.22, 195, 0.16);
+                    this._hat(0.05, st === 15, (st % 2 ? -0.3 : 0.3));
+                    this._osc(root, 0.11, 'sawtooth', 0.14, { cutoff: 1450 });
+                    const riff = [N.E4, N.E4, N.G4, N.A4, N.B4, 0, N.A4, N.G4, N.E4, N.D4, N.E4, N.G4, N.B4, N.A4, N.G4, N.Fs4][st];
+                    if (riff) this._supersaw(riff * 2, 0.14, 0.055, 3200);
+                } else {
+                    // Heavy Taiko + Low Brass Kaiju March
+                    if (st === 0 || st === 4 || st === 8 || st === 11 || st === 14) this._kick(0.32, 115, 34, 0.28);
+                    if (st === 6 || st === 12) this._snare(0.18, 140, 0.18);
+                    const brass = [N.C3, N.B2, N.Bb2, 0, N.C3, N.B2, N.Bb2, 0, N.Ab2, N.G2, N.F2, N.G2, N.C3, 0, 0, 0][st];
+                    if (brass) {
+                        this._osc(brass, 0.24, 'sawtooth', 0.13, { cutoff: 1100, cutoffEnd: 420 });
+                        this._osc(brass * 0.5, 0.26, 'sawtooth', 0.10, { cutoff: 650 });
+                    }
+                }
+            } else if (this.mode === 'derby') {
+                // 140 BPM Electrifying Synthwave Carnival Rock-Organ Banger
+                this.timer = 0.107;
+                const N = NOTE;
+                const st = s % 16;
+                const bar = Math.floor(s / 16) % 4;
+                const roots = [N.F2, N.Ab2, N.Bb2, N.C3];
+                const root = roots[bar];
+                if (st % 4 === 0) this._kick(0.28, 155, 45, 0.20);
+                if (st === 4 || st === 12) this._snare(0.19, 220, 0.14);
+                if (st % 2 === 1) this._hat(0.055, st === 15, (st % 4 === 1 ? -0.3 : 0.3));
+                // Funky octave synth-bass
+                this._osc(root * (st % 2 ? 2 : 1), 0.10, 'sawtooth', 0.11, { cutoff: 1350, cutoffEnd: 380, q: 2.5 });
+                // Bouncy carnival organ riff
+                const riff = [N.F5, 0, N.Ab5, N.F5, 0, N.C5, N.Eb5, 0, N.F5, 0, N.Bb5, N.Ab5, N.G5, 0, N.Eb5, 0][st];
+                if (riff) {
+                    this._osc(riff, 0.12, 'square', 0.062, { cutoff: 2900, pan: -0.22 });
+                    this._osc(riff * 0.5, 0.12, 'sawtooth', 0.045, { cutoff: 1800, pan: 0.22 });
+                }
             }
         }
 
@@ -563,6 +682,73 @@
         woodBreak() {
             this._noise(0.14, 1100, 'bandpass', 1.4, 0.24, 0, true);
             this._osc(240, 0.08, 'square', 0.10, { slideTo: 95, sfx: true });
+        }
+        ffVictory() {
+            const N = NOTE;
+            [[N.C5, 0.11, 0], [N.C5, 0.11, 0.12], [N.C5, 0.11, 0.24], [N.C5, 0.30, 0.36],
+             [N.Ab4, 0.30, 0.70], [N.Bb4, 0.30, 1.04], [N.C5, 0.18, 1.38], [N.Bb4, 0.12, 1.58], [N.C5, 0.55, 1.72]].forEach(([f, d, t]) => {
+                this._osc(f, d, 'sawtooth', 0.11, { cutoff: 3400, sfx: true, delay: t });
+                this._osc(f * 0.5, d, 'triangle', 0.08, { sfx: true, delay: t });
+            });
+        }
+        ffSpell(elem = 'fire') {
+            if (elem === 'heal') {
+                [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((f, i) => this._osc(f, 0.24, 'sine', 0.12, { sfx: true, delay: i * 0.055 }));
+            } else if (elem === 'ice') {
+                [1480, 1960, 2480].forEach((f, i) => this._osc(f, 0.14, 'triangle', 0.11, { slideTo: f * 0.85, sfx: true, delay: i * 0.04 }));
+            } else if (elem === 'thunder') {
+                this._noise(0.24, 3200, 'bandpass', 1.2, 0.30, 0, true);
+                this._osc(880, 0.18, 'sawtooth', 0.15, { slideTo: 120, sfx: true });
+            } else {
+                this._noise(0.32, 950, 'bandpass', 1.4, 0.28, 0, true);
+                this._osc(260, 0.26, 'sawtooth', 0.15, { slideTo: 95, cutoff: 1600, sfx: true });
+            }
+        }
+        ffLimit() {
+            [NOTE.D4, NOTE.A4, NOTE.D5, NOTE.Fs5, NOTE.A5].forEach((f, i) => this._osc(f, 0.42, 'sawtooth', 0.12, { cutoff: 4200, sfx: true, delay: i * 0.045 }));
+            this._kick(0.32, 140, 38, 0.28, true);
+        }
+        bunkerStamp(approve = true) {
+            this._kick(0.24, 120, 48, 0.12, true);
+            this._osc(approve ? NOTE.E5 : 190, 0.16, approve ? 'triangle' : 'sawtooth', 0.12, { slideTo: approve ? NOTE.A5 : 130, sfx: true, delay: 0.05 });
+        }
+        bunkerShutter() {
+            this._noise(0.38, 520, 'bandpass', 1.8, 0.26, 0, true);
+            this._osc(120, 0.36, 'sawtooth', 0.14, { slideTo: 65, cutoff: 600, sfx: true });
+        }
+        bunkerCough() {
+            this._noise(0.11, 780, 'bandpass', 2.4, 0.22, 0, true);
+            this._noise(0.14, 650, 'bandpass', 2.0, 0.20, 0, true, 0.13);
+        }
+        toyGiggle() {
+            [880, 1175, 1046, 1397].forEach((f, i) => this._osc(f, 0.075, 'sine', 0.10, { slideTo: f * 1.12, sfx: true, delay: i * 0.065 }));
+        }
+        toySonar() {
+            this._osc(580, 0.34, 'sine', 0.15, { slideTo: 1240, sfx: true });
+            this._osc(1160, 0.28, 'triangle', 0.08, { sfx: true, delay: 0.06 });
+        }
+        toyBell() {
+            this._osc(1568, 0.38, 'sine', 0.14, { sfx: true });
+            this._osc(3136, 0.22, 'triangle', 0.08, { sfx: true });
+        }
+        kaijuRoar() {
+            this._osc(92, 0.85, 'sawtooth', 0.28, { slideTo: 48, cutoff: 820, sfx: true });
+            this._osc(138, 0.72, 'sawtooth', 0.20, { slideTo: 64, cutoff: 1100, sfx: true, delay: 0.05 });
+            this._noise(0.75, 420, 'lowpass', 1.3, 0.26, 0, true);
+        }
+        kaijuStep() {
+            this._kick(0.28, 84, 28, 0.24, true);
+            this._noise(0.10, 320, 'lowpass', 1.2, 0.14, 0, true);
+        }
+        bumperCrash(intensity = 1) {
+            const v = Math.min(1.4, Math.max(0.5, intensity));
+            this._kick(0.26 * v, 155, 52, 0.16, true);
+            this._osc(260, 0.14, 'triangle', 0.14 * v, { slideTo: 420, sfx: true });
+            this._noise(0.12, 2400, 'bandpass', 1.8, 0.18 * v, 0, true);
+        }
+        derbyZap() {
+            this._osc(920, 0.18, 'sawtooth', 0.14, { slideTo: 240, cutoff: 2800, sfx: true });
+            this._noise(0.14, 4200, 'highpass', 1.4, 0.16, 0, true);
         }
     }
 

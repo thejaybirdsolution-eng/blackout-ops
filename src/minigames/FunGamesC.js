@@ -88,29 +88,81 @@
 
     function buildFFMonsterMesh(spec, sc = 1) {
         const g = new THREE.Group();
-        const m = std(spec.col, 0.35, 0.28, { emissive: spec.col, emissiveIntensity: 0.22 });
+        const m = std(spec.col, 0.35, 0.25, { emissive: spec.col, emissiveIntensity: 0.22 });
+        const darkM = std(0x18181b, 0.6, 0.4);
+        const steelM = std(0xe2e8f0, 0.22, 0.85);
         if (spec.shape === 'winged') {
-            const body = new THREE.Mesh(new THREE.OctahedronGeometry(0.95 * sc, 1), m); body.position.y = 1.6 * sc;
+            // Dragon / Wyvern / Bahamut with swept wings, horned head & tail
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.58 * sc, 0.72 * sc, 1.65 * sc, 12), m); torso.position.y = 1.55 * sc;
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.28 * sc, 0.42 * sc, 0.9 * sc, 10), m); neck.position.set(0, 2.55 * sc, 0.35 * sc); neck.rotation.x = 0.35;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.68 * sc, 0.56 * sc, 0.95 * sc), m); head.position.set(0, 2.95 * sc, 0.72 * sc);
+            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.32 * sc, 1.9 * sc, 8), m); tail.position.set(0, 0.9 * sc, -1.1 * sc); tail.rotation.x = -1.2;
+            g.add(torso, neck, head, tail);
             for (const s of [-1, 1]) {
-                const w = new THREE.Mesh(new THREE.BoxGeometry(1.8 * sc, 0.12 * sc, 0.8 * sc), m);
-                w.position.set(s * 1.25 * sc, 1.9 * sc, 0); w.rotation.z = s * 0.35; g.add(w);
+                const w = new THREE.Mesh(new THREE.BoxGeometry(2.3 * sc, 0.10 * sc, 1.1 * sc), m);
+                w.position.set(s * 1.45 * sc, 2.15 * sc, -0.15 * sc); w.rotation.set(0.15, -s * 0.22, s * 0.42); g.add(w);
+                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.12 * sc, 0.65 * sc, 6), basic(0xfde047));
+                horn.position.set(s * 0.28 * sc, 3.35 * sc, 0.55 * sc); horn.rotation.set(-0.4, 0, -s * 0.35); g.add(horn);
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.11 * sc, 7, 6), basic(0xfef08a));
+                eye.position.set(s * 0.22 * sc, 3.02 * sc, 1.15 * sc); g.add(eye);
             }
-            g.add(body);
-        } else if (spec.shape === 'knight' || spec.shape === 'beast') {
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(1.3 * sc, 1.6 * sc, 0.95 * sc), m); torso.position.y = 1.4 * sc;
-            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55 * sc, 0), m); head.position.y = 2.5 * sc;
+        } else if (spec.shape === 'knight') {
+            // Armored Knight / Iron Giant with pauldrons & broadsword
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(1.35 * sc, 1.55 * sc, 0.88 * sc), m); torso.position.y = 1.65 * sc;
+            const helm = new THREE.Mesh(new THREE.CylinderGeometry(0.45 * sc, 0.50 * sc, 0.65 * sc, 12), m); helm.position.y = 2.75 * sc;
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.62 * sc, 0.14 * sc, 0.15 * sc), basic(0xef4444)); visor.position.set(0, 2.76 * sc, 0.46 * sc);
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.18 * sc, 2.4 * sc, 0.08 * sc), steelM); blade.position.set(1.05 * sc, 2.1 * sc, 0.55 * sc); blade.rotation.z = -0.22;
+            const hilt = new THREE.Mesh(new THREE.BoxGeometry(0.55 * sc, 0.14 * sc, 0.16 * sc), basic(0xfacc15)); hilt.position.set(0.86 * sc, 1.15 * sc, 0.55 * sc);
+            g.add(torso, helm, visor, blade, hilt);
             for (const s of [-1, 1]) {
-                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.18 * sc, 0.65 * sc, 6), basic(0xfde047));
-                horn.position.set(s * 0.45 * sc, 2.95 * sc, 0); horn.rotation.z = -s * 0.3; g.add(horn);
+                const pld = new THREE.Mesh(new THREE.SphereGeometry(0.48 * sc, 10, 8), steelM); pld.position.set(s * 0.92 * sc, 2.25 * sc, 0); g.add(pld);
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.24 * sc, 0.28 * sc, 0.95 * sc, 8), darkM); leg.position.set(s * 0.36 * sc, 0.48 * sc, 0); g.add(leg);
             }
-            g.add(torso, head);
+        } else if (spec.shape === 'beast') {
+            // Ifrit / Behemoth / Coeurl with bull horns & fiery mane
+            const torso = new THREE.Mesh(new THREE.SphereGeometry(0.95 * sc, 12, 10), m); torso.scale.set(1.1, 1.25, 0.95); torso.position.y = 1.55 * sc;
+            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.58 * sc, 0), m); head.position.set(0, 2.65 * sc, 0.28 * sc);
+            const mane = new THREE.Mesh(new THREE.ConeGeometry(0.65 * sc, 1.0 * sc, 8), basic(0xf97316)); mane.position.set(0, 3.1 * sc, -0.1 * sc);
+            g.add(torso, head, mane);
+            for (const s of [-1, 1]) {
+                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16 * sc, 0.85 * sc, 7), basic(0xfde047));
+                horn.position.set(s * 0.52 * sc, 3.15 * sc, 0.25 * sc); horn.rotation.z = -s * 0.48; g.add(horn);
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.13 * sc, 7, 6), basic(0xfef08a));
+                eye.position.set(s * 0.25 * sc, 2.72 * sc, 0.78 * sc); g.add(eye);
+            }
+        } else if (spec.shape === 'cactus') {
+            // Iconic Cactuar running pose!
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * sc, 0.32 * sc, 1.75 * sc, 10), m); trunk.position.y = 1.25 * sc;
+            const topCap = new THREE.Mesh(new THREE.SphereGeometry(0.32 * sc, 10, 8), m); topCap.position.y = 2.12 * sc;
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.85 * sc, 0.22 * sc, 0.22 * sc), m); armL.position.set(-0.55 * sc, 1.55 * sc, 0);
+            const armLu = new THREE.Mesh(new THREE.BoxGeometry(0.22 * sc, 0.65 * sc, 0.22 * sc), m); armLu.position.set(-0.88 * sc, 1.85 * sc, 0);
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.85 * sc, 0.22 * sc, 0.22 * sc), m); armR.position.set(0.55 * sc, 1.35 * sc, 0);
+            const armRd = new THREE.Mesh(new THREE.BoxGeometry(0.22 * sc, 0.60 * sc, 0.22 * sc), m); armRd.position.set(0.88 * sc, 1.05 * sc, 0);
+            const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.09 * sc, 7, 6), basic(0x111111)); mouth.scale.set(0.8, 1.4, 0.4); mouth.position.set(0, 1.78 * sc, 0.32 * sc);
+            g.add(trunk, topCap, armL, armLu, armR, armRd, mouth);
+            for (const s of [-1, 1]) {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07 * sc, 7, 6), basic(0x111111));
+                eye.position.set(s * 0.14 * sc, 1.98 * sc, 0.30 * sc); g.add(eye);
+            }
+        } else if (spec.shape === 'orb') {
+            // Bomb / Void Eye / Omega Astral with orbiting celestial rings!
+            const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.92 * sc, 1), m); core.position.y = 1.75 * sc;
+            const r1 = new THREE.Mesh(new THREE.TorusGeometry(1.38 * sc, 0.08 * sc, 8, 24), basic(0xfacc15)); r1.position.y = 1.75 * sc; r1.rotation.x = 0.65;
+            const r2 = new THREE.Mesh(new THREE.TorusGeometry(1.62 * sc, 0.06 * sc, 8, 24), basic(0x38bdf8)); r2.position.y = 1.75 * sc; r2.rotation.set(-0.55, 0.7, 0);
+            g.add(core, r1, r2);
+            for (const s of [-1, 1]) {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.16 * sc, 8, 6), basic(0xfef08a));
+                eye.position.set(s * 0.34 * sc, 1.85 * sc, 0.85 * sc); g.add(eye);
+            }
         } else {
-            const core = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 * sc, 1), m); core.position.y = 1.45 * sc;
-            g.add(core);
-        }
-        for (const s of [-1, 1]) {
-            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.16 * sc, 8, 6), basic(0xfef08a));
-            eye.position.set(s * 0.36 * sc, 1.85 * sc, 0.72 * sc); g.add(eye);
+            // Slime / Flan / Malboro / Goblin
+            const dome = new THREE.Mesh(new THREE.SphereGeometry(1.05 * sc, 14, 12), m); dome.scale.set(1.15, 0.92, 1.15); dome.position.y = 1.05 * sc;
+            const crown = new THREE.Mesh(new THREE.ConeGeometry(0.45 * sc, 0.75 * sc, 8), basic(0xfde047)); crown.position.y = 2.05 * sc;
+            g.add(dome, crown);
+            for (const s of [-1, 1]) {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.16 * sc, 8, 6), basic(0xfef08a));
+                eye.position.set(s * 0.36 * sc, 1.25 * sc, 0.96 * sc); g.add(eye);
+            }
         }
         return g;
     }
@@ -120,16 +172,19 @@
         tagline: 'Start Solo! Explore an entire World, recruit all 3 Allies via quests, Shop, Bag & 3 Bosses!',
         desc: 'An entire explorable Final Fantasy world! Begin alone in Crystalia Village with just yourself. Visit the Weapon/Item Shop & Inn, venture out into Whispering Woods, Sunscorch Canyon, and Ironhold Citadel to complete each companion\'s recruitment quest (Aria, Vex & Titus), loot 8 chests, battle 20 random enemy types to level up, and conquer 3 legendary Bosses!',
         heroLabel: 'FUN • FULL EXPLORABLE STORY JRPG', duration: 0, stars: [4000, 9000, 15000, 24000],
-        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, weaponNote: 'WASD Explore World • [E] Talk / Shop / Quests • Battle Menu in combat',
-        keys: [['WASD', 'Explore World'], ['E', 'Interact (NPCs / Shop / Chests / Bosses)'], ['MOUSE', 'Command Turn-Based Battles']],
+        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, customMusic: true,
+        weaponNote: 'WASD Explore World • [E] Talk / Shop / Quests • [1–6] Battle Hotkeys or Mouse',
+        keys: [['WASD', 'Explore World'], ['E', 'Interact (NPCs / Shop / Chests / Bosses)'], ['1–6 / MOUSE', 'Command ATB Battles']],
         map: {
-            atmosphere: { skyTop: 0x050816, skyBottom: 0x1e3a8a, fogColor: 0x0f172a, fogDensity: 0.006, sunColor: 0xbfdbfe, sunIntensity: 1.35, sunPos: [20, 60, 20], hemiSky: 0x60a5fa, hemiGround: 0x1e1b4b, hemiIntensity: 0.9 },
+            atmosphere: { skyTop: 0x050816, skyBottom: 0x1e3a8a, fogColor: 0x0f172a, fogDensity: 0.0055, sunColor: 0xbfdbfe, sunIntensity: 1.45, sunPos: [20, 60, 20], hemiSky: 0x60a5fa, hemiGround: 0x1e1b4b, hemiIntensity: 0.95 },
             boxes: [B(0, -0.5, -18, 200, 1, 200, 'concrete')],
             spawn: { x: 0, y: 0, z: 28, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('ff:explore');
             K.groundPlane(S, 200, 0x14532d, 0.002);
             const pathM = std(0x78716c, 0.95), woodM = std(0x78350f, 0.85), sandM = std(0xb45309, 0.9), stoneM = std(0x334155, 0.85);
+            const roofM = std(0x991b1b, 0.75), winM = basic(0xfef08a), postM = std(0x1f2937, 0.5, 0.7);
             // Crossroad stone paths from Crystalia Village (0,24) to Woods(-48,-4), Canyon(48,-4), Citadel(-26,-52), Astral(0,-76)
             const addRoad = (x, z, w, d, m = pathM) => { const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); r.rotation.x = -Math.PI / 2; r.position.set(x, 0.02, z); S.add(r); };
             addRoad(0, 24, 24, 24, stoneM); // Village Plaza
@@ -139,11 +194,35 @@
             addRoad(48, -4, 34, 34, sandM);  // Sunscorch Canyon desert plateau
             addRoad(0, -76, 22, 22, std(0x1e1b4b, 0.5, 0.4)); // Astral Sanctum
 
-            // Crystalia Village Buildings (Inn & Gear Shop) + Central Mana Fountain
-            S.box(-8, 2.2, 26, 6, 4.4, 5, woodM, { solid: true });
+            // Crystalia Village Buildings (Inn & Gear Shop with Pitched Roofs & Warm Windows) + Central Mana Fountain!
+            for (const [bx, roofCol] of [[-8, 0x065f46], [8, 0x9a3412]]) {
+                S.box(bx, 2.2, 26, 6, 4.4, 5, woodM, { solid: true });
+                const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2.4, 4), std(roofCol, 0.75));
+                roof.position.set(bx, 5.5, 26); roof.rotation.y = Math.PI / 4; S.add(roof);
+                for (const wx of [-1.6, 1.6]) {
+                    const win = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 0.12), winM);
+                    win.position.set(bx + wx, 2.5, 23.48); S.add(win);
+                }
+            }
+            // Central Crystalia Mana Fountain with rotating crystal spire
+            const fBasin = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 0.65, 20), stoneM); fBasin.position.set(0, 0.32, 24);
+            const fWater = new THREE.Mesh(new THREE.CircleGeometry(2.35, 20), std(0x38bdf8, 0.15, 0.3, { emissive: 0x0284c7, emissiveIntensity: 0.5 })); fWater.rotation.x = -Math.PI / 2; fWater.position.set(0, 0.67, 24);
+            const fSpire = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), std(0x7dd3fc, 0.1, 0.4, { emissive: 0x38bdf8, emissiveIntensity: 0.9 })); fSpire.scale.set(0.65, 1.8, 0.65); fSpire.position.set(0, 2.4, 24);
+            S.add(fBasin, fWater, fSpire); S.data.fountainSpire = fSpire;
+
+            // Glowing Roadside Lantern Posts
+            for (const [lx, lz] of [[-3.5, 14], [3.5, 14], [-3.5, -18], [3.5, -18], [-24, -7.5], [24, -7.5]]) {
+                const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 3.6, 8), postM); lp.position.set(lx, 1.8, lz);
+                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), winM); orb.position.set(lx, 3.7, lz);
+                S.add(lp, orb);
+            }
+            // Astral Sanctum Magic Rune Circle
+            const rune = new THREE.Mesh(new THREE.RingGeometry(7.2, 8.2, 36), basic(0xc084fc, { side: THREE.DoubleSide }));
+            rune.rotation.x = -Math.PI / 2; rune.position.set(0, 0.06, -76); S.add(rune);
+
             const innSg = A.sign('INN [E] FREE REST', 4.6, 0.85, { bg: '#064e3b', color: '#a7f3d0', borderColor: '#34d399', size: 0.46 }); innSg.position.set(-8, 4.9, 23.3); S.add(innSg);
-            S.box(8, 2.2, 26, 6, 4.4, 5, woodM, { solid: true });
             const shopSg = A.sign('WEAPONS & BAG SHOP [E]', 5.0, 0.85, { bg: '#451a03', color: '#fde68a', borderColor: '#f59e0b', size: 0.42 }); shopSg.position.set(8, 4.9, 23.3); S.add(shopSg);
+            void roofM;
 
             // Scenic Trees in Emerald Woods & Rocks in Sunscorch Canyon & Obsidian Pillars in Sanctum
             const rnd = L.mulberry32(991);
@@ -190,9 +269,13 @@
                 [-34, -56, { item: 'arm', idx: 3, label: 'Ironhold Plate!' }], [10, -72, { item: 'wep', idx: 6, label: 'Masamune Edge!' }]
             ];
             S.data.chests = chestSpots.map(([cx, cz, loot], i) => {
-                const bx = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 0.8), std(0xd97706, 0.4, 0.6));
-                bx.position.set(cx, 0.4, cz); S.add(bx);
-                return { id: i, pos: V(cx, 0, cz), mesh: bx, loot, opened: false };
+                const cg = new THREE.Group();
+                const base = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.55, 0.82), std(0x78350f, 0.6)); base.position.y = 0.28;
+                const lid = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.28, 0.86), std(0xb45309, 0.5)); lid.position.y = 0.66;
+                const trim = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.10, 0.88), std(0xfacc15, 0.25, 0.85)); trim.position.y = 0.55;
+                const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.42, 3.2, 10), basic(0xfde047, { transparent: true, opacity: 0.28 })); beam.position.y = 1.9;
+                cg.add(base, lid, trim, beam); cg.position.set(cx, 0, cz); S.add(cg);
+                return { id: i, pos: V(cx, 0, cz), mesh: cg, lid, beam, loot, opened: false };
             });
 
             // START SOLO WITH ONLY 1 CHARACTER! Allies must be found & recruited via Story Quests!
@@ -269,13 +352,25 @@
         onKey(S, code) {
             if (MG.state !== 'running') return false;
             if (S.data.mode === 'explore' && code === 'KeyE') { this._interact(S); return true; }
+            if (S.data.mode === 'battle' && S.data.subMenu === 'main') {
+                const u = S.data.party[S.data.turnIdx];
+                if (code === 'Digit1') { this._cmd(S, (u && u.limit >= 100) ? 'limit' : 'atk'); return true; }
+                if (code === 'Digit2') { this._cmd(S, 'sp'); return true; }
+                if (code === 'Digit3') { this._cmd(S, 'magic'); return true; }
+                if (code === 'Digit4') { this._cmd(S, 'summon'); return true; }
+                if (code === 'Digit5') { this._cmd(S, 'bag'); return true; }
+                if (code === 'Digit6') { this._cmd(S, 'def'); return true; }
+            }
             return false;
         },
         _interact(S) {
             const D = S.data, P = BO.Player;
             for (const ch of D.chests) {
                 if (!ch.opened && P.pos.distanceTo(ch.pos) < 3.4) {
-                    ch.opened = true; ch.mesh.visible = false; SFX.ding(1.3);
+                    ch.opened = true;
+                    if (ch.lid) { ch.lid.rotation.x = -1.25; ch.lid.position.set(0, 0.82, -0.35); }
+                    if (ch.beam) ch.beam.visible = false;
+                    SFX.ding(1.3);
                     const lt = ch.loot;
                     if (lt.item === 'gil') D.gil += lt.amt;
                     else if (lt.item === 'wep' && !D.ownedWeps.includes(lt.idx)) D.ownedWeps.push(lt.idx);
@@ -383,6 +478,7 @@
                 grp.add(hf.root); return hf;
             });
             D.enemyMesh = eMesh; D.battleGroup = grp; S.add(grp);
+            if (BO.MinigameAudio) BO.MinigameAudio.start(questTag ? 'ff:boss' : 'ff:battle');
             D.log = questTag ? `⚠ ${D.enemy.name} ENGAGES!` : `Ambush! Wild ${D.enemy.name} blocks the path!`;
             D.ui.style.display = 'block';
             this._refreshBattleUI(S);
@@ -456,7 +552,7 @@
             if (!isLim) u.limit = Math.min(100, u.limit + 22);
             BO.FX.spawnTracer(D.heroFigs[D.turnIdx].root.position.clone().add(V(0, 1.3, 0)), D.enemyMesh.position.clone().add(V(0, 1.4, 0)), isLim ? 0xfacc15 : isSp ? 0x38bdf8 : 0xe2e8f0, isLim ? 0.14 : 0.08, 0.22);
             BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.4, 0)), isLim ? 5.5 : isSp ? 3.5 : 1.8, isLim ? 0xfacc15 : 0x38bdf8);
-            SFX[isLim ? 'star' : 'thunk'](isLim ? 3 : undefined);
+            if (isLim && BO.MinigameAudio) BO.MinigameAudio.ffLimit(); else SFX[isLim ? 'star' : 'thunk'](isLim ? 3 : undefined);
             D.log = isLim ? `🌟 LIMIT BREAK! ${u.name} unleashes ${u.limName} for ${dmg} DMG!` : `${u.name} ${isSp ? u.spName : 'strikes'} for ${dmg} DMG!`;
             this._afterAction(S);
         },
@@ -483,7 +579,8 @@
             const weakHit = D.enemy.weak === sp.elem;
             const dmg = Math.round((42 + u.lv * 5 + (u.wep?.mag || 10) * 2.2) * sp.pwr * (weakHit ? 1.75 : 1.0));
             D.enemy.hp -= dmg; S.award(dmg * 2); u.limit = Math.min(100, u.limit + 20);
-            BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.5, 0)), weakHit ? 4.5 : 3.0, sp.col); SFX.thunk();
+            BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.5, 0)), weakHit ? 4.5 : 3.0, sp.col);
+            if (BO.MinigameAudio) BO.MinigameAudio.ffSpell(sp.elem); else SFX.thunk();
             D.log = `${u.name} casts ${sp.name} for ${dmg} DMG!${weakHit ? ' 🔥 WEAKNESS HIT (1.75x)!' : ''}`;
             this._afterAction(S);
         },
@@ -520,7 +617,7 @@
                     u.xp += D.enemy.xp;
                     while (u.xp >= u.lv * 110) { u.xp -= u.lv * 110; u.lv++; u.maxHp += 28; u.hp = u.maxHp; u.maxMp += 10; u.mp = u.maxMp; u.baseAtk += 5; }
                 }
-                SFX.fanfare();
+                if (BO.MinigameAudio) BO.MinigameAudio.ffVictory(); else SFX.fanfare();
                 const qt = D.questTag;
                 this._endBattle(S, true);
                 if (qt === 'aria' && !D.quests.aria) { D.quests.aria = true; D.party.push(D.alliesPool.aria); const n = D.npcs.find((x) => x.id === 'aria'); if (n) n.fig.root.visible = false; MG.toast('ARIA JOINED YOUR PARTY!', '#f472b6'); }
@@ -538,6 +635,7 @@
             if (D.battleGroup) { S.scene.remove(D.battleGroup); D.battleGroup = null; }
             D.ui.style.display = 'none';
             D.mode = 'explore';
+            if (BO.MinigameAudio) BO.MinigameAudio.start('ff:explore');
             this._updateQuestHUD(S);
         },
         _nextTurn(S) {
@@ -569,6 +667,8 @@
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
+            if (state === 'running' && BO.MinigameAudio) BO.MinigameAudio.tick(dt);
+            if (D.fountainSpire) { D.fountainSpire.rotation.y += dt * 1.4; D.fountainSpire.position.y = 2.4 + Math.sin(S.t * 2.5) * 0.18; }
             if (D.mode !== 'explore') {
                 if (document.pointerLockElement && MG.state === 'running') document.exitPointerLock();
                 if (D.enemyMesh) D.enemyMesh.rotation.y += dt * 0.9;
@@ -605,6 +705,7 @@
             }
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.ui) S.data.ui.remove();
             if (S.data.questUi) S.data.questUi.remove();
             if (S.data.mapBox) S.data.mapBox.remove();
@@ -693,10 +794,10 @@
         tagline: 'NO auto-scan! Inspect layered visitors, toggle UV Lamp [L] & Question [Q], use your Manual!',
         desc: 'Ten-minute Quarantine Checkpoint shift! NO automatic scanner—inspect richly detailed visitors in line! Look closely with [RMB] Zoom & [L] UV Lamp for subtle discolored veins, faint sclera tint, micro-twitches, scars, coughs & ID discrepancies. Question ([Q]) nervous entrants or close the Steel Gate ([G]) when outbreaks happen!',
         heroLabel: 'FUN • PURE VISUAL CHECKPOINT • 10 MINUTES', duration: 600, stars: [1500, 3500, 6200, 10000],
-        standardWeapon: 'm1911', lockWeapon: true, fixedAmmo: true, infiniteMag: false,
+        standardWeapon: 'm1911', lockWeapon: true, fixedAmmo: true, infiniteMag: false, customMusic: true,
         hubOptions: [{ key: 'inspDiff', label: 'DIFFICULTY', default: 'easy', choices: Object.entries(DIFF_CONF).map(([k, v]) => ({ val: k, label: k.toUpperCase(), desc: v.label })) }],
-        weaponLabel: 'SMALL PISTOL (20 / 50 / 100 BULLETS)', weaponNote: 'NO Auto-Scan • Subtle visual clues + [L] UV Lamp + [Q] Question',
-        keys: [['F / TAB', 'Field Manual'], ['RMB', 'Zoom In'], ['L', 'UV Lamp'], ['Q', 'Question'], ['E / X', 'Approve / Deny'], ['G', 'Gate Shutter']],
+        weaponLabel: 'SMALL PISTOL (20 / 50 / 100 BULLETS)', weaponNote: 'NO Auto-Scan • [L] UV Lamp • [T] IR Thermometer • [Q] Question • [F] Manual',
+        keys: [['F / TAB', 'Field Manual'], ['RMB', 'Zoom In'], ['L', 'UV Lamp'], ['T', 'IR Temp Scan'], ['Q', 'Question'], ['E / X', 'Approve / Deny'], ['G', 'Gate Shutter']],
         guide: {
             objective: 'Work a 10-minute Bunker gate shift. Admit healthy survivors [E] and reject infected visitors [X] using pure visual inspection.',
             tips: [
@@ -711,24 +812,49 @@
             spawn: { x: 0, y: 0, z: 1.5, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('bunker');
             const diffKey = (S.opts && DIFF_CONF[S.opts.inspDiff]) ? S.opts.inspDiff : 'easy';
             S.data.dc = DIFF_CONF[diffKey];
             K.groundPlane(S, 96, 0x27272a, 0.002);
-            const wallM = std(0x475569, 0.85), gateM = std(0xfacc15, 0.5, 0.6), bunkM = std(0x334155, 0.8), steelM = std(0x1f2937, 0.4, 0.8);
+            const wallM = std(0x475569, 0.85), gateM = std(0x334155, 0.55, 0.5), bunkM = std(0x334155, 0.8), steelM = std(0x1f2937, 0.4, 0.8);
+            const hazTex = L.canvasTex('bunker-haz', 128, 32, (g, w, h) => {
+                g.fillStyle = '#eab308'; g.fillRect(0, 0, w, h); g.fillStyle = '#111827';
+                for (let x = -32; x < w + 32; x += 24) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 12, 0); g.lineTo(x - 4, h); g.lineTo(x - 16, h); g.closePath(); g.fill(); }
+            });
+            const hazMat = new THREE.MeshStandardMaterial({ map: hazTex, roughness: 0.55 });
             this._box(S, -10.5, 2.2, -6, 15, 4.4, 0.8, wallM);
             this._box(S, 10.5, 2.2, -6, 15, 4.4, 0.8, wallM);
-            this._box(S, 0, 0.55, -6, 6, 1.1, 1.0, gateM);
+            this._box(S, 0, 0.52, -6, 6, 1.04, 1.1, gateM);
+            // Hazard stripe floor zone + overhead steel frame + fluorescent light + rotating amber beacon
+            const bayFloor = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 4.2), hazMat); bayFloor.rotation.x = -Math.PI / 2; bayFloor.position.set(0, 0.03, -8.2); S.add(bayFloor);
+            const frameTop = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.45, 1.15), hazMat); frameTop.position.set(0, 3.65, -6); S.add(frameTop);
+            const fluo = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.12, 0.35), basic(0xfef9c3)); fluo.position.set(0, 3.35, -7.2); S.add(fluo);
+            const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.36, 12), basic(0xf59e0b)); beacon.position.set(2.8, 4.05, -6); S.add(beacon);
+            const statusLamp = new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 8), basic(0x22c55e)); statusLamp.position.set(-2.6, 3.35, -5.35); S.add(statusLamp);
+            // Desk APPROVE (Green) / DENY (Red) physical buttons + 3D Magnified Pass Display Board on counter!
+            const btnOk = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.12, 0.35), basic(0x22c55e)); btnOk.position.set(-1.35, 1.09, -5.65);
+            const btnNo = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.12, 0.35), basic(0xef4444)); btnNo.position.set(-0.75, 1.09, -5.65);
+            const deskPass = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.18), new THREE.MeshBasicMaterial({ map: badgeTex('clean', 'WAIT'), side: THREE.DoubleSide }));
+            deskPass.position.set(1.75, 1.72, -5.42); deskPass.rotation.y = -0.25;
+            S.add(btnOk, btnNo, deskPass);
+            // Sandbag barricades outside checkpoint
+            for (const sx of [-4.2, 4.2]) {
+                for (let b = 0; b < 3; b++) {
+                    const bag = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.42, 0.72), std(0x78716c, 0.95));
+                    bag.position.set(sx, 0.21 + b * 0.40, -10.5); S.add(bag);
+                }
+            }
             this._box(S, -18, 2.5, 14, 1, 5, 42, wallM);
             this._box(S, 18, 2.5, 14, 1, 5, 42, wallM);
             this._box(S, 0, 2.5, 34, 36, 5, 1, wallM);
             const shutter = new THREE.Mesh(new THREE.BoxGeometry(6.0, 3.2, 0.25), steelM);
             shutter.position.set(0, 5.2, -6.0); S.add(shutter);
 
-            const deskLt = new THREE.PointLight(0xfef9c3, 1.65, 12, 1.5); deskLt.position.set(0, 3.1, -7.2); S.add(deskLt);
-            const uvLt = new THREE.PointLight(0x818cf8, 0, 8, 1.4); uvLt.position.set(0, 2.1, -6.5); S.add(uvLt);
+            const deskLt = new THREE.PointLight(0xfef9c3, 1.75, 14, 1.5); deskLt.position.set(0, 3.1, -7.2); S.add(deskLt);
+            const uvLt = new THREE.PointLight(0x818cf8, 0, 9, 1.4); uvLt.position.set(0, 2.1, -6.5); S.add(uvLt);
 
-            const sg = A.sign('CHECKPOINT OMEGA • [F] MANUAL • [L] UV LAMP • [Q] QUESTION', 8.5, 0.82, { bg: '#1e293b', color: '#fef08a', borderColor: '#facc15', size: 0.34 });
-            sg.position.set(0, 4.0, -5.8); S.add(sg);
+            const sg = A.sign('CHECKPOINT OMEGA • [F] MANUAL • [L] UV • [T] TEMP • [Q] QUESTION', 8.8, 0.82, { bg: '#1e293b', color: '#fef08a', borderColor: '#facc15', size: 0.32 });
+            sg.position.set(0, 4.35, -5.8); S.add(sg);
             for (const bx of [-13, 13]) for (const bz of [10, 18, 26]) this._box(S, bx, 0.7, bz, 2.6, 1.4, 1.4, bunkM);
             for (const [cx, cz] of [[-5, 22], [5, 22], [0, 30]]) this._box(S, cx, 0.55, cz, 2.2, 1.1, 1.2, std(0x78350f, 0.8));
 
@@ -739,7 +865,7 @@
                 S.add(qf.root); return qf;
             });
 
-            Object.assign(S.data, { survivors: [], entrant: null, manualOpen: false, manualCat: 'ALL', nextDelay: 1.2, correct: 0, wrong: 0, outbreaks: 0, uvOn: false, gateClosed: false, shutter, deskLt, uvLt, dialogTxt: '' });
+            Object.assign(S.data, { survivors: [], entrant: null, manualOpen: false, manualCat: 'ALL', nextDelay: 1.2, correct: 0, wrong: 0, outbreaks: 0, uvOn: false, gateClosed: false, shutter, deskLt, uvLt, statusLamp, beacon, deskPass, dialogTxt: '' });
             this._buildManualUI(S);
             this._nextEntrant(S);
         },
@@ -837,23 +963,29 @@
                 bd.position.set(0.24, 1.06, 0.06); fig.root.add(bd); uvSpots.push(bd);
             }
             const badgeKind = (tr === 'badBadgeRed' || tr === 'badBadgeBlood' || tr === 'badBadgeCrook') ? tr : 'clean';
-            const card = new THREE.Mesh(new THREE.PlaneGeometry(0.30, 0.38), new THREE.MeshBasicMaterial({ map: badgeTex(badgeKind, vName), side: THREE.DoubleSide }));
+            const passTex = badgeTex(badgeKind, vName);
+            const card = new THREE.Mesh(new THREE.PlaneGeometry(0.30, 0.38), new THREE.MeshBasicMaterial({ map: passTex, side: THREE.DoubleSide }));
             card.position.set(-0.30, 1.24, 0.27);
             if (tr === 'badBadgeCrook') card.rotation.z = 0.22;
             fig.root.add(card);
+            if (D.deskPass) { D.deskPass.material.map = passTex; D.deskPass.material.needsUpdate = true; }
 
-            fig.root.position.set(0, 0, -7.2);
+            fig.root.position.set(0, 0, -9.8);
             S.add(fig.root);
             D.dialogTxt = `"${VISITOR_QUOTES[Math.floor(Math.random() * VISITOR_QUOTES.length)]}"`;
-            D.entrant = { fig, infected, sign, tr, vName, uvSpots, coughT: 2.2, questionBoost: 0 };
+            const fever = infected && Math.random() < 0.75;
+            const tempC = fever ? (39.1 + Math.random() * 2.4) : (36.3 + Math.random() * 0.9);
+            D.entrant = { fig, infected, sign, tr, vName, uvSpots, coughT: 2.2, questionBoost: 0, tempC: tempC.toFixed(1), tempScanned: false, walkZ: -9.8 };
         },
         _decide(S, approve) {
             const D = S.data, ent = D.entrant;
             if (!ent) return;
             const wasInf = ent.infected;
             const ok = (approve && !wasInf) || (!approve && wasInf);
-            if (ok) { D.correct++; S.award(300, V(0, 2, -6), 'GOOD CALL!', '#86efac'); SFX.ding(1.1); }
-            else { D.wrong++; S.award(-180, V(0, 2, -6), wasInf ? 'LET INFECTED IN!' : 'DENIED CLEAN PERSON!', '#fca5a5'); SFX.buzzer(); }
+            if (BO.MinigameAudio) BO.MinigameAudio.bunkerStamp(ok);
+            if (D.statusLamp) D.statusLamp.material.color.setHex(ok ? 0x22c55e : 0xef4444);
+            if (ok) { D.correct++; S.bumpCombo(); S.award(300 * S.comboMult, V(0, 2, -6), 'GOOD CALL!', '#86efac'); }
+            else { D.wrong++; S.breakCombo('BAD CALL!'); S.award(-180, V(0, 2, -6), wasInf ? 'LET INFECTED IN!' : 'DENIED CLEAN PERSON!', '#fca5a5'); }
 
             if (approve) {
                 const sx = (Math.random() - 0.5) * 24, sz = 10 + Math.random() * 18;
@@ -880,9 +1012,17 @@
             }
             if (code === 'KeyG') {
                 D.gateClosed = !D.gateClosed;
-                SFX.rumble(0.25); MG.toast(D.gateClosed ? 'GATE SHUTTER LOCKED' : 'GATE OPEN', '#fde047'); return true;
+                if (BO.MinigameAudio) BO.MinigameAudio.bunkerShutter(); else SFX.rumble(0.25);
+                MG.toast(D.gateClosed ? 'GATE SHUTTER LOCKED' : 'GATE OPEN', '#fde047'); return true;
             }
             if (!D.entrant) return false;
+            if (code === 'KeyT') {
+                D.entrant.tempScanned = true;
+                const hot = parseFloat(D.entrant.tempC) >= 38.5;
+                SFX.ding(hot ? 0.75 : 1.35);
+                MG.toast(`🌡 IR THERMOMETER: ${D.entrant.tempC}°C ${hot ? '(HIGH FEVER!)' : '(NORMAL)'}`, hot ? '#f87171' : '#4ade80');
+                return true;
+            }
             if (code === 'KeyQ') {
                 D.entrant.questionBoost = 3.5;
                 D.dialogTxt = D.entrant.infected ? '"J-just hurry up and stamp it... please..."' : '"Everything is in order, check my Sector-4 ID!"';
@@ -895,11 +1035,19 @@
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
             if (D.shutter) D.shutter.position.y = BO.Math.lerp(D.shutter.position.y, D.gateClosed ? 2.4 : 5.4, dt * 8);
+            const hasOutbreak = D.survivors.some((s) => s.infected);
+            if (D.beacon) D.beacon.material.color.setHex(hasOutbreak && Math.sin(S.t * 14) > 0 ? 0xef4444 : 0xf59e0b);
+            if (state === 'running' && BO.MinigameAudio) BO.MinigameAudio.tick(dt, { outbreak: hasOutbreak });
             if (state !== 'running') return;
             if (!D.entrant) {
                 D.nextDelay -= dt; if (D.nextDelay <= 0) this._nextEntrant(S);
             } else {
                 const ent = D.entrant, tr = ent.tr;
+                if (ent.walkZ < -7.2) {
+                    ent.walkZ = Math.min(-7.2, ent.walkZ + dt * 3.8);
+                    ent.fig.root.position.z = ent.walkZ;
+                    F.walk(ent.fig, S.t * 9, 1, false);
+                }
                 if (ent.questionBoost > 0) ent.questionBoost -= dt;
                 // Subtle natural breathing & nervous behavior cues!
                 ent.fig.root.position.y = Math.sin(S.t * 2.2) * 0.015;
@@ -916,7 +1064,11 @@
                 }
                 if (tr === 'cough') {
                     ent.coughT -= dt * (ent.questionBoost > 0 ? 2 : 1);
-                    if (ent.coughT <= 0) { ent.coughT = 2.8; BO.FX.spawnParticles(ent.fig.root.position.clone().add(V(0, 1.48, 0.25)), 4, 0x4d7c0f, 1.5, 0.15, 0.45, 0.65); }
+                    if (ent.coughT <= 0) {
+                        ent.coughT = 2.8;
+                        if (BO.MinigameAudio) BO.MinigameAudio.bunkerCough();
+                        BO.FX.spawnParticles(ent.fig.root.position.clone().add(V(0, 1.48, 0.25)), 4, 0x4d7c0f, 1.5, 0.15, 0.45, 0.65);
+                    }
                 }
                 if (D.uvOn && ent.uvSpots) {
                     for (const sp of ent.uvSpots) sp.material.emissive && sp.material.emissive.setHex(0x84cc16);
@@ -955,11 +1107,12 @@
             const totalScore = S.score + healthy * 350;
             return { score: totalScore, stars: this.stars.filter((th) => totalScore >= th).length, title: healthy >= 8 ? 'HAWK-EYE WARDEN' : 'SHIFT COMPLETE', stats: [['CLEAN SURVIVORS', healthy], ['CORRECT CALLS', D.correct], ['MISTAKES', D.wrong], ['OUTBREAKS QUELLED', S.kills]] };
         },
-        dispose(S) { if (S.data.manualEl) S.data.manualEl.remove(); },
+        dispose(S) { if (BO.MinigameAudio) BO.MinigameAudio.stop(); if (S.data.manualEl) S.data.manualEl.remove(); },
         hud(S) {
             const D = S.data, w = BO.Player.activeWeapon, ammo = w ? w.mag + w.reserve : 0;
             const healthy = D.survivors.filter((s) => !s.infected).length, inf = D.survivors.filter((s) => s.infected).length;
-            return `<div class="fun-panel"><div class="mgx-chip">SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">OUTBREAKS <b>${inf}</b></div><div class="mgx-chip">AMMO <b>${ammo}</b></div><div class="mgx-chip">${D.uvOn ? '🔦 UV ON' : '💡 STD LIGHT'}</div><div class="mgx-chip">MANUAL <b>[F]</b> • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
+            const tempChip = D.entrant && D.entrant.tempScanned ? `<div class="mgx-chip ${parseFloat(D.entrant.tempC) >= 38.5 ? 'mgx-bad' : 'mgx-hot'}">TEMP <b>${D.entrant.tempC}°C</b></div>` : `<div class="mgx-chip">TEMP <b>[T] SCAN</b></div>`;
+            return `<div class="fun-panel"><div class="mgx-chip">SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">OUTBREAKS <b>${inf}</b></div><div class="mgx-chip">AMMO <b>${ammo}</b></div>${tempChip}<div class="mgx-chip">${D.uvOn ? '🔦 UV ON' : '💡 STD LIGHT'}</div><div class="mgx-chip"><b>[F]</b> MANUAL • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
             ${D.entrant ? `<div class="fun-panel" style="margin-top:4px;font-size:11.5px;color:#fde68a;"><b>${D.entrant.vName}:</b> ${esc(D.dialogTxt)}</div>` : ''}`;
         }
     });

@@ -190,7 +190,7 @@
         heroLabel: 'FUN & SPECIALS • DEMOLITION DERBY', duration: 120,
         stars: [2200, 4200, 6800, 9600],
         weaponLabel: 'EMP HARPOON & NITRO BUMPER', weaponNote: 'WASD Steer • LMB EMP Harpoon • SHIFT/SPACE Nitro Ram • Q Magnetic Repulse',
-        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
         keys: [['WASD', 'Drive & Reverse'], ['MOUSE', 'Steer Car'], ['SHIFT / SPACE', 'Nitro Ram (4s)'], ['LMB', 'EMP Harpoon (2.5s)'], ['Q', 'Mag Repulse (9s)']],
         map: {
             atmosphere: { skyTop: 0x090418, skyBottom: 0x2e1065, fogColor: 0x170936, fogDensity: 0.008, sunColor: 0xfde68a, sunIntensity: 1.4, sunPos: [20, 45, 20], hemiSky: 0xc084fc, hemiGround: 0x1e1b4b, hemiIntensity: 0.9 },
@@ -199,17 +199,39 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('derby');
             const D = S.data;
             const ARENA_R = 19.5;
             Object.assign(D, {
                 arenaR: ARENA_R, cars: [], rails: [], pickups: [], sparks: [],
-                kos: 0, aliveCount: 10, pickupTimer: 4.5, shrinkWarned: false
+                kos: 0, aliveCount: 10, pickupTimer: 4.5, suddenDeath: false
             });
 
-            // Main octagonal/circular neon floor deck + abyss glow ring below
+            // Main octagonal/circular neon floor deck + pulsing neon ring + abyss glow ring below
             const deckMat = new THREE.MeshStandardMaterial({ map: derbyFloorTex(), roughness: 0.30, metalness: 0.25 });
             const deck = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R, ARENA_R * 0.92, 1.8, 48), [std(0x312e81, 0.5, 0.6), deckMat, std(0x1e1b4b, 0.7)]);
             deck.position.y = -0.9; deck.receiveShadow = true; S.add(deck);
+            const pulseRing = new THREE.Mesh(new THREE.RingGeometry(ARENA_R - 0.85, ARENA_R - 0.15, 48), basic(0x38bdf8, { side: THREE.DoubleSide }));
+            pulseRing.rotation.x = -Math.PI / 2; pulseRing.position.y = 0.04; S.add(pulseRing);
+            D.pulseRing = pulseRing;
+
+            // 4 Stadium Spectator Bleachers outside the Volt-Dome with cheering crowd silhouettes!
+            const standM = std(0x1e1b4b, 0.7), crowdCols = [0xfacc15, 0xec4899, 0x38bdf8, 0x4ade80, 0xf97316];
+            for (let b = 0; b < 4; b++) {
+                const a = (b / 4) * TAU + Math.PI / 4;
+                const sg = new THREE.Group();
+                sg.position.set(Math.cos(a) * (ARENA_R + 7.2), -0.5, Math.sin(a) * (ARENA_R + 7.2));
+                sg.rotation.y = -a + Math.PI / 2;
+                for (let row = 0; row < 3; row++) {
+                    const tier = new THREE.Mesh(new THREE.BoxGeometry(15, 1.1, 1.5), standM);
+                    tier.position.set(0, 0.6 + row * 1.1, -row * 1.4); sg.add(tier);
+                    for (let c = -5; c <= 5; c += 2) {
+                        const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.85, 7), std(crowdCols[Math.abs(c + row + b) % crowdCols.length], 0.7));
+                        fan.position.set(c * 1.2, 1.55 + row * 1.1, -row * 1.4); sg.add(fan);
+                    }
+                }
+                S.add(sg);
+            }
 
             const abyss = new THREE.Mesh(new THREE.RingGeometry(ARENA_R * 0.85, 58, 48), basic(0x0284c7));
             abyss.rotation.x = -Math.PI / 2; abyss.position.y = -11.5; S.add(abyss);
@@ -315,6 +337,7 @@
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onMouse) window.removeEventListener('mousedown', S.data.onMouse);
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
@@ -345,7 +368,7 @@
             }
             const endPt = best ? best.pos.clone().add(V(0, 0.85, 0)) : start.clone().addScaledVector(fwd, 16);
             BO.FX.spawnTracer(start, endPt, 0x38bdf8, 0.20, 0.14);
-            tone(880, 260, 0.18, 'square', 0.09);
+            if (BO.MinigameAudio) BO.MinigameAudio.derbyZap(); else tone(880, 260, 0.18, 'square', 0.09);
             if (best) {
                 best.stunT = 1.35;
                 best.damage = Math.min(250, best.damage + 18);
@@ -416,7 +439,8 @@
             const hitter = (c.lastHitBy >= 0 && S.t - c.lastHitT < 6.0) ? D.cars[c.lastHitBy] : null;
             if (hitter && hitter.isPlayer && !c.isPlayer) {
                 D.kos++; S.kills++; S.bumpCombo();
-                S.award(850, c.pos.clone().add(V(0, 4, 0)), `💥 RING-OUT KO: ${c.name}!`, '#fde047');
+                const streakTag = D.kos >= 4 ? '🔥 DERBY UNSTOPPABLE!' : D.kos === 3 ? '⚡ TRIPLE KO!' : D.kos === 2 ? '⚡ DOUBLE KO!' : `💥 RING-OUT KO: ${c.name}!`;
+                S.award(850 + (D.kos > 1 ? 200 * D.kos : 0), c.pos.clone().add(V(0, 4, 0)), streakTag, '#fde047');
             }
             if (c.isPlayer) {
                 MG.finish(`RINGED OUT! (${D.kos} KOs)`, { color: '#f87171', delay: 1.8 });
@@ -440,6 +464,13 @@
                     P.rideState.eye = 1.52;
                 }
                 return;
+            }
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
+            if (D.pulseRing) D.pulseRing.material.color.setHex(D.suddenDeath ? (Math.sin(S.t * 14) > 0 ? 0xef4444 : 0xfacc15) : (Math.sin(S.t * 5) > 0 ? 0x38bdf8 : 0xec4899));
+            if (!D.suddenDeath && S.t >= 75) {
+                D.suddenDeath = true;
+                for (const r of D.rails) { if (r.mesh) { S.scene.remove(r.mesh); r.mesh = null; } r.hp = 0; }
+                SFX.rumble(0.7); MG.toast('⚠️ SUDDEN DEATH! ALL GUARDRAILS SHATTERED!', '#ef4444');
             }
 
             // Spawn arena powerups periodically
@@ -614,7 +645,7 @@
                             const mid = V((a.pos.x + b.pos.x) * 0.5, 0.65, (a.pos.z + b.pos.z) * 0.5);
                             BO.FX.spawnParticles(mid, 14, 0xfde047, 5.5, 5, 0.4, 0.85);
                             if (a.isPlayer || b.isPlayer) {
-                                tone(220, 95, 0.14, 'triangle', 0.12);
+                                if (BO.MinigameAudio) BO.MinigameAudio.bumperCrash(impact / 10); else tone(220, 95, 0.14, 'triangle', 0.12);
                                 const rival = a.isPlayer ? b : a;
                                 if (impact > 9.5 && aSpd >= bSpd - 1 && a.isPlayer) {
                                     S.award(120, mid.clone().add(V(0, 1.1, 0)), `⚡ T-BONE (${rival.damage}%)`, '#fde047');
