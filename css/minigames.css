@@ -64,12 +64,13 @@
     border-radius: 12px; cursor: pointer; color: var(--text-main); font-family: var(--font-ui);
     background: rgba(15, 23, 42, 0.92);
     border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
 }
-.mgh-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--mc) 70%, transparent); box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45); }
-.mgh-card.active { border-color: var(--mc); box-shadow: 0 0 0 2px var(--mc), 0 16px 34px color-mix(in srgb, var(--mc) 30%, transparent); }
+.mgh-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--mc) 75%, transparent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 14px 30px rgba(0, 0, 0, 0.45); }
+.mgh-card.active { border-color: var(--mc); box-shadow: 0 0 0 2px var(--mc), 0 16px 34px color-mix(in srgb, var(--mc) 32%, transparent); }
 .mgh-card-art {
-    position: relative; height: 104px; display: grid; place-items: center;
+    position: relative; height: 118px; display: grid; place-items: center;
     background:
         radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--mc) 55%, transparent), transparent 60%),
         radial-gradient(circle at 80% 90%, color-mix(in srgb, var(--mc) 35%, transparent), transparent 55%),
@@ -107,6 +108,22 @@
 .mgh-stars.big i { width: 22px; height: 22px; }
 
 .mgh-detail { --mc: #f59e0b; display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--mc); }
+.mgh-d-banner {
+    position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+    border: 1px solid color-mix(in srgb, var(--mc) 50%, rgba(148, 163, 184, 0.22));
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+.mgh-d-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mgh-d-banner::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, rgba(8, 12, 22, 0.35), transparent 35%, rgba(8, 12, 22, 0.55));
+}
+.mgh-d-cat {
+    position: absolute; top: 8px; left: 9px; z-index: 1; padding: 3px 8px; border-radius: 5px;
+    font: 800 9.5px var(--font-ui); letter-spacing: 1.4px; color: #f8fafc;
+    background: rgba(8, 12, 22, 0.78); border: 1px solid color-mix(in srgb, var(--mc) 65%, transparent);
+    backdrop-filter: blur(4px);
+}
 .mgh-d-hero { display: flex; gap: 12px; align-items: center; }
 .mgh-d-hero > span { font-size: 54px; width: 76px; height: 76px; display: grid; place-items: center; border-radius: 14px; background: radial-gradient(circle, color-mix(in srgb, var(--mc) 40%, transparent), rgba(0, 0, 0, 0.3)); flex-shrink: 0; }
 .mgh-d-hero small { color: var(--mc); letter-spacing: 2px; font-size: 10px; font-weight: 800; }
@@ -147,10 +164,11 @@
     margin-top: auto; padding: 16px; border-radius: 10px; cursor: pointer; border: 0;
     font: 900 16px var(--font-ui); letter-spacing: 2px; color: #0b0b0b;
     background: linear-gradient(90deg, var(--mc), color-mix(in srgb, var(--mc) 60%, #fde68a));
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--mc) 40%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 10px 26px color-mix(in srgb, var(--mc) 45%, transparent);
     transition: transform .12s ease, filter .12s ease;
 }
 .mgh-play:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.mgh-play:active { transform: translateY(1px) scale(0.985); }
 .mgh-example {
     padding: 11px 14px; border-radius: 10px; cursor: pointer;
     font: 900 12px var(--font-ui); letter-spacing: 1.5px; color: #67e8f9;
@@ -172,7 +190,8 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .mg-course, .mg-clock, .mg-scorebox {
     background: linear-gradient(180deg, rgba(8, 12, 22, 0.86), rgba(8, 12, 22, 0.72));
     border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 10px; padding: 8px 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 26px rgba(0, 0, 0, 0.42);
 }
 .mg-course { display: flex; gap: 10px; align-items: center; border-left: 3px solid var(--mg-accent); }
 .mg-ico { font-size: 26px; }
@@ -191,7 +210,7 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
     position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 170px;
     display: flex; flex-direction: column; gap: 6px;
 }
-.mg-combo { background: rgba(8, 12, 22, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 8px 10px; transition: border-color .2s ease, box-shadow .2s ease; }
+.mg-combo { background: rgba(8, 12, 22, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 26px rgba(0, 0, 0, 0.42); transition: border-color .2s ease, box-shadow .2s ease; }
 .mg-combo-mult { font: 900 34px var(--font-ui); line-height: 1; color: #e2e8f0; }
 .mg-combo[data-tier="1"] .mg-combo-mult { color: #fde68a; }
 .mg-combo[data-tier="2"] .mg-combo-mult { color: #fb923c; }
@@ -245,7 +264,7 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .br-pips i::before { width: 10px; height: 3px; } .br-pips i::after { width: 3px; height: 10px; }
 .br-pips i.on { background: #16a34a; border-color: #4ade80; box-shadow: 0 0 10px rgba(74, 222, 128, 0.7); }
 .br-pips i.on::before, .br-pips i.on::after { background: #f0fdf4; }
-.br-boss { width: 100%; background: rgba(8, 12, 22, 0.86); border: 1px solid rgba(248, 113, 113, 0.45); border-radius: 10px; padding: 8px 12px; }
+.br-boss { width: 100%; background: rgba(8, 12, 22, 0.86); border: 1px solid rgba(248, 113, 113, 0.45); border-radius: 10px; padding: 8px 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 26px rgba(0, 0, 0, 0.42); }
 .br-boss.br-enraged { border-color: #fbbf24; box-shadow: 0 0 18px rgba(251, 191, 36, 0.4); }
 .br-boss-top { display: flex; justify-content: space-between; align-items: baseline; }
 .br-boss-top b { font-size: 16px; letter-spacing: 2px; color: #fecaca; }
@@ -317,7 +336,7 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 
 
 /* ===================== expansion minigame HUD pieces (mgx-*) ===================== */
-.mgx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(8, 12, 22, 0.78); border: 1px solid rgba(148, 163, 184, 0.28); font: 800 11px var(--font-ui); letter-spacing: 1.4px; color: #e2e8f0; text-shadow: 0 1px 2px #000; }
+.mgx-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(8, 12, 22, 0.78); border: 1px solid rgba(148, 163, 184, 0.28); font: 800 11px var(--font-ui); letter-spacing: 1.4px; color: #e2e8f0; text-shadow: 0 1px 2px #000; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 26px rgba(0, 0, 0, 0.42); }
 .mgx-chip b { font-family: var(--font-mono); color: #fde68a; }
 .mgx-chip.mgx-bad { border-color: rgba(248, 113, 113, 0.6); color: #fecaca; }
 .mgx-chip.mgx-hot { border-color: var(--mg-accent); color: #fff; background: rgba(8, 12, 22, 0.9); box-shadow: 0 0 14px rgba(255, 255, 255, 0.18); }
@@ -417,7 +436,7 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .mgh-dualbest small { display: block; color: var(--text-dim); font-size: 9px; letter-spacing: 1.5px; }
 .mgh-dualbest b { font: 800 14px var(--font-mono); color: #e2e8f0; }
 .sr-panel { position: absolute; top: 130px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; pointer-events: none; }
-.sr-chip { background: rgba(2, 6, 23, 0.72); border: 1px solid rgba(103, 232, 249, 0.35); border-radius: 8px; padding: 5px 10px; font: 700 12px var(--font-ui); color: #e0f2fe; letter-spacing: 1px; }
+.sr-chip { background: rgba(2, 6, 23, 0.72); border: 1px solid rgba(103, 232, 249, 0.35); border-radius: 8px; padding: 5px 10px; font: 700 12px var(--font-ui); color: #e0f2fe; letter-spacing: 1px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 10px 26px rgba(0, 0, 0, 0.42); }
 .sr-chip b { color: #67e8f9; margin-left: 6px; font-family: var(--font-mono); }
 .sr-chip.bad { border-color: rgba(248, 113, 113, 0.6); } .sr-chip.bad b { color: #fca5a5; }
 .sr-bar { width: 120px; height: 6px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 6px; }
