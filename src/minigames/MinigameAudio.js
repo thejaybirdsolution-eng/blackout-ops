@@ -365,6 +365,25 @@
                 this._osc(note, this.timer * 1.6, amber ? 'sawtooth' : 'triangle', 0.075, {
                     cutoff: 3600, pan: Math.sin(s * 0.8) * 0.4
                 });
+            } else if (this.mode === 'angrybirds') {
+                // Playful 136 BPM Bouncy Polka / Accordion & Pizzicato Theme
+                this.timer = 0.110;
+                const st = s % 32;
+                const mel = [
+                    NOTE.E4, NOTE.Fs4, NOTE.G4, 0, NOTE.E4, 0, NOTE.B4, 0,
+                    NOTE.A4, NOTE.G4, NOTE.Fs4, 0, NOTE.E4, 0, 0, 0,
+                    NOTE.G4, NOTE.A4, NOTE.B4, 0, NOTE.G4, 0, NOTE.D5, 0,
+                    NOTE.C5, NOTE.B4, NOTE.A4, NOTE.G4, NOTE.Fs4, 0, NOTE.B4, 0
+                ];
+                const bass = [NOTE.E3, 0, NOTE.B2, 0, NOTE.E3, 0, NOTE.B2, 0, NOTE.A2, 0, NOTE.E3, 0, NOTE.B2, 0, NOTE.E3, 0];
+                if (st % 4 === 0) this._kick(0.18, 130, 52, 0.13);
+                if (st % 4 === 2) this._snare(0.11, 240, 0.08);
+                if (mel[st]) {
+                    this._osc(mel[st], 0.10, 'sawtooth', 0.068, { cutoff: 2200, pan: -0.15 });
+                    this._osc(mel[st] * 2, 0.07, 'triangle', 0.04, { pan: 0.2 });
+                }
+                const b = bass[st % bass.length];
+                if (b) this._osc(b, 0.14, 'triangle', 0.11);
             } else if (this.mode && this.mode.startsWith('mario:')) {
                 this._tickMario(this.mode.slice(6), s);
             }
@@ -514,6 +533,36 @@
             [NOTE.G3, NOTE.C4, NOTE.E4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5, NOTE.E5, NOTE.Ab3, NOTE.C4, NOTE.Eb4, NOTE.Ab4, NOTE.C5, NOTE.Eb5, NOTE.Ab5, NOTE.Bb5, NOTE.C6].forEach((f, i) => {
                 this._osc(f, i === 16 ? 0.55 : 0.09, 'square', 0.11, { sfx: true, delay: i * 0.065 });
             });
+        }
+        slingStretch() {
+            this._osc(180, 0.14, 'sawtooth', 0.06, { slideTo: 245, cutoff: 700, sfx: true });
+        }
+        birdLaunch(kind = 0) {
+            if (kind === 1) {
+                // Chuck high-pitched zippy squawk
+                this._osc(780, 0.16, 'triangle', 0.16, { slideTo: 1480, sfx: true });
+                this._osc(1200, 0.12, 'sawtooth', 0.09, { slideTo: 620, sfx: true, delay: 0.08 });
+            } else if (kind === 2) {
+                // Bomb deep grunt
+                this._osc(260, 0.22, 'sawtooth', 0.18, { slideTo: 130, cutoff: 900, sfx: true });
+            } else if (kind === 3) {
+                // Blues playful triple-chirp
+                [980, 1240, 1520].forEach((f, i) => this._osc(f, 0.07, 'sine', 0.13, { slideTo: f * 1.2, sfx: true, delay: i * 0.045 }));
+            } else {
+                // Red classic "WAAAH-HAA!" battle cry
+                this._osc(540, 0.18, 'sawtooth', 0.15, { slideTo: 920, cutoff: 2200, sfx: true });
+                this._osc(880, 0.16, 'triangle', 0.13, { slideTo: 480, sfx: true, delay: 0.12 });
+            }
+            this._noise(0.14, 900, 'bandpass', 1.2, 0.14, 0, true);
+        }
+        pigOink(king = false) {
+            const base = king ? 135 : 220 + Math.random() * 60;
+            this._osc(base, 0.11, 'sawtooth', 0.15, { slideTo: base * 1.45, cutoff: 950, sfx: true });
+            this._osc(base * 1.35, 0.10, 'sawtooth', 0.12, { slideTo: base * 0.85, cutoff: 900, sfx: true, delay: 0.09 });
+        }
+        woodBreak() {
+            this._noise(0.14, 1100, 'bandpass', 1.4, 0.24, 0, true);
+            this._osc(240, 0.08, 'square', 0.10, { slideTo: 95, sfx: true });
         }
     }
 

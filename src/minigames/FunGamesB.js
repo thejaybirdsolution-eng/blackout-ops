@@ -304,11 +304,18 @@
     const mPipeSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPipe(); else [620, 480, 340, 220].forEach((f, i) => mTone(f, 0.09, 'square', 0.1, i * 0.07)); };
 
     function marioTex(kind) {
-        return L.canvasTex('mario-' + kind, 128, 128, (g, w, h) => {
+        return L.canvasTex('mario-' + kind + '-v2', 128, 128, (g, w, h) => {
             if (kind === 'brick' || kind === 'ubrick' || kind === 'cbrick') {
-                g.fillStyle = kind === 'ubrick' ? '#1e3a8a' : kind === 'cbrick' ? '#44403c' : '#b45309';
+                g.fillStyle = kind === 'ubrick' ? '#1d4ed8' : kind === 'cbrick' ? '#57534e' : '#c84c0c';
                 g.fillRect(0, 0, w, h);
-                g.strokeStyle = kind === 'ubrick' ? '#0f172a' : '#291509';
+                for (let y = 0; y < h; y += 32) {
+                    const off = (y / 32) % 2 ? 32 : 0;
+                    for (let x = off - 64; x < w; x += 64) {
+                        g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x + 3, y + 3, 58, 5);
+                        g.fillStyle = 'rgba(0,0,0,0.20)'; g.fillRect(x + 3, y + 24, 58, 5);
+                    }
+                }
+                g.strokeStyle = kind === 'ubrick' ? '#091026' : '#1c0f07';
                 g.lineWidth = 5;
                 for (let y = 0; y <= h; y += 32) {
                     g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
@@ -316,51 +323,75 @@
                     for (let x = off; x < w; x += 64) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 32); g.stroke(); }
                 }
             } else if (kind === 'q') {
-                g.fillStyle = '#eab308'; g.fillRect(0, 0, w, h);
-                g.strokeStyle = '#78350f'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+                g.fillStyle = '#f59e0b'; g.fillRect(0, 0, w, h);
+                g.fillStyle = '#fbbf24'; g.fillRect(8, 8, w - 16, h - 16);
+                g.strokeStyle = '#92400e'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
                 g.fillStyle = '#78350f';
                 for (const [rx, ry] of [[16, 16], [112, 16], [16, 112], [112, 112]]) g.fillRect(rx - 4, ry - 4, 8, 8);
-                g.fillStyle = '#fef08a'; g.font = '900 84px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', w / 2, h / 2 + 4);
+                g.font = '900 84px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+                g.fillStyle = '#78350f'; g.fillText('?', w / 2 + 5, h / 2 + 9);
+                g.fillStyle = '#fef9c3'; g.fillText('?', w / 2, h / 2 + 4);
             } else if (kind === 'used') {
-                g.fillStyle = '#57534e'; g.fillRect(0, 0, w, h);
-                g.strokeStyle = '#292524'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+                g.fillStyle = '#78350f'; g.fillRect(0, 0, w, h);
+                g.fillStyle = '#92400e'; g.fillRect(10, 10, w - 20, h - 20);
+                g.strokeStyle = '#451a03'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8);
+                g.fillStyle = '#451a03';
+                for (const [rx, ry] of [[16, 16], [112, 16], [16, 112], [112, 112]]) g.fillRect(rx - 4, ry - 4, 8, 8);
+            } else if (kind === 'over') {
+                // Classic Super Mario terracotta earth + lush scalloped emerald grass
+                g.fillStyle = '#c84c0c'; g.fillRect(0, 26, w, h - 26);
+                g.fillStyle = '#9a3412';
+                for (let y = 32; y < h; y += 32) {
+                    const off = ((y - 32) / 32) % 2 ? 32 : 0;
+                    for (let x = off; x < w; x += 64) g.fillRect(x, y, 30, 28);
+                }
+                g.strokeStyle = '#451a03'; g.lineWidth = 3;
+                for (let y = 32; y < h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+                g.fillStyle = '#22c55e'; g.fillRect(0, 0, w, 26);
+                g.fillStyle = '#4ade80'; g.fillRect(0, 0, w, 8);
+                g.fillStyle = '#15803d';
+                for (let x = 0; x < w; x += 16) { g.beginPath(); g.arc(x + 8, 26, 8, 0, Math.PI); g.fill(); }
             } else {
-                g.fillStyle = kind === 'over' ? '#16a34a' : '#4338ca'; g.fillRect(0, 0, w, 24);
-                g.fillStyle = kind === 'over' ? '#b45309' : '#1e1b4b'; g.fillRect(0, 24, w, h - 24);
+                // World 1-3 mushroom/treetop bright grass & warm wood
+                g.fillStyle = '#16a34a'; g.fillRect(0, 0, w, 28);
+                g.fillStyle = '#4ade80'; g.fillRect(0, 0, w, 8);
+                g.fillStyle = '#b45309'; g.fillRect(0, 28, w, h - 28);
+                g.strokeStyle = '#78350f'; g.lineWidth = 4;
+                for (let x = 0; x < w; x += 32) { g.beginPath(); g.moveTo(x, 28); g.lineTo(x, h); g.stroke(); }
             }
         });
     }
 
     const MARIO_WORLDS = [
-        { id: '1-1', name: 'WORLD 1-1: MUSHROOM KINGDOM', sky: 0x38bdf8, ground: 0x92400e, gkind: 'over', len: 132 },
-        { id: '1-2', name: 'WORLD 1-2: UNDERGROUND CAVERN', sky: 0x050816, ground: 0x1e3a8a, gkind: 'ubrick', len: 128 },
-        { id: '1-3', name: 'WORLD 1-3: SKY TREETOP BRIDGES', sky: 0x0ea5e9, ground: 0xfacc15, gkind: 'tree', len: 126 },
-        { id: '1-4', name: "WORLD 1-4: BOWSER'S LAVA CASTLE", sky: 0x111116, ground: 0x44403c, gkind: 'cbrick', len: 118 }
+        { id: '1-1', name: 'WORLD 1-1: MUSHROOM KINGDOM', sky: 0x5c94fc, ground: 0xc84c0c, gkind: 'over', len: 132 },
+        { id: '1-2', name: 'WORLD 1-2: UNDERGROUND CAVERN', sky: 0x050816, ground: 0x1d4ed8, gkind: 'ubrick', len: 128 },
+        { id: '1-3', name: 'WORLD 1-3: SKY TREETOP BRIDGES', sky: 0x60a5fa, ground: 0xfacc15, gkind: 'tree', len: 126 },
+        { id: '1-4', name: "WORLD 1-4: BOWSER'S LAVA CASTLE", sky: 0x140b0e, ground: 0x57534e, gkind: 'cbrick', len: 118 }
     ];
 
     MG.register({
         id: 'fun_mario_fps', cardImage: 'assets/minigames/fun_mario_fps.webp', cat: 'fun', order: 5, name: 'Mario FPS', icon: '🍄', accent: '#ef4444', badge: 'EPIC',
-        tagline: 'Flip the factory’s bridge polarity, swing across the presses and restart the runaway governor.',
-        desc: 'Two first-person platforming campaigns: traverse Prism Foundry by toggling Cyan/Amber bridge polarity [E], swinging from magnetic gold anchors [Q], air-boosting [V] and cracking the rotating Governor’s seals—or play Classic Worlds 1-1 through 1-4 with secret warp pipes, chiptune music, FAMAS + Desert Eagle and 3-Form Bowser!',
-        hubOptions: [{key:'platformCourse',label:'CAMPAIGN',default:'foundry',choices:[
-            {val:'foundry',label:'Prism Foundry',desc:'Shift bridges with E, grapple gold anchors with Q, air boost with V and fire matching pulses with LMB.'},
-            {val:'classic',label:'Classic Worlds',desc:'Four retro worlds (1-1 to 1-4), secret warp pipes, FAMAS + Deagle and three Bowser forms.'}]}],
-        variantKey: o => o.platformCourse==='classic' ? '' : 'foundry',
-        variantLabel: o => o.platformCourse==='classic' ? 'CLASSIC WORLDS' : 'PRISM FOUNDRY',
-        starsFor: o => o.platformCourse==='classic' ? [4500,9000,14500,22000] : [1000,3000,6000,8100],
+        tagline: 'Run, stomp Goombas & Koopas, hit ? Blocks, enter green Warp Pipes and defeat 3-Form Bowser!',
+        desc: 'Play iconic first-person Super Mario across Worlds 1-1 Mushroom Kingdom, 1-2 Underground Cavern (with Warp Zone), 1-3 Sky Treetops & 1-4 Bowser\'s Lava Castle! Stomp Goombas, kick Koopa Shells, grab Super Mushrooms, Fire Flowers & Starman, find secret warp pipes, and pick up the FAMAS + Desert Eagle to battle 3-Form Bowser (plus optional Prism Foundry bonus campaign).',
+        hubOptions: [{key:'platformCourse',label:'CAMPAIGN',default:'classic',choices:[
+            {val:'classic',label:'Super Mario 1-1 to 1-4',desc:'Classic Mario Worlds 1-1 through 1-4 with ? Blocks, Warp Pipes, Goombas, Koopas, chiptune music, FAMAS + Deagle and 3-Form Bowser.'},
+            {val:'foundry',label:'Prism Foundry',desc:'Bonus sci-fi campaign: shift bridges with E, grapple gold anchors with Q, air boost with V and crack the Governor.'}]}],
+        variantKey: o => o.platformCourse==='foundry' ? 'foundry' : '',
+        variantLabel: o => o.platformCourse==='foundry' ? 'PRISM FOUNDRY' : 'SUPER MARIO 1-1..1-4',
+        starsFor: o => o.platformCourse==='foundry' ? [1000,3000,6000,8100] : [4500,9000,14500,22000],
         dispose(S) {
             BO.PrismFoundry.dispose(S);
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
         },
-        heroLabel: 'PLATFORM ADVENTURE • TWO CAMPAIGNS', duration: 0, stars: [4500, 9000, 14500, 22000],
+        heroLabel: 'FIRST-PERSON SUPER MARIO • 4 WORLDS + BOWSER', duration: 0, stars: [4500, 9000, 14500, 22000],
         standardWeapon: 'famas_f1', secondaryWeapon: 'deagle', lockWeapon: true, infiniteMag: true, customMusic: true,
         hideViewmodel: (S) => !(S && S.data && S.data.hasGuns),
         blockFire: (S) => !(S && S.data && (S.data.hasGuns || S.data.power === 'fire')),
-        weaponLabel: 'PHASE CASTER / FAMAS + DEAGLE', weaponNote: 'Prism Foundry: [E] Polarity • [Q] Tether • [LMB] Pulse | Classic: Stomp -> FAMAS + Deagle',
-        guide: { objective: 'In Prism Foundry, bring all three Drives online and crack the rotating Governor’s three polarity seals. In Classic Worlds, clear 1-1 through 1-4 and defeat 3-Form Bowser.', tips: ['Press [E] in Prism Foundry to toggle Cyan and Amber phase bridges—and match the lit Governor seal’s color before firing [LMB].', 'Aim at gold magnetic rings and press [Q] to swing across the smelter, and press [V] mid-air for a second lift (refilled by Prism rings).', 'In Classic Worlds, press [E / C] atop green warp pipes to discover secret coin rooms or shortcuts, and grab the FAMAS + Deagle before Bowser’s door.'] },
-        keys: [['E', 'Shift polarity (Foundry) / Pipe (Classic)'], ['Q', 'Magnetic tether (Foundry)'], ['V', 'Mid-air boost lift'], ['SPACE', 'Jump / Stomp'], ['LMB', 'Phase pulse / Fireball / Shoot']],
+        weaponLabel: 'STOMP / FIRE FLOWER / FAMAS + DEAGLE', weaponNote: 'Jump on Goombas & Koopas • Hit ? Blocks • [E] Enter Warp Pipes • Grab FAMAS + Deagle for Bowser!',
+        guide: { objective: 'Clear Super Mario Worlds 1-1 through 1-4, reach the Flagpole castles, grab the FAMAS + Desert Eagle in World 1-4, and defeat all 3 forms of Bowser!', tips: ['Jump under glowing golden ? Blocks to pop out Super Mushrooms, Fire Flowers (LMB shoots fireballs!), Starman invincibility & Coins.', 'Stomp Goombas and Koopa Troopas from above—stomping a Koopa launches a spinning green shell that bowls through enemies!', 'Stand on green Warp Pipes and press [E] or [C] to discover secret Coin Rooms, Sky Clouds & the 1-2 Warp Zone (there is also a red 180° Secret Pipe behind 1-1 spawn!).'] },
+        keys: [['SPACE', 'Jump / Stomp Goombas'], ['E / C', 'Enter Green Warp Pipe / Grab Guns'], ['LMB', 'Fireball (Fire Flower) / Shoot Bowser'], ['V', 'Mid-Air Double Jump Boost'], ['WASD', 'Run & Platform']],
         map: {
-            atmosphere: { skyTop: 0x0284c7, skyBottom: 0xbae6fd, fogColor: 0xbae6fd, fogDensity: 0.0045, sunColor: 0xffffff, sunIntensity: 1.65, sunPos: [20, 60, 20], hemiSky: 0xe0f2fe, hemiGround: 0x166534, hemiIntensity: 0.9 },
+            atmosphere: { skyTop: 0x5c94fc, skyBottom: 0x93c5fd, fogColor: 0x93c5fd, fogDensity: 0.0036, sunColor: 0xfffbeb, sunIntensity: 1.75, sunPos: [20, 60, 20], hemiSky: 0xe0f2fe, hemiGround: 0x15803d, hemiIntensity: 0.95 },
             boxes: [],
             spawn: { x: 0, y: 0.1, z: 0, yaw: 0 }
         },
@@ -369,7 +400,7 @@
             S.data.stageIdx = 0; S.data.power = 'small'; S.data.hasGuns = false; S.data.coins = 0;
             S.data.stageObjs = []; S.data.fireballs = []; S.data.bFire = [];
             S.data.bowser = null; S.data.bowserForm = 0; S.data.musicStep = 0; S.data.musicTimer = 0;
-            if (S.opts.platformCourse !== 'classic') BO.PrismFoundry.build(S);
+            if (S.opts.platformCourse === 'foundry') BO.PrismFoundry.build(S);
             else this._loadWorld(S, 0);
         },
         _clearWorld(S) {
@@ -394,22 +425,43 @@
             return m;
         },
         _addPipe(S, x, y0, z, h, hasPiranha, warpFn) {
-            const pipeM = std(0x16a34a, 0.35, 0.25);
+            const pipeM = std(0x22c55e, 0.22, 0.16);
+            const hiM = basic(0x86efac);
+            const darkM = std(0x14532d, 0.5);
             const g = new THREE.Group();
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, h, 16), pipeM); body.position.y = h * 0.5;
-            const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.14, 1.14, 0.45, 16), pipeM); rim.position.y = h + 0.1;
-            const hole = new THREE.Mesh(new THREE.CircleGeometry(0.86, 16), basic(0x050505)); hole.rotation.x = -Math.PI / 2; hole.position.y = h + 0.34;
-            g.add(body, rim, hole);
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, h, 20), pipeM); body.position.y = h * 0.5;
+            const hiBody = new THREE.Mesh(new THREE.BoxGeometry(0.24, h - 0.04, 0.08), hiM); hiBody.position.set(-0.42, h * 0.5, 0.87);
+            const rim = new THREE.Mesh(new THREE.CylinderGeometry(1.18, 1.18, 0.52, 20), pipeM); rim.position.y = h + 0.12;
+            const hiRim = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.48, 0.08), hiM); hiRim.position.set(-0.48, h + 0.12, 1.12);
+            const lip = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.055, 8, 22), darkM); lip.rotation.x = Math.PI / 2; lip.position.y = h - 0.14;
+            const hole = new THREE.Mesh(new THREE.CircleGeometry(0.88, 18), basic(0x050505)); hole.rotation.x = -Math.PI / 2; hole.position.y = h + 0.39;
+            g.add(body, hiBody, rim, hiRim, lip, hole);
             g.position.set(x, y0, z); this._addObj(S, g);
-            S.collider(x - 1.05, y0, z - 1.05, x + 1.05, y0 + h + 0.32, z + 1.05);
+            S.collider(x - 1.05, y0, z - 1.05, x + 1.05, y0 + h + 0.36, z + 1.05);
             if (hasPiranha) {
                 const pm = new THREE.Group();
-                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1.2, 8), std(0x15803d, 0.6)); stem.position.y = 0.6;
-                const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), std(0xdc2626, 0.4)); head.position.y = 1.25;
-                pm.add(stem, head); pm.position.set(x, y0 + h - 0.6, z); this._addObj(S, pm);
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.25, 10), std(0x16a34a, 0.45)); stem.position.y = 0.62;
+                for (const s of [-1, 1]) {
+                    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 6), std(0x22c55e, 0.45));
+                    leaf.scale.set(1.5, 0.28, 0.75); leaf.position.set(s * 0.45, 0.55, 0); leaf.rotation.z = s * 0.35; pm.add(leaf);
+                }
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.58, 14, 12), std(0xef4444, 0.32)); head.position.y = 1.32;
+                const spotM = basic(0xf8fafc);
+                for (const [sx, sy, sz] of [[0.35, 1.5, 0.38], [-0.36, 1.46, 0.36], [0, 1.72, 0.35], [0.42, 1.18, 0.28], [-0.42, 1.2, 0.28]]) {
+                    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 6), spotM); sp.position.set(sx, sy, sz); pm.add(sp);
+                }
+                const lips = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.085, 8, 16), basic(0xffffff));
+                lips.position.set(0, 1.38, 0.46); lips.rotation.x = 0.3;
+                const mouth = new THREE.Mesh(new THREE.CircleGeometry(0.32, 12), basic(0x450a0a));
+                mouth.position.set(0, 1.38, 0.48); mouth.rotation.x = -0.3;
+                for (const tx of [-0.18, 0, 0.18]) {
+                    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.14, 5), spotM);
+                    tooth.position.set(tx, 1.56, 0.54); tooth.rotation.x = Math.PI; pm.add(tooth);
+                }
+                pm.add(stem, head, lips, mouth); pm.position.set(x, y0 + h - 0.6, z); this._addObj(S, pm);
                 S.data.piranhas.push({ mesh: pm, baseY: y0 + h - 0.5, ph: Math.random() * 6 });
             }
-            if (warpFn) S.data.pipes.push({ x, z, y: y0 + h + 0.35, warpFn });
+            if (warpFn) S.data.pipes.push({ x, z, y: y0 + h + 0.38, warpFn });
         },
         _addCoin(S, x, y, z) {
             const c = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 12), basic(0xfacc15));
@@ -481,11 +533,40 @@
             };
 
             if (W.id === '1-1') {
-                for (const s of [-1, 1]) for (let z = -12; z > -W.len; z -= 24) {
-                    const hill = new THREE.Mesh(new THREE.ConeGeometry(4.5, 6.2, 8), std(0x15803d, 0.9));
-                    hill.position.set(s * 12, 3.1, z); this._addObj(S, hill);
-                    const cl = new THREE.Mesh(new THREE.SphereGeometry(2.4, 8, 6), basic(0xffffff));
-                    cl.scale.set(1.8, 0.65, 1); cl.position.set(-s * 10, 10.5, z - 6); this._addObj(S, cl);
+                // Iconic Super Mario Spotted Hills, Scalloped Bushes & Smiling 3-Puff Clouds!
+                const hillM = std(0x22c55e, 0.72), spotM = std(0x15803d, 0.8), bushM = std(0x16a34a, 0.78), eyeM = basic(0x111111), clM = basic(0xffffff);
+                for (const s of [-1, 1]) for (let z = -10; z > -W.len; z -= 22) {
+                    // Mario Spotted Hill with cute vertical oval eyes
+                    const hill = new THREE.Group();
+                    const dome = new THREE.Mesh(new THREE.SphereGeometry(4.6, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), hillM);
+                    dome.scale.set(1.0, 1.45, 1.0); hill.add(dome);
+                    for (const [sx, sy, sz] of [[-1.4, 2.4, 3.3], [1.6, 1.9, 3.2], [0.2, 4.1, 2.2]]) {
+                        const sp = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6), spotM);
+                        sp.scale.set(1.1, 1.4, 0.35); sp.position.set(sx, sy, sz); hill.add(sp);
+                    }
+                    for (const ex of [-0.65, 0.65]) {
+                        const ey = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), eyeM);
+                        ey.scale.set(0.7, 1.9, 0.4); ey.position.set(ex, 3.6, 3.25); hill.add(ey);
+                    }
+                    hill.position.set(s * 13.5, -0.1, z); hill.rotation.y = -s * Math.PI * 0.42; this._addObj(S, hill);
+
+                    // Scalloped 3-Puff Green Mario Bush along road shoulder
+                    const bush = new THREE.Group();
+                    for (const [bx, by, br] of [[-0.95, 0.65, 0.78], [0, 0.95, 1.02], [0.95, 0.65, 0.78]]) {
+                        const pf = new THREE.Mesh(new THREE.SphereGeometry(br, 10, 8), bushM); pf.position.set(bx, by, 0); bush.add(pf);
+                    }
+                    bush.position.set(s * 6.4, -0.1, z - 10); bush.rotation.y = Math.PI / 2; this._addObj(S, bush);
+
+                    // 3-Puff Fluffy Smiling Mario Cloud
+                    const cl = new THREE.Group();
+                    for (const [cx, cy, cr] of [[-1.9, 0, 1.35], [0, 0.55, 1.75], [1.9, 0, 1.35]]) {
+                        const pf = new THREE.Mesh(new THREE.SphereGeometry(cr, 10, 8), clM); pf.scale.set(1.15, 0.85, 0.85); pf.position.set(cx, cy, 0); cl.add(pf);
+                    }
+                    for (const ex of [-0.45, 0.45]) {
+                        const ey = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), eyeM);
+                        ey.scale.set(0.65, 1.8, 0.4); ey.position.set(ex, 0.35, 1.48); cl.add(ey);
+                    }
+                    cl.position.set(-s * 10.5, 11.2, z - 6); this._addObj(S, cl);
                 }
                 addSegGround(8, -52); addSegGround(-57, -76); addSegGround(-82, -138);
                 S.data.pits.push({ z: -54.5, half: 2.3 }, { z: -79, half: 2.8 });
@@ -609,12 +690,36 @@
             }
 
             if (W.id !== '1-4') {
-                // Flagpole + Classic Brick Castle
-                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 7.5, 10), std(0xe5e7eb, 0.3, 0.8));
-                pole.position.set(0, 3.75, -W.len);
-                const flag = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.08), basic(0x22c55e)); flag.position.set(0.85, 6.6, -W.len);
-                const castle = new THREE.Mesh(new THREE.BoxGeometry(5.5, 4.8, 4.5), brickM); castle.position.set(0, 2.4, -W.len - 6);
-                this._addObj(S, pole); this._addObj(S, flag); this._addObj(S, castle);
+                // Iconic Super Mario Flagpole (Gold Finial + Green Star Flag) & Crenellated Brick Castle!
+                const poleBase = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.2, 1.3), brickM);
+                poleBase.position.set(0, 0.6, -W.len);
+                const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 8.2, 12), std(0xf8fafc, 0.25, 0.6));
+                pole.position.set(0, 4.7, -W.len);
+                const finial = new THREE.Mesh(new THREE.SphereGeometry(0.32, 12, 10), std(0xfacc15, 0.2, 0.85, { emissive: 0xca8a04, emissiveIntensity: 0.3 }));
+                finial.position.set(0, 8.9, -W.len);
+                const flag = new THREE.Group();
+                const flagCloth = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.15, 0.08), basic(0xf8fafc));
+                const flagEmblem = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), basic(0x22c55e)); flagEmblem.scale.set(1, 1, 0.25);
+                flag.add(flagCloth, flagEmblem); flag.position.set(0.95, 7.6, -W.len);
+
+                const castle = new THREE.Group();
+                const mainKeep = new THREE.Mesh(new THREE.BoxGeometry(6.8, 4.6, 5.2), brickM); mainKeep.position.y = 2.3;
+                const upperTower = new THREE.Mesh(new THREE.BoxGeometry(4.2, 2.8, 3.8), brickM); upperTower.position.y = 6.0;
+                const doorArch = new THREE.Mesh(new THREE.BoxGeometry(1.85, 2.4, 0.35), basic(0x09090b)); doorArch.position.set(0, 1.2, 2.55);
+                const doorTop = new THREE.Mesh(new THREE.CylinderGeometry(0.92, 0.92, 0.35, 14), basic(0x09090b)); doorTop.rotation.x = Math.PI / 2; doorTop.position.set(0, 2.4, 2.55);
+                castle.add(mainKeep, upperTower, doorArch, doorTop);
+                for (let bx = -2.8; bx <= 2.81; bx += 1.4) {
+                    const merlon = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 0.9), brickM);
+                    merlon.position.set(bx, 4.95, 2.2); castle.add(merlon);
+                }
+                for (let bx = -1.5; bx <= 1.51; bx += 1.5) {
+                    const topM = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 0.9), brickM);
+                    topM.position.set(bx, 7.75, 1.5); castle.add(topM);
+                    const win = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.95, 0.2), basic(0x09090b));
+                    win.position.set(bx * 0.75, 5.9, 1.92); if (bx !== 0) castle.add(win);
+                }
+                castle.position.set(0, 0, -W.len - 6.8);
+                this._addObj(S, poleBase); this._addObj(S, pole); this._addObj(S, finial); this._addObj(S, flag); this._addObj(S, castle);
                 S.data.goalZ = -W.len;
             } else {
                 const door = this._addBox(S, 0, 2.5, -W.len, 4.4, 5.0, 0.7, std(0x451a03, 0.8), true);
@@ -669,20 +774,48 @@
                 { name: 'OMEGA BOWSER — FINAL FINAL FORM!!', hp: 2800, sc: 1.72, shell: 0x3b0764, skin: 0xc084fc, horn: 0xfef08a, rate: 0.9 }
             ][form];
             D.formMeta = formMeta;
-            this._addBox(S, 0, -0.5, -6, 38, 1, 46, std(0x3f3f46, 0.85), true);
-            for (const [px, pz] of [[-12, -2], [12, -2], [-12, -16], [12, -16]]) this._addBox(S, px, 1.8, pz, 2, 3.6, 2, std(0x27272a, 0.9), true);
-
-            const bg = new THREE.Group();
-            const shell = new THREE.Mesh(new THREE.SphereGeometry(1.75, 14, 12), std(formMeta.shell, 0.45, 0.2)); shell.scale.set(1.1, 1.3, 0.95); shell.position.set(0, 2.2, -0.4);
-            const belly = new THREE.Mesh(new THREE.SphereGeometry(1.45, 12, 10), std(formMeta.skin, 0.6)); belly.position.set(0, 2.0, 0.35);
-            const head = new THREE.Mesh(new THREE.SphereGeometry(1.05, 12, 10), std(formMeta.skin, 0.55)); head.position.set(0, 3.9, 0.6);
-            for (const s of [-1, 1]) {
-                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.1, 8), std(formMeta.horn, 0.4)); horn.position.set(s * 0.72, 4.75, 0.5); horn.rotation.z = -s * 0.45; bg.add(horn);
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), basic(0xef4444)); eye.position.set(s * 0.45, 4.05, 1.48); bg.add(eye);
+            const cBrick = new THREE.MeshStandardMaterial({ map: marioTex('cbrick'), roughness: 0.82 });
+            const lavaMoat = new THREE.Mesh(new THREE.PlaneGeometry(96, 96), basic(0xf97316));
+            lavaMoat.rotation.x = -Math.PI / 2; lavaMoat.position.set(0, -1.25, -6); this._addObj(S, lavaMoat);
+            this._addBox(S, 0, -0.5, -6, 38, 1, 46, cBrick, true);
+            for (const [px, pz] of [[-12, -2], [12, -2], [-12, -16], [12, -16]]) {
+                this._addBox(S, px, 2.4, pz, 2.2, 4.8, 2.2, cBrick, true);
+                const fl = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 7), basic(0xfacc15)); fl.position.set(px, 5.3, pz); this._addObj(S, fl);
             }
-            for (let k = 0; k < 6; k++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.8, 7), std(formMeta.horn, 0.4)); sp.position.set((k % 2 ? 0.65 : -0.65), 1.4 + k * 0.35, -1.6); sp.rotation.x = -Math.PI * 0.45; bg.add(sp); }
-            bg.add(shell, belly, head); bg.scale.setScalar(formMeta.sc);
-            const tg = S.addTarget({ mesh: bg, hitMeshes: [shell, belly, head], pos: V(0, 0, -16), life: 0, appear: 'scale', inT: 0.25, death: 'none', bonus: true });
+
+            // Detailed Articulated 3D Bowser (Spiked Shell, Plated Belly, Dragon Snout, Fiery Mane, Spiked Cuffs!)
+            const bg = new THREE.Group();
+            const shell = new THREE.Mesh(new THREE.SphereGeometry(1.85, 16, 14), std(formMeta.shell, 0.38, 0.22)); shell.scale.set(1.12, 1.32, 0.96); shell.position.set(0, 2.35, -0.45);
+            const shellRim = new THREE.Mesh(new THREE.TorusGeometry(1.88, 0.24, 10, 24), std(0xf8fafc, 0.55)); shellRim.scale.set(1.06, 1.24, 1); shellRim.position.set(0, 2.35, 0.15);
+            const belly = new THREE.Mesh(new THREE.SphereGeometry(1.52, 14, 12), std(0xfef3c7, 0.62)); belly.scale.set(1.0, 1.18, 0.85); belly.position.set(0, 2.15, 0.45);
+            for (let b = 0; b < 4; b++) {
+                const rib = new THREE.Mesh(new THREE.BoxGeometry(1.85 - b * 0.14, 0.12, 0.18), std(0xd97706, 0.7));
+                rib.position.set(0, 1.35 + b * 0.48, 1.66 - b * 0.04); bg.add(rib);
+            }
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.16, 8, 18), std(0x18181b, 0.4, 0.5)); collar.rotation.x = Math.PI / 2; collar.position.set(0, 3.35, 0.55);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.98, 14, 12), std(formMeta.shell, 0.45)); head.position.set(0, 4.15, 0.55);
+            const snout = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.78, 1.15), std(formMeta.skin, 0.55)); snout.position.set(0, 3.88, 1.32);
+            const mane = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.25, 8), std(0xef4444, 0.45, 0.1, { emissive: 0x991b1b, emissiveIntensity: 0.35 }));
+            mane.position.set(0, 5.15, 0.48); mane.rotation.x = -0.25;
+            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.55, 2.1, 8), std(formMeta.skin, 0.6)); tail.position.set(0, 1.0, -2.1); tail.rotation.x = -1.25;
+            bg.add(shell, shellRim, belly, collar, head, snout, mane, tail);
+
+            for (const s of [-1, 1]) {
+                const horn = new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.25, 9), std(formMeta.horn, 0.35)); horn.position.set(s * 0.78, 5.0, 0.42); horn.rotation.z = -s * 0.52; bg.add(horn);
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(0.20, 8, 6), basic(0xef4444)); eye.position.set(s * 0.42, 4.32, 1.42); bg.add(eye);
+                const brow = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.18, 0.22), std(0xef4444, 0.5)); brow.position.set(s * 0.45, 4.58, 1.46); brow.rotation.z = -s * 0.35; bg.add(brow);
+                const fang = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.34, 6), basic(0xffffff)); fang.position.set(s * 0.42, 3.45, 1.78); fang.rotation.x = Math.PI; bg.add(fang);
+                // Muscular arms with black spiked cuffs + sturdy legs
+                const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.32, 1.65, 10), std(formMeta.skin, 0.58)); arm.position.set(s * 1.85, 2.35, 0.55); arm.rotation.z = s * 0.55; bg.add(arm);
+                const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.11, 6, 12), std(0x18181b, 0.4, 0.6)); cuff.position.set(s * 2.15, 1.85, 0.65); cuff.rotation.y = Math.PI / 2; bg.add(cuff);
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.54, 1.35, 10), std(formMeta.skin, 0.6)); leg.position.set(s * 0.88, 0.68, 0.15); bg.add(leg);
+            }
+            for (const [sx, sy, sz] of [[0, 3.2, -1.9], [-0.95, 2.75, -1.75], [0.95, 2.75, -1.75], [0, 2.2, -2.15], [-0.95, 1.7, -1.8], [0.95, 1.7, -1.8], [0, 1.25, -1.9]]) {
+                const sp = new THREE.Mesh(new THREE.ConeGeometry(0.30, 0.85, 8), std(formMeta.horn, 0.35));
+                sp.position.set(sx, sy, sz); sp.rotation.x = -Math.PI * 0.48; bg.add(sp);
+            }
+            bg.scale.setScalar(formMeta.sc);
+            const tg = S.addTarget({ mesh: bg, hitMeshes: [shell, belly, head, snout], pos: V(0, 0, -16), life: 0, appear: 'scale', inT: 0.25, death: 'none', bonus: true });
             tg.hp = formMeta.hp; tg.maxHp = formMeta.hp; tg.fireT = 1.2; tg.walkT = 0;
             D.bowser = tg;
             MG.toast(formMeta.name, '#facc15'); SFX.rumble(0.7);
@@ -715,8 +848,28 @@
             const D = S.data, P = BO.Player;
             q.used = true; q.bumpT = 0.24;
             q.mesh.material = new THREE.MeshStandardMaterial({ map: marioTex('used'), roughness: 0.8 });
-            const popCol = q.gift === 'fire' ? 0xf97316 : q.gift === 'mushroom' ? 0xef4444 : 0xfacc15;
-            const popMesh = new THREE.Mesh(q.gift === 'coin' ? new THREE.CylinderGeometry(0.32, 0.32, 0.08, 12) : new THREE.SphereGeometry(0.38, 12, 10), basic(popCol));
+            // Authentic 3D Super Mario Power-Up Pop! (Mushroom / Fire Flower / Super Star / Gold Coin)
+            const popMesh = new THREE.Group();
+            if (q.gift === 'mushroom') {
+                const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.58), basic(0xef4444));
+                cap.position.y = 0.24; popMesh.add(cap);
+                for (const [sx, sy, sz] of [[0, 0.55, 0.22], [0.28, 0.35, 0.22], [-0.28, 0.35, 0.22]]) {
+                    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.11, 7, 6), basic(0xffffff)); sp.position.set(sx, sy, sz); popMesh.add(sp);
+                }
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.36, 10), basic(0xfef3c7)); stem.position.y = 0.04; popMesh.add(stem);
+                for (const ex of [-0.09, 0.09]) { const ey = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.05), basic(0x111111)); ey.position.set(ex, 0.08, 0.24); popMesh.add(ey); }
+            } else if (q.gift === 'fire') {
+                const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.42, 8), basic(0x22c55e)); stem.position.y = -0.02; popMesh.add(stem);
+                const outer = new THREE.Mesh(new THREE.SphereGeometry(0.36, 12, 10), basic(0xef4444)); outer.scale.set(1.2, 0.85, 0.45); outer.position.y = 0.32;
+                const mid = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), basic(0xf97316)); mid.scale.set(1.2, 0.85, 0.5); mid.position.y = 0.32;
+                const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), basic(0xfef08a)); core.scale.set(1.2, 0.85, 0.55); core.position.y = 0.32;
+                popMesh.add(outer, mid, core);
+            } else if (q.gift === 'star') {
+                const st = new THREE.Mesh(new THREE.OctahedronGeometry(0.42), basic(0xfacc15)); st.scale.set(1.1, 1.1, 0.45); st.position.y = 0.25; popMesh.add(st);
+                for (const ex of [-0.1, 0.1]) { const ey = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.06), basic(0x111111)); ey.position.set(ex, 0.28, 0.2); popMesh.add(ey); }
+            } else {
+                const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.09, 14), basic(0xfacc15)); coin.rotation.x = Math.PI / 2; coin.position.y = 0.25; popMesh.add(coin);
+            }
             popMesh.position.set(q.x, q.y + 0.9, q.z); this._addObj(S, popMesh);
             let pt = 0; S.animate((dt) => { pt += dt; popMesh.position.y += dt * 1.4; popMesh.rotation.y += dt * 6; if (pt > 0.65) { S.scene.remove(popMesh); return false; } });
             if (q.gift === 'fire') { D.power = 'fire'; mPowerSfx(); MG.toast('🔥 FIRE FLOWER! LMB SHOOTS FIREBALLS!', '#f97316'); }
