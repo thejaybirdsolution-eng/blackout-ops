@@ -859,91 +859,140 @@
 
         buildGuardDog(entity) {
             const root = new THREE.Group();
-            const coatMat = new THREE.MeshStandardMaterial({ color: 0x3f2e21, roughness: 0.78 });
-            const vestMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.55 });
+            const coatMat = new THREE.MeshStandardMaterial({ color: 0x453224, roughness: 0.74 });
+            const underCoat = new THREE.MeshStandardMaterial({ color: 0x856448, roughness: 0.78 });
+            const vestMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.62 });
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.28, metalness: 0.85 });
             const collarMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xfef08a });
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
 
             const bodyPivot = new THREE.Group();
-            bodyPivot.position.y = 0.48;
-            bodyPivot.userData.baseY = 0.48;
+            bodyPivot.position.y = 0.50;
+            bodyPivot.userData.baseY = 0.50;
             root.add(bodyPivot);
 
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.74), coatMat);
-            const vest = new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.24, 0.42), vestMat);
-            vest.position.set(0, 0.08, 0.04);
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.03, 8, 16), collarMat);
-            collar.position.set(0, 0.09, 0.34);
-            bodyPivot.add(torso, vest, collar);
+            // Muscular chest + tapered waist/hindquarters + MOLLE tactical armor harness + glowing spine strip
+            const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.16, 0.40, 10), coatMat);
+            chest.rotation.x = Math.PI * 0.5; chest.scale.set(1.05, 1.0, 1.12); chest.position.set(0, 0.02, 0.16);
+            const waist = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.15, 0.42, 10), coatMat);
+            waist.rotation.x = Math.PI * 0.5; waist.position.set(0, 0.0, -0.18);
+            const bellyUnder = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.56), underCoat);
+            bellyUnder.position.set(0, -0.09, 0.02);
+            const vest = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.46), vestMat);
+            vest.position.set(0, 0.07, 0.06);
+            const spineGlow = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.40), collarMat);
+            spineGlow.position.set(0, 0.21, 0.06);
+            for (const s of [-1, 1]) {
+                const pad = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.24), vestMat);
+                pad.position.set(s * 0.21, 0.04, 0.18); pad.rotation.z = -s * 0.22;
+                bodyPivot.add(pad);
+            }
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 8, 16), vestMat);
+            collar.position.set(0, 0.10, 0.34);
+            for (let si = 0; si < 5; si++) {
+                const a = (si / 5) * Math.PI * 2;
+                const sp = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.07, 6), steelMat);
+                sp.position.set(Math.cos(a) * 0.18, 0.10 + Math.sin(a) * 0.18, 0.34);
+                sp.lookAt(Math.cos(a), 0.10 + Math.sin(a), 0.34); sp.rotateX(Math.PI * 0.5);
+                bodyPivot.add(sp);
+            }
+            bodyPivot.add(chest, waist, bellyUnder, vest, spineGlow, collar);
 
+            // Sculpted Cyber-Hound Head, Snout, Nose, Visor Eyes & Alert Ears
             const headGroup = new THREE.Group();
-            headGroup.position.set(0, 0.16, 0.44);
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.20, 0.28), coatMat);
-            const snout = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.11, 0.16), coatMat);
-            snout.position.set(0, -0.03, 0.18);
-            const earL = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 5), coatMat);
-            earL.position.set(-0.07, 0.14, -0.04);
-            const earR = earL.clone();
-            earR.position.x = 0.07;
-            const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.02), eyeMat);
-            eyeL.position.set(-0.05, 0.04, 0.14);
-            const eyeR = eyeL.clone();
-            eyeR.position.x = 0.05;
-            headGroup.add(head, snout, earL, earR, eyeL, eyeR);
+            headGroup.position.set(0, 0.18, 0.43);
+            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.155, 0), coatMat);
+            head.scale.set(0.92, 0.88, 1.15);
+            const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.078, 0.20, 6), coatMat);
+            snout.rotation.x = Math.PI * 0.5; snout.scale.set(1.15, 1.0, 0.85); snout.position.set(0, -0.04, 0.17);
+            const nose = new THREE.Mesh(new THREE.SphereGeometry(0.032, 6, 6), new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3 }));
+            nose.position.set(0, -0.02, 0.27);
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.045, 0.08), vestMat);
+            visor.position.set(0, 0.04, 0.11);
+            const visorGlow = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.024, 0.09), eyeMat);
+            visorGlow.position.set(0, 0.04, 0.115);
+            headGroup.add(head, snout, nose, visor, visorGlow);
+            for (const s of [-1, 1]) {
+                const ear = new THREE.Mesh(new THREE.ConeGeometry(0.048, 0.15, 5), coatMat);
+                ear.position.set(s * 0.08, 0.15, -0.03); ear.rotation.z = -s * 0.18;
+                headGroup.add(ear);
+            }
             bodyPivot.add(headGroup);
 
-            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.28), coatMat);
-            tail.position.set(0, 0.14, -0.42);
-            tail.rotation.x = 0.5;
+            const tail = new THREE.Mesh(new THREE.ConeGeometry(0.042, 0.32, 6), coatMat);
+            tail.position.set(0, 0.15, -0.45);
+            tail.rotation.x = -0.75;
             bodyPivot.add(tail);
 
-            const legGeo = new THREE.BoxGeometry(0.10, 0.42, 0.10);
+            const legGeo = new THREE.CylinderGeometry(0.052, 0.042, 0.42, 8);
+            const pawGeo = new THREE.BoxGeometry(0.085, 0.05, 0.11);
             const makeLeg = (x, z) => {
                 const g = new THREE.Group();
-                g.position.set(x, 0.40, z);
-                const m = new THREE.Mesh(legGeo, coatMat);
-                m.position.y = -0.20;
-                g.add(m);
+                g.position.set(x, 0.42, z);
+                const m = new THREE.Mesh(legGeo, coatMat); m.position.y = -0.20;
+                const paw = new THREE.Mesh(pawGeo, underCoat); paw.position.set(0, -0.40, 0.02);
+                g.add(m, paw);
                 root.add(g);
                 return g;
             };
-            const armL = makeLeg(-0.13, 0.25);
-            const armR = makeLeg(0.13, 0.25);
-            const legL = makeLeg(-0.13, -0.25);
-            const legR = makeLeg(0.13, -0.25);
+            const armL = makeLeg(-0.14, 0.24);
+            const armR = makeLeg(0.14, 0.24);
+            const legL = makeLeg(-0.14, -0.25);
+            const legR = makeLeg(0.14, -0.25);
 
-            return { root, bodyPivot, headGroup, armL, armR, legL, legR, haloGroup: null };
+            return { root, bodyPivot, headGroup, armL, armR, legL, legR, tail, haloGroup: null, isQuadruped: true };
         }
 
         buildSentryTurret() {
             const root = new THREE.Group();
-            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.35 });
-            const oliveMat = new THREE.MeshStandardMaterial({ color: 0x4b5842, metalness: 0.45, roughness: 0.55 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.82, roughness: 0.30 });
+            const oliveMat = new THREE.MeshStandardMaterial({ color: 0x3f4e3a, metalness: 0.48, roughness: 0.50 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
             const glowMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+            const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.75 });
 
+            // Splayed hydraulic tripod with steel footpads + reinforced turret pedestal
             for (let i = 0; i < 3; i++) {
                 const a = (i / 3) * Math.PI * 2;
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.95, 8), darkMat);
-                leg.position.set(Math.cos(a) * 0.28, 0.42, Math.sin(a) * 0.28);
-                leg.rotation.z = Math.cos(a) * 0.32;
-                leg.rotation.x = -Math.sin(a) * 0.32;
-                root.add(leg);
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.96, 8), darkMat);
+                leg.position.set(Math.cos(a) * 0.29, 0.42, Math.sin(a) * 0.29);
+                leg.rotation.z = Math.cos(a) * 0.34;
+                leg.rotation.x = -Math.sin(a) * 0.34;
+                const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.13, 0.06, 8), darkMat);
+                pad.position.set(Math.cos(a) * 0.45, 0.03, Math.sin(a) * 0.45);
+                root.add(leg, pad);
             }
-            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.20, 0.26, 12), darkMat);
-            hub.position.y = 0.85;
-            root.add(hub);
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.24, 0.28, 12), darkMat);
+            hub.position.y = 0.86;
+            const statusRing = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.025, 6, 18), glowMat);
+            statusRing.rotation.x = Math.PI * 0.5; statusRing.position.y = 0.92;
+            root.add(hub, statusRing);
 
+            // Armored dual-barrel Gatling head + side ammo drum + laser sight + optic dome
             const headGroup = new THREE.Group();
-            headGroup.position.set(0, 1.08, 0);
-            const box = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.28, 0.46), oliveMat);
-            const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.52, 8), darkMat);
-            b1.rotation.x = Math.PI * 0.5;
-            b1.position.set(-0.08, 0.02, 0.38);
-            const b2 = b1.clone();
-            b2.position.x = 0.08;
-            const sensor = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.06), glowMat);
-            sensor.position.set(0, 0.16, 0.16);
-            headGroup.add(box, b1, b2, sensor);
+            headGroup.position.set(0, 1.12, 0);
+            const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.30, 0.54), oliveMat);
+            const topHood = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.24, 0.44, 6), darkMat);
+            topHood.rotation.x = Math.PI * 0.5; topHood.position.set(0, 0.12, -0.02);
+            const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.22, 12), darkMat);
+            drum.rotation.z = Math.PI * 0.5; drum.position.set(-0.28, -0.02, 0.02);
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.05, 0.12), brassMat);
+            belt.position.set(-0.20, 0.04, 0.02);
+
+            for (const bx of [-0.09, 0.09]) {
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.038, 0.68, 8), darkMat);
+                barrel.rotation.x = Math.PI * 0.5; barrel.position.set(bx, 0.02, 0.46);
+                const shroud = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.28, 8), brassMat);
+                shroud.rotation.x = Math.PI * 0.5; shroud.position.set(bx, 0.02, 0.32);
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.042, 0.10, 8), darkMat);
+                muzzle.rotation.x = Math.PI * 0.5; muzzle.position.set(bx, 0.02, 0.78);
+                headGroup.add(barrel, shroud, muzzle);
+            }
+            const sensor = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.09, 0.12), glowMat);
+            sensor.position.set(0, 0.22, 0.18);
+            const laserStub = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.65, 6), laserMat);
+            laserStub.rotation.x = Math.PI * 0.5; laserStub.position.set(0.16, 0.12, 0.52);
+            headGroup.add(chassis, topHood, drum, belt, sensor, laserStub);
             root.add(headGroup);
 
             return { root, headGroup, sensor };
@@ -951,37 +1000,78 @@
 
         buildShopkeeper() {
             const root = new THREE.Group();
-            const robeMat = new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: 0.72 });
-            const armorMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.35, metalness: 0.7 });
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
+            const oakMat = new THREE.MeshStandardMaterial({ color: 0x4a2e19, roughness: 0.82 });
+            const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.32, metalness: 0.78 });
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.42, metalness: 0.75 });
+            const cloakMat = new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: 0.70 });
+            const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.30, metalness: 0.82 });
+            const crimsonCloth = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.85, side: THREE.DoubleSide });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.55 });
             const eyeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
 
-            // Sleek Compact Counter Stall + Canopy (flush back-wall footprint!)
-            const counter = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.95, 0.75), new THREE.MeshStandardMaterial({ color: 0x5c3c22, roughness: 0.85 }));
+            // Carved Dark-Oak & Hammered-Brass Counter Stall
+            const counter = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.96, 0.84), oakMat);
             counter.position.set(0, 0.48, 0.42);
-            const trim = new THREE.Mesh(new THREE.BoxGeometry(2.06, 0.10, 0.82), armorMat);
-            trim.position.set(0, 0.96, 0.42);
-            const postL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 2.3, 0.10), counter.material);
-            postL.position.set(-0.92, 1.15, 0.42);
-            const postR = postL.clone();
-            postR.position.x = 0.92;
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.14, 0.92), ironMat);
+            plinth.position.set(0, 0.07, 0.42);
+            const trim = new THREE.Mesh(new THREE.BoxGeometry(2.42, 0.11, 0.90), brassMat);
+            trim.position.set(0, 0.98, 0.42);
+            root.add(counter, plinth, trim);
+
+            // Counter props: gold ingots + display carbine + brass lantern
+            for (let g = 0; g < 3; g++) {
+                const ingot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.07, 0.10), goldTrimMat);
+                ingot.position.set(-0.72 + (g % 2) * 0.2, 1.07 + Math.floor(g / 2) * 0.07, 0.42);
+                root.add(ingot);
+            }
+            const propGun = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.11, 0.07), ironMat);
+            propGun.position.set(0.56, 1.08, 0.42); propGun.rotation.y = 0.25;
+            const lanternBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.18, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            lanternBody.position.set(0.95, 1.14, 0.44);
+            const lanternCap = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.09, 6), brassMat);
+            lanternCap.position.set(0.95, 1.26, 0.44);
+            root.add(propGun, lanternBody, lanternCap);
+
+            // Fluted Pillars & Slanted Crimson-Gold Canopy Awning + Ornate Header Sign
+            for (const sx of [-1.06, 1.06]) {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 2.45, 8), ironMat);
+                post.position.set(sx, 1.22, 0.42);
+                const cap = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), brassMat);
+                cap.position.set(sx, 2.48, 0.42);
+                root.add(post, cap);
+            }
+            const awning = new THREE.Mesh(new THREE.BoxGeometry(2.38, 0.08, 1.15), crimsonCloth);
+            awning.position.set(0, 2.38, 0.38); awning.rotation.x = 0.22;
+            const awningTrim = new THREE.Mesh(new THREE.BoxGeometry(2.40, 0.12, 0.08), goldTrimMat);
+            awningTrim.position.set(0, 2.26, 0.94);
+            const signFrame = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.54, 0.14), ironMat);
+            signFrame.position.set(0, 2.72, 0.42);
             const sign = new THREE.Mesh(
-                new THREE.BoxGeometry(1.94, 0.46, 0.12),
+                new THREE.PlaneGeometry(1.98, 0.44),
                 new THREE.MeshBasicMaterial({ map: BO.Textures ? BO.Textures.createPerkSignTexture('SHOPKEEPER [E]', '#f59e0b') : null, color: 0xffffff })
             );
-            sign.position.set(0, 2.28, 0.42);
-            root.add(counter, trim, postL, postR, sign);
+            sign.position.set(0, 2.72, 0.50);
+            root.add(awning, awningTrim, signFrame, sign);
 
-            // Shopkeeper Figure behind counter
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.72, 0.28), robeMat);
-            torso.position.set(0, 1.15, -0.15);
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), skinMat);
-            head.position.set(0, 1.70, -0.15);
-            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.075, 0.06), eyeMat);
-            visor.position.set(0, 1.72, 0.01);
-            const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.14, 12), armorMat);
-            hat.position.set(0, 1.88, -0.15);
-            root.add(torso, head, visor, hat);
+            // Armored Merchant NPC behind counter (cloak, pauldrons, hood, glowing visor, arms on counter)
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 0.78, 8), cloakMat);
+            torso.position.set(0, 1.22, -0.15);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), skinMat);
+            head.position.set(0, 1.78, -0.15);
+            const hood = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.28, 8), cloakMat);
+            hood.position.set(0, 1.92, -0.17); hood.rotation.x = -0.18;
+            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.075, 0.07), eyeMat);
+            visor.position.set(0, 1.79, 0.02);
+            const crownBand = new THREE.Mesh(new THREE.TorusGeometry(0.20, 0.025, 6, 14), goldTrimMat);
+            crownBand.rotation.x = Math.PI * 0.5; crownBand.position.set(0, 1.88, -0.15);
+            root.add(torso, head, hood, visor, crownBand);
+            for (const s of [-1, 1]) {
+                const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), goldTrimMat);
+                pauldron.scale.set(1.2, 0.85, 1.0); pauldron.position.set(s * 0.28, 1.54, -0.14);
+                const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.46, 8), cloakMat);
+                arm.position.set(s * 0.26, 1.26, 0.05); arm.rotation.x = 0.88;
+                root.add(pauldron, arm);
+            }
 
             return { root, sign };
         }

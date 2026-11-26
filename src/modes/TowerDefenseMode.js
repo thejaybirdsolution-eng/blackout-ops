@@ -402,29 +402,49 @@
         }
 
         _buildCastleStructures(scene, map) {
-            // 1. Glowing 100 HP Castle Heart Crystal
+            // 1. Multi-Tier Aether Castle Heart Monument (Octagonal Obsidian/Gold Altar, Containment Prongs, Dual Gyro-Rings & Orbiting Shards)
             const ch = map.castleHeart || { x: 0, y: 5.4, z: 16 };
             const hg = new THREE.Group();
             hg.position.set(ch.x, ch.y, ch.z);
-            const ped = new THREE.Mesh(
-                new THREE.CylinderGeometry(1.1, 1.35, 0.7, 12),
-                BO.Textures.getWorldMaterial('castle_battlement', 2, 1)
-            );
-            ped.position.y = 0.35;
-            const crystal = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.75, 1),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-            );
-            crystal.position.y = 1.65;
-            const halo = new THREE.Mesh(
-                new THREE.TorusGeometry(1.05, 0.06, 8, 24),
-                new THREE.MeshBasicMaterial({ color: 0xfde047 })
-            );
-            halo.rotation.x = Math.PI * 0.5;
-            halo.position.y = 1.65;
-            hg.add(ped, crystal, halo);
+            const obsidianMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.72, roughness: 0.28 });
+            const goldTrimMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.88, roughness: 0.22 });
+            const pedBase = new THREE.Mesh(new THREE.CylinderGeometry(1.42, 1.65, 0.34, 8), obsidianMat);
+            pedBase.position.y = 0.17;
+            const pedMid = new THREE.Mesh(new THREE.CylinderGeometry(1.06, 1.24, 0.44, 8), BO.Textures.getWorldMaterial('castle_battlement', 2, 1));
+            pedMid.position.y = 0.56;
+            const pedCollar = new THREE.Mesh(new THREE.CylinderGeometry(1.12, 1.12, 0.08, 8), goldTrimMat);
+            pedCollar.position.y = 0.82;
+            const runeRing = new THREE.Mesh(new THREE.RingGeometry(1.48, 1.72, 24), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.65, side: THREE.DoubleSide }));
+            runeRing.rotation.x = -Math.PI * 0.5; runeRing.position.y = 0.03;
+
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd });
+            const outerMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.85, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.78 });
+            const coreCrystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.46, 0), coreMat);
+            coreCrystal.scale.set(1, 1.5, 1); coreCrystal.position.y = 1.92;
+            const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.82, 0), outerMat);
+            crystal.scale.set(1, 1.45, 1); crystal.position.y = 1.92;
+
+            const gyroA = new THREE.Mesh(new THREE.TorusGeometry(1.14, 0.055, 8, 28), goldTrimMat);
+            gyroA.position.y = 1.92; gyroA.rotation.x = Math.PI * 0.35;
+            const gyroB = new THREE.Mesh(new THREE.TorusGeometry(0.96, 0.045, 8, 24), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            gyroB.position.y = 1.92; gyroB.rotation.y = Math.PI * 0.42;
+
+            const shards = [];
+            for (let si = 0; si < 4; si++) {
+                const a = (si / 4) * Math.PI * 2;
+                const prong = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.92, 6), goldTrimMat);
+                prong.position.set(Math.cos(a) * 0.95, 1.05, Math.sin(a) * 0.95);
+                prong.rotation.z = Math.cos(a) * 0.42; prong.rotation.x = -Math.sin(a) * 0.42;
+                hg.add(prong);
+                const sh = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), coreMat);
+                sh.position.set(Math.cos(a) * 1.28, 1.92, Math.sin(a) * 1.28);
+                hg.add(sh); shards.push(sh);
+            }
+            const heartLight = BO.Settings.getQualityPreset().pointLights ? new THREE.PointLight(0x38bdf8, 1.8, 14) : null;
+            if (heartLight) { heartLight.position.set(0, 2.1, 0); hg.add(heartLight); }
+            hg.add(pedBase, pedMid, pedCollar, runeRing, coreCrystal, crystal, gyroA, gyroB);
             scene.add(hg);
-            this.heartObj = { group: hg, crystal, halo, x: ch.x, y: ch.y, z: ch.z };
+            this.heartObj = { group: hg, crystal, coreCrystal, outerMat, halo: gyroA, gyroB, runeRing, shards, light: heartLight, x: ch.x, y: ch.y, z: ch.z };
 
             // 2. 3D Shopkeeper NPC & Stall on Castle Top
             const sk = map.shopkeeperPos || { x: 5.5, y: 5.4, z: 12.5, rotY: -Math.PI * 0.4 };
@@ -434,10 +454,11 @@
             scene.add(shopBuilt.root);
             this.shopkeeperObj = { x: sk.x, y: sk.y, z: sk.z, mesh: shopBuilt.root };
 
-            // 3. Three Sequential SEE-THROUGH & SHOOT-THROUGH Defense Wall Layers (Custom Wall HP!)
+            // 3. Three Sequential SEE-THROUGH & SHOOT-THROUGH Armored Energy Bastion Gates (Custom Wall HP!)
             const customWallHp = BO.Math.clamp(Number(this.config.wallHp) || 250, 50, 2000);
             const LAYER_COLORS = { 1: 0x22c55e, 2: 0x38bdf8, 3: 0xf59e0b };
-            const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.72, roughness: 0.35 });
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.30 });
+            const goldAccent = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
             const defs = map.defenseLayers || [];
             this.layers = defs.map((dl) => {
                 const wallMult = (BO.Mods ? BO.Mods.wallHpMult(this.modifiers) : 1) * (BO.Mods?.fx(this.modifiers, 'td').innerKeepBias ? (dl.layer >= 3 ? 4.0 : 0.45) : 1);
@@ -447,39 +468,49 @@
                 for (const s of dl.segments) {
                     const segGroup = new THREE.Group();
                     const paneMat = new THREE.MeshStandardMaterial({
-                        color: baseHex, emissive: baseHex, emissiveIntensity: 0.35,
-                        transparent: true, opacity: 0.24, roughness: 0.12, metalness: 0.15,
+                        color: baseHex, emissive: baseHex, emissiveIntensity: 0.42,
+                        transparent: true, opacity: 0.24, roughness: 0.12, metalness: 0.18,
                         depthWrite: false, side: THREE.DoubleSide
                     });
-                    const pane = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h - 0.36, Math.min(s.d, 0.32)), paneMat);
+                    const stripMat = new THREE.MeshBasicMaterial({ color: baseHex });
+                    const pane = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h - 0.44, Math.min(s.d, 0.26)), paneMat);
                     pane.position.set(s.x, s.y + s.h * 0.5, s.z);
                     pane.renderOrder = 2;
                     segGroup.add(pane);
 
-                    const botRail = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.24, Math.min(s.d, 0.65)), frameMat);
-                    botRail.position.set(s.x, s.y + 0.12, s.z);
-                    const topRail = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.20, Math.min(s.d, 0.65)), frameMat);
-                    topRail.position.set(s.x, s.y + s.h - 0.10, s.z);
-                    const glowStrip = new THREE.Mesh(
-                        new THREE.BoxGeometry(s.w, 0.12, Math.min(s.d, 0.45)),
-                        new THREE.MeshBasicMaterial({ color: baseHex })
-                    );
-                    glowStrip.position.set(s.x, s.y + s.h + 0.06, s.z);
-                    segGroup.add(botRail, topRail, glowStrip);
-
                     const longX = s.w >= s.d;
+                    // Double-tiered armored base kerb + steel top beam + horizontal plasma mid-bar
+                    const curbMat = BO.Textures.getWorldMaterial('castle_stone', Math.max(s.w, s.d), 1);
+                    const botKerb = new THREE.Mesh(new THREE.BoxGeometry(longX ? s.w : Math.min(s.d, 0.92), 0.34, longX ? Math.min(s.d, 0.92) : s.d), curbMat);
+                    botKerb.position.set(s.x, s.y + 0.17, s.z);
+                    const botRail = new THREE.Mesh(new THREE.BoxGeometry(longX ? s.w : 0.62, 0.14, longX ? 0.62 : s.d), frameMat);
+                    botRail.position.set(s.x, s.y + 0.38, s.z);
+                    const midBar = new THREE.Mesh(new THREE.BoxGeometry(longX ? s.w : 0.20, 0.08, longX ? 0.20 : s.d), stripMat);
+                    midBar.position.set(s.x, s.y + s.h * 0.52, s.z);
+                    const topRail = new THREE.Mesh(new THREE.BoxGeometry(longX ? s.w : 0.58, 0.22, longX ? 0.58 : s.d), frameMat);
+                    topRail.position.set(s.x, s.y + s.h - 0.11, s.z);
+                    const glowStrip = new THREE.Mesh(new THREE.BoxGeometry(longX ? s.w : 0.38, 0.11, longX ? 0.38 : s.d), stripMat);
+                    glowStrip.position.set(s.x, s.y + s.h + 0.05, s.z);
+                    segGroup.add(botKerb, botRail, midBar, topRail, glowStrip);
+
+                    // Heavy Emitter Stanchions w/ Pointed Spire Caps & Glowing Projector Crystals
                     const span = longX ? s.w : s.d;
-                    const postCount = Math.max(2, Math.floor(span / 10) + 1);
-                    const postGeo = new THREE.BoxGeometry(0.28, s.h, 0.28);
+                    const postCount = Math.max(2, Math.floor(span / 11) + 1);
+                    const crystals = [];
                     for (let p = 0; p < postCount; p++) {
                         const t = postCount === 1 ? 0.5 : (p / (postCount - 1)) - 0.5;
-                        const post = new THREE.Mesh(postGeo, frameMat);
-                        post.position.set(
-                            s.x + (longX ? t * (span - 0.4) : 0),
-                            s.y + s.h * 0.5,
-                            s.z + (longX ? 0 : t * (span - 0.4))
-                        );
-                        segGroup.add(post);
+                        const px = s.x + (longX ? t * (span - 0.5) : 0);
+                        const pz = s.z + (longX ? 0 : t * (span - 0.5));
+                        const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.72, 0.66), frameMat);
+                        plinth.position.set(px, s.y + 0.36, pz);
+                        const stanchion = new THREE.Mesh(new THREE.BoxGeometry(0.42, s.h, 0.42), frameMat);
+                        stanchion.position.set(px, s.y + s.h * 0.5, pz);
+                        const collar = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 0.52), goldAccent);
+                        collar.position.set(px, s.y + s.h + 0.06, pz);
+                        const crystalOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.24, 0), stripMat);
+                        crystalOrb.position.set(px, s.y + s.h + 0.36, pz);
+                        segGroup.add(plinth, stanchion, collar, crystalOrb);
+                        crystals.push(crystalOrb);
                     }
                     scene.add(segGroup);
 
@@ -493,7 +524,7 @@
 
                     segObjs.push({
                         x: s.x, y: s.y, z: s.z, w: s.w, h: s.h, d: s.d,
-                        mesh: segGroup, glowStrip, mat: paneMat, baseHex, collider: col
+                        mesh: segGroup, glowStrip, stripMat, crystals, mat: paneMat, baseHex, collider: col
                     });
                 }
                 return {
@@ -524,8 +555,9 @@
                     const blended = dmgCol.clone().lerp(baseCol, hpRatio);
                     s.mat.color.copy(blended);
                     s.mat.emissive.copy(blended);
-                    s.mat.opacity = 0.18 + hpRatio * 0.10;
-                    if (s.glowStrip && s.glowStrip.material) s.glowStrip.material.color.copy(blended);
+                    s.mat.emissiveIntensity = hpRatio < 0.3 ? 0.68 : 0.42;
+                    s.mat.opacity = 0.18 + hpRatio * 0.12;
+                    if (s.stripMat) s.stripMat.color.copy(blended);
                 }
             }
         }
@@ -827,13 +859,36 @@
             const isAll360 = BO.World.mapData.castleSetup === 'all';
             const dx = isAll360 ? BO.Math.randRange(-4.5, 4.5) : BO.Math.randRange(-8, 8);
             const dz = isAll360 ? BO.Math.randRange(-4.5, 4.5) : BO.Math.randRange(10, 18);
-            const crate = new THREE.Mesh(
-                new THREE.BoxGeometry(1.1, 1.1, 1.1),
-                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xca8a04, emissiveIntensity: 0.45, roughness: 0.4 })
+            const g = new THREE.Group();
+            const crateMat = new THREE.MeshStandardMaterial({ color: 0xb45309, emissive: 0x78350f, emissiveIntensity: 0.35, roughness: 0.45, metalness: 0.35 });
+            const goldBand = new THREE.MeshStandardMaterial({ color: 0xfde047, emissive: 0xca8a04, emissiveIntensity: 0.55, metalness: 0.85, roughness: 0.22 });
+            const box = new THREE.Mesh(new THREE.BoxGeometry(1.18, 1.05, 1.18), crateMat);
+            const strapA = new THREE.Mesh(new THREE.BoxGeometry(1.24, 1.10, 0.18), goldBand);
+            const strapB = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.10, 1.24), goldBand);
+            const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+            beacon.position.y = 0.78;
+            g.add(box, strapA, strapB, beacon);
+
+            const chute = new THREE.Group();
+            const canopy = new THREE.Mesh(
+                new THREE.SphereGeometry(1.45, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.5),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc, emissive: 0xfde047, emissiveIntensity: 0.15, roughness: 0.7, side: THREE.DoubleSide })
             );
-            crate.position.set(dx, 24, dz);
-            BO.World.scene.add(crate);
-            this.supplyDrops.push({ mesh: crate, x: dx, y: 24, targetY: 5.95, z: dz, life: 45 });
+            canopy.position.y = 2.6; canopy.scale.set(1, 0.72, 1);
+            const canopyTrim = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.06, 6, 18), goldBand);
+            canopyTrim.rotation.x = Math.PI * 0.5; canopyTrim.position.y = 2.6;
+            chute.add(canopy, canopyTrim);
+            const cordMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+            for (const [cx, cz] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) {
+                const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 2.25, 4), cordMat);
+                cord.position.set(cx * 0.58, 1.55, cz * 0.58);
+                cord.lookAt(cx, 2.6, cz); cord.rotateX(Math.PI * 0.5);
+                chute.add(cord);
+            }
+            g.add(chute);
+            g.position.set(dx, 24, dz);
+            BO.World.scene.add(g);
+            this.supplyDrops.push({ mesh: g, chute, x: dx, y: 24, targetY: 5.95, z: dz, life: 45 });
             BO.Events.emit('hud:toast', { text: '📦 GOLDEN SUPPLY CRATE DROPPING ON CASTLE KEEP!', color: '#fde047' });
         }
 
@@ -905,16 +960,19 @@
             const keepY = 5.4;
             const idx = this.deployables.length;
 
-            // Immediate Airstrike Flare!
+            // Immediate Airstrike Flare + Visible Warhead Drops!
             if (depId === 'airstrike_beacon') {
                 BO.Sound.playNukeSiren();
                 BO.Events.emit('hud:banner', { title: '✈ A-10 CARPET BOMB INBOUND!', sub: '6 TACTICAL WARHEADS STRIKING ZOMBIE LANES!', color: '#fb923c' });
+                const flarePos = new THREE.Vector3(0, 0.25, isAll360 ? -18 : -24);
+                BO.FX.spawnParticles(flarePos, 18, 0xef4444, 5, 6, 0.8, 1.4);
                 for (let b = 0; b < 6; b++) {
                     setTimeout(() => {
-                        if (!this.active) return;
+                        if (!this.active || !BO.World.scene) return;
                         const bx = BO.Math.randRange(-28, 28);
                         const bz = isAll360 ? BO.Math.randRange(-55, 55) : BO.Math.randRange(-85, -18);
                         const pt = new THREE.Vector3(bx, 0.5, bz);
+                        BO.FX.spawnTracer(new THREE.Vector3(bx + 6, 46, bz - 10), pt, 0xfb923c, 0.16, 0.22);
                         BO.FX.spawnExplosion(pt, 12.0, 0xf97316);
                         BO.Sound.playExplosion(0.95);
                         this._onExplode(pt, 14.0, 480, false, 0, 'airstrike');
@@ -948,58 +1006,244 @@
             g.position.set(px, py, pz);
             const def = ROTATING_DEPLOYABLES.find((d) => d.id === depId) || { color: '#38bdf8' };
             const colHex = new THREE.Color(def.color || '#38bdf8').getHex();
-            const baseMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.35 });
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.78, roughness: 0.32 });
+            const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.82, roughness: 0.28 });
+            const bronzeMat = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.24 });
+            const oliveMat = new THREE.MeshStandardMaterial({ color: 0x3f4e3a, roughness: 0.65 });
             const glowMat = new THREE.MeshBasicMaterial({ color: colHex });
 
             if (depId === 'landmine_field') {
                 for (let m = 0; m < 6; m++) {
                     const mx = px + BO.Math.randRange(-10, 10);
                     const mz = pz + BO.Math.randRange(-10, 10);
-                    const mine = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.52, 0.16, 10), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
-                    mine.position.set(mx, 0.08, mz);
-                    BO.World.scene.add(mine);
-                    this.deployables.push({ id: depId, mesh: mine, x: mx, y: 0, z: mz, timer: 0, hp: 100, alive: true });
+                    const mg = new THREE.Group();
+                    mg.add(new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.56, 0.16, 8), darkMat));
+                    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.06, 8), bronzeMat); cap.position.y = 0.09;
+                    const led = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshBasicMaterial({ color: 0xef4444 })); led.position.y = 0.15;
+                    mg.add(cap, led);
+                    mg.position.set(mx, 0.08, mz);
+                    BO.World.scene.add(mg);
+                    this.deployables.push({ id: depId, mesh: mg, x: mx, y: 0, z: mz, timer: 0, hp: 100, alive: true });
                 }
                 return;
             } else if (depId === 'barbed_wire') {
-                const strip = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.55, 2.2), new THREE.MeshStandardMaterial({ color: 0x64748b, wireframe: true }));
-                strip.position.y = 0.28;
-                g.add(strip);
+                for (const sx of [-4.4, -2.2, 0, 2.2, 4.4]) {
+                    const stL = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.95, 6), darkMat);
+                    stL.position.set(sx, 0.42, -0.65); stL.rotation.x = 0.35;
+                    const stR = stL.clone(); stR.position.z = 0.65; stR.rotation.x = -0.35;
+                    g.add(stL, stR);
+                }
+                const coilMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.25 });
+                for (let ci = 0; ci < 12; ci++) {
+                    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.032, 6, 14), coilMat);
+                    coil.position.set(-4.4 + ci * 0.8, 0.46, (ci % 2 === 0 ? 0.15 : -0.15));
+                    coil.rotation.y = Math.PI * 0.5 + 0.25;
+                    g.add(coil);
+                }
+                for (const ex of [-4.4, 4.4]) {
+                    const node = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                    node.position.set(ex, 0.92, 0); g.add(node);
+                }
             } else if (depId === 'sawblade_spinner') {
-                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 1.5, 10), baseMat);
-                post.position.y = 0.75;
-                const blade = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.09, 16), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.15 }));
-                blade.position.y = 1.05;
-                g.add(post, blade);
-                g.userData.spinPart = blade;
+                const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.82, 0.34, 8), darkMat); plinth.position.y = 0.17;
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.40, 1.15, 10), bronzeMat); post.position.y = 0.80;
+                const bladeGrp = new THREE.Group(); bladeGrp.position.y = 1.08;
+                const disc = new THREE.Mesh(new THREE.CylinderGeometry(2.55, 2.55, 0.08, 20), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.15 }));
+                const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.14, 12), darkMat);
+                bladeGrp.add(disc, hub);
+                for (let ti = 0; ti < 12; ti++) {
+                    const a = (ti / 12) * Math.PI * 2;
+                    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.45, 4), new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.9 }));
+                    tooth.position.set(Math.cos(a) * 2.68, 0, Math.sin(a) * 2.68);
+                    tooth.rotation.set(0, -a, -Math.PI * 0.35);
+                    bladeGrp.add(tooth);
+                }
+                g.add(plinth, post, bladeGrp);
+                g.userData.spinPart = bladeGrp;
             } else if (depId === 'decoy_holo') {
-                const holoBody = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.8, 10), new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.65 }));
-                holoBody.position.y = 0.9;
-                g.add(holoBody);
+                const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.98, 0.14, 12), darkMat); pad.position.y = 0.07;
+                const padRing = new THREE.Mesh(new THREE.TorusGeometry(0.82, 0.05, 6, 20), glowMat); padRing.rotation.x = Math.PI * 0.5; padRing.position.y = 0.16;
+                const holoMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, transparent: true, opacity: 0.62 });
+                const holoGrp = new THREE.Group();
+                const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.30, 0.85, 8), holoMat); legs.position.y = 0.55;
+                const torso = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.68, 0.30), holoMat); torso.position.y = 1.32;
+                const helm = new THREE.Mesh(new THREE.SphereGeometry(0.21, 8, 6), holoMat); helm.position.y = 1.84;
+                const gun = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.14, 0.92), holoMat); gun.position.set(0.28, 1.32, 0.32);
+                const scan = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.03, 6, 18), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+                scan.rotation.x = Math.PI * 0.5; scan.position.y = 1.25;
+                holoGrp.add(legs, torso, helm, gun, scan);
+                g.add(pad, padRing, holoGrp);
+                g.userData.spinPart = holoGrp;
             } else if (depId === 'attack_drone') {
-                const core = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.3, 1.1), baseMat);
-                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.06, 6, 16), glowMat);
-                ring.rotation.x = Math.PI * 0.5;
-                g.add(core, ring);
+                const fuselage = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.28, 1.35), darkMat);
+                const gunPod = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.82, 8), steelMat); gunPod.rotation.x = Math.PI * 0.5; gunPod.position.set(0, -0.22, 0.25);
+                const camEye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), glowMat); camEye.position.set(0, -0.14, 0.62);
+                g.add(fuselage, gunPod, camEye);
+                const rotors = [];
+                for (const [rx, rz] of [[-0.85, -0.85], [0.85, -0.85], [-0.85, 0.85], [0.85, 0.85]]) {
+                    const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.10), steelMat);
+                    arm.position.set(rx * 0.5, 0.02, rz * 0.5); arm.rotation.y = Math.atan2(rx, rz) + Math.PI * 0.5;
+                    const rotorRing = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 6, 16), glowMat); rotorRing.rotation.x = Math.PI * 0.5; rotorRing.position.set(rx, 0.12, rz);
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.02, 0.09), new THREE.MeshBasicMaterial({ color: 0xe2e8f0 }));
+                    blade.position.set(rx, 0.12, rz);
+                    g.add(arm, rotorRing, blade);
+                    rotors.push(blade);
+                }
+                g.userData.rotors = rotors;
             } else if (depId === 'combat_mech') {
-                const torso = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.5, 1.1), new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8 }));
-                torso.position.y = 1.6;
-                const visor = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.2), glowMat);
-                visor.position.set(0, 1.9, 0.55);
-                const legL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.1, 0.5), baseMat); legL.position.set(-0.45, 0.55, 0);
-                const legR = legL.clone(); legR.position.x = 0.45;
-                g.add(torso, visor, legL, legR);
+                const hull = new THREE.Mesh(new THREE.BoxGeometry(1.55, 1.48, 1.25), steelMat); hull.position.y = 1.82;
+                const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.78, 0.55, 6), darkMat); hood.position.y = 2.68;
+                const visor = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.26, 0.16), new THREE.MeshBasicMaterial({ color: 0xf43f5e })); visor.position.set(0, 2.25, 0.64);
+                const reactor = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), glowMat); reactor.position.set(0, 1.72, 0.68);
+                g.add(hull, hood, visor, reactor);
+                for (const s of [-1, 1]) {
+                    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.42, 0.58), bronzeMat); pod.position.set(s * 0.62, 2.75, -0.05);
+                    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.20, 1.15, 8), darkMat); arm.rotation.x = Math.PI * 0.5; arm.position.set(s * 0.98, 1.78, 0.48);
+                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.15, 0.54), darkMat); leg.position.set(s * 0.48, 0.58, 0);
+                    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.22, 0.82), bronzeMat); foot.position.set(s * 0.48, 0.11, 0.12);
+                    g.add(pod, arm, leg, foot);
+                }
+                g.userData.spinPart = reactor;
+            } else if (depId === 'tesla_coil') {
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.92, 0.55, 8), darkMat); base.position.y = 0.28;
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 2.25, 10), bronzeMat); mast.position.y = 1.45;
+                g.add(base, mast);
+                for (let ci = 0; ci < 3; ci++) {
+                    const coil = new THREE.Mesh(new THREE.TorusGeometry(0.62 - ci * 0.1, 0.09, 8, 18), bronzeMat);
+                    coil.rotation.x = Math.PI * 0.5; coil.position.y = 1.2 + ci * 0.52; g.add(coil);
+                }
+                const crown = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.11, 8, 20), steelMat); crown.rotation.x = Math.PI * 0.5; crown.position.y = 2.68;
+                const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), glowMat); orb.position.y = 2.85;
+                g.add(crown, orb);
+                g.userData.spinPart = orb;
+            } else if (depId === 'flame_turret') {
+                const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.72, 0.95, 8), darkMat); ped.position.y = 0.48;
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.52, 0.95), new THREE.MeshStandardMaterial({ color: 0x7f1d1d, metalness: 0.55, roughness: 0.4 })); body.position.y = 1.25;
+                const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 1.15, 8), steelMat); barrel.rotation.x = Math.PI * 0.5; barrel.position.set(0, 1.25, 0.72);
+                const pilot = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 })); pilot.rotation.x = Math.PI * 0.5; pilot.position.set(0, 1.25, 1.38);
+                for (const s of [-0.46, 0.46]) {
+                    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.85, 10), new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.4 }));
+                    tank.position.set(s, 1.25, -0.15); g.add(tank);
+                }
+                g.add(ped, body, barrel, pilot);
+                g.userData.spinPart = pilot;
+            } else if (depId === 'cryo_projector') {
+                const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.76, 1.05, 6), steelMat); ped.position.y = 0.52;
+                const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.34, 0.55, 6), darkMat); dish.rotation.x = Math.PI * 0.35; dish.position.set(0, 1.48, 0.15);
+                const prism = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshBasicMaterial({ color: 0xbae6fd })); prism.scale.set(1, 1.6, 1); prism.position.y = 1.98;
+                for (const s of [-0.42, 0.42]) {
+                    const cryoTank = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.92, 10), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 }));
+                    cryoTank.position.set(s, 1.05, -0.2); g.add(cryoTank);
+                }
+                g.add(ped, dish, prism);
+                g.userData.spinPart = prism;
+            } else if (depId === 'mortar_battery') {
+                for (let sb = 0; sb < 8; sb++) {
+                    const a = (sb / 8) * Math.PI * 2;
+                    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.42, 0.45), oliveMat);
+                    bag.position.set(Math.cos(a) * 0.95, 0.21, Math.sin(a) * 0.95); bag.rotation.y = -a; g.add(bag);
+                }
+                const carriage = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 0.45, 8), darkMat); carriage.position.y = 0.28;
+                const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.36, 1.75, 12), steelMat); tube.position.set(0, 1.05, -0.15); tube.rotation.x = 0.42;
+                const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.34, 0.18, 12), bronzeMat); muzzle.position.set(0, 1.78, -0.50); muzzle.rotation.x = 0.42;
+                g.add(carriage, tube, muzzle);
+            } else if (depId === 'laser_beacon') {
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.95, 0.65, 8), darkMat); base.position.y = 0.32;
+                const dish = new THREE.Mesh(new THREE.ConeGeometry(0.85, 0.65, 12, 1, true), steelMat); dish.rotation.x = Math.PI; dish.position.y = 1.15;
+                const lens = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), glowMat); lens.position.y = 1.25;
+                const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 14, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xe879f9, transparent: true, opacity: 0.28, side: THREE.DoubleSide }));
+                beam.position.y = 8.2;
+                g.add(base, dish, lens, beam);
+                g.userData.spinPart = lens;
+            } else if (depId === 'sniper_nest') {
+                const wall = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.72, 0.55), oliveMat); wall.position.set(0, 0.36, -0.5);
+                const tripod = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.45, 0.95, 6), darkMat); tripod.position.y = 0.48;
+                const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 1.75), steelMat); rifle.position.set(0, 1.05, -0.2);
+                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.52, 8), bronzeMat); scope.rotation.x = Math.PI * 0.5; scope.position.set(0, 1.20, -0.1);
+                const optic = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), glowMat); optic.position.set(0.16, 1.15, -0.1);
+                g.add(wall, tripod, rifle, scope, optic);
+            } else if (depId === 'shield_gen') {
+                const core = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.78, 1.35, 8), darkMat); core.position.y = 0.68;
+                const dome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 12, 8), new THREE.MeshBasicMaterial({ color: 0x3b82f6, wireframe: true, transparent: true, opacity: 0.42 }));
+                dome.position.y = 1.15;
+                const beacon = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), glowMat); beacon.position.y = 1.65;
+                for (let fi = 0; fi < 4; fi++) {
+                    const a = (fi / 4) * Math.PI * 2;
+                    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 0.42), bronzeMat);
+                    fin.position.set(Math.cos(a) * 0.75, 0.85, Math.sin(a) * 0.75); fin.rotation.y = -a; g.add(fin);
+                }
+                g.add(core, dome, beacon);
+                g.userData.spinPart = dome;
+                g.userData.spinPart2 = beacon;
+            } else if (depId === 'healing_fountain') {
+                const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.82, 1.05, 12), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.35 })); ped.position.y = 0.52;
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.06, 8, 24), glowMat); ring.rotation.x = Math.PI * 0.5; ring.position.y = 0.08;
+                const cross = new THREE.Group(); cross.position.y = 1.75;
+                const crossMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+                cross.add(new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.82, 0.18), crossMat), new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.24, 0.18), crossMat));
+                g.add(ped, ring, cross);
+                g.userData.spinPart = cross;
+            } else if (depId === 'ammo_fabricator') {
+                const rack = new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.15, 0.78), oliveMat); rack.position.y = 0.58;
+                const trim = new THREE.Mesh(new THREE.BoxGeometry(1.50, 0.10, 0.84), bronzeMat); trim.position.y = 1.18;
+                const holoMag = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.62, 0.16), glowMat); holoMag.position.y = 1.78; holoMag.rotation.z = 0.2;
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 6, 16), glowMat); halo.rotation.x = Math.PI * 0.5; halo.position.y = 1.45;
+                g.add(rack, trim, holoMag, halo);
+                g.userData.spinPart = holoMag;
+            } else if (depId === 'gravity_well') {
+                const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 1.05, 0.35, 8), darkMat); ring.position.y = 0.18;
+                const blackHole = new THREE.Mesh(new THREE.SphereGeometry(0.52, 14, 12), new THREE.MeshBasicMaterial({ color: 0x05020a })); blackHole.position.y = 1.55;
+                const discA = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.06, 8, 24), glowMat); discA.position.y = 1.55; discA.rotation.x = 0.75;
+                const discB = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.045, 8, 20), new THREE.MeshBasicMaterial({ color: 0xe879f9 })); discB.position.y = 1.55; discB.rotation.y = 0.85;
+                for (let pi = 0; pi < 3; pi++) {
+                    const a = (pi / 3) * Math.PI * 2;
+                    const claw = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.25, 0.18), steelMat);
+                    claw.position.set(Math.cos(a) * 0.72, 0.85, Math.sin(a) * 0.72); claw.rotation.y = -a; g.add(claw);
+                }
+                g.add(ring, blackHole, discA, discB);
+                g.userData.spinPart = discA; g.userData.spinPart2 = discB;
+            } else if (depId === 'acid_sprayer') {
+                const chassis = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.78, 0.55, 8), darkMat); chassis.position.y = 0.28;
+                const vat = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 1.05, 12), new THREE.MeshBasicMaterial({ color: 0x84cc16, transparent: true, opacity: 0.78 })); vat.position.y = 1.05;
+                const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.16, 12), steelMat); cap.position.y = 1.62;
+                const nozGrp = new THREE.Group(); nozGrp.position.y = 1.72;
+                for (const s of [-1, 1]) {
+                    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.75, 6), steelMat);
+                    pipe.rotation.z = s * 1.1; pipe.position.set(s * 0.35, 0.1, 0);
+                    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), glowMat); tip.position.set(s * 0.72, 0.25, 0);
+                    nozGrp.add(pipe, tip);
+                }
+                g.add(chassis, vat, cap, nozGrp);
+                g.userData.spinPart = nozGrp;
+            } else if (depId === 'gold_miner') {
+                const frameMat = bronzeMat;
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.82, 0.95, 0.22, 8), darkMat); base.position.y = 0.11;
+                const ore = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), new THREE.MeshBasicMaterial({ color: 0xfde047 })); ore.scale.set(1.2, 0.45, 1.2); ore.position.y = 0.25;
+                for (let pi = 0; pi < 3; pi++) {
+                    const a = (pi / 3) * Math.PI * 2;
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.35, 6), frameMat);
+                    leg.position.set(Math.cos(a) * 0.42, 1.15, Math.sin(a) * 0.42);
+                    leg.lookAt(0, 2.3, 0); leg.rotateX(Math.PI * 0.5); g.add(leg);
+                }
+                const drill = new THREE.Mesh(new THREE.ConeGeometry(0.26, 1.35, 6), steelMat);
+                drill.rotation.x = Math.PI; drill.position.y = 0.95;
+                const topCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), glowMat); topCore.position.y = 2.35;
+                g.add(base, ore, drill, topCore);
+                g.userData.spinPart = drill;
             } else {
-                // Tower / Emitter / Beacon / Mortar / Tesla / Cryo / Flame / Acid / EMP / Gravity / Medic / Shield / Gold / Sniper
-                const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.72, 1.5, 10), baseMat);
-                ped.position.y = 0.75;
-                const head = new THREE.Mesh(new THREE.OctahedronGeometry(0.48, 0), glowMat);
-                head.position.y = 1.9;
-                const halo = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.05, 6, 16), glowMat);
-                halo.rotation.x = Math.PI * 0.5;
-                halo.position.y = 1.9;
-                g.add(ped, head, halo);
-                g.userData.spinPart = head;
+                // EMP Disruptor Pylon ('emp_tower')
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.82, 0.45, 8), darkMat); base.position.y = 0.22;
+                const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 2.15, 10), steelMat); mast.position.y = 1.35;
+                const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.36, 0), glowMat); core.position.y = 2.55;
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.055, 8, 24), glowMat); halo.rotation.x = Math.PI * 0.5; halo.position.y = 2.25;
+                for (let di = 0; di < 4; di++) {
+                    const a = (di / 4) * Math.PI * 2;
+                    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.14, 0.18, 8), steelMat);
+                    dish.position.set(Math.cos(a) * 0.35, 1.85, Math.sin(a) * 0.35);
+                    dish.lookAt(Math.cos(a) * 2, 1.85, Math.sin(a) * 2); dish.rotateX(Math.PI * 0.5); g.add(dish);
+                }
+                g.add(base, mast, core, halo);
+                g.userData.spinPart = halo; g.userData.spinPart2 = core;
             }
 
             BO.World.scene.add(g);
@@ -1633,8 +1877,17 @@
                     this.deployables.splice(i, 1);
                     continue;
                 }
-                if (dep.mesh && dep.mesh.userData && dep.mesh.userData.spinPart) {
-                    dep.mesh.userData.spinPart.rotation.y += dt * (dep.id === 'sawblade_spinner' ? 14 : 2.8);
+                if (dep.mesh && dep.mesh.userData) {
+                    if (dep.mesh.userData.spinPart) {
+                        dep.mesh.userData.spinPart.rotation.y += dt * (dep.id === 'sawblade_spinner' ? 14 : dep.id === 'gold_miner' ? 7 : 2.8);
+                    }
+                    if (dep.mesh.userData.spinPart2) {
+                        dep.mesh.userData.spinPart2.rotation.y -= dt * 3.4;
+                        dep.mesh.userData.spinPart2.rotation.x += dt * 1.1;
+                    }
+                    if (dep.mesh.userData.rotors) {
+                        for (const r of dep.mesh.userData.rotors) r.rotation.y += dt * 28;
+                    }
                 }
                 dep.timer -= dt * speedBoost;
 
@@ -1890,19 +2143,42 @@
                 }
             }
 
-            // Animate Castle Heart Crystal
+            // Animate Aether Castle Heart Monument
             if (this.heartObj) {
-                this.heartObj.crystal.rotation.y += dt * 1.8;
-                this.heartObj.halo.rotation.z += dt * 1.4;
                 const hpFrac = this.heartHp / Math.max(1, this.heartMaxHp);
-                this.heartObj.crystal.material.color.setHex(hpFrac < 0.35 ? 0xef4444 : (hpFrac < 0.65 ? 0xf59e0b : 0x38bdf8));
+                const pulseSpd = hpFrac < 0.35 ? 6.0 : 2.6;
+                const hex = hpFrac < 0.35 ? 0xef4444 : (hpFrac < 0.65 ? 0xf59e0b : 0x38bdf8);
+                const beat = 1.0 + Math.sin(this.elapsed * pulseSpd) * (hpFrac < 0.35 ? 0.14 : 0.06);
+                this.heartObj.crystal.rotation.y += dt * 1.4;
+                this.heartObj.crystal.position.y = 1.92 + Math.sin(this.elapsed * 2.2) * 0.09;
+                this.heartObj.crystal.scale.set(beat, 1.45 * beat, beat);
+                this.heartObj.coreCrystal.rotation.y -= dt * 2.4;
+                this.heartObj.coreCrystal.position.y = this.heartObj.crystal.position.y;
+                this.heartObj.halo.rotation.z += dt * 1.3;
+                if (this.heartObj.gyroB) { this.heartObj.gyroB.rotation.x += dt * 1.1; this.heartObj.gyroB.rotation.y -= dt * 1.6; }
+                if (this.heartObj.runeRing) this.heartObj.runeRing.rotation.z -= dt * 0.45;
+                if (this.heartObj.shards) {
+                    for (let si = 0; si < this.heartObj.shards.length; si++) {
+                        const a = this.elapsed * 1.25 + (si / this.heartObj.shards.length) * Math.PI * 2;
+                        this.heartObj.shards[si].position.set(Math.cos(a) * 1.28, 1.92 + Math.sin(this.elapsed * 3 + si) * 0.14, Math.sin(a) * 1.28);
+                        this.heartObj.shards[si].rotation.y += dt * 2.5;
+                    }
+                }
+                if (this.heartObj.outerMat) { this.heartObj.outerMat.color.setHex(hex); this.heartObj.outerMat.emissive.setHex(hex); }
+                this.heartObj.coreCrystal.material.color.setHex(hpFrac < 0.35 ? 0xfecaca : 0xbae6fd);
+                if (this.heartObj.light) this.heartObj.light.color.setHex(hex);
             }
 
             // Parachute Supply Drops
             for (let i = this.supplyDrops.length - 1; i >= 0; i--) {
                 const sd = this.supplyDrops[i];
                 sd.life -= dt;
-                if (sd.y > sd.targetY) sd.y = Math.max(sd.targetY, sd.y - 5.5 * dt);
+                if (sd.y > sd.targetY) {
+                    sd.y = Math.max(sd.targetY, sd.y - 5.5 * dt);
+                    if (sd.chute) sd.chute.visible = true;
+                } else if (sd.chute) {
+                    sd.chute.visible = false;
+                }
                 sd.mesh.position.set(sd.x, sd.y, sd.z);
                 sd.mesh.rotation.y += dt * 1.5;
                 if (BO.Player.alive && BO.Math.dist3D(BO.Player.pos.x, BO.Player.pos.y + 0.8, BO.Player.pos.z, sd.x, sd.y, sd.z) < 2.2) {

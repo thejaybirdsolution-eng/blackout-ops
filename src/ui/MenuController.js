@@ -2619,36 +2619,36 @@
             const items = td.getShopItems();
 
             body.innerHTML = `
-                <div class="panel-title" style="color:#fde047;">5 ROLLED WEAPONS (60% COMMON / 10% COM. MELEE / 5% UNC. MELEE / 15% UNCOMMON / 5% FREE / 5% MAGIC)</div>
+                <div class="td-shop-section" style="color:#fde047;">★ 5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${weapons.map((o) => `
-                        <button class="select-card js-td-buy-w" data-slot="${o.slotIndex}" ${o.sold ? 'disabled' : ''} style="border-color:${o.color};">
-                            <div style="font-size:10px;font-weight:800;color:${o.color};">${o.badge}</div>
-                            <div class="card-head" style="margin-top:2px;">${o.spec.name}</div>
+                        <button class="select-card td-shop-card js-td-buy-w" data-slot="${o.slotIndex}" ${o.sold ? 'disabled' : ''} style="border-color:${o.sold ? '#334155' : o.color};">
+                            <div style="font-size:10px;font-weight:900;letter-spacing:0.6px;color:${o.color};">${o.badge}</div>
+                            <div class="card-head" style="margin-top:3px;">${o.spec.name}</div>
                             <div class="card-sub">${o.spec.category} • ${o.spec.damage}${o.spec.pellets > 1 ? 'x' + o.spec.pellets : ''} DMG • ${o.spec.rpm} RPM</div>
-                            <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:${o.sold ? '#64748b' : (o.cost === 0 ? '#22c55e' : '#fde047')};">
+                            <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${o.sold ? '#64748b' : (o.cost === 0 ? '#4ade80' : '#fde047')};">
                                 ${o.sold ? 'PURCHASED ✓' : (o.cost === 0 ? '★ FREE WEAPON (0 GOLD)!' : `${o.cost} GOLD`)}
                             </div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="panel-title" style="color:#c084fc;">★ ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 UNIQUE DEPLOYABLES!)</div>
+                <div class="td-shop-section" style="color:#c084fc;">★ ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 BESPOKE UNITS)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${cycleDeps.map((d) => `
-                        <button class="select-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
+                        <button class="select-card td-shop-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
                             <div class="card-head" style="color:${d.color || '#c084fc'};">${d.name}</div>
                             <div class="card-sub">${d.desc}</div>
-                            <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:#fde047;">${d.cost} GOLD</div>
+                            <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= d.cost ? '#fde047' : '#ef4444'};">${d.cost} GOLD</div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="panel-title" style="color:#38bdf8;">CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
+                <div class="td-shop-section" style="color:#38bdf8;">★ CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
                 <div class="card-grid">
                     ${items.map((it) => `
-                        <button class="select-card js-td-buy-it" data-itid="${it.id}">
+                        <button class="select-card td-shop-card js-td-buy-it" data-itid="${it.id}" style="border-color:${td.gold >= it.cost ? 'rgba(56,189,248,0.55)' : '#334155'};">
                             <div class="card-head" style="color:#38bdf8;">${it.name}</div>
                             <div class="card-sub">${it.desc}</div>
-                            <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:#fde047;">${it.cost} GOLD</div>
+                            <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= it.cost ? '#fde047' : '#ef4444'};">${it.cost} GOLD</div>
                         </button>
                     `).join('')}
                 </div>
@@ -2705,7 +2705,7 @@
             body.innerHTML = slots.map((sl) => {
                 const curVal = sl.key === 'camo' ? (w.cfg.camo || 'default') : (w.cfg.attachments?.[sl.key] || 'none');
                 return `
-                    <div class="panel-title" style="color:#38bdf8;margin-top:8px;">${sl.label}</div>
+                    <div class="td-shop-section" style="color:#38bdf8;margin-top:8px;">${sl.label}</div>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
                         ${sl.list.map((a) => `
                             <button class="btn btn-sm ${curVal === a.id ? 'btn-primary' : ''} js-td-att-pick"
@@ -2750,10 +2750,10 @@
                 const sName = BO.WeaponsData.get(c.secondary.id)?.name || c.secondary.id;
                 const canAfford = td.gold >= cost;
                 return `
-                    <button class="select-card js-td-buy-cc" data-cidx="${idx}" style="border-color:${canAfford ? '#fde047' : '#475569'};">
+                    <button class="select-card td-shop-card js-td-buy-cc" data-cidx="${idx}" style="border-color:${canAfford ? '#fde047' : '#334155'};">
                         <div class="card-head" style="color:#fde047;">${escAttr(c.name)}</div>
                         <div class="card-sub">Primary: <b>${escAttr(pName)}</b><br>Secondary: ${escAttr(sName)}</div>
-                        <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:${canAfford ? '#4ade80' : '#ef4444'};">EQUIP FOR ${cost} GOLD</div>
+                        <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${canAfford ? '#4ade80' : '#ef4444'};">EQUIP FOR ${cost} GOLD</div>
                     </button>
                 `;
             }).join('');
@@ -3262,10 +3262,10 @@
                 const canAfford = !owned && P.zombiePerks.size < 8 && td.gold >= cost && !td.modifiers.noPerks;
                 const tag = idx < 6 ? 'OG CLASSIC' : 'NEW PERK';
                 return `
-                    <button class="select-card js-td-buy-pk" data-pkid="${pk.id}" style="border-color:${owned ? '#22c55e' : (canAfford ? pk.color : '#334155')};opacity:${owned ? '0.78' : '1'};">
+                    <button class="select-card td-shop-card js-td-buy-pk" data-pkid="${pk.id}" style="border-color:${owned ? '#22c55e' : (canAfford ? pk.color : '#334155')};opacity:${owned ? '0.78' : '1'};">
                         <div class="card-head" style="color:${pk.color};">${escAttr(pk.name)} <span style="font-size:10px;color:#94a3b8;">[${tag}]</span></div>
                         <div class="card-sub">${escAttr(pk.desc)}</div>
-                        <div style="margin-top:6px;font-family:var(--font-mono);font-weight:800;color:${owned ? '#4ade80' : (canAfford ? '#fde047' : '#ef4444')};">
+                        <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${owned ? '#4ade80' : (canAfford ? '#fde047' : '#ef4444')};">
                             ${owned ? '✓ EQUIPPED' : (cost === 0 ? 'FREE (0 GOLD)' : `${cost} GOLD`)}
                         </div>
                     </button>
@@ -3297,8 +3297,8 @@
                 const isHere = fl.floorIndex === liftInter.currentFloor;
                 const col = fl.floorIndex === 5 ? '#fde047' : (fl.floorIndex === 4 ? '#38bdf8' : (fl.floorIndex === 3 ? '#f59e0b' : '#cbd5e1'));
                 return `
-                    <button class="btn ${isHere ? '' : 'btn-primary'} js-td-lift-go" data-fidx="${fl.floorIndex}"
-                        style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-color:${col};color:${isHere ? '#94a3b8' : '#f8fafc'};">
+                    <button class="btn td-lift-btn ${isHere ? '' : 'btn-primary'} js-td-lift-go" data-fidx="${fl.floorIndex}"
+                        style="border-color:${col};color:${isHere ? '#94a3b8' : '#f8fafc'};">
                         <span style="font-weight:800;letter-spacing:1px;">${escAttr(fl.name)}</span>
                         <span style="font-family:var(--font-mono);font-size:12px;color:${col};">${isHere ? 'CURRENT FLOOR' : 'ZIP LAUNCH →'}</span>
                     </button>

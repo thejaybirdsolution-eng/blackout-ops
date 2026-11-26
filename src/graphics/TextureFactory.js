@@ -140,6 +140,82 @@
             return tex;
         }
 
+        /** Procedurally sculpted running-bond medieval ashlar masonry with authored heightfield + roughness maps. */
+        _makeCastleStoneTexture(key, opts = {}) {
+            if (this.textures[key]) return this.textures[key];
+            const w = 256, h = 256;
+            const c = this._makeCanvas(w, h);
+            const ctx = c.getContext('2d');
+            const img = ctx.createImageData(w, h);
+            const data = img.data;
+            const height = new Float32Array(w * h);
+            const rough = new Float32Array(w * h);
+
+            const rows = opts.rows || 8;
+            const cols = opts.cols || 4;
+            const baseRgb = opts.baseRgb || [88, 94, 106];
+            const mortarRgb = opts.mortarRgb || [28, 30, 36];
+            const mossTint = opts.mossTint || [48, 72, 42];
+            const faceRough = opts.faceRough !== undefined ? opts.faceRough : 0.72;
+            const rng = seededNoise(opts.seed || 7919);
+            const fbm = this._fbmField(w, h, rng);
+
+            const blockTones = new Float32Array(rows * cols);
+            const blockMoss = new Float32Array(rows * cols);
+            for (let i = 0; i < blockTones.length; i++) {
+                blockTones[i] = (rng() - 0.5) * 32;
+                blockMoss[i] = rng() > 0.72 ? 0.28 : 0.0;
+            }
+
+            const cellW = w / cols, cellH = h / rows;
+            for (let y = 0; y < h; y++) {
+                const row = Math.floor((y * rows) / h);
+                const fy = (y * rows) / h - row;
+                for (let x = 0; x < w; x++) {
+                    const fxRaw = ((x * cols) / w + (row % 2) * 0.5) % cols;
+                    const col = Math.floor(fxRaw);
+                    const fx = fxRaw - col;
+                    const dxEdge = Math.min(fx, 1 - fx) * cellW;
+                    const dyEdge = Math.min(fy, 1 - fy) * cellH;
+                    const edge = Math.min(dxEdge, dyEdge);
+                    const grain = fbm[y * w + x];
+                    const idx = y * w + x;
+                    const k = idx * 4;
+
+                    if (edge < 2.2) {
+                        const mVar = (grain - 0.5) * 14;
+                        data[k] = Math.max(0, Math.min(255, mortarRgb[0] + mVar));
+                        data[k + 1] = Math.max(0, Math.min(255, mortarRgb[1] + mVar));
+                        data[k + 2] = Math.max(0, Math.min(255, mortarRgb[2] + mVar));
+                        data[k + 3] = 255;
+                        height[idx] = 0.08 + grain * 0.06;
+                        rough[idx] = 0.96;
+                    } else {
+                        const bIdx = (row % rows) * cols + (col % cols);
+                        const bevelT = Math.min(1, (edge - 2.2) / 6.2);
+                        const topBias = dyEdge < dxEdge ? (fy < 0.5 ? 1 : -1) : (fx < 0.5 ? 0.8 : -0.8);
+                        const bevelLight = (1 - bevelT) * topBias * 24;
+                        const chipNoise = (grain - 0.5) * 26;
+                        const mossMix = blockMoss[bIdx] * Math.max(0, grain - 0.38) * 1.4;
+                        const tone = blockTones[bIdx] + chipNoise + bevelLight;
+                        const r = baseRgb[0] + tone, g = baseRgb[1] + tone, b = baseRgb[2] + tone;
+                        data[k] = Math.max(0, Math.min(255, r * (1 - mossMix) + mossTint[0] * mossMix));
+                        data[k + 1] = Math.max(0, Math.min(255, g * (1 - mossMix) + mossTint[1] * mossMix));
+                        data[k + 2] = Math.max(0, Math.min(255, b * (1 - mossMix) + mossTint[2] * mossMix));
+                        data[k + 3] = 255;
+                        height[idx] = 0.42 + bevelT * 0.42 + grain * 0.16;
+                        rough[idx] = Math.max(0.35, Math.min(0.95, faceRough + (1 - grain) * 0.14 - (1 - bevelT) * 0.05));
+                    }
+                }
+            }
+            ctx.putImageData(img, 0, 0);
+            this.heightMaps[key] = this._normalFromHeight(height, w, h, 2.8);
+            this.roughMaps[key] = this._roughnessTex(rough, w, h);
+            const tex = this._toTex(c, 1, 1, true);
+            this.textures[key] = tex;
+            return tex;
+        }
+
         /** Generate a LinearEncoding tangent-space normal map from an authored [0..1] heightfield. */
         _normalFromHeight(height, w, h, strength = 2.4) {
             const c = this._makeCanvas(w, h);
@@ -367,12 +443,12 @@
                     metalness = 0.52;
                     break;
                 case 'castle_stone':
-                    map = this._createNoiseTexture('castle_stone', 256, 256, '#575d68', 38, 'rgba(24,26,32,0.26)', { color: 'rgba(20,22,28,0.45)', stepX: 64, stepY: 32, lineWidth: 3 });
-                    roughness = 0.92;
+                    map = this._makeCastleStoneTexture('castle_stone', { rows: 8, cols: 4, baseRgb: [86, 93, 108], mortarRgb: [24, 26, 34], mossTint: [44, 68, 42], faceRough: 0.78, seed: 4109 });
+                    roughness = 0.84;
                     break;
                 case 'castle_battlement':
-                    map = this._createNoiseTexture('castle_battlement', 256, 256, '#717885', 30, 'rgba(28,30,36,0.20)', { color: 'rgba(25,28,34,0.38)', stepX: 64, stepY: 48, lineWidth: 2 });
-                    roughness = 0.88;
+                    map = this._makeCastleStoneTexture('castle_battlement', { rows: 6, cols: 4, baseRgb: [112, 120, 134], mortarRgb: [32, 36, 44], mossTint: [54, 74, 50], faceRough: 0.70, seed: 6217 });
+                    roughness = 0.78;
                     break;
                 case 'wood_fort':
                     map = this._makeWoodTexture('wood_fort', '#5c3c22', '#3d2614');

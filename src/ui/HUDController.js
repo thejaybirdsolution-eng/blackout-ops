@@ -638,26 +638,34 @@
 
                 if (this.elTdStatus) {
                     const phaseHtml = td.state === 'intermission'
-                        ? `<span style="color:#22c55e;">INTERMISSION ${Math.ceil(td.intermissionTimer)}s • [T] SHOP • [N] SKIP</span>`
-                        : `<span style="color:#f87171;">WAVE ${td.wave} • ${td.zombies.filter((z) => z.alive).length + td.remainingToSpawn} HOSTILES LEFT</span>`;
+                        ? `<span class="td-phase-pill" style="color:#4ade80;border-color:rgba(74,222,128,0.45);">INTERMISSION ${Math.ceil(td.intermissionTimer)}s • [T] SHOP • [N] SKIP</span>`
+                        : `<span class="td-phase-pill" style="color:#f87171;border-color:rgba(248,113,113,0.45);">WAVE ${td.wave} • ${td.zombies.filter((z) => z.alive).length + td.remainingToSpawn} HOSTILES</span>`;
                     const heartPct = Math.round((td.heartHp / Math.max(1, td.heartMaxHp)) * 100);
                     const depCount = (td.deployables ? td.deployables.length : 0);
                     const hintCd = Math.max(0, Math.ceil(td.dirHintCooldown || 0));
-                    const gongStr = td.overdriveTimer > 0 ? ` • ⚡ OVERDRIVE ${td.overdriveTimer.toFixed(0)}s` : '';
+                    const gongPill = td.overdriveTimer > 0 ? `<span class="td-stat-pill" style="color:#fde047;border-color:#fde047;">⚡ ${td.overdriveTimer.toFixed(0)}s</span>` : '';
+                    const heartCol = heartPct > 55 ? '#38bdf8' : (heartPct > 30 ? '#f59e0b' : '#ef4444');
                     this.elTdStatus.innerHTML = `
-                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:800;letter-spacing:1px;flex-wrap:wrap;gap:6px;">
-                            <span>${phaseHtml}${gongStr}</span>
-                            <span style="color:#fde047;">${td.gold} GOLD • 🛡 ${td.turrets.length} TUR • ⚙ ${depCount} DEP • 🐕 ${td.dogs.length} DOG • 🧟 RADAR ${hintCd}s</span>
+                        <div class="td-hud-top">
+                            ${phaseHtml}
+                            <div class="td-stat-pills">
+                                <span class="td-stat-pill gold">${td.gold} GOLD</span>
+                                <span class="td-stat-pill">TUR ${td.turrets.length}</span>
+                                <span class="td-stat-pill">DEP ${depCount}</span>
+                                <span class="td-stat-pill">K9 ${td.dogs.length}</span>
+                                <span class="td-stat-pill">RADAR ${hintCd}s</span>
+                                ${gongPill}
+                            </div>
                         </div>
                         <div class="td-layer-row">
                             ${td.layers.map((l) => {
                                 const pct = Math.round((l.hp / Math.max(1, l.maxHp)) * 100);
                                 const col = pct > 55 ? '#22c55e' : (pct > 25 ? '#f59e0b' : '#ef4444');
-                                return `<div class="td-bar-card"><div>LAYER ${l.layer}: ${Math.ceil(l.hp)}/${l.maxHp}</div><div class="td-bar-bg"><div class="td-bar-fill" style="width:${pct}%;background:${col};"></div></div></div>`;
+                                return `<div class="td-bar-card" style="border-color:${pct > 0 ? 'rgba(148,163,184,0.28)' : 'rgba(239,68,68,0.42)'}"><div class="td-bar-card-hdr"><span>LAYER ${l.layer}</span><span style="color:${col}">${Math.ceil(l.hp)}/${l.maxHp}</span></div><div class="td-bar-bg"><div class="td-bar-fill" style="width:${pct}%;background:${col};"></div></div></div>`;
                             }).join('')}
-                            <div class="td-bar-card" style="border-color:#38bdf8;">
-                                <div style="color:#38bdf8;">CASTLE HEART: ${Math.ceil(td.heartHp)}/${td.heartMaxHp}</div>
-                                <div class="td-bar-bg"><div class="td-bar-fill" style="width:${heartPct}%;background:#38bdf8;"></div></div>
+                            <div class="td-bar-card td-heart-card ${heartPct < 35 ? 'td-heart-critical' : ''}">
+                                <div class="td-bar-card-hdr" style="color:${heartCol};"><span>◆ HEART</span><span>${Math.ceil(td.heartHp)}/${td.heartMaxHp}</span></div>
+                                <div class="td-bar-bg"><div class="td-bar-fill" style="width:${heartPct}%;background:linear-gradient(90deg,${heartCol},#bae6fd);"></div></div>
                             </div>
                         </div>
                     `;
@@ -693,9 +701,8 @@
                             const sx = cx + Math.sin(rel) * rx;
                             const sy = cy - Math.cos(rel) * ry;
                             const col = z.isBoss ? '#ef4444' : (z.isMagical ? '#c084fc' : (z.hasGun ? '#f59e0b' : '#4ade80'));
-                            return `<div style="position:absolute;left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px;transform:translate(-50%,-50%);opacity:${opacity};text-align:center;filter:drop-shadow(0 0 6px ${col});">
-                                <div style="font-size:18px;line-height:1;">${z.isBoss ? '💀' : '🧟'}</div>
-                                <div style="font-size:9px;font-weight:800;color:${col};font-family:var(--font-mono);background:rgba(5,8,13,0.75);padding:1px 4px;border-radius:3px;">${dist}m</div>
+                            return `<div class="td-radar-tag" style="position:absolute;left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px;transform:translate(-50%,-50%);opacity:${opacity};color:${col};filter:drop-shadow(0 0 8px ${col});">
+                                <span>${z.isBoss ? '💀' : '🧟'}</span><span>${dist}m</span>
                             </div>`;
                         }).join('');
                     } else {

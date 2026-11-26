@@ -657,40 +657,57 @@
             ];
             const hw = 3.5;
 
-            // 4 armored corner pillars from ground y=0 up to y=27.2 + glowing neon energy trim!
+            // 4 armored corner pillars from ground y=0 up to y=27.2 + buttress flares + glowing neon energy trim!
             const pOff = hw - 0.36;
             const corners = [[-pOff, -pOff], [pOff, -pOff], [-pOff, pOff], [pOff, pOff]];
             const accentHex = sideSign < 0 ? 0x38bdf8 : 0xf59e0b;
             const neonMat = new THREE.MeshBasicMaterial({ color: accentHex });
+            const goldTrim = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.35 });
             for (const [cx, cz] of corners) {
                 this._addTdBox(scene, tx + cx - 0.34, 0, tz + cz - 0.34, tx + cx + 0.34, 27.2, tz + cz + 0.34, 'castle_stone');
-                const strip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 22.0, 0.14), neonMat);
+                // Flared lower stone buttress plinths
+                this._addTdBox(scene, tx + cx - 0.56, 0, tz + cz - 0.56, tx + cx + 0.56, 5.5, tz + cz + 0.56, 'castle_battlement');
+                const strip = new THREE.Mesh(new THREE.BoxGeometry(0.12, 22.0, 0.12), neonMat);
                 strip.position.set(tx + cx + (cx > 0 ? 0.36 : -0.36), 16.0, tz + cz + (cz > 0 ? 0.36 : -0.36));
                 scene.add(strip);
             }
 
-            // Solid base pedestal under Level 1 (flush with Keep deck at y = 5.4m!)
+            // Solid base pedestal + stone arch ribs under Level 1 (flush with Keep deck at y = 5.4m!)
             this._addTdBox(scene, tx - hw, 0, tz - hw, tx + hw, 5.4, tz + hw, 'castle_stone');
 
             // Glowing overhead entrance arch sign facing the Keep!
             const entryX = tx - sideSign * hw;
+            const signFrame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.98, 3.65), ironMat);
+            signFrame.position.set(entryX, 8.2, tz);
             const signBoard = new THREE.Mesh(
                 new THREE.PlaneGeometry(3.4, 0.85),
                 new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture(label, sideSign < 0 ? '#38bdf8' : '#f59e0b'), side: THREE.DoubleSide })
             );
-            signBoard.position.set(entryX, 8.2, tz);
+            signBoard.position.set(entryX + (sideSign < 0 ? 0.08 : -0.08), 8.2, tz);
             signBoard.rotation.y = sideSign < 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
-            scene.add(signBoard);
+            scene.add(signFrame, signBoard);
 
-            // Build all 5 elevated Sniper Decks (9.4m, 13.4m, 17.4m, 21.4m, 25.4m!)
+            // Build all 5 elevated Sniper Decks (9.4m, 13.4m, 17.4m, 21.4m, 25.4m!) with cornices, lanterns & guardrails
             for (let li = 1; li < levels.length; li++) {
                 const y = levels[li];
-                // Main floor deck
+                // Main floor deck + decorative outer stone cornice band
                 this._addTdBox(scene, tx - hw, y - 0.35, tz - hw, tx + hw, y, tz + hw, 'diamond_plate');
+                const cornice = new THREE.Mesh(new THREE.BoxGeometry(hw * 2 + 0.38, 0.16, hw * 2 + 0.38), goldTrim);
+                cornice.position.set(tx, y - 0.36, tz);
+                scene.add(cornice);
 
-                // North & South low sniper cover crenellations (leave North-Inner clear for stairs/ramps!)
+                // North & South low sniper cover crenellations
                 this._addTdBox(scene, tx - hw + 0.3, y, tz - hw, tx + hw - 0.3, y + 0.95, tz - hw + 0.32, 'castle_battlement');
                 this._addTdBox(scene, tx - hw + 0.3, y, tz + hw - 0.32, tx + hw - 0.3, y + 0.95, tz + hw, 'castle_battlement');
+
+                // Warm deck iron lantern on inner-south corner pillar
+                const lx = tx - sideSign * (hw - 0.55), lz = tz + hw - 0.55;
+                const lPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.45, 6), ironMat);
+                lPost.position.set(lx, y + 0.72, lz);
+                const lOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+                lOrb.position.set(lx, y + 1.52, lz);
+                scene.add(lPost, lOrb);
 
                 // Outer parapet: leave a wide 2.8m OPEN DOORWAY on Levels 3 (li=2) & 5 (li=4) for the Side Balconies!
                 const outerMinX = sideSign < 0 ? (tx - hw) : (tx + hw - 0.32);
@@ -701,9 +718,19 @@
                     // Overhanging Side Sniper Balcony (100% walkable through the open doorway!)
                     const bx1 = sideSign < 0 ? (tx - hw - 3.0) : (tx + hw);
                     const bx2 = sideSign < 0 ? (tx - hw) : (tx + hw + 3.0);
+                    const outRailX = sideSign < 0 ? (bx1 + 0.08) : (bx2 - 0.08);
                     this._addTdBox(scene, bx1, y - 0.32, tz - 2.4, bx2, y, tz + 2.4, 'diamond_plate');
                     this._addTdBox(scene, bx1, y, tz - 2.4, bx2, y + 0.92, tz - 2.1, 'sandbag');
                     this._addTdBox(scene, bx1, y, tz + 2.1, bx2, y + 0.92, tz + 2.4, 'castle_battlement');
+                    // Steel safety rail on outer edge of overhanging balcony
+                    const railTop = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 4.4), ironMat);
+                    railTop.position.set(outRailX, y + 0.92, tz);
+                    scene.add(railTop);
+                    for (const rz of [-1.8, 0, 1.8]) {
+                        const rPost = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.92, 6), ironMat);
+                        rPost.position.set(outRailX, y + 0.46, tz + rz);
+                        scene.add(rPost);
+                    }
                 } else {
                     this._addTdBox(scene, outerMinX, y, tz - hw, outerMaxX, y + 0.95, tz + hw, 'castle_battlement');
                 }
@@ -712,31 +739,59 @@
                 this._addTdBox(scene, tx - 1.2, y, tz - hw + 0.38, tx + 1.2, y + 0.65, tz - hw + 0.95, 'sandbag');
             }
 
-            // Apex Spire Glowing Crown & Beacon at y = 27.8m
+            // Gothic Apex Spire Crown: 4 converging arch ribs, counter-rotating gyro-rings & levitating crystal beacon
+            const spireGroup = new THREE.Group();
+            spireGroup.position.set(tx, 27.2, tz);
+            for (const [cx, cz] of corners) {
+                const archRib = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 4.4, 6), ironMat);
+                archRib.position.set(cx * 0.52, 1.8, cz * 0.52);
+                archRib.lookAt(0, 4.0, 0); archRib.rotateX(Math.PI * 0.5);
+                spireGroup.add(archRib);
+            }
             const spire = new THREE.Mesh(
-                new THREE.OctahedronGeometry(0.68, 0),
+                new THREE.OctahedronGeometry(0.74, 0),
                 new THREE.MeshBasicMaterial({ color: sideSign < 0 ? 0x38bdf8 : 0xfde047 })
             );
-            spire.position.set(tx, 28.0, tz);
-            scene.add(spire);
-            const ringTop = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.08, 8, 24), neonMat);
+            spire.position.y = 2.6;
+            const ringTop = new THREE.Mesh(new THREE.TorusGeometry(2.45, 0.09, 8, 24), neonMat);
             ringTop.rotation.x = Math.PI * 0.5;
-            ringTop.position.set(tx, 27.2, tz);
-            scene.add(ringTop);
+            const gyroOuter = new THREE.Mesh(new THREE.TorusGeometry(1.32, 0.055, 8, 24), goldTrim);
+            gyroOuter.position.y = 2.6;
+            const gyroInner = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.045, 8, 20), neonMat);
+            gyroInner.position.y = 2.6; gyroInner.rotation.x = Math.PI * 0.35;
+            spireGroup.add(spire, ringTop, gyroOuter, gyroInner);
+            scene.add(spireGroup);
+            this.animatedProps.push({ kind: 'tower_spire', crystal: spire, gyroOuter, gyroInner, baseY: 2.6 });
 
-            // PAY-TO-USE MOUNTED ARROW BALLISTA GUN on Level 4 (y = 17.4m)!
+            // PAY-TO-USE MOUNTED HEAVY OAK-AND-BRONZE SIEGE BALLISTA on Level 4 (y = 17.4m)!
             const arrowG = new THREE.Group();
             arrowG.position.set(tx, 17.4, tz - hw + 1.35);
-            const aPed = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.55, 1.1, 10), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7 }));
-            aPed.position.y = 0.55;
-            const aBow = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.16, 0.24), new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.8 }));
-            aBow.position.set(0, 1.25, -0.35);
-            const aRail = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 1.65), new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 }));
-            aRail.position.set(0, 1.25, 0);
-            const aBolt = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.8, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
-            aBolt.rotation.x = Math.PI * 0.5;
-            aBolt.position.set(0, 1.42, -0.2);
-            arrowG.add(aPed, aBow, aRail, aBolt);
+            const oakMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.75 });
+            const aPed = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.62, 0.92, 10), ironMat);
+            aPed.position.y = 0.46;
+            const turntable = new THREE.Mesh(new THREE.CylinderGeometry(0.54, 0.54, 0.14, 12), goldTrim);
+            turntable.position.y = 0.98;
+            const carriage = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.32, 1.35), oakMat);
+            carriage.position.set(0, 1.18, 0.05);
+            const aRail = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.16, 1.85), ironMat);
+            aRail.position.set(0, 1.38, -0.1);
+            for (const s of [-1, 1]) {
+                const arm = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.14, 0.22), goldTrim);
+                arm.position.set(s * 0.62, 1.36, -0.58); arm.rotation.y = s * 0.34;
+                const cap = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), ironMat);
+                cap.position.set(s * 1.18, 1.36, -0.78);
+                const winch = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.12, 8), goldTrim);
+                winch.rotation.z = Math.PI * 0.5; winch.position.set(s * 0.36, 1.24, 0.62);
+                arrowG.add(arm, cap, winch);
+            }
+            const stringL = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.32, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            stringL.rotation.set(Math.PI * 0.5, 0, -0.92); stringL.position.set(-0.56, 1.40, -0.22);
+            const stringR = stringL.clone(); stringR.rotation.z = 0.92; stringR.position.x = 0.56;
+            const aBolt = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.95, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            aBolt.rotation.x = Math.PI * 0.5; aBolt.position.set(0, 1.44, -0.22);
+            const boltHead = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.28, 4), goldTrim);
+            boltHead.rotation.x = -Math.PI * 0.5; boltHead.position.set(0, 1.44, -1.24);
+            arrowG.add(aPed, turntable, carriage, aRail, stringL, stringR, aBolt, boltHead);
             scene.add(arrowG);
             this.interactives.push({
                 type: 'td_tower_arrow_gun',
@@ -777,8 +832,7 @@
                 this._buildRampMesh(scene, rr);
             }
 
-            // 2. GLOWING SKY-LIFT ELEVATOR CONSOLE ON EVERY SINGLE FLOOR (5.4m, 9.4m, 13.4m, 17.4m, 21.4m, 25.4m)!
-            //    Standing at ANY Sky-Lift Pad and pressing [E] lets you pick ANY floor (1-6) with a smooth zip-launch!
+            // 2. OCTAGONAL RUNE SKY-LIFT ELEVATOR CONSOLE ON EVERY FLOOR (5.4m .. 25.4m)
             const liftFloors = levels.map((ly, idx) => ({
                 floorIndex: idx,
                 name: levelNames[idx],
@@ -789,26 +843,24 @@
 
             for (let li = 0; li < levels.length; li++) {
                 const y = levels[li];
-                // Level 1 lift pad sits RIGHT OUTSIDE the tower entrance on the Keep Deck so it's impossible to miss!
                 const padX = li === 0 ? (tx - sideSign * (hw + 0.9)) : (tx - sideSign * (hw - 1.1));
                 const padZ = li === 0 ? tz : (tz + 1.4);
+                const padColor = li === 0 ? 0x38bdf8 : 0xfde047;
 
-                const padBase = new THREE.Mesh(
-                    new THREE.CylinderGeometry(0.95, 1.1, 0.16, 18),
-                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.25 })
-                );
+                const padBase = new THREE.Mesh(new THREE.CylinderGeometry(0.96, 1.14, 0.16, 8), ironMat);
                 padBase.position.set(padX, y + 0.08, padZ);
-                scene.add(padBase);
+                const padRing = new THREE.Mesh(new THREE.TorusGeometry(0.90, 0.065, 8, 24), new THREE.MeshBasicMaterial({ color: padColor }));
+                padRing.rotation.x = Math.PI * 0.5; padRing.position.set(padX, y + 0.20, padZ);
+                const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.04, 6, 16), goldTrim);
+                innerRing.rotation.x = Math.PI * 0.5; innerRing.position.set(padX, y + 0.18, padZ);
+                scene.add(padBase, padRing, innerRing);
+                for (let pi = 0; pi < 4; pi++) {
+                    const a = (pi / 4) * Math.PI * 2 + Math.PI * 0.25;
+                    const pylon = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.34, 6), goldTrim);
+                    pylon.position.set(padX + Math.cos(a) * 0.92, y + 0.24, padZ + Math.sin(a) * 0.92);
+                    scene.add(pylon);
+                }
 
-                const padRing = new THREE.Mesh(
-                    new THREE.TorusGeometry(0.92, 0.07, 8, 24),
-                    new THREE.MeshBasicMaterial({ color: li === 0 ? 0x38bdf8 : 0xfde047 })
-                );
-                padRing.rotation.x = Math.PI * 0.5;
-                padRing.position.set(padX, y + 0.22, padZ);
-                scene.add(padRing);
-
-                // Vertical light beam guide on Level 1 pad so players immediately spot the Sniper Tower Lift!
                 if (li === 0) {
                     const beam = new THREE.Mesh(
                         new THREE.CylinderGeometry(0.18, 0.55, 5.2, 12, 1, true),
@@ -923,17 +975,66 @@
             // 1B. ULTRA-CLEAN ARCHITECTURAL LAYOUT:
             //     Entire front & center combat deck (z: 6.2..19.2) is 100% WIDE OPEN with zero pillars or mid-floor clutter!
             //     All stations sit neatly flush along the South Back-Wall Service Arcade (Castles 1 & 2) or 4 Outer Corner Bays (Castle 3).
+            // 1B. ARCHITECTURAL KEEP DETAILS (Merlons, Stairway Torch Columns, Medallion & Royal Runner)
+            const goldTrim = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.24 });
+            const steelDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.34 });
+            const stoneBattMat = BO.Textures.getWorldMaterial('castle_battlement', 2, 2);
+            const chPos = m.castleHeart || { x: 0, y: keepY, z: 19 };
+            // Octagonal inlaid bronze-and-obsidian Castle Heart floor medallion
+            const medRing = new THREE.Mesh(new THREE.RingGeometry(1.75, 2.25, 8), goldTrim);
+            medRing.rotation.x = -Math.PI * 0.5; medRing.position.set(chPos.x, keepY + 0.02, chPos.z);
+            scene.add(medRing);
+
+            // Crenellation Merlon Teeth along front battlements + Flanking Stairway Pillars
+            const merlonXs = isAll360 ? [-8.2, -5.8, -3.5, 3.5, 5.8, 8.2]
+                : (isFront ? [-21, -17, -13, -9, -5.2, 5.2, 9, 13, 17, 21] : [-9.5, -6.5, -4.0, 4.0, 6.5, 9.5]);
+            const merlonZs = isAll360 ? [-7.7, 7.7] : [6.5];
+            for (const mz of merlonZs) {
+                for (const mx of merlonXs) {
+                    const tooth = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.52, 0.52), stoneBattMat);
+                    tooth.position.set(mx, keepY + 1.30, mz);
+                    tooth.castShadow = true; tooth.receiveShadow = true;
+                    scene.add(tooth);
+                }
+            }
+            // Flanking stone pillars with warm flame finials at stair mouth
+            const pillarXs = isAll360 ? [-2.9, 2.9] : [-3.5, 3.5];
+            const pillarZs = isAll360 ? [-6.6, 6.6] : [6.5];
+            for (const pz of pillarZs) {
+                for (const px of pillarXs) {
+                    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.55, 0.85), stoneBattMat);
+                    cap.position.set(px, keepY + 0.78, pz);
+                    const torchBowl = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.16, 0.24, 8), steelDark);
+                    torchBowl.position.set(px, keepY + 1.66, pz);
+                    const ember = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.42, 6), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+                    ember.position.set(px, keepY + 1.94, pz);
+                    scene.add(cap, torchBowl, ember);
+                }
+            }
+
             if (!isAll360) {
-                // Low-profile crimson royal carpet runner from stairs to open Castle Heart alcove
+                // Ornate gold-bordered royal carpet runner from stairs to open Castle Heart alcove
                 const carpet = new THREE.Mesh(
                     new THREE.BoxGeometry(2.6, 0.025, 11.4),
                     new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 })
                 );
                 carpet.position.set(0, keepY + 0.012, 13.8);
-                const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.03, 11.4), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
-                trimL.position.set(-1.26, keepY + 0.015, 13.8);
+                const trimL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.032, 11.4), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+                trimL.position.set(-1.26, keepY + 0.016, 13.8);
                 const trimR = trimL.clone(); trimR.position.x = 1.26;
                 scene.add(carpet, trimL, trimR);
+
+                // Sculpted back-wall arch pilasters & warm sconce lights behind service arcade
+                const pilXs = isFront ? [-18, -12, -6, 0, 6, 12, 18] : [-9.8, -5.0, 0, 5.0, 9.8];
+                for (const px of pilXs) {
+                    const pil = new THREE.Mesh(new THREE.BoxGeometry(0.55, 4.2, 0.35), stoneBattMat);
+                    pil.position.set(px, keepY + 2.1, 22.85);
+                    const pCap = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.24, 0.48), goldTrim);
+                    pCap.position.set(px, keepY + 4.1, 22.82);
+                    const sconce = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+                    sconce.position.set(px, keepY + 2.9, 22.62);
+                    scene.add(pil, pCap, sconce);
+                }
 
                 // Clean overhead back-wall arcade signs mounted high on the South wall (zero floor footprint!)
                 this._buildTdDistrictSign(scene, isFront ? -10.5 : -6.2, keepY + 3.6, 22.85, Math.PI, 'ARMORY BAY', '#38bdf8');
@@ -957,29 +1058,38 @@
                 : { x: isFront ? -14.5 : -9.2, y: keepY, z: backZ, rotY: Math.PI };
             this._spawnPaPMachine(papPos);
 
-            // 2B. GUNSMITH ATTACHMENT WORKBENCH STATION
+            // 2B. GUNSMITH ATTACHMENT WORKBENCH STATION (Pegboard Rack + Display Rifle + Warm Lamp + Ammo Crates)
             const attPos = isAll360
                 ? { x: -4.8, y: keepY, z: -6.9, rotY: 0 }
                 : { x: isFront ? -10.5 : -6.2, y: keepY, z: backZ, rotY: Math.PI };
             const ag = new THREE.Group();
             ag.position.set(attPos.x, attPos.y, attPos.z);
             ag.rotation.y = attPos.rotY;
-            const bench = new THREE.Mesh(
-                new THREE.BoxGeometry(2.0, 1.05, 0.95),
-                new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.75 })
-            );
-            bench.position.y = 0.525;
+            const benchTopMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.72 });
+            const bench = new THREE.Mesh(new THREE.BoxGeometry(2.15, 0.14, 0.98), benchTopMat);
+            bench.position.y = 1.00;
+            for (const lx of [-0.94, 0.94]) {
+                for (const lz of [-0.40, 0.40]) {
+                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.96, 0.10), steelDark);
+                    leg.position.set(lx, 0.48, lz); ag.add(leg);
+                }
+            }
+            const crateUnder = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.44, 0.62), new THREE.MeshStandardMaterial({ color: 0x3f4e3a, roughness: 0.75 }));
+            crateUnder.position.set(-0.42, 0.22, 0);
+            const pegboard = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.05, 0.08), steelDark);
+            pegboard.position.set(0, 1.62, -0.44);
+            const dispRifle = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.14, 0.08), new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.85, roughness: 0.25 }));
+            dispRifle.position.set(0, 1.66, -0.37);
             const holo = new THREE.Mesh(
-                new THREE.BoxGeometry(1.7, 0.55, 0.08),
-                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ATTACHMENTS', '#38bdf8') })
+                new THREE.PlaneGeometry(1.78, 0.50),
+                new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('ATTACHMENTS', '#38bdf8'), side: THREE.DoubleSide })
             );
-            holo.position.set(0, 1.55, -0.25);
-            const strip = new THREE.Mesh(
-                new THREE.BoxGeometry(1.9, 0.08, 0.85),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-            );
+            holo.position.set(0, 2.38, -0.38);
+            const deskLamp = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.16, 8), goldTrim);
+            deskLamp.position.set(0.84, 1.48, -0.15); deskLamp.rotation.z = 0.45;
+            const strip = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.05, 0.86), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
             strip.position.y = 1.08;
-            ag.add(bench, holo, strip);
+            ag.add(bench, crateUnder, pegboard, dispRifle, holo, deskLamp, strip);
             scene.add(ag);
             this.worldMeshes.push(bench);
             this.interactives.push({
@@ -989,26 +1099,32 @@
                 radius: 2.6
             });
 
-            // 2C. PAY-TO-USE CUSTOM CLASS ARMORY LOCKER
+            // 2C. ARMORED TACTICAL CUSTOM CLASS ARMORY VAULT (Glass Showcase + Dual Vertical Rifles + Gold Pediment)
             const ccPos = isAll360
                 ? { x: -7.8, y: keepY, z: 6.4, rotY: Math.PI * 0.75 }
                 : { x: isFront ? -6.5 : -3.3, y: keepY, z: backZ, rotY: Math.PI };
             const ccG = new THREE.Group();
             ccG.position.set(ccPos.x, ccPos.y, ccPos.z);
             ccG.rotation.y = ccPos.rotY;
-            const locker = new THREE.Mesh(
-                new THREE.BoxGeometry(2.1, 2.2, 0.85),
-                new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.3 })
-            );
-            locker.position.y = 1.1;
+            const locker = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.35, 0.88), steelDark);
+            locker.position.y = 1.18;
+            const glassFront = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 1.35), new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.14 }));
+            glassFront.position.set(0, 1.10, 0.45);
+            for (const rx of [-0.42, 0.42]) {
+                const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.12, 0.10), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.88, roughness: 0.2 }));
+                rifle.position.set(rx, 1.08, 0.42);
+                ccG.add(rifle);
+            }
             const ccSign = new THREE.Mesh(
-                new THREE.PlaneGeometry(1.85, 0.6),
+                new THREE.PlaneGeometry(1.88, 0.56),
                 new THREE.MeshBasicMaterial({ map: BO.Textures.createPerkSignTexture('CUSTOM CLASS', '#fde047') })
             );
-            ccSign.position.set(0, 1.8, 0.44);
-            const ccGlow = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.88), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
-            ccGlow.position.y = 2.22;
-            ccG.add(locker, ccSign, ccGlow);
+            ccSign.position.set(0, 2.02, 0.45);
+            const ccGlow = new THREE.Mesh(new THREE.BoxGeometry(2.26, 0.14, 0.94), goldTrim);
+            ccGlow.position.y = 2.40;
+            const ccLed = new THREE.Mesh(new THREE.BoxGeometry(1.96, 0.06, 0.92), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+            ccLed.position.y = 2.49;
+            ccG.add(locker, glassFront, ccSign, ccGlow, ccLed);
             scene.add(ccG);
             this.worldMeshes.push(locker);
             this.interactives.push({
@@ -1018,7 +1134,7 @@
                 radius: 2.6
             });
 
-            // 2D. MYSTERY BOX (Cleanly aligned on the East-Center side of the Back Wall / SW Corner on Castle 3)
+            // 2D. IRON-BOUND ANTIQUE WAR-CHEST MYSTERY BOX
             const boxPos = isAll360
                 ? { x: -4.8, y: keepY, z: 6.9, rotY: Math.PI }
                 : { x: isFront ? 6.2 : 3.3, y: keepY, z: backZ, rotY: Math.PI };
@@ -1026,27 +1142,31 @@
             const boxGroup = new THREE.Group();
             boxGroup.position.set(boxPos.x, boxPos.y, boxPos.z);
             boxGroup.rotation.y = boxPos.rotY || 0;
-            const chestBase = new THREE.Mesh(
-                new THREE.BoxGeometry(1.9, 0.72, 0.85),
-                new THREE.MeshStandardMaterial({ color: 0x573b22, roughness: 0.8 })
-            );
+            const chestMat = new THREE.MeshStandardMaterial({ color: 0x52341d, roughness: 0.82 });
+            const chestBase = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.72, 0.88), chestMat);
             chestBase.position.y = 0.36;
+            for (const bxOff of [-0.94, 0, 0.94]) {
+                const strap = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.74, 0.92), steelDark);
+                strap.position.set(bxOff, 0.36, 0);
+                boxGroup.add(strap);
+            }
+            const lockSigil = new THREE.Mesh(new THREE.OctahedronGeometry(0.16, 0), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            lockSigil.position.set(0, 0.68, 0.48);
             const lidPivot = new THREE.Group();
-            lidPivot.position.set(0, 0.72, -0.42);
-            const lid = new THREE.Mesh(
-                new THREE.BoxGeometry(1.94, 0.22, 0.88),
-                new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.75 })
-            );
-            lid.position.set(0, 0.11, 0.42);
-            lidPivot.add(lid);
+            lidPivot.position.set(0, 0.72, -0.44);
+            const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 1.98, 8, 1, false, 0, Math.PI), chestMat);
+            lid.rotation.z = Math.PI * 0.5; lid.position.set(0, 0.0, 0.44);
+            const lidBand = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.08, 0.92), goldTrim);
+            lidBand.position.set(0, 0.04, 0.44);
+            lidPivot.add(lid, lidBand);
             const beacon = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.10, 0.32, 16, 10, 1, true),
-                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+                new THREE.CylinderGeometry(0.10, 0.34, 16, 10, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.24, side: THREE.DoubleSide })
             );
             beacon.position.y = 8.4;
             const previewAnchor = new THREE.Group();
             previewAnchor.position.set(0, 1.15, 0);
-            boxGroup.add(chestBase, lidPivot, beacon, previewAnchor);
+            boxGroup.add(chestBase, lockSigil, lidPivot, beacon, previewAnchor);
             scene.add(boxGroup);
             this.mysteryBoxObj = {
                 type: 'mystery_box',
@@ -1068,7 +1188,7 @@
 
             // ================================================================
             // 3. EAST MERCHANT & PERK BAY (Flush against South Back Wall; NE/SE Corners on Castle 3)
-            //    Master All-14 Wunderfizz Perk Machine, Shopkeeper Pavilion, Overdrive War Gong
+            //    Master All-14 Wunderfizz Perk Machine, Shopkeeper Pavilion, Torii Overdrive War Gong
             // ================================================================
 
             // 3A. GRAND WUNDERFIZZ MASTER PERK MACHINE (THE ONE AND ONLY PERK MACHINE — ALL 14 PERKS, MAX 8!)
@@ -1129,7 +1249,7 @@
                 radius: 3.0
             });
 
-            // 3B. CASTLE OVERDRIVE WAR GONG (Neatly aligned on far East back wall / Castle 2 front-east corner / Castle 3 NE bay!)
+            // 3B. CRIMSON-AND-GOLD TORII OVERDRIVE WAR GONG SHRINE
             const gongPos = isAll360
                 ? { x: 4.8, y: keepY, z: -6.9, rotY: 0 }
                 : (isFront
@@ -1138,19 +1258,32 @@
             const gongG = new THREE.Group();
             gongG.position.set(gongPos.x, gongPos.y, gongPos.z);
             gongG.rotation.y = gongPos.rotY || 0;
+            const crimsonLacquer = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.42, metalness: 0.25 });
+            const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.18, 1.05), stoneBattMat);
+            plinth.position.y = 0.09;
             const disc = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.75, 0.75, 0.12, 18),
-                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xb45309, emissiveIntensity: 0.45, metalness: 0.85, roughness: 0.22 })
+                new THREE.CylinderGeometry(0.84, 0.84, 0.14, 24),
+                new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xb45309, emissiveIntensity: 0.48, metalness: 0.88, roughness: 0.20 })
             );
-            disc.rotation.x = Math.PI * 0.5;
-            disc.position.y = 1.35;
-            const pL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
-            pL.position.set(-0.9, 1.1, 0);
-            const pR = pL.clone();
-            pR.position.set(0.9, 1.1, 0);
-            const bar = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, 0.14), new THREE.MeshStandardMaterial({ color: 0x7c2d12 }));
-            bar.position.set(0, 2.15, 0);
-            gongG.add(disc, pL, pR, bar);
+            disc.rotation.x = Math.PI * 0.5; disc.position.y = 1.48;
+            const gongBoss = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 8), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+            gongBoss.scale.set(1, 1, 0.55); gongBoss.position.set(0, 1.48, 0.06);
+            for (const s of [-1, 1]) {
+                const col = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 2.35, 10), crimsonLacquer);
+                col.position.set(s * 1.04, 1.32, 0);
+                const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.14, 10), goldTrim);
+                collar.position.set(s * 1.04, 2.28, 0);
+                const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.48, 6), steelDark);
+                chain.position.set(s * 0.42, 2.15, 0);
+                gongG.add(col, collar, chain);
+            }
+            const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.55, 0.16, 0.24), crimsonLacquer);
+            lintel.position.set(0, 2.48, 0);
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(2.85, 0.14, 0.36), steelDark);
+            roof.position.set(0, 2.64, 0);
+            const mallet = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.65, 6), crimsonLacquer);
+            mallet.position.set(1.25, 0.48, 0.3); mallet.rotation.z = 0.25;
+            gongG.add(plinth, disc, gongBoss, lintel, roof, mallet);
             scene.add(gongG);
             this.animatedProps.push({ kind: 'war_gong', disc });
             this.interactives.push({
@@ -2386,11 +2519,25 @@
                 } else if (lm.kind === 'castle_banner') {
                     const g = new THREE.Group();
                     g.position.set(lm.x, lm.y || 3.5, lm.z);
-                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 8), new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.8 }));
-                    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.95, 1.8, 0.06), new THREE.MeshStandardMaterial({ color: lm.color || 0x1d4ed8, roughness: 0.85 }));
-                    cloth.position.set(0, -0.3, 0.08);
-                    g.add(pole, cloth);
+                    const gold = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.85, roughness: 0.25 });
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 3.4, 8), gold);
+                    const spearTip = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.34, 6), gold);
+                    spearTip.position.y = 1.85;
+                    const crossBar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.45, 8), gold);
+                    crossBar.rotation.z = Math.PI * 0.5; crossBar.position.set(0, 1.25, 0.10);
+                    const sh = new THREE.Shape();
+                    sh.moveTo(-0.56, 0); sh.lineTo(0.56, 0); sh.lineTo(0.56, -2.1); sh.lineTo(0, -1.68); sh.lineTo(-0.56, -2.1); sh.closePath();
+                    const cloth = new THREE.Mesh(
+                        new THREE.ShapeGeometry(sh),
+                        new THREE.MeshStandardMaterial({ color: lm.color || 0x1d4ed8, roughness: 0.82, side: THREE.DoubleSide })
+                    );
+                    cloth.position.set(0, 1.24, 0.12);
+                    const crest = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0xfde047 }));
+                    crest.scale.set(1, 1.25, 0.25); crest.position.set(0, -0.78, 0.03);
+                    cloth.add(crest);
+                    g.add(pole, spearTip, crossBar, cloth);
                     scene.add(g);
+                    this.animatedProps.push({ kind: 'castle_banner', cloth, phase: (lm.x + lm.z) * 0.3 });
                 }
             }
         }
@@ -3170,6 +3317,15 @@
                     if (ap.light) ap.light.intensity = ap.baseInt * (0.90 + Math.sin(elapsed * 3.0) * 0.15);
                 } else if (ap.kind === 'war_gong') {
                     if (ap.disc) ap.disc.rotation.x = Math.PI * 0.5 + Math.sin(elapsed * 1.4) * 0.04;
+                } else if (ap.kind === 'tower_spire') {
+                    if (ap.crystal) {
+                        ap.crystal.rotation.y += dt * 1.4;
+                        ap.crystal.position.y = ap.baseY + Math.sin(elapsed * 2.4) * 0.18;
+                    }
+                    if (ap.gyroOuter) ap.gyroOuter.rotation.y += dt * 0.9;
+                    if (ap.gyroInner) { ap.gyroInner.rotation.y -= dt * 1.45; ap.gyroInner.rotation.z += dt * 0.8; }
+                } else if (ap.kind === 'castle_banner') {
+                    if (ap.cloth) ap.cloth.rotation.x = 0.06 + Math.sin(elapsed * 2.6 + (ap.phase || 0)) * 0.09;
                 } else if (ap.kind === 'pendulum') {
                     if (ap.obj) {
                         ap.obj.rotation.z = Math.sin(elapsed * 1.15 + ap.phase) * 0.075;

@@ -2676,9 +2676,9 @@
         subtitle: '5x Grand Siege Corridor • Front Only • 3 See-Through Wall Layers (250 HP)',
         description: 'Defend the massive 140m canyon fortress! Zombies march a long distance strictly from the North approach through your 3 see-through barrier layers before climbing the Castle Stairs to the Heart.',
         atmosphere: {
-            skyTop: 0x0f172a, skyBottom: 0x3b1d2e, fogColor: 0x1e1320, fogDensity: 0.0020,
-            sunColor: 0xfca5a5, sunIntensity: 1.25, sunPos: [25, 60, -70],
-            hemiSky: 0x64748b, hemiGround: 0x1c1917, hemiIntensity: 0.72, moon: true
+            skyTop: 0x091124, skyBottom: 0x451a38, fogColor: 0x1a1026, fogDensity: 0.0018,
+            sunColor: 0xfdba74, sunIntensity: 1.48, sunPos: [28, 65, -72],
+            hemiSky: 0x7dd3fc, hemiGround: 0x1c1917, hemiIntensity: 0.80, moon: true
         },
         playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
         castleHeart: { x: 0, y: 5.4, z: 20.6 },
@@ -2749,8 +2749,12 @@
             { x: 14, y: 1.8, z: -114, color: 0xff6b2b, intensity: 1.5, distance: 26, prop: 'fire_barrel', alwaysOn: true }
         ],
         landmarks: [
-            { kind: 'castle_banner', x: -6.5, y: 7.2, z: 6.5, color: 0x1d4ed8 },
-            { kind: 'castle_banner', x: 6.5, y: 7.2, z: 6.5, color: 0x1d4ed8 }
+            { kind: 'castle_banner', x: -6.5, y: 7.4, z: 6.5, color: 0x1d4ed8 },
+            { kind: 'castle_banner', x: 6.5, y: 7.4, z: 6.5, color: 0x1d4ed8 },
+            { kind: 'castle_banner', x: -23.5, y: 7.4, z: -26, color: 0x1e40af },
+            { kind: 'castle_banner', x: 23.5, y: 7.4, z: -26, color: 0x1e40af },
+            { kind: 'castle_banner', x: -23.5, y: 7.4, z: -72, color: 0x1e40af },
+            { kind: 'castle_banner', x: 23.5, y: 7.4, z: -72, color: 0x1e40af }
         ],
         waypoints: [
             { id: 'td1_top', x: 0, y: 5.4, z: 13, links: ['td1_mid_s'] },
@@ -2770,9 +2774,9 @@
         subtitle: '5x Vast Three-Front Siege • Front, Left & Right • 3 See-Through Wall Layers',
         description: 'Massive 130m three-front battlefield! Zombies march from North, West, and East across 3 giant see-through U-barriers before storming the Castle Stairs.',
         atmosphere: {
-            skyTop: 0x0c1424, skyBottom: 0x451a08, fogColor: 0x22120a, fogDensity: 0.0020,
-            sunColor: 0xfb923c, sunIntensity: 1.35, sunPos: [-40, 62, -60],
-            hemiSky: 0xf97316, hemiGround: 0x1c1412, hemiIntensity: 0.72, moon: true
+            skyTop: 0x0a1328, skyBottom: 0x5c200a, fogColor: 0x261209, fogDensity: 0.0018,
+            sunColor: 0xfb923c, sunIntensity: 1.52, sunPos: [-42, 66, -62],
+            hemiSky: 0xfdba74, hemiGround: 0x1c1412, hemiIntensity: 0.78, moon: true
         },
         playerSpawn: { x: 0, y: 5.4, z: 11.2, yaw: 0 },
         castleHeart: { x: 0, y: 5.4, z: 20.8 },
@@ -2847,8 +2851,10 @@
             { x: 64, y: 1.8, z: -64, color: 0xff6b2b, intensity: 1.5, distance: 26, prop: 'fire_barrel', alwaysOn: true }
         ],
         landmarks: [
-            { kind: 'castle_banner', x: -7.5, y: 7.2, z: 6.5, color: 0xd97706 },
-            { kind: 'castle_banner', x: 7.5, y: 7.2, z: 6.5, color: 0xd97706 }
+            { kind: 'castle_banner', x: -7.5, y: 7.4, z: 6.5, color: 0xd97706 },
+            { kind: 'castle_banner', x: 7.5, y: 7.4, z: 6.5, color: 0xd97706 },
+            { kind: 'castle_banner', x: -10.5, y: 7.4, z: 14.0, color: 0xb45309 },
+            { kind: 'castle_banner', x: 10.5, y: 7.4, z: 14.0, color: 0xb45309 }
         ],
         waypoints: [
             { id: 'td2_top', x: 0, y: 5.4, z: 13, links: ['td2_mid_s'] },
@@ -2868,9 +2874,9 @@
         subtitle: '5x Vast 360° Siege • ALL 4 DIRECTIONS • 3 Concentric See-Through Rings',
         description: 'Massive 270x270m 360° fortress siege! Command the central skytower overlooking North, South, East, and West across 3 concentric see-through defense rings protecting both Castle Staircases and the Heart.',
         atmosphere: {
-            skyTop: 0x1a0612, skyBottom: 0x3f0e1e, fogColor: 0x1c0810, fogDensity: 0.0020,
-            sunColor: 0xf87171, sunIntensity: 1.30, sunPos: [45, 68, -45],
-            hemiSky: 0x991b1b, hemiGround: 0x181416, hemiIntensity: 0.72, moon: true
+            skyTop: 0x160516, skyBottom: 0x4f0e26, fogColor: 0x200814, fogDensity: 0.0018,
+            sunColor: 0xfca5a5, sunIntensity: 1.48, sunPos: [45, 70, -45],
+            hemiSky: 0xf43f5e, hemiGround: 0x181416, hemiIntensity: 0.78, moon: true
         },
         playerSpawn: { x: -2.4, y: 5.4, z: 2.8, yaw: 0 },
         castleHeart: { x: 0, y: 5.4, z: 0.0 },
@@ -2944,8 +2950,10 @@
             { x: 32, y: 1.8, z: -32, color: 0xff6b2b, intensity: 1.5, distance: 26, prop: 'fire_barrel', alwaysOn: true }
         ],
         landmarks: [
-            { kind: 'castle_banner', x: -6.2, y: 7.2, z: -6.0, color: 0xdc2626 },
-            { kind: 'castle_banner', x: 6.2, y: 7.2, z: 6.0, color: 0xdc2626 }
+            { kind: 'castle_banner', x: -6.2, y: 7.4, z: -6.0, color: 0xdc2626 },
+            { kind: 'castle_banner', x: 6.2, y: 7.4, z: -6.0, color: 0xdc2626 },
+            { kind: 'castle_banner', x: -6.2, y: 7.4, z: 6.0, color: 0xdc2626 },
+            { kind: 'castle_banner', x: 6.2, y: 7.4, z: 6.0, color: 0xdc2626 }
         ],
         waypoints: [
             { id: 'td3_top', x: 0, y: 5.4, z: 0, links: ['td3_n_mid', 'td3_s_mid'] },

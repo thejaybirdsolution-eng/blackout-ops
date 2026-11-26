@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=vaults1">
+    <link rel="stylesheet" href="css/styles.css?v=td1">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=sv9">
     <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
@@ -37,7 +37,7 @@
     <script defer src="src/data/ProgressionData.js?v=sv9"></script>
     <script defer src="src/data/ZombiesData.js?v=sv9"></script>
     <script defer src="src/systems/ZombieCustomizer.js?v=zc1"></script>
-    <script defer src="src/data/MapsData.js?v=sv9"></script>
+    <script defer src="src/data/MapsData.js?v=td1"></script>
     <script defer src="src/data/ModeModifiersCatalog.js?v=sv9"></script>
     <script defer src="src/data/SurvivalData.js?v=20x1"></script>
     <script defer src="src/data/SurvivalCampaignData.js?v=sv9"></script>
@@ -60,10 +60,10 @@
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=rpg1"></script>
-    <script defer src="src/graphics/TextureFactory.js?v=aaa4"></script>
+    <script defer src="src/graphics/TextureFactory.js?v=td1"></script>
     <script defer src="src/graphics/ArsenalDetails.js?v=sv9"></script>
     <script defer src="src/graphics/WeaponMeshBuilder.js?v=anim1"></script>
-    <script defer src="src/graphics/CharacterMeshBuilder.js?v=anim1"></script>
+    <script defer src="src/graphics/CharacterMeshBuilder.js?v=td1"></script>
     <script defer src="src/graphics/SoldierModel.js?v=aaa3"></script>
     <script defer src="src/graphics/ZombieModel.js?v=anim1"></script>
     <script defer src="src/graphics/CharacterShading.js?v=aaa3"></script>
@@ -80,7 +80,7 @@
 
     <!-- Engine & Entities -->
     <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
-    <script defer src="src/engine/WorldBuilder.js?v=anim1"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=td1"></script>
     <script defer src="src/engine/PlayerController.js?v=anim1"></script>
     <script defer src="src/engine/CombatSystem.js?v=sv9mg7"></script>
     <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
@@ -89,7 +89,7 @@
     <!-- Modes -->
     <script defer src="src/modes/ZombiesMode.js?v=zc1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=sv9"></script>
-    <script defer src="src/modes/TowerDefenseMode.js?v=zc1"></script>
+    <script defer src="src/modes/TowerDefenseMode.js?v=td1"></script>
     <script defer src="src/rpg/RPGUnlocks.js?v=vaults1"></script>
     <script defer src="src/rpg/RPGProfile.js?v=vaults1"></script>
     <script defer src="src/rpg/RPGArena.js?v=vaults1"></script>
@@ -170,11 +170,11 @@
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=polish2"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
-    <script defer src="src/ui/HUDController.js?v=rpg1"></script>
+    <script defer src="src/ui/HUDController.js?v=td1"></script>
     <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=sv9g3"></script>
     <script defer src="src/ui/UpdateLogUI.js?v=ul3"></script>
-    <script defer src="src/ui/MenuController.js?v=aaa2"></script>
+    <script defer src="src/ui/MenuController.js?v=td1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
@@ -722,7 +722,7 @@
 
     <!-- TOWER DEFENSE SHOPKEEPER MODAL (30s INTERMISSION) -->
     <div id="modal-td-shop" class="ui-modal ui-modal-compact hidden">
-        <div class="modal-box" style="width:min(920px,94vw);max-height:82vh;display:flex;flex-direction:column;">
+        <div class="modal-box td-modal-box" style="width:min(920px,94vw);max-height:82vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
                 <div>
                     <h2 style="margin:0;letter-spacing:1.5px;color:#fde047;">★ QUARTERMASTER SHOP</h2>
@@ -740,7 +740,7 @@
 
     <!-- TOWER DEFENSE GUNSMITH ATTACHMENT STATION MODAL -->
     <div id="modal-td-attachments" class="ui-modal ui-modal-compact hidden">
-        <div class="modal-box" style="width:min(760px,93vw);max-height:78vh;display:flex;flex-direction:column;">
+        <div class="modal-box td-modal-box" style="width:min(760px,93vw);max-height:78vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
                 <div>
                     <h2 style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🔧 ATTACHMENT BENCH</h2>
@@ -754,7 +754,7 @@
 
     <!-- PAY-TO-USE CUSTOM CLASS ARMORY MODAL (TOWER DEFENSE) -->
     <div id="modal-td-custom-class" class="ui-modal ui-modal-compact hidden">
-        <div class="modal-box" style="width:min(700px,92vw);max-height:78vh;display:flex;flex-direction:column;">
+        <div class="modal-box td-modal-box" style="width:min(700px,92vw);max-height:78vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
                 <div>
                     <h2 style="margin:0;letter-spacing:1.5px;color:#fde047;">🎖 ARMORY DROP CRATE</h2>
@@ -768,7 +768,7 @@
 
     <!-- MASTER PERK KIOSK MODAL (ALL 14 PERKS — MAX 8 EQUIPPED) -->
     <div id="modal-td-perks" class="ui-modal ui-modal-compact hidden">
-        <div class="modal-box" style="width:min(820px,93vw);max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-box td-modal-box" style="width:min(820px,93vw);max-height:80vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
                 <div>
                     <h2 style="margin:0;letter-spacing:1.5px;color:#c084fc;">🧪 WUNDERFIZZ PERK KIOSK</h2>
@@ -782,7 +782,7 @@
 
     <!-- SNIPER TOWER SKY-LIFT FLOOR SELECTOR MODAL -->
     <div id="modal-td-lift" class="ui-modal ui-modal-compact hidden">
-        <div class="modal-box" style="width:min(440px,90vw);max-height:76vh;display:flex;flex-direction:column;">
+        <div class="modal-box td-modal-box" style="width:min(440px,90vw);max-height:76vh;display:flex;flex-direction:column;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
                 <div>
                     <h2 id="td-lift-title" style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🚀 TOWER SKY-LIFT</h2>
