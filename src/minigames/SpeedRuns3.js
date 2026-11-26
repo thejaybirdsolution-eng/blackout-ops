@@ -30,7 +30,8 @@
        8. NINJA — 3x Expanded Samurai Citadel (3 Victory Paths, Shurikens, Roof Jumps, Stealth Grass)
     ===================================================================== */
     SR.define({
-        id: 'sr_ninja', order: 8, name: 'Ninja Stealth', icon: '🥷', accent: '#6366f1', badge: 'STEALTH',
+        id: 'sr_ninja', order: 8, name: 'Ninja Stealth', icon: '🥷', accent: '#6366f1', badge: 'STEALTH', music: 'contracts',
+        musicState: (S) => ({ urgent: (S.data.guards || []).some((g) => g.alive && g.st.state === 'alert') }),
         tagline: '3x Larger Fortress! 3 Ways to Win: Ghost 3 Scrolls, Assassinate the Shogun, or Clear All 18 Guards!',
         desc: 'Infiltrate a massive 150m x 220m Samurai Citadel! Hide in Tall Bamboo Grass, cross Creaking Nightingale Floors slowly, use Roof-Jump Pads ([SPACE]), throw Silent Shurikens ([F]), Smoke Bombs ([Q]), and Rocks ([G/RMB]). WIN 3 WAYS: Steal all 3 Scrolls + Extract, Assassinate the Shogun + Extract, or Defeat all 18 Guards!',
         heroLabel: 'SPEED RUN • 3X GRAND SHINOBI CITADEL', stars: [300, 220, 165, 115], timeLimit: 540,
@@ -133,6 +134,14 @@
             const shrineLight = new THREE.Mesh(new THREE.RingGeometry(2.0, 2.4, 24), basic(0x38bdf8, { side: THREE.DoubleSide }));
             shrineLight.rotation.x = -Math.PI / 2; shrineLight.position.y = 0.04;
             torii.add(lintel, cap, shrineLight); torii.position.set(0, 0, -188); S.add(torii);
+            const nLanterns = [];
+            for (const bx of [-22, 22]) for (let lz = -60; lz <= -44; lz += 4) nLanterns.push(V(bx - 2.0, 1.25, lz), V(bx + 2.0, 1.25, lz));
+            for (let tx = -3.6; tx <= 3.6; tx += 1.2) nLanterns.push(V(tx, 5.65, -188));
+            const nBulbs = A.bulbs(nLanterns, [0xfde047, 0xf97316, 0xfef3c7], 0.14);
+            S.add(nBulbs); A.animateBulbs(S, nBulbs, 3, 'twinkle');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const moonPl = new THREE.PointLight(0x818cf8, 1.4, 34, 1.4); moonPl.position.set(0, 7, 10); S.add(moonPl);
+            }
 
             // 18 Samurai Guards + Armored Shogun Boss!
             const guardDefs = [
@@ -340,7 +349,8 @@
     ];
 
     SR.define({
-        id: 'sr_hydra_dragon', order: 9, name: 'Three-Headed Dragon', icon: '🐉', accent: '#dc2626', badge: 'FINAL BOSS',
+        id: 'sr_hydra_dragon', order: 9, name: 'Three-Headed Dragon', icon: '🐉', accent: '#dc2626', badge: 'FINAL BOSS', music: 'siege',
+        musicState: (S) => ({ wardenAwake: true, wardenPhase2: (S.data.heads || []).filter((h) => h.alive).length <= 1 }),
         tagline: 'Obsidian Caldera Final Boss! Sculpted 3-Headed Titan Dragon + Phase 2 Apex Climbers.',
         desc: 'Stand atop the molten Obsidian Caldera Sanctuary as a towering sculpted Three-Headed Hydra Dragon rises from the magma abyss! Destroy all 3 independently animated heads—Frostmaw, Pyroclast, and Voltscale—dodge Phase 2 Apex Cataclysm attacks, and repel undead climbers!',
         heroLabel: 'SPEED RUN • FINAL BOSS SANCTUARY', stars: [240, 175, 130, 95], timeLimit: 420,
@@ -368,6 +378,12 @@
                 const cap = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.4, 2.5), goldM); cap.position.set(px, 4.1, pz); S.add(cap);
             }
             for (const [tx, tz] of [[-19, 10], [19, 10], [-19, -10], [19, -10]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, false));
+            const lavaPts = [];
+            for (let i = 0; i < 32; i++) { const a = (i / 32) * TAU; lavaPts.push(V(Math.cos(a) * 23.4, 0.28, Math.sin(a) * 23.4)); }
+            const lb = A.bulbs(lavaPts, [0xf97316, 0xef4444, 0xfacc15], 0.16); S.add(lb); A.animateBulbs(S, lb, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const vLight = new THREE.PointLight(0xf97316, 2.0, 58, 1.2); vLight.position.set(0, 12, -16); S.add(vLight);
+            }
 
             // DRASTICALLY UPGRADED TITAN DRAGON SCULPT (Layered Scales, Magma Heart, Coiled Tail, Articulated Wings, Curved S-Necks, Distinct Head Archetypes)
             const titan = new THREE.Group();

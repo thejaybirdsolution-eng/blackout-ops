@@ -44,7 +44,7 @@
         V(-16, 0, -1120), V(-45, 0, -1420), V(0, 0, -1680)
     ];
     SR.define({
-        id: 'sr_chase', order: 3, name: 'Getaway Chase', icon: '🚓', accent: '#3b82f6',
+        id: 'sr_chase', order: 3, name: 'Getaway Chase', icon: '🚓', accent: '#3b82f6', music: 'hoverbike',
         tagline: 'Chase them down a busy City Street, onto the Highway, then Off-Road!',
         desc: 'Three getaway cars are tearing out of downtown! Give chase down a busy City Street with moving traffic, merge onto a Multi-Lane Highway with nitro strips, and follow them into a dusty Red-Rock Off-Road Canyon to stop all 3 before they escape the end of the trail!',
         heroLabel: 'SPEED RUN • 3-ACT LINEAR CHASE', stars: [150, 115, 88, 68], timeLimit: 320,
@@ -107,6 +107,9 @@
             const finP = R.curve.getPointAt(0.99);
             const finSg = A.sign('ROADBLOCK — END OF TRAIL', 10, 1.8, { bg: '#7f1d1d', color: '#fef08a', borderColor: '#ef4444', size: 0.48 });
             finSg.position.set(finP.x, 4.5, finP.z); S.add(finSg);
+            const gPts = [];
+            for (let gx = -4.2; gx <= 4.2; gx += 1.05) gPts.push(V(hp.x + gx, 5.4, hp.z), V(finP.x + gx, 5.5, finP.z));
+            const gb = A.bulbs(gPts, [0x38bdf8, 0xfacc15, 0xef4444], 0.14); S.add(gb); A.animateBulbs(S, gb, 7, 'chase');
 
             // Moving Civilian Traffic along Street & Highway!
             S.data.traffic = [];
@@ -124,9 +127,12 @@
             const lightL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.14, 0.32), basic(0xef4444)); lightL.position.set(-0.32, 1.76, -0.3);
             const lightR = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.14, 0.32), basic(0x3b82f6)); lightR.position.set(0.32, 1.76, -0.3);
             mine.g.add(lightL, lightR);
+            const sirenLight = BO.Settings.getQualityPreset().pointLights ? new THREE.PointLight(0xef4444, 1.5, 22, 1.4) : null;
+            if (sirenLight) { sirenLight.position.set(0, 2.2, -0.3); mine.g.add(sirenLight); }
             S.animate(() => {
                 const on = Math.floor(performance.now() / 160) % 2;
                 lightL.material = basic(on ? 0xef4444 : 0x450a0a); lightR.material = basic(on ? 0x1e3a8a : 0x38bdf8);
+                if (sirenLight) sirenLight.color.setHex(on ? 0xef4444 : 0x3b82f6);
             });
             mine.g.traverse((o) => { o.userData.noHit = true; }); S.add(mine.g);
             const start = R.curve.getPointAt(0.01), tan = R.curve.getTangentAt(0.01);

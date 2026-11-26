@@ -25,7 +25,7 @@
         fmtT,
         define(o) {
             const def = Object.assign({
-                cat: 'speed', duration: 0, countdown: 3, lockWeapon: true, infiniteMag: true, forgivingMisses: true,
+                cat: 'speed', duration: 0, countdown: 3, lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
                 matchRules: { noHealthRegen: false }, noArmor: false,
                 starLabel: (th) => '≤ ' + fmtT(th),
                 formatBest(b) { const e = b.extra || {}; return e.done ? fmtT(e.time) : 'DNF • ' + Math.round((e.progress || 0) * 100) + '%'; },
@@ -39,11 +39,13 @@
             }, o);
             const userBuild = o.build, userUpdate = o.update, userResult = o.stats, userDispose = o.dispose;
             def.build = function (S, lib) {
+                if (BO.MinigameAudio) BO.MinigameAudio.start(o.music || 'tactical');
                 S.data.sr = { done: false, time: 0, why: '', progress: 0 };
                 S.data.zs = []; S.data.zid = 1;
                 if (userBuild) userBuild.call(this, S, lib);
             };
             def.update = function (S, dt, lib, state) {
+                if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, o.musicState ? o.musicState(S) : {});
                 const sr = S.data.sr;
                 if (state === 'running' && !sr.done && !sr.why) {
                     if (!BO.Player.alive) SR.fail(S, 'YOU DIED');
@@ -67,6 +69,7 @@
                 };
             };
             def.dispose = function (S, lib) {
+                if (BO.MinigameAudio) BO.MinigameAudio.stop();
                 if (userDispose) userDispose.call(this, S, lib);
                 for (const z of S.data.zs || []) z.destroy();
                 S.data.zs = [];
@@ -181,6 +184,14 @@
             }
             const fin = A.sign('FINISH', 5.5, 1.1, { bg: '#14532d', color: '#fde68a', borderColor: '#facc15', size: 0.6 });
             fin.position.set(0, 3.2, -159.6); S.add(fin);
+            const gBulbs = [];
+            for (let gx = -2.8; gx <= 2.8; gx += 0.7) gBulbs.push(V(gx, 2.55, -159.3), V(gx, 3.85, -159.3));
+            for (const g of GAUNTLET) for (let lx = -9; lx <= 9; lx += 4.5) gBulbs.push(V(lx, 4.25, g.z + 8));
+            const gb = A.bulbs(gBulbs, [0x22d3ee, 0xfacc15, 0xf8fafc], 0.11);
+            S.add(gb); A.animateBulbs(S, gb, 7, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0x22d3ee, 1.5, 28, 1.4); pl.position.set(0, 4.0, -8); S.add(pl);
+            }
             S.data.total = S.data.zs.length; S.data._boostT = 0;
         },
         progress: (S) => 1 - SR.alive(S) / S.data.total,
@@ -219,7 +230,7 @@
         { name: 'CHARLIE', x: -52, z: 28, horde: 18, types: ['sprinter', 'one_arm_ripper', 'headless_charger', 'shambler'] }
     ];
     SR.define({
-        id: 'sr_outposts', order: 2, name: 'Outpost Rescue', icon: '🛡️', accent: '#16a34a',
+        id: 'sr_outposts', order: 2, name: 'Outpost Rescue', icon: '🛡️', accent: '#16a34a', music: 'range',
         tagline: 'Fight through a fortified valley! Save all 3 military outposts.',
         desc: 'Dirt supply roads link Alpha, Bravo & Charlie across a cratered military valley lined with wrecked convoys, radar towers, sandbag bunkers, ammo depots & perimeter pines. Triggering an outpost summons its horde—protect all three!',
         heroLabel: 'SPEED RUN • MILITARY VALLEY DEFENSE', stars: [240, 175, 130, 100], timeLimit: 480,
@@ -237,6 +248,12 @@
             const roadN = new THREE.Mesh(new THREE.PlaneGeometry(6.5, 80), dirt); roadN.rotation.x = -Math.PI / 2; roadN.position.set(0, 0.02, -16); S.add(roadN);
             const roadEW = new THREE.Mesh(new THREE.PlaneGeometry(110, 6.5), dirt); roadEW.rotation.x = -Math.PI / 2; roadEW.position.set(0, 0.02, 26); S.add(roadEW);
             const hubPad = new THREE.Mesh(new THREE.CircleGeometry(9, 24), std(0x374151, 0.9)); hubPad.rotation.x = -Math.PI / 2; hubPad.position.set(0, 0.03, 25); S.add(hubPad);
+            const hubPts = [];
+            for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; hubPts.push(V(Math.cos(a) * 8.8, 0.25, 25 + Math.sin(a) * 8.8)); }
+            const hb = A.bulbs(hubPts, [0x4ade80, 0xfacc15], 0.14); S.add(hb); A.animateBulbs(S, hb, 5, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xffe0a3, 1.4, 34, 1.4); pl.position.set(0, 6, 25); S.add(pl);
+            }
 
             // Wrecked military convoy vehicles + crates + roadside rocks along the valley!
             const addTruck = (x, z, yaw, col) => {
@@ -390,6 +407,14 @@
                 ring.scale.setScalar(0.92 + Math.sin(t * 2) * 0.10);
                 for (const v of vats) v.orb.position.y = 2.3 + Math.sin(t * 1.4 + v.phase) * 1.1;
             });
+            const sPts = [];
+            for (let i = 0; i < 28; i++) { const a = (i / 28) * TAU; sPts.push(V(Math.cos(a) * R, 5.6, Math.sin(a) * R)); }
+            const sb = A.bulbs(sPts, [0x2dd4bf, 0xf97316, 0xfde047], 0.15); S.add(sb); A.animateBulbs(S, sb, 6, 'chase');
+            const sSign = A.sign('BIO-CONTAINMENT • 30 SPLITS', 7.5, 1.1, { bg: '#042f2e', color: '#99f6e4', borderColor: '#2dd4bf', size: 0.55 });
+            sSign.position.set(0, 5.2, -R + 1.2); S.add(sSign);
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0x2dd4bf, 1.6, 36, 1.3); pl.position.set(0, 8, 0); S.add(pl);
+            }
             S.data.splits = 0; S.data.killed = 0; S.data.meteors = []; S.data.meteorT = 0.6;
             this._spawn(S, 0, -12);
         },
@@ -455,7 +480,8 @@
        6. LAST 50 — ONE BY ONE ESCALATING SPAWNS (Shortening Interval, Increasing Speed!)
     ===================================================================== */
     SR.define({
-        id: 'sr_last50', order: 6, name: 'Last 50', icon: '🔫', accent: '#b91c1c',
+        id: 'sr_last50', order: 6, name: 'Last 50', icon: '🔫', accent: '#b91c1c', music: 'siege',
+        musicState: (S) => ({ wardenAwake: S.data.spawned >= 20, wardenPhase2: S.data.spawned >= 38 }),
         tagline: '50 bullets. 50 zombies spawned ONE BY ONE—faster & quicker each time! Headshots only.',
         desc: 'A gothic moonlit graveyard, a single M1911 and exactly 50 rounds (no refills anywhere). NO waves: all 50 zombies emerge one by one, with shorter gaps between spawns AND faster sprint speed for every zombie spawned. Only a headshot kills!',
         heroLabel: 'SPEED RUN • ENDLESS ACCELERATION', stars: [200, 150, 115, 90], timeLimit: 420, fixedAmmo: true, infiniteMag: false,
@@ -476,6 +502,8 @@
                 const top = new THREE.Mesh(new THREE.BoxGeometry(8.2, 1.0, 1.3), cryptMat); top.position.set(ax, 5.0, az);
                 S.add(pL, pR, top);
                 S.add(A.torch(S, V(ax - 3.8, 0, az + 1.2), 0xf97316, true)); S.add(A.torch(S, V(ax + 3.8, 0, az + 1.2), 0xf97316, true));
+                const cPts = []; for (let cx = -3.6; cx <= 3.6; cx += 0.9) cPts.push(V(ax + cx, 5.55, az));
+                const cb = A.bulbs(cPts, [0xef4444, 0xf97316, 0xfde047], 0.11); S.add(cb); A.animateBulbs(S, cb, 5, 'twinkle');
             }
             const rnd = L.mulberry32(50);
             for (let i = 0; i < 32; i++) {

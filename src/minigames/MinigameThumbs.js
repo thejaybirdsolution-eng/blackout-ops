@@ -618,6 +618,106 @@
                 g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.stroke();
             }
             drawCrosshair(g, 166, 94, 30, '#38bdf8');
+        },
+
+        sr_gauntlet(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0f172a'); bg.addColorStop(0.65, '#1e293b'); bg.addColorStop(1, '#334155');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.strokeStyle = '#22d3ee'; g.lineWidth = 5;
+            g.strokeRect(48, 22, 224, 108);
+            g.fillStyle = '#06b6d4'; g.fillRect(118, 128, 84, 34);
+            g.fillStyle = '#dc2626'; g.fillRect(62, 74, 34, 52);
+            g.fillStyle = '#facc15'; g.fillRect(62, 94, 34, 10);
+            drawCrosshair(g, 210, 82, 22, '#facc15');
+        },
+
+        sr_outposts(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0c4a6e'); bg.addColorStop(0.6, '#bbf7d0'); bg.addColorStop(1, '#3f6212');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#57534e'; g.beginPath(); g.moveTo(116, H); g.lineTo(150, 96); g.lineTo(170, 96); g.lineTo(204, H); g.closePath(); g.fill();
+            g.fillStyle = '#c2a26b'; g.fillRect(58, 92, 68, 36); g.fillRect(194, 92, 68, 36);
+            drawBulbsRow(g, 70, 146, 250, 146, 8, ['#4ade80', '#facc15']);
+            drawCrosshair(g, 160, 72, 22, '#16a34a');
+        },
+
+        sr_splitter(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#042f2e'); bg.addColorStop(1, '#134e4a');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            for (const vx of [46, 274]) { g.fillStyle = 'rgba(45,212,191,0.45)'; g.fillRect(vx - 16, 34, 32, 112); g.strokeStyle = '#5eead4'; g.lineWidth = 2; g.strokeRect(vx - 16, 34, 32, 112); }
+            for (const [mx, my] of [[110, 42], [202, 54], [156, 28]]) {
+                g.fillStyle = '#ef4444'; g.beginPath(); g.arc(mx, my, 12, 0, Math.PI * 2); g.fill();
+                g.fillStyle = '#facc15'; g.beginPath(); g.arc(mx, my, 6, 0, Math.PI * 2); g.fill();
+            }
+            drawCrosshair(g, 160, 108, 24, '#2dd4bf');
+        },
+
+        sr_last50(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#090d16'); bg.addColorStop(0.65, '#334155'); bg.addColorStop(1, '#1a2618');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#e2e8f0'; g.beginPath(); g.arc(248, 42, 20, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#374151'; g.fillRect(102, 42, 26, 98); g.fillRect(192, 42, 26, 98); g.fillRect(92, 28, 136, 20);
+            drawBulbsRow(g, 100, 26, 220, 26, 7, ['#ef4444', '#f97316', '#fde047']);
+            g.fillStyle = '#ef4444'; g.font = '900 32px Bahnschrift, sans-serif'; g.textAlign = 'center'; g.fillText('50', 160, 106);
+        },
+
+        sr_chase(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e40af'); bg.addColorStop(0.6, '#fde68a'); bg.addColorStop(1, '#334155');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#1e293b'; g.fillRect(0, 108, W, 72);
+            g.fillStyle = '#dc2626'; g.fillRect(184, 96, 62, 28);
+            g.fillStyle = '#f8fafc'; g.fillRect(54, 112, 74, 34);
+            g.fillStyle = '#ef4444'; g.fillRect(74, 106, 16, 6);
+            g.fillStyle = '#3b82f6'; g.fillRect(92, 106, 16, 6);
+            drawCrosshair(g, 215, 106, 20, '#38bdf8');
+        },
+
+        sr_skysnipers(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(0.65, '#0f172a'); bg.addColorStop(1, '#1e293b');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#38bdf8';
+            g.beginPath(); g.moveTo(116, 76); g.lineTo(192, 76); g.lineTo(154, 62); g.closePath(); g.fill();
+            g.fillStyle = '#f97316'; g.fillRect(148, 72, 12, 14);
+            drawCrosshair(g, 154, 74, 34, '#38bdf8');
+        },
+
+        sr_freefall(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#4c1d95'); bg.addColorStop(0.5, '#f97316'); bg.addColorStop(1, '#fde047');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.strokeStyle = '#fde047'; g.lineWidth = 4;
+            g.beginPath(); g.arc(160, 90, 44, 0, Math.PI * 2); g.stroke();
+            g.fillStyle = '#0f172a';
+            g.beginPath(); g.moveTo(160, 62); g.lineTo(198, 108); g.lineTo(160, 96); g.lineTo(122, 108); g.closePath(); g.fill();
+        },
+
+        sr_ninja(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(0.65, '#1e1b4b'); bg.addColorStop(1, '#14261c');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#b91c1c';
+            g.fillRect(82, 48, 18, 96); g.fillRect(220, 48, 18, 96); g.fillRect(62, 36, 196, 16);
+            drawBulbsRow(g, 76, 34, 244, 34, 8, ['#fde047', '#f97316']);
+            g.fillStyle = '#facc15'; g.fillRect(136, 98, 48, 18);
+            g.fillStyle = '#e2e8f0'; g.beginPath(); g.arc(160, 74, 14, 0, Math.PI * 2); g.fill();
+        },
+
+        sr_hydra_dragon(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e1b4b'); bg.addColorStop(0.55, '#9a3412'); bg.addColorStop(1, '#431407');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            drawStarburst(g, W, H, 160, 90, '#f97316', 14);
+            for (const [hx, hy, c] of [[86, 62, '#38bdf8'], [160, 46, '#ef4444'], [234, 62, '#facc15']]) {
+                g.fillStyle = '#27272a'; g.beginPath(); g.arc(hx, hy, 22, 0, Math.PI * 2); g.fill();
+                g.fillStyle = c; g.beginPath(); g.arc(hx, hy + 4, 9, 0, Math.PI * 2); g.fill();
+            }
+            g.fillStyle = '#f97316'; g.fillRect(0, 148, W, 32);
+            drawBulbsRow(g, 16, 148, W - 16, 148, 12, ['#f97316', '#ef4444', '#facc15']);
         }
     };
 
