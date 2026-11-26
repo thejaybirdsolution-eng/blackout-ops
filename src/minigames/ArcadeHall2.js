@@ -147,7 +147,7 @@
         name: 'Ball Brawl', icon: '🐹', accent: '#facc15',
         tagline: '10 hamster balls. One tiny platform. Giant fists.',
         desc: 'Ten critters in hamster balls on a small round platform floating in the sky. Roll with WASD and steer with the mouse. Left click fires a giant boxing glove out of your ball (5 second cooldown). Right click dashes forward (5 second cooldown). Knock everyone off the edge and be the last ball rolling. After 45 seconds the platform starts to shrink.',
-        heroLabel: 'ARCADE HALL • PARTY BRAWL', duration: 0,
+        heroLabel: 'ARCADE HALL • PARTY BRAWL', duration: 0, customMusic: true,
         stars: [5, 3, 2, 1], starLabel: (th) => th === 1 ? 'WINNER' : th === 2 ? '2ND' : 'TOP ' + th,
         weaponNote: 'No gun: punch and dash', weaponLabel: 'BOXING GLOVE',
         standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, infiniteMag: true, forgivingMisses: true,
@@ -160,6 +160,7 @@
         },
         countdown: 3,
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('pinball');
             const D = S.data;
             Object.assign(D, { t: 0, alive: 10, kos: 0, punches: 0, place: 0, platR: PLAT_R });
             // platform
@@ -204,6 +205,22 @@
             }
             const arenaBanner = A.sign('HAMSTER BALL ARENA', 8, 1.4, { bg: '#1e1b4b', color: '#fde047', borderColor: '#facc15', size: 0.5, glow: '#facc15' });
             arenaBanner.position.set(0, 7.5, -24); S.add(arenaBanner);
+            // Chasing rainbow carnival rim bulbs (scale with arena shrink!) + banner framing + overhead light
+            const rimPts = [];
+            for (let i = 0; i < 32; i++) {
+                const a = (i / 32) * TAU;
+                rimPts.push(V(Math.cos(a) * PLAT_R, 0.16, Math.sin(a) * PLAT_R));
+            }
+            const rimBulbs = A.bulbs(rimPts, [0xfacc15, 0xf472b6, 0x22d3ee, 0x4ade80, 0xf97316], 0.18);
+            S.add(rimBulbs); A.animateBulbs(S, rimBulbs, 7, 'chase');
+            D.rimBulbs = rimBulbs;
+            const bPts = [];
+            for (let lx = -4.2; lx <= 4.2; lx += 0.84) bPts.push(V(lx, 6.75, -23.85), V(lx, 8.25, -23.85));
+            const bBulbs = A.bulbs(bPts, [0xfde047, 0xffffff], 0.11);
+            S.add(bBulbs); A.animateBulbs(S, bBulbs, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xfff1c9, 1.5, 36, 1.4); pl.position.set(0, 9, 0); S.add(pl);
+            }
             K.cloudLayer(S, 18, -30, 140, 0xffffff, 0.9);
             K.cloudLayer(S, 10, 50, 160);
             // balls in a ring
@@ -231,7 +248,10 @@
             };
             window.addEventListener('mousedown', D.onDown);
         },
-        dispose(S) { if (S.data.onDown) window.removeEventListener('mousedown', S.data.onDown); },
+        dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (S.data.onDown) window.removeEventListener('mousedown', S.data.onDown);
+        },
         _camera(S, dt) {
             const D = S.data;
             const P = BO.Player;
@@ -248,6 +268,7 @@
             P.adsHeld = false;
         },
         preUpdate(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data;
             const P = BO.Player;
             const run = state === 'running';
@@ -258,6 +279,7 @@
             D.platR = lerp(PLAT_R, 6.5, shrink);
             const sc = D.platR / PLAT_R;
             D.plat.scale.set(sc, 1, sc);
+            if (D.rimBulbs) D.rimBulbs.scale.set(sc, 1, sc);
             D.rim.scale.set(sc, sc, 1);
             if (shrink > 0 && shrink < 1 && Math.floor(D.t * 2) !== D._sh) { D._sh = Math.floor(D.t * 2); D.rim.material = basic(D._sh % 2 ? 0xef4444 : 0xffffff); }
             const balls = D.balls;

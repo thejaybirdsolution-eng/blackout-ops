@@ -60,7 +60,7 @@
         tagline: 'Every boss at 5x size. Five unique attacks each. Three heals.',
         desc: 'Step into the Colosseum and face every boss in the game, one after another, from The Butcher to Malakor, Eclipse Sovereign. Every boss is FIVE times its normal size and brings five signature attacks no other boss has; the stronger the attack, the longer it takes to come back. Your magazines never run dry, but your health does not regenerate. You get 30 seconds to rest between rounds and only THREE max heals for the whole rush. Use one in any rest period. They never come back.',
         hudSub: 'Health does not regenerate • [H] Max Heal during rest',
-        duration: 0, countdown: 3, infiniteMag: true, keepEquipment: true, forgivingMisses: true,
+        duration: 0, countdown: 3, infiniteMag: true, keepEquipment: true, forgivingMisses: true, customMusic: true,
         matchRules: { noHealthRegen: true },
         stars: [1, 2, 3, 4],
         starLabel: (th, i) => ['25% CLEARED', '50% CLEARED', 'FULL CLEAR', 'CLEAR + HEAL LEFT'][i],
@@ -73,6 +73,7 @@
         },
 
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('siege');
             const opts = S.opts;
             const variant = VARIANTS[opts.variant] ? opts.variant : 'gauntlet';
             const diff = DIFFS[opts.difficulty] ? opts.difficulty : 'veteran';
@@ -223,6 +224,19 @@
                 const t = performance.now() * 0.002;
                 orbs.forEach((o, i) => { o.position.y = 1.15 + Math.sin(t + i) * 0.08; });
             });
+            // Chasing crimson/gold Colosseum rim marquee bulbs + gate framing + spotlight
+            const colPts = [];
+            for (let i = 0; i < 36; i++) {
+                const a = (i / 36) * Math.PI * 2;
+                colPts.push(V(Math.cos(a) * (ARENA_R + 1.5), 6.35, Math.sin(a) * (ARENA_R + 1.5)));
+            }
+            for (let gx = -3.6; gx <= 3.6; gx += 0.9) colPts.push(V(gx, 8.1, -ARENA_R + 0.7), V(gx, 9.1, -ARENA_R + 0.7));
+            const colBulbs = A.bulbs(colPts, [0xfacc15, 0xf97316, 0xef4444], 0.14);
+            S.add(colBulbs); A.animateBulbs(S, colBulbs, 6, 'chase');
+            if (lights) {
+                const spot = new THREE.PointLight(0xffb070, 1.8, 65, 1.2);
+                spot.position.set(0, 18, 0); S.add(spot);
+            }
         },
 
         onGo(S) {
@@ -296,6 +310,7 @@
         update(S, dt, lib, state) {
             const D = S.data;
             const P = BO.Player;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { wardenAwake: D.phase === 'fight', wardenPhase2: !!(D.boss && D.boss.superEnraged) });
             if (!D.zombies) return;
 
             // damage taken bookkeeping
@@ -557,6 +572,7 @@
         },
 
         dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
             BO.State.timeScale = 1;
             if (S.data.runner) { S.data.runner.dispose(); S.data.runner = null; }
             for (const z of S.data.zombies || []) z.destroy();

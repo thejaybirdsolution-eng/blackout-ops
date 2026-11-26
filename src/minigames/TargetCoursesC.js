@@ -624,13 +624,14 @@
         tagline: 'Linear chase across mountains, forests, rivers & streets.',
         desc: 'Gallop straight across the frontier through five vivid regions: high Mountain Pass cliffs, deep Pine Forest, a gleaming River Bank, Frontier Town streets, and busy Wagon & Motorcar Traffic. Outlaws close in from every angle!',
         hudSub: '5 Biomes • Look behind & ahead for bandits!',
-        duration: 60, stars: [3500, 7000, 11000, 15500], standardWeapon: 'python_magnum', rail: true,
+        duration: 60, stars: [3500, 7000, 11000, 15500], standardWeapon: 'python_magnum', rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xe7b98a, fogDensity: 0.0042, sunColor: 0xffc58a, sunIntensity: 1.8, sunPos: [-80, 30, -40], hemiSky: 0xfed7aa, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
             boxes: [B(0, -1.2, -525, 520, 1, 1300, 'desert_sand')],
             spawn: { x: TRAIL_PTS[0].x, y: TRAIL_PTS[0].y, z: TRAIL_PTS[0].z, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('western');
             const R = K.rail(TRAIL_PTS, false, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
@@ -641,6 +642,11 @@
             // your horse
             const mine = F.horse({ coat: 0xe7e5e4, mane: 0x44403c, saddle: 0x7c2d12 });
             mine.root.traverse((m) => { if (m.isMesh) m.castShadow = false; });
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const hGlow = new THREE.PointLight(0xffb454, 1.5, 24, 1.4);
+                hGlow.position.set(0, 3.2, 0.5);
+                mine.root.add(hGlow);
+            }
             S.add(mine.root);
             S.data.mine = mine;
             const rnd = L.mulberry32(1849);
@@ -673,6 +679,7 @@
             riverMesh.scale.y = 0.08;
             S.add(riverMesh);
             // 4. Frontier Town Streets (60..82%) -> Saloons, bank, general store & street lanterns
+            const townLanterns = [];
             for (let i = 0; i < 24; i++) {
                 const s = R.len * (0.60 + (i / 24) * 0.22);
                 const f = railFrame(R, s);
@@ -689,6 +696,11 @@
                 b.position.copy(f.p).addScaledVector(f.side, side * 11.5);
                 b.rotation.y = f.yaw + (side > 0 ? -Math.PI / 2 : Math.PI / 2);
                 S.add(b);
+                townLanterns.push(f.p.clone().addScaledVector(f.side, side * 8.2).add(V(0, 3.1, 0)));
+            }
+            if (townLanterns.length) {
+                const tl = A.bulbs(townLanterns, [0xfbbf24, 0xf59e0b, 0xfde68a], 0.22);
+                S.add(tl); A.animateBulbs(S, tl, 4, 'chase');
             }
             // 5. Busy Road & Traffic (78..100%) -> Moving wagons & vintage motorcars
             for (let i = 0; i < 14; i++) {
@@ -777,8 +789,9 @@
                 S.at(at, (S2) => spawnRider(S2, kind, side, lat0, fuse, seed, k));
             });
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         update(S, dt, lib, state) {
-            // nothing extra; riders drive themselves
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { draw: true });
         },
         hud(S) {
             return S.data.hitsTaken ? `<div class="mgx-chip mgx-bad">TIMES SHOT: ${S.data.hitsTaken}</div>` : '';

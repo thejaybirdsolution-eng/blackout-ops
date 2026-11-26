@@ -543,6 +543,81 @@
             g.fillStyle = '#94a3b8'; g.font = '900 18px Bahnschrift, sans-serif'; g.textAlign = 'center'; g.fillText('30', 59, 98);
             drawBullseye(g, 205, 86, 30, 'gold');
             drawCrosshair(g, 205, 86, 22, '#e2e8f0');
+        },
+
+        outlaw_pursuit(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#1e3a8a'); bg.addColorStop(0.55, '#fdba74'); bg.addColorStop(1, '#7c4a1e');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Frontier trail & river curve
+            g.fillStyle = '#0284c7'; g.beginPath(); g.moveTo(0, 130); g.quadraticCurveTo(180, 108, W, 146); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+            g.fillStyle = '#a47548'; g.beginPath(); g.moveTo(76, H); g.quadraticCurveTo(148, 120, 210, 92); g.lineTo(246, 92); g.quadraticCurveTo(210, 132, 232, H); g.closePath(); g.fill();
+            // Galloping bandit horse silhouette
+            g.fillStyle = '#3f2a14'; g.beginPath(); g.ellipse(208, 92, 24, 14, -0.1, 0, Math.PI * 2); g.fill();
+            g.fillStyle = '#111827'; g.fillRect(202, 54, 16, 30);
+            g.beginPath(); g.ellipse(210, 52, 22, 5, 0, 0, Math.PI * 2); g.fill();
+            drawCrosshair(g, 210, 68, 22, '#facc15');
+        },
+
+        mansion_raid(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(0.65, '#1e293b'); bg.addColorStop(1, '#14532d');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Estate silhouette + glowing golden chandelier windows
+            g.fillStyle = '#d6cfc0'; g.fillRect(58, 56, 204, 96);
+            g.fillStyle = '#3f3f46'; g.beginPath(); g.moveTo(42, 58); g.lineTo(160, 18); g.lineTo(278, 58); g.closePath(); g.fill();
+            g.fillStyle = '#fde68a';
+            for (const wx of [84, 124, 180, 220]) { g.fillRect(wx, 72, 18, 24); g.fillRect(wx, 108, 18, 24); }
+            g.fillStyle = '#1c1917'; g.fillRect(148, 108, 24, 44);
+            // Police red/blue sirens in front
+            drawBulbsRow(g, 92, 58, 228, 58, 8, ['#ef4444', '#3b82f6']);
+            drawCrosshair(g, 160, 96, 28, '#93c5fd');
+        },
+
+        sweetheart_shore(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0ea5e9'); bg.addColorStop(0.6, '#38bdf8'); bg.addColorStop(0.62, '#06b6d4'); bg.addColorStop(1, '#fde68a');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.fillStyle = '#fef08a'; g.beginPath(); g.arc(260, 44, 24, 0, Math.PI * 2); g.fill();
+            // Floating pink heart target
+            g.fillStyle = '#f472b6';
+            g.beginPath();
+            g.moveTo(160, 126);
+            g.bezierCurveTo(106, 94, 106, 46, 160, 74);
+            g.bezierCurveTo(214, 46, 214, 94, 160, 126);
+            g.fill();
+            g.strokeStyle = '#ffffff'; g.lineWidth = 3; g.stroke();
+        },
+
+        ball_brawl(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, 0, H);
+            bg.addColorStop(0, '#0ea5e9'); bg.addColorStop(0.7, '#bae6fd'); bg.addColorStop(1, '#fef3c7');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            // Floating checkered disc
+            g.fillStyle = '#fb923c'; g.beginPath(); g.ellipse(160, 124, 120, 38, 0, 0, Math.PI * 2); g.fill();
+            g.strokeStyle = '#fde047'; g.lineWidth = 4; g.stroke();
+            drawBulbsRow(g, 56, 124, 264, 124, 10, ['#facc15', '#f472b6', '#22d3ee', '#4ade80']);
+            // Twin hamster balls + boxing glove punch
+            for (const [bx, by, c] of [[106, 98, '#facc15'], [216, 98, '#ec4899']]) {
+                g.fillStyle = c; g.beginPath(); g.arc(bx, by, 20, 0, Math.PI * 2); g.fill();
+                g.fillStyle = 'rgba(224,242,254,0.4)'; g.beginPath(); g.arc(bx, by, 32, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = c; g.lineWidth = 3; g.stroke();
+            }
+            g.fillStyle = '#dc2626'; g.beginPath(); g.arc(162, 96, 16, 0, Math.PI * 2); g.fill();
+        },
+
+        aim_lab(g, W, H) {
+            const bg = g.createLinearGradient(0, 0, W, H);
+            bg.addColorStop(0, '#020617'); bg.addColorStop(1, '#0f172a');
+            g.fillStyle = bg; g.fillRect(0, 0, W, H);
+            g.strokeStyle = 'rgba(56,189,248,0.22)'; g.lineWidth = 1;
+            for (let x = 20; x < W; x += 28) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+            for (let y = 20; y < H; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+            for (const [tx, ty, tr, tc] of [[88, 72, 16, '#38bdf8'], [166, 94, 22, '#facc15'], [240, 62, 14, '#22d3ee']]) {
+                g.fillStyle = tc; g.beginPath(); g.arc(tx, ty, tr, 0, Math.PI * 2); g.fill();
+                g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.stroke();
+            }
+            drawCrosshair(g, 166, 94, 30, '#38bdf8');
         }
     };
 

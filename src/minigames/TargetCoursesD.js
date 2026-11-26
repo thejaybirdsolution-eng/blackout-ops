@@ -406,7 +406,7 @@
         desc: 'A crew has taken over a nine-room mansion, and every run is one of 15 different situations (a jewel heist, a dinner-party siege, a panic room, a wedding and more), so robbers and hostages are never where you expect. Walk in through the front door and clear it room by room: foyer, living room, dining room, library, grand hall, kitchen, study, gallery and the master bedroom. Criminals react when you enter, some hide behind furniture, and some hold a hostage as a shield. Do not shoot hostages. They shoot back, and you have 100 health.',
         hudSub: 'Clear every room • criminals = masks • hostages = hands up',
         heroLabel: 'TARGET PRACTICE • FREE ROAM • 3 MINUTES',
-        duration: 180, stars: [3000, 5500, 8000, 10500], standardWeapon: 'mp5', forgivingMisses: true,
+        duration: 180, stars: [3000, 5500, 8000, 10500], standardWeapon: 'mp5', forgivingMisses: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x020617, skyBottom: 0x1e293b, fogColor: 0x111827, fogDensity: 0.012, sunColor: 0xc7d2fe, sunIntensity: 0.25, sunPos: [20, 60, 30], hemiSky: 0xfff1d6, hemiGround: 0x3b2f2a, hemiIntensity: 1.05, moon: true },
             boxes: [B(0, -0.5, -18, 90, 1, 90, 'concrete')],
@@ -414,6 +414,7 @@
         },
         keys: [['WASD', 'Move room to room'], ['LMB', 'Shoot'], ['R', 'Retry from results']],
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('contracts');
             Object.assign(S.data, { hp: 100, timesHit: 0, crimsLeft: 0, crimsTotal: 0, hostagesTotal: 0, hostagesHit: 0, saved: 0, roomsCleared: 0 });
             K.groundPlane(S, 90, 0x1f3d1f, 0.002);
             const wm = new THREE.MeshStandardMaterial({ map: wallpaper(), roughness: 0.85 });
@@ -457,6 +458,10 @@
             const sign = A.sign('POLICE — HOSTAGE SITUATION', 4.2, 0.5, { bg: '#1e3a8a', color: '#f8fafc', borderColor: '#93c5fd', size: 0.45 });
             sign.position.set(0, 3.5, 1.21);
             S.add(sign);
+            const pPts = [];
+            for (let lx = -4; lx <= 4; lx += 0.8) pPts.push(V(lx, 4.02, 1.22));
+            const pBulbs = A.bulbs(pPts, [0xef4444, 0x3b82f6, 0xf8fafc], 0.07);
+            S.add(pBulbs); A.animateBulbs(S, pBulbs, 6, 'chase');
             // cop car with flashing lights outside
             const car = new THREE.Group();
             const cb = new THREE.Mesh(new THREE.BoxGeometry(2, 1, 4.4), std(0x111827, 0.4, 0.3));
@@ -471,11 +476,14 @@
             car.position.set(-7, 0, 7);
             car.rotation.y = 0.4;
             S.add(car);
+            const cLight = BO.Settings.getQualityPreset().pointLights ? new THREE.PointLight(0xef4444, 1.6, 20, 1.4) : null;
+            if (cLight) { cLight.position.set(-7, 2.5, 7); S.add(cLight); }
             S.collider(-8.6, 0, 4.6, -5.4, 2, 9.4);
             S.animate(() => {
                 const on = Math.floor(performance.now() / 260) % 2;
                 red.material = basic(on ? 0xef4444 : 0x450a0a);
                 blue.material = basic(on ? 0x1e3a8a : 0x60a5fa);
+                if (cLight) cLight.color.setHex(on ? 0xef4444 : 0x3b82f6);
             });
             for (let i = 0; i < 10; i++) {
                 const hedge = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 1), std(0x14532d, 0.9));
@@ -520,7 +528,9 @@
             const sit = S.data.situation;
             BO.Events.emit('hud:banner', { title: sit.name.toUpperCase(), sub: sit.brief, color: '#93c5fd' });
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         update(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { urgent: S.data.crimsLeft > 0 && S.data.rooms.some((r) => r.entered && r.crimsLeft > 0) });
             if (state !== 'running') return;
             const p = BO.Player.pos;
             for (const room of S.data.rooms) {
