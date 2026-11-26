@@ -118,7 +118,7 @@
             return `
                 <button class="mgh-card ${active ? 'active' : ''}" data-id="${def.id}" style="--mc:${def.accent}">
                     <div class="mgh-card-art">
-                        ${(def.cardImage || (BO.MinigameThumbs && BO.MinigameThumbs.get(def))) ? `<img class="mgh-card-scene" src="${esc(def.cardImage || BO.MinigameThumbs.get(def))}" alt="" loading="lazy" decoding="async">` : `<span class="mgh-card-ico">${def.icon}</span>`}
+                        ${((BO.MinigameThumbs && BO.MinigameThumbs.artUrl(def)) || def.cardImage) ? `<img class="mgh-card-scene" src="${esc(BO.MinigameThumbs ? BO.MinigameThumbs.artUrl(def) : def.cardImage)}" alt="" loading="lazy" decoding="async">` : `<span class="mgh-card-ico">${def.icon}</span>`}
                         ${num ? `<span class="mgh-card-num">${num}</span>` : ''}
                         ${tag}
                     </div>
@@ -218,7 +218,7 @@
                 ? `<div class="mgh-best"><small>PERSONAL BEST</small><b>${esc(def.formatBest ? def.formatBest(best) : Number(best.score).toLocaleString())}</b>${starsRow(best.stars || 0, 4, 'big')}</div>`
                 : `<div class="mgh-best mgh-best-none"><small>PERSONAL BEST</small><b>Not played yet</b></div>`;
             const gd = this._guideData(def);
-            const heroImg = def.cardImage || (BO.MinigameThumbs ? BO.MinigameThumbs.get(def) : '');
+            const heroImg = BO.MinigameThumbs ? BO.MinigameThumbs.artUrl(def) : def.cardImage;
             return `
                 ${heroImg ? `<div class="mgh-d-banner"><img src="${esc(heroImg)}" alt="" decoding="async"><span class="mgh-d-cat">${def.heroLabel ? esc(def.heroLabel) : esc((def.cat || '').toUpperCase())}</span></div>` : ''}
                 <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'fun' ? 'FUN & SPECIALS' : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : def.cat === 'speed' ? 'SPEED RUN • TIMED' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
