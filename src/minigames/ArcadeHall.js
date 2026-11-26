@@ -366,6 +366,10 @@
         const tok = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.9, 0.8), std(0xfacc15, 0.35, 0.6)); tok.position.set(-4.6, 0.95, -5.0);
         const tokSg = A.sign('TOKENS', 0.9, 0.35, { bg: '#111827', color: '#fde047', borderColor: '#eab308', size: 0.55 }); tokSg.position.set(-4.6, 1.5, -4.58);
         S.add(tok, tokSg);
+        const aPts = [];
+        for (let lx = -10; lx <= 10; lx += 1.25) aPts.push(V(lx, 4.6, -11.5));
+        const ab = A.bulbs(aPts, neon, 0.08);
+        S.add(ab); A.animateBulbs(S, ab, 6, 'chase');
         if (BO.Settings.getQualityPreset().pointLights) {
             const pl = new THREE.PointLight(0xc4b5fd, 1.2, 14, 1.6);
             pl.position.set(0, 4, -2);
@@ -486,7 +490,7 @@
         MG.register({
             id: cfg.id, cat: 'arcade', order: cfg.order,
             name: cfg.name, icon: cfg.icon, accent: cfg.accent, tagline: cfg.tagline, desc: cfg.desc,
-            heroLabel: 'ARCADE HALL • CABINET • 60 SECONDS', duration: 60, stars: cfg.stars,
+            heroLabel: 'ARCADE HALL • CABINET • 60 SECONDS', duration: 60, stars: cfg.stars, customMusic: true,
             standardWeapon: 'm1911', lockWeapon: true, weaponLabel: 'LIGHT GUN', weaponNote: 'Bottomless light gun • aim at the screen', infiniteMag: true, tracerColor: 0x111111,
             keys: [['LMB', 'Shoot the screen'], ['R', 'Retry from results']],
             map: {
@@ -496,6 +500,7 @@
             },
             countdown: 3,
             build(S) {
+                if (BO.MinigameAudio) BO.MinigameAudio.start(cfg.id === 'cab_night_terrors' ? 'siege' : 'pinball');
                 arcadeRoom(S, cfg.accentHex || cfg.accent);
                 S.data.cab = buildCabinet(S, cfg);
                 S.data.game = newGame(S, S.data.cab);
@@ -521,6 +526,7 @@
             },
             extraTargets(S, pool) { if (S.data.cab) pool.push(S.data.cab.screen); },
             update(S, dt, lib, state) {
+                if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
                 const game = S.data.game;
                 if (!game) return;
                 const run = state === 'running';
@@ -675,7 +681,10 @@
                 if (T.die) T.die(best, game); else { SFX.tone(880, 220, 0.18, 'square', 0.1); SFX.noise(0.1, 1200, 'bandpass', 1, 0.2); }
                 return true;
             },
-            dispose(S) { /* canvas texture is mgOwned and released with the scene */ }
+            dispose(S) {
+                if (BO.MinigameAudio) BO.MinigameAudio.stop();
+                /* canvas texture is mgOwned and released with the scene */
+            }
         });
     }
 

@@ -15,7 +15,7 @@
     const AK = BO.MGArcadeKit;
     const { SFX, std, basic, clamp01, TAU } = L;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
-    const ARC = { cat: 'arcade', infiniteMag: true, forgivingMisses: true, lockWeapon: true, oneTargetPerShot: true };
+    const ARC = { cat: 'arcade', infiniteMag: true, forgivingMisses: true, lockWeapon: true, oneTargetPerShot: true, customMusic: true, dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); } };
     const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
     /* =====================================================================
@@ -31,7 +31,7 @@
         keys: [['LMB', 'Shoot meteors'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x020617, skyBottom: 0x7c2d12, fogColor: 0x431407, fogDensity: 0.004, sunColor: 0xfdba74, sunIntensity: 0.7 }),
         build(S) {
-            AK.hall(S, { title: 'STARFALL SHIELD', accent: '#f97316', ground: 0x292524 });
+            AK.hall(S, { title: 'STARFALL SHIELD', accent: '#f97316', ground: 0x292524, music: 'tactical' });
             const city = [];
             for (let i = 0; i < 14; i++) {
                 const h = 4 + (i * 37 % 9);
@@ -256,7 +256,7 @@
         keys: [['LMB', 'Snipe Leaping Fish / Ring Chum Bell'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x0369a1, skyBottom: 0xbae6fd, fogColor: 0x7dd3fc, fogDensity: 0.005, sunIntensity: 1.65 }),
         build(S) {
-            AK.hall(S, { title: 'FISHING HOLE • ALPINE LAGOON', accent: '#0ea5e9', ground: 0x365314 });
+            AK.hall(S, { title: 'FISHING HOLE • ALPINE LAGOON', accent: '#0ea5e9', ground: 0x365314, music: 'range' });
 
             // Shimmering Procedural Lagoon Water + Cobblestone Bank + Cattail Reeds + Lotus Flowers
             const waterTex = L.canvasTex('lagoon-water-v2', 256, 256, (g, w, h) => {
@@ -566,7 +566,7 @@
         keys: [['LMB', 'Paint / stun drones'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x1e3a8a, skyBottom: 0xfae8ff, fogColor: 0xf5d0fe, fogDensity: 0.004, sunIntensity: 1.5 }),
         build(S) {
-            AK.hall(S, { title: 'PAINT WARS', accent: '#38bdf8', ground: 0x334155 });
+            AK.hall(S, { title: 'PAINT WARS', accent: '#38bdf8', ground: 0x334155, music: 'pinball' });
             const cv = document.createElement('canvas');
             cv.width = PW.cols * 16; cv.height = PW.rows * 16;
             const g = cv.getContext('2d');
@@ -670,7 +670,7 @@
         keys: [['LMB', 'Set the number (shoot the dial)'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x0c0a09, skyBottom: 0x292524, fogColor: 0x1c1917, fogDensity: 0.02, sunIntensity: 0.6 }),
         build(S) {
-            AK.hall(S, { title: 'SAFE CRACKER', accent: '#a3a3a3', ground: 0x1c1917 });
+            AK.hall(S, { title: 'SAFE CRACKER', accent: '#a3a3a3', ground: 0x1c1917, music: 'contracts' });
             const safe = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 2), std(0x3f3f46, 0.35, 0.8));
             safe.position.set(0, 2.5, -8);
             S.add(safe); S.solid(safe);

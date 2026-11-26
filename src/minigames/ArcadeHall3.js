@@ -64,6 +64,15 @@
                     }
                 }
             }
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start(o.music || 'pinball');
+                S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xffd7a8, 1.4, 24, 1.5);
+                pl.position.set(0, 4.6, -2.5);
+                S.add(pl);
+            }
         },
         map(atm, groundMat) {
             return {
@@ -91,7 +100,7 @@
         chip: (label, val, bad) => `<div class="mgx-chip ${bad ? 'mgx-bad' : ''}">${esc(label)} <b>${val}</b></div>`,
         lives: (n, max) => `<div class="mgx-chip">LIVES <b>${'♥'.repeat(Math.max(0, n))}${'♡'.repeat(Math.max(0, max - n))}</b></div>`
     };
-    const ARC = { cat: 'arcade', infiniteMag: true, forgivingMisses: true, lockWeapon: true, oneTargetPerShot: true };
+    const ARC = { cat: 'arcade', infiniteMag: true, forgivingMisses: true, lockWeapon: true, oneTargetPerShot: true, customMusic: true, dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); } };
 
     /* =====================================================================
        7. BOTTLE JUGGLER — Corkscrew Air-Cannon Bar + Etched Vintage Bottles
@@ -337,7 +346,7 @@
         keys: [['LMB', 'Shoot Live Colour / Wild Prism'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x090418, skyBottom: 0x3b0764, fogColor: 0x1e1b4b, fogDensity: 0.008 }),
         build(S) {
-            AK.hall(S, { title: 'COLOR LOCK • PRISM REACTOR', accent: '#f43f5e' });
+            AK.hall(S, { title: 'COLOR LOCK • PRISM REACTOR', accent: '#f43f5e', music: 'range' });
 
             const steel = std(0x1e293b, 0.45, 0.75), chrome = std(0xcbd5e1, 0.22, 0.88);
             const boardBack = new THREE.Mesh(new THREE.BoxGeometry(17.4, 7.6, 0.55), steel);
@@ -579,7 +588,7 @@
         keys: [['LMB', 'Pop the next number'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x1d4ed8, skyBottom: 0xfef3c7, fogColor: 0xfde68a, fogDensity: 0.005, sunIntensity: 1.6 }),
         build(S) {
-            AK.hall(S, { title: 'NUMBER CRUNCH', accent: '#eab308', ground: 0x3f6212 });
+            AK.hall(S, { title: 'NUMBER CRUNCH', accent: '#eab308', ground: 0x3f6212, music: 'range' });
             // Wicker Helium Launch Baskets + Sandbags + Giant Overhead NEXT NUMBER Digital Display!
             const wicker = std(0x92400e, 0.88), trim = std(0x451a03, 0.9), brass = std(0xfacc15, 0.28, 0.85);
             for (const bx of [-5.2, -1.7, 1.7, 5.2]) {
@@ -691,7 +700,7 @@
         keys: [['LMB', 'Repeat the sequence'], ['R', 'Retry from results']],
         map: AK.map({ skyTop: 0x020617, skyBottom: 0x1e1b4b }),
         build(S) {
-            AK.hall(S, { title: 'ECHO PANELS', accent: '#8b5cf6' });
+            AK.hall(S, { title: 'ECHO PANELS', accent: '#8b5cf6', music: 'contracts' });
             const chassisMat = std(0x0f172a, 0.45, 0.72), chrome = std(0x94a3b8, 0.25, 0.88);
             const frame = new THREE.Mesh(new THREE.BoxGeometry(6.9, 6.9, 0.42), chassisMat);
             frame.position.set(0, 3.4, -9.35);
@@ -843,7 +852,7 @@
         },
         map: AK.map({ skyTop: 0x431407, skyBottom: 0xfdba74, fogColor: 0x9a3412, fogDensity: 0.0065, sunIntensity: 1.45 }, 'desert_sand'),
         build(S) {
-            AK.hall(S, { title: 'SWITCHYARD', accent: '#d97706', ground: 0x78350f });
+            AK.hall(S, { title: 'SWITCHYARD', accent: '#d97706', ground: 0x78350f, music: 'western' });
             const tie = std(0x5b3a1e, 0.9), steel = std(0x9ca3af, 0.3, 0.8), rockM = std(0x92400e, 0.9), woodM = std(0x451a03, 0.88);
             // Red-rock canyon walls framing the mining yard + timbered tunnel portals at z = -42!
             for (const s of [-1, 1]) {
@@ -962,6 +971,9 @@
             const D = S.data, stars = this.stars.filter((th) => S.score >= th).length;
             return { score: S.score, stars, title: D.strikes >= 3 ? 'YARD CLOSED' : stars >= 3 ? 'YARD MASTER' : 'SHIFT OVER', stats: [['CARTS BANKED', D.banked], ['TNT IN THE PIT', D.pitted], ['GOLD LOST', D.lost], ['BANK BLASTS', D.strikes], ['BEST STREAK', S.maxCombo]], xp: Math.round(120 + S.score * 0.04 + stars * 120) };
         },
-        dispose(S) { for (const c of S.data.carts || []) S.scene.remove(c.mesh); }
+        dispose(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            for (const c of S.data.carts || []) S.scene.remove(c.mesh);
+        }
     }));
 })(window);

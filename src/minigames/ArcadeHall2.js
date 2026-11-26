@@ -657,7 +657,7 @@
         name: 'Aim Diagnostics', icon: '🧪', accent: '#22d3ee',
         tagline: 'Test, diagnose, then drill your weakest stat',
         desc: 'A 60-second battery in a white test chamber: 20 seconds of flicks, 20 seconds tracking a strafing target and 20 seconds of micro targets. Afterwards you get a heatmap of where your shots landed relative to target centres, plus a written diagnosis: overshooting left or right, slow vertical flicks, trailing strafing targets. Then build a custom drill aimed at your weakest stat.',
-        heroLabel: 'ARCADE HALL • TRAINING • 60 SECONDS', duration: 60,
+        heroLabel: 'ARCADE HALL • TRAINING • 60 SECONDS', duration: 60, customMusic: true,
         stars: [2500, 5000, 7500, 10000],
         standardWeapon: 'five_seven', lockWeapon: true, weaponLabel: 'FIVE-SEVEN (TEST PISTOL)', weaponNote: 'Bottomless magazine', infiniteMag: true, forgivingMisses: true,
         keys: [['LMB', 'Shoot'], ['HOLD AIM', 'Track the yellow target'], ['R', 'Retry']],
@@ -667,6 +667,7 @@
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('range');
             const drill = S.opts.drill && DRILLS[S.opts.drill] ? S.opts.drill : null;
             Object.assign(S.data, { drill, flicks: [], shots: [], timeouts: 0, flickN: 0, trackOn: 0, trackTotal: 0, trackLag: 0, trackLagN: 0, flipOn: 0, flipTotal: 0, lastFlip: -9 });
             if (drill) { S.duration = 45; MG.opts.variantLabel = 'DRILL • ' + DRILLS[drill].label.toUpperCase(); }
@@ -701,8 +702,16 @@
             const title = A.sign(drill ? 'DRILL: ' + DRILLS[drill].label.toUpperCase() : 'AIM DIAGNOSTICS', 6, 0.8, { bg: '#0f172a', color: '#67e8f9', borderColor: '#22d3ee', size: 0.5 });
             title.position.set(0, 7.6, -25.9);
             S.add(title);
+            const aPts = [];
+            for (let lx = -3.2; lx <= 3.2; lx += 0.8) aPts.push(V(lx, 7.1, -25.8), V(lx, 8.1, -25.8));
+            const ab = A.bulbs(aPts, [0x22d3ee, 0xf8fafc], 0.08);
+            S.add(ab); A.animateBulbs(S, ab, 6, 'chase');
+            if (BO.Settings.getQualityPreset().pointLights) {
+                const pl = new THREE.PointLight(0xe0f2fe, 1.3, 30, 1.4); pl.position.set(0, 7.2, -12); S.add(pl);
+            }
             S.data.phaseLbl = null;
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
         onGo(S) {
             const D = S.data;
             if (D.drill && DRILLS[D.drill].phase === 'track') aimStartTrack(S);
@@ -742,6 +751,7 @@
             return true;
         },
         update(S, dt, lib, state) {
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data;
             if (state !== 'running') return;
             const ph = aimPhase(S);
