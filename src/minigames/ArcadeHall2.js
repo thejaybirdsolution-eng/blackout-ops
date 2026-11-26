@@ -899,21 +899,28 @@
 
     function cleanCiv(rng, extra) {
         const o = F.randomCivilian(rng);
-        o.hat = null;                 // traits come only from the contract sheet
+        // Strip every contract-identifiable trait so no civilian or decoy can accidentally clone the mark!
+        o.hat = null;
         o.glasses = false;
-        if (o.shirt === 0xdc2626) o.shirt = 0x334155;
+        o.coat = null;
+        o.tie = null;
+        o.briefcase = false;
+        o.phone = false;
+        o.hair = o.hair || 0x3b2416;
+        if (o.shirt === 0xdc2626 || o.shirt === 0xb91c1c) o.shirt = 0x334155;
         return Object.assign(o, extra || {});
     }
 
-    function spawnWalker(S, role, look, rng) {
+    function spawnWalker(S, role, look, rng, guardIdx = 0) {
         const D = S.data;
         const o = Object.assign({}, look);
         const watch = o.watch; delete o.watch;
         if (role === 'guard') Object.assign(o, { shirt: 0xf8fafc, coat: 0x0a0a0a, pants: 0x0a0a0a, tie: 0x0a0a0a, glasses: 'shades', hair: 0x111111 });
         const fig = F.human(o);
         if (o.phone) F.pose(fig, 'phone');
-        const pos = role === 'guard' && D.targetsLeft.length ? D.targetsLeft[0].root.position.clone().add(V((rng() - 0.5) * 3, 0, (rng() - 0.5) * 3)) : plazaPoint(rng);
-        const st = { goal: plazaPoint(rng), speed: 1.0 + rng() * 0.6, wait: rng() * 2, ph: rng() * 6, watchT: 2 + rng() * 4, watching: 0 };
+        const gSide = (guardIdx % 2 === 0) ? -1.75 : 1.75;
+        const pos = role === 'guard' && D.targetsLeft.length ? D.targetsLeft[0].root.position.clone().add(V(gSide, 0, 1.1)) : plazaPoint(rng);
+        const st = { goal: plazaPoint(rng), speed: 1.0 + rng() * 0.6, wait: rng() * 2, ph: rng() * 6, watchT: 2 + rng() * 4, watching: 0, warnedEscape: false };
         const contract = CONTRACTS[D.mission];
         const tg = S.addTarget({
             mesh: fig.root, hitMeshes: fig.hit, pos, yaw: rng() * TAU, points: 0, life: 0, appear: 'none', inT: 0.01, death: 'knock', deathColor: 0x7f1d1d,
@@ -922,12 +929,19 @@
                 const panic = D.panic > 0;
                 if (st.wait > 0 && !panic) { st.wait -= dt; F.walk(fig, st.ph, 0.05); return; }
                 let goal = st.goal;
-                if (role === 'target' && contract.escape && D.phase === 'live' && S.t - D.liveAt > 8) goal = CAR;
-                if (role === 'guard' && D.targetsLeft.length && D.targetsLeft[0].alive) goal = D.targetsLeft[0].root.position.clone().add(V(st.ph % 2 ? 1.6 : -1.6, 0, 1.2));
+                if (role === 'target' && contract.escape && D.phase === 'live' && S.t - D.liveAt > 8) {
+                    goal = CAR;
+                    if (!st.warnedEscape) {
+                        st.warnedEscape = true;
+                        MG.toast('⚠ TARGET MOVING TO THE BLACK GETAWAY CAR (RIGHT SIDE)!', '#fca5a5');
+                        SFX.tone(720, 520, 0.22, 'sawtooth', 0.08);
+                    }
+                }
+                if (role === 'guard' && D.targetsLeft.length && D.targetsLeft[0].alive) goal = D.targetsLeft[0].root.position.clone().add(V(gSide, 0, 1.2));
                 const p = t.root.position;
                 const dx = goal.x - p.x, dz = goal.z - p.z;
                 const d = Math.hypot(dx, dz);
-                let sp = st.speed * (panic ? 2.6 : 1) * (role === 'guard' && d > 3 ? 1.3 : 1);
+                let sp = st.speed * (panic ? 2.4 : 1) * (role === 'guard' && d > 3 ? 1.35 : 1);
                 // The fleeing mark paces himself to reach the car ~6 s before the contract clock runs out,
                 // so the escape is a real threat rather than something the timer always beats.
                 if (goal === CAR && D.phase === 'live') sp = Math.max(sp, d / Math.max(2, contract.time - 6 - (S.t - D.liveAt)));
@@ -955,6 +969,11 @@
                 t.root.rotation.y += wrapA(Math.atan2(dx, dz) - t.root.rotation.y) * Math.min(1, dt * 6);
                 st.ph += dt * sp * 4.2;
                 F.walk(fig, st.ph, 1, panic);
+                if (panic && role === 'civ' && D.panic > 2.8) {
+                    F.pose(fig, 'handsUp');
+                } else if (!panic && role === 'civ' && fig.armsBusy && !o.phone && !watch) {
+                    F.pose(fig, 'idle');
+                }
                 if (watch) {
                     st.watchT -= dt;
                     if (st.watchT <= 0 && st.watching <= 0) { st.watching = 1.3; }
@@ -980,17 +999,18 @@
         const c = CONTRACTS[D.mission];
         const rng = L.mulberry32(5150 + D.mission * 71);
         const nT = c.targets || 1;
-        for (let i = 0; i < nT; i++) D.targetsLeft.push(spawnWalker(S, 'target', cleanCiv(rng, c.target), rng));
-        for (let i = 0; i < (c.guards || 0); i++) spawnWalker(S, 'guard', {}, rng);
+        for (let i = 0; i < nT; i++) D.targetsLeft.push(spawnWalker(S, 'target', cleanCiv(rng, c.target), rng, i));
+        for (let i = 0; i < (c.guards || 0); i++) spawnWalker(S, 'guard', {}, rng, i);
         const decoys = c.decoys || [];
         for (let i = 0; i < c.crowd; i++) {
-            let look = cleanCiv(rng, i < decoys.length * 2 ? decoys[i % decoys.length] : null);
-            if (c.name === 'The Red Coat' && look.coat === 0xb91c1c) look.coat = null;
-            spawnWalker(S, 'civ', look, rng);
+            const look = cleanCiv(rng, i < decoys.length * 2 ? decoys[i % decoys.length] : null);
+            spawnWalker(S, 'civ', look, rng, i);
         }
+        if (D.carSign) D.carSign.visible = !!c.escape;
         D.phase = 'brief';
         D.briefT = 5.5;
         D.panic = 0;
+        D.intelCd = 0;
         D.missionShots = S.shots;
         D.missionHead = false;
         SFX.tone(440, 440, 0.2, 'sine', 0.08);
@@ -1040,7 +1060,7 @@
         desc: 'Six assassination contracts from a rooftop over a busy plaza. Each opens with a dossier: what the mark wears, carries or does. Scan the crowd through the scope and take out the right person. Decoys share some of the traits. Later contracts add bodyguards, two marks at once, and a target who will escape if he reaches his car. Hit a civilian or run out of time and the run ends.',
         heroLabel: 'ARCADE HALL • 6 MISSIONS', duration: 0,
         stars: [2, 3, 5, 6], starLabel: (th) => typeof th === 'string' ? th : th + ' / 6 CONTRACTS',
-        standardWeapon: 'intervention', lockWeapon: true, weaponLabel: 'INTERVENTION .408', weaponNote: 'Bolt-action with scope', forgivingMisses: true,
+        standardWeapon: 'intervention', lockWeapon: true, weaponLabel: 'INTERVENTION .408', weaponNote: 'Bolt-action with scope • [A/D] Strafe Rooftop • [Q] Spotter Intel • [SPACE] Skip Brief', forgivingMisses: true, customMusic: true,
         oneTargetPerShot: true,
         hubOptions: [{
             key: 'contract', label: 'CONTRACT', default: 'all',
@@ -1051,23 +1071,24 @@
         variantLabel: (o) => (o.contract && o.contract !== 'all' ? 'CONTRACT ' + o.contract.slice(1) : 'FULL RUN'),
         starsFor: (o) => (o.contract && o.contract !== 'all' ? ['COMPLETE', 'SILENT', 'HEADSHOT', 'HALF TIME LEFT'] : [2, 3, 5, 6]),
         formatBest: (b) => (b.extra && b.extra.single ? (b.extra.done ? 'Complete • ' : 'Failed • ') : b.extra ? b.extra.done + '/6 contracts • ' : '') + Number(b.score).toLocaleString(),
-        keys: [['RMB', 'Scope'], ['LMB', 'Fire'], ['SHIFT', 'Hold breath']],
+        keys: [['RMB', 'Scope'], ['LMB', 'Fire'], ['A / D', 'Strafe Rooftop Ledge'], ['Q', 'Spotter Intel Ping (10s)'], ['SPACE', 'Skip Briefing']],
         map: {
-            atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfbcfe8, fogColor: 0xd8c8d8, fogDensity: 0.006, sunColor: 0xffe2c0, sunIntensity: 1.7, sunPos: [-40, 40, -30], hemiSky: 0xfde68a, hemiGround: 0x57534e, hemiIntensity: 0.85 },
+            atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfbcfe8, fogColor: 0xd8c8d8, fogDensity: 0.0052, sunColor: 0xffe2c0, sunIntensity: 1.75, sunPos: [-40, 40, -30], hemiSky: 0xfde68a, hemiGround: 0x57534e, hemiIntensity: 0.9 },
             boxes: [B(0, -0.5, -30, 160, 1, 160, 'concrete')],
             spawn: { x: 0, y: 12, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio) BO.MinigameAudio.start('contracts');
             const D = S.data;
             const pick = /^c([1-6])$/.exec(S.opts.contract || '');
-            Object.assign(D, { mission: pick ? +pick[1] - 1 : 0, single: pick ? +pick[1] - 1 : -1, walkers: [], targetsLeft: [], completed: 0, log: [], phase: 'brief', panic: 0 });
+            Object.assign(D, { mission: pick ? +pick[1] - 1 : 0, single: pick ? +pick[1] - 1 : -1, walkers: [], targetsLeft: [], completed: 0, log: [], phase: 'brief', panic: 0, roofX: 0, intelCd: 0 });
             lockPlayer(0, 12, 0.3, 1.6);
             BO.Player.pitch = -0.32;
-            // rooftop
-            S.box(0, 6, 4, 14, 12, 8, std(0x78716c, 0.9), { solid: true });
-            S.box(0, 12.5, -0.15, 14, 1, 0.3, std(0x57534e, 0.9), { solid: false, collide: false });
+            // rooftop (lowered parapet so downward sniper shots are never obstructed!)
+            S.box(0, 6, 4, 15, 12, 8, std(0x78716c, 0.9), { solid: true });
+            S.box(0, 12.32, -0.15, 15, 0.64, 0.3, std(0x57534e, 0.9), { solid: false, collide: false });
             const ac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.2), std(0x9ca3af, 0.5, 0.6));
-            ac.position.set(-4, 12.6, 3);
+            ac.position.set(-5.5, 12.6, 3);
             S.add(ac);
             // plaza
             const stone = L.canvasTex('plaza-stone', 256, 256, (g, w, h) => {
@@ -1093,9 +1114,16 @@
             const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2.6, 12), std(0xa8a29e, 0.7));
             spire.position.set(0, 1.9, PLAZA.fz);
             S.add(spire); S.solid(spire);
-            // trees, benches, lamps, market stalls, cafe umbrellas
+            // Warm European Market String Lights crisscrossing the plaza!
+            const strPts = [
+                ...A.sagPoints(V(-24, 6.2, -26), V(24, 6.2, -26), 14, 1.1),
+                ...A.sagPoints(V(-24, 6.2, -56), V(24, 6.2, -56), 14, 1.1)
+            ];
+            const plazaBulbs = A.bulbs(strPts, [0xfef08a, 0xfdba74, 0xffffff], 0.14);
+            S.add(plazaBulbs); A.animateBulbs(S, plazaBulbs, 4, 'chase');
+            // trees (kept clear of the right-side getaway car sightline!), benches, lamps, market stalls
             const rnd = L.mulberry32(77);
-            for (const [x, z] of [[-24, -26], [24, -26], [-24, -58], [-24, -42], [26, -40], [-10, -60], [10, -60]]) { const t = A.tree(1.6 + rnd() * 0.5); t.position.set(x, 0, z); S.add(t); }
+            for (const [x, z] of [[-24, -26], [-24, -58], [-24, -42], [-10, -60], [10, -60]]) { const t = A.tree(1.6 + rnd() * 0.5); t.position.set(x, 0, z); S.add(t); }
             for (let i = 0; i < 8; i++) {
                 const a = i / 8 * TAU;
                 const bench = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 0.5), std(0x7c4a1e, 0.8));
@@ -1104,7 +1132,9 @@
                 S.add(bench);
                 const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 4, 6), std(0x18181b, 0.4, 0.7));
                 lamp.position.set(Math.cos(a + 0.4) * 11, 2, PLAZA.fz + Math.sin(a + 0.4) * 11);
-                S.add(lamp);
+                const globe = new THREE.Mesh(new THREE.SphereGeometry(0.20, 8, 6), basic(0xfef08a));
+                globe.position.set(Math.cos(a + 0.4) * 11, 4.1, PLAZA.fz + Math.sin(a + 0.4) * 11);
+                S.add(lamp, globe);
             }
             const stallCols = ['#dc2626', '#2563eb', '#16a34a', '#f59e0b', '#9333ea'];
             for (let i = 0; i < 5; i++) {
@@ -1134,28 +1164,67 @@
                 b.position.set(-24 + i * 12, (12 + i * 2) / 2, -72);
                 S.add(b);
             }
-            // the getaway car
+            // the getaway car (with glowing brake lights + visible sign on Contract 6!)
             const car = new THREE.Group();
             const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.9, 4.6), std(0x0a0a0a, 0.2, 0.6));
             body.position.y = 0.7;
             const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 2.4), std(0x1e293b, 0.1, 0.5));
             cab.position.set(0, 1.45, -0.2);
             car.add(body, cab);
+            for (const sx of [-0.7, 0.7]) {
+                const tl = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.08), basic(0xef4444));
+                tl.position.set(sx, 0.85, 2.32); car.add(tl);
+            }
             for (const [x, z] of [[-1, 1.5], [1, 1.5], [-1, -1.5], [1, -1.5]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 12), std(0x111111, 0.8)); w.rotation.z = Math.PI / 2; w.position.set(x, 0.4, z); car.add(w); }
             car.position.copy(CAR).add(V(1.6, 0, 0));
+            const carSign = labelSprite('🚗 GETAWAY CAR', '#f87171');
+            carSign.position.set(0, 2.8, 0); carSign.visible = false; car.add(carSign);
+            D.carSign = carSign;
             S.add(car);
             contractStart(S);
         },
+        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
+        onKey(S, code) {
+            const D = S.data;
+            if (MG.state !== 'running') return false;
+            if (D.phase === 'brief' && (code === 'Space' || code === 'KeyE')) {
+                D.briefT = 0; return true;
+            }
+            if (D.phase === 'live' && code === 'KeyQ' && D.intelCd <= 0 && D.targetsLeft.length) {
+                D.intelCd = 10.0;
+                const tgt = D.targetsLeft[0];
+                const p = tgt.root.position;
+                const quad = (p.z < PLAZA.fz ? 'NORTH' : 'SOUTH') + '-' + (p.x < 0 ? 'WEST' : 'EAST');
+                SFX.ding(1.3);
+                MG.toast(`📡 SPOTTER INTEL: MARK SPOTTED IN ${quad} PLAZA!`, '#fde047');
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.1, 24), basic(0xfde047, { side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));
+                ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, 0.08, p.z); S.add(ring);
+                let rt = 0; S.animate((dt2) => { rt += dt2; ring.position.set(tgt.root.position.x, 0.08, tgt.root.position.z); ring.scale.setScalar(1 + Math.sin(rt * 12) * 0.15); if (rt > 1.8 || !tgt.alive) { S.scene.remove(ring); return false; } });
+                return true;
+            }
+            return false;
+        },
         blockFire(S) { return S.data.phase !== 'live'; },
         update(S, dt, lib, state) {
-            const D = S.data;
+            const D = S.data, P = BO.Player;
             if (state !== 'running') return;
             D.panic = Math.max(0, D.panic - dt);
+            D.intelCd = Math.max(0, (D.intelCd || 0) - dt);
+            // Smooth lateral rooftop strafing [A/D] to peek around fountain & stalls!
+            const strafe = (P.keys.KeyD || P.keys.ArrowRight ? 1 : 0) - (P.keys.KeyA || P.keys.ArrowLeft ? 1 : 0);
+            if (strafe && P.rideState) {
+                D.roofX = BO.Math.clamp((D.roofX || 0) + strafe * 5.2 * dt, -6.2, 6.2);
+                P.rideState.pos.x = D.roofX;
+            }
+            // Fountain water spray particles
+            if (Math.random() < dt * 10) BO.FX.spawnParticles(V(0, 3.25, PLAZA.fz), 1, 0xbae6fd, 1.6, 2.2, 0.55, 0.55);
+            const c = CONTRACTS[D.mission];
+            const left = D.phase === 'live' ? Math.max(0, c.time - (S.t - D.liveAt)) : c.time;
+            if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { urgent: D.phase === 'live' && (left < 10 || D.panic > 0) });
             if (D.phase === 'brief') {
                 D.briefT -= dt;
                 if (D.briefT <= 0) { D.phase = 'live'; D.liveAt = S.t; MG._showCountdown('GO', '#fde68a'); }
             } else if (D.phase === 'live') {
-                const c = CONTRACTS[D.mission];
                 if (S.t - D.liveAt > c.time) contractFail(S, 'OUT OF TIME');
             } else if (D.phase === 'done') {
                 D.nextT -= dt;
@@ -1202,10 +1271,11 @@
             const left = D.phase === 'live' ? Math.max(0, c.time - (S.t - D.liveAt)) : c.time;
             const card = `<div class="mgx-dossier ${D.phase === 'brief' ? 'big' : ''}"><small>CONTRACT ${D.mission + 1} / ${CONTRACTS.length}</small><h3>${esc(c.name.toUpperCase())}</h3>
                 <ul>${c.brief.map((b) => `<li>${b}</li>`).join('')}</ul><div class="mgx-sw">${sw}</div>
-                ${D.phase === 'brief' ? `<div class="mgx-brief-go">STARTS IN ${Math.ceil(D.briefT)}</div><em>Shoot only the mark. A civilian casualty ends the run.</em>` : ''}</div>`;
+                ${D.phase === 'brief' ? `<div class="mgx-brief-go">STARTS IN ${Math.ceil(D.briefT)} • [SPACE] READY</div><em>Shoot only the mark. A civilian casualty ends the run.</em>` : ''}</div>`;
             const timer = D.phase === 'live' ? `<div class="mgx-chip ${left < 10 ? 'mgx-bad' : ''}">CONTRACT TIME <b>${left.toFixed(left < 10 ? 1 : 0)}</b></div>` : '';
+            const intel = D.phase === 'live' ? `<div class="mgx-chip ${(D.intelCd || 0) <= 0 ? 'mgx-hot' : ''}">INTEL [Q] <b>${(D.intelCd || 0) <= 0 ? 'READY' : D.intelCd.toFixed(0) + 's'}</b></div>` : '';
             const fail = D.phase === 'failed' ? `<div class="mgx-chip mgx-bad">${esc(D.failWhy || '')}</div>` : '';
-            return card + `<div class="mgx-contract-row">${timer}${fail}<div class="mgx-chip">COMPLETED <b>${D.completed}</b></div></div>`;
+            return card + `<div class="mgx-contract-row">${timer}${intel}${fail}<div class="mgx-chip">COMPLETED <b>${D.completed}</b></div></div>`;
         },
         scoreText(S) { return Math.round(S.displayScore).toLocaleString(); },
         result(S) {

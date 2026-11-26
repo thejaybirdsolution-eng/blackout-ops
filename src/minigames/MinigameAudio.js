@@ -636,6 +636,17 @@
                 this._osc(root * (st % 2 ? 1.5 : 1), 0.09, 'triangle', 0.11);
                 const mel = [N.C5, N.E5, N.G5, N.C6, N.A5, N.G5, N.E5, N.C5, N.D5, N.F5, N.A5, N.G5, N.E5, N.D5, N.C5, 0][st];
                 if (mel) this._osc(mel, 0.10, 'square', 0.068, { cutoff: 3200, pan: (st % 4 - 1.5) * 0.22 });
+            } else if (this.mode === 'contracts') {
+                // Sleek Hitman / Noir Spy-Thriller Stealth Pulse
+                const urgent = !!state.urgent;
+                this.timer = urgent ? 0.118 : 0.155;
+                const N = NOTE, st = s % 16;
+                const bass = [N.E2, 0, 0, N.G2, 0, 0, N.A2, 0, N.Bb2, 0, N.A2, 0, N.G2, 0, N.Fs2, 0][st];
+                if (bass) this._osc(bass, 0.26, 'triangle', 0.14);
+                if (st === 0 || (urgent && st === 8)) this._kick(urgent ? 0.22 : 0.14, 95, 38, 0.20);
+                if (st % 4 === 2) this._hat(urgent ? 0.055 : 0.032, false, (st % 8 === 2 ? -0.25 : 0.25));
+                const noir = [0, 0, N.B4, 0, 0, N.C5, 0, 0, N.B4, 0, 0, N.G4, 0, 0, N.Fs4, 0][st];
+                if (noir) this._osc(noir, 0.34, 'sine', 0.055, { pan: Math.sin(s * 0.4) * 0.35 });
             }
         }
 
