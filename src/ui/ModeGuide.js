@@ -90,6 +90,7 @@
     function dynamic(mode) {
         if (mode === 'rpg') {
             const D = BO.RPGData;
+            if (!D || !BO.RPGUnlocks) return [['Rogue Lite data loading', ['Open Rogue Lite from the Main Menu to load operatives, boons, sets, and dungeon enemy codex.']]];
             return [
                 ['Door reference', Object.values(D.ROOMS).map((room) =>
                     room.name + (room.secret ? ' (Mystery only)' : '') + ' — ' + room.desc)],
@@ -102,10 +103,13 @@
                 ['Boon reference', D.BOONS.map((boon) => boon.name + ' — ' + boon.desc)]
             ];
         }
-        if (mode === 'survival') return (BO.GMGuide?.() || []).map((topic) => [
-            topic.title, [topic.text, ...topic.facts.map(([label, value]) => label + ' — ' + value),
-                ...topic.lists.flatMap((list) => list.items.map((item) => list.h + ': ' + item))]
-        ]);
+        if (mode === 'survival') {
+            if (!BO.GMGuide) return [['Exclusion Zone data loading', ['Open Survival from the Main Menu to load the full Field Guide reference.']]];
+            return (BO.GMGuide() || []).map((topic) => [
+                topic.title, [topic.text, ...topic.facts.map(([label, value]) => label + ' — ' + value),
+                    ...topic.lists.flatMap((list) => list.items.map((item) => list.h + ': ' + item))]
+            ]);
+        }
         if (mode === 'zombies') return [['Enemy roster', (BO.ZombiesData.ORDERED_PROGRESSION || []).map((id) => {
             const entry = typeof id === 'string' ? BO.ZombiesData.get(id) : id;
             return entry?.name || '';

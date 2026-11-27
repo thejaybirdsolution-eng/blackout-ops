@@ -62,6 +62,7 @@
                 onExitToMenu: () => this.exitToMenu(),
                 onRestartMatch: () => this.restartMatch()
             });
+            this._bindModeBundleLoaders();
             if (BO.Net) BO.Net.init();
 
             this._bindInputs();
@@ -304,7 +305,54 @@
             renderer.setClearColor(this.studioClearColor);
         }
 
+        _bindModeBundleLoaders() {
+            const loader = BO.BundleLoader;
+            if (!loader || !loader.isBundled()) return;
+            const map = [
+                ['btn-menu-survival', 'survival'],
+                ['btn-menu-rpg', 'rpg'],
+                ['btn-menu-owrpg', 'owrpg'],
+                ['btn-menu-minigames', 'minigames']
+            ];
+            for (const [id, key] of map) {
+                const btn = document.getElementById(id);
+                if (!btn) continue;
+                btn.addEventListener('pointerenter', () => {
+                    if (!loader.isLoaded(key)) loader.ensure(key).catch(() => {});
+                }, { passive: true });
+                btn.addEventListener('click', (e) => {
+                    if (loader.isLoaded(key)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (btn.dataset.bundleBusy === '1') return;
+                    btn.dataset.bundleBusy = '1';
+                    BO.Events?.emit?.('hud:toast', { text: `Loading ${key.toUpperCase()} module...`, color: '#ffb23f' });
+                    loader.ensure(key).then(() => {
+                        delete btn.dataset.bundleBusy;
+                        btn.click();
+                    }).catch(() => {
+                        delete btn.dataset.bundleBusy;
+                        BO.Events?.emit?.('hud:toast', { text: `Failed to load ${key} module.`, color: '#ef4444' });
+                    });
+                }, true);
+            }
+        }
+
         startMatch(opts) {
+            const bundleKey = BO.BundleLoader?.bundleKeyForMode?.(opts?.mode);
+            if (bundleKey && BO.BundleLoader?.isBundled() && !BO.BundleLoader.isLoaded(bundleKey)) {
+                if (this._loadingBundle === bundleKey) return;
+                this._loadingBundle = bundleKey;
+                BO.Events?.emit?.('hud:toast', { text: `Loading ${bundleKey.toUpperCase()} module...`, color: '#ffb23f' });
+                BO.BundleLoader.ensure(bundleKey).then(() => {
+                    this._loadingBundle = null;
+                    this.startMatch(opts);
+                }).catch(() => {
+                    this._loadingBundle = null;
+                    BO.Events?.emit?.('hud:toast', { text: `Failed to load ${bundleKey} module.`, color: '#ef4444' });
+                });
+                return;
+            }
             // Request Pointer Lock at 0ms of user click gesture before world build!
             this._safePointerLock();
             this._clearInputState();
@@ -315,8 +363,8 @@
             if (BO.Net) BO.Net.clearRemoteAvatars();
 
             this.lastMatchOpts = BO.Math.deepClone(opts);
-            BO.SurvivalUI.close();
-            BO.SurvivalMode.stop();
+            BO.SurvivalUI?.close?.();
+            BO.SurvivalMode?.stop?.();
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
@@ -426,8 +474,8 @@
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
-            BO.SurvivalUI.close();
-            BO.SurvivalMode.stop();
+            BO.SurvivalUI?.close?.();
+            BO.SurvivalMode?.stop?.();
             BO.ExpansionShop.close();
             const prevMode = BO.State.activeMode;
             BO.Superpowers.reset();
@@ -568,7 +616,7 @@
 
             window.addEventListener('wheel', (e) => {
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
-                if (BO.SurvivalUI.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen) return;
+                if (BO.SurvivalUI?.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen) return;
                 if (Math.abs(e.deltaY) > 4) {
                     if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) {
                         BO.ZoneWild.adjustSpyglassZoom(e.deltaY < 0 ? 1 : -1);
@@ -597,13 +645,13 @@
                 if (BO.ZoneLegends?.dialog) { BO.ZoneLegends.handleKey(e); return; }
                 if (BO.RPGUI?.modalOpen) { BO.RPGUI.handleKey(e); return; }
                 if (BO.OWRPGUI?.modalOpen) { BO.OWRPGUI.handleKey(e); return; }
-                if (BO.SurvivalUI.open) {
+                if (BO.SurvivalUI?.open) {
                     BO.SurvivalUI.handleKey(e);
                     return;
                 }
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
-                const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
+                const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode?.active;
                 const rpg = BO.State.activeMode === 'rpg' && BO.RPGMode?.active;
                 const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
 
@@ -834,7 +882,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI?.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -871,10 +919,10 @@
 
                     BO.HUD.update(dt);
                     BO.ExpansionShop.updateHud();
-                    BO.SurvivalUI.updateHud();
+                    BO.SurvivalUI?.updateHud?.();
                     if (BO.RPGUI) BO.RPGUI.updateHud(dt);
                     if (BO.OWRPGUI && BO.State.activeMode === 'owrpg') BO.OWRPGUI.updateHud(dt);
-                } else if (!BO.State.paused && BO.SurvivalUI.open && BO.State.activeMode === 'survival' && BO.SurvivalMode.active &&
+                } else if (!BO.State.paused && BO.SurvivalUI?.open && BO.State.activeMode === 'survival' && BO.SurvivalMode?.active &&
                     !['respawn', 'briefing', 'ending', 'epilogue'].includes(BO.SurvivalUI.section)) {
                     // Real-time menus: the Zone keeps moving while you rummage through your pack.
                     BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
