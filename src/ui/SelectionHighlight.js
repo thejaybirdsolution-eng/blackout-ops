@@ -59,10 +59,12 @@
                 group.classList.remove('has-selection-highlight');
                 continue;
             }
-            const rect = current.getBoundingClientRect();
-            if (!rect.width || !rect.height) continue;
+            const width = current.offsetWidth;
+            const height = current.offsetHeight;
+            if (!width || !height) continue;
+            const left = current.offsetLeft;
+            const top = current.offsetTop;
             const color = getComputedStyle(current).getPropertyValue('--pick-col').trim();
-            const frame = group.getBoundingClientRect();
             const from = previous.get(group.dataset.selectionGroup);
             if (!track) {
                 track = document.createElement('span');
@@ -71,18 +73,20 @@
                 group.append(track);
             }
             group.classList.add('has-selection-highlight');
-            track.getAnimations().forEach((motion) => motion.cancel());
+            const nextBox = { left: left + 'px', top: top + 'px', width: width + 'px', height: height + 'px' };
+            const moved = Object.entries(nextBox).some(([key, value]) => track.style[key] !== value);
+            if (moved || from || !animate) track.getAnimations().forEach(motion => motion.cancel());
+
             track.style.setProperty('--selection-ink', color || 'var(--mod-accent, #f6b557)');
-            track.style.left = (rect.left - frame.left + group.scrollLeft - group.clientLeft) + 'px';
-            track.style.top = (rect.top - frame.top + group.scrollTop - group.clientTop) + 'px';
-            track.style.width = rect.width + 'px';
-            track.style.height = rect.height + 'px';
+            Object.assign(track.style, nextBox);
 
             if (from && animate) {
-                const dx = from.rect.left - rect.left;
-                const dy = from.rect.top - rect.top;
-                const sx = from.rect.width / rect.width;
-                const sy = from.rect.height / rect.height;
+                // Convert the visible previous rectangle to the track's local coordinates.
+                const target = track.getBoundingClientRect();
+                const sx = from.rect.width / target.width;
+                const sy = from.rect.height / target.height;
+                const dx = (from.rect.left - target.left) * width / target.width;
+                const dy = (from.rect.top - target.top) * height / target.height;
                 if (Math.abs(dx) + Math.abs(dy) > 1 || Math.abs(sx - 1) + Math.abs(sy - 1) > 0.02) {
                     track.animate([
                         { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sx + ', ' + sy + ')' },

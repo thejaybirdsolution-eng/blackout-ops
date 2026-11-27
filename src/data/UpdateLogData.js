@@ -10,7 +10,6 @@
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
         period: 'Nov 22 – Nov 26, 2026 (ET)',
-        totalCount: 86,
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -1788,6 +1787,709 @@
                                         "360 Trick Shot (Flight Circuit): 5 detailed industrial towers, corrugated shipping container yard, 3 Pneumatic Bounce Pads for 720°/1080° double-bounce chains, Steel Ricochet Gongs, Explosive Propane Barrels, UAV bonus drone, mid-air Nac-Swap [F] & Barrel Roll [Q] style moves, and slow-mo lowpass bass-drop chase replays.",
                                         "Mario FPS (Prism Foundry + Classic Worlds): Prism Foundry adds Clockwork Sentinel drones, rotating laser sweepers, 8 aerial Prism cells, a rotating Governor seal rotor & reactive Cyan/Amber synthwave; Classic Worlds 1-1 to 1-4 add 4-channel chiptune music, kickable Koopa shells, Castle Thwomps, Starman invincibility & flagpole height bonuses."
                                 ]
+                        }
+                ]
+        },
+        {
+                "id": 87,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Main menu soundtrack",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "An original dark industrial score plays on the title screen and in the menus."
+                        }
+                ]
+        },
+        {
+                "id": 88,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Music mute button",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Mute or restore the soundtrack independently using the music button in the main menu. The setting is saved."
+                        }
+                ]
+        },
+        {
+                "id": 89,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Sound effects mute button",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Turn menu and game sound effects off or on without changing the music setting."
+                        }
+                ]
+        },
+        {
+                "id": 90,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Main menu mode grid",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Game modes are arranged in a compact grid for direct access from the main menu."
+                        }
+                ]
+        },
+        {
+                "id": 91,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer records in Barracks",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Barracks tracks kills, deaths, headshots, objectives completed, matches played, and your highest kill count in one match."
+                        }
+                ]
+        },
+        {
+                "id": 92,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer multi-kill announcements",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Double Kill, Triple Kill and higher multi-kill announcements are reserved for Multiplayer."
+                        }
+                ]
+        },
+        {
+                "id": 93,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Modifier visibility",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Hide modifiers from normal browsing and restore them from the Hidden view."
+                        }
+                ]
+        },
+        {
+                "id": 94,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Custom modifiers",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Build and name your own modifier by choosing when it triggers and what effect it applies."
+                        }
+                ]
+        },
+        {
+                "id": 95,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "104 modifier combinations",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The modifier catalog adds 104 named trigger-and-effect combinations using shared gameplay mechanics."
+                        }
+                ]
+        },
+        {
+                "id": 96,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Expanded match rules",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Multiplayer match setup adds independent options for customizing how a match plays."
+                        }
+                ]
+        },
+        {
+                "id": 97,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Classic weapon catalog expansion",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The catalog now has 77 distinct entries, with additions from the CoD4, World at War, Modern Warfare 2 and Black Ops eras."
+                        }
+                ]
+        },
+        {
+                "id": 98,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Create a Class equipment expansion",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Additional attachments, perks, lethal and tactical equipment, and killstreak rewards are available in Create a Class."
+                        }
+                ]
+        },
+        {
+                "id": 99,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Filter weapons by game",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Use the Game menu alongside weapon class and search to find weapons by their source title."
+                        }
+                ]
+        },
+        {
+                "id": 100,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer bot model overhaul",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Bots have updated uniforms, gear, and silhouettes in Multiplayer."
+                        }
+                ]
+        },
+        {
+                "id": 101,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer bot animation overhaul",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Bot movement and combat poses have been updated for more readable reactions."
+                        }
+                ]
+        },
+        {
+                "id": 102,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Rare flying ragdoll",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Multiplayer bot deaths have a 1-in-100 chance to launch the body with a cartoon whistle that fades with distance."
+                        }
+                ]
+        },
+        {
+                "id": 103,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Infection",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A bot-supported match mode turns eliminated survivors into infected and tracks the remaining survivors."
+                        }
+                ]
+        },
+        {
+                "id": 104,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Search and Destroy",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A bot-supported round mode puts opposing teams on bomb offense and defense."
+                        }
+                ]
+        },
+        {
+                "id": 105,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Four Teams",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Four teams of four compete in the new four-sided match variant."
+                        }
+                ]
+        },
+        {
+                "id": 106,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Hardcore Team Deathmatch",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Hardcore rules change the pace and damage tolerance of Team Deathmatch."
+                        }
+                ]
+        },
+        {
+                "id": 107,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Hardcore Free-for-All",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Every player is on their own under the Hardcore ruleset."
+                        }
+                ]
+        },
+        {
+                "id": 108,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "King of the Hill Bounty",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "In this bot-supported Free-for-All variant, the bounty holder has double health and never needs to reload. The bounty passes to their killer, and the longest total hold wins."
+                        }
+                ]
+        },
+        {
+                "id": 109,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Early Zombies window entries",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Early regular Zombies spawns use window approaches where the map provides them, with other entry points opening in later rounds."
+                        }
+                ]
+        },
+        {
+                "id": 110,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Single-perk Zombies machines",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Each Zombies machine sells one perk. Tower Defense keeps the combined vending machine."
+                        }
+                ]
+        },
+        {
+                "id": 111,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Full zombie previews",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The Zombies preview frames the whole model, including tall and wide enemy types."
+                        }
+                ]
+        },
+        {
+                "id": 112,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Twenty zombie movement styles",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Twenty new movement styles give enemies different approaches."
+                        }
+                ]
+        },
+        {
+                "id": 113,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Twenty zombie attack types",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Twenty new attacks give enemies different ways to threaten players."
+                        }
+                ]
+        },
+        {
+                "id": 114,
+                "hash": "cbd7891",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:38 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiple attacks per zombie",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Some zombies can choose from up to three attacks. Each has its own cooldown, and the zombie performs one attack at a time."
+                        }
+                ]
+        },
+        {
+                "id": 115,
+                "hash": "8722e54",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:46 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Pinned weapon filters",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Weapon classes, source game, and search stay available while you scroll the weapon list."
+                        }
+                ]
+        },
+        {
+                "id": 116,
+                "hash": "54ee1e9",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "7:47 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Weapon filters on short screens",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The Create a Class weapon picker gives results more room while keeping controls accessible on short screens."
+                        }
+                ]
+        },
+        {
+                "id": 117,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Modifiers workspace",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Browse, Active, Presets, and Create have separate views with clear descriptions and quick access to search, visibility, and category filters."
+                        }
+                ]
+        },
+        {
+                "id": 118,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Create a Class weapon studio",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A brighter background and dedicated lighting make dark weapon finishes visible. Rotate and zoom the model with the pointer or keyboard."
+                        }
+                ]
+        },
+        {
+                "id": 119,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Clear iron sights and optics",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "First-person sight lines have been aligned and checked across 1,344 firearm and optic configurations."
+                        }
+                ]
+        },
+        {
+                "id": 120,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer ragdoll physics",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Weapon hits carry momentum into bot ragdolls, which tumble, bounce off geometry, and settle with damped limb motion."
+                        }
+                ]
+        },
+        {
+                "id": 121,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Always Launch Ragdolls cheat",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Settings → Cheats offers Always Launch Ragdolls. It sends every Multiplayer bot death flying with the cartoon whistle."
+                        }
+                ]
+        },
+        {
+                "id": 122,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Sliding selection highlight",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The highlight moves continuously between choices in supported lobby, Modifiers, and Create a Class controls, with an immediate change when reduced motion is enabled."
+                        }
+                ]
+        },
+        {
+                "id": 123,
+                "hash": "2087c4a",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "8:13 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Zombies perk machine routes",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Four expansion perk machines occupy fixed, map-specific locations on each of nine Zombies maps. Explore different rooms, routes, and floors to find them."
                         }
                 ]
         }

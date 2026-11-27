@@ -53,8 +53,29 @@
         _bound: false,
 
         init() {
+            this.renderReleaseSummary();
             this.renderHomePreview();
             this._bindModalEvents();
+        },
+
+        renderReleaseSummary() {
+            const updates = BO.UpdateLogData?.updates;
+            if (!updates?.length) return;
+
+            const latest = updates.at(-1);
+            const count = updates.length;
+            const milestones = updates.filter(update => update.major).length;
+            const labels = {
+                tile: `${count} updates • Build #${latest.id}`,
+                preview: `BUILD #${latest.id} • ${count} UPDATES`,
+                count,
+                milestones: `${milestones} Milestones`,
+                build: `Build #${latest.id}`,
+                latest: latest.title
+            };
+            document.querySelectorAll('[data-ul-meta]').forEach(node => {
+                node.textContent = labels[node.dataset.ulMeta];
+            });
         },
 
         renderHomePreview() {

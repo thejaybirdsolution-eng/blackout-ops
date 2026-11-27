@@ -6,8 +6,8 @@
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
     <link rel="stylesheet" href="css/styles.css?v=weapon-studio">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
-    <link rel="stylesheet" href="css/survival.css?v=sv9">
-    <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
+    <link rel="stylesheet" href="css/survival.css?v=modifier-panel-1">
+    <link rel="stylesheet" href="css/survival-ui.css?v=modifier-panel-1">
     <link rel="stylesheet" href="css/modifier-board.css?v=modifier-library">
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
@@ -59,7 +59,7 @@
     <script defer src="src/data/OWRPGWorldData.js?v=ow1"></script>
     <script defer src="src/data/OWRPGDialogueData.js?v=ow1"></script>
     <script defer src="src/data/OWRPGQuestsData.js?v=ow1"></script>
-    <script defer src="src/data/UpdateLogData.js?v=ul5"></script>
+    <script defer src="src/data/UpdateLogData.js?v=field-notes-1"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?v=field-update-1"></script>
@@ -174,10 +174,10 @@
     <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
     <script defer src="src/ui/HUDController.js?v=field-update-1"></script>
-    <script defer src="src/ui/SelectionHighlight.js?v=1"></script>
+    <script defer src="src/ui/SelectionHighlight.js?v=2"></script>
     <script defer src="src/ui/GunsmithUI.js?v=weapon-studio"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=modifier-library"></script>
-    <script defer src="src/ui/UpdateLogUI.js?v=ul3"></script>
+    <script defer src="src/ui/UpdateLogUI.js?v=field-notes-1"></script>
     <script defer src="src/ui/MenuController.js?v=modifier-library"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=field-update-1"></script>
@@ -329,8 +329,8 @@
                     <button class="mini-tile" id="btn-menu-settings" data-tip-title="Settings" data-tip="Controls, video, audio, gore, fullscreen, cheat codes and save data.">
                         <span class="mini-ico">⚙</span><b>Settings</b><small>Controls, video &amp; cheats</small>
                     </button>
-                    <button class="mini-tile mini-tile-updates" id="btn-menu-updates" data-tip-title="Update Log" data-tip="Browse all 86 updates, new modes, features, and fixes from Nov 22–26, 2026.">
-                        <span class="mini-ico">📜</span><b>Update Log</b><small>86 patches • Build #86</small>
+                    <button class="mini-tile mini-tile-updates" id="btn-menu-updates" data-tip-title="Update Log" data-tip="Browse new modes, features, and fixes.">
+                        <span class="mini-ico">📜</span><b>Update Log</b><small data-ul-meta="tile"></small>
                     </button>
                     <button class="mini-tile mini-tile-gold hidden" id="btn-menu-modmenu" data-tip-title="Mod Menu" data-tip="Turn any zombies cheat on or off and pick a starting round.">
                         <span class="mini-ico">★</span><b>Mod Menu</b><small>Toggle cheats</small>
@@ -348,10 +348,10 @@
                 <aside id="menu-update-preview" class="menu-update-preview" aria-label="Latest Updates">
                     <div class="ul-prev-header">
                         <span class="ul-prev-kicker"><span class="ul-prev-dot"></span>PATCH NOTES</span>
-                        <span class="ul-prev-count">BUILD #86 • 86 UPDATES</span>
+                        <span class="ul-prev-count" data-ul-meta="preview"></span>
                     </div>
                     <div id="menu-update-preview-list" class="ul-prev-list"></div>
-                    <button type="button" class="btn btn-sm btn-primary ul-prev-all-btn" id="btn-open-all-updates">VIEW FULL UPDATE LOG (86) →</button>
+                    <button type="button" class="btn btn-sm btn-primary ul-prev-all-btn" id="btn-open-all-updates">VIEW FULL UPDATE LOG →</button>
                 </aside>
                 <div class="menu-showcase-caption">
                     <div class="showcase-label">ACTIVE CLASS</div>
@@ -643,24 +643,24 @@
                 <div class="ul-head-actions">
                     <div class="ul-search-box">
                         <span style="color:#94a3b8;font-size:13px;">⌕</span>
-                        <input type="search" id="ul-search" placeholder="Search 86 updates, modes, or hashes..." aria-label="Search update log">
+                        <input type="search" id="ul-search" placeholder="Search updates, modes, or hashes..." aria-label="Search update log">
                         <button type="button" id="ul-search-clear" class="btn btn-sm hidden" style="padding:2px 7px;font-size:10px;">CLEAR</button>
                     </div>
                     <button type="button" class="btn btn-sm" id="btn-updates-close">CLOSE <kbd>Esc</kbd></button>
                 </div>
             </header>
             <div class="ul-kpi-strip">
-                <div class="ul-kpi"><b>86</b><span>Total Updates</span></div>
+                <div class="ul-kpi"><b data-ul-meta="count"></b><span>Total Updates</span></div>
                 <div class="ul-kpi"><b>7 Modes</b><span>Zombies · MP · Survival · TD · Rogue · OWRPG · Minigames</span></div>
-                <div class="ul-kpi"><b>26 Milestones</b><span>Major Releases &amp; Overhauls</span></div>
-                <div class="ul-kpi"><b>Build #86</b><span>Flagship Fun Overhaul</span></div>
+                <div class="ul-kpi"><b data-ul-meta="milestones"></b><span>Major Releases &amp; Overhauls</span></div>
+                <div class="ul-kpi"><b data-ul-meta="build"></b><span data-ul-meta="latest"></span></div>
             </div>
             <div class="ul-toolbar">
                 <div id="ul-cat-pills" class="ul-pills-row"></div>
                 <div class="ul-toolbar-sub">
                     <div id="ul-day-pills" class="ul-pills-row"></div>
                     <div class="ul-meta-right">
-                        <span id="ul-count" class="ul-count">Showing 86 of 86 updates</span>
+                        <span id="ul-count" class="ul-count"></span>
                         <button type="button" class="btn btn-sm" id="ul-sort-btn">↓ NEWEST FIRST</button>
                     </div>
                 </div>
