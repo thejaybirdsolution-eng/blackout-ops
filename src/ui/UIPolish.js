@@ -204,6 +204,50 @@
         }
     }
 
+    function syncTablistRoles() {
+        const containers = document.querySelectorAll('#legend-tabs, #barracks-tabs, #settings-tabs, #box-picker-tabs, .modal-tab-bar');
+        containers.forEach((list) => {
+            if (!list.getAttribute('role')) list.setAttribute('role', 'tablist');
+            const tabs = Array.from(list.querySelectorAll('button, [data-stab], [data-btab], [role="tab"]'));
+            if (!tabs.length) return;
+            let activeIdx = tabs.findIndex((t) => t.classList.contains('active') || t.getAttribute('aria-selected') === 'true');
+            if (activeIdx < 0) activeIdx = 0;
+            tabs.forEach((tab, idx) => {
+                if (!tab.getAttribute('role')) tab.setAttribute('role', 'tab');
+                const sel = idx === activeIdx;
+                tab.setAttribute('aria-selected', sel ? 'true' : 'false');
+                tab.setAttribute('tabindex', sel ? '0' : '-1');
+            });
+        });
+    }
+
+    function wireTablistKeyboard() {
+        syncTablistRoles();
+        const obs = new MutationObserver(() => syncTablistRoles());
+        document.querySelectorAll('#legend-tabs, #barracks-tabs, #settings-tabs, #box-picker-tabs, .modal-tab-bar').forEach((list) => {
+            obs.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const tab = e.target && e.target.closest ? e.target.closest('[role="tablist"] > button, [role="tablist"] > [role="tab"]') : null;
+            if (!tab) return;
+            const list = tab.closest('[role="tablist"]');
+            if (!list) return;
+            const tabs = Array.from(list.querySelectorAll('button, [role="tab"]')).filter((t) => !t.disabled);
+            const cur = tabs.indexOf(tab);
+            if (cur < 0 || !tabs.length) return;
+            let next = -1;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (cur + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (cur - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') next = 0;
+            else if (e.key === 'End') next = tabs.length - 1;
+            if (next < 0) return;
+            e.preventDefault();
+            tabs[next].focus();
+            tabs[next].click();
+        });
+    }
+
     function wireSelectionTabs() {
         if (!BO.SelectionHighlight || !BO.SelectionHighlight.register) return;
         const pairs = [
@@ -216,10 +260,12 @@
             const el = document.querySelector(sel);
             if (el) BO.SelectionHighlight.register(el, { [key]: optSel });
         }
+        syncTablistRoles();
     }
 
     function init() {
         setupModalObserver();
+        wireTablistKeyboard();
 
         const settingsBody = document.getElementById('settings-body');
         if (settingsBody) {

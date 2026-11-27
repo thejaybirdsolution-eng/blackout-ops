@@ -245,7 +245,7 @@
                 body.innerHTML = rows.map((r) => `
                     <tr class="${r.isPlayer ? 'sb-row-player' : ''}">
                         <td>${r.name}</td>
-                        <td>${r.team === 0 ? '<span style="color:#38bdf8">ALLIES</span>' : '<span style="color:#ef4444">HOSTILES</span>'}</td>
+                        <td>${r.team === 0 ? '<span style="color:#38bdf8">◆ ALLIES</span>' : '<span style="color:#ef4444">✕ HOSTILES</span>'}</td>
                         <td>${r.kills}</td>
                         <td>${r.deaths}</td>
                         <td>${r.score}</td>
