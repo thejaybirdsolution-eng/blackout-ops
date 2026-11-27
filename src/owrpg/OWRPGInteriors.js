@@ -6,6 +6,7 @@
 (function (BO) {
     'use strict';
 
+    const NPC_DETAIL_DIST = 7;    // metres: full rig + idle animation inside, merged proxy outside
     const UP = new THREE.Vector3(0, 1.2, 0);
     const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.7, metalness: 0.3 }, o || {}));
     const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -67,7 +68,9 @@
                 tag.position.set(0, 2.2, 0);
                 parts.root.add(tag);
                 scene.add(parts.root);
-                this.npcs.push({ def, parts, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
+                // Far LOD: one merged mesh per material instead of ~135 rig parts.
+                const lod = BO.MeshProxy ? BO.MeshProxy.attach(parts.root) : null;
+                this.npcs.push({ def, parts, lod, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
             }
             for (const [id, on] of Object.entries(s.pylons)) if (on) BO.OWRPGWorldArt.setPylonActive(BO.World, id, true);
         },
@@ -421,7 +424,9 @@
                 const want = d < 6 ? Math.atan2(P.pos.x - n.pos.x, P.pos.z - n.pos.z) : n.def.yaw || 0;
                 n.yaw += BO.Math.angleDiff(n.yaw, want) * Math.min(1, dt * 4);
                 n.parts.root.rotation.y = n.yaw;
-                BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
+                const far = d > NPC_DETAIL_DIST;
+                if (n.lod) BO.MeshProxy.set(n.lod, far);
+                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
             }
             for (let i = this.bags.length - 1; i >= 0; i--) {
                 const b = this.bags[i];

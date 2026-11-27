@@ -21,9 +21,9 @@ Select **OPERATION BLACKOUT** at the top of the Main Menu to play a connected 10
 2. **Multiplayer (Bots, Co-op & PvP)**: 11 formats across 6 arenas (`Killhouse`, `Crash Site`, `Nuketown`, `Shipment`, `Terminal`, `Rust`), custom presets, 15s MW2 Winner Killcam, and post-match **3-Map Vote**.
 3. **Exclusion Zone Survival**: 500×450 m open-world survival with shelter construction, farming, livestock, stations, Field Catalogue, Boss hunts, dawn/dusk phase alerts, and 3 Lantern endings.
 4. **Rogue Lite — Blackout Vaults (Solo & 2–4p Co-op)**: 15 operatives (12 unlockable), 288 Haven Collection cosmetics, 14 Mystery encounters, Deep Vaults (Floors 26–50+), Floor-5 synergy banners, and instructive run-end debriefs.
-5. **Open World RPG — Operation Meridian**: 1280×1280 m frontier across 12 biomes & 12 dungeons, multi-path **Act I–VI Questlines**, 3 recruitable combat **Companions** (`Vanguard Soren`, `Ghost Kael`, `Tinker Torque`), 4 rideable mounts, 5-element combo combat, dynamic NPC schedules, faction territory shifts, and **New Game+**.
+5. **Open World RPG — Operation Meridian**: 1280×1280 m frontier across 12 biomes & 12 dungeons, Cartography fog-of-war minimap/Atlas, 156 hidden sites, 12-affix Champions, multi-path **Act I–VI Questlines**, 3 recruitable combat **Companions** (`Vanguard Soren`, `Ghost Kael`, `Tinker Torque`), 4 rideable mounts, 5-element combo combat, `MeshProxy` rig LOD, dynamic NPC schedules, faction territory shifts, and **New Game+**.
 6. **Tower Defense — Castle Siege (Solo & 2–8p Co-op)**: 3 Castle keeps, 3 shoot-through wall tiers, 20 rotating deployables, active **Synergy** combos, and next-wave archetype previews.
-7. **Minigames Hub (Solo & Same-Room Versus)**: 63 courses across Fun & Specials (22), Target & Action (16), Speed Runs (9), Arcade Hall (15), and Boss Rush, plus **Daily Seeded Courses** and **Personal-Best Ghost deltas**.
+7. **Minigames Hub (Solo & Same-Room Versus)**: 63 courses across Fun & Specials (22), Target & Action (16), Speed Runs (9), Arcade Hall (15), and Boss Rush, plus `MinigameFeel` sampled impacts/announcer, **Daily Seeded Courses & Featured Streaks**, and **Personal-Best Ghost deltas**.
 
 ## Quick Start & Automated QA
 - **Local Play**: Double-click `play.bat` or run `python server.py` (dev fast bundle build: `python tools/bundle.py` -> `index.bundled.html`).

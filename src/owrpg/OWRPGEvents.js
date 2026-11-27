@@ -1,5 +1,5 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Dynamic World Events (18 Regional Event Types)
+   BLACKOUT OPS — Open World RPG · Dynamic World Events (21 Regional Event Types)
    Spawns timed dynamic events near the player while exploring the Meridian
    Expanse: Supply Drop, Faction Skirmish, Brood Swarm, Convoy Raid, Void
    Anomaly Storm, Relay Defense, Rogue Mecha, Black-Market Cache.
@@ -8,6 +8,10 @@
     'use strict';
 
     const EVENT_TYPES = [
+        // Region-flavoured events: `dynamic` squads are drawn from the local encounter pool; `champion` promotes the leader.
+        { id: 'champion_incursion', title: 'Champion Incursion', color: '#e879f9', dur: 150, dynamic: true, champion: 2, enemies: ['raider', 'raider_bruiser'], loot: 'champion', xp: 520, credits: 300, desc: 'A Champion leads a local warband into the open. Slay the Champion and its escort.' },
+        { id: 'relic_storm', title: 'Relic Storm', color: '#fbbf24', dur: 150, dynamic: true, goal: 'hold', hold: 40, enemies: ['raider', 'raider'], loot: 'treasure', xp: 460, credits: 260, desc: 'A Pre-Fall relic is surfacing. Stay within 12 m for 40 seconds while scavengers close in.' },
+        { id: 'champion_warband', title: 'Champion Warband', color: '#f43f5e', dur: 220, dynamic: true, champion: 3, goal: 'waves', waves: 2, enemies: ['raider', 'raider'], loot: 'champion', xp: 980, credits: 560, desc: 'Two waves, each led by a three-affix Champion.' },
         { id: 'pinewood_rescue', title: 'Pinewood Rescue Signal', color: '#4ade80', dur: 130, enemies: ['forest_poacher', 'orc_reaver'], goal: 'hold', hold: 35, loot: 'raider', xp: 290, credits: 170, desc: 'Stay within 12 m of the signal for 35 seconds to finish the rescue uplink.' },
         { id: 'wolf_migration', title: 'Moonlit Wolf Migration', color: '#86efac', dur: 160, enemies: ['timber_wolf', 'timber_wolf'], goal: 'waves', waves: 3, loot: 'brood', xp: 360, credits: 180, desc: 'Survive three approaching wolf packs.' },
         { id: 'grave_procession', title: 'Procession of the Restless', color: '#c4b5fd', dur: 190, enemies: ['skeleton_warrior', 'grave_zombie', 'barrow_ghost'], goal: 'waves', waves: 3, loot: 'undead', xp: 640, credits: 320, desc: 'Break three waves of the grave procession.' },
@@ -137,8 +141,14 @@
         },
 
         _spawnSquad(def, x, z, id) {
-            return def.enemies.map((eid, i) => {
-                const a = BO.OWRPGAI.spawn(eid, x + (i % 2)*5 - 2.5, z + Math.floor(i / 2)*5 - 2.5, { poiId: id, leash: 80, postR: 8 });
+            let ids = def.enemies;
+            if (def.dynamic && BO.OWRPGWorldSim.encounterPool) {
+                const pool = BO.OWRPGWorldSim.encounterPool(BO.OWRPGWorldData.regionAt(x, z).id);
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                ids = pick.length >= 3 ? pick : pick.concat(pick).slice(0, 3);
+            }
+            const squad = ids.map((eid, i) => {
+                const a = BO.OWRPGAI.spawn(eid, x + (i % 2)*5 - 2.5, z + Math.floor(i / 2)*5 - 2.5, { poiId: id, leash: 80, postR: 8, noChampion: !!def.champion });
                 if (a) {
                     // Event squads are explicit adversaries even when their parent faction is friendly.
                     a.eventHostile = true; a.hostile = true;
@@ -146,6 +156,8 @@
                 }
                 return a;
             }).filter(Boolean);
+            if (def.champion && squad[0] && BO.OWRPGChampions) BO.OWRPGChampions.make(squad[0], def.champion);
+            return squad;
         },
 
         _pickForRegion(regId) {
@@ -163,7 +175,8 @@
                 frostfang_peaks: ['frost_resonance', 'glacier_hunt'],
                 obsidian_dragonwilds: ['dragonwild_siege', 'void_storm']
             };
-            const pool = byReg[regId] || EVENT_TYPES.map((e) => e.id);
+            const tier = parseInt(String((BO.OWRPGWorldData.REGIONS.find((r) => r.id === regId) || {}).lvl), 10) || 1;
+            const pool = (byReg[regId] || EVENT_TYPES.map((e) => e.id)).concat(['champion_incursion', 'relic_storm'], tier >= 17 ? ['champion_warband'] : []);
             const pickId = BO.Math.pick(pool);
             return EVENT_TYPES.find((e) => e.id === pickId) || EVENT_TYPES[0];
         },

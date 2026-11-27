@@ -1,10 +1,10 @@
 # HANDOFF — BLACKOUT OPS 1.0 Complete (`release/1.0-complete`)
 
 ## Release Snapshot
-- **Branch:** `release/1.0-complete` (all sections merged via `--no-ff`: `1.0/complete-gaps`, `1.0/deepen-modes`, `1.0/profile-connect`, `1.0/online-coop`, `1.0/capstone-operation-blackout`, `1.0/ship-qa`).
-- **QA Suites:** `_qa_runner.html` (**30/30 pass** covering engine, Survival, Zombies, MP, TD, RPG, Minigames, atomic `v3` saves, `MockNetChannel` Co-op/Versus, `ProfileSystem`, `ModeDepth10`, and `CampaignManager` Operation Blackout) + `_qa_owrpg.html` (**120/120 pass**, `BO.OWRPGValidator.runAll()` 0 errors / 0 warnings, `150` draw calls `< 180`, `2.4 ms` median).
-- **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-019`).
-- **Pre-existing dirty files:** All 48 pre-existing dirty user/upstream files + `staged_assets/` remain completely unmodified and unstaged.
+- **Branch:** `master` (merged `release/1.0-complete` + `origin/master` flagship-2 `#174–#182`).
+- **QA Suites:** `_qa_runner.html` (30 checks) + `_qa_owrpg.html` (OWRPG 143 checks including Cartography, 156 hidden sites, Champions & `OWRPGValidator`).
+- **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-023`).
+- **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
 
 ## 1.0 Feature Modules Added
 - `src/data/OWRPGAct2Data.js` & `src/owrpg/OWRPGCompanions.js`: Multi-path Act II–VI questlines across Rust Sprawl, Mire Delta, Ash Quarry, Alpine Array, Meridian Core, and Dragonwilds; 3 Companions (`soren`, `kael`, `torque`) with passive auras & Soldier mesh AI; NPC dawn/day/night schedule labels; territory shifts; New Game+.

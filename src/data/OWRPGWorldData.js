@@ -771,7 +771,7 @@
     }
 
     const terrainDef = () => ({
-        ...BOUNDS, res: 2, chunk: 160, batchChunk: 160, navCell: 4, waterLevel: WATER,
+        ...BOUNDS, res: 2, chunk: 160, batchChunk: 320, navCell: 4, waterLevel: WATER,
         height: (x, z) => rawFinal(x, z),
         color: (x, z, h, s) => colorAt(x, z, h, s).map((v) => Math.pow(Math.max(0, v), 2.2)),
         carves: []

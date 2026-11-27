@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — minigames.bundle.js (40 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — minigames.bundle.js (42 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/minigames/MinigameHelpers.js --- */
 /* ============================================================================
@@ -456,7 +456,10 @@
             if (this.removed) return;
             this.removed = true;
             this.alive = false;
-            if (this.root.parent) this.root.parent.remove(this.root);
+            // Park the root in the session graveyard (outside the scene) so its GPU resources are
+            // released with the rest of the session in MinigameRuntime.stop().
+            if (this.ctx && this.ctx.graveyard) this.ctx.graveyard.add(this.root);
+            else if (this.root.parent) this.root.parent.remove(this.root);
         }
     }
 
@@ -472,6 +475,7 @@
             this.rt = runtime;
             this.def = def;
             this.scene = scene;
+            this.graveyard = new THREE.Group();   // removed targets wait here for GPU release
             this.opts = opts || {};
             this.seed = (this.opts.seed !== undefined && this.opts.seed !== null)
                 ? (typeof this.opts.seed === 'number' ? (this.opts.seed >>> 0) : hashStr(String(this.opts.seed)))
@@ -565,9 +569,11 @@
                 SFX.combo(this.combo / 5);
                 this.rt.flashCombo();
             }
+            BO.MinigameFeel?.onCombo(this.combo);
         }
 
         breakCombo(reason) {
+            BO.MinigameFeel?.onComboBreak(this.combo);
             if (this.combo >= 5) {
                 SFX.comboBreak();
                 this.rt.toast(reason ? `COMBO LOST — ${reason}` : 'COMBO LOST', '#f87171');
@@ -627,6 +633,7 @@
             pts = Math.round(pts * mult);
             if (mult > 1) label += (label ? ' ' : '') + 'x' + mult.toFixed(1).replace('.0', '');
             this.award(pts, info.pt, label, col);
+            BO.MinigameFeel?.onKill(tg, info, this.def, label);
             tg.kill(info);
             return true;
         }
@@ -763,6 +770,7 @@
 
             const S = new Session(this, def, scene, this.opts);
             this.session = S;
+            BO.MinigameFeel?.onStart(def);
             if (def.build) def.build(S, this.lib);
             if (def.schedule) {
                 def.schedule(S, this.lib);
@@ -803,6 +811,11 @@
                 if (this.def && this.def.dispose) { try { this.def.dispose(this.session, this.lib); } catch (e) { console.error(e); } }
                 this.session.clearTargets();
                 this._releaseGpu(this.session.scene);
+                this._releaseGpu(this.session.graveyard);
+                this.session.graveyard.clear();
+                // Shared caches keep their CPU data but drop their GPU copies between sessions.
+                for (const t of texCache.values()) if (t && t.isTexture) t.dispose();
+                if (BO.Assets && BO.Assets.releaseGpu) BO.Assets.releaseGpu();
             }
             this.active = false;
             this.session = null;
@@ -826,24 +839,33 @@
         }
 
         /** Free GPU buffers for everything a course built (shared/cached materials & textures are kept). */
+        /**
+         * Frees everything a session uploaded to the GPU except the shared caches (canvasTex/pbrMat
+         * caches here and the AssetLoader GLB/texture caches). Course files build many one-off
+         * CanvasTextures for signs, labels and sprites; before this pass they were never disposed and
+         * ~15 textures leaked per run (600+ after a long session). three.js re-uploads a disposed
+         * texture or geometry if a module-level reference is ever drawn again, so this is safe.
+         */
         _releaseGpu(scene) {
             if (!scene) return;
             const cachedMats = new Set(matCache.values());
             const cachedTex = new Set(texCache.values());
+            const A = BO.Assets;
+            const keepTex = (tx) => cachedTex.has(tx) || (A && A.hasCachedTexValue(tx));
+            const freeTex = (tx) => { if (tx && tx.isTexture && !keepTex(tx)) tx.dispose(); };
             scene.traverse((o) => {
-                if (!o.isMesh && !o.isInstancedMesh) return;
+                if (!o.isMesh && !o.isInstancedMesh && !o.isSprite && !o.isPoints && !o.isLine) return;
                 if (o.isInstancedMesh && typeof o.dispose === 'function') o.dispose();
-                if (o.geometry && o.geometry.dispose && !(BO.Assets && BO.Assets.isSharedGeo(o.geometry))) o.geometry.dispose();
+                if (!o.isSprite && o.geometry && o.geometry.dispose && !(A && A.isSharedGeo(o.geometry)) && !o.userData.sharedGeometry) o.geometry.dispose();
                 const mats = Array.isArray(o.material) ? o.material : [o.material];
                 for (const m of mats) {
-                    if (!m || cachedMats.has(m) || (BO.Assets && BO.Assets.hasSharedMatValue(m)) || m === HIDDEN_MAT) continue;
-                    for (const tk of ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap']) {
-                        const tx = m[tk];
-                        if (tx && !cachedTex.has(tx) && !(BO.Assets && BO.Assets.hasCachedTexValue(tx)) && tx.userData && tx.userData.mgOwned) tx.dispose();
-                    }
+                    if (!m || cachedMats.has(m) || (A && A.hasSharedMatValue(m)) || m === HIDDEN_MAT) continue;
+                    for (const tk of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'bumpMap', 'emissiveMap', 'alphaMap', 'aoMap', 'envMap']) freeTex(m[tk]);
                     m.dispose();
                 }
             });
+            freeTex(scene.background);
+            freeTex(scene.environment);
         }
 
         _buildLoadout(def, cls, weaponPref) {
@@ -924,7 +946,11 @@
             if (this.pendingShot) this.pendingShot.hit = true;
             if (this.def.onHit) {
                 const r = this.def.onHit(S, ent, info, this.lib);
-                if (r !== undefined) return r;
+                if (r !== undefined) {
+                    // Custom-scored courses still get the sampled impact when their target dies.
+                    if (r === true && ent.mgTarget) BO.MinigameFeel?.onKill(ent, info, this.def, '');
+                    return r;
+                }
             }
             if (ent.mgTarget) return S.hitTarget(ent, info);
             return false;
@@ -1037,6 +1063,7 @@
                 }
                 const sec = Math.floor(S.t);
                 if (S.timeline.length <= sec) S.timeline.push(S.score);
+                BO.MinigameFeel?.onTick(S);
                 if (S.duration && S.t >= S.duration) this._beginFinish('TIME!');
             } else if (this.state === 'finish') {
                 this.finishTimer -= dt;
@@ -1080,6 +1107,7 @@
             S.timeline.push(S.score);
             for (const tg of S.targets) if (tg.alive) tg.retire();
             const isExample = !!(S && S.opts && S.opts.exampleMode);
+            if (!isExample) BO.MinigameFeel?.onFinish(label);
             this._showCountdown(isExample ? 'EXAMPLE COMPLETE — YOUR TURN!' : label, isExample ? '#67e8f9' : (opts.color || '#fde68a'), true);
             SFX.beep(true);
         }
@@ -1333,6 +1361,8 @@
                     const clip = (better && prev) ? 'new_highscore.ogg' : (res.stars >= 1 ? 'mission_completed.ogg' : 'game_over.ogg');
                     BO.Assets.playClip('audio/voice/Voiceover Pack (Kenney)/Male/' + clip, { volume: 0.80 });
                 }
+                BO.MinigameFeel?.onResults(res, this.starsOf(def, this.opts).length);
+                BO.MinigameDaily?.onResults(def, res);
             }
 
             this.blockingUI = true;
@@ -1517,6 +1547,239 @@
     BO.Minigames = new MinigameRuntime();
     BO.MinigameLib = BO.Minigames.lib;
 })(window);
+;
+
+/* --- src/minigames/MinigameFeel.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Minigames · Feel Layer (sampled impacts + announcer)
+   One shared layer that upgrades all 63 minigames at once with recorded audio
+   from the asset library, on top of the synthesized cues in MinigameCore:
+
+   - Kill impacts: a sampled hit picked from the target's material — steel
+     plates ring, glass shatters, wood thunks, clay pops, bullseyes toll a bell.
+     Courses can force a material with `def.feel = { impact: 'glass' }`.
+   - Announcer: combo callouts (10 / 25 / 50), "combo breaker", "hurry up" in
+     the final 10 s of timed courses, "time over", Boss Rush round calls and a
+     "flawless victory" for perfect-accuracy platinum runs.
+   - Never stacks voices: a 1.1 s voice gate keeps callouts from talking over
+     each other or the results voice.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const VOICE = 'audio/voice/Voiceover Pack (Kenney)/Male/';
+    const FIGHT = 'audio/voice/Voiceover Pack Fighter (Kenney)/Audio/';
+    const IMPACT = 'audio/sfx/Impact Sounds (Kenney)/Audio/';
+    const pick5 = (base) => IMPACT + base + '_00' + Math.floor(Math.random() * 5) + '.ogg';
+
+    /** Material → sampled impact family. */
+    const IMPACTS = {
+        steel: () => pick5('impactPlate_medium'),
+        heavy: () => pick5('impactPlate_heavy'),
+        metal: () => pick5('impactMetal_medium'),
+        glass: () => pick5('impactGlass_medium'),
+        wood: () => pick5('impactPlank_medium'),
+        soft: () => pick5('impactGeneric_light'),
+        punch: () => pick5('impactPunch_medium'),
+        bell: () => pick5('impactBell_heavy')
+    };
+
+    /** Target death animation / kind → material. */
+    function materialOf(tg, def) {
+        if (def && def.feel && def.feel.impact) return def.feel.impact;
+        const k = String(tg.kind || ''), d = String(tg.death || '');
+        if (/glass|bottle|shatter|ice|crystal/.test(k + d)) return 'glass';
+        if (/balloon|pop|bubble|clay|skeet|disc/.test(k + d)) return 'soft';
+        if (/wood|crate|barrel|plank|board/.test(k + d)) return 'wood';
+        if (/mole|zombie|ghost|bandit|outlaw|enemy|dummy|monster|human/.test(k + d)) return 'punch';
+        if (/drone|robot|mech|metal|steel|plate|popper|gong/.test(k + d)) return 'metal';
+        return 'steel';
+    }
+
+    const Feel = {
+        voiceGate: 0,
+        lastSaid: '',
+        enabled: true,
+        _hurry: false,
+
+        _now() { return performance.now() / 1000; },
+
+        say(path, volume = 0.82, force) {
+            if (!BO.Assets || !BO.Assets.playClip) return false;
+            const t = this._now();
+            if (!force && t < this.voiceGate) return false;
+            this.voiceGate = t + 1.1;
+            this.lastSaid = path;
+            BO.Assets.playClip(path, { volume });
+            return true;
+        },
+
+        /** Session reset (MinigameRuntime.start). */
+        onStart(def) {
+            this.voiceGate = this._now() + 0.4;
+            this._hurry = false;
+            this._def = def;
+        },
+
+        onKill(tg, info, def, label) {
+            if (!this.enabled || !BO.Assets || !tg || tg._feelPlayed) return;
+            tg._feelPlayed = true;   // custom onHit handlers may route through hitTarget too
+            const bull = /BULLSEYE/.test(label || '');
+            const mat = bull ? 'bell' : (info && info.hitbox === 'head' ? 'heavy' : materialOf(tg, def));
+            BO.Assets.playClip(IMPACTS[mat](), { volume: bull ? 0.42 : 0.34, rateJitter: 0.07, volJitter: 0.12 });
+        },
+
+        onCombo(n) {
+            if (n === 10) this.say(FIGHT + 'combo.ogg');
+            else if (n === 25) this.say(FIGHT + 'multi_kill.ogg');
+            else if (n === 50) this.say(VOICE + 'level_up.ogg');
+        },
+
+        onComboBreak(n) { if (n >= 10) this.say(FIGHT + 'combo_breaker.ogg', 0.78); },
+
+        /** Called every frame while a timed course runs. */
+        onTick(S) {
+            if (!S || !S.duration || this._hurry) return;
+            if (S.duration >= 25 && S.duration - S.t <= 10) { this._hurry = true; this.say(VOICE + 'hurry_up.ogg', 0.8, true); }
+        },
+
+        onFinish(label) { if (label === 'TIME!') this.say(VOICE + 'time_over.ogg', 0.8, true); },
+
+        /** Results card: a second voice beat for perfect / failed runs (after the core's verdict clip). */
+        onResults(res, maxStars) {
+            if (!res) return;
+            const perfect = res.stars >= Math.max(3, maxStars) && (res.accuracy || 0) >= 0.999;
+            const clip = perfect ? FIGHT + 'flawless_victory.ogg' : res.stars >= Math.max(3, maxStars) ? FIGHT + 'you_win.ogg' : null;
+            if (clip) setTimeout(() => this.say(clip, 0.85, true), 1500);
+        },
+
+        /** Boss Rush: announce each boss. */
+        onBossRound(index, total) {
+            const last = index >= total - 1;
+            this.say(last ? FIGHT + 'final_round.ogg' : index < 5 ? FIGHT + 'round_' + (index + 1) + '.ogg' : FIGHT + 'prepare_yourself.ogg', 0.88, true);
+        },
+
+        onBossDown() { this.say(FIGHT + 'winner.ogg', 0.8); },
+
+        materialOf
+    };
+
+    BO.MinigameFeel = Feel;
+})(window.BO);
+;
+
+/* --- src/minigames/MinigameDaily.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Minigames · Daily Featured & Arcade Rank
+   Every calendar day the hub features three courses from different
+   categories, each with a star goal and a bonus XP payout. Clearing all three
+   keeps a daily streak alive (+10% bonus per streak day, capped at +100%).
+   Total stars across all 63 games also set an Arcade Rank shown in the hub.
+
+   Picks are seeded from the local date, so every player sees the same three
+   courses on the same day and they never change mid-day.
+   Save: BO.Save.data.minigames.daily = { date, done: {id: true}, streak, lastFull }.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const MG = () => BO.Minigames;
+    const SLOTS = [
+        { cats: ['target'], goal: 3, xp: 650, label: 'Gold' },
+        { cats: ['speed', 'arcade'], goal: 3, xp: 800, label: 'Gold' },
+        { cats: ['fun', 'arcade', 'speed'], goal: 4, xp: 1100, label: 'Platinum' }
+    ];
+    const RANKS = [
+        [0.9, 'Arcade Legend', '#f0abfc'], [0.7, 'Grand Champion', '#facc15'], [0.5, 'Sharpshooter', '#fb923c'],
+        [0.3, 'Marksman', '#38bdf8'], [0.12, 'Contender', '#4ade80'], [0, 'Rookie', '#cbd5e1']
+    ];
+
+    function dateKey(d = new Date()) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function hash(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return h >>> 0;
+    }
+
+    const Daily = {
+        SLOTS,
+
+        state() {
+            const d = BO.Save.data;
+            if (!d.minigames) d.minigames = { best: {}, plays: 0, skipCountdown: false };
+            const m = d.minigames;
+            if (!m.daily || typeof m.daily !== 'object') m.daily = { date: '', done: {}, streak: 0, lastFull: '' };
+            const today = dateKey();
+            if (m.daily.date !== today) { m.daily.date = today; m.daily.done = {}; }
+            return m.daily;
+        },
+
+        /** Today's three featured courses: [{ def, goal, xp, label }]. */
+        picks(key = dateKey()) {
+            const out = [], used = new Set();
+            SLOTS.forEach((slot, i) => {
+                const pool = slot.cats.flatMap((c) => MG().list(c)).filter((d) => d && !used.has(d.id) && !d.noHighScore);
+                if (!pool.length) return;
+                const def = pool[hash(key + ':' + i) % pool.length];
+                used.add(def.id);
+                out.push({ def, goal: Math.min(slot.goal, (MG().starsOf(def, {}) || []).length || slot.goal), xp: slot.xp, label: slot.label });
+            });
+            return out;
+        },
+
+        streakBonus() { return Math.min(1, (this.state().streak || 0) * 0.1); },
+
+        /** MinigameCore results hook: pays the bonus once per course per day. */
+        onResults(def, res) {
+            if (!def || !res) return null;
+            const st = this.state();
+            const pick = this.picks().find((p) => p.def.id === def.id);
+            if (!pick || st.done[def.id] || res.stars < pick.goal) return null;
+            st.done[def.id] = true;
+            const xp = Math.round(pick.xp * (1 + this.streakBonus()));
+            if (BO.Progression && BO.Progression.grantPlayerXP) BO.Progression.grantPlayerXP(xp, 'minigame');
+            let full = false;
+            if (this.picks().every((p) => st.done[p.def.id])) {
+                const y = new Date(); y.setDate(y.getDate() - 1);
+                st.streak = st.lastFull === dateKey(y) ? (st.streak || 0) + 1 : 1;
+                st.lastFull = st.date;
+                full = true;
+            }
+            BO.Save.save();
+            BO.Events.emit('hud:banner', { title: full ? 'DAILY SWEEP!' : 'DAILY FEATURED CLEARED', sub: def.name + ' · +' + xp + ' XP' + (full ? ' · streak ' + st.streak + ' day' + (st.streak === 1 ? '' : 's') : ''), color: '#facc15' });
+            return { xp, full };
+        },
+
+        rank(got, max) {
+            const f = max ? got / max : 0;
+            const r = RANKS.find(([t]) => f >= t);
+            const next = RANKS.slice().reverse().find(([t]) => t > f);
+            return { name: r[1], color: r[2], next: next ? { name: next[1], need: Math.ceil(next[0] * max) - got } : null };
+        },
+
+        /** Hub nav block: rank + today's three featured courses. */
+        navHtml(got, max, esc, catIcon) {
+            const st = this.state();
+            const rk = this.rank(got, max);
+            const rows = this.picks().map((p) => {
+                const done = !!st.done[p.def.id];
+                return '<button class="mgh-daily-row ' + (done ? 'done' : '') + '" data-daily="' + p.def.id + '" data-dcat="' + p.def.cat + '" style="--mc:' + (p.def.accent || '#facc15') + '">' +
+                    '<span class="mgh-daily-ico">' + (catIcon[p.def.cat] || '★') + '</span>' +
+                    '<span class="mgh-daily-text"><b>' + esc(p.def.name) + '</b><small>' + (done ? 'Cleared · bonus paid' : p.label + ' (' + p.goal + '★) · +' + Math.round(p.xp * (1 + this.streakBonus())) + ' XP') + '</small></span>' +
+                    '<span class="mgh-daily-state">' + (done ? '✓' : '›') + '</span></button>';
+            }).join('');
+            return '<div class="mgh-rank" style="--rk:' + rk.color + '"><small>ARCADE RANK</small><b>' + rk.name + '</b>' +
+                (rk.next ? '<em>' + rk.next.need + '★ to ' + rk.next.name + '</em>' : '<em>Every star collected</em>') + '</div>' +
+                '<div class="mgh-daily"><div class="mgh-daily-head"><b>DAILY FEATURED</b><small>' + (st.streak ? '🔥 ' + st.streak + '-day streak · +' + Math.round(this.streakBonus() * 100) + '% XP' : 'Clear all three to start a streak') + '</small></div>' + rows + '</div>';
+        },
+
+        dateKey
+    };
+
+    BO.MinigameDaily = Daily;
+})(window.BO);
 ;
 
 /* --- src/minigames/MinigameArt.js --- */
@@ -12766,6 +13029,7 @@
                 x: 0, y: 0, z: -ARENA_R + 6, splitCount: 0, hasGun: false, sizeMult: BOSS_SCALE
             });
             ent.mgBoss = true;
+            BO.MinigameFeel?.onBossRound(S.data.bossIndex, S.data.queue.length);
             const sc = (spec.bodySpec && spec.bodySpec.scale) || [1, 1, 1];
             ent.radius = BO.Math.clamp(0.38 * sc[0] * BOSS_SCALE, 1.6, 4.2);
             ent.height *= BOSS_SCALE;
@@ -12861,6 +13125,7 @@
                     D.phase = 'fight';
                 } else if (D.phase === 'fight') {
                     if (D.boss && !D.boss.alive) {
+                        BO.MinigameFeel?.onBossDown();
                         D.defeated++;
                         if (D.defeated % 3 === 0) D.blessingCharges++;
                         D.killTimes.push(S.t - D.bossSpawnT);
@@ -39592,6 +39857,7 @@
                         <div class="mgh-total-bar"><i style="width:${allMax ? (allGot / allMax * 100).toFixed(1) : 0}%"></i></div>
                         <b>${allGot} / ${allMax}</b>
                     </div>
+                    ${BO.MinigameDaily ? BO.MinigameDaily.navHtml(allGot, allMax, esc, Object.fromEntries(CATS.map((c) => [c.id, c.icon]))) : ''}
                     <div class="mgh-howto">
                         <b>HOW IT WORKS</b>
                         <ul>
@@ -39846,6 +40112,16 @@
                     if (id) this._play(id, { daily: true, variantLabel: 'DAILY SEED' });
                 };
             }
+            body.querySelectorAll('[data-daily]').forEach((b) => {
+                b.onclick = () => {
+                    BO.BeatSongs?.stopPreview?.();
+                    BO.Sound.playUIClick();
+                    MG.hubCat = b.dataset.dcat;
+                    MG.hubSel[b.dataset.dcat] = b.dataset.daily;
+                    this.render({ resetList: true, resetDetail: true });
+                };
+                b.ondblclick = () => this._play(b.dataset.daily);
+            });
             body.querySelectorAll('[data-cat]').forEach((b) => {
                 b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render({ resetList: true, resetDetail: true }); };
             });

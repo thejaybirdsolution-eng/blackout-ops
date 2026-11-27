@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — core.bundle.js (73 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — core.bundle.js (74 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/core/Namespace.js --- */
 /* ============================================================================
@@ -577,6 +577,16 @@
         playAmbient,
         stopAmbient,
         isSharedGeo: (g) => sharedGeos.has(g),
+        /**
+         * Frees the GPU copies of every cached texture and GLB geometry while keeping the decoded
+         * images and parsed scenes in memory. three.js re-uploads them the next time they are drawn,
+         * so switching between minigames no longer piles hundreds of textures onto the GPU.
+         */
+        releaseGpu() {
+            for (const t of texCache.values()) if (t && t.isTexture) t.dispose();
+            for (const g of sharedGeos) if (g && g.dispose) g.dispose();
+            for (const m of sharedMats) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) if (m && m[k] && m[k].isTexture) m[k].dispose();
+        },
         isSharedMat: (m) => sharedMats.has(m) || matCache.has(m),
         isCachedTex: (t) => texCache.has(t),
         hasSharedMatValue: (m) => {
@@ -1301,7 +1311,8 @@
         owUltimate: 'KeyU',
         owRepair: 'KeyG',
         owQuickSave: 'F5',
-        owQuickLoad: 'F9'
+        owQuickLoad: 'F9',
+        owMinimapZoom: 'KeyN'
     };
 
     /* Every rebindable action, grouped for the Controls panel. `ctx` lists the modes in
@@ -1356,6 +1367,7 @@
             { action: 'owCharacter', label: 'Pip-Pad', tip: 'Open World RPG: character, perks, inventory, abilities, quests, map and factions.', ctx: ['owrpg'] },
             { action: 'owQuestLog', label: 'Quest log', tip: 'Open World RPG: open the Pip-Pad on your quests.', ctx: ['owrpg'] },
             { action: 'owMap', label: 'Map', tip: 'Open World RPG: open the Pip-Pad map. Click to place compass pins.', ctx: ['owrpg'] },
+            { action: 'owMinimapZoom', label: 'Minimap range', tip: 'Open World RPG: cycle the minimap range (95 / 150 / 230 m); turns the minimap back on if hidden.', ctx: ['owrpg'] },
             { action: 'owHolster', label: 'Holster weapon', tip: 'Open World RPG: holster for +12% sprint speed.', ctx: ['owrpg'] },
             { action: 'owDodge', label: 'Dodge roll', tip: 'Open World RPG: dodge with brief invulnerability (not while overburdened).', ctx: ['owrpg'] },
             { action: 'owQuickSave', label: 'Quick save', tip: 'Open World RPG: save (not in combat or mid-air).', ctx: ['owrpg'] },
@@ -15721,6 +15733,225 @@
                 "hash": "v3.1",
                 "date": "Nov 27, 2026",
                 "fullDate": "November 27, 2026",
+                "time": "2:18 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Operation Meridian Doubles in Size: 12 Regions, 12 Dungeons & a Real Grind",
+                "major": true,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I finished and shipped the Open World RPG expansion that was left half-done: the Meridian Expanse is now 1280 × 1280 m (twice as wide), split into twelve regions from Haven Basin and the Whispering Pinewoods out to the Frostfang Peaks and the Obsidian Dragonwilds, with twelve dungeons, 70 enemy archetypes and 31 authored quests."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Every new operative starts at level 1 and the XP curve is deliberately steep (600 XP for level 2, almost 40,000 for level 11, 800,000 for the last level), so you grind the way you would in RuneScape or WoW. Enemies now respawn ten minutes after they die, the moment you leave an area, and whenever you quit and reload, bosses included."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Six level-by-doing Mastery skills (Arms, Slayer, Dungeoneering, Foraging, Artisan Mining, Runecraft) up to level 99",
+                                        "Eight Skyrim-style Standing Stones and ore, herb, timber and rune nodes that regrow every ten minutes",
+                                        "18 regional world events with hold, wave and hunt objectives",
+                                        "Compass toggle and a Dev Tools button in the pause menu, plus a v3 save migration that keeps old characters"
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 175,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:31 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Cartography: Fog-of-War Minimap, Hill-Shaded World Map & the Atlas",
+                "major": true,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I added a full mapping system. A rotating minimap now sits in the top-left corner and shows hill-shaded terrain, roads, settlements, hostile sites, dungeons, transit pylons, your tracked quest markers (with an arrow on the rim when they are out of range), world events, pins, enemies that are hunting you and nearby friendly NPCs. Press N to cycle its range between 95, 150 and 230 m, or switch it to north-up."
+                        },
+                        {
+                                "type": "p",
+                                "text": "The land starts under fog of war and clears as you walk it. The world map draws a new contoured, hill-shaded base layer under that fog with the charted percentage of every region, and the new Atlas tab tracks overall completion, your cartographer rank and per-region progress. Every 10% of the map you chart pays out XP, and a new Pathfinding mastery skill grows with every cell. I also fixed the map's player arrow, which had been pointing backwards."
+                        }
+                ]
+        },
+        {
+                "id": 176,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:44 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "156 Hidden Sites: Caches, Lore Tomes, Shrines, Skill Shards, Vistas, Stashes & Altars",
+                "major": true,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "There is now something to find around every hill. 156 hidden sites are scattered across the twelve regions, built with props from the asset library and each with its own sound: 48 treasure caches, 24 lore tomes, 12 wayside shrines, 24 skill shards, 12 survey vistas, 24 hidden stashes and 12 Altars of Trials."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Lore tomes open a reader with 24 new entries about what broke the Meridian. Shrines grant one of eight five-minute blessings and can be used again every ten minutes. Skill shards pour Mastery XP into a craft, vistas chart a huge area of the map at once, and stashes have good odds of rare gear. Altars summon a Champion of the region with two of its retinue; win the trial to claim its reward."
+                        }
+                ]
+        },
+        {
+                "id": 177,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:52 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Champions: 12 Affixes, Auras and Champion-Led World Events",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Any hostile spawn can now roll as a Champion: bigger, tougher, wrapped in a coloured aura and carrying one to three affixes. With 70 base enemies that turns the roster into hundreds of distinct fights. Champions show their affixes on their health bar, drop Champion's Sigils and better loot, and count toward a new questline."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Affixes: Vampiric, Molten, Frozen, Shielded, Swift, Berserker, Thorned, Juggernaut, Arcane, Summoner, Regenerating and Warlord",
+                                        "Molten and Frozen Champions erupt when they die; Frozen hits slow you; Summoners call reinforcements at 60% and 30% health",
+                                        "Three new world events (21 total): Champion Incursion, Relic Storm and the two-wave Champion Warband"
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 178,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:00 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Quest Tracker, Nine Exploration Quests and Two New Perk Trees",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "You can now track up to three quests at once. They stack on the HUD with live distances, appear as bearings on the compass and as markers on the minimap, and the quest log is grouped into Main Story, Faction, Side, Contracts, Dungeon Delves and Exploration."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Nine new self-starting exploration quests (40 in total) begin the first time you chart land, open a cache, read a tome, pray at a shrine, sync a vista, absorb a shard, search a stash, win a trial or kill a Champion. Two new perk trees bring the total to nine trees and 108 perks: Pathfinder (reveal radius, discovery XP, shrine duration, treasure luck) and Huntsman (Champion damage and resistance, bonus Champion loot, execute and elemental rounds)."
+                        }
+                ]
+        },
+        {
+                "id": 179,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:04 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Navigation Options When You Create a Character, More Dev Tools",
+                "major": false,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The character creator now lets you start with the compass and the minimap switched on or off, and you can change either one later from the pause menu or from the Pip-Pad's System tab. The developer menu (pause menu button or F8) gained buttons to reveal the whole map, teleport to the nearest hidden site, spawn a three-affix Champion, add five levels to every Mastery skill, grant a shrine blessing and fully heal."
+                        },
+                        {
+                                "type": "p",
+                                "text": "The HUD vitals line in the Open World RPG no longer shows armour plates and tactical charges, which that mode never used; it now shows your med-injectors and your armour rating."
+                        }
+                ]
+        },
+        {
+                "id": 180,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:08 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Performance: Merged-Mesh LOD, Fog-Aware Culling and Lighter Assets",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Freestead was drawing about 1,760 objects per frame because every soldier model is built from roughly 135 parts. NPCs and enemies now swap to a single merged mesh per material when they are more than a few metres away, which brings the town down to under 400 draw calls. Terrain chunks and static buildings that sit completely inside the fog are no longer drawn, and the culling updates immediately after fast travel."
+                        },
+                        {
+                                "type": "p",
+                                "text": "I also committed the 259 staged assets the game was already asking for or now uses (models, textures, voice lines and kit colour maps; the live site was getting 404s for some of them), compressed the large textures from 64 MB to 19 MB without lowering their resolution, added the missing kit colour maps, and repaired the Mode Guide. The Open World RPG QA suite now runs 143 checks and passes all of them, and a new whole-game QA runner boots every mode and all 63 minigames with zero errors. It caught two real bugs that are now fixed: Rogue Lite crashed if you started it before picking a class, and Thorned Champions could reflect enough overkill damage to kill you outright."
+                        }
+                ]
+        },
+        {
+                "id": 181,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:12 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Minigames: Asset Pass Shipped, Plus Sampled Impacts and an Announcer for All 63 Games",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I shipped the minigame asset overhaul that was waiting in the working copy: 3D props, skyboxes, PBR textures, music and sound effects from the asset library across the Fun & Specials modes, the Target & Action courses, the Speed Runs, the Arcade Hall, Whack-a-Mole and Boss Rush, including the Grand Citadel Colosseum and its Gladiator Blessing Shrines."
+                        },
+                        {
+                                "type": "p",
+                                "text": "On top of that, a new shared feel layer upgrades every one of the 63 minigames at once. Targets now make a recorded impact that matches what they are made of: steel plates ring, glass shatters, wood thunks, clay and balloons pop, and bullseyes toll a bell. An announcer calls out 10, 25 and 50-hit combos, a combo breaker, \"hurry up\" in the last ten seconds of a timed course and \"time over\" at the buzzer, announces every Boss Rush round and the final round, and calls a flawless victory on a perfect-accuracy platinum run."
+                        }
+                ]
+        },
+        {
+                "id": 182,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:15 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Daily Featured Challenges, Streaks and Arcade Rank",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The minigame hub now features three courses every day, one from Target & Action, one from Speed Runs or the Arcade Hall and a platinum challenge, each with a star goal and bonus XP. Every player gets the same three on the same day. Clear all three to start a streak that adds 10% bonus XP per day, up to double. Your total stars across all 63 games also give you an Arcade Rank, from Rookie to Arcade Legend, shown under your star total with how many stars the next rank needs."
+                        }
+                ]
+        },
+        {
+                "id": 183,
+                "hash": "v3.2",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
                 "time": "04:45 AM ET",
                 "dayKey": "2026-11-27",
                 "title": "Cosmetic Polish Pass: Unified AAA Theme, 3D Hitboxes, Animations & Audio",
@@ -15745,8 +15976,8 @@
                 ]
         },
         {
-                "id": 175,
-                "hash": "v3.2",
+                "id": 184,
+                "hash": "v3.3",
                 "date": "Nov 27, 2026",
                 "fullDate": "November 27, 2026",
                 "time": "06:00 AM ET",
@@ -15764,20 +15995,19 @@
                         {
                                 "type": "ul",
                                 "items": [
-                                        "Performance & Lazy Bundler: Added Graphics Quality Presets (Low/Medium/High/Ultra with first-launch detection), live FPS / frame-time p95 / draw-call PerfOverlay, SpatialHash marker grids and 10 Hz subsystem throttling in Survival, shadow-caster budget culling (cutting MP & OWRPG draw calls by 31–57%), zero-alloc hot-path vectors, SceneCleanup teardown, and a dev-only mode bundler (tools/bundle.py + BundleLoader) trimming initial load from 212 requests to 2 bundles.",
+                                        "Performance & Lazy Bundler: Added Graphics Quality Presets (Low/Medium/High/Ultra with first-launch detection), live FPS / frame-time p95 / draw-call PerfOverlay, SpatialHash marker grids and 10 Hz subsystem throttling in Survival, shadow-caster budget culling, zero-alloc hot-path vectors, SceneCleanup teardown, and a dev-only mode bundler (tools/bundle.py + BundleLoader) trimming initial load to 2 bundles.",
                                         "Game Feel & Gamepad: Added full W3C Gamepad support (deadzones, quadratic look, opt-in ADS slowdown), tightened MP spawn-trap avoidance and Zombies barricade unsticking, fixed Survival woodDoor physical colliders, and hid unused Plate/Gear HUD widgets in Open World RPG.",
-                                        "Netcode & Atomic Saves: Added inbound packet validation, per-peer rate limiting, 80 ms JitterBuffer smoothing, DeltaCodec, 10 s signaling timeout, exponential-backoff reconnects, SaveSystem v2 migrations with atomic _tmp writes + 3 rotating backups + auto corruption recovery, and Settings > Save .JSON export/import.",
-                                        "Unified QA Suite: Fixed the retired 'bosses' Mode Guide guard and expanded _qa_runner.html to 24/24 passing checks alongside 120/120 passing _qa_owrpg.html checks (0 validator errors)."
+                                        "Netcode & Atomic Saves: Added inbound packet validation, per-peer rate limiting, 80 ms JitterBuffer smoothing, DeltaCodec, 10 s signaling timeout, exponential-backoff reconnects, SaveSystem migrations with atomic _tmp writes + 3 rotating backups + auto corruption recovery, and Settings > Save .JSON export/import."
                                 ]
                         }
                 ]
         },
         {
-                "id": 176,
+                "id": 185,
                 "hash": "v1.0.0",
                 "date": "Nov 27, 2026",
                 "fullDate": "November 27, 2026",
-                "time": "06:15 AM ET",
+                "time": "06:25 AM ET",
                 "dayKey": "2026-11-27",
                 "title": "1.0 Complete Release: Operation Blackout, OWRPG Acts II–VI, Unified Profile & Co-op Expansion",
                 "major": true,
@@ -15795,15 +16025,15 @@
                 "blocks": [
                         {
                                 "type": "p",
-                                "text": "Completed the full 1.0 release pass uniting all seven modes under one shared Operative Profile, completing remaining campaign content, deepening every mode, and expanding online co-op:"
+                                "text": "Completed the full 1.0 release pass uniting all seven modes under one shared Operative Profile alongside the Meridian Flagship 2 systems (Cartography, 156 hidden sites, Champions, MeshProxy LOD, MinigameFeel, and MinigameDaily):"
                         },
                         {
                                 "type": "ul",
                                 "items": [
                                         "Open World RPG Acts II–VI, Companions & New Game+: Authored 10 multi-path main & side quests across Rust Sprawl, Mire Delta, Ash Quarry, Alpine Array, Meridian Core, and Dragonwilds (combat, tech/stealth, and social paths with deterministic checks and territory shifts), plus 3 recruitable squad Companions (Vanguard Soren, Ghost Kael, Tinker Torque), NPC day/night routines, and New Game+.",
                                         "Mode Depth 1.0: Added Zombies power-on clarity, per-map leaderboards, and co-op roles; Tower Defense active turret/defender synergies and wave previews; Multiplayer post-match 3-map voting and rule presets; Survival dawn/dusk phase alerts; Rogue Lite Floor-5 synergy banners and instructive run-end debriefs; and Minigames Daily Seeded Challenge plus Personal-Best Ghost deltas.",
-                                        "Unified Profile & 70-Weapon Armory: Migrated saves cleanly to v3 with shared Account Levels (1–100), Calling Cards, Emblems, Titles, Offline Seeded Daily (3) & Weekly (5) Challenges, Unified 70-Weapon Armory modal, Main Menu Continue Banner, per-mode progress tags, and first-launch Range Day warmup.",
-                                        "Online Co-op & Operation Blackout Capstone: Documented ADR-017 and added Rogue Lite 2–4p delve sync + Minigames Same-Room Versus leaderboards alongside Operation Blackout, a 10-mission story campaign spanning all 7 game modes."
+                                        "Unified Profile & 165-Weapon Armory: Migrated saves cleanly to v3 with shared Account Levels (1–100), Calling Cards, Emblems, Titles, Offline Seeded Daily (3) & Weekly (5) Challenges, Unified Weapon Armory modal, Main Menu Continue Banner, per-mode progress tags, and first-launch Range Day warmup.",
+                                        "Online Co-op & Operation Blackout Capstone: Documented ADR-021 and added Rogue Lite 2–4p delve sync + Minigames Same-Room Versus leaderboards alongside Operation Blackout, a 10-mission story campaign spanning all 7 game modes."
                                 ]
                         }
                 ]
@@ -25010,6 +25240,143 @@ uniform float uSSSStrength;`)
     };
     hook();
 })(window);
+;
+
+/* --- src/graphics/MeshProxy.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Mesh Proxy LOD
+   Bakes a multi-part character rig (soldier / beast, 100+ meshes) into one
+   merged mesh per material, attached to the rig root. Far away the detailed
+   parts are hidden and the proxy is drawn instead, cutting ~135 draw calls per
+   operator down to the number of materials (typically 8–14).
+
+   - Geometry is baked in the rig's local space, so the proxy follows the root
+     transform (position / yaw) with zero per-frame cost.
+   - Proxies are cached by key so a crowd of identical rigs shares GPU buffers.
+   - Hit detection is unaffected: hidden detail meshes still raycast.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const cache = new Map();          // key -> [{ geometry, material }]
+    const _inv = new THREE.Matrix4();
+    const _m = new THREE.Matrix4();
+
+    /** True when every ancestor between `o` and `root` (exclusive) is visible. */
+    function visibleTo(o, root) {
+        for (let t = o; t && t !== root; t = t.parent) if (!t.visible) return false;
+        return true;
+    }
+
+    function mergeGroup(geos, withUv) {
+        let count = 0;
+        for (const g of geos) count += g.attributes.position.count;
+        const pos = new Float32Array(count * 3);
+        const nor = new Float32Array(count * 3);
+        const uv = withUv ? new Float32Array(count * 2) : null;
+        let o3 = 0, o2 = 0;
+        for (const g of geos) {
+            const p = g.attributes.position.array;
+            pos.set(p, o3);
+            if (g.attributes.normal) nor.set(g.attributes.normal.array, o3);
+            if (uv && g.attributes.uv) uv.set(g.attributes.uv.array, o2);
+            o3 += p.length;
+            o2 += g.attributes.position.count * 2;
+            g.dispose();
+        }
+        const out = new THREE.BufferGeometry();
+        out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+        if (uv) out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        out.computeBoundingSphere();
+        out.computeBoundingBox();
+        return out;
+    }
+
+    /** Merge every visible, non-transparent, single-material mesh below `root` by material. */
+    function bake(root) {
+        root.updateMatrixWorld(true);
+        _inv.copy(root.matrixWorld).invert();
+        const groups = new Map();
+        root.traverse((o) => {
+            if (!o.isMesh || o.isSkinnedMesh || o.isInstancedMesh || o.userData.noProxy) return;
+            if (Array.isArray(o.material) || !o.geometry || !o.geometry.attributes.position) return;
+            if (o.material.transparent || !visibleTo(o, root)) return;
+            _m.multiplyMatrices(_inv, o.matrixWorld);
+            const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+            for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
+            if (!g.attributes.normal) g.computeVertexNormals();
+            g.applyMatrix4(_m);
+            if (_m.determinant() < 0) {
+                // Mirrored part: flip winding so faces are not culled from the outside.
+                const p = g.attributes.position.array, n = g.attributes.normal.array, uv = g.attributes.uv && g.attributes.uv.array;
+                for (let i = 0; i < p.length; i += 9) {
+                    for (let k = 0; k < 3; k++) { const a = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = a; const b = n[i + 3 + k]; n[i + 3 + k] = n[i + 6 + k]; n[i + 6 + k] = b; }
+                    if (uv) { const j = (i / 9) * 6; for (let k = 0; k < 2; k++) { const a = uv[j + 2 + k]; uv[j + 2 + k] = uv[j + 4 + k]; uv[j + 4 + k] = a; } }
+                }
+            }
+            let list = groups.get(o.material);
+            if (!list) groups.set(o.material, list = []);
+            list.push(g);
+        });
+        const out = [];
+        for (const [material, geos] of groups) {
+            const withUv = !!material.map && geos.every((g) => !!g.attributes.uv);
+            if (!withUv) for (const g of geos) if (g.attributes.uv) g.deleteAttribute('uv');
+            out.push({ geometry: mergeGroup(geos, withUv), material });
+        }
+        return out;
+    }
+
+    const MeshProxy = {
+        /**
+         * Attach a merged proxy below `root` and return an LOD handle.
+         * @param {THREE.Object3D} root   rig root (its own transform is excluded from the bake)
+         * @param {string} [key]          cache key; rigs sharing a key share buffers
+         * @returns {{root, proxy, detail:THREE.Object3D[], far:boolean}}
+         */
+        attach(root, key) {
+            let parts = key ? cache.get(key) : null;
+            if (!parts) {
+                parts = bake(root);
+                if (key) cache.set(key, parts);
+            }
+            const proxy = new THREE.Group();
+            proxy.name = 'MeshProxy';
+            for (const p of parts) {
+                const m = new THREE.Mesh(p.geometry, p.material);
+                m.castShadow = true;
+                m.receiveShadow = false;
+                m.userData.noProxy = true;
+                m.userData.sharedGeometry = true;
+                proxy.add(m);
+            }
+            proxy.visible = false;
+            const detail = root.children.filter((c) => !c.isSprite && c.name !== 'MeshProxy');
+            root.add(proxy);
+            return { root, proxy, detail, far: false, parts: parts.length };
+        },
+
+        /** Switch an LOD handle between full detail and the merged proxy. */
+        set(lod, far) {
+            if (!lod || lod.far === far) return;
+            lod.far = far;
+            lod.proxy.visible = far;
+            for (const c of lod.detail) c.visible = !far;
+        },
+
+        /** Remove the proxy group (shared geometry stays cached). */
+        detach(lod) {
+            if (!lod) return;
+            this.set(lod, false);
+            lod.proxy.removeFromParent();
+        },
+
+        cacheSize() { return cache.size; }
+    };
+
+    BO.MeshProxy = MeshProxy;
+})(window.BO);
 ;
 
 /* --- src/graphics/FXSystem.js --- */
@@ -46137,6 +46504,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (this.elHpText && mode === 'rpg' && BO.RPGMode?.run) {
                 const kbP = BO.Settings.keyLabel(BO.Settings.getKeybinds().rpgPotion);
                 this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ⚗ ${BO.RPGMode.run.potions} POTIONS [${kbP}]`;
+            } else if (this.elHpText && mode === 'owrpg' && BO.OWRPGMode?.active) {
+                // Open World RPG has no armor plates: show HP, med-injectors and the armor rating instead.
+                const st = BO.OWRPGMode.state, kbM = BO.Settings.keyLabel(BO.Settings.getKeybinds().owMed);
+                const now = performance.now();
+                if (!this._owVitals || now - this._owVitals.t > 500) this._owVitals = { t: now, meds: BO.OWRPGInventory.count(st, 'medkit'), armor: BO.OWRPGCharacter.derived(st).armor };
+                this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ✚ ${this._owVitals.meds} MED [${kbM}]  •  ARMOR ${this._owVitals.armor}`;
             } else if (this.elHpText) {
                 const vest = P.plateSlots;
                 const hidePlates = mode === 'owrpg' || mode === 'rpg' || (mode === 'minigame' && P.armor <= 0 && P.armorReservePlates <= 0);
@@ -49380,6 +49753,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (!compassBtn && btnDev) {
                 compassBtn = document.createElement('button');
                 compassBtn.id = 'btn-pause-ow-compass'; compassBtn.className = 'btn hidden';
+                compassBtn.dataset.tip = 'Show or hide the compass strip (quest bearings, events and pins).';
                 btnDev.after(compassBtn);
             }
             if (compassBtn) {
@@ -49390,6 +49764,23 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     compassBtn.textContent = 'COMPASS · ' + (flags.compassEnabled !== false ? 'ON' : 'OFF');
                     compassBtn.setAttribute('aria-pressed', String(flags.compassEnabled !== false));
                     compassBtn.onclick = () => { flags.compassEnabled = flags.compassEnabled === false; this.setPauseOpen(true); };
+                }
+            }
+            let minimapBtn = document.getElementById('btn-pause-ow-minimap');
+            if (!minimapBtn && compassBtn) {
+                minimapBtn = document.createElement('button');
+                minimapBtn.id = 'btn-pause-ow-minimap'; minimapBtn.className = 'btn hidden';
+                minimapBtn.dataset.tip = 'Show or hide the fog-of-war minimap ([N] cycles its range).';
+                compassBtn.after(minimapBtn);
+            }
+            if (minimapBtn) {
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                minimapBtn.classList.toggle('hidden', !open || !ow);
+                if (ow) {
+                    const flags = BO.OWRPGMode.state.worldFlags;
+                    minimapBtn.textContent = 'MINIMAP · ' + (flags.minimapEnabled !== false ? 'ON' : 'OFF');
+                    minimapBtn.setAttribute('aria-pressed', String(flags.minimapEnabled !== false));
+                    minimapBtn.onclick = () => { flags.minimapEnabled = flags.minimapEnabled === false; this.setPauseOpen(true); };
                 }
             }
             const btnCls = document.getElementById('btn-pause-change-class');
@@ -50479,6 +50870,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const body = document.getElementById('legend-body');
             const search = document.getElementById('legend-search-input');
             const buttons = Object.entries(BO.ModeGuide.MODES);
+            if (!BO.ModeGuide.MODES[this.legendTab]) this.legendTab = buttons[0][0];
             if (!keepScroll) {
                 rail.innerHTML = buttons.map(([id, mode]) => `<button class="mode-guide-tab" data-mode="${id}"
                     role="tab" aria-controls="legend-body" id="guide-tab-${id}" aria-selected="${id === this.legendTab}">${mode.name}</button>`).join('');
@@ -52647,17 +53039,22 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             ['Contracts, Secrets and Deep Vaults', 'Pick a contract before you leave and extract after finishing its objective to receive the payout. All 12 unlockable operatives, 288 Haven Collection cosmetics, 14 Mystery encounters, and Deep Vaults (Floors 26–50+) are tracked live. A curio can also be equipped as a crest.'],
             ['Guardians and checkpoints', 'A guardian appears every fifth floor. Defeat it to open a later starting checkpoint. Checkpoints let you skip early floors, but you begin a fresh delve without previous Boons or unbanked loot.']
         ] },
-        owrpg: { name: 'Open World RPG', intro: 'Operation Meridian: Acts I–VI across 1280 m of frontier, 3 squad Companions, New Game+, and 5 elemental combos.', sections: [
-            ['Create an operative', 'Pick a callsign, spend 8 points across five attributes (Brawn, Reflex, Tech, Perception, Presence), choose a starting Primer and a difficulty. You have three save slots.'],
-            ['Navigate by landmarks, Mounts & World Events', 'Six skyline landmarks (35–58 m) mark the regions: Mast Alpha, the Goliath Crane, the Cooling Stack, the Excavator, the Dish Array and the Meridian Dome. Unlock and summon 4 rideable Mounts [T] (Scout Bike, Hoverbike, Armored ATV, War Strider) to cross the Expanse fast. Watch for timed Dynamic World Events & Bounty Board contracts in the Pip-Pad.'],
+        owrpg: { name: 'Open World RPG', intro: 'Operation Meridian: Acts I–VI across a 1280 m frontier of twelve regions with Cartography, 156 hidden sites, Champions, 3 squad Companions & New Game+.', sections: [
+            ['Create an operative', 'Pick a callsign, spend 8 points across five attributes (Brawn, Reflex, Tech, Perception, Presence), choose a starting Primer and a difficulty, and decide whether to start with the compass and minimap on. You have three save slots and every operative begins at level 1.'],
+            ['Navigate: minimap, map, Atlas & Mounts', 'The rotating minimap (top left) shows terrain, settlements, dungeons, pylons, tracked quest markers, events, pins and enemies hunting you; press N to cycle its range or turn it back on. The land starts under fog and clears as you walk it. The Pip-Pad Map shows the whole Expanse with every region\'s charted percentage, and the Atlas tab tracks your completion. Summon one of 4 Mounts [T] to cross the Expanse fast, and wake Transit Pylons to fast-travel.'],
             ['Act I–VI Campaign, Companions & New Game+', 'Follow the multi-path main storyline from Haven Basin through Rust Sprawl (Act II), Mire Delta (Act III), Ash Quarry (Act IV), Alpine Array (Act V), and the Meridian Containment Dome (Act VI Finale). Recruit Vanguard Soren, Ghost Kael, and Tinker Torque as active field Companions in your Pip-Pad, shift faction territory, and unlock New Game+ after completing Act VI.'],
+            ['Hidden sites', '156 sites are hidden across the regions: treasure caches, lore tomes, wayside shrines (five-minute blessings, reusable every ten minutes), skill shards (Mastery XP), survey vistas (chart a wide area at once), hidden stashes and Altars of Trials that summon a Champion. Each kind starts its own exploration quest the first time you find one.'],
+            ['Champions & respawns', 'Any hostile can spawn as a Champion with an aura and 1–3 affixes such as Vampiric, Shielded, Arcane or Summoner; read the line under its health bar. Champions drop sigils and better loot. Enemies respawn ten minutes after they die, when you leave an area, and when you reload a save.'],
+            ['Quest tracking', 'Track up to three quests from the Quests tab. They appear on the HUD with live distances, as bearings on the compass and as markers on the minimap.'],
+            ['World Events & bounties', 'Twenty-one regional events (hold, wave, hunt and Champion-led) appear near you while you explore. Bounty Board contracts live in the Pip-Pad.'],
             ['RPG Gun Stats, Armor Sets & Durability', 'Every weapon carries Meridian-only RPG stats (Crit %, Armor Pen, Passive Trait, Elemental Damage) visible in your Pip-Pad Inventory without altering arcade modes. Equip multi-slot Helmets, Rigs, Boots & Relics to activate 2-piece and 3-piece Armor Set bonuses. Weapons & armor gradually wear down during fights; repair them with Field Repair Kits [G] or the Pip-Pad Workbench.'],
             ['Talk, and pass checks', 'Dialogue options marked with an attribute, reputation or item need that value. Checks are fixed thresholds, not dice rolls, so reloading never changes them. Locked options show what they need.'],
             ['Every quest has three ways through', 'Main and faction quests can be solved by force, by tech or stealth, or by talking to the right person. Quests also react if you solve them before you are asked.'],
             ['Stealth and noise', 'The eye at the top of the screen shows how aware enemies are. Crouch to slow detection and quiet your steps; sprinting and unsuppressed gunfire carry far. Attacks with melee or suppressed weapons on unaware targets deal sneak-attack damage.'],
             ['5-Element Primers, Detonators & Ultimates', 'Q fires your Primer (Burn, Chill, Shock, Venom, Void, or Expose). F fires your Detonator to trigger chain reactions. X uses your Gadget, U unleashes unlockable Ultimates, and H injects Meds. Health regenerates to 60% only out of combat.'],
             ['Factions & Codex', 'Militia, Syndicate, Aegis and Helix track reputation from Hated to Sworn. Helping one costs you half as much with its rival. Complete Codex milestones in the Pip-Pad to claim exclusive weapons and relics.'],
-            ['Levels, perks and schedules', 'Quests and discoveries pay most of the XP. Every even level gives a perk point and every odd level from 3 gives an attribute point. Settlements follow dawn, day, and night patrol routines.'],
+            ['Levels, Mastery, perks & schedules', 'Levels are a deliberate grind: 600 XP for level 2, about 39,000 for level 11. Kills five or more levels below you pay a quarter of their XP. Seven Mastery skills (up to 99) level by doing. Every even level gives a perk point across nine trees (108 perks) and every odd level from 3 gives an attribute point; Medic Ines can retrain you for credits. Settlements follow dawn, day, and night patrol routines.'],
+            ['Developer tools', 'Open them from the pause menu button or F8: grants, teleport, world events, map reveal, Champion spawns, Mastery levels and the integrity validator.'],
             ['Weight and travel', 'Carrying more than your limit slows your sprint and makes you louder; over 130% you cannot dodge. Wake Transit Pylons by touching them, then jump between them for one Relay Cell each.'],
             ['Saving', 'F5 quick-saves when you are out of combat and on the ground, F9 reloads. The game also saves when you discover places, finish quests, use pylons and enter or leave interiors.']
         ] },
@@ -52676,7 +53073,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             ['Target & Action (16 Courses)', 'Practice on fixed-pattern courses, watch a first-person Beat Drop example, or try Whack-a-Mole, Sweetheart Shore and Mansion Raid.'],
             ['Speed Runs (9 Timed Runs)', 'Race through timed challenges including Getaway Chase, Deagle Meteor Splitter, Ninja Stealth and Three-Headed Dragon.'],
             ['Arcade Hall (15 Games) & Boss Rush', 'Try Quickdraw Duels, Ball Brawl and Switchyard in Arcade Hall, or face every boss in Boss Rush with three heals.'],
-            ['Scoring and stars', 'Chain hits to build a streak multiplier. Bronze, Silver, Gold and Platinum stars track your best score or fastest time. Reserve ammo is unlimited unless a mode rules otherwise.']
+            ['Scoring and stars', 'Chain hits to build a streak multiplier. Bronze, Silver, Gold and Platinum stars track your best score or fastest time. Reserve ammo is unlimited unless a mode rules otherwise. Targets ring, shatter or thunk depending on what they are made of, and the announcer calls your combos and the last ten seconds.'],
+            ['Daily Featured & Arcade Rank', 'Three courses are featured each day with a star goal and bonus XP. Clear all three to build a streak (+10% bonus XP per day, up to double). Your total stars set your Arcade Rank, from Rookie to Arcade Legend.']
         ] }
     };
 

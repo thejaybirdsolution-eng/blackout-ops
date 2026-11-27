@@ -25,14 +25,15 @@
      *  L1 -> L2 = 600 XP; L5 -> L6 = 10,653 XP; L10 -> L11 = 38,948 XP; L25 -> L26 = 221,922 XP; L49 -> L50 = 799,944 XP. */
     function xpToNext(L) { return Math.round(450 * Math.pow(L, 1.92) + 150 * L); }
 
-    /* --------------------------------------------------------- 6 Level-by-Doing Skills (RuneScape / Dragonwilds style) */
+    /* --------------------------------------------------------- 7 Level-by-Doing Skills (RuneScape / Dragonwilds style) */
     const SKILLS = {
         combat:   { id: 'combat',   name: 'Arms Mastery',  color: '#ef4444', icon: '⚔', desc: 'Leveled by gun & melee combat. Grants +0.5% weapon damage per level.' },
         slayer:   { id: 'slayer',   name: 'Slayer',        color: '#f97316', icon: '☠', desc: 'Leveled by hunting beasts, undead, and bosses. Grants +0.6% monster/boss damage per level.' },
         delving:  { id: 'delving',  name: 'Dungeoneering', color: '#a855f7', icon: '🗝', desc: 'Leveled by delving dungeons & opening chests. Grants +0.8% loot credits per level.' },
         foraging: { id: 'foraging', name: 'Foraging',      color: '#4ade80', icon: '🌿', desc: 'Leveled by harvesting herbs & timber. Grants +0.6% med/potion healing & bonus gather chance.' },
         mining:   { id: 'mining',   name: 'Artisan Mining',color: '#38bdf8', icon: '⛏', desc: 'Leveled by mining ore veins & salvaging gear. Grants +0.7% salvage yield & slower gear wear.' },
-        arcana:   { id: 'arcana',   name: 'Runecraft',     color: '#c084fc', icon: '✦', desc: 'Leveled by elemental reactions & runic crystals. Grants +0.6% reaction & ability damage per level.' }
+        arcana:   { id: 'arcana',   name: 'Runecraft',     color: '#c084fc', icon: '✦', desc: 'Leveled by elemental reactions & runic crystals. Grants +0.6% reaction & ability damage per level.' },
+        exploration: { id: 'exploration', name: 'Pathfinding', color: '#fbbf24', icon: '🧭', desc: 'Leveled by charting unexplored land, syncing vistas and uncovering hidden sites. Grants +0.2% move speed and +1% discovery rewards per level.' }
     };
     const SKILL_CAP = 99;
     function skillXpToNext(L) { return Math.round(85 * Math.pow(L, 1.58) + 45 * L); }
@@ -49,7 +50,7 @@
         stone_dragon:   { id: 'stone_dragon',   name: 'The Dragonwild Stone', color: '#fbbf24', desc: '+30% Elemental Reaction Damage and +18 Armor Penetration.', fx: { reactMult: 0.30, bonusPen: 18 } }
     };
 
-    /* ------------------------------------------------------------------ 7 Perk Trees × 6 Tiers = 84 Perks */
+    /* ------------------------------------------------------------------ 9 Perk Trees × 6 Tiers = 108 Perks */
     const TIER_LEVELS = [2, 6, 12, 18, 26, 36];
     const PERK_TREES = {
         vanguard: {
@@ -138,7 +139,7 @@
             ]
         },
         arcanist: {
-            name: 'Arcanist', color: '#c084fc', icon: 'staged_assets/ui/fantasy_rpg_icons/Magic Spells/arcane-orb-001.png',
+            name: 'Arcanist', color: '#c084fc', icon: 'staged_assets/ui/fantasy_rpg_icons/Weapons/arcane-orb-001.png',
             tiers: [
                 [{ id: 'arc_t1_ward', name: 'Runic Ward', desc: '+12% resistance to all 5 elements.', fx: { allElemRes: 0.12 } },
                     { id: 'arc_t1_spark', name: 'Astral Spark', desc: '+20% elemental reaction damage.', fx: { reactMult: 0.20 } }],
@@ -169,6 +170,40 @@
                     { id: 'way_t5_delver', name: 'Dungeon Delver', desc: 'Bypass chest and culvert locks, and deal +25% boss damage.', fx: { lockpick: 1, bossDmg: 0.25 } }],
                 [{ id: 'way_t6_legend', name: 'Legend of Meridian', desc: '+35% All XP Gain, +15% All Damage & +50 kg Carry.', fx: { xpMult: 0.35, allDmgMult: 0.15, carry: 50 } },
                     { id: 'way_t6_warden', name: 'High Warden', desc: '+65 max HP, +20% all elem resist & +14% move speed.', fx: { maxHp: 65, allElemRes: 0.20, speedMult: 0.14 } }]
+            ]
+        },
+        pathfinder: {
+            name: 'Pathfinder', color: '#fbbf24', icon: 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png',
+            tiers: [
+                [{ id: 'path_t1_cartographer', name: 'Cartographer', desc: '+40% fog-of-war reveal radius and +30 m minimap range.', fx: { revealRadius: 0.40, minimapRange: 30 } },
+                    { id: 'path_t1_trailblazer', name: 'Trailblazer', desc: '+6% movement speed and +10 kg carry weight.', fx: { speedMult: 0.06, carry: 10 } }],
+                [{ id: 'path_t2_antiquarian', name: 'Antiquarian', desc: '+35% XP from caches, tomes, shrines, vistas and altars.', fx: { discoveryXp: 0.35 } },
+                    { id: 'path_t2_treasure', name: 'Treasure Sense', desc: '+30% chance of a bonus item from treasure caches.', fx: { cacheLuck: 0.30 } }],
+                [{ id: 'path_t3_pilgrim', name: 'Devout Pilgrim', desc: 'Shrine blessings last 60% longer.', fx: { shrineDur: 0.60 } },
+                    { id: 'path_t3_wildcraft', name: 'Wildcrafter', desc: '+15% bonus gather chance and +20% med healing.', fx: { gatherChance: 0.15, medMult: 0.20 } }],
+                [{ id: 'path_t4_survey', name: 'Field Survey', desc: '+25% Mastery XP and +10% character XP.', fx: { skillXpMult: 0.25, xpMult: 0.10 } },
+                    { id: 'path_t4_gilded', name: 'Gilded Luck', desc: '+25% credits found everywhere.', fx: { creditFind: 0.25 } }],
+                [{ id: 'path_t5_wayfinder', name: 'Wayfinder', desc: '+10% movement speed and +20 armor.', fx: { speedMult: 0.10, armor: 20 } },
+                    { id: 'path_t5_relic', name: 'Relic Hunter', desc: '+50% cache bonus-item chance and +20% discovery XP.', fx: { cacheLuck: 0.50, discoveryXp: 0.20 } }],
+                [{ id: 'path_t6_atlas', name: 'Living Atlas', desc: '+80% reveal radius, +60% discovery XP and +12% movement speed.', fx: { revealRadius: 0.80, discoveryXp: 0.60, speedMult: 0.12 } },
+                    { id: 'path_t6_hoard', name: "Dragon's Hoard", desc: '+60% credits found and every cache yields a bonus item.', fx: { creditFind: 0.60, cacheLuck: 1 } }]
+            ]
+        },
+        huntsman: {
+            name: 'Huntsman', color: '#f43f5e', icon: 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png',
+            tiers: [
+                [{ id: 'hunt_t1_quarry', name: 'Mark the Quarry', desc: '+15% damage against Champions.', fx: { champDmg: 0.15 } },
+                    { id: 'hunt_t1_tracker', name: "Tracker's Eye", desc: '+10% damage against beasts and bosses.', fx: { monsterDmg: 0.10 } }],
+                [{ id: 'hunt_t2_hide', name: 'Thick Hide', desc: 'Take 15% less damage from Champions.', fx: { champDR: 0.15 } },
+                    { id: 'hunt_t2_trophy', name: 'Trophy Taker', desc: '+50% chance of a bonus loot roll from Champions.', fx: { champLoot: 0.50 } }],
+                [{ id: 'hunt_t3_venom', name: 'Envenomed Rounds', desc: 'Every 5th firearm hit applies Venom.', fx: { nthVenom: 5 } },
+                    { id: 'hunt_t3_static', name: 'Static Rounds', desc: 'Every 5th firearm hit applies Shock.', fx: { nthShock: 5 } }],
+                [{ id: 'hunt_t4_executioner', name: 'Executioner', desc: '+30% damage to enemies below 35% HP.', fx: { execute: 0.30 } },
+                    { id: 'hunt_t4_bloodhound', name: 'Bloodhound', desc: 'Kills restore 10 HP and +8% critical chance.', fx: { killHeal: 10, bonusCritChance: 0.08 } }],
+                [{ id: 'hunt_t5_bane', name: "Champion's Bane", desc: '+35% Champion damage and +20% boss damage.', fx: { champDmg: 0.35, bossDmg: 0.20 } },
+                    { id: 'hunt_t5_ward', name: 'Monster Ward', desc: 'Take 30% less damage from Champions and 20% less from bosses.', fx: { champDR: 0.30, bossDR: 0.20 } }],
+                [{ id: 'hunt_t6_apex', name: 'Apex Predator', desc: '+25% damage to beasts, bosses and Champions; Champions always drop a bonus roll.', fx: { monsterDmg: 0.25, champDmg: 0.25, champLoot: 1 } },
+                    { id: 'hunt_t6_legend', name: 'Monster-Slayer Legend', desc: '+70 max HP, +20 armor and kills heal 15 HP.', fx: { maxHp: 70, armor: 20, killHeal: 15 } }]
             ]
         }
     };
@@ -332,6 +367,8 @@
         iron_ore: { name: 'Basin Iron Ore', type: 'junk', weight: 0.8, value: 22, scrap: 5, stack: true, desc: 'Mined from frontier ore veins.' },
         mithril_ore: { name: 'Deep-Vein Mithril Ore', type: 'junk', weight: 0.7, value: 48, scrap: 11, stack: true, desc: 'Gleaming blue-silver ore prized by smiths.' },
         starmetal_ore: { name: 'Meteorite Star-Metal', type: 'junk', weight: 0.6, value: 95, scrap: 22, stack: true, desc: 'Dense astral alloy from Dragonwild craters.' },
+        champion_sigil: { name: "Champion's Sigil", type: 'junk', weight: 0.2, value: 140, scrap: 24, stack: true, desc: 'Torn from a slain Champion. Collectors across the Expanse pay well for these.' },
+        ancient_coin: { name: 'Pre-Fall Coin', type: 'junk', weight: 0.05, value: 55, scrap: 9, stack: true, desc: 'Minted before the Meridian collapse. Found in buried caches.' },
         elderwood_log: { name: 'Elderwood Timber', type: 'junk', weight: 0.9, value: 20, scrap: 5, stack: true, desc: 'Resinous heartwood from Whispering Pinewoods.' },
         mirebloom_herb: { name: 'Mirebloom Herb', type: 'junk', weight: 0.15, value: 26, scrap: 6, stack: true, desc: 'Luminous swamp herb used in Swallow elixirs.' },
         sunleaf_herb: { name: 'Sunscorched Crimsonleaf', type: 'junk', weight: 0.15, value: 38, scrap: 9, stack: true, desc: 'Potent desert flora for Thunderbolt brews.' },
@@ -378,6 +415,8 @@
         dragon: [['dragon_scale', 45, 1, 2], ['starmetal_ore', 25, 1, 2], ['credits', 35, 65, 150], ['elixir_thunderbolt', 18, 1, 1], ['elixir_wisdom', 10, 1, 1]],
         boss: [['credits', 100, 140, 260], ['medkit', 80, 2, 3], ['elixir_swallow', 55, 1, 2], ['relay_cell', 60, 1, 2], ['elixir_wisdom', 25, 1, 1]],
         cache: [['credits', 60, 20, 65], ['medkit', 30, 1, 2], ['ammo_box', 40, 1, 2], ['circuitry', 25, 1, 2], ['relay_cell', 12, 1, 1], ['w_carbine', 6, 1, 1], ['rig_light', 6, 1, 1]],
+        champion: [['credits', 100, 90, 220], ['champion_sigil', 70, 1, 1], ['elixir_thunderbolt', 30, 1, 1], ['elixir_wisdom', 22, 1, 1], ['relay_cell', 25, 1, 1], ['w_dmr', 8, 1, 1], ['rig_plated', 8, 1, 1]],
+        treasure: [['credits', 100, 45, 140], ['ancient_coin', 60, 1, 3], ['elixir_swallow', 25, 1, 1], ['elixir_wisdom', 10, 1, 1], ['runic_shard', 20, 1, 2], ['relay_cell', 12, 1, 1], ['w_rifle', 6, 1, 1], ['rig_light', 6, 1, 1]],
         locked: [['credits', 100, 75, 180], ['relay_cell', 45, 1, 2], ['elixir_thunderbolt', 35, 1, 2], ['w_dmr', 10, 1, 1], ['rig_plated', 10, 1, 1], ['elixir_wisdom', 18, 1, 1]]
     };
     const PITY_GUARANTEE = 12;

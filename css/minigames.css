@@ -625,3 +625,21 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 @keyframes mghEqBounce { from { height: 4px; } to { height: 18px; } }
 .foundry-console { border-bottom-color: #72e8dc; background: linear-gradient(180deg, rgba(15, 31, 37, 0.94), rgba(9, 19, 24, 0.9)); }
 .foundry-console strong { color: #ffcf98; }
+
+/* ---------------- Arcade Rank + Daily Featured (flagship-2) ---------------- */
+.mgh-rank { margin-top: 8px; padding: 11px 12px; border-radius: 10px; background: linear-gradient(135deg, color-mix(in srgb, var(--rk) 16%, transparent), rgba(255, 255, 255, 0.02)); border: 1px solid color-mix(in srgb, var(--rk) 40%, transparent); }
+.mgh-rank small { display: block; color: var(--text-dim); letter-spacing: 2px; font-size: 10px; }
+.mgh-rank b { display: block; font-size: 17px; letter-spacing: 0.5px; color: var(--rk); text-shadow: 0 0 14px color-mix(in srgb, var(--rk) 45%, transparent); }
+.mgh-rank em { display: block; font-style: normal; font-size: 11px; color: var(--text-dim); margin-top: 2px; font-family: var(--font-mono); }
+.mgh-daily { margin-top: 8px; padding: 10px; border-radius: 10px; background: rgba(250, 204, 21, 0.04); border: 1px solid rgba(250, 204, 21, 0.18); display: grid; gap: 6px; }
+.mgh-daily-head b { display: block; font-size: 11px; letter-spacing: 2px; color: #fde68a; }
+.mgh-daily-head small { display: block; font-size: 10.5px; color: var(--text-dim); margin-top: 1px; }
+.mgh-daily-row { display: grid; grid-template-columns: 28px 1fr 18px; gap: 8px; align-items: center; width: 100%; padding: 7px 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.07); border-left: 3px solid var(--mc); background: rgba(255, 255, 255, 0.03); color: inherit; text-align: left; cursor: pointer; transition: background 0.18s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease; }
+.mgh-daily-row:hover { background: rgba(255, 255, 255, 0.07); transform: translateX(2px); border-color: color-mix(in srgb, var(--mc) 45%, transparent); }
+.mgh-daily-row:focus-visible { outline: 2px solid var(--mc); outline-offset: 2px; }
+.mgh-daily-ico { font-size: 17px; text-align: center; }
+.mgh-daily-text b { display: block; font-size: 12.5px; line-height: 1.2; }
+.mgh-daily-text small { display: block; font-size: 10.5px; color: var(--text-dim); margin-top: 1px; }
+.mgh-daily-state { font-weight: 900; color: var(--text-dim); text-align: center; }
+.mgh-daily-row.done { opacity: 0.72; } .mgh-daily-row.done .mgh-daily-state { color: #4ade80; }
+@media (prefers-reduced-motion: reduce) { .mgh-daily-row { transition: none; } }

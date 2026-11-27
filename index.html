@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0d10'/%3E%3Ccircle cx='32' cy='32' r='17' fill='none' stroke='%23f5a623' stroke-width='5'/%3E%3Cpath d='M32 6v14M32 44v14M6 32h14M44 32h14' stroke='%23f5a623' stroke-width='5' stroke-linecap='round'/%3E%3Ccircle cx='32' cy='32' r='4' fill='%23f5a623'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/styles.css?v=weapon-studio">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=modifier-panel-1">
@@ -12,10 +13,10 @@
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?assets-v3">
-    <link rel="stylesheet" href="css/minigames.css?v=mega1">
+    <link rel="stylesheet" href="css/minigames.css?v=flagship2">
     <link rel="stylesheet" href="css/rpg.css?v=mega1">
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
-    <link rel="stylesheet" href="css/owrpg.css?v=mega1">
+    <link rel="stylesheet" href="css/owrpg.css?v=flagship2">
     <link rel="stylesheet" href="css/update-log.css?v=ul1">
     <link rel="stylesheet" href="css/profile-hub.css?v=1.0">
     <link rel="stylesheet" href="css/aaa-theme.css?v=selection-motion">
@@ -27,9 +28,9 @@
 
     <!-- Core -->
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
-    <script defer src="src/graphics/AssetLoader.js?assets-v4"></script>
+    <script defer src="src/graphics/AssetLoader.js?v=flagship2"></script>
     <script defer src="src/core/SaveSystem.js?v=mega1"></script>
-    <script defer src="src/core/Settings.js?v=mega1"></script>
+    <script defer src="src/core/Settings.js?v=flagship2"></script>
     <script defer src="src/graphics/Bevel.js?v=aaa4"></script>
     <script defer src="src/net/NetValidation.js?v=core1"></script>
     <script defer src="src/net/NetworkManager.js?sound-mix-2"></script>
@@ -54,20 +55,21 @@
     <script defer src="src/data/SurvivalModifiersCatalog.js?v=sv9"></script>
     <script defer src="src/data/SurvivalRules.js?v=polish1"></script>
     <script defer src="src/data/SurvivalDeepData.js?v=g1"></script>
-    <script defer src="src/engine/WorldCore.js?v=z2b"></script>
+    <script defer src="src/engine/WorldCore.js?v=flagship2"></script>
     <script defer src="src/data/SurvivalWorld.js?v=au1"></script>
     <script defer src="src/data/ZoneRules.js?v=au10"></script>
     <script defer src="src/data/RPGData.js?v=mega1"></script>
     <script defer src="src/data/RPGItemsData.js?v=mega1"></script>
     <script defer src="src/data/RPGEncounters.js?v=vaults1"></script>
-    <script defer src="src/data/OWRPGStatsData.js?v=mega1"></script>
-    <script defer src="src/data/OWRPGExpansionData.js?v=mega1"></script>
-    <script defer src="src/data/OWRPGFactionsData.js?v=mega1"></script>
-    <script defer src="src/data/OWRPGWorldData.js?v=mega1"></script>
-    <script defer src="src/data/OWRPGDialogueData.js?v=mega1"></script>
-    <script defer src="src/data/OWRPGQuestsData.js?v=mega1"></script>
+    <script defer src="src/data/OWRPGStatsData.js?v=flagship2"></script>
+    <script defer src="src/data/OWRPGExpansionData.js?v=flagship2"></script>
+    <script defer src="src/data/OWRPGFactionsData.js?v=flagship2"></script>
+    <script defer src="src/data/OWRPGWorldData.js?v=flagship2"></script>
+    <script defer src="src/data/OWRPGDialogueData.js?v=flagship2"></script>
+    <script defer src="src/data/OWRPGQuestsData.js?v=flagship2"></script>
     <script defer src="src/data/OWRPGAct2Data.js?v=1.0"></script>
-    <script defer src="src/data/UpdateLogData.js?v=mega1"></script>
+    <script defer src="src/data/OWRPGDiscoveryData.js?v=flagship2"></script>
+    <script defer src="src/data/UpdateLogData.js?v=flagship2"></script>
 
     <!-- Audio & 3D Graphics -->
     <script defer src="src/audio/SoundEngine.js?assets-v3"></script>
@@ -78,6 +80,7 @@
     <script defer src="src/graphics/SoldierModel.js?v=field-update-1"></script>
     <script defer src="src/graphics/ZombieModel.js?v=glb-monsters-1"></script>
     <script defer src="src/graphics/CharacterShading.js?v=aaa3"></script>
+    <script defer src="src/graphics/MeshProxy.js?v=flagship2"></script>
     <script defer src="src/graphics/FXSystem.js?v=20261124a"></script>
     <script defer src="src/graphics/Atmosphere.js?v=aaa3"></script>
     <script defer src="src/graphics/Ambience.js?v=aaa3"></script>
@@ -91,7 +94,7 @@
 
     <!-- Engine & Entities -->
     <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
-    <script defer src="src/engine/WorldBuilder.js?v=arena-props-1"></script>
+    <script defer src="src/engine/WorldBuilder.js?v=flagship2"></script>
     <script defer src="src/engine/PlayerController.js?v=mega1"></script>
     <script defer src="src/engine/GamepadInput.js?v=core1"></script>
     <script defer src="src/engine/CombatSystem.js?v=mega1"></script>
@@ -110,7 +113,7 @@
     <script defer src="src/rpg/RPGRoomEvent.js?v=mega1"></script>
     <script defer src="src/rpg/RPGDoors.js?v=doors1"></script>
     <script defer src="src/rpg/RPGItems.js?v=mega1"></script>
-    <script defer src="src/modes/RPGMode.js?v=mega1"></script>
+    <script defer src="src/modes/RPGMode.js?v=flagship2"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=field-update-1"></script>
     <script defer src="src/systems/SpatialHash.js?v=core1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
@@ -167,83 +170,88 @@
     <script defer src="src/gm/GMGuide.js?v=vaults1"></script>
     <script defer src="src/gm/GMUI.js?v=g1"></script>
     <script defer src="src/modes/SurvivalMode.js?v=field-update-1"></script>
-    <script defer src="src/owrpg/OWRPGSave.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGCharacter.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGSave.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGCharacter.js?v=flagship2"></script>
     <script defer src="src/owrpg/OWRPGFactions.js?v=ow2"></script>
-    <script defer src="src/owrpg/OWRPGDurability.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGInventory.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGDurability.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGInventory.js?v=flagship2"></script>
     <script defer src="src/owrpg/OWRPGQuests.js?v=ow2"></script>
     <script defer src="src/owrpg/OWRPGDialogue.js?v=ow2"></script>
-    <script defer src="src/owrpg/OWRPGCombat.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGAI.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGWorldArt.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGWorldSim.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGInteriors.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGCombat.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGAI.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGWorldArt.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGWorldSim.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGInteriors.js?v=flagship2"></script>
     <script defer src="src/owrpg/OWRPGMounts.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGEvents.js?v=mega1"></script>
-    <script defer src="src/owrpg/OWRPGValidator.js?v=mega1"></script>
-    <script defer src="src/modes/OWRPGMode.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGEvents.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGValidator.js?v=flagship2"></script>
+    <script defer src="src/modes/OWRPGMode.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGCartography.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGChampions.js?v=flagship2"></script>
+    <script defer src="src/owrpg/OWRPGDiscoveries.js?v=flagship2"></script>
     <script defer src="src/owrpg/OWRPGCompanions.js?v=1.0"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
-    <script defer src="src/ui/HUDController.js?v=mega1"></script>
+    <script defer src="src/ui/HUDController.js?v=flagship2"></script>
     <script defer src="src/ui/SelectionHighlight.js?v=2"></script>
     <script defer src="src/ui/GunsmithUI.js?assets-v2"></script>
     <script defer src="src/ui/ModifierMenuUI.js?v=modifier-library"></script>
     <script defer src="src/ui/UpdateLogUI.js?v=mega1"></script>
-    <script defer src="src/ui/MenuController.js?assets-v2"></script>
+    <script defer src="src/ui/MenuController.js?v=flagship2"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=field-update-1"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
     <script defer src="src/ui/SurvivalUI.js?assets-v2"></script>
-    <script defer src="src/ui/ModeGuide.js?v=mega1"></script>
+    <script defer src="src/ui/ModeGuide.js?v=flagship2"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
     <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Fun & Specials) -->
     <script defer src="src/minigames/MinigameHelpers.js?v=core1"></script>
-    <script defer src="src/minigames/MinigameCore.js?v=mega1"></script>
+    <script defer src="src/minigames/MinigameCore.js?v=flagship2"></script>
+    <script defer src="src/minigames/MinigameFeel.js?v=flagship2"></script>
+    <script defer src="src/minigames/MinigameDaily.js?v=flagship2"></script>
     <script defer src="src/minigames/MinigameArt.js?v=mega1"></script>
-    <script defer src="src/minigames/TargetCoursesA.js?assets-v1"></script>
-    <script defer src="src/minigames/TargetCoursesB.js?v=mega1"></script>
+    <script defer src="src/minigames/TargetCoursesA.js?v=flagship2"></script>
+    <script defer src="src/minigames/TargetCoursesB.js?v=flagship2"></script>
     <script defer src="src/minigames/MinigameFigures.js?v=anim1"></script>
     <script defer src="src/minigames/BeatSongs.js?sound-mix-6"></script>
-    <script defer src="src/minigames/TargetCoursesC.js?assets-v1"></script>
+    <script defer src="src/minigames/TargetCoursesC.js?v=flagship2"></script>
     <script defer src="src/minigames/BeachAnatomy.js?v=mega1"></script>
     <script defer src="src/minigames/BeachArt.js?v=mega1"></script>
     <script defer src="src/minigames/MansionScenarios.js?v=mega1"></script>
-    <script defer src="src/minigames/TargetCoursesD.js?v=mega1"></script>
-    <script defer src="src/minigames/BossAttacks.js?v=mg7"></script>
-    <script defer src="src/minigames/BossRush.js?v=86k"></script>
-    <script defer src="src/minigames/WhackAMole.js?v=86n"></script>
-    <script defer src="src/minigames/ArcadeHall.js?assets-v2"></script>
-    <script defer src="src/minigames/ArcadeHall2.js?assets-v1"></script>
+    <script defer src="src/minigames/TargetCoursesD.js?v=flagship2"></script>
+    <script defer src="src/minigames/BossAttacks.js?v=flagship2"></script>
+    <script defer src="src/minigames/BossRush.js?v=flagship2"></script>
+    <script defer src="src/minigames/WhackAMole.js?v=flagship2"></script>
+    <script defer src="src/minigames/ArcadeHall.js?v=flagship2"></script>
+    <script defer src="src/minigames/ArcadeHall2.js?v=flagship2"></script>
     <script defer src="src/minigames/ArcadeHall3.js?v=86m"></script>
     <script defer src="src/minigames/ArcadeHall4.js?assets-v2"></script>
-    <script defer src="src/minigames/SpeedRuns.js?v=mega1"></script>
-    <script defer src="src/minigames/SpeedRuns2.js?v=mega1"></script>
-    <script defer src="src/minigames/SpeedRuns3.js?v=mega1"></script>
-    <script defer src="src/minigames/SkybreakSling.js?v=86d"></script>
-    <script defer src="src/minigames/CourseScenery.js?v=86c"></script>
+    <script defer src="src/minigames/SpeedRuns.js?v=flagship2"></script>
+    <script defer src="src/minigames/SpeedRuns2.js?v=flagship2"></script>
+    <script defer src="src/minigames/SpeedRuns3.js?v=flagship2"></script>
+    <script defer src="src/minigames/SkybreakSling.js?v=flagship2"></script>
+    <script defer src="src/minigames/CourseScenery.js?v=flagship2"></script>
     <script defer src="src/minigames/MinigameAudio.js?v=mega1"></script>
     <script defer src="src/minigames/BastionWarden.js?v=mega1"></script>
-    <script defer src="src/minigames/SummitRally.js?v=86c"></script>
+    <script defer src="src/minigames/SummitRally.js?v=flagship2"></script>
     <script defer src="src/minigames/FlightCircuit.js?v=mega1"></script>
-    <script defer src="src/minigames/PrismFoundry.js?v=86c"></script>
-    <script defer src="src/minigames/FunGamesA.js?v=mega1"></script>
-    <script defer src="src/minigames/FunGamesB.js?v=mega1"></script>
-    <script defer src="src/minigames/FunGamesC.js?v=mega1"></script>
-    <script defer src="src/minigames/FunGamesD.js?v=mega1"></script>
-    <script defer src="src/minigames/FunGamesE.js?sound-mix-2"></script>
-    <script defer src="src/minigames/FunGamesF.js?assets-v1"></script>
+    <script defer src="src/minigames/PrismFoundry.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesA.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesB.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesC.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesD.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesE.js?v=flagship2"></script>
+    <script defer src="src/minigames/FunGamesF.js?v=flagship2"></script>
     <script defer src="src/minigames/FunGamesG.js?v=mega1"></script>
     <script defer src="src/minigames/FunGamesH.js?v=mega1"></script>
     <script defer src="src/minigames/FunGamesI.js?v=mega1"></script>
     <script defer src="src/minigames/MinigameThumbs.js?v=art3"></script>
-    <script defer src="src/minigames/MinigameHub.js?v=mega1"></script>
+    <script defer src="src/minigames/MinigameHub.js?v=flagship2"></script>
     <script defer src="src/ui/RPGUI.js?v=mega1"></script>
-    <script defer src="src/ui/OWRPGUI.js?v=mega1"></script>
-    <script defer src="src/ui/OWRPGPipPad.js?v=mega1"></script>
+    <script defer src="src/ui/OWRPGUI.js?v=flagship2"></script>
+    <script defer src="src/ui/OWRPGPipPad.js?v=flagship2"></script>
     <script defer src="src/systems/ModeDepth10.js?v=1.0"></script>
     <script defer src="src/core/ProfileSystem.js?v=1.0"></script>
     <script defer src="src/ui/ProfileHubUI.js?v=1.0"></script>

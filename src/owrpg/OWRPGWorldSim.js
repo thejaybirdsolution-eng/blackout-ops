@@ -40,6 +40,8 @@
 
         init(scene) {
             this.poiAgents = {};
+            this._cullAt = null;
+            this._collectCullables();
             this.region = null;
             this.encT = 30;
             this.scene = scene;
@@ -89,7 +91,58 @@
                 sc.fog.density = inside ? 0.06 : this.base.fogD * (1 + (1 - k) * 0.6);
                 if (sc.background && sc.background.isColor) sc.background.copy(_c1.copy(this.base.sky).lerp(night, 1 - k));
             }
-            if (BO.World.terrain && !inside) BO.World.terrain.updateLOD(P.pos.x, P.pos.z, 135);
+            if (BO.World.terrain && !inside) BO.World.terrain.updateLOD(P.pos.x, P.pos.z, 135, this.fogCullDist() + 115);
+            // Re-cull static batches once a second, or immediately after a teleport / long move.
+            this._cullT = (this._cullT || 0) - dt;
+            const lc = this._cullAt;
+            if (this._cullT <= 0 || !lc || Math.abs(P.pos.x - lc.x) + Math.abs(P.pos.z - lc.z) > 24) {
+                this._cullT = 1;
+                this._cullAt = { x: P.pos.x, z: P.pos.z };
+                this._cullBatches(inside);
+            }
+        },
+
+        /** Random-encounter squads for a region (used by Altars of Trials). */
+        encounterPool(regionId) { return ENCOUNTERS[regionId] || ENCOUNTERS.haven_basin; },
+
+        /** Distance where exp² fog leaves < 1% of a surface visible — anything beyond is pure fog colour. */
+        fogCullDist() {
+            const fog = BO.World.scene && BO.World.scene.fog;
+            return fog && fog.density > 0 ? 2.15 / fog.density : Infinity;
+        },
+
+        /** Hide merged static-box chunks and loose static meshes that sit entirely inside the fog wall. */
+        _cullBatches(inside) {
+            const P = BO.Player;
+            if (!this._batches) this._collectCullables();
+            const cull = Math.max(inside ? 260 : 0, this.fogCullDist());
+            for (const b of this._batches) {
+                const vis = BO.Math.dist2D(P.pos.x, P.pos.z, b.x, b.z) < cull + b.r;
+                if (b.m.visible !== vis) b.m.visible = vis;
+            }
+        },
+
+        /** Snapshot the static world right after it is built: merged box chunks plus loose top-level
+         *  meshes (landmark parts). Groups are skipped on purpose — props, NPCs and GLB holders run
+         *  their own visibility logic — and so are transient FX meshes (particles, decals, shells). */
+        _collectCullables() {
+            this._batches = [];
+            {
+                const fxGeo = BO.FX ? new Set([BO.FX.particleGeo, BO.FX.decalGeo, BO.FX.shellGeo]) : new Set();
+                const terrain = new Set();
+                for (const c of (BO.World.terrain && BO.World.terrain.chunks) || []) { terrain.add(c.near); terrain.add(c.far); }
+                const fogged = (mat) => !Array.isArray(mat) && mat && mat.fog !== false;
+                const consider = (m) => {
+                    if (!m.isMesh || m.isInstancedMesh || terrain.has(m) || !m.geometry || fxGeo.has(m.geometry) || !fogged(m.material)) return;
+                    m.updateMatrixWorld(true);
+                    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+                    const c = m.geometry.boundingSphere.center.clone().applyMatrix4(m.matrixWorld);
+                    const sc = Math.max(m.scale.x, m.scale.y, m.scale.z);
+                    this._batches.push({ m, x: c.x, z: c.z, r: m.geometry.boundingSphere.radius * sc });
+                };
+                for (const m of BO.World.worldMeshes || []) if (m.userData && m.userData.batch) consider(m);
+                for (const m of BO.World.scene.children) if (!(m.userData && m.userData.batch)) consider(m);
+            }
         },
 
         tick1(dt) {

@@ -77,7 +77,8 @@
         owUltimate: 'KeyU',
         owRepair: 'KeyG',
         owQuickSave: 'F5',
-        owQuickLoad: 'F9'
+        owQuickLoad: 'F9',
+        owMinimapZoom: 'KeyN'
     };
 
     /* Every rebindable action, grouped for the Controls panel. `ctx` lists the modes in
@@ -132,6 +133,7 @@
             { action: 'owCharacter', label: 'Pip-Pad', tip: 'Open World RPG: character, perks, inventory, abilities, quests, map and factions.', ctx: ['owrpg'] },
             { action: 'owQuestLog', label: 'Quest log', tip: 'Open World RPG: open the Pip-Pad on your quests.', ctx: ['owrpg'] },
             { action: 'owMap', label: 'Map', tip: 'Open World RPG: open the Pip-Pad map. Click to place compass pins.', ctx: ['owrpg'] },
+            { action: 'owMinimapZoom', label: 'Minimap range', tip: 'Open World RPG: cycle the minimap range (95 / 150 / 230 m); turns the minimap back on if hidden.', ctx: ['owrpg'] },
             { action: 'owHolster', label: 'Holster weapon', tip: 'Open World RPG: holster for +12% sprint speed.', ctx: ['owrpg'] },
             { action: 'owDodge', label: 'Dodge roll', tip: 'Open World RPG: dodge with brief invulnerability (not while overburdened).', ctx: ['owrpg'] },
             { action: 'owQuickSave', label: 'Quick save', tip: 'Open World RPG: save (not in combat or mid-air).', ctx: ['owrpg'] },

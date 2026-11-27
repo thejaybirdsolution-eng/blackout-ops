@@ -381,7 +381,10 @@
             if (this.removed) return;
             this.removed = true;
             this.alive = false;
-            if (this.root.parent) this.root.parent.remove(this.root);
+            // Park the root in the session graveyard (outside the scene) so its GPU resources are
+            // released with the rest of the session in MinigameRuntime.stop().
+            if (this.ctx && this.ctx.graveyard) this.ctx.graveyard.add(this.root);
+            else if (this.root.parent) this.root.parent.remove(this.root);
         }
     }
 
@@ -397,6 +400,7 @@
             this.rt = runtime;
             this.def = def;
             this.scene = scene;
+            this.graveyard = new THREE.Group();   // removed targets wait here for GPU release
             this.opts = opts || {};
             this.seed = (this.opts.seed !== undefined && this.opts.seed !== null)
                 ? (typeof this.opts.seed === 'number' ? (this.opts.seed >>> 0) : hashStr(String(this.opts.seed)))
@@ -490,9 +494,11 @@
                 SFX.combo(this.combo / 5);
                 this.rt.flashCombo();
             }
+            BO.MinigameFeel?.onCombo(this.combo);
         }
 
         breakCombo(reason) {
+            BO.MinigameFeel?.onComboBreak(this.combo);
             if (this.combo >= 5) {
                 SFX.comboBreak();
                 this.rt.toast(reason ? `COMBO LOST — ${reason}` : 'COMBO LOST', '#f87171');
@@ -552,6 +558,7 @@
             pts = Math.round(pts * mult);
             if (mult > 1) label += (label ? ' ' : '') + 'x' + mult.toFixed(1).replace('.0', '');
             this.award(pts, info.pt, label, col);
+            BO.MinigameFeel?.onKill(tg, info, this.def, label);
             tg.kill(info);
             return true;
         }
@@ -688,6 +695,7 @@
 
             const S = new Session(this, def, scene, this.opts);
             this.session = S;
+            BO.MinigameFeel?.onStart(def);
             if (def.build) def.build(S, this.lib);
             if (def.schedule) {
                 def.schedule(S, this.lib);
@@ -728,6 +736,11 @@
                 if (this.def && this.def.dispose) { try { this.def.dispose(this.session, this.lib); } catch (e) { console.error(e); } }
                 this.session.clearTargets();
                 this._releaseGpu(this.session.scene);
+                this._releaseGpu(this.session.graveyard);
+                this.session.graveyard.clear();
+                // Shared caches keep their CPU data but drop their GPU copies between sessions.
+                for (const t of texCache.values()) if (t && t.isTexture) t.dispose();
+                if (BO.Assets && BO.Assets.releaseGpu) BO.Assets.releaseGpu();
             }
             this.active = false;
             this.session = null;
@@ -751,24 +764,33 @@
         }
 
         /** Free GPU buffers for everything a course built (shared/cached materials & textures are kept). */
+        /**
+         * Frees everything a session uploaded to the GPU except the shared caches (canvasTex/pbrMat
+         * caches here and the AssetLoader GLB/texture caches). Course files build many one-off
+         * CanvasTextures for signs, labels and sprites; before this pass they were never disposed and
+         * ~15 textures leaked per run (600+ after a long session). three.js re-uploads a disposed
+         * texture or geometry if a module-level reference is ever drawn again, so this is safe.
+         */
         _releaseGpu(scene) {
             if (!scene) return;
             const cachedMats = new Set(matCache.values());
             const cachedTex = new Set(texCache.values());
+            const A = BO.Assets;
+            const keepTex = (tx) => cachedTex.has(tx) || (A && A.hasCachedTexValue(tx));
+            const freeTex = (tx) => { if (tx && tx.isTexture && !keepTex(tx)) tx.dispose(); };
             scene.traverse((o) => {
-                if (!o.isMesh && !o.isInstancedMesh) return;
+                if (!o.isMesh && !o.isInstancedMesh && !o.isSprite && !o.isPoints && !o.isLine) return;
                 if (o.isInstancedMesh && typeof o.dispose === 'function') o.dispose();
-                if (o.geometry && o.geometry.dispose && !(BO.Assets && BO.Assets.isSharedGeo(o.geometry))) o.geometry.dispose();
+                if (!o.isSprite && o.geometry && o.geometry.dispose && !(A && A.isSharedGeo(o.geometry)) && !o.userData.sharedGeometry) o.geometry.dispose();
                 const mats = Array.isArray(o.material) ? o.material : [o.material];
                 for (const m of mats) {
-                    if (!m || cachedMats.has(m) || (BO.Assets && BO.Assets.hasSharedMatValue(m)) || m === HIDDEN_MAT) continue;
-                    for (const tk of ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap']) {
-                        const tx = m[tk];
-                        if (tx && !cachedTex.has(tx) && !(BO.Assets && BO.Assets.hasCachedTexValue(tx)) && tx.userData && tx.userData.mgOwned) tx.dispose();
-                    }
+                    if (!m || cachedMats.has(m) || (A && A.hasSharedMatValue(m)) || m === HIDDEN_MAT) continue;
+                    for (const tk of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'bumpMap', 'emissiveMap', 'alphaMap', 'aoMap', 'envMap']) freeTex(m[tk]);
                     m.dispose();
                 }
             });
+            freeTex(scene.background);
+            freeTex(scene.environment);
         }
 
         _buildLoadout(def, cls, weaponPref) {
@@ -849,7 +871,11 @@
             if (this.pendingShot) this.pendingShot.hit = true;
             if (this.def.onHit) {
                 const r = this.def.onHit(S, ent, info, this.lib);
-                if (r !== undefined) return r;
+                if (r !== undefined) {
+                    // Custom-scored courses still get the sampled impact when their target dies.
+                    if (r === true && ent.mgTarget) BO.MinigameFeel?.onKill(ent, info, this.def, '');
+                    return r;
+                }
             }
             if (ent.mgTarget) return S.hitTarget(ent, info);
             return false;
@@ -962,6 +988,7 @@
                 }
                 const sec = Math.floor(S.t);
                 if (S.timeline.length <= sec) S.timeline.push(S.score);
+                BO.MinigameFeel?.onTick(S);
                 if (S.duration && S.t >= S.duration) this._beginFinish('TIME!');
             } else if (this.state === 'finish') {
                 this.finishTimer -= dt;
@@ -1005,6 +1032,7 @@
             S.timeline.push(S.score);
             for (const tg of S.targets) if (tg.alive) tg.retire();
             const isExample = !!(S && S.opts && S.opts.exampleMode);
+            if (!isExample) BO.MinigameFeel?.onFinish(label);
             this._showCountdown(isExample ? 'EXAMPLE COMPLETE — YOUR TURN!' : label, isExample ? '#67e8f9' : (opts.color || '#fde68a'), true);
             SFX.beep(true);
         }
@@ -1258,6 +1286,8 @@
                     const clip = (better && prev) ? 'new_highscore.ogg' : (res.stars >= 1 ? 'mission_completed.ogg' : 'game_over.ogg');
                     BO.Assets.playClip('audio/voice/Voiceover Pack (Kenney)/Male/' + clip, { volume: 0.80 });
                 }
+                BO.MinigameFeel?.onResults(res, this.starsOf(def, this.opts).length);
+                BO.MinigameDaily?.onResults(def, res);
             }
 
             this.blockingUI = true;

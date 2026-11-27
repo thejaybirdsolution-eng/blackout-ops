@@ -1,6 +1,6 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Quests 2.0 (31 Quests Across 12 Regions & 12 Dungeons)
-   Categories: main · faction · side · contract (Witcher hunts) · delve (Dungeons)
+   BLACKOUT OPS — Open World RPG · Quests 2.0 (40 Quests Across 12 Regions & 12 Dungeons)
+   Categories: main · faction · side · contract (Witcher hunts) · delve (Dungeons) · explore (self-starting)
    Preserves 100% of original quest stages/branches for _qa_owrpg.html.
 ============================================================================ */
 (function (BO) {
@@ -313,6 +313,97 @@
                 report: { text: 'Return in triumph to Scholar Eryndor at Dragonbone Expedition Camp.', marker: 'dragonbone_outpost' }
             },
             branches: { legend: { label: 'Dragonwilds Dragonslayer', xp: 4200, credits: 2500, rep: { militia: 400, aegis: 400, helix: 250 }, pylon: 'py_dragonwild', items: ['w_fire_staff', 'rig_dragonwild', 'relic_dragon_heart'] } }
+        },
+
+        /* ==================== EXPLORATION QUESTS (Cartography · Discoveries · Champions) ====================
+           Self-starting: each begins the first time you chart land or find a site of its kind, and counts
+           numeric world flags written by OWRPGCartography / OWRPGDiscoveries / OWRPGChampions. */
+        q_atlas_cartographer: {
+            name: "The Cartographers' Guild", kind: 'explore', region: null, autoStart: 'flag:explored_pct',
+            summary: 'An old guild creed promises a reward to anyone who maps the Expanse. The fog lifts wherever you walk.',
+            stages: {
+                survey: { text: 'Chart 15% of the Meridian Expanse (Atlas tab tracks progress).', on: { 'count:explored_pct:15': 'expand' } },
+                expand: { text: 'Chart 35% of the Expanse. Survey Vistas chart wide areas at once.', on: { 'count:explored_pct:35': 'master' } },
+                master: { text: 'Chart 60% of the Expanse to earn the Guild\'s seal.', on: { 'count:explored_pct:60': 'sealed' } },
+                sealed: { text: 'The Guild seal is yours.', autoComplete: 'charted' }
+            },
+            branches: { charted: { label: 'Guild Cartographer', xp: 3200, credits: 1200, items: ['elixir_wisdom', 'elixir_wisdom'], rep: { militia: 150 } } }
+        },
+        q_lorekeeper: {
+            name: 'Lorekeeper of the Expanse', kind: 'explore', region: null, autoStart: 'flag:first_tome',
+            summary: 'Field journals and black-box transcripts are scattered across every region. Together they tell what broke the Meridian.',
+            stages: {
+                gather: { text: 'Recover 5 Lore Tomes.', on: { 'count:found_tome:5': 'archive' } },
+                archive: { text: 'Recover 12 Lore Tomes to complete the first archive.', on: { 'count:found_tome:12': 'done' } },
+                done: { text: 'The archive is complete.', autoComplete: 'archived' }
+            },
+            branches: { archived: { label: 'Keeper of the Archive', xp: 2200, credits: 600, items: ['elixir_wisdom', 'runic_shard'] } }
+        },
+        q_pilgrim_road: {
+            name: "The Pilgrim's Road", kind: 'explore', region: null, autoStart: 'flag:first_shrine',
+            summary: 'Root-wrapped wayside shrines still answer prayers. Pilgrims once walked between them all.',
+            stages: {
+                walk: { text: 'Pray at 6 different Wayside Shrines.', on: { 'count:found_shrine:6': 'done' } },
+                done: { text: 'The road is walked.', autoComplete: 'walked' }
+            },
+            branches: { walked: { label: 'Pilgrim of the Expanse', xp: 1600, credits: 350, items: ['elixir_thunderbolt', 'elixir_swallow'] } }
+        },
+        q_fortune_bold: {
+            name: 'Fortune Favours the Bold', kind: 'explore', region: null, autoStart: 'flag:first_cache',
+            summary: 'Pre-Fall strongboxes lie buried under every region. Somebody hid a fortune before the dome went dark.',
+            stages: {
+                dig: { text: 'Open 10 Treasure Caches.', on: { 'count:found_cache:10': 'hoard' } },
+                hoard: { text: 'Open 25 Treasure Caches.', on: { 'count:found_cache:25': 'done' } },
+                done: { text: 'The hoard is yours.', autoComplete: 'rich' }
+            },
+            branches: { rich: { label: 'Treasure Hunter', xp: 1900, credits: 1800, items: ['rig_aegis'] } }
+        },
+        q_eyes_expanse: {
+            name: 'Eyes Over the Expanse', kind: 'explore', region: null, autoStart: 'flag:first_vista',
+            summary: 'Surveyor beacons crown the high ground of every region. Synchronising one charts the land around it.',
+            stages: {
+                sync: { text: 'Synchronise 6 Survey Vistas (shown as ? on the minimap).', on: { 'count:found_vista:6': 'all' } },
+                all: { text: 'Synchronise all 12 Survey Vistas.', on: { 'count:found_vista:12': 'done' } },
+                done: { text: 'Every beacon is lit.', autoComplete: 'synced' }
+            },
+            branches: { synced: { label: 'Master Surveyor', xp: 2600, credits: 700, items: ['elixir_wisdom'] } }
+        },
+        q_champion_hunter: {
+            name: 'Hunter of Champions', kind: 'explore', region: null, autoStart: 'flag:first_champion',
+            summary: 'Champions — larger, aura-wrapped enemies with deadly affixes — roam every region. Collectors pay for their sigils.',
+            stages: {
+                hunt: { text: 'Slay 5 Champions.', on: { 'count:champions_slain:5': 'legend' } },
+                legend: { text: 'Slay 15 Champions.', on: { 'count:champions_slain:15': 'done' } },
+                done: { text: 'Your name is known.', autoComplete: 'apex' }
+            },
+            branches: { apex: { label: 'Champion Hunter', xp: 2800, credits: 1400, items: ['elixir_thunderbolt', 'relay_cell'] } }
+        },
+        q_trial_fire: {
+            name: 'Trial by Fire', kind: 'explore', region: null, autoStart: 'flag:first_altar',
+            summary: 'Altars of Trials summon a Champion and its retinue. Each victory is recorded in the stone.',
+            stages: {
+                trials: { text: 'Win 3 Altar Trials.', on: { 'count:trials_won:3': 'done' } },
+                done: { text: 'The stones remember you.', autoComplete: 'tried' }
+            },
+            branches: { tried: { label: 'Altar Champion', xp: 2400, credits: 900, items: ['elixir_thunderbolt'] } }
+        },
+        q_echoes_mastery: {
+            name: 'Echoes of Mastery', kind: 'explore', region: null, autoStart: 'flag:first_shard',
+            summary: 'Crystallised memories of forgotten crafts pulse in the wilds. Each one teaches a lifetime in a moment.',
+            stages: {
+                absorb: { text: 'Absorb 8 Skill Shards.', on: { 'count:found_shard:8': 'done' } },
+                done: { text: 'The echoes settle.', autoComplete: 'echo' }
+            },
+            branches: { echo: { label: 'Echo-Touched', xp: 1700, credits: 300, items: ['elixir_wisdom'] } }
+        },
+        q_smugglers_trail: {
+            name: "Smuggler's Trail", kind: 'explore', region: null, autoStart: 'flag:first_cairn',
+            summary: 'Cairns of piled stone mark a smuggling network that ran gear between the regions.',
+            stages: {
+                follow: { text: 'Search 8 Hidden Stashes.', on: { 'count:found_cairn:8': 'done' } },
+                done: { text: 'The network is exposed.', autoComplete: 'exposed' }
+            },
+            branches: { exposed: { label: 'Trail Breaker', xp: 1300, credits: 1000, rep: { militia: 100, syndicate: -100 } } }
         }
     };
 

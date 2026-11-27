@@ -4846,6 +4846,12 @@
             this.momentum = { stacks: 0, decay: 0 };
             const profile = this.Profile;
             const p = profile.data;
+            // A start without a chosen (or with a removed) class falls back to the first unlocked class
+            // instead of crashing in computeStats.
+            if (!profile.classId || !profile.cls || !profile.D.CLASSES[profile.classId]) {
+                const first = Object.keys(profile.D.CLASSES).find((id) => profile.selectClass(id));
+                if (!first) console.warn('[RPGMode] no selectable class');
+            }
 
             if (opts.resume && p.run && p.run.classId === profile.classId) {
                 this.run = this._runFromSnapshot(p.run);

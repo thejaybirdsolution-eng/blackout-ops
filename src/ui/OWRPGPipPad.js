@@ -1,7 +1,7 @@
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · Pip-Pad (diegetic wrist terminal)
-   Tabs: Character · Perks · Inventory · Abilities · Quests · Map · Factions ·
-   System, plus the [F8] Dev overlay (teleport, grants, flags, validator).
+   Tabs: Character · Mastery · Perks · Inventory · Abilities · Mounts · Quests ·
+   Bounties · Codex · Map · Atlas · Factions · System, plus the [F8] Dev overlay.
    Rendered into OWRPGUI's modal; clicks route through data-act handlers.
 ============================================================================ */
 (function (BO) {
@@ -19,6 +19,7 @@
         ['bounties', 'Bounties', 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png'],
         ['codex', 'Codex', 'staged_assets/ui/military_icons/Field Gear/encrypted-field-notebook-001.png'],
         ['map', 'Map', 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png'],
+        ['atlas', 'Atlas', 'staged_assets/ui/fantasy_rpg_icons/Items/protection-scroll-001.png'],
         ['factions', 'Factions', 'staged_assets/ui/military_icons/Communications/antenna-relay-puck-001.png'],
         ['system', 'System', 'staged_assets/ui/dieselpunk_icons/Tools/antenna-splice-kit-001.png']
     ];
@@ -262,23 +263,34 @@
             const all = Object.entries(s.quests);
             const active = all.filter(([, q]) => q.state === 'active');
             const done = all.filter(([, q]) => q.state === 'completed');
-            const tracked = s.worldFlags.trackedQuest;
+            const tracked = this.UI.trackedQuests();
+            const pinned = s.worldFlags.trackedQuests || [];
+            const KINDS = [['main', 'Main Story'], ['faction', 'Faction'], ['side', 'Side'], ['contract', 'Contracts'], ['delve', 'Dungeon Delves'], ['explore', 'Exploration']];
             const card = ([id, q]) => {
                 const d = Q.def(id);
                 const b = q.branch && d.branches[q.branch];
-                return `<div class="ow-qcard ${q.state} ${tracked === id ? 'tracked' : ''}"><div><span class="ow-kicker">${d.kind.toUpperCase()}</span><b>${esc(d.name)}</b><small>${esc(d.summary)}</small>
+                const on = pinned.includes(id);
+                const reg = d.region && BO.OWRPGWorldData.REGIONS.find((r) => r.id === d.region);
+                return `<div class="ow-qcard ${q.state} ${tracked.includes(id) ? 'tracked' : ''}"><div><span class="ow-kicker">${esc(d.kind.toUpperCase())}${reg ? ' · ' + esc(reg.name) : ''}</span><b>${esc(d.name)}</b><small>${esc(d.summary)}</small>
                     ${q.state === 'active' ? `<p>▸ ${esc(Q.objective(s, id))}</p>` : `<p class="ow-dim">Outcome: ${esc(b ? b.label : 'Complete')}</p>`}</div>
-                    ${q.state === 'active' ? `<button class="ow-btn ow-sm" data-act="track" data-v="${id}">${tracked === id ? 'TRACKED' : 'TRACK'}</button>` : ''}</div>`;
+                    ${q.state === 'active' ? `<button class="ow-btn ow-sm ${on ? 'ow-primary' : ''}" data-act="track" data-v="${id}" aria-pressed="${on}">${on ? 'TRACKED' : 'TRACK'}</button>` : ''}</div>`;
             };
-            return `<div class="ow-sub">ACTIVE</div>${active.map(card).join('') || '<div class="ow-empty">No active quests. Talk to people in Freestead.</div>'}
-                <div class="ow-sub">COMPLETED</div>${done.map(card).join('') || '<div class="ow-empty">Nothing yet.</div>'}`;
+            const groups = KINDS.map(([k, label]) => {
+                const list = active.filter(([id]) => (Q.def(id).kind || 'side') === k);
+                return list.length ? `<div class="ow-sub">${label.toUpperCase()} <span class="ow-dim">${list.length}</span></div>${list.map(card).join('')}` : '';
+            }).join('');
+            return `<p class="ow-dim">Track up to three quests: they appear on the HUD tracker, the compass and the minimap with live distances.</p>
+                ${groups || '<div class="ow-empty">No active quests. Talk to people in Freestead, or explore — hidden sites start quests too.</div>'}
+                <div class="ow-sub">COMPLETED <span class="ow-dim">${done.length} / ${Object.keys(BO.OWRPGQuestsData.QUESTS).length}</span></div>${done.map(card).join('') || '<div class="ow-empty">Nothing yet.</div>'}`;
         },
 
         _map() {
-            return `<div class="ow-mapwrap"><canvas id="ow-map" width="640" height="640"></canvas>
-                <div class="ow-maplegend"><p class="ow-dim">Click to place or remove a pin (shown on the compass). Quest markers appear for tracked objectives.</p>
-                <label class="ow-check"><input type="checkbox" data-act="compassQuest" ${this.s.worldFlags.compassQuest ? 'checked' : ''}> Show tracked quest on compass</label>
-                <div class="ow-legend"><span style="--c:#f5a623">◆ Settlement</span><span style="--c:#22d3ee">● Pylon (online)</span><span style="--c:#a3e635">◆ Quest marker</span><span style="--c:#f8fafc">▲ You</span><span style="--c:#f472b6">✚ Pin</span></div></div></div>`;
+            const C = BO.OWRPGCartography;
+            return `<div class="ow-mapwrap"><canvas id="ow-map" width="768" height="768"></canvas>
+                <div class="ow-maplegend"><p class="ow-dim">Click to place or remove a pin (shown on the compass and minimap). Uncharted land stays under fog until you walk it or sync a vista.</p>
+                ${C ? `<div class="ow-stat"><small>Charted</small><b>${C.percent()}% of the Expanse</b></div>` : ''}
+                <label class="ow-check"><input type="checkbox" data-act="compassQuest" ${this.s.worldFlags.compassQuest ? 'checked' : ''}> Show tracked quests on compass</label>
+                <div class="ow-legend"><span style="--c:#f5a623">◆ Settlement</span><span style="--c:#fca5a5">● Hostile site</span><span style="--c:#67e8f9">∩ Dungeon</span><span style="--c:#22d3ee">● Pylon (online)</span><span style="--c:#a3e635">◯ Quest marker</span><span style="--c:#fbbf24">✦ Cache</span><span style="--c:#e9c46a">❦ Tome</span><span style="--c:#5eead4">✧ Shrine</span><span style="--c:#a78bfa">◈ Shard</span><span style="--c:#38bdf8">⛰ Vista</span><span style="--c:#a8a29e">▲ Stash</span><span style="--c:#f43f5e">☗ Altar</span><span style="--c:#f8fafc">▲ You</span><span style="--c:#f472b6">✚ Pin</span></div></div></div>`;
         },
 
         _drawMap() {
@@ -288,20 +300,17 @@
             const s = this.s, D = BO.OWRPGWorldData, P = BO.Player;
             const W = cv.width, B = D.BOUNDS, span = B.maxX - B.minX, S = W / span;
             const X = x => (x - B.minX) * S, Z = z => (z - B.minZ) * S;
+            const Carto = BO.OWRPGCartography;
             g.fillStyle = '#0b1118'; g.fillRect(0, 0, W, W);
-            // Terrain shading from the heightfield.
-            const step = span / 80;
-            for (let x = B.minX; x < B.maxX; x += step) for (let z = B.minZ; z < B.maxZ; z += step) {
-                const h = BO.World.terrainHeight(x + step / 2, z + step / 2);
-                const r = D.regionAt(x, z);
-                const k = Math.max(0.25, Math.min(1, 0.55 + h / 50));
-                g.fillStyle = (h < D.WATER && D.isWet(x, z)) || (h < -11.6 && Math.hypot(x + 180, z + 60) < 22) || (h < -6.4 && Math.hypot(x - 180, z + 190) < 20) ? '#1e3a3a' : `rgb(${r.col[0] * 255 * k | 0},${r.col[1] * 255 * k | 0},${r.col[2] * 255 * k | 0})`;
-                g.fillRect(X(x), Z(z), step * S + 1, step * S + 1);
-            }
-            g.strokeStyle = 'rgba(40,40,40,0.8)'; g.lineWidth = 3;
-            for (const r of D.ROADS) { g.beginPath(); r.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
+            // Hill-shaded base layer (cached by Cartography) under the fog of war.
+            if (Carto) { Carto.drawWorldBase(g, W); Carto.drawWorldFog(g, W); }
             g.font = 'bold 13px Segoe UI'; g.textAlign = 'center';
-            for (const r of D.REGIONS) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30); }
+            for (const r of D.REGIONS) {
+                const pct = Carto ? Carto.regionPercent(r.id) : 100;
+                g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.55)'; g.strokeText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30);
+                g.fillStyle = pct > 0 ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'; g.fillText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30);
+                if (Carto) { g.font = '600 11px Segoe UI'; g.fillStyle = 'rgba(251,191,36,0.85)'; g.fillText(pct + '% charted', X(r.x), Z(r.z) - 16); g.font = 'bold 13px Segoe UI'; }
+            }
             for (const l of D.LANDMARKS) { g.fillStyle = '#' + l.color.toString(16).padStart(6, '0'); g.fillRect(X(l.x) - 3, Z(l.z) - 9, 6, 12); }
             g.font = '11px Segoe UI';
             for (const poi of D.POIS) {
@@ -313,6 +322,13 @@
                 g.fillStyle = '#e2e8f0'; g.fillText(poi.name, X(poi.x), Z(poi.z) + 15);
             }
             for (const py of D.PYLONS) { g.fillStyle = s.pylons[py.id] ? '#22d3ee' : '#475569'; g.beginPath(); g.arc(X(py.x), Z(py.z), 3.5, 0, Math.PI * 2); g.fill(); }
+            for (const dg of D.DUNGEONS) {
+                if (Carto && !Carto.isExplored(dg.surf.x, dg.surf.z)) continue;
+                g.font = '900 15px Segoe UI'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.strokeText('∩', X(dg.surf.x), Z(dg.surf.z) + 5);
+                g.fillStyle = '#67e8f9'; g.fillText('∩', X(dg.surf.x), Z(dg.surf.z) + 5);
+            }
+            g.font = '11px Segoe UI';
+            if (BO.OWRPGDiscoveries) BO.OWRPGDiscoveries.drawOnWorldMap(g, X, Z);
             for (const m of BO.OWRPGQuests.markers(s)) {
                 const target = D.POIS.find((p) => p.id === m.poi);
                 if (!target) continue;
@@ -329,7 +345,7 @@
                 g.fillStyle = '#f8fafc'; g.fillText('YOU · ' + currentDungeon.name, X(currentDungeon.surf.x), Z(currentDungeon.surf.z)-12);
             }
             if (!D.isInterior(P.pos.x, P.pos.z)) {
-                g.save(); g.translate(X(P.pos.x), Z(P.pos.z)); g.rotate(-P.yaw + Math.PI);
+                g.save(); g.translate(X(P.pos.x), Z(P.pos.z)); g.rotate(-P.yaw);   // forward = (-sin yaw, -cos yaw)
                 g.fillStyle = '#f8fafc'; g.beginPath(); g.moveTo(0, -8); g.lineTo(5, 6); g.lineTo(-5, 6); g.closePath(); g.fill(); g.restore();
             }
             cv.onclick = (e) => {
@@ -344,6 +360,8 @@
             const chk = this.UI.panel.querySelector('[data-act="compassQuest"]');
             if (chk) chk.onchange = () => { s.worldFlags.compassQuest = chk.checked; };
         },
+
+        _atlas() { return BO.OWRPGCartography ? BO.OWRPGCartography.atlasHtml() : '<div class="ow-empty">Cartography unavailable.</div>'; },
 
         _factions() {
             const s = this.s, FD = BO.OWRPGFactionsData, F = BO.OWRPGFactions;
@@ -362,6 +380,8 @@
             const M = BO.OWRPGMode;
             const can = M.canSave();
             return `<div class="ow-list"><div class="ow-item"><div><b>Compass</b><small>Show cardinal directions, quest bearings and map pins.</small></div><button class="ow-btn" data-act="toggleCompass" aria-pressed="${this.s.worldFlags.compassEnabled !== false}">${this.s.worldFlags.compassEnabled !== false ? 'ON' : 'OFF'}</button></div>
+                <div class="ow-item"><div><b>Minimap</b><small>Rotating fog-of-war minimap (top left). [${esc((BO.Settings.getKeybinds().owMinimapZoom || 'KeyN').replace('Key', ''))}] cycles its range.</small></div><button class="ow-btn" data-act="toggleMinimap" aria-pressed="${this.s.worldFlags.minimapEnabled !== false}">${this.s.worldFlags.minimapEnabled !== false ? 'ON' : 'OFF'}</button></div>
+                <div class="ow-item"><div><b>Minimap orientation</b><small>Rotate with the player, or keep north up.</small></div><button class="ow-btn" data-act="toggleNorthUp">${this.s.worldFlags.minimapNorthUp ? 'NORTH UP' : 'ROTATING'}</button></div>
                 <div class="ow-item"><div><b>Developer menu</b><small>Grants, teleportation and world diagnostics. Also available with F8.</small></div><button class="ow-btn" data-act="padTab" data-v="dev">OPEN</button></div>
                 <div class="ow-item"><div><b>Quick save</b><small>${can ? esc(can) : 'Saves to slot ' + (M.slot + 1) + ' (also F5). Checkpoints save automatically.'}</small></div><button class="ow-btn" data-act="sysSave" ${can ? 'disabled' : ''}>SAVE</button></div>
                 <div class="ow-item"><div><b>Load last save</b><small>${esc(M.lastSaveLabel || '')} (also F9)</small></div><button class="ow-btn ow-ghost" data-act="sysLoad">LOAD</button></div>
@@ -375,6 +395,7 @@
             const res = this.validation ? `<pre class="ow-pre">${esc(this.validation)}</pre>` : '';
             return `<p class="ow-dim">Developer tools. Changes are saved with your character.</p>
                 <div class="ow-sub">GRANTS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devXp">+1000 XP</button><button class="ow-btn ow-sm" data-act="devAttr">+2 attr pts</button><button class="ow-btn ow-sm" data-act="devCells">+3 relay cells</button><button class="ow-btn ow-sm" data-act="devCr">+500 cr</button><button class="ow-btn ow-sm" data-act="devRep">+250 all reps</button><button class="ow-btn ow-sm" data-act="devTime">+6 hours</button><button class="ow-btn ow-sm" data-act="devMounts">Unlock all mounts</button><button class="ow-btn ow-sm" data-act="devEvent">Spawn world event</button><button class="ow-btn ow-sm" data-act="devVal">Run validator</button></div>
+                <div class="ow-sub">EXPLORATION &amp; CHAMPIONS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devReveal">Reveal whole map</button><button class="ow-btn ow-sm" data-act="devSite">Teleport to nearest hidden site</button><button class="ow-btn ow-sm" data-act="devChampion">Spawn a Champion</button><button class="ow-btn ow-sm" data-act="devMastery">+5 all Mastery levels</button><button class="ow-btn ow-sm" data-act="devBlessing">Random shrine blessing</button><button class="ow-btn ow-sm" data-act="devHeal">Full heal</button></div>
                 <div class="ow-sub">TELEPORT</div><div class="ow-row ow-wrap">${pois}</div>
                 <div class="ow-sub">WORLD FLAGS</div><pre class="ow-pre">${esc(JSON.stringify(this.s.worldFlags, null, 1))}</pre>${res}`;
         },
@@ -452,7 +473,25 @@
             salvage(v) { const cr = BO.OWRPGInventory.salvage(this.s, v); if (cr) BO.OWRPGMode.toast(`Salvaged for ${cr} cr`, '#fbbf24'); this.render(); },
             drop(v) { BO.OWRPGInventory.removeUid(this.s, v); BO.OWRPGMode.refreshLoadout(); this.render(); },
             ability(v) { const [slot, id] = v.split('|'); this.s.player.abilities[slot] = id; this.render(); },
-            track(v) { this.s.worldFlags.trackedQuest = v; this.render(); },
+            track(v) { this.UI.toggleTrack(v); this.render(); },
+            toggleMinimap() { this.s.worldFlags.minimapEnabled = this.s.worldFlags.minimapEnabled === false; this.render(); },
+            toggleNorthUp() { this.s.worldFlags.minimapNorthUp = !this.s.worldFlags.minimapNorthUp; this.render(); },
+            devReveal() { const C = BO.OWRPGCartography; if (C) { const B = BO.OWRPGWorldData.BOUNDS; C.reveal((B.minX + B.maxX) / 2, (B.minZ + B.maxZ) / 2, 2000, true); } this.render(); },
+            devSite() {
+                const P = BO.Player, site = BO.OWRPGDiscoveries?.nearestUnfound(P.pos.x, P.pos.z);
+                if (!site) { BO.OWRPGMode.toast('Every hidden site has been found', '#a3e635'); return; }
+                P.pos.set(site.x + 2.5, BO.World.terrainHeight(site.x + 2.5, site.z) + 0.3, site.z); P.vel.set(0, 0, 0);
+                this.UI.close();
+            },
+            devChampion() {
+                const P = BO.Player, pool = BO.OWRPGWorldSim.encounterPool(BO.OWRPGWorldData.regionAt(P.pos.x, P.pos.z).id);
+                const a = BO.OWRPGAI.spawn(pool[0][0], P.pos.x + 14 * -Math.sin(P.yaw), P.pos.z + 14 * -Math.cos(P.yaw), { leash: 80, noChampion: true });
+                if (a) { a.eventHostile = true; a.hostile = true; BO.OWRPGChampions.make(a, 3); BO.OWRPGAI.engage(a, false); }
+                this.UI.close();
+            },
+            devMastery() { const s = this.s, SD = BO.OWRPGStatsData; for (const id of Object.keys(SD.SKILLS)) { const sk = BO.OWRPGCharacter.skill(s, id); for (let i = 0; i < 5 && sk.level < SD.SKILL_CAP; i++) BO.OWRPGCharacter.addSkillXp(s, id, SD.skillXpToNext(sk.level)); } BO.OWRPGMode.applyDerived(); this.render(); },
+            devBlessing() { const s = this.s, list = BO.OWRPGDiscoveryData.BLESSINGS, b = list[Math.floor(Math.random() * list.length)]; s.player.blessing = { id: b.id, name: b.name, color: b.color, until: s.playtimeSec + 300, fx: b.fx }; BO.OWRPGMode.applyDerived(); BO.OWRPGMode.toast(b.name + ' — ' + b.desc, b.color); this.render(); },
+            devHeal() { BO.OWRPGMode.healFull(); },
             sysSave() { BO.OWRPGMode.quickSave(); this.render(); },
             sysLoad() { this.UI.close(true); BO.OWRPGMode.quickLoad(); },
             devTp(v) {

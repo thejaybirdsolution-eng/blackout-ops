@@ -31,7 +31,8 @@
                     <div class="ow-eye" id="ow-eye"><span></span><b id="ow-eye-label">HIDDEN</b></div>
                     <div class="ow-boss hidden" id="ow-boss"></div>
                     <div class="ow-event hidden" id="ow-event"></div>
-                    <div class="ow-quest" id="ow-quest"></div>
+                    <div class="ow-quest" id="ow-quest" aria-live="polite"></div>
+                    <div class="ow-blessing hidden" id="ow-blessing"></div>
                     <div class="ow-clock" id="ow-clock"></div>
                     <div class="ow-prompt hidden" id="ow-prompt"></div>
                     <div class="ow-xp" id="ow-xp"><div class="ow-xp-top"><b id="ow-lvl">LV 1</b><span id="ow-xpnum"></span></div><div class="ow-xp-bar"><i id="ow-xpfill"></i></div>
@@ -147,10 +148,11 @@
             attrDown(v) { const c = this.creator; if (c.attrs[v] > 1) { c.attrs[v]--; c.points++; this._renderCreator(); } },
             diff(v) { this.creator.difficulty = v; this._renderCreator(); },
             primer(v) { this.creator.primer = v; this._renderCreator(); },
+            navOpt(v) { if (v === 'compass' || v === 'minimap') { this.creator[v] = !this.creator[v]; this._renderCreator(); } },
             begin() {
                 const c = this.creator;
                 this.close(true);
-                this._start({ mode: 'owrpg', slot: c.slot, newChar: { name: c.name || 'MERCER', attrs: c.attrs, difficulty: c.difficulty, primer: c.primer } });
+                this._start({ mode: 'owrpg', slot: c.slot, newChar: { name: c.name || 'MERCER', attrs: c.attrs, difficulty: c.difficulty, primer: c.primer, compass: c.compass, minimap: c.minimap } });
             },
             backSlots() { this.openSlots(); }
         },
@@ -175,7 +177,7 @@
             const SD = BO.OWRPGStatsData;
             const attrs = {};
             SD.ATTR_IDS.forEach((id) => { attrs[id] = SD.ATTR_BASE; });
-            this.creator = { slot, name: '', attrs, points: SD.CREATION_POINTS, difficulty: 'tactical', primer: 'cryo_dart' };
+            this.creator = { slot, name: '', attrs, points: SD.CREATION_POINTS, difficulty: 'tactical', primer: 'cryo_dart', compass: true, minimap: true };
             this._renderCreator();
         },
 
@@ -198,6 +200,11 @@
                 <div class="ow-two">
                   <div><div class="ow-sub">STARTING PRIMER</div><div class="ow-chips">${primers.map(([id, p]) => `<button class="ow-chip ${c.primer === id ? 'on' : ''}" data-act="primer" data-v="${id}" title="${esc(p.desc)}"><b>${p.name}</b><small>${p.desc}</small></button>`).join('')}</div></div>
                   <div><div class="ow-sub">DIFFICULTY</div><div class="ow-chips">${diffs.map(([id, n, d]) => `<button class="ow-chip ${c.difficulty === id ? 'on' : ''}" data-act="diff" data-v="${id}"><b>${n}</b><small>${d}</small></button>`).join('')}</div></div>
+                </div>
+                <div class="ow-sub">NAVIGATION HUD <span class="ow-dim">(change any time from the pause menu or Pip-Pad › System)</span></div>
+                <div class="ow-chips ow-nav-opts">
+                  <button class="ow-chip ${c.compass ? 'on' : ''}" data-act="navOpt" data-v="compass" aria-pressed="${c.compass}"><b>Compass · ${c.compass ? 'ON' : 'OFF'}</b><small>Cardinal strip with quest bearings, events and pins.</small></button>
+                  <button class="ow-chip ${c.minimap ? 'on' : ''}" data-act="navOpt" data-v="minimap" aria-pressed="${c.minimap}"><b>Minimap · ${c.minimap ? 'ON' : 'OFF'}</b><small>Rotating fog-of-war minimap. [N] cycles range.</small></button>
                 </div>
                 <div class="ow-row ow-end"><button class="ow-btn ow-ghost" data-act="backSlots">BACK</button><button class="ow-btn ow-primary" data-act="begin">BEGIN OPERATION →</button></div>`);
             const inp = this.panel.querySelector('input[data-act="cname"]');
@@ -322,10 +329,14 @@
             this._set('ow-cells', `⚡ ${p.relayCells}`);
             this._set('ow-enc', `${enc.weight.toFixed(0)}/${enc.max} kg · ${enc.label}`);
             this._set('ow-clock', `${BO.OWRPGWorldSim.timeLabel()} · ${(BO.OWRPGWorldSim.region || {}).name || ''}`);
-            // Tracked quest.
-            const tracked = s.worldFlags.trackedQuest && s.quests[s.worldFlags.trackedQuest]?.state === 'active' ? s.worldFlags.trackedQuest
-                : Object.keys(s.quests).find((id) => s.quests[id].state === 'active');
-            this._set('ow-quest', tracked ? `<b>${esc(BO.OWRPGQuests.def(tracked).name)}</b><span>${esc(BO.OWRPGQuests.objective(s, tracked))}</span>` : '<b>No active quest</b><span>Talk to the people of Freestead.</span>', 'innerHTML');
+            // Quest tracker: up to three tracked quests with live distance to their marker.
+            const trackedList = this.trackedQuests();
+            const tracked = trackedList[0] || null;
+            this._set('ow-quest', this._trackerHtml(trackedList), 'innerHTML');
+            // Shrine blessing.
+            const bl = p.blessing && p.blessing.until > s.playtimeSec ? p.blessing : null;
+            this._set('ow-blessing', bl ? `<b style="color:${bl.color}">✧ ${esc(bl.name)}</b><span>${Math.ceil((bl.until - s.playtimeSec) / 60)} min</span>` : '', 'innerHTML');
+            this._set('ow-blessing', bl ? 'ow-blessing' : 'ow-blessing hidden', 'className');
             // Stealth eye.
             const aw = BO.OWRPGAI.awareness();
             const lbl = aw > 1 ? 'COMBAT' : aw >= 0.35 ? 'SUSPICIOUS' : this.M.camoT > 0 ? 'CLOAKED' : 'HIDDEN';
@@ -414,6 +425,42 @@
             this._updateFloats();
         },
 
+        /** Active quests the HUD follows: the player's picks (max 3), else the most recent active quest. */
+        trackedQuests() {
+            const s = this.s;
+            if (!s) return [];
+            const f = s.worldFlags;
+            if (!Array.isArray(f.trackedQuests)) f.trackedQuests = f.trackedQuest ? [f.trackedQuest] : [];
+            const list = f.trackedQuests.filter((id) => s.quests[id] && s.quests[id].state === 'active').slice(0, 3);
+            if (list.length !== f.trackedQuests.length) f.trackedQuests = list;
+            if (list.length) return list;
+            const active = Object.keys(s.quests).filter((id) => s.quests[id].state === 'active');
+            return active.length ? [active.sort((a, b) => (s.quests[b].startedAt || 0) - (s.quests[a].startedAt || 0))[0]] : [];
+        },
+
+        toggleTrack(id) {
+            const f = this.s.worldFlags;
+            const list = this.trackedQuests().filter((q) => f.trackedQuests.includes(q));
+            const i = list.indexOf(id);
+            if (i >= 0) list.splice(i, 1);
+            else { list.unshift(id); if (list.length > 3) list.length = 3; }
+            f.trackedQuests = list;
+            f.trackedQuest = list[0] || null;
+        },
+
+        _trackerHtml(list) {
+            const s = this.s, P = BO.Player, Q = BO.OWRPGQuests, C = BO.OWRPGCartography;
+            if (!list.length) return '<div class="ow-qt"><b>No active quest</b><span>Talk to the people of Freestead, or explore — hidden sites start quests too.</span></div>';
+            const KIND = { main: '#f5a623', faction: '#38bdf8', side: '#a3e635', contract: '#f87171', delve: '#c084fc', explore: '#fbbf24' };
+            return list.map((id, i) => {
+                const d = Q.def(id);
+                const m = Q.markers(s).find((k) => k.quest === id);
+                const tgt = m && C ? C.questTarget(m.poi) : null;
+                const dist = tgt ? Math.round(Math.hypot(tgt.x - P.pos.x, tgt.z - P.pos.z)) : null;
+                return `<div class="ow-qt ${i ? 'ow-qt-sub' : ''}" style="--k:${KIND[d.kind] || '#f5a623'}"><b>${esc(d.name)}${dist != null ? `<em>${dist} m</em>` : ''}</b><span>${esc(Q.objective(s, id))}</span></div>`;
+            }).join('');
+        },
+
         /** Pins, active World Event, and tracked quest as bearings on a ±70° strip under the compass. */
         _compassHtml(tracked) {
             const s = this.s, P = BO.Player, D = BO.OWRPGWorldData;
@@ -423,8 +470,8 @@
                 const ev = BO.OWRPGEvents.activeEvent;
                 marks.push({ x: ev.x, z: ev.z, c: ev.color || '#38bdf8', g: '⚡' });
             }
-            if (s.worldFlags.compassQuest && tracked) {
-                const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tracked);
+            if (s.worldFlags.compassQuest) for (const tq of this.trackedQuests()) {
+                const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tq);
                 const poi = m && D.POIS.find((p) => p.id === m.poi);
                 if (poi) {
                     let target = poi;

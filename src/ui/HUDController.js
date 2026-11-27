@@ -484,6 +484,12 @@
             if (this.elHpText && mode === 'rpg' && BO.RPGMode?.run) {
                 const kbP = BO.Settings.keyLabel(BO.Settings.getKeybinds().rpgPotion);
                 this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ⚗ ${BO.RPGMode.run.potions} POTIONS [${kbP}]`;
+            } else if (this.elHpText && mode === 'owrpg' && BO.OWRPGMode?.active) {
+                // Open World RPG has no armor plates: show HP, med-injectors and the armor rating instead.
+                const st = BO.OWRPGMode.state, kbM = BO.Settings.keyLabel(BO.Settings.getKeybinds().owMed);
+                const now = performance.now();
+                if (!this._owVitals || now - this._owVitals.t > 500) this._owVitals = { t: now, meds: BO.OWRPGInventory.count(st, 'medkit'), armor: BO.OWRPGCharacter.derived(st).armor };
+                this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ✚ ${this._owVitals.meds} MED [${kbM}]  •  ARMOR ${this._owVitals.armor}`;
             } else if (this.elHpText) {
                 const vest = P.plateSlots;
                 const hidePlates = mode === 'owrpg' || mode === 'rpg' || (mode === 'minigame' && P.armor <= 0 && P.armorReservePlates <= 0);

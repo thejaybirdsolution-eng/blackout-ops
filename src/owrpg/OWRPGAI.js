@@ -11,6 +11,7 @@
     const UP = new THREE.Vector3(0, 1.2, 0);
     const SIDE = { militia: 0, aegis: 0, raiders: 1, syndicate: 1, helix: 1, brood: 2 };
     const CONE_COS = Math.cos((110 / 2) * Math.PI / 180);
+    const AGENT_DETAIL_DIST = 28;   // metres: beyond this agents render as a merged proxy (MeshProxy)
 
     // Distinct uniform tint palettes per faction (applied to BotAI meshes)
     const FACTION_PALETTE = {
@@ -63,7 +64,7 @@
         if (!b) return;
         const stKeys = Object.keys(a.st);
         const hpInt = Math.ceil(a.ent.hp);
-        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
+        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${a.champ ? 'c' : ''}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
         if (b.lastKey === key) return;
         b.lastKey = key;
 
@@ -76,24 +77,29 @@
         g.textAlign = 'center';
         g.fillStyle = 'rgba(0,0,0,0.75)';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 129, 20);
-        g.fillStyle = a.boss ? '#fde047' : '#f8fafc';
+        g.fillStyle = a.boss ? '#fde047' : a.champ ? '#f0abfc' : '#f8fafc';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 128, 19);
 
         // HP Bar
         g.fillStyle = 'rgba(10,12,14,0.85)';
         g.fillRect(28, 25, 200, 12);
-        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : '#ef4444') : facCol;
+        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : a.champ ? a.champ.color : '#ef4444') : facCol;
         g.fillRect(30, 27, Math.round(196 * pct), 8);
         g.strokeStyle = 'rgba(255,255,255,0.28)';
         g.lineWidth = 1;
         g.strokeRect(28, 25, 200, 12);
 
-        // Status icons
+        // Status icons, or the Champion's affixes when it has no statuses.
         if (stKeys.length) {
             g.font = 'bold 16px "Segoe UI", sans-serif';
             const badges = stKeys.map((k) => (ELEM_ICON[k] || '*') + (k === 'venom' && a.st[k].stacks > 1 ? a.st[k].stacks : '')).join(' ');
             g.fillStyle = '#fde68a';
             g.fillText(badges, 128, 52);
+        } else if (a.champ) {
+            g.font = 'bold 14px "Segoe UI", sans-serif';
+            const lbl = '★ ' + BO.OWRPGChampions.label(a).toUpperCase();
+            g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillText(lbl, 129, 53);
+            g.fillStyle = a.champ.color; g.fillText(lbl, 128, 52);
         }
         b.tex.needsUpdate = true;
     }
@@ -151,6 +157,11 @@
             };
             ent.owAgent = agent;
             this.agents.push(agent);
+            if (!def.glb && BO.MeshProxy) {
+                // Far LOD shared by every agent of the same rig type (see MeshProxy.js).
+                const key = def.kind === 'bot' ? 'ow-bot:' + def.faction + ':' + !!def.boss + ':' + def.weapon : 'ow-beast:' + def.body + ':' + !!def.boss;
+                agent.lod = BO.MeshProxy.attach(ent.parts.root, key);
+            }
             if (def.glb && BO.Assets) {
                 const root = ent.parts.root;
                 const fallback = root.children.filter(child => child !== bar.sprite);
@@ -169,10 +180,12 @@
                     }
                 });
             }
+            BO.OWRPGChampions?.onSpawn(agent, opts);
             return agent;
         },
 
         despawn(agent) {
+            if (agent.lod) { BO.MeshProxy.detach(agent.lod); agent.lod = null; }
             if (agent.mixer) { agent.mixer.stopAllAction(); agent.mixer.uncacheRoot(agent.mixer.getRoot()); }
             if (agent.bar) { agent.bar.tex.dispose(); agent.bar.sprite.material.dispose(); }
             agent.ent.destroy();
@@ -291,6 +304,7 @@
                 if (fx.killHeal) M.heal(fx.killHeal);
                 if (BO.OWRPGFactionsData.FACTIONS[a.faction]) BO.OWRPGFactions.onFactionKill(s, a.faction);
             }
+            BO.OWRPGChampions?.onKilled(a, ctx);
             M.setFlag('killed_' + a.defId, true);
             BO.OWRPGQuests.onEvent(s, 'kill', a.defId);
             if (a.poiId) BO.OWRPGWorldSim.onAgentKilled(a);
@@ -386,15 +400,17 @@
                 if (a.alive && !ent.alive) this.onKilled(a, { byNpc: true });
                 if (a.alive) BO.OWRPGCombat.tickStatuses(a, dt);
                 if (!a.alive) {
+                    if (a.lod) BO.MeshProxy.set(a.lod, false);
                     if (a.kind === 'beast') { if (!ent.update(dt, ents, beastCb)) { this.despawn(a); } }
                     else { a.deadT = (a.deadT || 0) + dt; if (a.deadT > 0.2) this.despawn(a); }
                     continue;
                 }
                 const dist = BO.Math.dist2D(ent.pos.x, ent.pos.z, P.pos.x, P.pos.z);
+                if (a.lod) BO.MeshProxy.set(a.lod, dist > AGENT_DETAIL_DIST);
 
                 // Floating 3D world-space bar visibility
                 if (a.bar) {
-                    const showBar = ent.parts.root.visible && dist < 34 && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || Object.keys(a.st).length > 0);
+                    const showBar = ent.parts.root.visible && dist < (a.champ ? 48 : 34) && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || a.champ || Object.keys(a.st).length > 0);
                     a.bar.sprite.visible = showBar;
                     if (showBar) updateBarSprite(a);
                 }

@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — owrpg.bundle.js (26 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — owrpg.bundle.js (30 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/data/OWRPGStatsData.js --- */
 /* ============================================================================
@@ -28,14 +28,15 @@
      *  L1 -> L2 = 600 XP; L5 -> L6 = 10,653 XP; L10 -> L11 = 38,948 XP; L25 -> L26 = 221,922 XP; L49 -> L50 = 799,944 XP. */
     function xpToNext(L) { return Math.round(450 * Math.pow(L, 1.92) + 150 * L); }
 
-    /* --------------------------------------------------------- 6 Level-by-Doing Skills (RuneScape / Dragonwilds style) */
+    /* --------------------------------------------------------- 7 Level-by-Doing Skills (RuneScape / Dragonwilds style) */
     const SKILLS = {
         combat:   { id: 'combat',   name: 'Arms Mastery',  color: '#ef4444', icon: '⚔', desc: 'Leveled by gun & melee combat. Grants +0.5% weapon damage per level.' },
         slayer:   { id: 'slayer',   name: 'Slayer',        color: '#f97316', icon: '☠', desc: 'Leveled by hunting beasts, undead, and bosses. Grants +0.6% monster/boss damage per level.' },
         delving:  { id: 'delving',  name: 'Dungeoneering', color: '#a855f7', icon: '🗝', desc: 'Leveled by delving dungeons & opening chests. Grants +0.8% loot credits per level.' },
         foraging: { id: 'foraging', name: 'Foraging',      color: '#4ade80', icon: '🌿', desc: 'Leveled by harvesting herbs & timber. Grants +0.6% med/potion healing & bonus gather chance.' },
         mining:   { id: 'mining',   name: 'Artisan Mining',color: '#38bdf8', icon: '⛏', desc: 'Leveled by mining ore veins & salvaging gear. Grants +0.7% salvage yield & slower gear wear.' },
-        arcana:   { id: 'arcana',   name: 'Runecraft',     color: '#c084fc', icon: '✦', desc: 'Leveled by elemental reactions & runic crystals. Grants +0.6% reaction & ability damage per level.' }
+        arcana:   { id: 'arcana',   name: 'Runecraft',     color: '#c084fc', icon: '✦', desc: 'Leveled by elemental reactions & runic crystals. Grants +0.6% reaction & ability damage per level.' },
+        exploration: { id: 'exploration', name: 'Pathfinding', color: '#fbbf24', icon: '🧭', desc: 'Leveled by charting unexplored land, syncing vistas and uncovering hidden sites. Grants +0.2% move speed and +1% discovery rewards per level.' }
     };
     const SKILL_CAP = 99;
     function skillXpToNext(L) { return Math.round(85 * Math.pow(L, 1.58) + 45 * L); }
@@ -52,7 +53,7 @@
         stone_dragon:   { id: 'stone_dragon',   name: 'The Dragonwild Stone', color: '#fbbf24', desc: '+30% Elemental Reaction Damage and +18 Armor Penetration.', fx: { reactMult: 0.30, bonusPen: 18 } }
     };
 
-    /* ------------------------------------------------------------------ 7 Perk Trees × 6 Tiers = 84 Perks */
+    /* ------------------------------------------------------------------ 9 Perk Trees × 6 Tiers = 108 Perks */
     const TIER_LEVELS = [2, 6, 12, 18, 26, 36];
     const PERK_TREES = {
         vanguard: {
@@ -141,7 +142,7 @@
             ]
         },
         arcanist: {
-            name: 'Arcanist', color: '#c084fc', icon: 'staged_assets/ui/fantasy_rpg_icons/Magic Spells/arcane-orb-001.png',
+            name: 'Arcanist', color: '#c084fc', icon: 'staged_assets/ui/fantasy_rpg_icons/Weapons/arcane-orb-001.png',
             tiers: [
                 [{ id: 'arc_t1_ward', name: 'Runic Ward', desc: '+12% resistance to all 5 elements.', fx: { allElemRes: 0.12 } },
                     { id: 'arc_t1_spark', name: 'Astral Spark', desc: '+20% elemental reaction damage.', fx: { reactMult: 0.20 } }],
@@ -172,6 +173,40 @@
                     { id: 'way_t5_delver', name: 'Dungeon Delver', desc: 'Bypass chest and culvert locks, and deal +25% boss damage.', fx: { lockpick: 1, bossDmg: 0.25 } }],
                 [{ id: 'way_t6_legend', name: 'Legend of Meridian', desc: '+35% All XP Gain, +15% All Damage & +50 kg Carry.', fx: { xpMult: 0.35, allDmgMult: 0.15, carry: 50 } },
                     { id: 'way_t6_warden', name: 'High Warden', desc: '+65 max HP, +20% all elem resist & +14% move speed.', fx: { maxHp: 65, allElemRes: 0.20, speedMult: 0.14 } }]
+            ]
+        },
+        pathfinder: {
+            name: 'Pathfinder', color: '#fbbf24', icon: 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png',
+            tiers: [
+                [{ id: 'path_t1_cartographer', name: 'Cartographer', desc: '+40% fog-of-war reveal radius and +30 m minimap range.', fx: { revealRadius: 0.40, minimapRange: 30 } },
+                    { id: 'path_t1_trailblazer', name: 'Trailblazer', desc: '+6% movement speed and +10 kg carry weight.', fx: { speedMult: 0.06, carry: 10 } }],
+                [{ id: 'path_t2_antiquarian', name: 'Antiquarian', desc: '+35% XP from caches, tomes, shrines, vistas and altars.', fx: { discoveryXp: 0.35 } },
+                    { id: 'path_t2_treasure', name: 'Treasure Sense', desc: '+30% chance of a bonus item from treasure caches.', fx: { cacheLuck: 0.30 } }],
+                [{ id: 'path_t3_pilgrim', name: 'Devout Pilgrim', desc: 'Shrine blessings last 60% longer.', fx: { shrineDur: 0.60 } },
+                    { id: 'path_t3_wildcraft', name: 'Wildcrafter', desc: '+15% bonus gather chance and +20% med healing.', fx: { gatherChance: 0.15, medMult: 0.20 } }],
+                [{ id: 'path_t4_survey', name: 'Field Survey', desc: '+25% Mastery XP and +10% character XP.', fx: { skillXpMult: 0.25, xpMult: 0.10 } },
+                    { id: 'path_t4_gilded', name: 'Gilded Luck', desc: '+25% credits found everywhere.', fx: { creditFind: 0.25 } }],
+                [{ id: 'path_t5_wayfinder', name: 'Wayfinder', desc: '+10% movement speed and +20 armor.', fx: { speedMult: 0.10, armor: 20 } },
+                    { id: 'path_t5_relic', name: 'Relic Hunter', desc: '+50% cache bonus-item chance and +20% discovery XP.', fx: { cacheLuck: 0.50, discoveryXp: 0.20 } }],
+                [{ id: 'path_t6_atlas', name: 'Living Atlas', desc: '+80% reveal radius, +60% discovery XP and +12% movement speed.', fx: { revealRadius: 0.80, discoveryXp: 0.60, speedMult: 0.12 } },
+                    { id: 'path_t6_hoard', name: "Dragon's Hoard", desc: '+60% credits found and every cache yields a bonus item.', fx: { creditFind: 0.60, cacheLuck: 1 } }]
+            ]
+        },
+        huntsman: {
+            name: 'Huntsman', color: '#f43f5e', icon: 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png',
+            tiers: [
+                [{ id: 'hunt_t1_quarry', name: 'Mark the Quarry', desc: '+15% damage against Champions.', fx: { champDmg: 0.15 } },
+                    { id: 'hunt_t1_tracker', name: "Tracker's Eye", desc: '+10% damage against beasts and bosses.', fx: { monsterDmg: 0.10 } }],
+                [{ id: 'hunt_t2_hide', name: 'Thick Hide', desc: 'Take 15% less damage from Champions.', fx: { champDR: 0.15 } },
+                    { id: 'hunt_t2_trophy', name: 'Trophy Taker', desc: '+50% chance of a bonus loot roll from Champions.', fx: { champLoot: 0.50 } }],
+                [{ id: 'hunt_t3_venom', name: 'Envenomed Rounds', desc: 'Every 5th firearm hit applies Venom.', fx: { nthVenom: 5 } },
+                    { id: 'hunt_t3_static', name: 'Static Rounds', desc: 'Every 5th firearm hit applies Shock.', fx: { nthShock: 5 } }],
+                [{ id: 'hunt_t4_executioner', name: 'Executioner', desc: '+30% damage to enemies below 35% HP.', fx: { execute: 0.30 } },
+                    { id: 'hunt_t4_bloodhound', name: 'Bloodhound', desc: 'Kills restore 10 HP and +8% critical chance.', fx: { killHeal: 10, bonusCritChance: 0.08 } }],
+                [{ id: 'hunt_t5_bane', name: "Champion's Bane", desc: '+35% Champion damage and +20% boss damage.', fx: { champDmg: 0.35, bossDmg: 0.20 } },
+                    { id: 'hunt_t5_ward', name: 'Monster Ward', desc: 'Take 30% less damage from Champions and 20% less from bosses.', fx: { champDR: 0.30, bossDR: 0.20 } }],
+                [{ id: 'hunt_t6_apex', name: 'Apex Predator', desc: '+25% damage to beasts, bosses and Champions; Champions always drop a bonus roll.', fx: { monsterDmg: 0.25, champDmg: 0.25, champLoot: 1 } },
+                    { id: 'hunt_t6_legend', name: 'Monster-Slayer Legend', desc: '+70 max HP, +20 armor and kills heal 15 HP.', fx: { maxHp: 70, armor: 20, killHeal: 15 } }]
             ]
         }
     };
@@ -335,6 +370,8 @@
         iron_ore: { name: 'Basin Iron Ore', type: 'junk', weight: 0.8, value: 22, scrap: 5, stack: true, desc: 'Mined from frontier ore veins.' },
         mithril_ore: { name: 'Deep-Vein Mithril Ore', type: 'junk', weight: 0.7, value: 48, scrap: 11, stack: true, desc: 'Gleaming blue-silver ore prized by smiths.' },
         starmetal_ore: { name: 'Meteorite Star-Metal', type: 'junk', weight: 0.6, value: 95, scrap: 22, stack: true, desc: 'Dense astral alloy from Dragonwild craters.' },
+        champion_sigil: { name: "Champion's Sigil", type: 'junk', weight: 0.2, value: 140, scrap: 24, stack: true, desc: 'Torn from a slain Champion. Collectors across the Expanse pay well for these.' },
+        ancient_coin: { name: 'Pre-Fall Coin', type: 'junk', weight: 0.05, value: 55, scrap: 9, stack: true, desc: 'Minted before the Meridian collapse. Found in buried caches.' },
         elderwood_log: { name: 'Elderwood Timber', type: 'junk', weight: 0.9, value: 20, scrap: 5, stack: true, desc: 'Resinous heartwood from Whispering Pinewoods.' },
         mirebloom_herb: { name: 'Mirebloom Herb', type: 'junk', weight: 0.15, value: 26, scrap: 6, stack: true, desc: 'Luminous swamp herb used in Swallow elixirs.' },
         sunleaf_herb: { name: 'Sunscorched Crimsonleaf', type: 'junk', weight: 0.15, value: 38, scrap: 9, stack: true, desc: 'Potent desert flora for Thunderbolt brews.' },
@@ -381,6 +418,8 @@
         dragon: [['dragon_scale', 45, 1, 2], ['starmetal_ore', 25, 1, 2], ['credits', 35, 65, 150], ['elixir_thunderbolt', 18, 1, 1], ['elixir_wisdom', 10, 1, 1]],
         boss: [['credits', 100, 140, 260], ['medkit', 80, 2, 3], ['elixir_swallow', 55, 1, 2], ['relay_cell', 60, 1, 2], ['elixir_wisdom', 25, 1, 1]],
         cache: [['credits', 60, 20, 65], ['medkit', 30, 1, 2], ['ammo_box', 40, 1, 2], ['circuitry', 25, 1, 2], ['relay_cell', 12, 1, 1], ['w_carbine', 6, 1, 1], ['rig_light', 6, 1, 1]],
+        champion: [['credits', 100, 90, 220], ['champion_sigil', 70, 1, 1], ['elixir_thunderbolt', 30, 1, 1], ['elixir_wisdom', 22, 1, 1], ['relay_cell', 25, 1, 1], ['w_dmr', 8, 1, 1], ['rig_plated', 8, 1, 1]],
+        treasure: [['credits', 100, 45, 140], ['ancient_coin', 60, 1, 3], ['elixir_swallow', 25, 1, 1], ['elixir_wisdom', 10, 1, 1], ['runic_shard', 20, 1, 2], ['relay_cell', 12, 1, 1], ['w_rifle', 6, 1, 1], ['rig_light', 6, 1, 1]],
         locked: [['credits', 100, 75, 180], ['relay_cell', 45, 1, 2], ['elixir_thunderbolt', 35, 1, 2], ['w_dmr', 10, 1, 1], ['rig_plated', 10, 1, 1], ['elixir_wisdom', 18, 1, 1]]
     };
     const PITY_GUARANTEE = 12;
@@ -1664,7 +1703,7 @@
     }
 
     const terrainDef = () => ({
-        ...BOUNDS, res: 2, chunk: 160, batchChunk: 160, navCell: 4, waterLevel: WATER,
+        ...BOUNDS, res: 2, chunk: 160, batchChunk: 320, navCell: 4, waterLevel: WATER,
         height: (x, z) => rawFinal(x, z),
         color: (x, z, h, s) => colorAt(x, z, h, s).map((v) => Math.pow(Math.max(0, v), 2.2)),
         carves: []
@@ -2342,8 +2381,8 @@
 
 /* --- src/data/OWRPGQuestsData.js --- */
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Quests 2.0 (31 Quests Across 12 Regions & 12 Dungeons)
-   Categories: main · faction · side · contract (Witcher hunts) · delve (Dungeons)
+   BLACKOUT OPS — Open World RPG · Quests 2.0 (40 Quests Across 12 Regions & 12 Dungeons)
+   Categories: main · faction · side · contract (Witcher hunts) · delve (Dungeons) · explore (self-starting)
    Preserves 100% of original quest stages/branches for _qa_owrpg.html.
 ============================================================================ */
 (function (BO) {
@@ -2656,6 +2695,97 @@
                 report: { text: 'Return in triumph to Scholar Eryndor at Dragonbone Expedition Camp.', marker: 'dragonbone_outpost' }
             },
             branches: { legend: { label: 'Dragonwilds Dragonslayer', xp: 4200, credits: 2500, rep: { militia: 400, aegis: 400, helix: 250 }, pylon: 'py_dragonwild', items: ['w_fire_staff', 'rig_dragonwild', 'relic_dragon_heart'] } }
+        },
+
+        /* ==================== EXPLORATION QUESTS (Cartography · Discoveries · Champions) ====================
+           Self-starting: each begins the first time you chart land or find a site of its kind, and counts
+           numeric world flags written by OWRPGCartography / OWRPGDiscoveries / OWRPGChampions. */
+        q_atlas_cartographer: {
+            name: "The Cartographers' Guild", kind: 'explore', region: null, autoStart: 'flag:explored_pct',
+            summary: 'An old guild creed promises a reward to anyone who maps the Expanse. The fog lifts wherever you walk.',
+            stages: {
+                survey: { text: 'Chart 15% of the Meridian Expanse (Atlas tab tracks progress).', on: { 'count:explored_pct:15': 'expand' } },
+                expand: { text: 'Chart 35% of the Expanse. Survey Vistas chart wide areas at once.', on: { 'count:explored_pct:35': 'master' } },
+                master: { text: 'Chart 60% of the Expanse to earn the Guild\'s seal.', on: { 'count:explored_pct:60': 'sealed' } },
+                sealed: { text: 'The Guild seal is yours.', autoComplete: 'charted' }
+            },
+            branches: { charted: { label: 'Guild Cartographer', xp: 3200, credits: 1200, items: ['elixir_wisdom', 'elixir_wisdom'], rep: { militia: 150 } } }
+        },
+        q_lorekeeper: {
+            name: 'Lorekeeper of the Expanse', kind: 'explore', region: null, autoStart: 'flag:first_tome',
+            summary: 'Field journals and black-box transcripts are scattered across every region. Together they tell what broke the Meridian.',
+            stages: {
+                gather: { text: 'Recover 5 Lore Tomes.', on: { 'count:found_tome:5': 'archive' } },
+                archive: { text: 'Recover 12 Lore Tomes to complete the first archive.', on: { 'count:found_tome:12': 'done' } },
+                done: { text: 'The archive is complete.', autoComplete: 'archived' }
+            },
+            branches: { archived: { label: 'Keeper of the Archive', xp: 2200, credits: 600, items: ['elixir_wisdom', 'runic_shard'] } }
+        },
+        q_pilgrim_road: {
+            name: "The Pilgrim's Road", kind: 'explore', region: null, autoStart: 'flag:first_shrine',
+            summary: 'Root-wrapped wayside shrines still answer prayers. Pilgrims once walked between them all.',
+            stages: {
+                walk: { text: 'Pray at 6 different Wayside Shrines.', on: { 'count:found_shrine:6': 'done' } },
+                done: { text: 'The road is walked.', autoComplete: 'walked' }
+            },
+            branches: { walked: { label: 'Pilgrim of the Expanse', xp: 1600, credits: 350, items: ['elixir_thunderbolt', 'elixir_swallow'] } }
+        },
+        q_fortune_bold: {
+            name: 'Fortune Favours the Bold', kind: 'explore', region: null, autoStart: 'flag:first_cache',
+            summary: 'Pre-Fall strongboxes lie buried under every region. Somebody hid a fortune before the dome went dark.',
+            stages: {
+                dig: { text: 'Open 10 Treasure Caches.', on: { 'count:found_cache:10': 'hoard' } },
+                hoard: { text: 'Open 25 Treasure Caches.', on: { 'count:found_cache:25': 'done' } },
+                done: { text: 'The hoard is yours.', autoComplete: 'rich' }
+            },
+            branches: { rich: { label: 'Treasure Hunter', xp: 1900, credits: 1800, items: ['rig_aegis'] } }
+        },
+        q_eyes_expanse: {
+            name: 'Eyes Over the Expanse', kind: 'explore', region: null, autoStart: 'flag:first_vista',
+            summary: 'Surveyor beacons crown the high ground of every region. Synchronising one charts the land around it.',
+            stages: {
+                sync: { text: 'Synchronise 6 Survey Vistas (shown as ? on the minimap).', on: { 'count:found_vista:6': 'all' } },
+                all: { text: 'Synchronise all 12 Survey Vistas.', on: { 'count:found_vista:12': 'done' } },
+                done: { text: 'Every beacon is lit.', autoComplete: 'synced' }
+            },
+            branches: { synced: { label: 'Master Surveyor', xp: 2600, credits: 700, items: ['elixir_wisdom'] } }
+        },
+        q_champion_hunter: {
+            name: 'Hunter of Champions', kind: 'explore', region: null, autoStart: 'flag:first_champion',
+            summary: 'Champions — larger, aura-wrapped enemies with deadly affixes — roam every region. Collectors pay for their sigils.',
+            stages: {
+                hunt: { text: 'Slay 5 Champions.', on: { 'count:champions_slain:5': 'legend' } },
+                legend: { text: 'Slay 15 Champions.', on: { 'count:champions_slain:15': 'done' } },
+                done: { text: 'Your name is known.', autoComplete: 'apex' }
+            },
+            branches: { apex: { label: 'Champion Hunter', xp: 2800, credits: 1400, items: ['elixir_thunderbolt', 'relay_cell'] } }
+        },
+        q_trial_fire: {
+            name: 'Trial by Fire', kind: 'explore', region: null, autoStart: 'flag:first_altar',
+            summary: 'Altars of Trials summon a Champion and its retinue. Each victory is recorded in the stone.',
+            stages: {
+                trials: { text: 'Win 3 Altar Trials.', on: { 'count:trials_won:3': 'done' } },
+                done: { text: 'The stones remember you.', autoComplete: 'tried' }
+            },
+            branches: { tried: { label: 'Altar Champion', xp: 2400, credits: 900, items: ['elixir_thunderbolt'] } }
+        },
+        q_echoes_mastery: {
+            name: 'Echoes of Mastery', kind: 'explore', region: null, autoStart: 'flag:first_shard',
+            summary: 'Crystallised memories of forgotten crafts pulse in the wilds. Each one teaches a lifetime in a moment.',
+            stages: {
+                absorb: { text: 'Absorb 8 Skill Shards.', on: { 'count:found_shard:8': 'done' } },
+                done: { text: 'The echoes settle.', autoComplete: 'echo' }
+            },
+            branches: { echo: { label: 'Echo-Touched', xp: 1700, credits: 300, items: ['elixir_wisdom'] } }
+        },
+        q_smugglers_trail: {
+            name: "Smuggler's Trail", kind: 'explore', region: null, autoStart: 'flag:first_cairn',
+            summary: 'Cairns of piled stone mark a smuggling network that ran gear between the regions.',
+            stages: {
+                follow: { text: 'Search 8 Hidden Stashes.', on: { 'count:found_cairn:8': 'done' } },
+                done: { text: 'The network is exposed.', autoComplete: 'exposed' }
+            },
+            branches: { exposed: { label: 'Trail Breaker', xp: 1300, credits: 1000, rep: { militia: 100, syndicate: -100 } } }
         }
     };
 
@@ -3361,6 +3491,109 @@
 })(window.BO);
 ;
 
+/* --- src/data/OWRPGDiscoveryData.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Open World RPG · Discovery Data
+   Hidden-site archetypes, shrine blessings and the lore library read from
+   tomes. Site placement is generated deterministically from terrain at
+   runtime (OWRPGDiscoveries), so this file holds only definitions.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    /* Per region: how many of each site to scatter. 12 regions × 13 = 156 sites. */
+    const PER_REGION = { cache: 4, tome: 2, shrine: 1, shard: 2, vista: 1, cairn: 2, altar: 1 };
+
+    const TYPES = {
+        cache: {
+            name: 'Treasure Cache', icon: '✦', color: '#fbbf24', xp: 40, skill: ['delving', 30],
+            prompt: 'Open Treasure Cache', model: 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', fit: [1.3, 1.0, 1.0],
+            sound: ['rpg_sfx/creak1.ogg', 'rpg_sfx/handleCoins.ogg'],
+            desc: 'Buried strongboxes from before the Fall. Each holds credits, Pre-Fall coins and a chance at gear.'
+        },
+        tome: {
+            name: 'Lore Tome', icon: '❦', color: '#e9c46a', xp: 30, skill: ['arcana', 35],
+            prompt: 'Read Lore Tome', model: 'mini_dungeon_kit/table.glb', fit: [1.4, 0.95, 0.9],
+            sound: ['rpg_sfx/bookOpen.ogg', 'rpg_sfx/bookFlip1.ogg'],
+            desc: 'Field journals, sermons and black-box transcripts that piece together what broke the Meridian.'
+        },
+        shrine: {
+            name: 'Wayside Shrine', icon: '✧', color: '#5eead4', xp: 25, skill: ['foraging', 25], cooldown: 600,
+            prompt: 'Pray at Wayside Shrine', model: 'pixel_fantasy/pixel-fantasy-root-entangled-wayside-shrine.glb', fit: [1.8, 2.4, 1.8],
+            sound: ['overhaul/stingers/chime_positive.wav'],
+            desc: 'Grants a 5-minute blessing. Shrines can be used again every 10 minutes.'
+        },
+        shard: {
+            name: 'Skill Shard', icon: '◈', color: '#a78bfa', xp: 35, skill: null,
+            prompt: 'Absorb Skill Shard', model: null, fit: null,
+            sound: ['sfx/Digital Audio (Kenney)/Audio/powerUp3.ogg'],
+            desc: 'Crystallised memories of a craft. Absorbing one grants a large burst of Mastery XP.'
+        },
+        vista: {
+            name: 'Survey Vista', icon: '⛰', color: '#38bdf8', xp: 80, skill: ['exploration', 120], revealR: 260,
+            prompt: 'Synchronise Survey Vista', model: 'castle_kit/flag-banner-long.glb', fit: [1.2, 4.6, 0.5],
+            sound: ['overhaul/stingers/level_complete.wav'],
+            desc: 'High ground with a surveyor\'s beacon. Synchronising charts a wide area of the map at once.'
+        },
+        cairn: {
+            name: 'Hidden Stash', icon: '▲', color: '#a8a29e', xp: 30, skill: ['mining', 25],
+            prompt: 'Search Hidden Stash', model: 'mini_dungeon_kit/stones.glb', fit: [1.6, 0.9, 1.6],
+            sound: ['rpg_sfx/handleSmallLeather.ogg'],
+            desc: 'Rock cairns hiding a smuggler\'s stash. Good odds of rare gear.'
+        },
+        altar: {
+            name: 'Altar of Trials', icon: '☗', color: '#f43f5e', xp: 150, skill: ['slayer', 140],
+            prompt: 'Invoke the Altar of Trials', model: 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', fit: [2.2, 1.4, 1.6],
+            sound: ['sfx/Impact Sounds (Kenney)/Audio/impactBell_heavy_000.ogg'],
+            desc: 'Summons a Champion of the region with two of its retinue. Slay the Champion to claim the altar\'s reward.'
+        }
+    };
+
+    /* Shrine blessings: fx keys are read by OWRPGCharacter.perkFx (s.player.blessing). */
+    const BLESSINGS = [
+        { id: 'b_hunter', name: "Hunter's Blessing", color: '#f97316', desc: '+15% weapon damage and +10% critical chance.', fx: { allDmgMult: 0.15, bonusCritChance: 0.10 } },
+        { id: 'b_warden', name: "Warden's Blessing", color: '#38bdf8', desc: '+25 armor and +40 max HP.', fx: { armor: 25, maxHp: 40 } },
+        { id: 'b_scholar', name: "Scholar's Blessing", color: '#c084fc', desc: '+25% character XP and +25% Mastery XP.', fx: { xpMult: 0.25, skillXpMult: 0.25 } },
+        { id: 'b_wind', name: 'Blessing of the Wind', color: '#5eead4', desc: '+15% movement speed and -30% movement noise.', fx: { speedMult: 0.15, noise: -0.30 } },
+        { id: 'b_ember', name: 'Ember Blessing', color: '#fb923c', desc: 'Every 4th firearm hit applies Burn.', fx: { nthBurn: 4 } },
+        { id: 'b_frost', name: 'Frost Blessing', color: '#7dd3fc', desc: 'Every 4th firearm hit applies Chill and +15% elemental resistance.', fx: { nthChill: 4, allElemRes: 0.15 } },
+        { id: 'b_fortune', name: 'Blessing of Fortune', color: '#fde047', desc: '+40% credits found and +30% cache bonus-item chance.', fx: { creditFind: 0.40, cacheLuck: 0.30 } },
+        { id: 'b_slayer', name: "Slayer's Blessing", color: '#f43f5e', desc: '+25% damage to beasts, bosses and Champions.', fx: { monsterDmg: 0.25, champDmg: 0.25 } }
+    ];
+    const BLESSING_SEC = 300;
+
+    /* Original lore for the Meridian Expanse. Tomes pick an entry by region first, then any unread. */
+    const LORE = [
+        { id: 'l_fall', region: 'haven_basin', title: 'The Night the Dome Went Dark', text: 'Pump Three\'s logbook stops mid-sentence. The last line reads: "Core pressure off the gauge, every light in the basin flickering in time with it, like a heartbeat." Nobody in Haven remembers who wrote it.' },
+        { id: 'l_freestead', region: 'haven_basin', title: 'Freestead Charter', text: 'We claim no land beyond the walls we can defend and no water beyond the wells we dig. Any traveller who raises no weapon inside the gate eats at our table. — signed by the eleven families of Freestead.' },
+        { id: 'l_pines', region: 'whispering_woods', title: 'Ranger\'s Notebook, Page 9', text: 'The pines hum at night. Not wind. A low tone, felt in the teeth. The wolves go quiet when it starts and the poachers pack up and leave. I am staying to find the source.' },
+        { id: 'l_puglins', region: 'whispering_woods', title: 'On the Hoarding of Puglins', text: 'They steal anything that shines: lenses, shell casings, wedding rings. Follow a fat one home and you will find a burrow lined with a decade of lost treasure. Bring a shotgun. They bite.' },
+        { id: 'l_syndicate', region: 'rust_sprawl', title: 'Syndicate Ledger (Torn)', text: 'Water futures up 400% since the pumps failed. Recommend we keep at least one pump failing. Scarcity is a resource. — M.O.' },
+        { id: 'l_crane', region: 'rust_sprawl', title: 'Goliath Crane Safety Placard', text: 'MAXIMUM LOAD 900 TONNES. Someone has scratched underneath: "Maximum load reached 14 March. It was carrying the old reactor lid. Then the lid started carrying it."' },
+        { id: 'l_barrow', region: 'barrow_moor', title: 'Sexton\'s Lament', text: 'We buried them deep and sang them down, as our grandmothers taught us. Since the Fall the songs no longer hold. The dead walk the moor at moonrise and they hum the same low tone as the pines.' },
+        { id: 'l_vampire', region: 'barrow_moor', title: 'The Nightlord\'s Bargain', text: 'It offered the village safety from the walking dead in exchange for one guest a month. The village agreed. In a year there were no guests left, and then there was no village.' },
+        { id: 'l_mire', region: 'mire_delta', title: 'Brood Containment Memo', text: 'Specimens are NOT reacting to cold. They are reacting to the hum. Recommend all field teams carry tone generators. Recommend we stop pretending we know what we released.' },
+        { id: 'l_barge', region: 'mire_delta', title: 'Bargemaster\'s Last Entry', text: 'Fog so thick the lanterns drowned. Something knocked on the hull three times, waited, then knocked three more. The crew wants to turn back. I want to know what is knocking.' },
+        { id: 'l_quarry', region: 'ash_quarry', title: 'Quarry Truce Terms', text: 'Militia hold the north benches by day. Syndicate hold the south pits by night. Neither side fires on the ore trains. The truce lasted nine days. The ore trains are still running, with nobody aboard.' },
+        { id: 'l_mesa', region: 'sunscorched_badlands', title: 'The Sunfang Inscriptions', text: 'Older than the Meridian. Older than the cities. The glyphs describe a crown of light falling from the sky and a guardian built to stand watch beneath it until the light returned.' },
+        { id: 'l_scorpion', region: 'sunscorched_badlands', title: 'Prospector\'s Warning', text: 'If the sand is warm at midnight, walk away. That is the dune scorpions breathing underneath you, a hundred of them, waiting for something heavy enough to be worth surfacing for.' },
+        { id: 'l_coast', region: 'sunken_coast', title: 'Harbourmaster\'s Tide Table', text: 'The tide no longer follows the moon. It follows the Core. When the dome pulses, the sea draws back half a mile and the drowned corsairs walk out across the seabed to whatever is calling them.' },
+        { id: 'l_siren', region: 'sunken_coast', title: 'The Siren\'s Song (Transcribed)', text: 'It is not a song. It is the hum, slowed down and given a voice. Every sailor who heard it describes it as their mother calling them home for supper.' },
+        { id: 'l_aegis', region: 'alpine_array', title: 'Aegis Directive 77', text: 'The Array is not a weapon. The Array is a lid. Under no circumstances is the Array to be powered down, regardless of the cost to surrounding settlements. Acknowledge and destroy.' },
+        { id: 'l_frost', region: 'frostfang_peaks', title: 'Frost Knight\'s Oath', text: 'We swore to hold the pass until the thaw. The thaw has not come in eleven years. Our armour has frozen to our skin and our oath has frozen to our souls. We hold.' },
+        { id: 'l_troll', region: 'frostfang_peaks', title: 'Glacier Survey Core #4', text: 'Ice layer dated to the Fall contains intact biological tissue at a depth of 40 metres. The tissue is warm. The tissue is growing. Abandoning the drill site.' },
+        { id: 'l_helix', region: 'meridian_core', title: 'Helix Sermon of the Open Door', text: 'The Core is not broken. The Core is opening. What the Aegis call a catastrophe we call a door, and every door is an invitation. Will you be standing at the threshold when it swings wide?' },
+        { id: 'l_core', region: 'meridian_core', title: 'Engineer\'s Final Diagnostic', text: 'Containment field at 3%. Output at 4000% of rated. The hum is the field failing at a frequency the human ear can almost hear. When it stops humming, run.' },
+        { id: 'l_dragons', region: 'obsidian_dragonwilds', title: 'The Ashfall Chronicle', text: 'The drakes came after the crown of light fell. They nest in the obsidian because nothing else can bear the heat of their sleep. Their elders remember the sky before the Meridian, and they are not grateful.' },
+        { id: 'l_juggernaut', region: 'obsidian_dragonwilds', title: 'Cult of the Obsidian Flame', text: 'We feed the Juggernaut the ore of the fallen crown and it grows. When it is tall enough to touch the sky, the crown will return to it, and the drakes will kneel. So it is written. So we build.' },
+        { id: 'l_militia', region: null, title: 'Militia Recruitment Poster', text: 'HAVEN NEEDS YOU. Clean water. Hot meals. A wall at your back and a rifle in your hands. Report to Warden Kessler. Bring your own boots.' },
+        { id: 'l_cartographer', region: null, title: 'The Cartographers\' Guild Creed', text: 'Every map is a promise that the world can be known. Walk where no one has walked, write down what you see, and leave the next traveller a little less lost than you were.' }
+    ];
+
+    BO.OWRPGDiscoveryData = { PER_REGION, TYPES, BLESSINGS, BLESSING_SEC, LORE };
+})(window.BO);
+;
+
 /* --- src/owrpg/OWRPGSave.js --- */
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · Versioned Save Slots
@@ -3371,7 +3604,7 @@
 (function (BO) {
     'use strict';
 
-    const SCHEMA_VERSION = 3;
+    const SCHEMA_VERSION = 4;
     const SLOT_COUNT = 3;
 
     const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -3400,6 +3633,7 @@
                 mounts: { owned: [], active: null },
                 skills: Object.fromEntries(Object.keys(SD.SKILLS).map(id => [id, { level: 1, xp: 0 }])),
                 standingStone: null,
+                blessing: null,
                 unlockedPowers: ['cryo_dart', 'arc_lash', 'med_injector'],
                 codex: { enemies: {}, elements: {}, unlocksClaimed: [] },
                 bounties: { active: null, completed: 0, progress: 0 }
@@ -3407,7 +3641,9 @@
             factions: Object.assign({}, BO.OWRPGFactionsData.START_REP),
             poiStates: {},
             quests: {},
-            worldFlags: { compassEnabled: true, compassQuest: true },
+            worldFlags: { compassEnabled: opts.compass !== false, compassQuest: true, minimapEnabled: opts.minimap !== false, minimapNorthUp: false, trackedQuests: [] },
+            // Cartography + Discoveries: explored is a base64 bitset over a 64×64 grid; found maps site id → playtime.
+            atlas: { explored: '', found: {}, shrineT: {}, champions: 0, trials: 0 },
             pylons: { py_freestead: true },
             pins: [],
             pityCounter: 0,
@@ -3541,6 +3777,11 @@
             add('salvage', rank('mining') * 0.007);
             add('durSave', rank('mining') * 0.007);
             add('arcanaDmg', rank('arcana') * 0.006);
+            add('speedMult', rank('exploration') * 0.002);
+            add('discoveryXp', rank('exploration') * 0.01);
+            // Timed shrine blessing (Discoveries): fx bundle that expires on playtime.
+            const bl = s.player.blessing;
+            if (bl && bl.until > s.playtimeSec && bl.fx) for (const [k, v] of Object.entries(bl.fx)) add(k, v);
             return out;
         },
 
@@ -4564,6 +4805,7 @@
             const d = BO.OWRPGCharacter.derived(s);
             let a = amount * this.diff().inc * (100 / (100 + d.armor));
             if (attackerEntity?.owAgent?.boss) a *= 1 - Math.min(0.8, d.fx.bossDR || 0);
+            if (attackerEntity?.owAgent && BO.OWRPGChampions) a *= BO.OWRPGChampions.dealtMult(attackerEntity.owAgent);
             if (d.fx.crouchDR && BO.Player.crouching) a *= 1 - d.fx.crouchDR;
             if (BO.OWRPGMounts && BO.OWRPGMounts.mounted) a *= BO.OWRPGMounts.drMult();
             const attElem = attackerEntity && attackerEntity.owAgent && attackerEntity.owAgent.def && attackerEntity.owAgent.def.elem;
@@ -4584,6 +4826,7 @@
                     if (eq) BO.OWRPGDurability.degrade(s, eq, 0.22);
                 }
             }
+            if (attackerEntity?.owAgent?.champ) BO.OWRPGChampions.afterHitPlayer(attackerEntity.owAgent, a);
             BO.OWRPGMode.onPlayerHurt();
             return a;
         },
@@ -4619,6 +4862,7 @@
             if (agent.kind === 'beast') m *= 1 + (d.fx.beastDmg || 0);
             if (agent.kind === 'beast' || agent.boss) m *= 1 + (d.fx.monsterDmg || 0);
             if (agent.boss) m *= 1 + (d.fx.bossDmg || 0);
+            if (agent.champ) m *= BO.OWRPGChampions.takenMult(agent);
             if (ctx.source === 'gun' && ctx.dist > 22) m *= 1 + (d.fx.rangeDmg22 || 0);
             if (ctx.source === 'ability' || ctx.source === 'reaction') m *= 1 + (d.fx.arcanaDmg || 0);
             if (ctx.source === 'gun') m *= ws.dmgMult;
@@ -4669,9 +4913,11 @@
             dmg = Math.max(1, dmg);
 
             const ent = agent.ent;
+            const hpBefore = ent.hp;
             const killed = agent.kind === 'bot'
                 ? ent.takeDamage(dmg, 'player')
                 : ent.takeDamage(dmg, ctx.isHead ? 'head' : 'torso', crit, null, ctx.source === 'melee' ? 'melee' : 'bullet');
+            if (agent.champ && ctx.source !== 'dot') BO.OWRPGChampions.afterDamaged(agent, Math.min(dmg, Math.max(0, hpBefore)));
 
             // Only play hitmarker here for ability/reaction (CombatSystem already plays it for gun/melee!)
             if (ctx.source === 'ability' || ctx.source === 'reaction') {
@@ -5064,6 +5310,7 @@
     const UP = new THREE.Vector3(0, 1.2, 0);
     const SIDE = { militia: 0, aegis: 0, raiders: 1, syndicate: 1, helix: 1, brood: 2 };
     const CONE_COS = Math.cos((110 / 2) * Math.PI / 180);
+    const AGENT_DETAIL_DIST = 28;   // metres: beyond this agents render as a merged proxy (MeshProxy)
 
     // Distinct uniform tint palettes per faction (applied to BotAI meshes)
     const FACTION_PALETTE = {
@@ -5116,7 +5363,7 @@
         if (!b) return;
         const stKeys = Object.keys(a.st);
         const hpInt = Math.ceil(a.ent.hp);
-        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
+        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${a.champ ? 'c' : ''}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
         if (b.lastKey === key) return;
         b.lastKey = key;
 
@@ -5129,24 +5376,29 @@
         g.textAlign = 'center';
         g.fillStyle = 'rgba(0,0,0,0.75)';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 129, 20);
-        g.fillStyle = a.boss ? '#fde047' : '#f8fafc';
+        g.fillStyle = a.boss ? '#fde047' : a.champ ? '#f0abfc' : '#f8fafc';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 128, 19);
 
         // HP Bar
         g.fillStyle = 'rgba(10,12,14,0.85)';
         g.fillRect(28, 25, 200, 12);
-        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : '#ef4444') : facCol;
+        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : a.champ ? a.champ.color : '#ef4444') : facCol;
         g.fillRect(30, 27, Math.round(196 * pct), 8);
         g.strokeStyle = 'rgba(255,255,255,0.28)';
         g.lineWidth = 1;
         g.strokeRect(28, 25, 200, 12);
 
-        // Status icons
+        // Status icons, or the Champion's affixes when it has no statuses.
         if (stKeys.length) {
             g.font = 'bold 16px "Segoe UI", sans-serif';
             const badges = stKeys.map((k) => (ELEM_ICON[k] || '*') + (k === 'venom' && a.st[k].stacks > 1 ? a.st[k].stacks : '')).join(' ');
             g.fillStyle = '#fde68a';
             g.fillText(badges, 128, 52);
+        } else if (a.champ) {
+            g.font = 'bold 14px "Segoe UI", sans-serif';
+            const lbl = '★ ' + BO.OWRPGChampions.label(a).toUpperCase();
+            g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillText(lbl, 129, 53);
+            g.fillStyle = a.champ.color; g.fillText(lbl, 128, 52);
         }
         b.tex.needsUpdate = true;
     }
@@ -5204,6 +5456,11 @@
             };
             ent.owAgent = agent;
             this.agents.push(agent);
+            if (!def.glb && BO.MeshProxy) {
+                // Far LOD shared by every agent of the same rig type (see MeshProxy.js).
+                const key = def.kind === 'bot' ? 'ow-bot:' + def.faction + ':' + !!def.boss + ':' + def.weapon : 'ow-beast:' + def.body + ':' + !!def.boss;
+                agent.lod = BO.MeshProxy.attach(ent.parts.root, key);
+            }
             if (def.glb && BO.Assets) {
                 const root = ent.parts.root;
                 const fallback = root.children.filter(child => child !== bar.sprite);
@@ -5222,10 +5479,12 @@
                     }
                 });
             }
+            BO.OWRPGChampions?.onSpawn(agent, opts);
             return agent;
         },
 
         despawn(agent) {
+            if (agent.lod) { BO.MeshProxy.detach(agent.lod); agent.lod = null; }
             if (agent.mixer) { agent.mixer.stopAllAction(); agent.mixer.uncacheRoot(agent.mixer.getRoot()); }
             if (agent.bar) { agent.bar.tex.dispose(); agent.bar.sprite.material.dispose(); }
             agent.ent.destroy();
@@ -5344,6 +5603,7 @@
                 if (fx.killHeal) M.heal(fx.killHeal);
                 if (BO.OWRPGFactionsData.FACTIONS[a.faction]) BO.OWRPGFactions.onFactionKill(s, a.faction);
             }
+            BO.OWRPGChampions?.onKilled(a, ctx);
             M.setFlag('killed_' + a.defId, true);
             BO.OWRPGQuests.onEvent(s, 'kill', a.defId);
             if (a.poiId) BO.OWRPGWorldSim.onAgentKilled(a);
@@ -5439,15 +5699,17 @@
                 if (a.alive && !ent.alive) this.onKilled(a, { byNpc: true });
                 if (a.alive) BO.OWRPGCombat.tickStatuses(a, dt);
                 if (!a.alive) {
+                    if (a.lod) BO.MeshProxy.set(a.lod, false);
                     if (a.kind === 'beast') { if (!ent.update(dt, ents, beastCb)) { this.despawn(a); } }
                     else { a.deadT = (a.deadT || 0) + dt; if (a.deadT > 0.2) this.despawn(a); }
                     continue;
                 }
                 const dist = BO.Math.dist2D(ent.pos.x, ent.pos.z, P.pos.x, P.pos.z);
+                if (a.lod) BO.MeshProxy.set(a.lod, dist > AGENT_DETAIL_DIST);
 
                 // Floating 3D world-space bar visibility
                 if (a.bar) {
-                    const showBar = ent.parts.root.visible && dist < 34 && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || Object.keys(a.st).length > 0);
+                    const showBar = ent.parts.root.visible && dist < (a.champ ? 48 : 34) && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || a.champ || Object.keys(a.st).length > 0);
                     a.bar.sprite.visible = showBar;
                     if (showBar) updateBarSprite(a);
                 }
@@ -5674,7 +5936,11 @@
             }
             this._vegetation(world, scene, D);
             this._water(scene, D, out);
-            for (const p of D.PYLONS) out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+            for (const p of D.PYLONS) {
+                out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+                // A 6 m pylon is a couple of pixels beyond ~420 m; stop drawing it there (6 draw calls each).
+                out.culledGroups.push({ group: out.pylons[p.id].group, x: p.x, z: p.z, r: 420 });
+            }
             flushStruts(scene);
             this._townWarmth(scene, D, t, out);
             this._weatherMotes(scene, out);
@@ -6195,6 +6461,8 @@
 
         init(scene) {
             this.poiAgents = {};
+            this._cullAt = null;
+            this._collectCullables();
             this.region = null;
             this.encT = 30;
             this.scene = scene;
@@ -6244,7 +6512,58 @@
                 sc.fog.density = inside ? 0.06 : this.base.fogD * (1 + (1 - k) * 0.6);
                 if (sc.background && sc.background.isColor) sc.background.copy(_c1.copy(this.base.sky).lerp(night, 1 - k));
             }
-            if (BO.World.terrain && !inside) BO.World.terrain.updateLOD(P.pos.x, P.pos.z, 135);
+            if (BO.World.terrain && !inside) BO.World.terrain.updateLOD(P.pos.x, P.pos.z, 135, this.fogCullDist() + 115);
+            // Re-cull static batches once a second, or immediately after a teleport / long move.
+            this._cullT = (this._cullT || 0) - dt;
+            const lc = this._cullAt;
+            if (this._cullT <= 0 || !lc || Math.abs(P.pos.x - lc.x) + Math.abs(P.pos.z - lc.z) > 24) {
+                this._cullT = 1;
+                this._cullAt = { x: P.pos.x, z: P.pos.z };
+                this._cullBatches(inside);
+            }
+        },
+
+        /** Random-encounter squads for a region (used by Altars of Trials). */
+        encounterPool(regionId) { return ENCOUNTERS[regionId] || ENCOUNTERS.haven_basin; },
+
+        /** Distance where exp² fog leaves < 1% of a surface visible — anything beyond is pure fog colour. */
+        fogCullDist() {
+            const fog = BO.World.scene && BO.World.scene.fog;
+            return fog && fog.density > 0 ? 2.15 / fog.density : Infinity;
+        },
+
+        /** Hide merged static-box chunks and loose static meshes that sit entirely inside the fog wall. */
+        _cullBatches(inside) {
+            const P = BO.Player;
+            if (!this._batches) this._collectCullables();
+            const cull = Math.max(inside ? 260 : 0, this.fogCullDist());
+            for (const b of this._batches) {
+                const vis = BO.Math.dist2D(P.pos.x, P.pos.z, b.x, b.z) < cull + b.r;
+                if (b.m.visible !== vis) b.m.visible = vis;
+            }
+        },
+
+        /** Snapshot the static world right after it is built: merged box chunks plus loose top-level
+         *  meshes (landmark parts). Groups are skipped on purpose — props, NPCs and GLB holders run
+         *  their own visibility logic — and so are transient FX meshes (particles, decals, shells). */
+        _collectCullables() {
+            this._batches = [];
+            {
+                const fxGeo = BO.FX ? new Set([BO.FX.particleGeo, BO.FX.decalGeo, BO.FX.shellGeo]) : new Set();
+                const terrain = new Set();
+                for (const c of (BO.World.terrain && BO.World.terrain.chunks) || []) { terrain.add(c.near); terrain.add(c.far); }
+                const fogged = (mat) => !Array.isArray(mat) && mat && mat.fog !== false;
+                const consider = (m) => {
+                    if (!m.isMesh || m.isInstancedMesh || terrain.has(m) || !m.geometry || fxGeo.has(m.geometry) || !fogged(m.material)) return;
+                    m.updateMatrixWorld(true);
+                    if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+                    const c = m.geometry.boundingSphere.center.clone().applyMatrix4(m.matrixWorld);
+                    const sc = Math.max(m.scale.x, m.scale.y, m.scale.z);
+                    this._batches.push({ m, x: c.x, z: c.z, r: m.geometry.boundingSphere.radius * sc });
+                };
+                for (const m of BO.World.worldMeshes || []) if (m.userData && m.userData.batch) consider(m);
+                for (const m of BO.World.scene.children) if (!(m.userData && m.userData.batch)) consider(m);
+            }
         },
 
         tick1(dt) {
@@ -6373,6 +6692,7 @@
 (function (BO) {
     'use strict';
 
+    const NPC_DETAIL_DIST = 7;    // metres: full rig + idle animation inside, merged proxy outside
     const UP = new THREE.Vector3(0, 1.2, 0);
     const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.7, metalness: 0.3 }, o || {}));
     const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -6434,7 +6754,9 @@
                 tag.position.set(0, 2.2, 0);
                 parts.root.add(tag);
                 scene.add(parts.root);
-                this.npcs.push({ def, parts, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
+                // Far LOD: one merged mesh per material instead of ~135 rig parts.
+                const lod = BO.MeshProxy ? BO.MeshProxy.attach(parts.root) : null;
+                this.npcs.push({ def, parts, lod, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
             }
             for (const [id, on] of Object.entries(s.pylons)) if (on) BO.OWRPGWorldArt.setPylonActive(BO.World, id, true);
         },
@@ -6788,7 +7110,9 @@
                 const want = d < 6 ? Math.atan2(P.pos.x - n.pos.x, P.pos.z - n.pos.z) : n.def.yaw || 0;
                 n.yaw += BO.Math.angleDiff(n.yaw, want) * Math.min(1, dt * 4);
                 n.parts.root.rotation.y = n.yaw;
-                BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
+                const far = d > NPC_DETAIL_DIST;
+                if (n.lod) BO.MeshProxy.set(n.lod, far);
+                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
             }
             for (let i = this.bags.length - 1; i >= 0; i--) {
                 const b = this.bags[i];
@@ -7070,7 +7394,7 @@
 
 /* --- src/owrpg/OWRPGEvents.js --- */
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Dynamic World Events (18 Regional Event Types)
+   BLACKOUT OPS — Open World RPG · Dynamic World Events (21 Regional Event Types)
    Spawns timed dynamic events near the player while exploring the Meridian
    Expanse: Supply Drop, Faction Skirmish, Brood Swarm, Convoy Raid, Void
    Anomaly Storm, Relay Defense, Rogue Mecha, Black-Market Cache.
@@ -7079,6 +7403,10 @@
     'use strict';
 
     const EVENT_TYPES = [
+        // Region-flavoured events: `dynamic` squads are drawn from the local encounter pool; `champion` promotes the leader.
+        { id: 'champion_incursion', title: 'Champion Incursion', color: '#e879f9', dur: 150, dynamic: true, champion: 2, enemies: ['raider', 'raider_bruiser'], loot: 'champion', xp: 520, credits: 300, desc: 'A Champion leads a local warband into the open. Slay the Champion and its escort.' },
+        { id: 'relic_storm', title: 'Relic Storm', color: '#fbbf24', dur: 150, dynamic: true, goal: 'hold', hold: 40, enemies: ['raider', 'raider'], loot: 'treasure', xp: 460, credits: 260, desc: 'A Pre-Fall relic is surfacing. Stay within 12 m for 40 seconds while scavengers close in.' },
+        { id: 'champion_warband', title: 'Champion Warband', color: '#f43f5e', dur: 220, dynamic: true, champion: 3, goal: 'waves', waves: 2, enemies: ['raider', 'raider'], loot: 'champion', xp: 980, credits: 560, desc: 'Two waves, each led by a three-affix Champion.' },
         { id: 'pinewood_rescue', title: 'Pinewood Rescue Signal', color: '#4ade80', dur: 130, enemies: ['forest_poacher', 'orc_reaver'], goal: 'hold', hold: 35, loot: 'raider', xp: 290, credits: 170, desc: 'Stay within 12 m of the signal for 35 seconds to finish the rescue uplink.' },
         { id: 'wolf_migration', title: 'Moonlit Wolf Migration', color: '#86efac', dur: 160, enemies: ['timber_wolf', 'timber_wolf'], goal: 'waves', waves: 3, loot: 'brood', xp: 360, credits: 180, desc: 'Survive three approaching wolf packs.' },
         { id: 'grave_procession', title: 'Procession of the Restless', color: '#c4b5fd', dur: 190, enemies: ['skeleton_warrior', 'grave_zombie', 'barrow_ghost'], goal: 'waves', waves: 3, loot: 'undead', xp: 640, credits: 320, desc: 'Break three waves of the grave procession.' },
@@ -7208,8 +7536,14 @@
         },
 
         _spawnSquad(def, x, z, id) {
-            return def.enemies.map((eid, i) => {
-                const a = BO.OWRPGAI.spawn(eid, x + (i % 2)*5 - 2.5, z + Math.floor(i / 2)*5 - 2.5, { poiId: id, leash: 80, postR: 8 });
+            let ids = def.enemies;
+            if (def.dynamic && BO.OWRPGWorldSim.encounterPool) {
+                const pool = BO.OWRPGWorldSim.encounterPool(BO.OWRPGWorldData.regionAt(x, z).id);
+                const pick = pool[Math.floor(Math.random() * pool.length)];
+                ids = pick.length >= 3 ? pick : pick.concat(pick).slice(0, 3);
+            }
+            const squad = ids.map((eid, i) => {
+                const a = BO.OWRPGAI.spawn(eid, x + (i % 2)*5 - 2.5, z + Math.floor(i / 2)*5 - 2.5, { poiId: id, leash: 80, postR: 8, noChampion: !!def.champion });
                 if (a) {
                     // Event squads are explicit adversaries even when their parent faction is friendly.
                     a.eventHostile = true; a.hostile = true;
@@ -7217,6 +7551,8 @@
                 }
                 return a;
             }).filter(Boolean);
+            if (def.champion && squad[0] && BO.OWRPGChampions) BO.OWRPGChampions.make(squad[0], def.champion);
+            return squad;
         },
 
         _pickForRegion(regId) {
@@ -7234,7 +7570,8 @@
                 frostfang_peaks: ['frost_resonance', 'glacier_hunt'],
                 obsidian_dragonwilds: ['dragonwild_siege', 'void_storm']
             };
-            const pool = byReg[regId] || EVENT_TYPES.map((e) => e.id);
+            const tier = parseInt(String((BO.OWRPGWorldData.REGIONS.find((r) => r.id === regId) || {}).lvl), 10) || 1;
+            const pool = (byReg[regId] || EVENT_TYPES.map((e) => e.id)).concat(['champion_incursion', 'relic_storm'], tier >= 17 ? ['champion_warband'] : []);
             const pickId = BO.Math.pick(pool);
             return EVENT_TYPES.find((e) => e.id === pickId) || EVENT_TYPES[0];
         },
@@ -7284,7 +7621,7 @@
             this._world(err, warn);
             this._expansion(err, warn);
             this._ttk(err, warn);
-            if (BO.World && BO.World.mapData && BO.World.mapData.id === 'meridian') this._spatial(err, warn);
+            if (BO.World && BO.World.mapData && BO.World.mapData.id === 'meridian') { this._spatial(err, warn); this._discoveries(err, warn); }
             const report = `OWRPG validator: ${errors.length} error(s), ${warnings.length} warning(s)\n` +
                 errors.map((e) => '  ERROR ' + e).join('\n') + (errors.length ? '\n' : '') + warnings.map((w) => '  warn  ' + w).join('\n');
             if (logToConsole) (errors.length ? console.error : console.log)(report);
@@ -7313,6 +7650,29 @@
                 }
                 for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id) && !(t.entry && t.entry.toString().includes(id))) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
             }
+        },
+
+        /** Hidden sites: every type placed, every counter quest reachable, every reference valid. */
+        _discoveries(err, warn) {
+            const Disc = BO.OWRPGDiscoveries, DD = BO.OWRPGDiscoveryData;
+            if (!Disc || !DD) return;
+            const sites = Disc.generate(884120);
+            const per = {};
+            for (const site of sites) {
+                per[site.type] = (per[site.type] || 0) + 1;
+                if (site.type === 'tome' && !DD.LORE.some((l) => l.id === site.lore)) err(`site ${site.id}: unknown lore '${site.lore}'`);
+                if (site.type === 'shrine' && !DD.BLESSINGS.some((b) => b.id === site.blessing)) err(`site ${site.id}: unknown blessing '${site.blessing}'`);
+                if (site.type === 'shard' && !BO.OWRPGStatsData.SKILLS[site.skill]) err(`site ${site.id}: unknown skill '${site.skill}'`);
+            }
+            const expected = BO.OWRPGWorldData.REGIONS.length;
+            for (const [type, n] of Object.entries(DD.PER_REGION)) if ((per[type] || 0) < n * expected * 0.9) warn(`discoveries: only ${per[type] || 0} ${type} sites placed (want ${n * expected})`);
+            for (const [id, q] of Object.entries(BO.OWRPGQuestsData.QUESTS)) {
+                for (const st of Object.values(q.stages)) for (const k of Object.keys(st.on || {})) {
+                    const m = k.match(/^count:found_([a-z]+):(\d+)$/);
+                    if (m && Number(m[2]) > (per[m[1]] || 0)) err(`${id}: needs ${m[2]} ${m[1]} sites but only ${per[m[1]] || 0} exist`);
+                }
+            }
+            for (const b of DD.BLESSINGS) for (const k of Object.keys(b.fx)) if (typeof b.fx[k] !== 'number') err(`blessing ${b.id}: fx '${k}' is not numeric`);
         },
 
         _quests(err) {
@@ -7455,6 +7815,20 @@
 
         /* ================================================== lifecycle */
         /** opts: { slot, newChar?: { name, attrs, difficulty }, camera } */
+        /* ================================================== pluggable world systems
+           Modules such as Cartography, Discoveries and Champions register here and get
+           start/stop/update/tick1/handleKey/nearest/interact hooks without new wiring. */
+        systems: [],
+
+        registerSystem(sys) { if (sys && !this.systems.includes(sys)) this.systems.push(sys); },
+
+        _sys(hook, a, b, c) {
+            for (const sys of this.systems) {
+                if (typeof sys[hook] !== 'function') continue;
+                try { sys[hook](a, b, c); } catch (e) { console.error('[OWRPG] ' + (sys.id || 'system') + '.' + hook, e); }
+            }
+        },
+
         start(opts) {
             this.camera = opts.camera;
             this.slot = opts.slot || 0;
@@ -7465,7 +7839,7 @@
             this.state = s;
             this.active = true;
             this.acc10 = this.acc1 = 0;
-            this.camoT = 0; this.holstered = false; this.combatT = 0; this.cheatCd = 0;
+            this.camoT = 0; this.holstered = false; this.combatT = 0; this.cheatCd = 0; this.chillT = 0;
             this.lastMag = null;
             if (fresh) {
                 this._starterKit(s);
@@ -7481,6 +7855,7 @@
             const scene = BO.World.build('meridian');
             BO.OWRPGWorldSim.init(scene);
             BO.OWRPGInteriors.build(scene);
+            this._sys('start', s, scene);
             this._milestoneNotified = new Set();
             // Auto-grant level-based mounts if eligible on load
             if (s.player.level >= 6) BO.OWRPGMounts?.unlock(s, 'hoverbike');
@@ -7528,6 +7903,7 @@
         stop() {
             if (!this.active) return;
             this.active = false;
+            this._sys('stop');
             BO.OWRPGMounts?.reset();
             BO.OWRPGEvents?.clear();
             BO.OWRPGAI.clear();
@@ -7654,7 +8030,8 @@
             const enc = BO.OWRPGCharacter.encumbrance(this.state);
             const mountSpd = BO.OWRPGMounts?.mounted ? BO.OWRPGMounts.speedMult() : 1;
             const odMult = BO.OWRPGCombat.overdriveT > 0 ? 1.35 : 1;
-            return enc.speed * (d.gearSpeedMult || 1) * (this.holstered && BO.Player.sprinting ? 1.12 : 1) * (this.stimT > 0 ? 1.25 : 1) * mountSpd * odMult;
+            const chill = this.chillT > 0 ? 0.75 : 1;   // Frozen Champion hits
+            return enc.speed * (d.gearSpeedMult || 1) * (this.holstered && BO.Player.sprinting ? 1.12 : 1) * (this.stimT > 0 ? 1.25 : 1) * mountSpd * odMult * chill;
         },
 
         modifyIncomingDamage(amount, attackerPos, attackerEntity) {
@@ -7835,8 +8212,10 @@
         /* ================================================== input */
         interact() {
             if (!this.active || !BO.Player.alive || BO.OWRPGUI.deathOpen) return;
-            const t = BO.OWRPGInteriors.nearest();
-            if (t) BO.OWRPGInteriors.interact(t);
+            const t = BO.OWRPGInteriors.nearest() || this._systemPrompt();
+            if (!t) return;
+            if (t.type === 'system') t.sys.interact(t);
+            else BO.OWRPGInteriors.interact(t);
         },
 
         /** Mode keys (rebindable via Settings). Returns true when consumed. */
@@ -7864,12 +8243,13 @@
                 return true;
             }
             if (code === 'F8') { BO.OWRPGUI.toggleDev(); return true; }
+            for (const sys of this.systems) if (typeof sys.handleKey === 'function' && sys.handleKey(code, kb, e)) return true;
             return false;
         },
 
         /** Shared bindings that do nothing here (grenades, streaks, shops, plates). */
         isSuppressed(code, kb) {
-            const mine = [kb.owAbility1, kb.owAbility2, kb.owGadget, kb.owUltimate, kb.owMount, kb.owRepair, kb.owMed, kb.owHolster, kb.owDodge, kb.owQuestLog, kb.owMap];
+            const mine = [kb.owAbility1, kb.owAbility2, kb.owGadget, kb.owUltimate, kb.owMount, kb.owRepair, kb.owMed, kb.owHolster, kb.owDodge, kb.owQuestLog, kb.owMap, kb.owMinimapZoom];
             if (mine.includes(code)) return false;
             return [kb.lethal, kb.tactical, kb.special, kb.ultimate, 'KeyZ', kb.armory, kb.armor, kb.exfil, 'Digit3', 'Digit5', 'Digit6', 'Digit7'].includes(code);
         },
@@ -7885,6 +8265,7 @@
             if (this.cheatCd > 0) this.cheatCd -= dt;
             if (this.combatT > 0) this.combatT -= dt;
             if (this.stimT > 0) this.stimT -= dt;
+            if (this.chillT > 0) this.chillT -= dt;
             if (BO.OWRPGAI.anyHostileInCombat()) this.combatT = Math.max(this.combatT, 2);
             const desiredMusic = this.combatT > 0 ? 'owrpg_combat' : 'owrpg';
             if (BO.Sound.musicMode !== desiredMusic) BO.Sound.startMusic(desiredMusic);
@@ -7896,6 +8277,7 @@
             BO.OWRPGWorldSim.update(dt);
             BO.OWRPGInteriors.update(dt);
             BO.OWRPGWorldArt.animate(BO.World, s.worldClock, dt);
+            this._sys('update', dt);
 
             // Gunfire noise & slight shot wear: unsuppressed shots carry 55 m, suppressed 9 m.
             const w = P.weapons[P.activeSlot];
@@ -7914,6 +8296,7 @@
             if (this.acc1 >= 1) {
                 this.acc1 -= 1;
                 BO.OWRPGWorldSim.tick1(1);
+                this._sys('tick1');
                 if (this.combatT <= 0 && P.hp < P.maxHp * 0.6) P.hp = Math.min(P.maxHp * 0.6, P.hp + 2.5);
                 if (this.pendingVendor) { const v = this.pendingVendor; this.pendingVendor = null; BO.OWRPGUI.openVendor(v); }
                 if (BO.OWRPGExpansionData?.CODEX_MILESTONES && this._milestoneNotified) {
@@ -7926,11 +8309,1123 @@
                     }
                 }
             }
-            this.prompt = BO.OWRPGInteriors.nearest();
+            this.prompt = BO.OWRPGInteriors.nearest() || this._systemPrompt();
+        },
+
+        /** Closest interactable offered by a registered system ({ type: 'system', sys, obj, text }). */
+        _systemPrompt() {
+            let best = null;
+            for (const sys of this.systems) {
+                if (typeof sys.nearest !== 'function') continue;
+                const t = sys.nearest();
+                if (t && (!best || t.d < best.d)) best = Object.assign(t, { type: 'system', sys });
+            }
+            return best;
         }
     };
 
     BO.OWRPGMode = Mode;
+})(window.BO);
+;
+
+/* --- src/owrpg/OWRPGCartography.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Open World RPG · Cartography
+   Fog-of-war exploration, the HUD minimap, the hill-shaded world-map base
+   layer and the Atlas (completion per region).
+
+   - The Expanse is split into a 64 × 64 grid (20 m cells). Cells within the
+     reveal radius of the player are charted and stored as a base64 bitset in
+     s.atlas.explored, so a fully explored map costs 684 bytes of save data.
+   - Charting a cell grants Pathfinding mastery XP; every whole percent of the
+     map updates the numeric world flag `explored_pct` that quests count on.
+   - The base map (hill-shading + contours + roads) is rendered once per
+     session into an off-screen canvas shared by the minimap and Pip-Pad map.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const GRID = 64;
+    const BASE_RES = 256;               // terrain samples per side for the shaded base map
+    const BASE_PX = 768;                // off-screen base map size
+    const REVEAL_R = 70;                // metres
+    const MM_PX = 200;                  // minimap canvas size (CSS px)
+    const ZOOMS = [95, 150, 230];       // minimap radius in metres
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    const D = () => BO.OWRPGWorldData;
+
+    const Carto = {
+        id: 'cartography',
+        GRID,
+        bits: null,
+        explored: 0,
+        cellRegion: null,
+        regionCells: {},
+        regionExplored: {},
+        base: null,
+        fog: null,
+        fogCtx: null,
+        fogImg: null,
+        fogDirty: true,
+        mm: null,
+        mmT: 0,
+        revealT: 0,
+        lastPct: 0,
+
+        get s() { return BO.OWRPGMode.state; },
+
+        /* ------------------------------------------------ lifecycle */
+        start(s) {
+            this._decode(s.atlas.explored);
+            this._indexRegions();
+            this._buildBase();
+            this._buildFog();
+            this.lastPct = this.percent();
+            this._ensureMinimap();
+            this.revealT = 0;
+            this.mmT = 0;
+        },
+
+        stop() {
+            if (this.mm) this.mm.root.classList.add('hidden');
+        },
+
+        update(dt) {
+            const s = this.s;
+            if (!s) return;
+            this.revealT -= dt;
+            if (this.revealT <= 0) { this.revealT = 0.25; this._revealAroundPlayer(); }
+            this.mmT -= dt;
+            if (this.mmT <= 0) { this.mmT = 1 / 15; this._drawMinimap(); }
+        },
+
+        handleKey(code, kb) {
+            if (code !== kb.owMinimapZoom) return false;
+            const f = this.s.worldFlags;
+            if (f.minimapEnabled === false) { f.minimapEnabled = true; f.minimapZoom = 0; }
+            else f.minimapZoom = ((f.minimapZoom || 0) + 1) % ZOOMS.length;
+            BO.OWRPGMode.toast('Minimap range ' + this.range() + ' m', '#fbbf24');
+            this._drawMinimap();
+            return true;
+        },
+
+        /* ------------------------------------------------ grid */
+        cellOf(x, z) {
+            const B = D().BOUNDS;
+            const cx = Math.floor((x - B.minX) / (B.maxX - B.minX) * GRID);
+            const cz = Math.floor((z - B.minZ) / (B.maxZ - B.minZ) * GRID);
+            if (cx < 0 || cz < 0 || cx >= GRID || cz >= GRID) return -1;
+            return cz * GRID + cx;
+        },
+
+        cellCenter(i) {
+            const B = D().BOUNDS, w = (B.maxX - B.minX) / GRID;
+            return { x: B.minX + (i % GRID + 0.5) * w, z: B.minZ + (Math.floor(i / GRID) + 0.5) * w };
+        },
+
+        isExplored(x, z) { const i = this.cellOf(x, z); return i >= 0 && this._get(i); },
+        _get(i) { return (this.bits[i >> 3] >> (i & 7)) & 1; },
+
+        percent() { return Math.floor((this.explored / (GRID * GRID)) * 100); },
+
+        regionPercent(id) { const n = this.regionCells[id] || 1; return Math.round(((this.regionExplored[id] || 0) / n) * 100); },
+
+        range() {
+            const f = this.s.worldFlags;
+            return ZOOMS[f.minimapZoom || 0] + (BO.OWRPGCharacter.perkFx(this.s).minimapRange || 0);
+        },
+
+        revealRadius() { return REVEAL_R * (1 + (BO.OWRPGCharacter.perkFx(this.s).revealRadius || 0)); },
+
+        /** Chart every cell within `r` metres of (x, z). Returns the number of newly charted cells. */
+        reveal(x, z, r, silent) {
+            const B = D().BOUNDS, w = (B.maxX - B.minX) / GRID;
+            const c0 = Math.max(0, Math.floor((x - r - B.minX) / w)), c1 = Math.min(GRID - 1, Math.floor((x + r - B.minX) / w));
+            const r0 = Math.max(0, Math.floor((z - r - B.minZ) / w)), r1 = Math.min(GRID - 1, Math.floor((z + r - B.minZ) / w));
+            let fresh = 0;
+            for (let cz = r0; cz <= r1; cz++) for (let cx = c0; cx <= c1; cx++) {
+                const i = cz * GRID + cx;
+                if (this._get(i)) continue;
+                const px = B.minX + (cx + 0.5) * w, pz = B.minZ + (cz + 0.5) * w;
+                if ((px - x) * (px - x) + (pz - z) * (pz - z) > r * r) continue;
+                this.bits[i >> 3] |= 1 << (i & 7);
+                this.explored++;
+                const reg = this.cellRegion[i];
+                this.regionExplored[reg] = (this.regionExplored[reg] || 0) + 1;
+                this._fogPixel(i);
+                fresh++;
+            }
+            if (!fresh) return 0;
+            const s = this.s;
+            s.atlas.explored = this._encode();
+            if (!silent) BO.OWRPGCharacter.addSkillXp(s, 'exploration', fresh * 6);
+            const pct = this.percent();
+            if (pct !== this.lastPct) {
+                this.lastPct = pct;
+                BO.OWRPGMode.setFlag('explored_pct', pct);
+                if (pct > 0 && pct % 10 === 0 && !silent) {
+                    BO.OWRPGMode.giveXp(60 + pct * 4, 'Charted ' + pct + '% of the Expanse');
+                    BO.Events.emit('hud:toast', { text: 'Atlas: ' + pct + '% of the Meridian Expanse charted', color: '#fbbf24' });
+                }
+            }
+            return fresh;
+        },
+
+        _revealAroundPlayer() {
+            const P = BO.Player;
+            if (!P || D().isInterior(P.pos.x, P.pos.z)) return;
+            this.reveal(P.pos.x, P.pos.z, this.revealRadius());
+        },
+
+        _decode(str) {
+            this.bits = new Uint8Array(GRID * GRID / 8);
+            this.explored = 0;
+            if (str) {
+                try {
+                    const bin = atob(str);
+                    for (let i = 0; i < Math.min(bin.length, this.bits.length); i++) this.bits[i] = bin.charCodeAt(i);
+                } catch (e) { console.warn('[Cartography] bad explored bitset, starting fresh', e); }
+            }
+            for (let i = 0; i < GRID * GRID; i++) if (this._get(i)) this.explored++;
+        },
+
+        _encode() {
+            let bin = '';
+            for (let i = 0; i < this.bits.length; i++) bin += String.fromCharCode(this.bits[i]);
+            return btoa(bin);
+        },
+
+        _indexRegions() {
+            this.cellRegion = new Array(GRID * GRID);
+            this.regionCells = {};
+            this.regionExplored = {};
+            for (let i = 0; i < GRID * GRID; i++) {
+                const c = this.cellCenter(i);
+                const id = D().regionAt(c.x, c.z).id;
+                this.cellRegion[i] = id;
+                this.regionCells[id] = (this.regionCells[id] || 0) + 1;
+                if (this._get(i)) this.regionExplored[id] = (this.regionExplored[id] || 0) + 1;
+            }
+        },
+
+        /* ------------------------------------------------ base map */
+        /** Hill-shaded, contoured terrain with roads, cached for the session. */
+        _buildBase() {
+            if (this.base && this.base._seed === BO.World.mapData.id) return;
+            const Dd = D(), B = Dd.BOUNDS, span = B.maxX - B.minX, step = span / BASE_RES;
+            const H = new Float32Array((BASE_RES + 1) * (BASE_RES + 1));
+            for (let j = 0; j <= BASE_RES; j++) for (let i = 0; i <= BASE_RES; i++) H[j * (BASE_RES + 1) + i] = BO.World.terrainHeight(B.minX + i * step, B.minZ + j * step);
+            const small = document.createElement('canvas');
+            small.width = small.height = BASE_RES;
+            const g = small.getContext('2d');
+            const img = g.createImageData(BASE_RES, BASE_RES);
+            const lx = -0.6, lz = -0.55, ly = 0.58;            // light from the north-west
+            for (let j = 0; j < BASE_RES; j++) for (let i = 0; i < BASE_RES; i++) {
+                const h = H[j * (BASE_RES + 1) + i];
+                const hx = H[j * (BASE_RES + 1) + i + 1] - h, hz = H[(j + 1) * (BASE_RES + 1) + i] - h;
+                const nx = -hx, nz = -hz, ny = step;
+                const nl = Math.hypot(nx, ny, nz);
+                const shade = Math.max(0.35, Math.min(1.25, 0.55 + 0.75 * ((nx * lx + ny * ly + nz * lz) / nl)));
+                const x = B.minX + (i + 0.5) * step, z = B.minZ + (j + 0.5) * step;
+                const reg = Dd.regionAt(x, z);
+                const wet = (h < Dd.WATER && Dd.isWet(x, z)) || (h < -11.6 && Math.hypot(x + 180, z + 60) < 22) || (h < -6.4 && Math.hypot(x - 180, z + 190) < 20);
+                let r, gg, b;
+                if (wet) { const d = Math.max(0, Math.min(1, (Dd.WATER - h) / 6)); r = 30 - d * 14; gg = 70 - d * 22; b = 82 - d * 10; }
+                else {
+                    const alt = Math.max(0.7, Math.min(1.25, 0.9 + h / 90));
+                    r = reg.col[0] * 255 * shade * alt; gg = reg.col[1] * 255 * shade * alt; b = reg.col[2] * 255 * shade * alt;
+                    // 8 m contour lines.
+                    if (Math.floor(h / 8) !== Math.floor(H[j * (BASE_RES + 1) + i + 1] / 8) || Math.floor(h / 8) !== Math.floor(H[(j + 1) * (BASE_RES + 1) + i] / 8)) { r *= 0.8; gg *= 0.8; b *= 0.8; }
+                }
+                const o = (j * BASE_RES + i) * 4;
+                img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255;
+            }
+            g.putImageData(img, 0, 0);
+            const base = document.createElement('canvas');
+            base.width = base.height = BASE_PX;
+            const bg = base.getContext('2d');
+            bg.imageSmoothingEnabled = true;
+            bg.drawImage(small, 0, 0, BASE_PX, BASE_PX);
+            const S = BASE_PX / span, X = (x) => (x - B.minX) * S, Z = (z) => (z - B.minZ) * S;
+            bg.lineCap = 'round'; bg.lineJoin = 'round';
+            for (const [w, col] of [[5, 'rgba(20,18,14,0.75)'], [2.2, 'rgba(214,196,160,0.85)']]) {
+                bg.strokeStyle = col; bg.lineWidth = w;
+                for (const r of Dd.ROADS || []) { bg.beginPath(); r.pts.forEach(([x, z], i) => (i ? bg.lineTo(X(x), Z(z)) : bg.moveTo(X(x), Z(z)))); bg.stroke(); }
+            }
+            const grad = bg.createRadialGradient(BASE_PX / 2, BASE_PX / 2, BASE_PX * 0.35, BASE_PX / 2, BASE_PX / 2, BASE_PX * 0.75);
+            grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,0.35)');
+            bg.fillStyle = grad; bg.fillRect(0, 0, BASE_PX, BASE_PX);
+            base._seed = BO.World.mapData.id;
+            this.base = base;
+        },
+
+        _buildFog() {
+            const c = document.createElement('canvas');
+            c.width = c.height = GRID;
+            this.fog = c;
+            this.fogCtx = c.getContext('2d');
+            this.fogImg = this.fogCtx.createImageData(GRID, GRID);
+            for (let i = 0; i < GRID * GRID; i++) {
+                const o = i * 4;
+                this.fogImg.data[o] = 9; this.fogImg.data[o + 1] = 13; this.fogImg.data[o + 2] = 20;
+                this.fogImg.data[o + 3] = this._get(i) ? 0 : 236;
+            }
+            this.fogCtx.putImageData(this.fogImg, 0, 0);
+            this.fogDirty = false;
+        },
+
+        _fogPixel(i) {
+            if (!this.fogImg) return;
+            this.fogImg.data[i * 4 + 3] = 0;
+            this.fogDirty = true;
+        },
+
+        _flushFog() {
+            if (!this.fogDirty || !this.fogCtx) return;
+            this.fogCtx.putImageData(this.fogImg, 0, 0);
+            this.fogDirty = false;
+        },
+
+        /** World-map overlay used by the Pip-Pad map tab (draw after POIs, before the player arrow). */
+        drawWorldBase(g, size) {
+            this._buildBase();
+            g.imageSmoothingEnabled = true;
+            g.drawImage(this.base, 0, 0, size, size);
+        },
+
+        drawWorldFog(g, size) {
+            this._flushFog();
+            g.save();
+            g.imageSmoothingEnabled = true;
+            g.filter = 'blur(' + (size / GRID * 0.6).toFixed(1) + 'px)';
+            g.drawImage(this.fog, 0, 0, size, size);
+            g.restore();
+        },
+
+        /* ------------------------------------------------ minimap */
+        _ensureMinimap() {
+            const UI = BO.OWRPGUI;
+            UI.init();
+            if (this.mm && document.body.contains(this.mm.root)) { this.mm.root.classList.remove('hidden'); return; }
+            const root = document.createElement('div');
+            root.id = 'ow-minimap';
+            root.className = 'ow-minimap';
+            root.innerHTML = '<canvas width="' + MM_PX * 2 + '" height="' + MM_PX * 2 + '" aria-label="Minimap"></canvas><div class="ow-mm-rim"></div><div class="ow-mm-cardinals"></div><div class="ow-mm-info"><b></b><span></span></div>';
+            UI.hud.appendChild(root);
+            this.mm = { root, cv: root.querySelector('canvas'), ctx: root.querySelector('canvas').getContext('2d'), card: root.querySelector('.ow-mm-cardinals'), info: root.querySelector('.ow-mm-info'), lastInfo: '' };
+        },
+
+        _drawMinimap() {
+            const s = this.s, P = BO.Player, Dd = D();
+            if (!this.mm || !s || !P) return;
+            const show = s.worldFlags.minimapEnabled !== false && !BO.OWRPGUI.modalOpen;
+            this.mm.root.classList.toggle('hidden', !show);
+            if (!show) return;
+            const g = this.mm.ctx, W = this.mm.cv.width, R = W / 2;
+            const range = this.range(), k = R / range;
+            const inside = Dd.isInterior(P.pos.x, P.pos.z);
+            const northUp = !!s.worldFlags.minimapNorthUp;
+            // Forward is (-sin yaw, -cos yaw) in map space; rotating the map by +yaw puts it straight up.
+            const rot = northUp ? 0 : P.yaw;
+            const cs = Math.cos(rot), sn = Math.sin(rot);
+            const toScreen = (x, z) => { const dx = (x - P.pos.x) * k, dz = (z - P.pos.z) * k; return [R + dx * cs - dz * sn, R + dx * sn + dz * cs]; };
+            g.save();
+            g.clearRect(0, 0, W, W);
+            g.beginPath(); g.arc(R, R, R - 2, 0, Math.PI * 2); g.clip();
+            if (inside) {
+                const grd = g.createRadialGradient(R, R, 10, R, R, R);
+                grd.addColorStop(0, '#1c1917'); grd.addColorStop(1, '#0c0a09');
+                g.fillStyle = grd; g.fillRect(0, 0, W, W);
+                g.strokeStyle = 'rgba(148,163,184,0.12)'; g.lineWidth = 1;
+                for (let r = range / 4; r < range; r += range / 4) { g.beginPath(); g.arc(R, R, r * k, 0, Math.PI * 2); g.stroke(); }
+            } else {
+                const B = Dd.BOUNDS, span = B.maxX - B.minX;
+                this._flushFog();
+                g.translate(R, R); g.rotate(rot); g.scale(k, k); g.translate(-P.pos.x, -P.pos.z);
+                g.imageSmoothingEnabled = true;
+                g.fillStyle = '#0b1118'; g.fillRect(P.pos.x - range * 1.5, P.pos.z - range * 1.5, range * 3, range * 3);
+                g.drawImage(this.base, B.minX, B.minZ, span, span);
+                g.globalAlpha = 0.96;
+                g.drawImage(this.fog, B.minX, B.minZ, span, span);
+                g.globalAlpha = 1;
+                g.setTransform(1, 0, 0, 1, 0, 0);
+            }
+            const dot = (x, z, col, rad, glyph, ring) => {
+                const [sx, sy] = toScreen(x, z);
+                const dd = Math.hypot(sx - R, sy - R);
+                let px = sx, py = sy;
+                if (dd > R - 12) { if (!ring) return; px = R + (sx - R) / dd * (R - 12); py = R + (sy - R) / dd * (R - 12); }
+                if (glyph) {
+                    g.font = '900 ' + Math.round(rad * 2.6) + 'px Segoe UI, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+                    g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,0.75)'; g.strokeText(glyph, px, py); g.fillStyle = col; g.fillText(glyph, px, py);
+                } else {
+                    g.beginPath(); g.arc(px, py, rad, 0, Math.PI * 2); g.fillStyle = col; g.fill();
+                    g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.stroke();
+                }
+            };
+            if (!inside) {
+                for (const poi of Dd.POIS) {
+                    if (poi.interior) continue;
+                    const st = s.poiStates[poi.id];
+                    if (!st || !st.discovered) continue;
+                    dot(poi.x, poi.z, poi.safe ? '#f5a623' : st.clearedAt != null ? '#94a3b8' : '#f87171', poi.safe ? 8 : 6, poi.safe ? '◆' : null);
+                }
+                for (const dg of Dd.DUNGEONS) if (this.isExplored(dg.surf.x, dg.surf.z)) dot(dg.surf.x, dg.surf.z, '#67e8f9', 8, '∩');
+                for (const py of Dd.PYLONS) if (s.pylons[py.id] || this.isExplored(py.x, py.z)) dot(py.x, py.z, s.pylons[py.id] ? '#22d3ee' : '#64748b', 5);
+                if (BO.OWRPGDiscoveries) BO.OWRPGDiscoveries.drawOnMinimap(dot, P);
+                for (const pin of s.pins) dot(pin[0], pin[1], '#f472b6', 8, '✚', true);
+                const ev = BO.OWRPGEvents && BO.OWRPGEvents.activeEvent;
+                if (ev) dot(ev.x, ev.z, ev.color || '#38bdf8', 9, '⚡', true);
+            }
+            for (const a of BO.OWRPGAI.agents) {
+                if (!a.alive || !a.ent.parts.root.visible) continue;
+                const d = Math.hypot(a.ent.pos.x - P.pos.x, a.ent.pos.z - P.pos.z);
+                if (d > range) continue;
+                if (a.hostile && (a.state === 'combat' || a.state === 'suspicious' || d < 30)) dot(a.ent.pos.x, a.ent.pos.z, a.champ ? '#e879f9' : a.boss ? '#fb7185' : '#ef4444', a.boss || a.champ ? 5 : 3.5);
+                else if (!a.hostile && d < 60) dot(a.ent.pos.x, a.ent.pos.z, '#86efac', 3);
+            }
+            if (!inside && BO.OWRPGInteriors) for (const n of BO.OWRPGInteriors.npcs) dot(n.pos.x, n.pos.z, '#a7f3d0', 3.5);
+            // Quest markers: tracked quests get an edge arrow when out of range.
+            const tracked = BO.OWRPGUI.trackedQuests ? BO.OWRPGUI.trackedQuests() : [];
+            for (const m of BO.OWRPGQuests.markers(s)) {
+                const tgt = this.questTarget(m.poi);
+                if (!tgt) continue;
+                const on = tracked.includes(m.quest);
+                dot(tgt.x, tgt.z, on ? '#a3e635' : 'rgba(163,230,53,0.55)', on ? 8 : 6, '◆', on);
+            }
+            // Player arrow.
+            g.save(); g.translate(R, R); g.rotate(northUp ? -P.yaw : 0);
+            g.beginPath(); g.moveTo(0, -11); g.lineTo(7.5, 8); g.lineTo(0, 4); g.lineTo(-7.5, 8); g.closePath();
+            g.fillStyle = '#f8fafc'; g.fill(); g.lineWidth = 2.5; g.strokeStyle = '#0f172a'; g.stroke();
+            g.restore();
+            g.restore();
+            // Cardinals ride the rim.
+            this.mm.card.innerHTML = [['N', 0], ['E', Math.PI / 2], ['S', Math.PI], ['W', -Math.PI / 2]].map(([n, off]) => {
+                const ang = rot + off;
+                const x = 50 + Math.sin(ang) * 46, y = 50 - Math.cos(ang) * 46;
+                return '<i class="' + (n === 'N' ? 'ow-mm-n' : '') + '" style="left:' + x.toFixed(1) + '%;top:' + y.toFixed(1) + '%">' + n + '</i>';
+            }).join('');
+            const reg = inside ? null : Dd.regionAt(P.pos.x, P.pos.z);
+            const dungeon = inside ? Dd.DUNGEONS.find((d) => Math.hypot(P.pos.x - d.x, P.pos.z - d.z) < 130) : null;
+            const info = inside ? (dungeon ? dungeon.name : 'Underground') + '|DELVING' : reg.name + '|' + this.regionPercent(reg.id) + '% charted · ' + range + ' m';
+            if (info !== this.mm.lastInfo) {
+                this.mm.lastInfo = info;
+                const [a, b] = info.split('|');
+                this.mm.info.innerHTML = '<b>' + esc(a) + '</b><span>' + esc(b) + '</span>';
+            }
+        },
+
+        /** Surface position to point at for a quest marker POI (dungeon entrance for interiors). */
+        questTarget(poiId) {
+            const Dd = D();
+            const poi = Dd.POIS.find((p) => p.id === poiId);
+            if (!poi) return null;
+            if (poi.interior) {
+                const dg = Dd.DUNGEONS.find((d) => d.id === poi.id);
+                return dg ? dg.surf : null;
+            }
+            return poi;
+        },
+
+        /* ------------------------------------------------ atlas tab */
+        atlasHtml() {
+            const s = this.s, Dd = D(), Disc = BO.OWRPGDiscoveries;
+            const pct = this.percent();
+            const discTotal = Disc ? Disc.sites.length : 0, discFound = Disc ? Disc.foundCount() : 0;
+            const poiTotal = Dd.POIS.filter((p) => !p.interior).length;
+            const poiFound = Dd.POIS.filter((p) => !p.interior && s.poiStates[p.id] && s.poiStates[p.id].discovered).length;
+            const completion = Math.round((pct + (discTotal ? (discFound / discTotal) * 100 : 0) + (poiFound / Math.max(1, poiTotal)) * 100) / 3);
+            const rank = [[90, 'Living Legend'], [70, 'Master Cartographer'], [50, 'Pathfinder'], [30, 'Surveyor'], [12, 'Scout'], [0, 'Greenhorn']].find(([t]) => completion >= t)[1];
+            const rows = Dd.REGIONS.map((r) => {
+                const rp = this.regionPercent(r.id);
+                const sites = Disc ? Disc.sites.filter((d) => d.region === r.id) : [];
+                const found = sites.filter((d) => s.atlas.found[d.id]).length;
+                const pois = Dd.POIS.filter((p) => !p.interior && Dd.regionAt(p.x, p.z).id === r.id);
+                const pf = pois.filter((p) => s.poiStates[p.id] && s.poiStates[p.id].discovered).length;
+                const col = 'rgb(' + r.col.map((v) => Math.round(v * 255)).join(',') + ')';
+                return '<div class="ow-atlas-row" style="--c:' + col + '"><div><b>' + esc(r.name) + '</b><small>Level ' + esc(r.lvl) + ' · ' + (r.faction ? esc(r.faction) : 'unclaimed') + '</small></div>' +
+                    '<div class="ow-atlas-bars"><label>Charted <i style="--p:' + rp + '%"></i><em>' + rp + '%</em></label>' +
+                    '<label>Sites <i style="--p:' + (sites.length ? Math.round(found / sites.length * 100) : 0) + '%"></i><em>' + found + '/' + sites.length + '</em></label>' +
+                    '<label>Locations <i style="--p:' + (pois.length ? Math.round(pf / pois.length * 100) : 0) + '%"></i><em>' + pf + '/' + pois.length + '</em></label></div></div>';
+            }).join('');
+            const byType = Disc ? Disc.typeSummary() : [];
+            const types = byType.map((t) => '<div class="ow-stat" style="--c:' + t.color + '"><small>' + t.icon + ' ' + esc(t.name) + '</small><b>' + t.found + ' / ' + t.total + '</b></div>').join('');
+            return '<div class="ow-atlas-head"><div class="ow-atlas-ring" style="--p:' + completion + '"><b>' + completion + '%</b><small>COMPLETE</small></div>' +
+                '<div><span class="ow-kicker">ATLAS OF THE MERIDIAN EXPANSE</span><h3>' + rank + '</h3><p class="ow-dim">' + pct + '% of the land charted · ' + poiFound + '/' + poiTotal + ' locations · ' + discFound + '/' + discTotal + ' hidden sites · ' + (s.atlas.champions || 0) + ' Champions slain</p>' +
+                '<p class="ow-dim">Walk the land to lift the fog. Vistas chart a wide area at once. Every 10% charted pays out XP; Pathfinding mastery grows with every new cell.</p></div></div>' +
+                '<div class="ow-sub">HIDDEN SITES</div><div class="ow-stats">' + types + '</div><div class="ow-sub">REGIONS</div><div class="ow-atlas">' + rows + '</div>';
+        }
+    };
+
+    BO.OWRPGCartography = Carto;
+    if (BO.OWRPGMode) BO.OWRPGMode.registerSystem(Carto);
+})(window.BO);
+;
+
+/* --- src/owrpg/OWRPGChampions.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Open World RPG · Champions
+   Any hostile spawn can roll as a Champion (Diablo / WoW-elite style): larger,
+   tougher, wrapped in an affix aura, and carrying 1–3 affixes drawn from 12.
+   With 70 base archetypes this multiplies the enemy roster into hundreds of
+   distinct encounters. Altars of Trials (OWRPGDiscoveries) force Champions.
+
+   Hooks (all optional-chained at the call sites):
+     onSpawn(agent)            OWRPGAI.spawn      → roll + apply
+     dealtMult(agent, P)       OWRPGCombat.modifyIncoming (damage to player)
+     afterHitPlayer(agent, a)  OWRPGCombat.modifyIncoming (vampiric, frost)
+     takenMult(agent)          OWRPGCombat.damage (shield / champion damage perks)
+     afterDamaged(agent, dmg)  OWRPGCombat.damage (thorns, summons)
+     onKilled(agent)           OWRPGAI.onKilled   (rewards, death novas)
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const AFFIXES = {
+        vampiric:     { name: 'Vampiric',     color: '#dc2626', desc: 'Heals for 35% of the damage it deals.' },
+        molten:       { name: 'Molten',       color: '#f97316', desc: 'Hits burn for +20% damage and it erupts when slain.' },
+        frozen:       { name: 'Frozen',       color: '#38bdf8', desc: 'Hits chill you (-25% speed) and it shatters into a frost nova when slain.' },
+        shielded:     { name: 'Shielded',     color: '#a5b4fc', desc: 'Raises a barrier for 3 s out of every 8 s that blocks 65% of damage.' },
+        swift:        { name: 'Swift',        color: '#a3e635', desc: '+45% movement speed.' },
+        berserker:    { name: 'Berserker',    color: '#ef4444', desc: '+60% damage below half health.' },
+        thorned:      { name: 'Thorned',      color: '#84cc16', desc: 'Reflects 10% of damage taken back at you.' },
+        juggernaut:   { name: 'Juggernaut',   color: '#a8a29e', desc: '+80% health and noticeably larger.' },
+        arcane:       { name: 'Arcane',       color: '#c084fc', desc: 'Hurls void bolts every few seconds.' },
+        summoner:     { name: 'Summoner',     color: '#facc15', desc: 'Calls two of its kin at 60% and 30% health.' },
+        regenerating: { name: 'Regenerating', color: '#4ade80', desc: 'Regenerates 2% of its health every second.' },
+        warlord:      { name: 'Warlord',      color: '#fb7185', desc: 'Nearby allies deal +25% damage and the Champion takes 15% less.' }
+    };
+    const IDS = Object.keys(AFFIXES);
+    const BASE_CHANCE = 0.06;
+    const MAX_ALIVE = 3;
+    const _v = new THREE.Vector3();
+
+    const regionTier = (x, z) => {
+        const r = BO.OWRPGWorldData.regionAt(x, z);
+        return parseInt(String(r.lvl), 10) || 1;
+    };
+
+    const Champions = {
+        id: 'champions',
+        AFFIXES,
+        list: [],
+
+        get s() { return BO.OWRPGMode.state; },
+
+        start() { this.list = []; },
+        stop() { this.list = []; },
+
+        /** Roll a fresh spawn. Event squads, bosses, friendlies and summoned kin never roll. */
+        onSpawn(agent, opts) {
+            if (!agent || agent.boss || !agent.hostile || (opts && (opts.noChampion || opts.summoned))) return;
+            if (this.list.filter((a) => a.alive).length >= MAX_ALIVE) return;
+            const tier = regionTier(agent.home.x, agent.home.z);
+            const chance = BASE_CHANCE + Math.min(0.06, tier * 0.0015);
+            if (Math.random() >= chance) return;
+            this.make(agent, 1 + (Math.random() < 0.35 + tier * 0.006 ? 1 : 0) + (tier >= 30 && Math.random() < 0.25 ? 1 : 0));
+        },
+
+        /** Turn an agent into a Champion with `n` distinct affixes (or the given list). */
+        make(agent, n = 2, forced) {
+            if (!agent || agent.champ) return agent;
+            const pool = IDS.slice();
+            const affixes = forced ? forced.slice() : [];
+            while (affixes.length < Math.min(3, n) && pool.length) {
+                const id = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+                if (!affixes.includes(id)) affixes.push(id);
+            }
+            const ent = agent.ent;
+            const hpMult = 2.4 * (affixes.includes('juggernaut') ? 1.8 : 1);
+            ent.maxHp = Math.round(ent.maxHp * hpMult);
+            ent.hp = ent.maxHp;
+            agent.armor = (agent.armor || 0) + 15;
+            if (affixes.includes('swift')) {
+                if (agent.kind === 'bot') ent.speedScale = (ent.speedScale || 1) * 1.45;
+                else ent.speed = (ent.speed || 2) * 1.45;
+            }
+            const scale = affixes.includes('juggernaut') ? 1.38 : 1.18;
+            ent.parts.root.scale.multiplyScalar(scale);
+            agent.champ = { affixes, cycle: Math.random() * 8, regenT: 0, boltT: 2 + Math.random() * 2, summons: 0, color: AFFIXES[affixes[0]].color };
+            agent.lvl += 3;
+            this._aura(agent);
+            if (agent.bar) agent.bar.lastKey = '';
+            this.list.push(agent);
+            return agent;
+        },
+
+        _aura(agent) {
+            const col = new THREE.Color(agent.champ.color);
+            const group = new THREE.Group();
+            const ringMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 40), ringMat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.06;
+            const inner = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.45, 6), ringMat);
+            inner.rotation.x = -Math.PI / 2;
+            inner.position.y = 0.07;
+            const shieldMat = new THREE.MeshBasicMaterial({ color: 0xa5b4fc, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending });
+            const shield = new THREE.Mesh(new THREE.SphereGeometry(1.1, 18, 12), shieldMat);
+            shield.position.y = 1;
+            shield.visible = false;
+            group.add(ring, inner, shield);
+            group.userData.noHit = true;
+            group.traverse((o) => { o.userData.noHit = true; o.raycast = () => {}; });
+            agent.ent.parts.root.add(group);
+            agent.champ.aura = { group, ring, inner, shield };
+        },
+
+        has(agent, id) { return !!(agent && agent.champ && agent.champ.affixes.includes(id)); },
+
+        shieldUp(agent) { return this.has(agent, 'shielded') && (agent.champ.cycle % 8) < 3; },
+
+        label(agent) { return agent.champ ? agent.champ.affixes.map((id) => AFFIXES[id].name).join(' · ') : ''; },
+
+        /* ------------------------------------------------ combat hooks */
+        /** Multiplier on damage a Champion (or an ally inspired by a Warlord) deals to the player. */
+        dealtMult(agent) {
+            let m = 1;
+            const fx = BO.OWRPGCharacter.perkFx(this.s);
+            if (agent.champ) {
+                m *= 1.25;
+                if (this.has(agent, 'berserker') && agent.ent.hp < agent.ent.maxHp * 0.5) m *= 1.6;
+                if (this.has(agent, 'molten')) m *= 1.2;
+                m *= 1 - Math.min(0.75, fx.champDR || 0);
+            }
+            if (this.list.some((c) => c !== agent && c.alive && this.has(c, 'warlord') && c.ent.pos.distanceTo(agent.ent.pos) < 18)) m *= 1.25;
+            return m;
+        },
+
+        afterHitPlayer(agent, dealt) {
+            if (!agent.champ || dealt <= 0) return;
+            if (this.has(agent, 'vampiric')) agent.ent.hp = Math.min(agent.ent.maxHp, agent.ent.hp + dealt * 0.35);
+            if (this.has(agent, 'frozen')) BO.OWRPGMode.chillT = Math.max(BO.OWRPGMode.chillT || 0, 2.5);
+            if (this.has(agent, 'molten')) BO.FX.spawnParticles(BO.Player.pos.clone().add(_v.set(0, 1, 0)), 6, 0xf97316, 3, 4, 0.3, 0.8);
+        },
+
+        /** Multiplier on damage the player deals to this agent. */
+        takenMult(agent) {
+            if (!agent.champ) return 1;
+            const fx = BO.OWRPGCharacter.perkFx(this.s);
+            let m = 1 + (fx.champDmg || 0);
+            if (this.shieldUp(agent)) m *= 0.35;
+            if (this.has(agent, 'warlord')) m *= 0.85;
+            return m;
+        },
+
+        afterDamaged(agent, dmg) {
+            if (!agent.champ || dmg <= 0) return;
+            const P = BO.Player;
+            // Thorns reflect 10% of the damage actually dealt (overkill excluded), capped at 6% of max HP per hit.
+            if (this.has(agent, 'thorned') && P.alive) P.takeDamage(Math.max(1, Math.min(dmg * 0.1, P.maxHp * 0.06)), agent.ent.pos, false, null);
+            if (this.has(agent, 'summoner') && agent.alive) {
+                const frac = agent.ent.hp / agent.ent.maxHp;
+                const want = frac < 0.3 ? 2 : frac < 0.6 ? 1 : 0;
+                while (agent.champ.summons < want) { agent.champ.summons++; this._summon(agent); }
+            }
+        },
+
+        _summon(agent) {
+            for (let i = 0; i < 2; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const x = agent.ent.pos.x + Math.cos(ang) * 4, z = agent.ent.pos.z + Math.sin(ang) * 4;
+                const kin = BO.OWRPGAI.spawn(agent.defId, x, z, { poiId: null, leash: 60, postR: 4, summoned: true, y: BO.OWRPGWorldData.isInterior(x, z) ? agent.ent.pos.y : null });
+                if (kin) { kin.summoned = true; BO.OWRPGAI.engage(kin, false); }
+            }
+            BO.FX.spawnParticles(agent.ent.pos.clone().add(_v.set(0, 1.2, 0)), 18, 0xfacc15, 5, 6, 0.5, 1.2);
+            BO.OWRPGMode.toast('The Champion calls for aid!', '#facc15');
+        },
+
+        /* ------------------------------------------------ frame */
+        update(dt) {
+            if (!this.list.length) return;
+            const P = BO.Player;
+            for (let i = this.list.length - 1; i >= 0; i--) {
+                const a = this.list[i];
+                if (!a.alive || !BO.OWRPGAI.agents.includes(a)) { this.list.splice(i, 1); continue; }
+                const c = a.champ;
+                c.cycle += dt;
+                const au = c.aura;
+                if (au && a.ent.parts.root.visible) {
+                    au.ring.rotation.z += dt * 1.2;
+                    au.inner.rotation.z -= dt * 2.4;
+                    au.ring.material.opacity = 0.55 + Math.sin(c.cycle * 4) * 0.2;
+                    au.shield.visible = this.shieldUp(a);
+                }
+                if (this.has(a, 'regenerating') && a.ent.hp < a.ent.maxHp) a.ent.hp = Math.min(a.ent.maxHp, a.ent.hp + a.ent.maxHp * 0.02 * dt);
+                if (this.has(a, 'arcane') && a.state === 'combat' && a.hostile && P.alive) {
+                    c.boltT -= dt;
+                    const dist = a.ent.pos.distanceTo(P.pos);
+                    if (c.boltT <= 0 && dist < 40 && BO.World.hasLineOfSight(a.ent.pos.x, a.ent.pos.y + 1.5, a.ent.pos.z, P.pos.x, P.pos.y + 1.3, P.pos.z)) {
+                        c.boltT = 3.2 + Math.random() * 1.5;
+                        this._bolt(a);
+                    }
+                }
+            }
+        },
+
+        _bolt(a) {
+            const P = BO.Player;
+            const origin = new THREE.Vector3(a.ent.pos.x, a.ent.pos.y + 1.6 * a.ent.parts.root.scale.y, a.ent.pos.z);
+            const dir = new THREE.Vector3(P.pos.x - origin.x, P.pos.y + 1.2 - origin.y, P.pos.z - origin.z).normalize();
+            const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), new THREE.MeshBasicMaterial({ color: 0xc084fc }));
+            mesh.position.copy(origin);
+            BO.World.scene.add(mesh);
+            const dmg = Math.round(10 + a.lvl * 1.4);
+            BO.OWRPGAI.projectiles.push({ mesh, pos: origin, vel: dir.multiplyScalar(17), dmg, life: 3, owner: a.ent, col: 0xc084fc });
+        },
+
+        /* ------------------------------------------------ death */
+        onKilled(a, ctx) {
+            if (!a.champ) return;
+            const s = this.s, M = BO.OWRPGMode, P = BO.Player;
+            const pos = a.ent.pos.clone();
+            if (this.has(a, 'molten') || this.has(a, 'frozen')) {
+                const frost = this.has(a, 'frozen');
+                BO.FX.spawnParticles(pos.clone().add(_v.set(0, 1, 0)), 30, frost ? 0x7dd3fc : 0xf97316, 7, 8, 0.6, 1.4);
+                if (P.alive && P.pos.distanceTo(pos) < 6) P.takeDamage(frost ? 18 : 28, pos, true, null);
+                if (frost && P.pos.distanceTo(pos) < 6) M.chillT = Math.max(M.chillT || 0, 3);
+            }
+            if (ctx && ctx.byNpc) return;
+            s.atlas.champions = (s.atlas.champions || 0) + 1;
+            const fx = BO.OWRPGCharacter.perkFx(s);
+            M.giveXp(a.def.xp * 2 * BO.OWRPGCharacter.killXpMult(s, a.lvl), 'Champion slain');
+            BO.OWRPGCharacter.addSkillXp(s, 'slayer', 60 + a.lvl * 4);
+            const rolls = 2 + (Math.random() < (fx.champLoot || 0) ? 1 : 0);
+            M.dropLoot(pos, 'champion', rolls);
+            M.setFlag('first_champion', true);
+            M.setFlag('champions_slain', s.atlas.champions);
+            BO.Events.emit('hud:toast', { text: 'Champion slain: ' + a.name + ' (' + this.label(a) + ')', color: a.champ.color });
+        }
+    };
+
+    BO.OWRPGChampions = Champions;
+    if (BO.OWRPGMode) BO.OWRPGMode.registerSystem(Champions);
+})(window.BO);
+;
+
+/* --- src/owrpg/OWRPGDiscoveries.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Open World RPG · Discoveries
+   156 hidden sites scattered across the 12 regions: treasure caches, lore
+   tomes, wayside shrines, skill shards, survey vistas, hidden stashes and
+   Altars of Trials. Placement is derived from the terrain and a fixed seed,
+   so every save sees the same world; only `s.atlas.found` is persisted.
+
+   Sites stream in within 150 m (GLB model + fallback + a bobbing marker that
+   disappears once found), show on the minimap, the world map and the Atlas,
+   and feed the exploration questline through numeric world flags.
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    const STREAM_IN = 125, STREAM_OUT = 150, REACH = 2.9, TRIAL_RANGE = 110;
+    const DD = () => BO.OWRPGDiscoveryData;
+    const W = () => BO.OWRPGWorldData;
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    function rng(seed) {
+        let a = seed >>> 0;
+        return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    }
+
+    const markerTex = {};
+    function markerTexture(type) {
+        if (markerTex[type]) return markerTex[type];
+        const T = DD().TYPES[type];
+        const c = document.createElement('canvas');
+        c.width = c.height = 128;
+        const g = c.getContext('2d');
+        const grad = g.createRadialGradient(64, 64, 6, 64, 64, 62);
+        grad.addColorStop(0, T.color); grad.addColorStop(0.45, T.color + '88'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = grad; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
+        g.font = '900 64px Segoe UI, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.lineWidth = 8; g.strokeStyle = 'rgba(0,0,0,0.65)'; g.strokeText(T.icon, 64, 68);
+        g.fillStyle = '#fff'; g.fillText(T.icon, 64, 68);
+        const tex = new THREE.CanvasTexture(c);
+        if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+        markerTex[type] = tex;
+        return tex;
+    }
+
+    const Disc = {
+        id: 'discoveries',
+        sites: [],
+        live: new Map(),
+        trial: null,
+        streamT: 0,
+        _seed: null,
+
+        get s() { return BO.OWRPGMode.state; },
+
+        /* ------------------------------------------------ lifecycle */
+        start(s, scene) {
+            this.scene = scene;
+            this.generate(s.worldSeed || 884120);
+            this.live = new Map();
+            this.trial = null;
+            this.streamT = 0;
+        },
+
+        stop() {
+            for (const v of this.live.values()) v.group.removeFromParent();
+            this.live.clear();
+            this.trial = null;
+        },
+
+        /** Deterministic placement: same seed + terrain → same 156 sites. */
+        generate(seed) {
+            if (this._seed === seed && this.sites.length) return this.sites;
+            const D = W(), B = D.BOUNDS, out = [];
+            const blocked = [];
+            for (const p of D.POIS) if (!p.interior) blocked.push([p.x, p.z, (p.r || 25) + 14]);
+            for (const d of D.DUNGEONS) blocked.push([d.surf.x, d.surf.z, 22]);
+            for (const py of D.PYLONS) blocked.push([py.x, py.z, 14]);
+            for (const n of D.NPCS) blocked.push([n.x, n.z, 10]);
+            for (const it of D.INTERACTS) if (!it.int) blocked.push([it.x, it.z, 6]);
+            // `relax` 0 = strict; 1 = steeper ground and tighter clearances (fallback for rugged / marshy regions).
+            const ok = (x, z, reg, gap, relax) => {
+                if (x < B.minX + 24 || x > B.maxX - 24 || z < B.minZ + 24 || z > B.maxZ - 24) return false;
+                if (D.regionAt(x, z).id !== reg) return false;
+                const h = BO.World.terrainHeight(x, z);
+                if (h < D.WATER + 0.4) return false;
+                const slope = Math.abs(BO.World.terrainHeight(x + 2, z) - h) + Math.abs(BO.World.terrainHeight(x, z + 2) - h);
+                if (slope > (relax ? 4.5 : 2.2)) return false;
+                const pad = relax ? 0.55 : 1;
+                for (const [bx, bz, br] of blocked) if ((x - bx) * (x - bx) + (z - bz) * (z - bz) < br * br * pad * pad) return false;
+                for (const o of out) if ((x - o.x) * (x - o.x) + (z - o.z) * (z - o.z) < gap * gap) return false;
+                return true;
+            };
+            const skills = Object.keys(BO.OWRPGStatsData.SKILLS);
+            const generic = DD().LORE.filter((l) => !l.region);
+            let genericIdx = 0, shardIdx = 0;
+            D.REGIONS.forEach((reg, ri) => {
+                const rand = rng(seed * 31 + ri * 7919);
+                const tier = parseInt(String(reg.lvl), 10) || 1;
+                for (const [type, count] of Object.entries(DD().PER_REGION)) {
+                    for (let k = 0; k < count; k++) {
+                        let best = null;
+                        const tries = type === 'vista' ? 120 : 70;
+                        for (let relax = 0; relax < 2 && !best; relax++) {
+                            for (let t = 0; t < tries; t++) {
+                                const ang = rand() * Math.PI * 2, rr = Math.sqrt(rand()) * reg.r * (relax ? 1 : 0.92);
+                                const x = reg.x + Math.cos(ang) * rr, z = reg.z + Math.sin(ang) * rr;
+                                if (!ok(x, z, reg.id, type === 'vista' ? 60 : relax ? 24 : 34, relax)) continue;
+                                if (type !== 'vista') { best = { x, z }; break; }
+                                const h = BO.World.terrainHeight(x, z);
+                                if (!best || h > best.h) best = { x, z, h };
+                            }
+                        }
+                        if (!best) continue;
+                        const site = { id: 'ds_' + reg.id.slice(0, 6) + '_' + type + k, type, region: reg.id, tier, x: Math.round(best.x * 10) / 10, z: Math.round(best.z * 10) / 10, yaw: rand() * Math.PI * 2 };
+                        if (type === 'tome') {
+                            const own = DD().LORE.filter((l) => l.region === reg.id);
+                            site.lore = own.length ? own[k % own.length].id : generic[genericIdx++ % generic.length].id;
+                        }
+                        if (type === 'shard') site.skill = skills[(ri + shardIdx++) % skills.length];
+                        if (type === 'shrine') site.blessing = DD().BLESSINGS[(ri + k) % DD().BLESSINGS.length].id;
+                        out.push(site);
+                    }
+                }
+            });
+            this.sites = out;
+            this._seed = seed;
+            return out;
+        },
+
+        /* ------------------------------------------------ queries */
+        isFound(site) { return !!this.s.atlas.found[site.id]; },
+        foundCount() { return this.sites.filter((x) => this.s.atlas.found[x.id]).length; },
+
+        typeSummary() {
+            const T = DD().TYPES;
+            return Object.keys(T).map((type) => {
+                const all = this.sites.filter((x) => x.type === type);
+                return { type, name: T[type].name, icon: T[type].icon, color: T[type].color, total: all.length, found: all.filter((x) => this.s.atlas.found[x.id]).length };
+            });
+        },
+
+        shrineReady(site) { return (this.s.atlas.shrineT[site.id] || 0) <= this.s.playtimeSec; },
+
+        nearest() {
+            const P = BO.Player;
+            if (this.trial || W().isInterior(P.pos.x, P.pos.z)) return null;
+            let best = null;
+            for (const v of this.live.values()) {
+                const site = v.site;
+                const found = this.isFound(site);
+                if (found && !(site.type === 'shrine' && this.shrineReady(site))) continue;
+                const d = BO.Math.dist3D(P.pos.x, P.pos.y + 0.9, P.pos.z, site.x, v.y + 0.6, site.z);
+                if (d < REACH && (!best || d < best.d)) best = { obj: site, d, text: DD().TYPES[site.type].prompt };
+            }
+            return best;
+        },
+
+        /* ------------------------------------------------ streaming & animation */
+        update(dt) {
+            const P = BO.Player;
+            this.streamT -= dt;
+            if (this.streamT <= 0) { this.streamT = 0.5; this._stream(P); }
+            const t = this.s.playtimeSec;
+            for (const v of this.live.values()) {
+                if (v.marker && v.marker.visible) {
+                    v.marker.position.y = v.markerY + Math.sin(t * 2.2 + v.phase) * 0.18;
+                    v.marker.material.rotation = Math.sin(t * 0.8 + v.phase) * 0.15;
+                }
+                if (v.crystal) { v.crystal.rotation.y += dt * 1.4; v.crystal.position.y = 1.15 + Math.sin(t * 1.8 + v.phase) * 0.12; }
+                if (v.ring) v.ring.rotation.z += dt * 0.6;
+            }
+            if (this.trial) this._updateTrial();
+        },
+
+        _stream(P) {
+            const inside = W().isInterior(P.pos.x, P.pos.z);
+            for (const site of this.sites) {
+                const d = BO.Math.dist2D(P.pos.x, P.pos.z, site.x, site.z);
+                const has = this.live.has(site.id);
+                if (!inside && !has && d < STREAM_IN) this._spawnSite(site);
+                else if (has && (inside || d > STREAM_OUT)) { this.live.get(site.id).group.removeFromParent(); this.live.delete(site.id); }
+            }
+            for (const v of this.live.values()) { v.dist = BO.Math.dist2D(P.pos.x, P.pos.z, v.site.x, v.site.z); this._refreshState(v); }
+        },
+
+        _spawnSite(site) {
+            const T = DD().TYPES[site.type];
+            const y = BO.World.terrainHeight(site.x, site.z);
+            const group = new THREE.Group();
+            group.position.set(site.x, y, site.z);
+            group.rotation.y = site.yaw;
+            const col = new THREE.Color(T.color);
+            const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.8, metalness: 0.15 }, o || {}));
+            const fallback = [];
+            // Pedestals and fallbacks skip the shadow pass; the merged GLB model casts the site's shadow.
+            const add = (geo, mat, x, yy, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, yy, z); m.castShadow = false; m.receiveShadow = true; m.userData.noHit = true; group.add(m); return m; };
+            const v = { site, group, y, phase: Math.random() * 6 };
+            switch (site.type) {
+                case 'cache': fallback.push(add(new THREE.BoxGeometry(1.1, 0.7, 0.75), std(0x6b4f2e), 0, 0.35, 0), add(new THREE.BoxGeometry(1.14, 0.12, 0.79), std(0xb45309, { metalness: 0.6 }), 0, 0.72, 0)); break;
+                case 'tome': {
+                    fallback.push(add(new THREE.BoxGeometry(1.2, 0.85, 0.7), std(0x57534e), 0, 0.42, 0));
+                    const book = add(new THREE.BoxGeometry(0.55, 0.08, 0.4), std(0x7f1d1d, { emissive: 0xe9c46a, emissiveIntensity: 0.25 }), 0, 0.99, 0);
+                    book.rotation.x = -0.25;
+                    break;
+                }
+                case 'shrine': fallback.push(add(new THREE.CylinderGeometry(0.45, 0.6, 1.8, 6), std(0x44403c), 0, 0.9, 0)); break;
+                case 'shard': {
+                    add(new THREE.CylinderGeometry(0.7, 0.9, 0.3, 7), std(0x334155), 0, 0.15, 0);
+                    v.crystal = add(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.65, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.92 }), 0, 1.15, 0);
+                    v.crystal.scale.y = 1.6;
+                    break;
+                }
+                case 'vista': {
+                    fallback.push(add(new THREE.CylinderGeometry(0.08, 0.1, 4.6, 6), std(0x78716c), 0, 2.3, 0));
+                    add(new THREE.CylinderGeometry(1.4, 1.6, 0.25, 12), std(0x57534e), 0, 0.12, 0);
+                    break;
+                }
+                case 'cairn': fallback.push(add(new THREE.DodecahedronGeometry(0.6, 0), std(0x78716c), 0, 0.45, 0), add(new THREE.DodecahedronGeometry(0.38, 0), std(0x57534e), 0.1, 1.05, 0)); break;
+                case 'altar': {
+                    fallback.push(add(new THREE.BoxGeometry(2, 1.1, 1.3), std(0x57534e), 0, 0.55, 0));
+                    const ringMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+                    v.ring = add(new THREE.RingGeometry(2.4, 2.65, 48), ringMat, 0, 0.05, 0);
+                    v.ring.rotation.x = -Math.PI / 2;
+                    v.ring.castShadow = false;
+                    break;
+                }
+            }
+            if (T.model && BO.Assets) {
+                BO.Assets.placeGLB(group, T.model, {
+                    fitSize: T.fit, uniform: true, hideFallback: fallback, guardScene: BO.World.scene, ownerSession: null,
+                    // Static prop: bake the GLB into one mesh per material (usually a single draw call).
+                    onLoad: (holder) => { if (BO.MeshProxy && holder.parent) BO.MeshProxy.set(BO.MeshProxy.attach(holder, 'disc:' + site.type), true); }
+                });
+            }
+            const marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTexture(site.type), transparent: true, depthWrite: false, fog: false }));
+            marker.scale.set(0.9, 0.9, 1);
+            v.markerY = site.type === 'vista' ? 5.6 : site.type === 'shrine' ? 3.1 : 2.2;
+            marker.position.set(0, v.markerY, 0);
+            marker.userData.noHit = true;
+            marker.raycast = () => {};
+            group.add(marker);
+            v.marker = marker;
+            group.traverse((o) => { o.userData.noHit = true; });
+            this.scene.add(group);
+            this.live.set(site.id, v);
+            this._refreshState(v);
+        },
+
+        _refreshState(v) {
+            const site = v.site, found = this.isFound(site);
+            const ready = site.type === 'shrine' ? this.shrineReady(site) : !found;
+            // Floating marker only inside 75 m (vistas: always) — beyond that the model and minimap guide you.
+            if (v.marker) v.marker.visible = ready && (site.type === 'vista' || (v.dist == null ? true : v.dist < 75));
+            if (v.crystal) v.crystal.visible = !found;
+            if (v.ring) v.ring.visible = !found && !this.trial;
+        },
+
+        /* ------------------------------------------------ interaction */
+        interact(t) {
+            const site = t.obj, s = this.s, T = DD().TYPES[site.type];
+            const M = BO.OWRPGMode, C = BO.OWRPGCharacter, I = BO.OWRPGInventory;
+            const fx = C.perkFx(s);
+            const first = !this.isFound(site);
+            const xp = Math.round((T.xp + site.tier * 10) * (1 + (fx.discoveryXp || 0)));
+            if (site.type !== 'altar') this._play(T);
+            switch (site.type) {
+                case 'cache': {
+                    const loot = I.rollLoot(s, 'treasure', 2 + (Math.random() < (fx.cacheLuck || 0) ? 1 : 0) + (site.tier >= 20 ? 1 : 0));
+                    // Every cache holds coin on top of its rolls, scaled by region tier.
+                    loot.credits = Math.round((loot.credits + 15 + site.tier * 3) * (1 + site.tier * 0.04) * (1 + (fx.creditFind || 0)));
+                    M.giveLootReport(loot, T.name);
+                    break;
+                }
+                case 'tome': this._showLore(site); break;
+                case 'shrine': {
+                    const b = DD().BLESSINGS.find((x) => x.id === site.blessing) || DD().BLESSINGS[0];
+                    const dur = DD().BLESSING_SEC * (1 + (fx.shrineDur || 0));
+                    s.player.blessing = { id: b.id, name: b.name, color: b.color, until: s.playtimeSec + dur, fx: b.fx };
+                    s.atlas.shrineT[site.id] = s.playtimeSec + (T.cooldown || 600);
+                    M.applyDerived();
+                    BO.Events.emit('hud:banner', { title: b.name.toUpperCase(), sub: b.desc + ' · ' + Math.round(dur / 60) + ' min', color: b.color });
+                    break;
+                }
+                case 'shard': {
+                    const sk = BO.OWRPGStatsData.SKILLS[site.skill];
+                    const amt = 260 + site.tier * 22;
+                    C.addSkillXp(s, site.skill, amt);
+                    M.toast(sk.icon + ' ' + sk.name + ' +' + amt + ' Mastery XP', sk.color);
+                    break;
+                }
+                case 'vista': {
+                    const n = BO.OWRPGCartography ? BO.OWRPGCartography.reveal(site.x, site.z, T.revealR * (1 + (fx.revealRadius || 0) * 0.5)) : 0;
+                    BO.Events.emit('hud:banner', { title: 'VISTA SYNCHRONISED', sub: W().regionAt(site.x, site.z).name + ' · ' + n + ' map cells charted', color: T.color });
+                    break;
+                }
+                case 'cairn': {
+                    const loot = I.rollLoot(s, Math.random() < 0.45 ? 'locked' : 'treasure', 1 + (site.tier >= 15 ? 1 : 0));
+                    M.giveLootReport(loot, T.name);
+                    break;
+                }
+                case 'altar': this._startTrial(site); return;
+            }
+            if (first) this._markFound(site, xp, T);
+            else if (site.type === 'shrine') M.giveXp(Math.round(xp * 0.25), 'Shrine');
+            const v = this.live.get(site.id);
+            if (v) this._refreshState(v);
+        },
+
+        _play(T) { for (const clip of T.sound || []) BO.Assets?.playClip?.(clip, { volume: 0.5, rateJitter: 0.04 }); },
+
+        _markFound(site, xp, T) {
+            const s = this.s, M = BO.OWRPGMode, C = BO.OWRPGCharacter;
+            s.atlas.found[site.id] = Math.round(s.playtimeSec);
+            M.giveXp(xp, T.name);
+            if (T.skill) C.addSkillXp(s, T.skill[0], T.skill[1]);
+            C.addSkillXp(s, 'exploration', 45 + site.tier * 2);
+            const n = this.sites.filter((x) => x.type === site.type && s.atlas.found[x.id]).length;
+            M.setFlag('first_' + site.type, true);
+            M.setFlag('found_' + site.type, n);
+            M.setFlag('sites_found', this.foundCount());
+            BO.FX.spawnParticles(new THREE.Vector3(site.x, BO.World.terrainHeight(site.x, site.z) + 1.4, site.z), 22, new THREE.Color(T.color).getHex(), 4, 5, 0.45, 1.3);
+        },
+
+        _showLore(site) {
+            const L = DD().LORE.find((l) => l.id === site.lore) || DD().LORE[0];
+            const read = DD().LORE.filter((l) => this.sites.some((x) => x.lore === l.id && this.s.atlas.found[x.id])).length + (this.isFound(site) ? 0 : 1);
+            BO.OWRPGUI.open('lore', '<div class="ow-tome"><span class="ow-kicker">MERIDIAN ARCHIVES · ' + esc(W().regionAt(site.x, site.z).name.toUpperCase()) + '</span><h2>' + esc(L.title) + '</h2><p>' + esc(L.text) + '</p><small class="ow-dim">Tomes recovered: ' + read + ' / ' + this.sites.filter((x) => x.type === 'tome').length + '</small><div class="ow-row"><button class="ow-btn ow-primary" data-act="close">CLOSE</button></div></div>');
+        },
+
+        /* ------------------------------------------------ Altar of Trials */
+        _startTrial(site) {
+            const s = this.s, M = BO.OWRPGMode;
+            if (this.isFound(site) && (s.atlas.shrineT[site.id] || 0) > s.playtimeSec) { M.toast('The altar is dormant. It will stir again in ' + Math.ceil(((s.atlas.shrineT[site.id] || 0) - s.playtimeSec) / 60) + ' min.', '#94a3b8'); return; }
+            const pool = BO.OWRPGWorldSim.encounterPool ? BO.OWRPGWorldSim.encounterPool(site.region) : null;
+            const group = pool && pool.length ? pool[Math.floor(Math.random() * pool.length)] : ['raider', 'raider'];
+            const y = BO.World.terrainHeight(site.x, site.z);
+            const spawn = (id, ang, dist) => BO.OWRPGAI.spawn(id, site.x + Math.cos(ang) * dist, site.z + Math.sin(ang) * dist, { poiId: null, leash: 90, postR: 5, noChampion: true });
+            const champ = spawn(group[0], site.yaw, 9);
+            if (!champ) return;
+            champ.eventHostile = true; champ.hostile = true;
+            BO.OWRPGChampions.make(champ, 2);
+            const minions = [];
+            for (let i = 1; i <= 2; i++) {
+                const m = spawn(group[i % group.length], site.yaw + i * 2.1, 8);
+                if (m) { m.eventHostile = true; m.hostile = true; minions.push(m); }
+            }
+            for (const a of [champ, ...minions]) BO.OWRPGAI.engage(a, false);
+            this._play(DD().TYPES.altar);
+            this.trial = { site, champ, minions, y };
+            const v = this.live.get(site.id);
+            if (v) this._refreshState(v);
+            BO.Events.emit('hud:banner', { title: 'TRIAL OF CHAMPIONS', sub: 'Slay ' + champ.name + ' (' + BO.OWRPGChampions.label(champ) + ')', color: '#f43f5e' });
+        },
+
+        _updateTrial() {
+            const tr = this.trial, P = BO.Player, s = this.s, M = BO.OWRPGMode;
+            if (!P.alive || BO.Math.dist2D(P.pos.x, P.pos.z, tr.site.x, tr.site.z) > TRIAL_RANGE) {
+                for (const a of [tr.champ, ...tr.minions]) if (a.alive && BO.OWRPGAI.agents.includes(a)) BO.OWRPGAI.despawn(a);
+                this.trial = null;
+                M.toast('The trial fades. The altar waits for a worthier challenger.', '#94a3b8');
+                return;
+            }
+            if (tr.champ.alive) return;
+            const T = DD().TYPES.altar;
+            const fx = BO.OWRPGCharacter.perkFx(s);
+            const xp = Math.round((T.xp + tr.site.tier * 14) * (1 + (fx.discoveryXp || 0)));
+            s.atlas.trials = (s.atlas.trials || 0) + 1;
+            s.atlas.shrineT[tr.site.id] = s.playtimeSec + 900;
+            M.dropLoot(new THREE.Vector3(tr.site.x, tr.y + 1, tr.site.z), 'champion', 2);
+            if (!this.isFound(tr.site)) this._markFound(tr.site, xp, T);
+            else M.giveXp(Math.round(xp * 0.5), 'Trial');
+            M.setFlag('trials_won', s.atlas.trials);
+            BO.Events.emit('hud:banner', { title: 'TRIAL COMPLETE', sub: 'The altar yields its reward', color: '#f43f5e' });
+            this.trial = null;
+            const v = this.live.get(tr.site.id);
+            if (v) this._refreshState(v);
+        },
+
+        /* ------------------------------------------------ map layers */
+        drawOnMinimap(dot, P) {
+            const C = BO.OWRPGCartography;
+            const range = C ? C.range() : 120;
+            const T = DD().TYPES;
+            for (const site of this.sites) {
+                if (Math.abs(site.x - P.pos.x) > range || Math.abs(site.z - P.pos.z) > range) continue;
+                const found = this.isFound(site);
+                const near = Math.hypot(site.x - P.pos.x, site.z - P.pos.z) < 40;
+                if (found) dot(site.x, site.z, site.type === 'shrine' && this.shrineReady(site) ? T.shrine.color : 'rgba(203,213,225,0.55)', 5, T[site.type].icon);
+                else if (near || site.type === 'vista') dot(site.x, site.z, T[site.type].color, near ? 6 : 5, near ? T[site.type].icon : '?');
+            }
+        },
+
+        drawOnWorldMap(g, X, Z) {
+            const T = DD().TYPES;
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            for (const site of this.sites) {
+                const found = this.isFound(site);
+                const charted = BO.OWRPGCartography && BO.OWRPGCartography.isExplored(site.x, site.z);
+                if (!found && !(site.type === 'vista' && charted)) continue;
+                g.font = '900 ' + (found ? 12 : 13) + 'px Segoe UI, sans-serif';
+                g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.7)';
+                g.strokeText(found ? T[site.type].icon : '?', X(site.x), Z(site.z));
+                g.fillStyle = found ? T[site.type].color : '#e2e8f0';
+                g.fillText(found ? T[site.type].icon : '?', X(site.x), Z(site.z));
+            }
+            g.textBaseline = 'alphabetic';
+        },
+
+        /** Developer helper: closest unfound site. */
+        nearestUnfound(x, z) {
+            let best = null, bd = Infinity;
+            for (const site of this.sites) {
+                if (this.isFound(site)) continue;
+                const d = Math.hypot(site.x - x, site.z - z);
+                if (d < bd) { bd = d; best = site; }
+            }
+            return best;
+        }
+    };
+
+    BO.OWRPGDiscoveries = Disc;
+    if (BO.OWRPGMode) BO.OWRPGMode.registerSystem(Disc);
 })(window.BO);
 ;
 
@@ -8333,7 +9828,8 @@
                     <div class="ow-eye" id="ow-eye"><span></span><b id="ow-eye-label">HIDDEN</b></div>
                     <div class="ow-boss hidden" id="ow-boss"></div>
                     <div class="ow-event hidden" id="ow-event"></div>
-                    <div class="ow-quest" id="ow-quest"></div>
+                    <div class="ow-quest" id="ow-quest" aria-live="polite"></div>
+                    <div class="ow-blessing hidden" id="ow-blessing"></div>
                     <div class="ow-clock" id="ow-clock"></div>
                     <div class="ow-prompt hidden" id="ow-prompt"></div>
                     <div class="ow-xp" id="ow-xp"><div class="ow-xp-top"><b id="ow-lvl">LV 1</b><span id="ow-xpnum"></span></div><div class="ow-xp-bar"><i id="ow-xpfill"></i></div>
@@ -8449,10 +9945,11 @@
             attrDown(v) { const c = this.creator; if (c.attrs[v] > 1) { c.attrs[v]--; c.points++; this._renderCreator(); } },
             diff(v) { this.creator.difficulty = v; this._renderCreator(); },
             primer(v) { this.creator.primer = v; this._renderCreator(); },
+            navOpt(v) { if (v === 'compass' || v === 'minimap') { this.creator[v] = !this.creator[v]; this._renderCreator(); } },
             begin() {
                 const c = this.creator;
                 this.close(true);
-                this._start({ mode: 'owrpg', slot: c.slot, newChar: { name: c.name || 'MERCER', attrs: c.attrs, difficulty: c.difficulty, primer: c.primer } });
+                this._start({ mode: 'owrpg', slot: c.slot, newChar: { name: c.name || 'MERCER', attrs: c.attrs, difficulty: c.difficulty, primer: c.primer, compass: c.compass, minimap: c.minimap } });
             },
             backSlots() { this.openSlots(); }
         },
@@ -8477,7 +9974,7 @@
             const SD = BO.OWRPGStatsData;
             const attrs = {};
             SD.ATTR_IDS.forEach((id) => { attrs[id] = SD.ATTR_BASE; });
-            this.creator = { slot, name: '', attrs, points: SD.CREATION_POINTS, difficulty: 'tactical', primer: 'cryo_dart' };
+            this.creator = { slot, name: '', attrs, points: SD.CREATION_POINTS, difficulty: 'tactical', primer: 'cryo_dart', compass: true, minimap: true };
             this._renderCreator();
         },
 
@@ -8500,6 +9997,11 @@
                 <div class="ow-two">
                   <div><div class="ow-sub">STARTING PRIMER</div><div class="ow-chips">${primers.map(([id, p]) => `<button class="ow-chip ${c.primer === id ? 'on' : ''}" data-act="primer" data-v="${id}" title="${esc(p.desc)}"><b>${p.name}</b><small>${p.desc}</small></button>`).join('')}</div></div>
                   <div><div class="ow-sub">DIFFICULTY</div><div class="ow-chips">${diffs.map(([id, n, d]) => `<button class="ow-chip ${c.difficulty === id ? 'on' : ''}" data-act="diff" data-v="${id}"><b>${n}</b><small>${d}</small></button>`).join('')}</div></div>
+                </div>
+                <div class="ow-sub">NAVIGATION HUD <span class="ow-dim">(change any time from the pause menu or Pip-Pad › System)</span></div>
+                <div class="ow-chips ow-nav-opts">
+                  <button class="ow-chip ${c.compass ? 'on' : ''}" data-act="navOpt" data-v="compass" aria-pressed="${c.compass}"><b>Compass · ${c.compass ? 'ON' : 'OFF'}</b><small>Cardinal strip with quest bearings, events and pins.</small></button>
+                  <button class="ow-chip ${c.minimap ? 'on' : ''}" data-act="navOpt" data-v="minimap" aria-pressed="${c.minimap}"><b>Minimap · ${c.minimap ? 'ON' : 'OFF'}</b><small>Rotating fog-of-war minimap. [N] cycles range.</small></button>
                 </div>
                 <div class="ow-row ow-end"><button class="ow-btn ow-ghost" data-act="backSlots">BACK</button><button class="ow-btn ow-primary" data-act="begin">BEGIN OPERATION →</button></div>`);
             const inp = this.panel.querySelector('input[data-act="cname"]');
@@ -8624,10 +10126,14 @@
             this._set('ow-cells', `⚡ ${p.relayCells}`);
             this._set('ow-enc', `${enc.weight.toFixed(0)}/${enc.max} kg · ${enc.label}`);
             this._set('ow-clock', `${BO.OWRPGWorldSim.timeLabel()} · ${(BO.OWRPGWorldSim.region || {}).name || ''}`);
-            // Tracked quest.
-            const tracked = s.worldFlags.trackedQuest && s.quests[s.worldFlags.trackedQuest]?.state === 'active' ? s.worldFlags.trackedQuest
-                : Object.keys(s.quests).find((id) => s.quests[id].state === 'active');
-            this._set('ow-quest', tracked ? `<b>${esc(BO.OWRPGQuests.def(tracked).name)}</b><span>${esc(BO.OWRPGQuests.objective(s, tracked))}</span>` : '<b>No active quest</b><span>Talk to the people of Freestead.</span>', 'innerHTML');
+            // Quest tracker: up to three tracked quests with live distance to their marker.
+            const trackedList = this.trackedQuests();
+            const tracked = trackedList[0] || null;
+            this._set('ow-quest', this._trackerHtml(trackedList), 'innerHTML');
+            // Shrine blessing.
+            const bl = p.blessing && p.blessing.until > s.playtimeSec ? p.blessing : null;
+            this._set('ow-blessing', bl ? `<b style="color:${bl.color}">✧ ${esc(bl.name)}</b><span>${Math.ceil((bl.until - s.playtimeSec) / 60)} min</span>` : '', 'innerHTML');
+            this._set('ow-blessing', bl ? 'ow-blessing' : 'ow-blessing hidden', 'className');
             // Stealth eye.
             const aw = BO.OWRPGAI.awareness();
             const lbl = aw > 1 ? 'COMBAT' : aw >= 0.35 ? 'SUSPICIOUS' : this.M.camoT > 0 ? 'CLOAKED' : 'HIDDEN';
@@ -8716,6 +10222,42 @@
             this._updateFloats();
         },
 
+        /** Active quests the HUD follows: the player's picks (max 3), else the most recent active quest. */
+        trackedQuests() {
+            const s = this.s;
+            if (!s) return [];
+            const f = s.worldFlags;
+            if (!Array.isArray(f.trackedQuests)) f.trackedQuests = f.trackedQuest ? [f.trackedQuest] : [];
+            const list = f.trackedQuests.filter((id) => s.quests[id] && s.quests[id].state === 'active').slice(0, 3);
+            if (list.length !== f.trackedQuests.length) f.trackedQuests = list;
+            if (list.length) return list;
+            const active = Object.keys(s.quests).filter((id) => s.quests[id].state === 'active');
+            return active.length ? [active.sort((a, b) => (s.quests[b].startedAt || 0) - (s.quests[a].startedAt || 0))[0]] : [];
+        },
+
+        toggleTrack(id) {
+            const f = this.s.worldFlags;
+            const list = this.trackedQuests().filter((q) => f.trackedQuests.includes(q));
+            const i = list.indexOf(id);
+            if (i >= 0) list.splice(i, 1);
+            else { list.unshift(id); if (list.length > 3) list.length = 3; }
+            f.trackedQuests = list;
+            f.trackedQuest = list[0] || null;
+        },
+
+        _trackerHtml(list) {
+            const s = this.s, P = BO.Player, Q = BO.OWRPGQuests, C = BO.OWRPGCartography;
+            if (!list.length) return '<div class="ow-qt"><b>No active quest</b><span>Talk to the people of Freestead, or explore — hidden sites start quests too.</span></div>';
+            const KIND = { main: '#f5a623', faction: '#38bdf8', side: '#a3e635', contract: '#f87171', delve: '#c084fc', explore: '#fbbf24' };
+            return list.map((id, i) => {
+                const d = Q.def(id);
+                const m = Q.markers(s).find((k) => k.quest === id);
+                const tgt = m && C ? C.questTarget(m.poi) : null;
+                const dist = tgt ? Math.round(Math.hypot(tgt.x - P.pos.x, tgt.z - P.pos.z)) : null;
+                return `<div class="ow-qt ${i ? 'ow-qt-sub' : ''}" style="--k:${KIND[d.kind] || '#f5a623'}"><b>${esc(d.name)}${dist != null ? `<em>${dist} m</em>` : ''}</b><span>${esc(Q.objective(s, id))}</span></div>`;
+            }).join('');
+        },
+
         /** Pins, active World Event, and tracked quest as bearings on a ±70° strip under the compass. */
         _compassHtml(tracked) {
             const s = this.s, P = BO.Player, D = BO.OWRPGWorldData;
@@ -8725,8 +10267,8 @@
                 const ev = BO.OWRPGEvents.activeEvent;
                 marks.push({ x: ev.x, z: ev.z, c: ev.color || '#38bdf8', g: '⚡' });
             }
-            if (s.worldFlags.compassQuest && tracked) {
-                const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tracked);
+            if (s.worldFlags.compassQuest) for (const tq of this.trackedQuests()) {
+                const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tq);
                 const poi = m && D.POIS.find((p) => p.id === m.poi);
                 if (poi) {
                     let target = poi;
@@ -8803,8 +10345,8 @@
 /* --- src/ui/OWRPGPipPad.js --- */
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · Pip-Pad (diegetic wrist terminal)
-   Tabs: Character · Perks · Inventory · Abilities · Quests · Map · Factions ·
-   System, plus the [F8] Dev overlay (teleport, grants, flags, validator).
+   Tabs: Character · Mastery · Perks · Inventory · Abilities · Mounts · Quests ·
+   Bounties · Codex · Map · Atlas · Factions · System, plus the [F8] Dev overlay.
    Rendered into OWRPGUI's modal; clicks route through data-act handlers.
 ============================================================================ */
 (function (BO) {
@@ -8822,6 +10364,7 @@
         ['bounties', 'Bounties', 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png'],
         ['codex', 'Codex', 'staged_assets/ui/military_icons/Field Gear/encrypted-field-notebook-001.png'],
         ['map', 'Map', 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png'],
+        ['atlas', 'Atlas', 'staged_assets/ui/fantasy_rpg_icons/Items/protection-scroll-001.png'],
         ['factions', 'Factions', 'staged_assets/ui/military_icons/Communications/antenna-relay-puck-001.png'],
         ['system', 'System', 'staged_assets/ui/dieselpunk_icons/Tools/antenna-splice-kit-001.png']
     ];
@@ -9065,23 +10608,34 @@
             const all = Object.entries(s.quests);
             const active = all.filter(([, q]) => q.state === 'active');
             const done = all.filter(([, q]) => q.state === 'completed');
-            const tracked = s.worldFlags.trackedQuest;
+            const tracked = this.UI.trackedQuests();
+            const pinned = s.worldFlags.trackedQuests || [];
+            const KINDS = [['main', 'Main Story'], ['faction', 'Faction'], ['side', 'Side'], ['contract', 'Contracts'], ['delve', 'Dungeon Delves'], ['explore', 'Exploration']];
             const card = ([id, q]) => {
                 const d = Q.def(id);
                 const b = q.branch && d.branches[q.branch];
-                return `<div class="ow-qcard ${q.state} ${tracked === id ? 'tracked' : ''}"><div><span class="ow-kicker">${d.kind.toUpperCase()}</span><b>${esc(d.name)}</b><small>${esc(d.summary)}</small>
+                const on = pinned.includes(id);
+                const reg = d.region && BO.OWRPGWorldData.REGIONS.find((r) => r.id === d.region);
+                return `<div class="ow-qcard ${q.state} ${tracked.includes(id) ? 'tracked' : ''}"><div><span class="ow-kicker">${esc(d.kind.toUpperCase())}${reg ? ' · ' + esc(reg.name) : ''}</span><b>${esc(d.name)}</b><small>${esc(d.summary)}</small>
                     ${q.state === 'active' ? `<p>▸ ${esc(Q.objective(s, id))}</p>` : `<p class="ow-dim">Outcome: ${esc(b ? b.label : 'Complete')}</p>`}</div>
-                    ${q.state === 'active' ? `<button class="ow-btn ow-sm" data-act="track" data-v="${id}">${tracked === id ? 'TRACKED' : 'TRACK'}</button>` : ''}</div>`;
+                    ${q.state === 'active' ? `<button class="ow-btn ow-sm ${on ? 'ow-primary' : ''}" data-act="track" data-v="${id}" aria-pressed="${on}">${on ? 'TRACKED' : 'TRACK'}</button>` : ''}</div>`;
             };
-            return `<div class="ow-sub">ACTIVE</div>${active.map(card).join('') || '<div class="ow-empty">No active quests. Talk to people in Freestead.</div>'}
-                <div class="ow-sub">COMPLETED</div>${done.map(card).join('') || '<div class="ow-empty">Nothing yet.</div>'}`;
+            const groups = KINDS.map(([k, label]) => {
+                const list = active.filter(([id]) => (Q.def(id).kind || 'side') === k);
+                return list.length ? `<div class="ow-sub">${label.toUpperCase()} <span class="ow-dim">${list.length}</span></div>${list.map(card).join('')}` : '';
+            }).join('');
+            return `<p class="ow-dim">Track up to three quests: they appear on the HUD tracker, the compass and the minimap with live distances.</p>
+                ${groups || '<div class="ow-empty">No active quests. Talk to people in Freestead, or explore — hidden sites start quests too.</div>'}
+                <div class="ow-sub">COMPLETED <span class="ow-dim">${done.length} / ${Object.keys(BO.OWRPGQuestsData.QUESTS).length}</span></div>${done.map(card).join('') || '<div class="ow-empty">Nothing yet.</div>'}`;
         },
 
         _map() {
-            return `<div class="ow-mapwrap"><canvas id="ow-map" width="640" height="640"></canvas>
-                <div class="ow-maplegend"><p class="ow-dim">Click to place or remove a pin (shown on the compass). Quest markers appear for tracked objectives.</p>
-                <label class="ow-check"><input type="checkbox" data-act="compassQuest" ${this.s.worldFlags.compassQuest ? 'checked' : ''}> Show tracked quest on compass</label>
-                <div class="ow-legend"><span style="--c:#f5a623">◆ Settlement</span><span style="--c:#22d3ee">● Pylon (online)</span><span style="--c:#a3e635">◆ Quest marker</span><span style="--c:#f8fafc">▲ You</span><span style="--c:#f472b6">✚ Pin</span></div></div></div>`;
+            const C = BO.OWRPGCartography;
+            return `<div class="ow-mapwrap"><canvas id="ow-map" width="768" height="768"></canvas>
+                <div class="ow-maplegend"><p class="ow-dim">Click to place or remove a pin (shown on the compass and minimap). Uncharted land stays under fog until you walk it or sync a vista.</p>
+                ${C ? `<div class="ow-stat"><small>Charted</small><b>${C.percent()}% of the Expanse</b></div>` : ''}
+                <label class="ow-check"><input type="checkbox" data-act="compassQuest" ${this.s.worldFlags.compassQuest ? 'checked' : ''}> Show tracked quests on compass</label>
+                <div class="ow-legend"><span style="--c:#f5a623">◆ Settlement</span><span style="--c:#fca5a5">● Hostile site</span><span style="--c:#67e8f9">∩ Dungeon</span><span style="--c:#22d3ee">● Pylon (online)</span><span style="--c:#a3e635">◯ Quest marker</span><span style="--c:#fbbf24">✦ Cache</span><span style="--c:#e9c46a">❦ Tome</span><span style="--c:#5eead4">✧ Shrine</span><span style="--c:#a78bfa">◈ Shard</span><span style="--c:#38bdf8">⛰ Vista</span><span style="--c:#a8a29e">▲ Stash</span><span style="--c:#f43f5e">☗ Altar</span><span style="--c:#f8fafc">▲ You</span><span style="--c:#f472b6">✚ Pin</span></div></div></div>`;
         },
 
         _drawMap() {
@@ -9091,20 +10645,17 @@
             const s = this.s, D = BO.OWRPGWorldData, P = BO.Player;
             const W = cv.width, B = D.BOUNDS, span = B.maxX - B.minX, S = W / span;
             const X = x => (x - B.minX) * S, Z = z => (z - B.minZ) * S;
+            const Carto = BO.OWRPGCartography;
             g.fillStyle = '#0b1118'; g.fillRect(0, 0, W, W);
-            // Terrain shading from the heightfield.
-            const step = span / 80;
-            for (let x = B.minX; x < B.maxX; x += step) for (let z = B.minZ; z < B.maxZ; z += step) {
-                const h = BO.World.terrainHeight(x + step / 2, z + step / 2);
-                const r = D.regionAt(x, z);
-                const k = Math.max(0.25, Math.min(1, 0.55 + h / 50));
-                g.fillStyle = (h < D.WATER && D.isWet(x, z)) || (h < -11.6 && Math.hypot(x + 180, z + 60) < 22) || (h < -6.4 && Math.hypot(x - 180, z + 190) < 20) ? '#1e3a3a' : `rgb(${r.col[0] * 255 * k | 0},${r.col[1] * 255 * k | 0},${r.col[2] * 255 * k | 0})`;
-                g.fillRect(X(x), Z(z), step * S + 1, step * S + 1);
-            }
-            g.strokeStyle = 'rgba(40,40,40,0.8)'; g.lineWidth = 3;
-            for (const r of D.ROADS) { g.beginPath(); r.pts.forEach(([x, z], i) => (i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z)))); g.stroke(); }
+            // Hill-shaded base layer (cached by Cartography) under the fog of war.
+            if (Carto) { Carto.drawWorldBase(g, W); Carto.drawWorldFog(g, W); }
             g.font = 'bold 13px Segoe UI'; g.textAlign = 'center';
-            for (const r of D.REGIONS) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30); }
+            for (const r of D.REGIONS) {
+                const pct = Carto ? Carto.regionPercent(r.id) : 100;
+                g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.55)'; g.strokeText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30);
+                g.fillStyle = pct > 0 ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.32)'; g.fillText(r.name.toUpperCase(), X(r.x), Z(r.z) - 30);
+                if (Carto) { g.font = '600 11px Segoe UI'; g.fillStyle = 'rgba(251,191,36,0.85)'; g.fillText(pct + '% charted', X(r.x), Z(r.z) - 16); g.font = 'bold 13px Segoe UI'; }
+            }
             for (const l of D.LANDMARKS) { g.fillStyle = '#' + l.color.toString(16).padStart(6, '0'); g.fillRect(X(l.x) - 3, Z(l.z) - 9, 6, 12); }
             g.font = '11px Segoe UI';
             for (const poi of D.POIS) {
@@ -9116,6 +10667,13 @@
                 g.fillStyle = '#e2e8f0'; g.fillText(poi.name, X(poi.x), Z(poi.z) + 15);
             }
             for (const py of D.PYLONS) { g.fillStyle = s.pylons[py.id] ? '#22d3ee' : '#475569'; g.beginPath(); g.arc(X(py.x), Z(py.z), 3.5, 0, Math.PI * 2); g.fill(); }
+            for (const dg of D.DUNGEONS) {
+                if (Carto && !Carto.isExplored(dg.surf.x, dg.surf.z)) continue;
+                g.font = '900 15px Segoe UI'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.7)'; g.strokeText('∩', X(dg.surf.x), Z(dg.surf.z) + 5);
+                g.fillStyle = '#67e8f9'; g.fillText('∩', X(dg.surf.x), Z(dg.surf.z) + 5);
+            }
+            g.font = '11px Segoe UI';
+            if (BO.OWRPGDiscoveries) BO.OWRPGDiscoveries.drawOnWorldMap(g, X, Z);
             for (const m of BO.OWRPGQuests.markers(s)) {
                 const target = D.POIS.find((p) => p.id === m.poi);
                 if (!target) continue;
@@ -9132,7 +10690,7 @@
                 g.fillStyle = '#f8fafc'; g.fillText('YOU · ' + currentDungeon.name, X(currentDungeon.surf.x), Z(currentDungeon.surf.z)-12);
             }
             if (!D.isInterior(P.pos.x, P.pos.z)) {
-                g.save(); g.translate(X(P.pos.x), Z(P.pos.z)); g.rotate(-P.yaw + Math.PI);
+                g.save(); g.translate(X(P.pos.x), Z(P.pos.z)); g.rotate(-P.yaw);   // forward = (-sin yaw, -cos yaw)
                 g.fillStyle = '#f8fafc'; g.beginPath(); g.moveTo(0, -8); g.lineTo(5, 6); g.lineTo(-5, 6); g.closePath(); g.fill(); g.restore();
             }
             cv.onclick = (e) => {
@@ -9147,6 +10705,8 @@
             const chk = this.UI.panel.querySelector('[data-act="compassQuest"]');
             if (chk) chk.onchange = () => { s.worldFlags.compassQuest = chk.checked; };
         },
+
+        _atlas() { return BO.OWRPGCartography ? BO.OWRPGCartography.atlasHtml() : '<div class="ow-empty">Cartography unavailable.</div>'; },
 
         _factions() {
             const s = this.s, FD = BO.OWRPGFactionsData, F = BO.OWRPGFactions;
@@ -9165,6 +10725,8 @@
             const M = BO.OWRPGMode;
             const can = M.canSave();
             return `<div class="ow-list"><div class="ow-item"><div><b>Compass</b><small>Show cardinal directions, quest bearings and map pins.</small></div><button class="ow-btn" data-act="toggleCompass" aria-pressed="${this.s.worldFlags.compassEnabled !== false}">${this.s.worldFlags.compassEnabled !== false ? 'ON' : 'OFF'}</button></div>
+                <div class="ow-item"><div><b>Minimap</b><small>Rotating fog-of-war minimap (top left). [${esc((BO.Settings.getKeybinds().owMinimapZoom || 'KeyN').replace('Key', ''))}] cycles its range.</small></div><button class="ow-btn" data-act="toggleMinimap" aria-pressed="${this.s.worldFlags.minimapEnabled !== false}">${this.s.worldFlags.minimapEnabled !== false ? 'ON' : 'OFF'}</button></div>
+                <div class="ow-item"><div><b>Minimap orientation</b><small>Rotate with the player, or keep north up.</small></div><button class="ow-btn" data-act="toggleNorthUp">${this.s.worldFlags.minimapNorthUp ? 'NORTH UP' : 'ROTATING'}</button></div>
                 <div class="ow-item"><div><b>Developer menu</b><small>Grants, teleportation and world diagnostics. Also available with F8.</small></div><button class="ow-btn" data-act="padTab" data-v="dev">OPEN</button></div>
                 <div class="ow-item"><div><b>Quick save</b><small>${can ? esc(can) : 'Saves to slot ' + (M.slot + 1) + ' (also F5). Checkpoints save automatically.'}</small></div><button class="ow-btn" data-act="sysSave" ${can ? 'disabled' : ''}>SAVE</button></div>
                 <div class="ow-item"><div><b>Load last save</b><small>${esc(M.lastSaveLabel || '')} (also F9)</small></div><button class="ow-btn ow-ghost" data-act="sysLoad">LOAD</button></div>
@@ -9178,6 +10740,7 @@
             const res = this.validation ? `<pre class="ow-pre">${esc(this.validation)}</pre>` : '';
             return `<p class="ow-dim">Developer tools. Changes are saved with your character.</p>
                 <div class="ow-sub">GRANTS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devXp">+1000 XP</button><button class="ow-btn ow-sm" data-act="devAttr">+2 attr pts</button><button class="ow-btn ow-sm" data-act="devCells">+3 relay cells</button><button class="ow-btn ow-sm" data-act="devCr">+500 cr</button><button class="ow-btn ow-sm" data-act="devRep">+250 all reps</button><button class="ow-btn ow-sm" data-act="devTime">+6 hours</button><button class="ow-btn ow-sm" data-act="devMounts">Unlock all mounts</button><button class="ow-btn ow-sm" data-act="devEvent">Spawn world event</button><button class="ow-btn ow-sm" data-act="devVal">Run validator</button></div>
+                <div class="ow-sub">EXPLORATION &amp; CHAMPIONS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devReveal">Reveal whole map</button><button class="ow-btn ow-sm" data-act="devSite">Teleport to nearest hidden site</button><button class="ow-btn ow-sm" data-act="devChampion">Spawn a Champion</button><button class="ow-btn ow-sm" data-act="devMastery">+5 all Mastery levels</button><button class="ow-btn ow-sm" data-act="devBlessing">Random shrine blessing</button><button class="ow-btn ow-sm" data-act="devHeal">Full heal</button></div>
                 <div class="ow-sub">TELEPORT</div><div class="ow-row ow-wrap">${pois}</div>
                 <div class="ow-sub">WORLD FLAGS</div><pre class="ow-pre">${esc(JSON.stringify(this.s.worldFlags, null, 1))}</pre>${res}`;
         },
@@ -9255,7 +10818,25 @@
             salvage(v) { const cr = BO.OWRPGInventory.salvage(this.s, v); if (cr) BO.OWRPGMode.toast(`Salvaged for ${cr} cr`, '#fbbf24'); this.render(); },
             drop(v) { BO.OWRPGInventory.removeUid(this.s, v); BO.OWRPGMode.refreshLoadout(); this.render(); },
             ability(v) { const [slot, id] = v.split('|'); this.s.player.abilities[slot] = id; this.render(); },
-            track(v) { this.s.worldFlags.trackedQuest = v; this.render(); },
+            track(v) { this.UI.toggleTrack(v); this.render(); },
+            toggleMinimap() { this.s.worldFlags.minimapEnabled = this.s.worldFlags.minimapEnabled === false; this.render(); },
+            toggleNorthUp() { this.s.worldFlags.minimapNorthUp = !this.s.worldFlags.minimapNorthUp; this.render(); },
+            devReveal() { const C = BO.OWRPGCartography; if (C) { const B = BO.OWRPGWorldData.BOUNDS; C.reveal((B.minX + B.maxX) / 2, (B.minZ + B.maxZ) / 2, 2000, true); } this.render(); },
+            devSite() {
+                const P = BO.Player, site = BO.OWRPGDiscoveries?.nearestUnfound(P.pos.x, P.pos.z);
+                if (!site) { BO.OWRPGMode.toast('Every hidden site has been found', '#a3e635'); return; }
+                P.pos.set(site.x + 2.5, BO.World.terrainHeight(site.x + 2.5, site.z) + 0.3, site.z); P.vel.set(0, 0, 0);
+                this.UI.close();
+            },
+            devChampion() {
+                const P = BO.Player, pool = BO.OWRPGWorldSim.encounterPool(BO.OWRPGWorldData.regionAt(P.pos.x, P.pos.z).id);
+                const a = BO.OWRPGAI.spawn(pool[0][0], P.pos.x + 14 * -Math.sin(P.yaw), P.pos.z + 14 * -Math.cos(P.yaw), { leash: 80, noChampion: true });
+                if (a) { a.eventHostile = true; a.hostile = true; BO.OWRPGChampions.make(a, 3); BO.OWRPGAI.engage(a, false); }
+                this.UI.close();
+            },
+            devMastery() { const s = this.s, SD = BO.OWRPGStatsData; for (const id of Object.keys(SD.SKILLS)) { const sk = BO.OWRPGCharacter.skill(s, id); for (let i = 0; i < 5 && sk.level < SD.SKILL_CAP; i++) BO.OWRPGCharacter.addSkillXp(s, id, SD.skillXpToNext(sk.level)); } BO.OWRPGMode.applyDerived(); this.render(); },
+            devBlessing() { const s = this.s, list = BO.OWRPGDiscoveryData.BLESSINGS, b = list[Math.floor(Math.random() * list.length)]; s.player.blessing = { id: b.id, name: b.name, color: b.color, until: s.playtimeSec + 300, fx: b.fx }; BO.OWRPGMode.applyDerived(); BO.OWRPGMode.toast(b.name + ' — ' + b.desc, b.color); this.render(); },
+            devHeal() { BO.OWRPGMode.healFull(); },
             sysSave() { BO.OWRPGMode.quickSave(); this.render(); },
             sysLoad() { this.UI.close(true); BO.OWRPGMode.quickLoad(); },
             devTp(v) {
