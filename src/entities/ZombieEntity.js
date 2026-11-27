@@ -171,6 +171,7 @@
             }
 
             this.hp -= Math.max(1, dmg);
+            this.lastHitZone = hitbox || 'torso';
             this.flinchTimer = this.isSuperBoss ? 0.03 : (this.isBoss ? 0.06 : 0.16);
 
             if (this.isSuperBoss && !this.superEnraged && this.hp > 0 && this.hp <= this.maxHp * 0.50) {
@@ -230,7 +231,10 @@
             if (!this.alive) {
                 this.deathTimer -= dt;
                 const fall = BO.Math.clamp(1 - this.deathTimer / (this.isBoss ? 2.6 : 1.5), 0, 1);
-                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, Math.min(1, fall * 4));
+                const easeFall = Math.sin(Math.min(1, fall * 3.4) * Math.PI * 0.5);
+                if (!this.deathSide) this.deathSide = Math.random() < 0.5 ? -1 : 1;
+                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, easeFall);
+                this.parts.root.rotation.z = easeFall * this.deathSide * 0.14;
                 this.parts.root.position.y = this.pos.y - Math.max(0, fall - 0.65) * 1.2;
                 return this.deathTimer > 0;
             }
@@ -593,7 +597,8 @@
             const hoverOffset = this.movementHabit === 'hover_drift' ? Math.sin(this.habitPhase) * 0.16 : 0;
             this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
             this.parts.root.rotation.y = this.yaw;
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, this.flinchTimer > 0 ? 1 : 0);
+            const flinchAmt = this.flinchTimer > 0 ? BO.Math.clamp(this.flinchTimer / 0.16, 0, 1) : 0;
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso');
 
             return true;
         }

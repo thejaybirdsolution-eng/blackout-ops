@@ -536,7 +536,14 @@
             if (worldHit && (!didHit || pierceLeft > 0)) {
                 const n = worldHit.face ? worldHit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
                 BO.FX.spawnDecal(worldHit.point, n, false);
-                BO.FX.spawnParticles(worldHit.point, 4, 0xd4d4d8, 3.0, 11, 0.25, 0.7);
+                const surfTag = worldHit.terrain ? 'earth' : String(worldHit.object?.userData?.surfaceMaterial || '');
+                let impactCol = 0xd4d4d8;
+                if (/metal|steel|iron|armor|car|grate/i.test(surfTag)) impactCol = 0xfde68a;
+                else if (/wood|timber|plank|crate/i.test(surfTag)) impactCol = 0xc2935c;
+                else if (/earth|dirt|grass|mud|sand|soil/i.test(surfTag)) impactCol = 0x8b7355;
+                else if (/glass|ice|window|mirror/i.test(surfTag)) impactCol = 0xbfefff;
+                else if (/water|liquid/i.test(surfTag)) impactCol = 0x7dd3fc;
+                BO.FX.spawnParticles(worldHit.point, 4, impactCol, 3.0, 11, 0.25, 0.7);
                 BO.Sound.playBulletImpact(worldHit);
                 if (rpgMod && rpgMod.explosive && !didHit && this.onExplodeAt) {
                     const rad = rpgMod.explosiveRadius || 3.4;

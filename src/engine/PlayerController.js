@@ -8,6 +8,8 @@
     'use strict';
 
     const BO = global.BO;
+    const _tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    const _tmpAimDir = new THREE.Vector3();
 
     class PlayerController {
         constructor() {
@@ -541,6 +543,7 @@
                 this._wasGuarding = false;
             }
             this.rebuildViewmodel();
+            if (changedSlot) BO.Sound?.playWeaponEquip?.();
             if (BO.Mods && BO.Mods.onSwapWeapon) BO.Mods.onSwapWeapon();
         }
 
@@ -570,13 +573,10 @@
             this.reloading = false;
             this.burstRemaining = 0;
             this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.28;
-            if (stowing) {
-                this.adsAlpha = 0;
-                this.inspectTimer = 0;
-                this.meleeTimer = 0;
-                this._wasGuarding = false;
+            this._wasGuarding = false;
             }
             this.rebuildViewmodel();
+            BO.Sound?.playWeaponEquip?.();
             if (BO.Mods && BO.Mods.onSwapWeapon) BO.Mods.onSwapWeapon();
         }
 
@@ -972,8 +972,9 @@
                 worldCamera.updateProjectionMatrix();
             }
 
-            // Sync world camera (respect screenShake setting)
-            const shakeScale = BO.Settings.get('screenShake') ?? 1.0;
+            // Sync world camera (respect screenShake & reducedMotion settings)
+            const reducedM = !!BO.Settings.get('reducedMotion') || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+            const shakeScale = reducedM ? 0 : (BO.Settings.get('screenShake') ?? 1.0);
             const shakeX = (Math.random() - 0.5) * this.cameraShake * shakeScale;
             const shakeY = (Math.random() - 0.5) * this.cameraShake * shakeScale;
             worldCamera.position.set(this.pos.x + shakeX, this.pos.y + this.eyeHeight + shakeY, this.pos.z);
@@ -989,13 +990,13 @@
             const parkourRoll = this.parkourRoll || 0;
             const parkourPitch = this.parkourPitch || 0;
             const recoilRoll = this.recoilRoll || 0;
-            const finalEuler = new THREE.Euler(
+            _tmpEuler.set(
                 BO.Math.clamp(this.pitch + this.recoilPitch + this.flinchPitch + breathY + parkourPitch, -1.5, 1.5),
                 this.yaw + this.recoilYaw + breathX,
                 (this.dodgeRollTimer > 0 ? Math.sin(this.dodgeRollTimer / 0.30 * Math.PI) * 0.24 : (this.sliding ? -0.07 : 0)) + parkourRoll + recoilRoll,
                 'YXZ'
             );
-            worldCamera.quaternion.setFromEuler(finalEuler);
+            worldCamera.quaternion.setFromEuler(_tmpEuler);
 
             // Update First-Person Viewmodel Pose
             this._updateViewmodel(dt);
@@ -1280,10 +1281,10 @@
             if (this.onGround && horizSpeed > 0.6 && !this.sliding) {
                 this.bobPhase += dt * horizSpeed * 1.95;
                 this.stepDist += horizSpeed * dt;
-                const stride = this.sprinting ? 2.5 : 2.1;
+                const stride = this.crouching ? 1.65 : (this.sprinting ? 2.5 : 2.1);
                 if (this.stepDist >= stride) {
                     this.stepDist = 0;
-                    if (!deadSilence) BO.Sound.playFootstep(this.sprinting);
+                    if (!deadSilence) BO.Sound.playFootstep(this.sprinting, null, null, this.crouching);
                 }
             } else {
                 this.bobPhase += dt * 1.2;
@@ -1753,16 +1754,17 @@
             const targetAirLag = this.onGround ? 0 : BO.Math.clamp(this.vel.y * 0.0045, -0.045, 0.035);
             this._airLag = BO.Math.damp(this._airLag || 0, targetAirLag, 9, dt);
 
-            let px = BO.Math.lerp(hip[0], adsX, this.adsAlpha) + bobX + this.swayX * (1 - this.adsAlpha * 0.7);
-            let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0) - this._airLag;
-            let pz = BO.Math.lerp(hip[2], adsZ, this.adsAlpha) + this.recoilZ;
+            const adsEase = this.adsAlpha * this.adsAlpha * (3 - 2 * this.adsAlpha);
+            let px = BO.Math.lerp(hip[0], adsX, adsEase) + bobX + this.swayX * (1 - adsEase * 0.7);
+            let py = BO.Math.lerp(hip[1], adsY, adsEase) + bobY + this.swayY * (1 - adsEase * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0) - this._airLag;
+            let pz = BO.Math.lerp(hip[2], adsZ, adsEase) + this.recoilZ;
 
-            const weaponSway = 1 - this.adsAlpha * 0.7;
+            const weaponSway = 1 - adsEase * 0.7;
             const hipRot = w.stats.hipRot;
-            const hipBlend = 1 - this.adsAlpha;
+            const hipBlend = 1 - adsEase;
             let rx = (hipRot ? hipRot[0] * hipBlend : 0) + (this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2) * weaponSway;
             let ry = (hipRot ? hipRot[1] * hipBlend : 0) + this.recoilYaw * 0.45 * weaponSway;
-            let rz = (hipRot ? hipRot[2] * hipBlend : 0) + this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
+            let rz = (hipRot ? hipRot[2] * hipBlend : 0) + this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - adsEase * 0.7);
 
             // Parkour Vault / Mantle one-handed weapon tuck
             if (this.rideState && this.rideState.kind === 'parkour') {
@@ -1840,10 +1842,12 @@
                 }
             }
 
-            // Swap dip
+            // Swap smooth ease-out dip
             if (this.swapTimer > 0) {
-                py -= this.swapTimer * 0.8;
-                rx -= this.swapTimer * 1.4;
+                const st = BO.Math.clamp(this.swapTimer / 0.28, 0, 1);
+                const se = st * st * (3 - 2 * st);
+                py -= se * 0.22;
+                rx -= se * 0.40;
             }
 
             // Melee slash sweep
@@ -1876,7 +1880,8 @@
                     this.vmBuild.boltGroup.rotation.z += dt * 16;
                 }
             } else if (this.vmBuild.boltGroup) {
-                this.vmBuild.boltGroup.position.z = BO.Math.clamp(this.recoilZ * 1.35 + reloadBoltOffset, 0, 0.072);
+                const lockOpen = (w.mag === 0 && !this.reloading && w.stats.kind !== 'melee' && !w.stats.shellReload) ? 0.042 : 0;
+                this.vmBuild.boltGroup.position.z = BO.Math.clamp(Math.max(lockOpen, this.recoilZ * 1.35 + reloadBoltOffset), 0, 0.072);
             }
 
             // Mega Buster Hold-to-Charge Live Glowing Orb, Rings & Strip Glow!
