@@ -359,7 +359,7 @@
             this._safePointerLock();
             this._clearInputState();
 
-            if (opts.mode !== "survival" && opts.mode !== 'minigame' && opts.mode !== 'rpg' && opts.mode !== 'owrpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+            if (opts.mode !== 'survival' && opts.mode !== 'owrpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
                 BO.Net.broadcastMatchStart(opts);
             }
             if (BO.Net) BO.Net.clearRemoteAvatars();

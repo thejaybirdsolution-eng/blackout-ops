@@ -66,3 +66,7 @@ Decisions that look odd out of context. Read before refactoring.
 ## ADR-016 — Unified Automated QA Suite (`_qa_runner.html`)
 **Decision:** Keep `_qa_runner.html` (general engine, Survival, Zombies, MP, TD, RPG, Minigames, save, net, dt-invariance, hitboxes) alongside `_qa_owrpg.html` (OWRPG world/quests/validator), preserving all user localStorage state across test runs.
 **Consequence:** Both suites run end-to-end in Chromium against `index.html` and reach 100% pass (`24/24` and `120/120`) without mutating real saves.
+
+## ADR-017 — Online Co-op Scope for 1.0 (`CoopExtensions.js`)
+**Decision:** Support WebRTC P2P + `BroadcastChannel` co-op/multiplayer in 1.0 for **Zombies** (up to 8p), **Tower Defense** (up to 8p), **Multiplayer** (co-op vs bots & PvP), **Rogue Lite** (2–4p host-synced delves, floor/seed replication, gate voting & peer hit relay), and **Minigames** (Same-Room Versus live HUD leaderboard & room-seeded finish boards). Explicitly defer **Survival** and **Open World RPG** co-op post-1.0.
+**Consequence:** All arcade & delve modes share instant room invites over `PeerJS`/`BroadcastChannel` cleanly within the zero-server budget, while large persistent chunk/NPC/quest-graph world sync in Survival & OWRPG stays out of 1.0 scope without destabilizing single-player saves.
