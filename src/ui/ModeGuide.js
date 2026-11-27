@@ -119,15 +119,68 @@
             .map((action) => BO.Settings.keyLabel(bindings[action.action]) + ' — ' + action.label);
     }
 
+    function activeMinigameGuide() {
+        if (BO.State?.activeMode !== 'minigame') return null;
+        const MG = BO.Minigames;
+        const def = (MG && (MG.def || (MG.session && MG.session.def))) || null;
+        if (!def) return null;
+
+        const g = def.guide || {};
+        const objective = g.objective || def.desc || def.tagline || 'Complete the challenge cleanly to earn Platinum stars.';
+        const overviewLines = [objective];
+        if (def.desc && def.desc !== objective) overviewLines.push(def.desc);
+
+        const keyLines = (def.keys && def.keys.length)
+            ? def.keys.map(([k, t]) => `[${k}] — ${t}`)
+            : ['[WASD] — Move', '[MOUSE] — Aim', '[LMB] — Fire / Action', '[R] — Reload (reserve ammo is unlimited)'];
+
+        const tips = g.tips ? g.tips.slice() : [];
+        if (!tips.length) {
+            if (def.cat === 'speed') tips.push('Beat the clock thresholds shown below to earn Gold and Platinum stars.');
+            else if (def.cat === 'target') tips.push('Chain accurate hits without missing to build up to a 4x streak multiplier.');
+            else if (def.cat === 'arcade') tips.push('Focus on accuracy and avoid penalty targets to protect your streak.');
+            else if (def.cat === 'boss') tips.push('You only get 3 heals for the entire run — press [H] wisely during rest windows.');
+            else tips.push('Review the controls above; this mode uses specialized mechanics and abilities.');
+        }
+        if (def.weaponNote && !tips.includes(def.weaponNote)) tips.push(def.weaponNote);
+
+        const sections = [
+            ['Objective & How to Play', overviewLines.length === 1 ? overviewLines[0] : overviewLines],
+            ['Controls in ' + def.name, keyLines],
+            ['Tips & Winning Strategy', tips]
+        ];
+
+        const opts = (MG.session && MG.session.opts) || MG.hubOpts || {};
+        if (typeof MG.starsOf === 'function' && def.cat !== 'boss') {
+            const stars = MG.starsOf(def, opts) || [];
+            if (stars.length) {
+                const labels = ['Bronze', 'Silver', 'Gold', 'Platinum'];
+                sections.push(['Star Thresholds', stars.map((th, i) => `${labels[i] || ('Star ' + (i + 1))}: ${def.starLabel ? def.starLabel(th, i) : Number(th).toLocaleString()}`)]);
+            }
+        }
+
+        const catLabels = { fun: 'Fun & Specials', target: 'Target & Action', speed: 'Speed Run', arcade: 'Arcade Hall', boss: 'Boss Rush' };
+        const catLabel = catLabels[def.cat] || 'Minigame';
+        return {
+            name: `${def.icon ? def.icon + ' ' : ''}${def.name}`,
+            intro: `${catLabel}${def.tagline ? ' — ' + def.tagline : ''}`,
+            sections,
+            openAllTop: true
+        };
+    }
+
     BO.ModeGuide = {
         MODES,
         render(mode, query = '') {
-            const pick = MODES[mode] || MODES.zombies;
-            const sections = [...pick.sections, ['Controls in this mode', controls(mode)], ...dynamic(mode)];
+            const activeMg = mode === 'minigames' ? activeMinigameGuide() : null;
+            const pick = activeMg || MODES[mode] || MODES.zombies;
+            const sections = activeMg
+                ? [...activeMg.sections]
+                : [...pick.sections, ['Controls in this mode', controls(mode)], ...dynamic(mode)];
             const term = query.trim().toLowerCase();
-            const matches = sections.filter(([title, body]) => (title + ' ' + body).toLowerCase().includes(term));
-            return `<div class="mode-guide-intro"><h3>${pick.name}</h3><p>${esc(pick.intro)}</p></div>` + (matches.length ? matches.map(([title, body], index) => `
-                <details class="mode-guide-section" ${term || index === 0 ? 'open' : ''}>
+            const matches = sections.filter(([title, body]) => (title + ' ' + (Array.isArray(body) ? body.join(' ') : body)).toLowerCase().includes(term));
+            return `<div class="mode-guide-intro"><h3>${esc(pick.name)}</h3><p>${esc(pick.intro)}</p></div>` + (matches.length ? matches.map(([title, body], index) => `
+                <details class="mode-guide-section" ${term || index === 0 || (activeMg && index < 3) ? 'open' : ''}>
                     <summary>${esc(title)}</summary>
                     ${Array.isArray(body) ? `<ul>${body.filter((line) => !term || title.toLowerCase().includes(term) || line.toLowerCase().includes(term)).map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : `<p>${esc(body)}</p>`}
                 </details>`).join('') : '<p class="mode-guide-empty">No matching topics in this mode. Try a shorter word or another tab.</p>');

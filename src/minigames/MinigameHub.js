@@ -9,7 +9,7 @@
     const esc = BO.MinigameLib.esc;
 
     const CATS = [
-        { id: 'fun', name: 'Fun & Specials', icon: '🎉', unit: 'featured modes', accent: '#ec4899', blurb: '22 studio-flagship genres built inside Blackout Ops: Angry Birds FPS, Master Zombie Siege, 5-min Snowboarding, 360 Trick Shots, FPS Mario 1-1 to 1-4 + Bowser, ATB Final Fantasy Story RPG, Bunker Inspection, Toyshop Prop Hunt, Kaiju Metropolis, Bumper-Car Derby, Hell\'s Combat Kitchen, Sky-Pirate Zeppelin, 5cm Toy-Soldier War, Grandmaster Battle-Chess, Ectoplasm Ghost-Hunters, Roman Colosseum, Zero-G Orbital Breach, Abyssal Trench Exo-Suit, Jurassic Jeep Safari, Ironkeep Castle Siege, Cyberpunk Hoverbike Highway & Pinball Wizard 3D!' },
+        { id: 'fun', name: 'Fun & Specials', icon: '🎉', unit: 'featured modes', accent: '#ec4899', blurb: '' },
         { id: 'target', name: 'Target & Action', icon: '🎯', unit: 'courses', accent: '#f59e0b', blurb: '16 curated action courses: Classic Range, Thunderbolt Coaster, Beat Drop rhythm stage (with 1st-person example), Classic Whack-a-Mole, Sweetheart Shore, Mansion Raid, Outlaw Pursuit & more!' },
         { id: 'speed', name: 'Speed Runs', icon: '⏱️', unit: 'timed runs', accent: '#06b6d4', blurb: '9 high-intensity timed gauntlets: Neon Gauntlet, Outpost Valley, Linear 3-Act Getaway Chase, Deagle Meteor Splitter, Last 50, Freefall, 3x-expanded Ninja Fortress & Titan Three-Headed Dragon!' },
         { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', unit: 'mini games', accent: '#a855f7', blurb: '15 carnival booths & party brawlers: Quickdraw Duels, Ball Brawl, Aim Diagnostics, Contracts, Switchyard, Shell Game, Shooting Gallery & more!' },
@@ -105,7 +105,7 @@
                     </div>
                 </nav>
                 <section class="mgh-list">
-                    <div class="mgh-list-head"><span>${CATS.find((c) => c.id === cat).icon}</span><div><b>${CATS.find((c) => c.id === cat).name.toUpperCase()}</b><small>${esc(CATS.find((c) => c.id === cat).blurb)}</small></div></div>
+                    ${(() => { const co = CATS.find((c) => c.id === cat); return `<div class="mgh-list-head"><span>${co.icon}</span><div><b>${co.name.toUpperCase()}</b>${co.blurb ? `<small>${esc(co.blurb)}</small>` : ''}</div></div>`; })()}
                     <div class="mgh-grid mgh-grid-${cat}">
                         ${list.map((d, i) => this._card(d, i, d.id === (sel && sel.id))).join('')}
                     </div>
