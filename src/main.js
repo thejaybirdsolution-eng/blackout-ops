@@ -431,8 +431,12 @@
                 BO.Player.adsHeld = false;
                 BO.Player.cookingFrag = false;
                 BO.Player.burstRemaining = 0;
+                BO.Player.padMoveX = 0;
+                BO.Player.padMoveY = 0;
+                BO.Player.padSprint = false;
                 BO.Player.keys = Object.create(null);
             }
+            if (BO.GamepadInput && BO.GamepadInput.clear) BO.GamepadInput.clear();
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
         }
 
@@ -447,8 +451,10 @@
             if (!req) return;
             try {
                 const res = req.call(this.canvas);
-                if (res && typeof res.catch === 'function') res.catch(() => {});
-            } catch (e) {}
+                if (res && typeof res.catch === 'function') res.catch((e) => BO.log?.('App', 'debug', 'PointerLock declined', e));
+            } catch (e) {
+                BO.log?.('App', 'debug', 'PointerLock threw', e);
+            }
         }
 
         restartMatch() {

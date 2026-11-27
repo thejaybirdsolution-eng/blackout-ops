@@ -1286,7 +1286,9 @@
                     }
                     global.speechSynthesis.speak(u);
                 }
-            } catch (e) {}
+            } catch (e) {
+                BO.log?.('SoundEngine', 'debug', 'Speech synthesis announcer unavailable', e);
+            }
         }
 
         playMultikillVoice(count) {

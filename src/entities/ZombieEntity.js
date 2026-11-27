@@ -103,7 +103,9 @@
                     wBuilt.root.position.set(0, -0.42, 0.28);
                     wBuilt.root.rotation.set(0.15, Math.PI, 0);
                     this.parts.rightArmPivot.add(wBuilt.root);
-                } catch (e) {}
+                } catch (e) {
+                    BO.log?.('ZombieEntity', 'debug', 'Weapon mesh build skipped for gunner zombie', e);
+                }
             }
             if (this.isMagical) {
                 const aura = new THREE.Mesh(
