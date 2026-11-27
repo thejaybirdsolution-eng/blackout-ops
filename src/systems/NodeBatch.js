@@ -12,10 +12,12 @@
      * The original meshes are never destroyed: they keep their world matrix for raycasts and are
      * simply detached from the scene while batched.
      */
-    const CELL = 24;
+    const CELL = 48;
     const LIVE_RADIUS = 14;
     const VIEW_RADIUS = 150;
     const REBUILDS_PER_FRAME = 2;
+    const _tmpCol = new THREE.Color();
+    const _tmpEmissive = new THREE.Color();
 
     const material = () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.02 });
 
@@ -107,9 +109,12 @@
                     let g = mesh.geometry.index ? mesh.geometry.toNonIndexed() : mesh.geometry.clone();
                     g.applyMatrix4(mesh.matrixWorld);
                     const mat = mesh.material;
-                    const c = mat.color.clone();
-                    if (mat.emissive && mat.emissiveIntensity) c.add(mat.emissive.clone().multiplyScalar(mat.emissiveIntensity * 0.6));
-                    parts.push({ g, c });
+                    _tmpCol.copy(mat.color);
+                    if (mat.emissive && mat.emissiveIntensity) {
+                        _tmpEmissive.copy(mat.emissive).multiplyScalar(mat.emissiveIntensity * 0.6);
+                        _tmpCol.add(_tmpEmissive);
+                    }
+                    parts.push({ g, r: _tmpCol.r, gCol: _tmpCol.g, b: _tmpCol.b });
                     count += g.attributes.position.count;
                 }
             }
@@ -118,15 +123,15 @@
             const nor = new Float32Array(count * 3);
             const col = new Float32Array(count * 3);
             let o = 0;
-            for (const { g, c } of parts) {
+            for (const { g, r, gCol, b } of parts) {
                 const p = g.attributes.position;
                 const n = g.attributes.normal;
                 pos.set(p.array, o * 3);
                 if (n) nor.set(n.array, o * 3);
                 for (let i = 0; i < p.count; i++) {
-                    col[(o + i) * 3] = c.r;
-                    col[(o + i) * 3 + 1] = c.g;
-                    col[(o + i) * 3 + 2] = c.b;
+                    col[(o + i) * 3] = r;
+                    col[(o + i) * 3 + 1] = gCol;
+                    col[(o + i) * 3 + 2] = b;
                 }
                 o += p.count;
                 g.dispose();
@@ -156,9 +161,10 @@
                 this.lastLive.x = px;
                 this.lastLive.z = pz;
                 const reach = LIVE_RADIUS + CELL;
+                const viewR = BO.Settings?.getQualityPreset?.().nodeViewRadius || VIEW_RADIUS;
                 for (const cell of this.cells.values()) {
                     const near = Math.abs(cell.cx - px) < reach && Math.abs(cell.cz - pz) < reach;
-                    if (cell.mesh) cell.mesh.visible = Math.abs(cell.cx - px) < VIEW_RADIUS && Math.abs(cell.cz - pz) < VIEW_RADIUS;
+                    if (cell.mesh) cell.mesh.visible = Math.abs(cell.cx - px) < viewR && Math.abs(cell.cz - pz) < viewR;
                     if (!near && !cell.anyLive) continue;
                     let anyLive = false;
                     for (const node of cell.nodes) {

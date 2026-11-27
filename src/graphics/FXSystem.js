@@ -5,6 +5,10 @@
     'use strict';
 
     const BO = global.BO;
+    const _tmpDecalTgt = new THREE.Vector3();
+    const _tmpRingOff = new THREE.Vector3();
+    const _tmpExpPos = new THREE.Vector3();
+    const _tmpExpNorm = new THREE.Vector3(0, 1, 0);
 
     class FXSystem {
         constructor() {
@@ -27,6 +31,33 @@
             this.particles = [];
             this.tracers = [];
             this.decals = [];
+            this.decalCursor = 0;
+            this.chopper = null;
+        }
+
+        clear() {
+            if (this.scene) {
+                for (let i = 0; i < this.particles.length; i++) {
+                    const p = this.particles[i];
+                    this.scene.remove(p.mesh);
+                    if (!p.sharedMat && p.mesh.material) p.mesh.material.dispose();
+                }
+                for (let i = 0; i < this.tracers.length; i++) {
+                    const t = this.tracers[i];
+                    this.scene.remove(t.mesh);
+                    if (t.mesh.geometry) t.mesh.geometry.dispose();
+                    if (t.mesh.material) t.mesh.material.dispose();
+                }
+                for (let i = 0; i < this.decals.length; i++) {
+                    this.scene.remove(this.decals[i]);
+                }
+                if (this.chopper && this.chopper.group) {
+                    this.scene.remove(this.chopper.group);
+                }
+            }
+            this.particles.length = 0;
+            this.tracers.length = 0;
+            this.decals.length = 0;
             this.decalCursor = 0;
             this.chopper = null;
         }
@@ -96,6 +127,7 @@
         spawnDecal(pos, normal, isExplosion = false) {
             if (!this.scene) return;
             const maxD = BO.Settings.getQualityPreset().maxDecals;
+            if (maxD <= 0) return;
             let mesh;
             if (this.decals.length < maxD) {
                 mesh = new THREE.Mesh(this.decalGeo, isExplosion ? this.scorchMat : this.decalMat);
@@ -107,8 +139,8 @@
                 mesh.material = isExplosion ? this.scorchMat : this.decalMat;
             }
             mesh.position.copy(pos).addScaledVector(normal, 0.015);
-            const target = pos.clone().add(normal);
-            mesh.lookAt(target);
+            _tmpDecalTgt.copy(pos).add(normal);
+            mesh.lookAt(_tmpDecalTgt);
             mesh.scale.setScalar(isExplosion ? 10.5 : (0.85 + Math.random() * 0.45));
         }
 
@@ -126,13 +158,15 @@
             ringGeo.rotateX(-Math.PI * 0.5);
             const ringMat = new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
             const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.position.copy(pos).add(new THREE.Vector3(0, 0.12, 0));
+            _tmpRingOff.set(pos.x, pos.y + 0.12, pos.z);
+            ring.position.copy(_tmpRingOff);
             this.scene.add(ring);
             this.tracers.push({ mesh: ring, life: 0.40, maxLife: 0.40, growTo: radius * 1.4 });
 
             this.spawnParticles(pos, 22, 0xff8833, 8.5, 11.0, 0.65, 2.2);
             this.spawnParticles(pos, 14, 0x262626, 4.5, 2.5, 0.95, 2.8);
-            this.spawnDecal(new THREE.Vector3(pos.x, 0.02, pos.z), new THREE.Vector3(0, 1, 0), true);
+            _tmpExpPos.set(pos.x, 0.02, pos.z);
+            this.spawnDecal(_tmpExpPos, _tmpExpNorm, true);
         }
 
         spawnConeShockwave(origin, forward) {
