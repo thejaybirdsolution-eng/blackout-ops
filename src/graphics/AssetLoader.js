@@ -315,7 +315,11 @@
             } else {
                 g.gain.value = targetVol;
             }
-            const dest = isMusic ? (BO.Sound && BO.Sound.musicGain) : (BO.Sound && BO.Sound.sfxGain);
+            const dest = isMusic
+                ? (BO.Sound && BO.Sound.musicGain)
+                : (opts.dest === 'combat' && BO.Sound && BO.Sound.combatGain)
+                    ? BO.Sound.combatGain
+                    : (BO.Sound && BO.Sound.sfxGain);
             if (opts.pan && Math.abs(opts.pan) > 0.01 && typeof liveCtx.createStereoPanner === 'function') {
                 const panner = liveCtx.createStereoPanner();
                 panner.pan.value = Math.max(-1, Math.min(1, opts.pan));
@@ -417,6 +421,7 @@
         placeGLB,
         placeGLBInstanced,
         loadAudioBuffer,
+        hasAudioBuffer: (relPath) => audioCache.has(resolvePath(relPath, 'audio/')),
         playClip,
         stopMusicClips,
         crossfadeMusic,

@@ -2950,6 +2950,27 @@
                                 "text": "Added staggered card-deal animations and card fan/draw SFX on Boon selection, smooth crossfading into high-intensity Boss floor music, and dramatic boss intro screams with crimson flashes and camera shake."
                         }
                 ]
+        },
+        {
+                "id": 148,
+                "hash": "v2.6",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:22 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Real Weapon, Wonder Weapon & Melee SFX Across Full Arsenal",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "zombies",
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added cleaned single-shot gunshot SFX for all 134 Create-a-Class and Classic firearms, short punchy sci-fi and explosive audio for all 22 Wonder Weapons and launchers, and dedicated melee/ballistic weapon SFX routed through the combat compressor."
+                        }
+                ]
         }
 ]
     };

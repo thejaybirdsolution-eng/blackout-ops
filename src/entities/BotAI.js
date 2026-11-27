@@ -561,7 +561,7 @@
                 target.z + (Math.random() - 0.5) * dist * this.difficulty.accuracy * 2
             );
 
-            BO.Sound.playGunshot(spec.soundProfile, false, false, start);
+            BO.Sound.playGunshot(spec.soundProfile, false, false, start, spec.id);
             BO.FX.spawnTracer(start, end, 0xfca5a5, 0.02, 0.07);
             if (context.onRecordFx) context.onRecordFx({ kind: 'tracer', sx: start.x, sy: start.y, sz: start.z, ex: end.x, ey: end.y, ez: end.z, color: 0xfca5a5 });
 

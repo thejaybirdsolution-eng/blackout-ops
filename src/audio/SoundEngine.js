@@ -24,6 +24,169 @@
         launcher: [48, 740, 0.325, 1100, 1.06]
     };
 
+    const GUN_DIR = 'sfx/Weapons & Combat/Gunshots - Single Shot/';
+    const SCIFI_DIR = 'sfx/Sci-Fi Sounds (Kenney)/Audio/';
+    const RPG_SFX_DIR = 'sfx/RPG Audio (Kenney)/Audio/';
+    const IMPACT_SFX_DIR = 'sfx/Impact Sounds (Kenney)/Audio/';
+    const DESERT_SFX_DIR = 'sfx/Gameplay Effects (Desert Shooter)/';
+
+    const PISTOL_DIR = GUN_DIR + 'Pistols & Handguns (Single Shot)/';
+    const SHOTGUN_DIR = GUN_DIR + 'Shotguns (Single Shot)/';
+    const SNIPER_DIR = GUN_DIR + 'Sniper Rifles (Single Shot)/';
+    const OTHER_GUN_DIR = GUN_DIR + 'Other Firearm SFX/';
+
+    // Per-weapon-ID audio clips (Create-a-Class guns, Wonder Weapons, Launchers, Specials).
+    const WEAPON_CLIPS = {
+        // Pistols & Handguns
+        m1911: PISTOL_DIR + '080 - Gun SFX M1911.mp3',
+        deagle: PISTOL_DIR + 'desert eagle mw2 (2009) gunshot.mp3',
+        gold_deagle_cod4: PISTOL_DIR + 'OG Modern Warfare 2 Deagle firing sound.mp3',
+        glock18_auto: PISTOL_DIR + '050 - Gun SFX Glock.mp3',
+        b23r_burst: PISTOL_DIR + '031 - Gun SFX Beretta.mp3',
+        m9: PISTOL_DIR + '031 - Gun SFX Beretta.mp3',
+        m93_raffica: OTHER_GUN_DIR + '076 - Gun SFX M93.mp3',
+        python_magnum: PISTOL_DIR + '037 - Gun SFX Colt Python.mp3',
+        magnum44: PISTOL_DIR + '101 - Gun SFX S And W M29.mp3',
+        sw_m27: PISTOL_DIR + '100 - Gun SFX S And W M10 M And P.mp3',
+        five_seven: PISTOL_DIR + '046 - Gun SFX Fn Five Seven N Usg.mp3',
+        usp45: PISTOL_DIR + '035 - Gun SFX Colt 45.mp3',
+        makarov: PISTOL_DIR + '094 - Gun SFX PPK.mp3',
+        tt33: PISTOL_DIR + '079 - Gun SFX M1910.mp3',
+        nambu: PISTOL_DIR + '091 - Gun SFX New Nambu 60.mp3',
+        walther_p38: PISTOL_DIR + '093 - Gun SFX P99.mp3',
+        cz75: PISTOL_DIR + '038 - Gun SFX Cze Cz75.mp3',
+        asp: PISTOL_DIR + '052 - Gun SFX Glock G26.mp3',
+        tmp: PISTOL_DIR + '039 - Gun SFX Dd Bren Ten.mp3',
+        pp2000: PISTOL_DIR + '043 - Gun SFX Fn Browning Hi Power.mp3',
+
+        // SMGs
+        mp5: OTHER_GUN_DIR + '069 - Gun SFX M3.mp3',
+        mp5_classic: OTHER_GUN_DIR + '069 - Gun SFX M3.mp3',
+        ump45: PISTOL_DIR + '035 - Gun SFX Colt 45.mp3',
+        p90: PISTOL_DIR + '046 - Gun SFX Fn Five Seven N Usg.mp3',
+        mp7_navy: PISTOL_DIR + '052 - Gun SFX Glock G26.mp3',
+        vector_kriss: PISTOL_DIR + '039 - Gun SFX Dd Bren Ten.mp3',
+        aks74u: OTHER_GUN_DIR + '085 - Gun SFX Mauser C96.mp3',
+        mac10_uzi: PISTOL_DIR + '107 - Gun SFX Sterling.mp3',
+        mac11: PISTOL_DIR + '107 - Gun SFX Sterling.mp3',
+        uzi: PISTOL_DIR + '107 - Gun SFX Sterling.mp3',
+        mini_uzi: PISTOL_DIR + '107 - Gun SFX Sterling.mp3',
+        thompson_m1: OTHER_GUN_DIR + '069 - Gun SFX M3.mp3',
+        mp40: PISTOL_DIR + '107 - Gun SFX Sterling.mp3',
+
+        // Assault & Marksman Rifles
+        kar98k_irons: OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3',
+        springfield: OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3',
+        arisaka: OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3',
+        mosin_nagant: OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3',
+        m1_garand: SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3',
+        m14_classic: SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3',
+        mk14: SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3',
+        fal_osw: SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3',
+        g3: SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3',
+        svt40: SNIPER_DIR + '110 - Gun SFX T Svd Shot.mp3',
+        gewehr43: OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3',
+
+        // Shotguns
+        r870: SHOTGUN_DIR + '077 - Gun SFX M870.mp3',
+        stakeout: SHOTGUN_DIR + '077 - Gun SFX M870.mp3',
+        w1200: SHOTGUN_DIR + '078 - Gun SFX M1300.mp3',
+        m1014_cod4: SHOTGUN_DIR + '078 - Gun SFX M1300.mp3',
+        spas12_tac: SHOTGUN_DIR + '078 - Gun SFX M1300.mp3',
+        trench_gun: SHOTGUN_DIR + '077 - Gun SFX M870.mp3',
+        model_1887_mw2: SHOTGUN_DIR + '104 - Gun SFX Shotgun.mp3',
+        double_barrel: SHOTGUN_DIR + '104 - Gun SFX Shotgun.mp3',
+        sawed_off: SHOTGUN_DIR + '104 - Gun SFX Shotgun.mp3',
+        ranger: SHOTGUN_DIR + '104 - Gun SFX Shotgun.mp3',
+        aa12: SHOTGUN_DIR + '086 - Gun SFX Mm500.mp3',
+        saiga12_k: SHOTGUN_DIR + '086 - Gun SFX Mm500.mp3',
+        striker_12: SHOTGUN_DIR + '086 - Gun SFX Mm500.mp3',
+        hs10: SHOTGUN_DIR + '086 - Gun SFX Mm500.mp3',
+        ksg_slug: SHOTGUN_DIR + '087 - Gun SFX Mm500.mp3',
+
+        // Snipers
+        intervention: SNIPER_DIR + 'Intervention Sound mw2.mp3',
+        barrett_50cal: SNIPER_DIR + '028 - Gun SFX Barrett M82 A1.mp3',
+        ptrs41: SNIPER_DIR + '029 - Gun SFX Barrett50 Cal.mp3',
+        l96a1_awm: SNIPER_DIR + '023 - Gun SFX Ai L96a1.mp3',
+        r700_cod4: SNIPER_DIR + '097 - Gun SFX Remington M24.mp3',
+        m40a3_cod4: SNIPER_DIR + '097 - Gun SFX Remington M24.mp3',
+        msr_remington: SNIPER_DIR + '099 - Gun SFX Rsr.mp3',
+        dragunov_svd: SNIPER_DIR + '110 - Gun SFX T Svd Shot.mp3',
+        m21: SNIPER_DIR + '110 - Gun SFX T Svd Shot.mp3',
+        m21_ebr: SNIPER_DIR + '110 - Gun SFX T Svd Shot.mp3',
+        wa2000: SNIPER_DIR + '116 - Gun SFX Wa200.mp3',
+        psg1: SNIPER_DIR + '027 - Gun SFX Barrett.mp3',
+
+        // Launchers & Special Ballistics
+        rpg7_warhead: DESERT_SFX_DIR + 'explosion-a.ogg',
+        m9_bazooka: DESERT_SFX_DIR + 'explosion-b.ogg',
+        panzerschreck: DESERT_SFX_DIR + 'explosion-c.ogg',
+        at4: SCIFI_DIR + 'explosionCrunch_000.ogg',
+        stinger: SCIFI_DIR + 'explosionCrunch_002.ogg',
+        javelin: SCIFI_DIR + 'lowFrequency_explosion_001.ogg',
+        thumper: DESERT_SFX_DIR + 'explosion-a.ogg',
+        m72_law: DESERT_SFX_DIR + 'explosion-b.ogg',
+        strela3: DESERT_SFX_DIR + 'explosion-c.ogg',
+        china_lake: DESERT_SFX_DIR + 'explosion-a.ogg',
+        crossbow: RPG_SFX_DIR + 'knifeSlice.ogg',
+        ballistic_knife: RPG_SFX_DIR + 'drawKnife1.ogg',
+
+        // Wonder / Magic Weapons (short, punchy sci-fi sounds — no long loops)
+        raygun: SCIFI_DIR + 'laserRetro_000.ogg',
+        raygun_mk2: SCIFI_DIR + 'laserRetro_002.ogg',
+        tesla_wunder: SCIFI_DIR + 'laserLarge_000.ogg',
+        zeus_cannon: SCIFI_DIR + 'lowFrequency_explosion_001.ogg',
+        winters_howl_bo1: SCIFI_DIR + 'forceField_000.ogg',
+        baby_gun_bo1: SCIFI_DIR + 'laserRetro_004.ogg',
+        wave_gun_bo1: SCIFI_DIR + 'laserLarge_002.ogg',
+        scavenger_bo1: SNIPER_DIR + '029 - Gun SFX Barrett50 Cal.mp3',
+        blundergat_bo2: SCIFI_DIR + 'explosionCrunch_000.ogg',
+        paralyzer_bo2: SCIFI_DIR + 'laserSmall_002.ogg',
+        sliquifier_bo2: SCIFI_DIR + 'slime_000.ogg',
+        void_singularity: SCIFI_DIR + 'forceField_002.ogg',
+        inferno_drake: SCIFI_DIR + 'explosionCrunch_001.ogg',
+        cryo_sceptre: SCIFI_DIR + 'forceField_001.ogg',
+        solar_lance: SCIFI_DIR + 'laserLarge_003.ogg',
+        apothicon_servant_bo3: SCIFI_DIR + 'lowFrequency_explosion_000.ogg',
+        necro_skull: SCIFI_DIR + 'laserSmall_004.ogg',
+        acid_hydra: SCIFI_DIR + 'slime_000.ogg',
+        chrono_shatter: SCIFI_DIR + 'forceField_003.ogg',
+        death_of_orion_bo4: SCIFI_DIR + 'laserLarge_004.ogg',
+        alistairs_folly_bo4: PISTOL_DIR + 'MW-20 Bryar Pistol.mp3',
+        megaman_buster: PISTOL_DIR + 'MW-20 Bryar Pistol 2.mp3'
+    };
+
+    // Fallback pools by soundProfile so every Create-a-Class & Classic gun has a real gunshot clip.
+    const PROFILE_CLIPS = {
+        pistol: [PISTOL_DIR + '050 - Gun SFX Glock.mp3', PISTOL_DIR + '093 - Gun SFX P99.mp3', PISTOL_DIR + '031 - Gun SFX Beretta.mp3', PISTOL_DIR + '080 - Gun SFX M1911.mp3'],
+        deagle: [PISTOL_DIR + 'OG Modern Warfare 2 Deagle firing sound.mp3', PISTOL_DIR + 'desert eagle mw2 (2009) gunshot.mp3', PISTOL_DIR + '109 - Gun SFX Sw 500.mp3'],
+        smg: [OTHER_GUN_DIR + '069 - Gun SFX M3.mp3', PISTOL_DIR + '107 - Gun SFX Sterling.mp3', OTHER_GUN_DIR + '076 - Gun SFX M93.mp3'],
+        smg_heavy: [OTHER_GUN_DIR + '085 - Gun SFX Mauser C96.mp3', PISTOL_DIR + '039 - Gun SFX Dd Bren Ten.mp3'],
+        ar_light: [PISTOL_DIR + '046 - Gun SFX Fn Five Seven N Usg.mp3', PISTOL_DIR + '035 - Gun SFX Colt 45.mp3', PISTOL_DIR + '043 - Gun SFX Fn Browning Hi Power.mp3'],
+        ar_heavy: [OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3', PISTOL_DIR + '040 - Gun SFX Desert.mp3', SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3'],
+        dmr: [SNIPER_DIR + '105 - Gun SFX Sniper Rifle M392.mp3', SNIPER_DIR + '110 - Gun SFX T Svd Shot.mp3', OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3'],
+        lmg: [SNIPER_DIR + '028 - Gun SFX Barrett M82 A1.mp3', PISTOL_DIR + '040 - Gun SFX Desert.mp3', OTHER_GUN_DIR + '084 - Gun SFX Mauser 98k.mp3'],
+        shotgun: [SHOTGUN_DIR + '077 - Gun SFX M870.mp3', SHOTGUN_DIR + '078 - Gun SFX M1300.mp3', SHOTGUN_DIR + '086 - Gun SFX Mm500.mp3', SHOTGUN_DIR + '104 - Gun SFX Shotgun.mp3'],
+        sniper: [SNIPER_DIR + '097 - Gun SFX Remington M24.mp3', SNIPER_DIR + '027 - Gun SFX Barrett.mp3', SNIPER_DIR + '023 - Gun SFX Ai L96a1.mp3', SNIPER_DIR + '099 - Gun SFX Rsr.mp3'],
+        launcher: [DESERT_SFX_DIR + 'explosion-a.ogg', DESERT_SFX_DIR + 'explosion-b.ogg'],
+        raygun: [SCIFI_DIR + 'laserRetro_000.ogg', SCIFI_DIR + 'laserSmall_001.ogg'],
+        zeus: [SCIFI_DIR + 'lowFrequency_explosion_001.ogg', SCIFI_DIR + 'laserLarge_000.ogg']
+    };
+
+    const MELEE_CLIPS = {
+        combat_knife: RPG_SFX_DIR + 'knifeSlice.ogg',
+        tomahawk_axe: RPG_SFX_DIR + 'chop.ogg',
+        riot_baton: SCIFI_DIR + 'laserSmall_000.ogg',
+        machete_jungle: RPG_SFX_DIR + 'knifeSlice2.ogg',
+        crowbar_heavy: IMPACT_SFX_DIR + 'impactMetal_heavy_001.ogg',
+        trench_shovel: RPG_SFX_DIR + 'chop.ogg',
+        katana_carbon: RPG_SFX_DIR + 'knifeSlice2.ogg',
+        sledge_hammer: IMPACT_SFX_DIR + 'impactPunch_heavy_000.ogg',
+        chainsaw_ripper: IMPACT_SFX_DIR + 'impactMining_000.ogg',
+        reaper_scythe: RPG_SFX_DIR + 'knifeSlice.ogg'
+    };
+
     const VOICE_LIMITS = { shot: [7, 0.09], vocal: [4, 0.18], impact: [5, 0.08], step: [5, 0.12] };
     const FOOTING = {
         metal: [1680, 0.12, 278],
@@ -379,12 +542,48 @@
                 clarity: (clear ? 1 : 0.52) * (1 - 0.47 * dist / range), nearby };
         }
 
-        playGunshot(profile, suppressed = false, isPaP = false, source = 1) {
+        _pickWeaponClip(weaponId, profile) {
+            if (weaponId && WEAPON_CLIPS[weaponId]) return WEAPON_CLIPS[weaponId];
+            const pool = PROFILE_CLIPS[profile] || PROFILE_CLIPS.ar_light;
+            if (!pool || !pool.length) return null;
+            if (weaponId) {
+                let h = 0;
+                for (let i = 0; i < weaponId.length; i++) h = (h * 31 + weaponId.charCodeAt(i)) | 0;
+                return pool[Math.abs(h) % pool.length];
+            }
+            return pool[0];
+        }
+
+        preloadWeapon(weaponId, profile = 'ar_light') {
+            const clip = MELEE_CLIPS[weaponId] || this._pickWeaponClip(weaponId, profile);
+            if (clip && BO.Assets?.loadAudioBuffer) BO.Assets.loadAudioBuffer(clip);
+        }
+
+        playGunshot(profile, suppressed = false, isPaP = false, source = 1, weaponId = null) {
             const { gain, pan, clarity, nearby } = this._worldEffect(source, 84, 'shot');
             if (gain <= 0.025) return;
             const v = gain * (suppressed ? 0.58 : 1);
             const variation = 0.94 + Math.random() * 0.12;
             const combat = { dest: 'combat', pan, attack: 0.0015 };
+
+            const clip = this._pickWeaponClip(weaponId, profile);
+            if (clip && BO.Assets?.playClip) {
+                if (BO.Assets.hasAudioBuffer?.(clip)) {
+                    BO.Assets.playClip(clip, {
+                        volume: v * (suppressed ? 0.42 : 0.72),
+                        pan,
+                        dest: 'combat',
+                        rate: isPaP ? 1.12 : (suppressed ? 1.08 : 1.0),
+                        rateJitter: 0.045,
+                        volJitter: 0.04
+                    });
+                    if (isPaP) {
+                        this.synthTone(1770 * variation, 455, 0.16, 'triangle', v * 0.18, { ...combat, delay: 0.012, wobble: [24, 76] });
+                    }
+                    return;
+                }
+                BO.Assets.loadAudioBuffer?.(clip);
+            }
 
             if (profile === 'raygun' || profile === 'zeus') {
                 const wave = profile === 'zeus';
@@ -524,9 +723,17 @@
             this.synthNoise(0.14, 630, 'lowpass', 0.8, 0.14, { delay: 0.098 });
         }
 
-        playMelee(source = 1) {
+        playMelee(source = 1, weaponId = null) {
             const { gain, pan } = this._worldEffect(source, 20, 'impact');
             if (gain <= 0.035) return;
+            const clip = (weaponId && MELEE_CLIPS[weaponId]) || (RPG_SFX_DIR + 'knifeSlice.ogg');
+            if (clip && BO.Assets?.playClip) {
+                if (BO.Assets.hasAudioBuffer?.(clip)) {
+                    BO.Assets.playClip(clip, { volume: 0.44 * gain, pan, rateJitter: 0.08, volJitter: 0.05 });
+                } else {
+                    BO.Assets.loadAudioBuffer?.(clip);
+                }
+            }
             this.synthNoise(0.14, 812, 'bandpass', 0.85, 0.32 * gain, { pan, attack: 0.036, endFrequency: 2760 });
             this.synthNoise(0.047, 2900, 'bandpass', 1.25, 0.19 * gain, { pan, delay: 0.052 });
             this.synthTone(238, 85, 0.098, 'triangle', 0.13 * gain, { pan, delay: 0.028 });

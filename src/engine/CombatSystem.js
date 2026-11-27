@@ -262,7 +262,7 @@
             if (mgRt && mgRt.fireInterval) P.fireCooldown = Math.max(P.fireCooldown, mgRt.fireInterval);
 
             P.triggerMuzzleFlash();
-            if (!(BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.customGunSound(w))) BO.Sound.playGunshot(w.stats.soundProfile, w.stats.suppressed, w.isPaP, 1.0);
+            if (!(BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.customGunSound(w))) BO.Sound.playGunshot(w.stats.soundProfile, w.stats.suppressed, w.isPaP, 1.0, w.id);
             if (BO.Net && BO.Net.active) {
                 BO.Net.sendPlayerFx({
                     kind: 'shot',
@@ -497,7 +497,7 @@
             const P = BO.Player;
             P.fireCooldown = 60 / Math.max(40, w.stats.rpm);
             P.meleeTimer = Math.min(0.28, P.fireCooldown * 0.85);
-            BO.Sound.playMelee();
+            BO.Sound.playMelee(1, w.id);
 
             const aim = P.getAimRay(this.camera);
             const reach = w.stats.range || 3.0;
