@@ -2957,10 +2957,11 @@
             const detail = BO.Textures.getTerrainDetailTexture ? BO.Textures.getTerrainDetailTexture() : null;
             this.terrainMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, map: detail, roughness: 0.96, metalness: 0.0 });
             this.terrainChunks = this.terrain.buildMeshes(scene, this.terrainMaterial);
-            // Static map boxes merged into one mesh per material per 64 m chunk.
+            // Static map boxes merged into one mesh per material per chunk.
+            const batchChunk = def.batchChunk || 64;
             const batchers = new Map();
             for (const b of this.mapData.boxes) {
-                const ck = Math.floor(b.x / 64) + ':' + Math.floor(b.z / 64);
+                const ck = Math.floor(b.x / batchChunk) + ':' + Math.floor(b.z / batchChunk);
                 let bt = batchers.get(ck);
                 if (!bt) batchers.set(ck, bt = new W.BoxBatcher());
                 bt.add(b.mat || 'concrete', b.x, b.y, b.z, b.w, b.h, b.d, 4);
@@ -2976,7 +2977,9 @@
         }
 
         _finishLargeWorld() {
-            this.nav = new BO.WorldCore.NavGrid(this, this.terrain, 2);
+            const span = this.terrain ? (this.terrain.maxX - this.terrain.minX) : 640;
+            const navCell = (this.terrain && this.terrain.def && this.terrain.def.navCell) || (span > 800 ? 4 : 2);
+            this.nav = new BO.WorldCore.NavGrid(this, this.terrain, navCell);
             this.nav.rebuild();
             this._navLive = true;
         }

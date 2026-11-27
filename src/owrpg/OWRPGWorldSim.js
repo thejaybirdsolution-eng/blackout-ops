@@ -9,13 +9,19 @@
 
     const DAY = 2400;
     const ACTIVE_MAX = 24;
-    const RESPAWN_SEC = 900;
+    const RESPAWN_SEC = 600;
     const ENCOUNTERS = {
         haven_basin: [['raider', 'raider'], ['crawler', 'brood_venom_mite', 'crawler'], ['raider', 'raider_marksman'], ['raider_pyro', 'raider']],
         rust_sprawl: [['raider', 'raider_bruiser'], ['enforcer', 'syn_arc_tech'], ['stalker', 'brood_venom_mite'], ['syn_sniper', 'enforcer']],
         mire_delta: [['stalker', 'spitter'], ['brood_blight_hound', 'brood_venom_mite'], ['brood_frost_wraith', 'spitter'], ['brute']],
         ash_quarry: [['brood_pyro_fiend', 'stalker'], ['militia', 'militia_scout'], ['enforcer', 'syn_gunner'], ['brood_iron_goliath']],
         alpine_array: [['aegis', 'aegis_cryo'], ['aegis_heavy', 'aegis'], ['brood_frost_wraith', 'stalker']],
+        whispering_woods: [['timber_wolf', 'timber_wolf'], ['forest_poacher', 'orc_reaver'], ['puglin_scamp', 'treasure_puglin']],
+        barrow_moor: [['skeleton_warrior', 'grave_zombie'], ['barrow_ghost', 'crypt_keeper'], ['blood_vampire', 'grave_zombie']],
+        sunscorched_badlands: [['dune_scorpion', 'sunfang_guardian'], ['sunfang_guardian', 'imp_firestarter']],
+        sunken_coast: [['drowned_corsair', 'abyssal_siren'], ['drowned_corsair', 'brood_frost_wraith']],
+        frostfang_peaks: [['frost_knight', 'glacier_troll'], ['frost_wyrmling', 'frost_knight']],
+        obsidian_dragonwilds: [['obsidian_cultist', 'ashen_drake'], ['dragonwild_juggernaut', 'ashen_drake']],
         meridian_core: [['helix', 'helix_voidweaver'], ['helix_zealot', 'brood_void_stalker'], ['brood_iron_goliath', 'helix']]
     };
     const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
@@ -99,13 +105,13 @@
                     BO.OWRPGWorldArt.setRegionWeather?.(BO.World, reg.id);
                 }
             }
-            for (const poi of D.POIS) {
+            // Unload distant areas before filling nearby areas, including teleport destinations.
+            for (const poi of D.POIS) if (this.poiAgents[poi.id] && BO.Math.dist2D(P.pos.x, P.pos.z, poi.x, poi.z) > poi.r + 150) this.despawnPoi(poi);
+            for (const poi of D.POIS.slice().sort((a, b) => Math.hypot(P.pos.x-a.x, P.pos.z-a.z) - Math.hypot(P.pos.x-b.x, P.pos.z-b.z))) {
                 const d = BO.Math.dist2D(P.pos.x, P.pos.z, poi.x, poi.z);
                 const st = s.poiStates[poi.id] || (s.poiStates[poi.id] = {});
                 if (!st.discovered && d < poi.r) this.discover(poi);
-                const spawned = this.poiAgents[poi.id];
-                if (!spawned && d < poi.r + 85 && poi.spawns) this.spawnPoi(poi);
-                else if (spawned && d > poi.r + 150) this.despawnPoi(poi);
+                if (d < poi.r + 85 && poi.spawns) this.spawnPoi(poi);
             }
             this._encounters(dt, inside);
             if (BO.OWRPGEvents) BO.OWRPGEvents.tick(dt);
@@ -128,27 +134,30 @@
         spawnPoi(poi) {
             const s = this.s;
             const st = s.poiStates[poi.id];
-            const list = [];
-            this.poiAgents[poi.id] = list;
-            if (st.clearedAt != null && s.playtimeSec - st.clearedAt < RESPAWN_SEC && poi.kind !== 'contested') return;
-            if (st.clearedAt != null && poi.interior) return;
+            const list = this.poiAgents[poi.id] || (this.poiAgents[poi.id] = []);
             const owner = BO.OWRPGFactions.poiOwner(s, poi);
-            for (const sp of poi.spawns) {
-                if (BO.OWRPGAI.agents.length >= ACTIVE_MAX) break;
+            for (let index = 0; index < poi.spawns.length; index++) {
+                const sp = poi.spawns[index];
+                const previous = list.find(a => a.spawnIndex === index);
+                if (previous && (previous.alive || s.playtimeSec < previous.respawnAt)) continue;
+                if (BO.OWRPGAI.agents.filter(a => a.alive).length >= ACTIVE_MAX) break;
                 const def = BO.OWRPGStatsData.ENEMIES[sp[0]];
-                if (def.boss && s.worldFlags['killed_' + sp[0]]) continue;
+                if (!def) continue;
                 if (poi.kind === 'contested' && owner && BO.OWRPGFactionsData.FACTIONS[def.faction] && def.faction !== owner) continue;
+                if (previous) {
+                    if (BO.OWRPGAI.agents.includes(previous)) BO.OWRPGAI.despawn(previous);
+                    list.splice(list.indexOf(previous), 1);
+                }
                 const x = poi.x + sp[1], z = poi.z + sp[2];
                 const y = sp[3] != null ? (poi.interior ? 0 : BO.World.terrainHeight(poi.x, poi.z)) + sp[3] : (poi.interior ? 0 : null);
                 const a = BO.OWRPGAI.spawn(sp[0], x, z, { poiId: poi.id, y, leash: poi.interior ? 80 : poi.r + 40, postR: def.boss ? 2 : (sp[3] != null ? 1.2 : 5) });
-                if (a) list.push(a);
+                if (a) { a.spawnIndex = index; list.push(a); }
             }
             st.spawned = list.length;
         },
 
         despawnPoi(poi) {
             const list = this.poiAgents[poi.id] || [];
-            if (list.some((a) => a.alive && a.state === 'combat')) return;
             for (const a of list) if (BO.OWRPGAI.agents.includes(a)) BO.OWRPGAI.despawn(a);
             delete this.poiAgents[poi.id];
         },
@@ -157,9 +166,10 @@
             const s = this.s;
             const poi = this.D.POIS.find((p) => p.id === a.poiId);
             if (!poi) return;
+            a.respawnAt = s.playtimeSec + RESPAWN_SEC;
             const list = this.poiAgents[poi.id] || [];
             const st = s.poiStates[poi.id] || (s.poiStates[poi.id] = {});
-            if (a.boss) (st.deadUnique || (st.deadUnique = [])).push(a.defId);
+            if (a.boss) st.deadUnique = [...new Set([...(st.deadUnique || []), a.defId])];
             const hostileLeft = list.filter((o) => o.alive && o.hostile).length;
             if (poi.kind === 'contested') {
                 const sides = new Set(list.filter((o) => o.alive).map((o) => o.faction));
@@ -180,10 +190,10 @@
             const moving = Math.hypot(P.vel.x, P.vel.z) > 1.5;
             if (nearPoi || !moving) return;
             this.encT -= dt;
-            if (this.encT > 0 || BO.OWRPGAI.agents.length > 14) return;
+            if (this.encT > 0 || BO.OWRPGAI.agents.filter(a => a.alive).length > 14) return;
             this.encT = 25 + Math.random() * 15;
             const reg = D.regionAt(P.pos.x, P.pos.z);
-            const group = BO.Math.pick(ENCOUNTERS[reg.id]);
+            const group = BO.Math.pick(ENCOUNTERS[reg.id] || ENCOUNTERS.haven_basin);
             const heading = Math.atan2(P.vel.x, P.vel.z) + (Math.random() - 0.5) * 1.6;
             const dist = 60 + Math.random() * 20;
             const cx = BO.Math.clamp(P.pos.x + Math.sin(heading) * dist, D.BOUNDS.minX + 20, D.BOUNDS.maxX - 20);

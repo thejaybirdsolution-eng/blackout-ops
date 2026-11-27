@@ -1,5 +1,5 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Dynamic World Events (8 Event Types)
+   BLACKOUT OPS — Open World RPG · Dynamic World Events (18 Regional Event Types)
    Spawns timed dynamic events near the player while exploring the Meridian
    Expanse: Supply Drop, Faction Skirmish, Brood Swarm, Convoy Raid, Void
    Anomaly Storm, Relay Defense, Rogue Mecha, Black-Market Cache.
@@ -8,6 +8,16 @@
     'use strict';
 
     const EVENT_TYPES = [
+        { id: 'pinewood_rescue', title: 'Pinewood Rescue Signal', color: '#4ade80', dur: 130, enemies: ['forest_poacher', 'orc_reaver'], goal: 'hold', hold: 35, loot: 'raider', xp: 290, credits: 170, desc: 'Stay within 12 m of the signal for 35 seconds to finish the rescue uplink.' },
+        { id: 'wolf_migration', title: 'Moonlit Wolf Migration', color: '#86efac', dur: 160, enemies: ['timber_wolf', 'timber_wolf'], goal: 'waves', waves: 3, loot: 'brood', xp: 360, credits: 180, desc: 'Survive three approaching wolf packs.' },
+        { id: 'grave_procession', title: 'Procession of the Restless', color: '#c4b5fd', dur: 190, enemies: ['skeleton_warrior', 'grave_zombie', 'barrow_ghost'], goal: 'waves', waves: 3, loot: 'undead', xp: 640, credits: 320, desc: 'Break three waves of the grave procession.' },
+        { id: 'blood_moon', title: 'Blood-Moon Hunt', color: '#fb7185', dur: 130, enemies: ['blood_vampire', 'crypt_keeper'], loot: 'undead', xp: 540, credits: 290, desc: 'Defeat the Nightlord and its keeper before the blood-moon window closes.' },
+        { id: 'sunfang_survey', title: 'Sunfang Survey Beacon', color: '#fbbf24', dur: 160, enemies: ['sunfang_guardian', 'dune_scorpion'], goal: 'hold', hold: 45, loot: 'locked', xp: 760, credits: 380, desc: 'Hold the 12 m survey ring for 45 seconds while constructs converge.' },
+        { id: 'tidal_incursion', title: 'Corsair Tidefall', color: '#22d3ee', dur: 200, enemies: ['drowned_corsair', 'abyssal_siren'], goal: 'waves', waves: 3, loot: 'undead', xp: 890, credits: 420, desc: 'Repel three waves of the drowned tide.' },
+        { id: 'frost_resonance', title: 'Frostspire Resonance', color: '#7dd3fc', dur: 170, enemies: ['frost_knight', 'frost_wyrmling'], goal: 'hold', hold: 50, loot: 'aegis', xp: 1150, credits: 540, desc: 'Remain near the resonance beacon for 50 seconds to stabilize the glacier.' },
+        { id: 'glacier_hunt', title: 'Glacier Colossus Hunt', color: '#e0f2fe', dur: 140, enemies: ['glacier_troll', 'glacier_troll'], loot: 'locked', xp: 1250, credits: 600, desc: 'Bring down both ice-trolls before they leave the hunting grounds.' },
+        { id: 'dragonwild_siege', title: 'Ashfall Siege', color: '#fb923c', dur: 240, enemies: ['ashen_drake', 'obsidian_cultist', 'dragonwild_juggernaut'], goal: 'waves', waves: 3, loot: 'dragon', xp: 1900, credits: 850, desc: 'Withstand three assault waves from the Dragonwilds.' },
+        { id: 'gilded_hoard', title: 'The Gilded Hoard', color: '#fde047', dur: 90, enemies: ['treasure_puglin', 'puglin_scamp', 'puglin_scamp'], loot: 'locked', xp: 420, credits: 480, desc: 'Defeat the golden hoarder and recover its guarded cache.' },
         { id: 'supply_drop', title: 'Orbital Supply Drop', color: '#38bdf8', dur: 110, enemies: ['raider', 'raider_pyro', 'raider_bruiser'], loot: 'locked', xp: 240, credits: 160, desc: 'Eliminate scavengers guarding the supply pod.' },
         { id: 'faction_skirmish', title: 'Faction Skirmish', color: '#f5a623', dur: 110, enemies: ['militia', 'militia_scout', 'enforcer', 'syn_gunner'], loot: 'syndicate', xp: 260, credits: 180, desc: 'Intervene in the firefight between Militia and Syndicate.' },
         { id: 'brood_swarm', title: 'Brood Swarm Surge', color: '#84cc16', dur: 100, enemies: ['crawler', 'brood_venom_mite', 'stalker', 'brood_blight_hound'], loot: 'brood', xp: 250, credits: 140, desc: 'Purge the surging Brood pack.' },
@@ -19,6 +29,7 @@
     ];
 
     const Events = {
+        types: EVENT_TYPES,
         activeEvent: null,
         cooldown: 55,
         _n: 0,
@@ -50,9 +61,20 @@
                 if (ev.beacon) ev.beacon.rotation.y += dt * 1.8;
                 const aliveHostiles = ev.agents.filter((a) => a.alive && a.hostile).length;
                 ev.remaining = aliveHostiles;
-                if (aliveHostiles === 0) {
-                    this._complete(ev);
-                    return;
+                const distance = BO.Math.dist2D(P.pos.x, P.pos.z, ev.x, ev.z);
+                if (ev.def.goal === 'hold') {
+                    if (!inside && distance <= 12) ev.progress += dt;
+                    ev.desc = ev.def.desc + ' · ' + Math.floor(ev.progress) + '/' + ev.def.hold + 's';
+                    if (ev.progress >= ev.def.hold) { this._complete(ev); return; }
+                } else if (aliveHostiles === 0) {
+                    if (ev.def.goal === 'waves' && ev.wave < ev.def.waves) {
+                        for (const a of ev.agents) if (BO.OWRPGAI.agents.includes(a)) BO.OWRPGAI.despawn(a);
+                        ev.wave++;
+                        ev.agents = this._spawnSquad(ev.def, ev.x, ev.z, 'evt_' + (++this._n));
+                        ev.total = ev.remaining = ev.agents.length;
+                        ev.desc = ev.def.desc + ' · Wave ' + ev.wave + '/' + ev.def.waves;
+                        BO.OWRPGMode.toast('Wave ' + ev.wave + ' incoming', ev.color);
+                    } else { this._complete(ev); return; }
                 }
                 if (ev.t <= 0 || inside || BO.Math.dist2D(P.pos.x, P.pos.z, ev.x, ev.z) > 210) {
                     BO.OWRPGMode.toast(`World Event ended: ${ev.title}`, '#94a3b8');
@@ -62,7 +84,7 @@
                 return;
             }
 
-            if (inside || BO.OWRPGAI.agents.length > 14) return;
+            if (inside || BO.OWRPGAI.agents.filter(a => a.alive).length > 14) return;
             this.cooldown -= dt;
             if (this.cooldown <= 0) {
                 this.spawnNearPlayer();
@@ -73,6 +95,7 @@
         spawnNearPlayer(forcedId = null) {
             const P = BO.Player;
             const D = BO.OWRPGWorldData;
+            if (this.activeEvent || D.isInterior(P.pos.x, P.pos.z)) return null;
             const reg = D.regionAt(P.pos.x, P.pos.z);
             const ang = Math.random() * Math.PI * 2;
             const dist = 52 + Math.random() * 24;
@@ -82,11 +105,7 @@
 
             const def = forcedId ? (EVENT_TYPES.find((e) => e.id === forcedId) || EVENT_TYPES[0]) : this._pickForRegion(reg.id);
             const id = 'evt_' + (++this._n);
-            const agents = [];
-            def.enemies.forEach((eid, i) => {
-                const a = BO.OWRPGAI.spawn(eid, x + (i % 2) * 4 - 2, z + Math.floor(i / 2) * 4 - 2, { poiId: id, leash: 75, postR: 8 });
-                if (a) agents.push(a);
-            });
+            const agents = this._spawnSquad(def, x, z, id);
             if (!agents.length) return null;
 
             const y = BO.World.terrainHeight(x, z);
@@ -107,6 +126,7 @@
             BO.World.scene.add(beacon);
 
             this.activeEvent = {
+                progress: 0, wave: 1,
                 id: def.id, title: def.title, desc: def.desc, color: def.color,
                 x, z, t: def.dur, maxT: def.dur, agents, beacon, def,
                 total: agents.filter((a) => a.hostile).length,
@@ -116,6 +136,18 @@
             return this.activeEvent;
         },
 
+        _spawnSquad(def, x, z, id) {
+            return def.enemies.map((eid, i) => {
+                const a = BO.OWRPGAI.spawn(eid, x + (i % 2)*5 - 2.5, z + Math.floor(i / 2)*5 - 2.5, { poiId: id, leash: 80, postR: 8 });
+                if (a) {
+                    // Event squads are explicit adversaries even when their parent faction is friendly.
+                    a.eventHostile = true; a.hostile = true;
+                    BO.OWRPGAI.engage(a);
+                }
+                return a;
+            }).filter(Boolean);
+        },
+
         _pickForRegion(regId) {
             const byReg = {
                 haven_basin: ['supply_drop', 'convoy_raid', 'brood_swarm'],
@@ -123,7 +155,13 @@
                 mire_delta: ['brood_swarm', 'supply_drop', 'relay_defense'],
                 ash_quarry: ['faction_skirmish', 'rogue_mecha', 'supply_drop'],
                 alpine_array: ['rogue_mecha', 'relay_defense', 'supply_drop'],
-                meridian_core: ['void_storm', 'rogue_mecha', 'black_market']
+                meridian_core: ['void_storm', 'rogue_mecha', 'black_market'],
+                whispering_woods: ['pinewood_rescue', 'wolf_migration', 'gilded_hoard'],
+                barrow_moor: ['grave_procession', 'blood_moon'],
+                sunscorched_badlands: ['sunfang_survey', 'gilded_hoard'],
+                sunken_coast: ['tidal_incursion', 'black_market'],
+                frostfang_peaks: ['frost_resonance', 'glacier_hunt'],
+                obsidian_dragonwilds: ['dragonwild_siege', 'void_storm']
             };
             const pool = byReg[regId] || EVENT_TYPES.map((e) => e.id);
             const pickId = BO.Math.pick(pool);
@@ -141,7 +179,7 @@
             BO.OWRPGInteriors.dropBag(new THREE.Vector3(ev.x, BO.World.terrainHeight(ev.x, ev.z), ev.z), loot);
             BO.Sound?.playQuestFanfare?.();
             BO.Events.emit('hud:banner', { title: 'EVENT CLEARED', sub: `${ev.title} · +${def.xp} XP · +${def.credits} cr`, color: '#4ade80' });
-            this.activeEvent = null;
+            this.clear();
             this.cooldown = 95;
         }
     };

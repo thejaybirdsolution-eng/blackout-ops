@@ -185,28 +185,44 @@
             S.add(dashInst, railInst);
 
             // ACT 1: Busy City Buildings & Streetlights (u = 0.02..0.34)
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
             const rnd = L.mulberry32(33);
-            const subBldA = [], subBldB = [], indBld = [];
+            const subBldA = [], subBldB = [], subBldF = [], indBld = [], cityTrees = [];
             for (let i = 0; i < 36; i++) {
                 const u = 0.02 + (i / 36) * 0.32, p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u), n = V(-t.z, 0, t.x);
                 const yaw = Math.atan2(t.x, t.z);
                 for (const s of [-1, 1]) {
                     const h = 14 + rnd() * 22;
                     const bp = p.clone().addScaledVector(n, s * 16);
-                    if (i % 3 === 0) indBld.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? Math.PI : 0), scale: [5.5, h * 0.45, 5.5] });
+                    if (i % 4 === 0) indBld.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? Math.PI : 0), scale: [5.5, h * 0.45, 5.5] });
+                    else if (i % 3 === 0) subBldF.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? -Math.PI / 2 : Math.PI / 2), scale: [5.2, h * 0.4, 5.2] });
                     else if (i % 2 === 0) subBldA.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? -Math.PI / 2 : Math.PI / 2), scale: [5.2, h * 0.4, 5.2] });
                     else subBldB.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? -Math.PI / 2 : Math.PI / 2), scale: [5.2, h * 0.4, 5.2] });
+                    if (i % 2 === 0) {
+                        const tp = p.clone().addScaledVector(n, s * 9.4);
+                        cityTrees.push({ pos: [tp.x, 0, tp.z], rot: rnd() * TAU, scale: 2.2 });
+                    }
                 }
             }
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-a.glb', subBldA);
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-c.glb', subBldB);
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/building-a.glb', indBld);
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-a.glb', subBldA);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-c.glb', subBldB);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-f.glb', subBldF);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/building-a.glb', indBld);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/tree-large.glb', cityTrees);
+            } else {
+                L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-a.glb', subBldA);
+                L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-c.glb', subBldB);
+                L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/building-a.glb', indBld);
+            }
 
-            // ACT 2: Highway Concrete Barriers, Green Gantries WITH Solid Support Pillars & Nitro Strips (u = 0.35..0.69)
+            // ACT 2: Highway Concrete Barriers, Industrial Facilities, Gantries & Chrono-Crystals (u = 0.35..0.69)
             S.data.boosts = [];
+            S.data.timeShaved = 0;
             const pillarM = std(0x475569, 0.55, 0.5);
+            const hwyContainers = [], hwyTowers = [];
             for (let i = 0; i < 7; i++) {
-                const u = 0.36 + i * 0.05, p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u);
+                const u = 0.36 + i * 0.05, p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u), n = V(-t.z, 0, t.x);
                 const arch = new THREE.Group();
                 const bar = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.65, 0.55), std(0x065f46, 0.4, 0.4)); bar.position.y = 5.6;
                 const light = new THREE.Mesh(new THREE.BoxGeometry(11, 0.25, 0.25), basic(0x38bdf8)); light.position.y = 5.1;
@@ -216,20 +232,66 @@
                 const pad = new THREE.Mesh(new THREE.PlaneGeometry(5, 8), basic(0x0ea5e9));
                 pad.rotation.x = -Math.PI / 2; pad.rotation.z = -Math.atan2(t.x, t.z); pad.position.copy(p).add(V(0, 0.06, 0));
                 S.add(pad); S.data.boosts.push({ pos: p.clone(), cd: 0 });
+                const sideS = i % 2 ? 1 : -1;
+                const cp = p.clone().addScaledVector(n, sideS * 14);
+                hwyContainers.push({ pos: [cp.x, 0, cp.z], rot: Math.atan2(t.x, t.z), scale: 2.2 });
+                if (i % 2 === 0) {
+                    const wp = p.clone().addScaledVector(n, -sideS * 18);
+                    hwyTowers.push({ pos: [wp.x, 0, wp.z], rot: i, scale: 2.6 });
+                }
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/shipping-container-a.glb', hwyContainers);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/water-tower.glb', hwyTowers);
             }
             const hwySg = A.sign('INTERSTATE HIGHWAY -> OFF-ROAD CANYON', 9, 1.4, { bg: '#064e3b', color: '#ffffff', borderColor: '#fde047', size: 0.46 });
             const hp = R.curve.getPointAt(0.35); hwySg.position.set(hp.x, 6.2, hp.z); S.add(hwySg);
 
-            // ACT 3: Off-Road Red-Rock Canyon Cliffs (u = 0.70..0.99)
+            // ACT 3: Off-Road Red-Rock Canyon Cliffs & Fortress Ruins (u = 0.70..0.99)
             const rockM = std(0xb45309, 0.92);
+            const canyonRocks = [], canyonRuins = [];
             for (let i = 0; i < 28; i++) {
                 const u = 0.70 + (i / 28) * 0.29, p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u), n = V(-t.z, 0, t.x);
                 for (const s of [-1, 1]) {
+                    const cp = p.clone().addScaledVector(n, s * 14);
                     const c = new THREE.Mesh(new THREE.DodecahedronGeometry(6 + rnd() * 5, 0), rockM);
-                    c.position.copy(p).addScaledVector(n, s * 14).add(V(0, 4, 0)); S.add(c);
+                    c.position.copy(cp).add(V(0, 4, 0)); S.add(c);
+                    canyonRocks.push({ pos: [cp.x, 0, cp.z], rot: rnd() * TAU, scale: 3.4 + rnd() * 1.6 });
+                }
+                if (i % 7 === 2) {
+                    const rp = p.clone().addScaledVector(n, (i % 2 ? 1 : -1) * 16);
+                    canyonRuins.push({ pos: [rp.x, 0, rp.z], rot: i * 0.8, scale: 2.8 });
                 }
             }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/rocks-large.glb', canyonRocks);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-square-base.glb', canyonRuins);
+            }
             const finP = R.curve.getPointAt(0.99);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'building_kit/barricade-doorway-a.glb', { pos: [finP.x - 3.2, 0, finP.z], scale: 2.4 });
+                BO.Assets.placeGLB(S.scene, 'building_kit/barricade-doorway-a.glb', { pos: [finP.x + 3.2, 0, finP.z], scale: 2.4 });
+            }
+            // Trackside Time-Shave Chrono-Crystals (-1.5s per crystal!)
+            for (let ci = 0; ci < 8; ci++) {
+                const cu = 0.14 + ci * 0.10;
+                const cp = R.curve.getPointAt(cu), ct = R.curve.getTangentAt(cu), cn = V(-ct.z, 0, ct.x);
+                const side = ci % 2 ? 1 : -1;
+                const cPos = cp.clone().addScaledVector(cn, side * 4.8).add(V(0, 2.4, 0));
+                const cg = new THREE.Group();
+                const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), basic(0x22d3ee));
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.08, 8, 20), basic(0xfde047));
+                cg.add(gem, halo);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(cg, 'platformer_kit/jewel.glb', { fitSize: [1.5, 1.5, 1.5], hideFallback: gem });
+                }
+                const ctg = S.addTarget({
+                    mesh: cg, hitMeshes: [gem, halo], pos: cPos, life: 0, appear: 'none', inT: 0.01, death: 'shatter', deathColor: 0x22d3ee, bonus: true,
+                    onTick: (tg2, dt2) => { cg.rotation.y += dt2 * 2.6; halo.rotation.x += dt2 * 1.8; }
+                });
+                ctg.isChronoCrystal = true;
+                ctg.shaveSec = 1.5;
+            }
             const finSg = A.sign('ROADBLOCK — END OF TRAIL', 10, 1.8, { bg: '#7f1d1d', color: '#fef08a', borderColor: '#ef4444', size: 0.48 });
             finSg.position.set(finP.x, 4.5, finP.z); S.add(finSg);
             const gPts = [];
@@ -403,8 +465,23 @@
             if (D.downed >= 3) SR.done(S, 'ALL THIEVES STOPPED');
         },
         onHit(S, ent, info) {
+            if (ent && ent.alive && ent.isChronoCrystal) {
+                const shave = ent.shaveSec || 1.5;
+                S.t = Math.max(0.05, S.t - shave);
+                S.data.timeShaved = (S.data.timeShaved || 0) + shave;
+                S.hits++; S.kills++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.35, rateJitter: 0.05 });
+                }
+                BO.FX.spawnParticles(info.pt, 18, 0x22d3ee, 5.5, 3, 0.45, 1.1);
+                MG.popup(info.pt, `-${shave.toFixed(1)}s CHRONO SHAVE!`, '#67e8f9', true);
+                ent.kill(info);
+                return true;
+            }
             if (!ent.alive || ent.hpLeft === undefined) return false;
             S.hits++; SFX.thunk();
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.28, rateJitter: 0.06 });
             const occIdx = info.mesh?.userData?.occIdx;
             if (occIdx !== undefined && ent.occupants && ent.occupants[occIdx]) {
                 const occ = ent.occupants[occIdx];
@@ -416,6 +493,7 @@
                         if (ent.occAlive <= 0) {
                             ent.kill(info); S.data.downed++; S.kills++;
                             BO.FX.spawnExplosion(ent.root.position.clone().add(V(0, 1, 0)), 4.5, 0xf97316); SFX.rumble(0.5);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.48, rateJitter: 0.06 });
                             SR.stageBurst(S, ent.root.position.clone(), ent.name + ' STOPPED', S.data.downed - 1, 3, 0x4ade80);
                             return true;
                         }
@@ -437,6 +515,7 @@
                     ent.wobbleT = 1.6;
                     ent.speedMult = ent.blownCount === 1 ? 0.65 : Math.max(0.42, ent.speedMult * 0.82);
                     SFX.shatter();
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_000.ogg', { volume: 0.42, rateJitter: 0.08 });
                     BO.FX.spawnParticles(info.pt, 18, 0xf97316, 6, 4, 0.5, 1.2);
                     MG.popup(info.pt, ent.blownCount === 1 ? 'TIRE BLOWN! -35% SPD' : 'TIRE SHREDDED!', '#fb923c', true);
                 } else {
@@ -448,6 +527,7 @@
             if (ent.hpLeft <= 0) {
                 ent.kill(info); S.data.downed++; S.kills++;
                 BO.FX.spawnExplosion(ent.root.position.clone().add(V(0, 1, 0)), 3, 0xf97316); SFX.rumble(0.5);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.48, rateJitter: 0.06 });
                 SR.stageBurst(S, ent.root.position.clone(), ent.name + ' STOPPED', S.data.downed - 1, 3, 0x86efac);
                 return true;
             }
@@ -518,6 +598,7 @@
             spawn: { x: 0, y: ROOF_Y, z: 4, yaw: 0 }
         },
         build(S) {
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
             const rail = std(0x9ca3af, 0.4, 0.7);
             for (const [x1, z1, x2, z2] of [[-8, -8, 8, -7.8], [-8, 7.8, 8, 8], [-8, -8, -7.8, 8], [7.8, -8, 8, 8]]) {
                 const m = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x2 - x1), 1.1, Math.abs(z2 - z1)), rail);
@@ -526,6 +607,13 @@
             const coverMeshes = [];
             const ac = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 1.6), std(0x6b7280, 0.5, 0.6)); ac.position.set(-4, ROOF_Y + 0.75, -4); S.add(ac); S.solid(ac); coverMeshes.push(ac);
             S.collider(-5.2, ROOF_Y, -4.8, -2.8, ROOF_Y + 1.5, -3.2);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [-4, ROOF_Y, -4], fitSize: [2.4, 1.6, 1.8], hideFallback: ac });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-6.6, ROOF_Y, 2.2], rot: Math.PI / 2, scale: 1.5 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [6.4, ROOF_Y, 2.0], rot: -0.4, scale: 1.6 });
+                BO.Assets.placeGLB(S.scene, 'weapons/barrett-m82_optimized.glb', { pos: [6.4, ROOF_Y + 0.65, 2.0], rot: [0, 0.4, 0], fitSize: [1.4, 0.45, 0.35] });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/solar-panel-landscape-group.glb', { pos: [0, ROOF_Y, 6.4], rot: Math.PI, fitSize: [4.2, 1.2, 1.4] });
+            }
 
             // Armored Rooftop Blast Shields for Strafing Cover!
             const shieldM = std(0x334155, 0.4, 0.75);
@@ -551,7 +639,41 @@
             }
             S.animate(() => { const t = performance.now() * 0.001; searchlights[0].rotation.z = Math.sin(t * 0.9) * 0.45; searchlights[1].rotation.z = -Math.cos(t * 0.8) * 0.45; });
             const rnd = L.mulberry32(5);
-            for (let i = 0; i < 34; i++) { const h = 15 + rnd() * 44; const b = A.building(12, h, 12, [0x475569, 0x64748b, 0x334155][i % 3], i, 0.65, true); const a = rnd() * TAU, r = 30 + rnd() * 110; b.position.set(Math.sin(a) * r, h / 2, Math.cos(a) * r); S.add(b); }
+            const indSkyTr = [];
+            for (let i = 0; i < 34; i++) {
+                const h = 15 + rnd() * 44;
+                const b = A.building(12, h, 12, [0x475569, 0x64748b, 0x334155][i % 3], i, 0.65, true);
+                const a = rnd() * TAU, r = 30 + rnd() * 110;
+                const bx = Math.sin(a) * r, bz = Math.cos(a) * r;
+                b.position.set(bx, h / 2, bz); S.add(b);
+                if (i % 3 === 0) indSkyTr.push({ pos: [bx, h, bz], rot: rnd() * TAU, scale: 2.2 });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced && indSkyTr.length) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/water-tower.glb', indSkyTr);
+            }
+
+            // Orbiting Aerial Chrono-Crystals (-2.0s time shave when sniped!)
+            for (let ci = 0; ci < 4; ci++) {
+                const ca = (ci / 4) * TAU;
+                const cg = new THREE.Group();
+                const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), basic(0x38bdf8));
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.09, 8, 20), basic(0xfde047));
+                cg.add(gem, ring);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(cg, 'platformer_kit/star.glb', { fitSize: [1.8, 1.8, 1.8], hideFallback: gem });
+                }
+                const ctg = S.addTarget({
+                    mesh: cg, hitMeshes: [gem, ring], pos: V(Math.cos(ca) * 38, ROOF_Y + 18 + (ci % 2) * 5, Math.sin(ca) * 38),
+                    life: 0, appear: 'none', inT: 0.01, death: 'shatter', deathColor: 0x38bdf8, bonus: true,
+                    onTick: (tg2, dt2) => {
+                        const ang = ca + S.t * 0.22;
+                        tg2.root.position.set(Math.cos(ang) * 38, ROOF_Y + 17 + Math.sin(S.t * 1.6 + ci) * 2.5, Math.sin(ang) * 38);
+                        cg.rotation.y += dt2 * 2.8;
+                    }
+                });
+                ctg.isChronoCrystal = true;
+                ctg.shaveSec = 2.0;
+            }
 
             // Register Pilot Seat as dedicated Target linked to Plane!
             S.data.planes = [0, 1, 2].map((i) => {
@@ -640,18 +762,37 @@
             if (D.leadBox) D.leadBox.innerHTML = leadHtml.join('');
         },
         onHit(S, ent, info) {
+            if (ent && ent.alive && ent.isChronoCrystal) {
+                const shave = ent.shaveSec || 2.0;
+                S.t = Math.max(0.05, S.t - shave);
+                S.hits++; S.kills++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.4, rateJitter: 0.05 });
+                }
+                BO.FX.spawnParticles(info.pt, 18, 0x38bdf8, 5.5, 3, 0.45, 1.1);
+                MG.popup(info.pt, `-${shave.toFixed(1)}s CHRONO STAR!`, '#67e8f9', true);
+                ent.kill(info);
+                return true;
+            }
             if (ent.isPilotSeat) {
                 const plane = ent.parentPlane;
                 if (!plane || plane.down) return false;
                 plane._armorPending = null;
                 plane.down = true; plane.hitMeshes = []; ent.hitMeshes = [];
                 S.hits++; S.data.downed++; S.kills++; S.headshots++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.42, rateJitter: 0.04 });
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.45, rateJitter: 0.05 });
+                    BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', { volume: 0.45, rateJitter: 0.06 });
+                }
                 SR.stageBurst(S, info.pt, `PILOT DOWN — ${plane.name}`, S.data.downed - 1, 3, 0x38bdf8);
                 if (S.data.downed >= 3) SR.done(S, 'SKIES CLEAR');
                 return true;
             }
             if (!ent.plane || ent.down) return false;
             S.hits++;
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalClick.ogg', { volume: 0.35, rateJitter: 0.08 });
             ent._armorPending = { shot: S.shots, pt: info.pt.clone() };
             return false;
         },
@@ -679,6 +820,7 @@
             spawn: { x: 0, y: START_ALT, z: 0, yaw: 0 }
         },
         build(S) {
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             const fields = L.canvasTex('ff-fields-v2', 512, 512, (g, w, h) => {
                 const rnd = L.mulberry32(19);
                 const pal = ['#22c55e', '#16a34a', '#eab308', '#f97316', '#84cc16', '#10b981'];
@@ -689,6 +831,28 @@
             fields.wrapS = fields.wrapT = THREE.RepeatWrapping; fields.repeat.set(6, 6);
             const ground = new THREE.Mesh(new THREE.CircleGeometry(520, 48), new THREE.MeshStandardMaterial({ map: fields, roughness: 0.9 }));
             ground.rotation.x = -Math.PI / 2; ground.position.y = 0.01; S.add(ground);
+
+            // 3D Valley Town, Castle Towers & Pine Forest Cluster on the Ground Below
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const valleyHouses = [], valleyTrees = [], valleyTowers = [];
+                const vr = L.mulberry32(412);
+                for (let i = 0; i < 22; i++) {
+                    const vx = (vr() - 0.5) * 280, vz = (vr() - 0.5) * 280;
+                    valleyHouses.push({ pos: [vx, 0, vz], rot: vr() * TAU, scale: 5.5 });
+                }
+                for (let i = 0; i < 60; i++) {
+                    const vx = (vr() - 0.5) * 380, vz = (vr() - 0.5) * 380;
+                    valleyTrees.push({ pos: [vx, 0, vz], rot: vr() * TAU, scale: 5.2 + vr() * 2.5 });
+                }
+                for (let i = 0; i < 6; i++) {
+                    const a = (i / 6) * TAU;
+                    valleyTowers.push({ pos: [Math.cos(a) * 145, 0, Math.sin(a) * 145], rot: a, scale: 6.5 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-b.glb', valleyHouses);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/tree-high.glb', valleyTrees);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-base.glb', valleyTowers);
+                BO.Assets.placeGLB(S.scene, 'castle_kit/bridge-straight.glb', { pos: [-18, 0, 0], scale: 8.5 });
+            }
 
             // 3D Sunset Canyon Mountain Peaks surrounding the entire valley (zero flat square border!)
             const mtnRng = L.mulberry32(77);
@@ -722,6 +886,19 @@
                 const ring = new THREE.Mesh(new THREE.TorusGeometry(6.8, 0.5, 8, 24), basic(col));
                 ring.rotation.x = Math.PI / 2; ring.position.set(rx, ry, rz); S.add(ring);
                 S.data.rings.push({ mesh: ring, pos: V(rx, ry, rz), hit: false, col });
+                // Sky Chrono-Crystal suspended inside each thermal ring (-1.5s when shot!)
+                const cg = new THREE.Group();
+                const gem = new THREE.Mesh(new THREE.OctahedronGeometry(1.25, 0), basic(0x67e8f9));
+                cg.add(gem);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(cg, 'platformer_kit/jewel.glb', { fitSize: [2.4, 2.4, 2.4], hideFallback: gem });
+                }
+                const ctg = S.addTarget({
+                    mesh: cg, hitMeshes: [gem], pos: V(rx, ry, rz), life: 0, appear: 'none', inT: 0.01, death: 'shatter', deathColor: 0x67e8f9, bonus: true,
+                    onTick: (tg2, dt2) => { cg.rotation.y += dt2 * 2.8; }
+                });
+                ctg.isChronoCrystal = true;
+                ctg.shaveSec = 1.5;
             }
 
             const pos = V(0, START_ALT, 0);
@@ -843,12 +1020,27 @@
             else if (alt <= 1.01 && !me.chute) { BO.FX.spawnExplosion(me.pos.clone(), 3, 0xa16207); SR.fail(S, 'YOU HIT THE GROUND'); }
         },
         onHit(S, ent, info) {
+            if (ent && ent.alive && ent.isChronoCrystal) {
+                const shave = ent.shaveSec || 1.5;
+                S.t = Math.max(0.05, S.t - shave);
+                S.hits++; S.kills++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.05 });
+                }
+                BO.FX.spawnParticles(info.pt, 18, 0x67e8f9, 6, 3, 0.5, 1.1);
+                MG.popup(info.pt, `-${shave.toFixed(1)}s SKY CHRONO!`, '#67e8f9', true);
+                ent.kill(info);
+                return true;
+            }
             if (!ent.foe || !ent.alive) return false;
             S.hits++; ent.hpLeft -= info.hitbox === 'head' ? 2 : 1;
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.34, rateJitter: 0.06 });
             if (ent.hpLeft > 0) { ent.rollT = 0.7; SFX.thunk(); return false; }
             ent.kill(info); S.data.downed++; S.kills++;
             if (info.hitbox === 'head') S.headshots++;
             S.bumpCombo(); SFX.ding(1.1);
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.05 });
             if (S.data.downed === 5 || S.data.downed === 10) {
                 SR.stageBurst(S, info.pt, `${S.data.downed} / ${FOES} RIVALS`, S.data.downed === 5 ? 0 : 1, 3, 0xf97316);
             }

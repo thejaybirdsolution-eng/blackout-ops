@@ -302,14 +302,16 @@
             return new THREE.Mesh(g, material);
         }
 
-        /** Swap chunk LODs around the viewer. */
-        updateLOD(px, pz, nearDist = 130) {
+        /** Swap chunk LODs around the viewer (and optionally distance-cull ultra-far chunks). */
+        updateLOD(px, pz, nearDist = 130, farCullDist = Infinity) {
             const nd2 = nearDist * nearDist;
+            const fd2 = farCullDist * farCullDist;
             for (const c of this.chunks) {
                 const dx = c.x - px, dz = c.z - pz;
-                const near = dx * dx + dz * dz < nd2;
+                const d2 = dx * dx + dz * dz;
+                const near = d2 < nd2;
                 c.near.visible = near;
-                c.far.visible = !near;
+                c.far.visible = !near && d2 < fd2;
             }
         }
 

@@ -518,6 +518,7 @@
             onKill: () => {
                 if (bossLaser && bossLaser.parent) bossLaser.parent.remove(bossLaser);
                 SFX.thunk();
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.34, rateJitter: 0.06 });
                 room.crimsLeft--;
                 S.data.crimsLeft--;
                 if (room.crimsLeft === 0) roomCleared(S, room);
@@ -555,6 +556,7 @@
         S.data.roomsCleared++;
         MG.toast(room.name.toUpperCase() + ' CLEAR', '#86efac');
         SFX.ding(1.1);
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.4, rateJitter: 0.05 });
         for (const h of room.hostages) {
             if (!h.alive) continue;
             h.saved = true;
@@ -677,6 +679,32 @@
                 hedge.position.set((i < 5 ? -1 : 1) * (6 + (i % 5) * 3), 0.6, 0.8);
                 S.add(hedge);
             }
+            // 3D Mansion Estate Surroundings, SWAT Staging Gear & Interior Luxury Sculptures
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', [
+                    { pos: [-4.2, 0, 1.4], rot: 0, scale: 1.55 },
+                    { pos: [4.2, 0, 1.4], rot: 0, scale: 1.55 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-4.8, 0, 7.2], rot: 0.5, scale: 1.5 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [-9.4, 0, 6.4], rot: 0.35, scale: 1.6 });
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-l.glb', [
+                    { pos: [-32, 0, -14], rot: Math.PI / 2, scale: 4.5 },
+                    { pos: [32, 0, -14], rot: -Math.PI / 2, scale: 4.5 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/tree-large.glb', [
+                    { pos: [-22, 0, 6], scale: 2.8 }, { pos: [22, 0, 6], scale: 2.8 },
+                    { pos: [-24, 0, -28], scale: 3.0 }, { pos: [24, 0, -28], scale: 3.0 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'building_kit/barricade-window-a.glb', [
+                    { pos: [-12, 2.1, -1.82], scale: 1.15 }, { pos: [12, 2.1, -1.82], scale: 1.15 }
+                ]);
+                // Non-colliding interior luxury props on existing pedestals/tables
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/statue.glb', { pos: [-2, 1.1, -33], scale: 1.1 });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [2, 1.1, -33], scale: 1.05 });
+                BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/chest.glb', { pos: [12, 1.0, -13.5], rot: Math.PI, scale: 0.95 });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/candle-multiple.glb', { pos: [12, 0.82, -9.2], scale: 1.15 });
+            }
             // rooms: furniture + encounters
             for (const room of ROOMS) {
                 room.crims = [];
@@ -734,6 +762,7 @@
                 BO.FX.spawnParticles(fPos, 24, 0xffffff, 6.5, 4, 0.35, 1.3);
                 SFX.noise(0.18, 1800, 'bandpass', 0.65, 0.45);
                 SFX.tone(3100, 2600, 0.55, 'sine', 0.08);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_002.ogg', { volume: 0.42, rateJitter: 0.06 });
                 if (BO.Settings.getQualityPreset().pointLights) {
                     const fLight = new THREE.PointLight(0xffffff, 7.5, 18, 1.4);
                     fLight.position.copy(fPos);
@@ -1051,6 +1080,7 @@
                 sunColor: 0xfff4d6, sunIntensity: 1.45, sunPos: [32, 44, 38],
                 hemiSky: 0xbae6fd, hemiGround: 0xd4a36a, hemiIntensity: 0.56
             },
+            skybox: 'skybox-day.png',
             boxes: [B(0, -0.5, -40, 220, 1, 220, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 1.2, yaw: 0 }
         },
@@ -1058,6 +1088,20 @@
             if (BO.MinigameAudio) {
                 BO.MinigameAudio.start('pinball');
                 S.animate((dt) => BO.MinigameAudio.tick(dt));
+            }
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', [
+                    { pos: [-19.5, 0, -4.5], rot: Math.PI / 2 - 0.25, scale: 1.85 },
+                    { pos: [19.5, 0, -4.5], rot: -Math.PI / 2 + 0.25, scale: 1.85 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-s.glb', [
+                    { pos: [-34, 0, -18], rot: Math.PI / 2, scale: 4.4 },
+                    { pos: [34, 0, -18], rot: -Math.PI / 2, scale: 4.4 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { pos: [-3.2, 0.02, 2.8], rot: 0.4, scale: 1.15 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', { pos: [3.3, 0.02, 2.8], scale: 1.2 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-b.glb', { pos: [-3.2, 0.92, -0.92], rot: [0, 0.35, Math.PI / 2], fitSize: [0.55, 0.25, 0.18] });
             }
             Object.assign(S.data, { feverCharge: 0, feverTimer: 0, shockCD: 0, _prevAds: false, dazzledCount: 0 });
 
@@ -1529,6 +1573,7 @@
                     addFever(15);
                     S.award(120 * 2.5 * S.comboMult * feverMult, ent.root.position.clone().add(V(0, 1.9, 0)), '2.5× DAZZLED BONUS!', '#fde047');
                     SFX.pop(); SFX.ding(1.5);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.42, rateJitter: 0.06 });
                     return true;
                 }
                 S.kills++;
@@ -1538,6 +1583,7 @@
                 const tagLbl = ent.girl.name + ' ♥' + (ent.dazzled ? ' 2.5× DAZZLED!' : '') + (feverMult > 1 ? ' FEVER!' : (S.comboMult > 1 ? ' x' + S.comboMult.toFixed(1).replace('.0', '') : ''));
                 S.award(ent.points * mult, ent.root.position.clone().add(V(0, 2.1, 0)), tagLbl, ent.dazzled ? '#fde047' : '#f9a8d4');
                 SFX.ding(1.3);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.34, rateJitter: 0.07 });
                 ent.kill(info);
                 return true;
             }

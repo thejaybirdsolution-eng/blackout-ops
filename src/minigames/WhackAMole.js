@@ -52,11 +52,15 @@
         const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.2, 16, 8), std(0xd4d4d8, 0.4, 0.7));
         pole.position.set(0, 8, -16);
         S.add(pole);
-        // floor boards
-        const floor = new THREE.Mesh(new THREE.CircleGeometry(15, 48), new THREE.MeshStandardMaterial({ map: L.canvasTex('boards', 256, 256, (g, w, h) => {
-            g.fillStyle = '#7c5a35'; g.fillRect(0, 0, w, h);
-            for (let y = 0; y < h; y += 24) { g.fillStyle = y % 48 ? '#6b4423' : '#8b6234'; g.fillRect(0, y, w, 22); }
-        }), roughness: 0.9 }));
+        // floor boards (upgraded PBR weathered carnival planks + night skybox)
+        if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+        const floorMat = (BO.Assets && BO.Assets.pbrMat)
+            ? BO.Assets.pbrMat('fantasy_painterly/Wood Bark Boards/weathered-planks-001.png', 10, 10, { roughness: 0.85 })
+            : new THREE.MeshStandardMaterial({ map: L.canvasTex('boards', 256, 256, (g, w, h) => {
+                g.fillStyle = '#7c5a35'; g.fillRect(0, 0, w, h);
+                for (let y = 0; y < h; y += 24) { g.fillStyle = y % 48 ? '#6b4423' : '#8b6234'; g.fillRect(0, y, w, 22); }
+            }), roughness: 0.9 });
+        const floor = new THREE.Mesh(new THREE.CircleGeometry(15, 48), floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(0, 0.005, -5);
         S.add(floor);
@@ -69,30 +73,59 @@
         const bulbs = A.bulbs(pts, [0xfde047, 0xfb7185, 0x60a5fa, 0x4ade80, 0xfdba74], 0.07);
         S.add(bulbs);
         A.animateBulbs(S, bulbs, 5, 'chase');
-        // prize shelves with plush toys
+        // prize shelves with 3D Puglins, Imps, Golden Trophies, Treasure Chests & Toy Blasters!
         const plushCols = [0xf472b6, 0x60a5fa, 0xfacc15, 0xa78bfa, 0x4ade80, 0xfb923c];
+        const prizeModels = [
+            'monsters/Puglin.glb',
+            'mini_arena_kit/trophy.glb',
+            'blaster_kit/blaster-a.glb',
+            'monsters/Imp.glb',
+            'mini_dungeon_kit/chest.glb',
+            'blaster_kit/blaster-f.glb'
+        ];
         for (const side of [-1, 1]) {
             for (let shelf = 0; shelf < 3; shelf++) {
-                const sh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 6), std(0x78350f, 0.8));
+                const sh = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 6.4), std(0x78350f, 0.8));
                 sh.position.set(side * 10.5, 1.4 + shelf * 1.3, -6);
                 S.add(sh);
                 for (let p = 0; p < 6; p++) {
                     const toy = new THREE.Group();
                     const col = plushCols[(p + shelf + (side > 0 ? 2 : 0)) % plushCols.length];
-                    const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 12, 10), std(col, 0.95));
-                    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), std(col, 0.95));
-                    head.position.y = 0.36;
+                    const body = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 10), std(col, 0.95));
+                    body.position.y = 0.26;
+                    const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), std(col, 0.95));
+                    head.position.y = 0.56;
                     toy.add(body, head);
-                    for (const ex of [-1, 1]) {
-                        const ear = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), std(col, 0.95));
-                        ear.position.set(ex * 0.13, 0.52, 0);
-                        toy.add(ear);
+                    const modelRel = prizeModels[(p + shelf * 2 + (side > 0 ? 1 : 0)) % prizeModels.length];
+                    if (BO.Assets && BO.Assets.placeGLB) {
+                        BO.Assets.placeGLB(toy, modelRel, {
+                            pos: [0, 0, 0],
+                            fitSize: modelRel.startsWith('blaster_kit/') ? [0.75, 0.42, 0.28] : [0.68, 0.78, 0.68],
+                            hideFallback: [body, head]
+                        });
                     }
-                    toy.position.set(side * 10.5, 1.72 + shelf * 1.3, -8.4 + p * 0.95);
+                    toy.position.set(side * 10.5, 1.45 + shelf * 1.3, -8.4 + p * 0.95);
                     toy.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
                     S.add(toy);
                 }
             }
+        }
+        // Carnival booth & tent floor 3D dressing: barrels, crates, chests, weapon racks & hanging lanterns
+        if (BO.Assets && BO.Assets.placeGLB) {
+            BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.6, 0, -0.5], rot: 0.35, scale: 1.45 });
+            BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { pos: [2.6, 0, -0.55], rot: -0.4, scale: 1.25 });
+            BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-d.glb', { pos: [-1.35, 1.15, -0.74], rot: [0, 0.4, Math.PI / 2], fitSize: [0.55, 0.25, 0.18] });
+            BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-medium.glb', { pos: [1.45, 1.10, -0.74], rot: -0.25, scale: 0.65 });
+            BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', [
+                { pos: [-6.8, 0, -3.5], rot: 0.2, scale: 1.4 },
+                { pos: [6.8, 0, -3.5], rot: -0.3, scale: 1.4 },
+                { pos: [-7.4, 0, -10.5], rot: 0.8, scale: 1.45 },
+                { pos: [7.4, 0, -10.5], rot: -0.6, scale: 1.45 }
+            ]);
+            BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-hanging-lantern.glb', [
+                { pos: [-4.2, 5.4, -12.1], scale: 1.3 },
+                { pos: [4.2, 5.4, -12.1], scale: 1.3 }
+            ]);
         }
         // marquee
         const marquee = A.sign(cfg.title, 7, 1.3, { bg: '#4c0519', color: '#fde68a', borderColor: '#facc15', size: 0.58, glow: '#f59e0b' });
@@ -260,18 +293,34 @@
                             art.helmet.visible = false;
                             BO.FX.spawnParticles(hw, 10, 0xfacc15, 4, 9, 0.5, 1.1);
                             SFX.ding(1.6);
+                            if (BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.42, rateJitter: 0.06 });
+                                BO.Assets.playClip('rpg_sfx/metalClick.ogg', { volume: 0.38, rateJitter: 0.08 });
+                            }
                             S2.rt.popup(hw, 'CLANG!', '#facc15');
                         }
                     },
                     onKill: (t2) => {
                         free();
-                        if (isBomb) { BO.Sound.playExplosion(0.5); return; }
+                        if (isBomb) {
+                            BO.Sound.playExplosion(0.5);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.48, rateJitter: 0.06 });
+                            return;
+                        }
                         SFX.bonk();
-                        if (kind === 'gold') SFX.fanfare();
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.34, rateJitter: 0.08 });
+                        if (kind === 'gold') {
+                            SFX.fanfare();
+                            if (BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.5, rateJitter: 0.05 });
+                                BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.42, rateJitter: 0.05 });
+                            }
+                        }
                         const head = t2.root.position.clone().add(V(0, 0.9, 0));
                         BO.FX.spawnParticles(head, 10, 0xfde047, 2.5, -1, 0.7, 0.9);
                         if (S2.t - S2.data.lastWhack < 0.45) {
                             S2.data.streakFast++;
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.32, rateJitter: 0.08 });
                             S2.award(50 * S2.data.streakFast, head.clone().add(V(0, 0.4, 0)), 'QUICK!', '#38bdf8');
                         } else S2.data.streakFast = 0;
                         S2.data.lastWhack = S2.t;

@@ -20,6 +20,10 @@
     const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
     const fwdOf = (yaw) => V(-Math.sin(yaw), 0, -Math.cos(yaw));
 
+    function playClip(rel, volume = 0.38, rateJitter = 0.06) {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(rel, { volume, rateJitter });
+    }
+
     function lockPlayer(x, y, z, eye = 1.6) {
         BO.Player.rideState = { kind: 'minigame', pos: V(x, y, z), roll: 0, pitch: 0, eye };
     }
@@ -161,8 +165,12 @@
         countdown: 3,
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('pinball');
+            if (BO.Assets) {
+                BO.Assets.applySkybox(S.scene, 'skybox-day.png');
+                BO.Assets.crossfadeMusic('music_curated/uplifting-advertime-8d5ec4f0.m4a', { volume: 0.21, fadeSec: 0.8 });
+            }
             const D = S.data;
-            Object.assign(D, { t: 0, alive: 10, kos: 0, punches: 0, place: 0, platR: PLAT_R });
+            Object.assign(D, { t: 0, alive: 10, kos: 0, punches: 0, place: 0, platR: PLAT_R, orbT: 6.5, orb: null });
             // platform
             const top = L.canvasTex('brawl-top', 256, 256, (g, w, h) => {
                 for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 2 ? '#fde68a' : '#fb923c'; g.fillRect(x * 32, y * 32, 32, 32); }
@@ -181,7 +189,7 @@
             under.rotation.x = Math.PI;
             under.position.y = -6.9;
             S.add(under);
-            // floating scenery
+            // floating scenery dressed with real 3D platformer_kit islands, trees, flags & cheering critters!
             const rnd = L.mulberry32(10);
             for (let i = 0; i < 9; i++) {
                 const isl = new THREE.Group();
@@ -191,10 +199,15 @@
                 c.rotation.x = Math.PI; c.position.y = -r * 0.8 - 0.5;
                 isl.add(t, c);
                 const tr = A.tree(0.8 + rnd() * 0.6); tr.position.y = 0.5; isl.add(tr);
-                // Cheering mascot fans on the floating islands!
-                for (let f = 0; f < 3; f++) {
-                    const fan = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), std(BALL_COLS[(i + f) % BALL_COLS.length], 0.5));
-                    fan.position.set((f - 1) * 1.1, 1.0, 0.9); isl.add(fan);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(isl, 'platformer_kit/tree.glb', { pos: [0, 0.5, 0], fitSize: [r * 0.9, r * 1.35, r * 0.9], hideFallback: tr });
+                    BO.Assets.placeGLB(isl, 'platformer_kit/flag.glb', { pos: [-r * 0.45, 0.5, -0.4], fitSize: [0.9, 1.8, 0.9] });
+                    BO.Assets.placeGLB(isl, i % 2 === 0 ? 'platformer_kit/character-oobi.glb' : 'platformer_kit/character-oodi.glb', { pos: [0.8, 0.5, 0.9], rot: Math.PI, fitSize: [1.1, 1.3, 1.1] });
+                } else {
+                    for (let f = 0; f < 3; f++) {
+                        const fan = new THREE.Mesh(new THREE.SphereGeometry(0.45, 10, 8), std(BALL_COLS[(i + f) % BALL_COLS.length], 0.5));
+                        fan.position.set((f - 1) * 1.1, 1.0, 0.9); isl.add(fan);
+                    }
                 }
                 const a = i / 9 * TAU, d = 32 + rnd() * 24;
                 isl.position.set(Math.cos(a) * d, -4 + rnd() * 14, Math.sin(a) * d);
@@ -205,7 +218,6 @@
             }
             const arenaBanner = A.sign('HAMSTER BALL ARENA', 8, 1.4, { bg: '#1e1b4b', color: '#fde047', borderColor: '#facc15', size: 0.5, glow: '#facc15' });
             arenaBanner.position.set(0, 7.5, -24); S.add(arenaBanner);
-            // Chasing rainbow carnival rim bulbs (scale with arena shrink!) + banner framing + overhead light
             const rimPts = [];
             for (let i = 0; i < 32; i++) {
                 const a = (i / 32) * TAU;
@@ -229,9 +241,9 @@
                 const a = i / 10 * TAU + Math.PI / 2;
                 const pos = V(Math.cos(a) * 9, BALL_R, Math.sin(a) * 9);
                 const mesh = buildBall(S, i);
-                const yaw = Math.atan2(pos.x, pos.z);   // face the centre
+                const yaw = Math.atan2(pos.x, pos.z);
                 D.balls.push({
-                    i, isPlayer: i === 0, mesh, pos, vel: V(0, 0, 0), yaw, alive: true, falling: false,
+                    i, isPlayer: i === 0, mesh, pos, vel: V(0, 0, 0), yaw, alive: true, falling: false, megaGlove: false,
                     punchCd: 1.5 + rnd(), dashCd: 2 + rnd() * 2, punchT: -1, skill: 0.55 + rnd() * 0.45, targetT: 0, target: null, think: 0
                 });
             }
@@ -240,7 +252,6 @@
             BO.Player.pitch = -0.32;
             lockPlayer(me.pos.x, 0, me.pos.z, 3.2);
             this._camera(S, 0);
-            // mouse buttons: punch / dash
             D.onDown = (e) => {
                 if (MG.session !== S || MG.state !== 'running' || !document.pointerLockElement) return;
                 if (e.button === 0) brawlPunch(S, D.balls[0]);
@@ -250,7 +261,9 @@
         },
         dispose(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.25);
             if (S.data.onDown) window.removeEventListener('mousedown', S.data.onDown);
+            if (S.data.orb) { S.scene.remove(S.data.orb.g); S.data.orb = null; }
         },
         _camera(S, dt) {
             const D = S.data;
@@ -348,6 +361,44 @@
                     }
                 }
             }
+            // --- Arena Mega-Glove Star Power-Up Orbs ---
+            if (run) {
+                if (!D.orb) {
+                    D.orbT -= dt;
+                    if (D.orbT <= 0) {
+                        const oa = Math.random() * TAU, or = Math.random() * Math.max(2, D.platR - 3.5);
+                        const og = new THREE.Group();
+                        const ox = Math.cos(oa) * or, oz = Math.sin(oa) * or;
+                        og.position.set(ox, 0.9, oz);
+                        const fallbackStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), basic(0xfde047));
+                        og.add(fallbackStar);
+                        const ring = new THREE.Mesh(new THREE.RingGeometry(0.65, 0.82, 24), basic(0xfacc15));
+                        ring.rotation.x = -Math.PI / 2; ring.position.y = -0.82;
+                        og.add(ring);
+                        if (BO.Assets) {
+                            BO.Assets.placeGLB(og, 'platformer_kit/star.glb', { pos: [0, -0.35, 0], fitSize: [1.0, 1.0, 0.45], hideFallback: fallbackStar });
+                        }
+                        S.add(og);
+                        D.orb = { g: og, x: ox, z: oz };
+                    }
+                } else {
+                    D.orb.g.rotation.y += dt * 2.8;
+                    for (const b of balls) {
+                        if (b.alive && !b.falling && Math.hypot(b.pos.x - D.orb.x, b.pos.z - D.orb.z) < BALL_R + 0.85) {
+                            b.megaGlove = true;
+                            b.punchCd = 0;
+                            b.dashCd = 0;
+                            BO.FX.spawnParticles(V(D.orb.x, 1, D.orb.z), 18, 0xfacc15, 5, 4, 0.4, 1.1);
+                            playClip('sfx/Digital Audio (Kenney)/Audio/powerUp5.ogg', 0.44, 0.04);
+                            if (b.isPlayer) MG.toast('★ GOLDEN MEGA-GLOVE READY — INSTANT COOLDOWN & 1.65x KNOCKBACK!', '#fde047');
+                            S.scene.remove(D.orb.g);
+                            D.orb = null;
+                            D.orbT = 10.5;
+                            break;
+                        }
+                    }
+                }
+            }
             // --- punches
             for (const b of balls) {
                 if (b.punchT < 0) { b.mesh.arm.visible = false; continue; }
@@ -355,29 +406,32 @@
                 const t = b.punchT;
                 const ext = t < 0.11 ? Ease.outCubic(t / 0.11) : t < 0.2 ? 1 : Math.max(0, 1 - (t - 0.2) / 0.22);
                 b.mesh.arm.visible = ext > 0.02;
-                const reach = 0.9 + ext * 2.4;
+                const reach = 0.9 + ext * (b.megaGlove ? 3.1 : 2.4);
                 b.mesh.pole.scale.set(1, reach, 1);
                 b.mesh.pole.position.z = -reach / 2;
                 b.mesh.glove.position.z = -reach - 0.1;
-                b.mesh.glove.scale.setScalar(1 + ext * 0.35);
+                b.mesh.glove.scale.setScalar((b.megaGlove ? 1.35 : 1) + ext * 0.35);
                 if (!b.punchHit && t >= 0.08 && t < 0.2) {
                     const f = fwdOf(b.yaw);
                     for (const o of balls) {
                         if (o === b || !o.alive || o.pos.y < 0) continue;
                         const dx = o.pos.x - b.pos.x, dz = o.pos.z - b.pos.z;
                         const d = Math.hypot(dx, dz);
-                        if (d > 4.2) continue;
+                        if (d > (b.megaGlove ? 4.9 : 4.2)) continue;
                         const dot = (dx * f.x + dz * f.z) / (d || 1);
                         if (dot < 0.6) continue;
                         b.punchHit = true;
-                        const power = 17 * (1.15 - d / 9);
+                        const wasMega = b.megaGlove;
+                        b.megaGlove = false;
+                        const power = 17 * (wasMega ? 1.65 : 1) * (1.15 - d / 9);
                         o.vel.x += dx / d * power;
                         o.vel.z += dz / d * power;
                         o.lastHitBy = b.i; o.lastHitT = D.t;
                         b.vel.addScaledVector(f, -3);
+                        if (wasMega) playClip('sfx/Impact Sounds (Kenney)/Audio/impactBell_heavy_001.ogg', 0.45, 0.04);
                         SFX.thunk(); SFX.tone(220, 80, 0.2, 'square', 0.12); SFX.noise(0.12, 900, 'bandpass', 1, 0.4);
-                        BO.FX.spawnParticles(o.pos.clone(), 14, 0xfde68a, 6, 4, 0.35, 1.2);
-                        if (b.isPlayer) { S.hits++; S.data.landed = (S.data.landed || 0) + 1; MG.popup(o.pos.clone().add(V(0, 2, 0)), 'POW!', '#fde68a', true); }
+                        BO.FX.spawnParticles(o.pos.clone(), wasMega ? 26 : 14, wasMega ? 0xfacc15 : 0xfde68a, 6, 4, 0.35, 1.2);
+                        if (b.isPlayer) { S.hits++; S.data.landed = (S.data.landed || 0) + 1; MG.popup(o.pos.clone().add(V(0, 2, 0)), wasMega ? '★ MEGA POW!' : 'POW!', '#fde68a', true); }
                         if (o.isPlayer) { P.cameraShake = Math.max(P.cameraShake, 0.06); MG.flashScreen('rgba(250,204,21,0.25)'); }
                         break;
                     }
@@ -668,12 +722,20 @@
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('range');
+            if (BO.Assets) {
+                BO.Assets.applySkybox(S.scene, 'skybox-space.png');
+                BO.Assets.crossfadeMusic('music_curated/electronic-arpent-16ef39e0.m4a', { volume: 0.19, fadeSec: 0.8 });
+            }
             const drill = S.opts.drill && DRILLS[S.opts.drill] ? S.opts.drill : null;
-            Object.assign(S.data, { drill, flicks: [], shots: [], timeouts: 0, flickN: 0, trackOn: 0, trackTotal: 0, trackLag: 0, trackLagN: 0, flipOn: 0, flipTotal: 0, lastFlip: -9 });
+            Object.assign(S.data, { drill, flicks: [], shots: [], timeouts: 0, flickN: 0, bullseyes: 0, trackOn: 0, trackTotal: 0, trackLag: 0, trackLagN: 0, flipOn: 0, flipTotal: 0, lastFlip: -9 });
             if (drill) { S.duration = 45; MG.opts.variantLabel = 'DRILL • ' + DRILLS[drill].label.toUpperCase(); }
             lockPlayer(0, 0, 0, 1.6);
-            const floorMat = A.pbrMat('cyberpunk/Brutalist Concrete/bare-megablock-concrete-001.png', 10, 10, { color: 0xf1f5f9, roughness: 0.65 });
-            const wallMat = A.pbrMat('cyberpunk/Power Floor/blue-orange-cable-trench-floor-001.png', 10, 3, { color: 0xe2e8f0, roughness: 0.62 });
+            const floorMat = BO.Assets
+                ? BO.Assets.pbrMat('cyberpunk/Brutalist Concrete/bare-megablock-concrete-001.png', 10, 10, { color: 0xf1f5f9, roughness: 0.65 })
+                : A.pbrMat('cyberpunk/Brutalist Concrete/bare-megablock-concrete-001.png', 10, 10, { color: 0xf1f5f9, roughness: 0.65 });
+            const wallMat = BO.Assets
+                ? BO.Assets.pbrMat('cyberpunk/Power Floor/blue-orange-cable-trench-floor-001.png', 10, 3, { color: 0xe2e8f0, roughness: 0.62 })
+                : A.pbrMat('cyberpunk/Power Floor/blue-orange-cable-trench-floor-001.png', 10, 3, { color: 0xe2e8f0, roughness: 0.62 });
             const room = [
                 [0, 0.001, -12, 40, 40, -Math.PI / 2, 0, floorMat],
                 [0, 9, -12, 40, 40, Math.PI / 2, 0, floorMat],
@@ -690,19 +752,26 @@
                 S.add(m);
                 S.solid(m);
             }
-            // Perimeter industrial framing (keeps center target firing cones unobstructed)
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/shipping-container-a.glb', [
-                { pos: [-16.8, 0, -21], rot: Math.PI / 2, scale: 2.2 },
-                { pos: [16.8, 0, -21], rot: -Math.PI / 2, scale: 2.2 }
-            ]);
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank.glb', [
-                { pos: [-16.5, 0, -5], rot: 0, scale: 2.4 },
-                { pos: [16.5, 0, -5], rot: 0, scale: 2.4 }
-            ]);
-            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
-                { pos: [-14, 0, 1.5], rot: 0.2, scale: 1.8 },
-                { pos: [14, 0, 1.5], rot: -0.2, scale: 1.8 }
-            ]);
+            // Perimeter high-tech test lab & armory diagnostics benches (center firing cone stays 100% clear!)
+            if (BO.Assets) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/shipping-container-a.glb', [
+                    { pos: [-16.8, 0, -21], rot: Math.PI / 2, scale: 2.2 },
+                    { pos: [16.8, 0, -21], rot: -Math.PI / 2, scale: 2.2 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/detail-tank.glb', [
+                    { pos: [-16.5, 0, -5], rot: 0, scale: 2.4 },
+                    { pos: [16.5, 0, -5], rot: 0, scale: 2.4 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'blaster_kit/crate-wide.glb', [
+                    { pos: [-14, 0, 1.5], rot: 0.2, scale: 1.8 },
+                    { pos: [14, 0, 1.5], rot: -0.2, scale: 1.8 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/table.glb', { pos: [-4.2, 0, 1.2], rot: 0.3, fitSize: [1.8, 0.9, 1.0] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-a.glb', { pos: [-4.4, 0.95, 1.2], rot: 0.4, fitSize: [0.65, 0.35, 0.25] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/scope-large-a.glb', { pos: [-3.9, 0.95, 1.15], rot: -0.2, fitSize: [0.35, 0.2, 0.2] });
+                BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/table.glb', { pos: [4.2, 0, 1.2], rot: -0.3, fitSize: [1.8, 0.9, 1.0] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-k.glb', { pos: [4.2, 0.95, 1.2], rot: -0.4, fitSize: [0.7, 0.35, 0.25] });
+            }
             const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.05, 32), basic(0x22d3ee));
             pad.position.set(0, 0.03, 0);
             S.add(pad);
@@ -718,7 +787,10 @@
             }
             S.data.phaseLbl = null;
         },
-        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
+        dispose() {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.25);
+        },
         onGo(S) {
             const D = S.data;
             if (D.drill && DRILLS[D.drill].phase === 'track') aimStartTrack(S);
@@ -736,7 +808,9 @@
             if (!off) return;
             let flickDir = null;
             if (tg.flick) { const m = Math.hypot(tg.flick.dYaw, tg.flick.dPitch) || 1; flickDir = { x: -tg.flick.dYaw / m, y: tg.flick.dPitch / m }; }
-            D.shots.push({ x: off.x, y: off.y, phase: ph, flickDir, hit: Math.hypot(off.x, off.y) <= 1.02 });
+            const rNorm = Math.hypot(off.x, off.y);
+            D._lastShotBullseye = rNorm <= 0.36;
+            D.shots.push({ x: off.x, y: off.y, phase: ph, flickDir, hit: rNorm <= 1.02 });
         },
         onHit(S, ent, info) {
             const D = S.data;
@@ -752,6 +826,11 @@
                 D.flicks.push({ dYaw: f.dYaw, dPitch: f.dPitch, time: S.t - f.born, hit: true, phase: f.phase });
                 ent.flick = null;
             }
+            if (D._lastShotBullseye) {
+                D.bullseyes = (D.bullseyes || 0) + 1;
+                S.award(35, info.pt, 'BULLSEYE', '#fde047');
+                playClip('overhaul/combat/MW2Hitmarker.mp3', 0.32, 0.04);
+            }
             S.hitTarget(ent, info);
             SFX.ding(f_pitch(ent));
             if (ent.onDone) setTimeout(() => ent.onDone(), 0);
@@ -765,6 +844,7 @@
             if (ph !== D.phaseLbl) {
                 const was = D.phaseLbl;
                 D.phaseLbl = ph;
+                playClip('sfx/Digital Audio (Kenney)/Audio/pepSound2.ogg', 0.36, 0.04);
                 if (was !== null) {
                     if (D.active && D.active.alive) { D.active.onExpire = null; D.active.remove(); }
                     if (ph === 'track') { aimStartTrack(S); MG.toast('PHASE 2 • TRACKING — HOLD ON THE TARGET', '#facc15'); }
@@ -1052,6 +1132,7 @@
         D.intelCd = 0;
         D.missionShots = S.shots;
         D.missionHead = false;
+        playClip('rpg_sfx/bookOpen.ogg', 0.42, 0.04);
         SFX.tone(440, 440, 0.2, 'sine', 0.08);
         SFX.tone(660, 660, 0.3, 'sine', 0.08, 0.15);
     }
@@ -1118,31 +1199,40 @@
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('contracts');
+            if (BO.Assets) {
+                BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
+                BO.Assets.crossfadeMusic('music/FreePD CC0 Music Tracks/Epic Dramatic/epic-dramatic-assassin-77a083d2.m4a', { volume: 0.20, fadeSec: 0.8 });
+            }
             const D = S.data;
             const pick = /^c([1-6])$/.exec(S.opts.contract || '');
             Object.assign(D, { mission: pick ? +pick[1] - 1 : 0, single: pick ? +pick[1] - 1 : -1, walkers: [], targetsLeft: [], completed: 0, log: [], phase: 'brief', panic: 0, roofX: 0, intelCd: 0 });
             lockPlayer(0, 12, 0.3, 1.6);
             BO.Player.pitch = -0.32;
             // rooftop (lowered parapet so downward sniper shots are never obstructed!)
-            S.box(0, 6, 4, 15, 12, 8, std(0x78716c, 0.9), { solid: true });
+            const roofMat = BO.Assets
+                ? BO.Assets.pbrMat('cyberpunk/Brutalist Concrete/dusty-roof-parapet-concrete-001.png', 4, 3, { roughness: 0.88 })
+                : std(0x78716c, 0.9);
+            S.box(0, 6, 4, 15, 12, 8, roofMat, { solid: true });
             S.box(0, 12.32, -0.15, 15, 0.64, 0.3, std(0x57534e, 0.9), { solid: false, collide: false });
             const ac = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.2), std(0x9ca3af, 0.5, 0.6));
             ac.position.set(-5.5, 12.6, 3);
             S.add(ac);
-            // plaza
-            const stone = L.canvasTex('plaza-stone', 256, 256, (g, w, h) => {
-                g.fillStyle = '#d6d3d1'; g.fillRect(0, 0, w, h);
-                for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x * 3 + y * 5) % 7 < 2 ? '#c7c2bd' : '#e7e5e4'; g.fillRect(x * 32 + 1, y * 32 + 1, 30, 30); }
-            });
-            stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
-            stone.repeat.set(12, 10);
-            const plaza = new THREE.Mesh(new THREE.PlaneGeometry(60, 50), new THREE.MeshStandardMaterial({ map: stone, roughness: 0.9 }));
+            if (BO.Assets) {
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-medium.glb', { pos: [5.4, 12.0, 2.4], rot: -0.35, fitSize: [1.3, 1.1, 1.3] });
+                BO.Assets.placeGLB(S.scene, 'weapons/cheytac_m200_intervention.glb', { pos: [5.35, 13.12, 2.35], rot: 0.6, fitSize: [1.35, 0.42, 0.25] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/scope-large-b.glb', { pos: [-4.0, 12.65, 0.05], rot: 0.2, fitSize: [0.42, 0.24, 0.24] });
+            }
+            // plaza PBR stone pavers
+            const plazaMat = BO.Assets
+                ? BO.Assets.pbrMat('cyberpunk/Public Plaza Civic/sunlit-plaza-pavers-001.png', 14, 12, { roughness: 0.88 })
+                : std(0xd6d3d1, 0.9);
+            const plaza = new THREE.Mesh(new THREE.PlaneGeometry(60, 50), plazaMat);
             plaza.rotation.x = -Math.PI / 2;
             plaza.position.set(0, 0.01, -41);
             plaza.receiveShadow = true;
             S.add(plaza);
             S.solid(plaza);
-            // fountain
+            // fountain + crowning 3D statue
             const basin = new THREE.Mesh(new THREE.CylinderGeometry(PLAZA.fr, PLAZA.fr + 0.3, 0.8, 32), std(0xa8a29e, 0.7));
             basin.position.set(0, 0.4, PLAZA.fz);
             S.add(basin); S.solid(basin);
@@ -1150,9 +1240,12 @@
             water.rotation.x = -Math.PI / 2;
             water.position.set(0, 0.75, PLAZA.fz);
             S.add(water);
-            const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2.6, 12), std(0xa8a29e, 0.7));
-            spire.position.set(0, 1.9, PLAZA.fz);
+            const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2.2, 12), std(0xa8a29e, 0.7));
+            spire.position.set(0, 1.7, PLAZA.fz);
             S.add(spire); S.solid(spire);
+            if (BO.Assets) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/statue.glb', { pos: [0, 2.75, PLAZA.fz], fitSize: [1.5, 2.6, 1.5] });
+            }
             // Warm European Market String Lights crisscrossing the plaza!
             const strPts = [
                 ...A.sagPoints(V(-24, 6.2, -26), V(24, 6.2, -26), 14, 1.1),
@@ -1162,7 +1255,12 @@
             S.add(plazaBulbs); A.animateBulbs(S, plazaBulbs, 4, 'chase');
             // trees (kept clear of the right-side getaway car sightline!), benches, lamps, market stalls
             const rnd = L.mulberry32(77);
-            for (const [x, z] of [[-24, -26], [-24, -58], [-24, -42], [-10, -60], [10, -60]]) { const t = A.tree(1.6 + rnd() * 0.5); t.position.set(x, 0, z); S.add(t); }
+            for (const [x, z] of [[-24, -26], [-24, -58], [-24, -42], [-10, -60], [10, -60]]) {
+                const t = A.tree(1.6 + rnd() * 0.5); t.position.set(x, 0, z); S.add(t);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(S.scene, 'city_suburban_kit/tree-large.glb', { pos: [x, 0, z], fitSize: [4.2, 6.5, 4.2], hideFallback: t });
+                }
+            }
             for (let i = 0; i < 8; i++) {
                 const a = i / 8 * TAU;
                 const bench = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 0.5), std(0x7c4a1e, 0.8));
@@ -1189,19 +1287,32 @@
                 for (const sx of [-1.5, 1.5]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.6, 6), std(0xe5e7eb, 0.5)); p.position.set(sx, 1.3, -0.7); st.add(p); }
                 st.position.set(-18 + i * 9, 0, -61);
                 S.add(st);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [-18 + i * 9, 0, -61], fitSize: [3.6, 3.0, 2.2], hideFallback: st });
+                    BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-cargo-crate.glb', { pos: [-16.2 + i * 9, 0, -60.2], rot: i * 0.4, fitSize: [0.9, 0.9, 0.9] });
+                }
             }
-            // surrounding buildings
+            // surrounding European / suburban city buildings
+            const bldModels = ['city_suburban_kit/building-type-a.glb', 'city_suburban_kit/building-type-c.glb', 'city_suburban_kit/building-type-f.glb', 'city_suburban_kit/building-type-k.glb'];
             for (let i = 0; i < 10; i++) {
                 const side = i < 5 ? -1 : 1;
                 const h = 10 + (i * 7) % 12;
+                const bx = side * 34, bz = -20 - (i % 5) * 11;
                 const b = A.building(10, h, 10, [0xd6d3d1, 0xfde68a, 0xfca5a5, 0xbfdbfe, 0xe7e5e4][i % 5], i + 3, 0.3, false);
-                b.position.set(side * 34, h / 2, -20 - (i % 5) * 11);
+                b.position.set(bx, h / 2, bz);
                 S.add(b);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(S.scene, bldModels[i % bldModels.length], { pos: [bx, 0, bz], rot: side < 0 ? Math.PI / 2 : -Math.PI / 2, fitSize: [10.5, h, 10.5], hideFallback: b });
+                }
             }
             for (let i = 0; i < 5; i++) {
-                const b = A.building(11, 12 + i * 2, 10, [0xe7e5e4, 0xd6d3d1, 0xfde68a][i % 3], 20 + i, 0.3, false);
-                b.position.set(-24 + i * 12, (12 + i * 2) / 2, -72);
+                const h = 12 + i * 2, bx = -24 + i * 12, bz = -72;
+                const b = A.building(11, h, 10, [0xe7e5e4, 0xd6d3d1, 0xfde68a][i % 3], 20 + i, 0.3, false);
+                b.position.set(bx, h / 2, bz);
                 S.add(b);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(S.scene, bldModels[(i + 1) % bldModels.length], { pos: [bx, 0, bz], rot: 0, fitSize: [11.2, h, 10.5], hideFallback: b });
+                }
             }
             // the getaway car (with glowing brake lights + visible sign on Contract 6!)
             const car = new THREE.Group();
@@ -1222,7 +1333,10 @@
             S.add(car);
             contractStart(S);
         },
-        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
+        dispose() {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.25);
+        },
         onKey(S, code) {
             const D = S.data;
             if (MG.state !== 'running') return false;
@@ -1234,6 +1348,7 @@
                 const tgt = D.targetsLeft[0];
                 const p = tgt.root.position;
                 const quad = (p.z < PLAZA.fz ? 'NORTH' : 'SOUTH') + '-' + (p.x < 0 ? 'WEST' : 'EAST');
+                playClip('ui/Interface Sounds (Kenney)/Audio/confirmation_002.ogg', 0.42, 0.03);
                 SFX.ding(1.3);
                 MG.toast(`📡 SPOTTER INTEL: MARK SPOTTED IN ${quad} PLAZA!`, '#fde047');
                 const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.1, 24), basic(0xfde047, { side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));

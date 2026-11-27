@@ -196,12 +196,35 @@
         duration: 60, stars: [4000, 8000, 13000, 19000], standardWeapon: 'm4a1', ringScoring: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x2563eb, skyBottom: 0xfed7aa, fogColor: 0xf3d9b8, fogDensity: 0.006, sunColor: 0xffe2b0, sunIntensity: 1.9, sunPos: [-40, 38, 30], hemiSky: 0xdbeafe, hemiGround: 0x6b5a3e, hemiIntensity: 0.8 },
+            skybox: 'skybox-day.png',
             boxes: [B(0, -0.5, -20, 140, 1, 140, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('range');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
             K.booth(S, { awning: '#b91c1c' });
+            // 3D firing-line armory racks, ammo crates, range targets & industrial firing-line buildings
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.8, 0, -0.4], rot: 0.35, scale: 1.55 });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [2.8, 0, -0.4], rot: -0.35, scale: 1.55 });
+                BO.Assets.placeGLBInstanced(S.scene, 'blaster_kit/crate-wide.glb', [
+                    { pos: [-4.2, 0, -1.2], rot: 0.2, scale: 1.65 },
+                    { pos: [4.2, 0, -1.2], rot: -0.25, scale: 1.65 },
+                    { pos: [-12.5, 0, -8.5], rot: 0.1, scale: 1.8 },
+                    { pos: [12.5, 0, -8.5], rot: -0.15, scale: 1.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/target.glb', [
+                    { pos: [-13.2, 0, -12], rot: 0.18, scale: 1.6 },
+                    { pos: [13.2, 0, -12], rot: -0.18, scale: 1.6 },
+                    { pos: [-13.8, 0, -24], rot: 0.15, scale: 1.7 },
+                    { pos: [13.8, 0, -24], rot: -0.15, scale: 1.7 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/building-b.glb', { pos: [-24, 0, -14], rot: Math.PI / 2, scale: 4.2 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/building-f.glb', { pos: [24, 0, -16], rot: -Math.PI / 2, scale: 4.2 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-26, 0, -34], scale: 3.2 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/shipping-container-a.glb', { pos: [22, 0, -34], rot: -0.3, scale: 2.2 });
+            }
             // bench props: olive ammo can + shell box on left, spotting scope on right
             const ammoCan = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.20, 0.18), std(0x3f6212, 0.65, 0.35));
             ammoCan.position.set(-1.25, 1.20, -0.76); ammoCan.rotation.y = 0.25; S.add(ammoCan);
@@ -325,7 +348,15 @@
                         deathColor: isGold ? 0xfacc15 : 0xfafafa,
                         onKill: () => {
                             if (BO.MinigameAudio) BO.MinigameAudio.steelPing(isGold ? 1.38 : 0.95 + Math.random() * 0.15);
-                            if (isGold) { SFX.ding(1.6); S2.award(150, tg.root.position.clone().add(V(0, 0.7, 0)), 'GOLD PLATE!', '#facc15'); }
+                            if (BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: isGold ? 0.45 : 0.3, rateJitter: 0.07 });
+                                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.28, rateJitter: 0.06 });
+                            }
+                            if (isGold) {
+                                SFX.ding(1.6);
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.45, rateJitter: 0.05 });
+                                S2.award(150, tg.root.position.clone().add(V(0, 0.7, 0)), 'GOLD PLATE!', '#facc15');
+                            }
                         }
                     }));
                     SFX.clack();
@@ -366,7 +397,8 @@
         hudSub: 'Epic 50m drop + Broken Track Airborne Ramp Jump!',
         duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'mp7_navy', ringScoring: true, rail: true, customMusic: true,
         map: {
-            atmosphere: { skyTop: 0x0ea5e9, skyBottom: 0xe0f2fe, fogColor: 0xcde9f6, fogDensity: 0.004, sunColor: 0xfff7e6, sunIntensity: 1.8, sunPos: [60, 90, 40], hemiSky: 0xe0f2fe, hemiGround: 0x4d7c0f, hemiIntensity: 0.9 },
+            atmosphere: { skyTop: 0x090d1f, skyBottom: 0x312e81, fogColor: 0x1e1b4b, fogDensity: 0.0032, sunColor: 0xfde68a, sunIntensity: 1.35, sunPos: [60, 90, 40], hemiSky: 0x93c5fd, hemiGround: 0x1e293b, hemiIntensity: 0.88, moon: true },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, 0, 420, 1, 420, 'nuketown_grass')],
             spawn: { x: COASTER_PTS[0].x, y: COASTER_PTS[0].y, z: COASTER_PTS[0].z, yaw: 0 }
         },
@@ -375,6 +407,7 @@
                 BO.MinigameAudio.start('pinball');
                 S.animate((dt) => BO.MinigameAudio.tick(dt));
             }
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
             const R = K.rail(COASTER_PTS, true, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
@@ -513,11 +546,47 @@
                 t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
                 S.add(t);
             }
-            // station at the start
+            // station at the start + 3D Castle, Crypt, Industrial & Monster Trackside Setpieces!
             const st = new THREE.Mesh(new THREE.BoxGeometry(6, 0.4, 14), std(0x78716c, 0.8));
             const p0 = R.curve.getPointAt(0);
             st.position.set(p0.x, p0.y - 0.9, p0.z);
             S.add(st);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                for (const [uPos, sideDist, hex] of [[0.08, 16, true], [0.24, -18, false], [0.42, 17, true], [0.78, -16, false]]) {
+                    const tp = R.curve.getPointAt(uPos), tt = R.curve.getTangentAt(uPos);
+                    const sV = new THREE.Vector3().crossVectors(tt, up).normalize();
+                    const wp = tp.clone().addScaledVector(sV, sideDist);
+                    if (BO.CourseScenery && BO.CourseScenery.castleTowerProp) {
+                        BO.CourseScenery.castleTowerProp(S.scene, wp.x, 0, wp.z, Math.atan2(-sV.x * sideDist, -sV.z * sideDist), hex, 3.6);
+                    }
+                }
+                for (const [uCrypt, sd] of [[0.28, 13], [0.33, -13]]) {
+                    const cp = R.curve.getPointAt(uCrypt), ct = R.curve.getTangentAt(uCrypt);
+                    const sV = new THREE.Vector3().crossVectors(ct, up).normalize();
+                    const wp = cp.clone().addScaledVector(sV, sd);
+                    BO.Assets.placeGLB(S.scene, 'graveyard_kit/crypt-large.glb', { pos: [wp.x, 0, wp.z], rot: uCrypt * 6, scale: 2.8 });
+                }
+                for (const [uInd, sd] of [[0.54, -16], [0.65, 16]]) {
+                    const ip = R.curve.getPointAt(uInd), it = R.curve.getTangentAt(uInd);
+                    const sV = new THREE.Vector3().crossVectors(it, up).normalize();
+                    const wp = ip.clone().addScaledVector(sV, sd);
+                    BO.Assets.placeGLB(S.scene, 'city_industrial_kit/building-d.glb', { pos: [wp.x, 0, wp.z], scale: 4.5 });
+                    BO.Assets.placeGLB(S.scene, 'city_industrial_kit/chimney-large.glb', { pos: [wp.x + 4, 0, wp.z - 4], scale: 3.4 });
+                }
+                const impTr = [], pugTr = [];
+                for (let mi = 0; mi < 10; mi++) {
+                    const mu = (0.06 + mi * 0.09) % 1;
+                    if (mu > COASTER_GAP_U0 && mu < COASTER_GAP_U1) continue;
+                    const mp = R.curve.getPointAt(mu), mt = R.curve.getTangentAt(mu);
+                    const sV = new THREE.Vector3().crossVectors(mt, up).normalize();
+                    const sd = (mi % 2 ? 1 : -1) * 5.2;
+                    const wp = mp.clone().addScaledVector(sV, sd);
+                    const entry = { pos: [wp.x, 0, wp.z], rot: Math.atan2(mp.x - wp.x, mp.z - wp.z), scale: 2.2 };
+                    if (mi % 2 === 0) impTr.push(entry); else pugTr.push(entry);
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'monsters/Imp.glb', impTr);
+                BO.Assets.placeGLBInstanced(S.scene, 'monsters/Puglin.glb', pugTr);
+            }
             this.preUpdate(S, 0, L, 'countdown');
         },
         preUpdate(S, dt, lib, state) {
@@ -569,6 +638,7 @@
                 const radius = lerp(0.62, 0.42, k);
                 const life = lerp(2.9, 1.6, k);
                 const spin = float && rng() < 0.5;
+                const isChest = !float && rng() < 0.16;
                 S.at(at, (S2) => {
                     const R = S2.data.rail;
                     const u = ((((S2.data.dist + ahead) / R.len) % 1) + 1) % 1;
@@ -577,12 +647,39 @@
                     const sideV = new THREE.Vector3().crossVectors(tan, V(0, 1, 0)).normalize();
                     const pos = p.clone().addScaledVector(sideV, side);
                     pos.y = float ? p.y + 1 + rise : Math.max(0, p.y - 3 + rise);
+                    const look = R.curve.getPointAt(((((S2.data.dist + ahead * 0.35) / R.len) % 1) + 1) % 1);
+                    if (isChest) {
+                        const cg = new THREE.Group();
+                        const boxFallback = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.85), std(0xfacc15, 0.25, 0.85));
+                        boxFallback.position.y = 0.45;
+                        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.06, 8, 20), basic(0xfde047));
+                        halo.rotation.x = Math.PI / 2; halo.position.y = 0.12;
+                        cg.add(boxFallback, halo);
+                        if (BO.Assets && BO.Assets.placeGLB) {
+                            BO.Assets.placeGLB(cg, 'mini_dungeon_kit/chest.glb', { fitSize: [1.35, 1.15, 1.05], hideFallback: boxFallback });
+                        }
+                        const ctg = S2.addTarget({
+                            mesh: cg, hitMeshes: [boxFallback, halo], pos: V(pos.x, Math.max(0, pos.y), pos.z), yaw: A.yawTo(pos, look),
+                            points: 450, bonus: true, life: life * 1.15, appear: 'scale', death: 'burst', deathColor: 0xfacc15,
+                            onKill: () => {
+                                SFX.fanfare();
+                                if (BO.Assets && BO.Assets.playClip) {
+                                    BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.48, rateJitter: 0.05 });
+                                    BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.4, rateJitter: 0.05 });
+                                }
+                                S2.award(200, ctg.root.position.clone().add(V(0, 1.1, 0)), 'GOLDEN CHEST!', '#fde047');
+                            }
+                        });
+                        return;
+                    }
                     const t = float ? A.bullseye(radius, 0, 'olympic') : A.bullseye(radius, 1.4);
                     if (float) t.mesh.children.slice(1).forEach((c) => (c.visible = false));
-                    const look = R.curve.getPointAt(((((S2.data.dist + ahead * 0.35) / R.len) % 1) + 1) % 1);
                     S2.addTarget(Object.assign(t, {
                         pos, yaw: A.yawTo(pos, look), points: 120, life, appear: float ? 'spin' : 'flip', death: float ? 'tumble' : 'knock',
-                        motion: spin ? (tg, tt, out) => { out.set(0, Math.sin(tt * 3) * 0.6, 0); } : null
+                        motion: spin ? (tg, tt, out) => { out.set(0, Math.sin(tt * 3) * 0.6, 0); } : null,
+                        onKill: () => {
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.28, rateJitter: 0.07 });
+                        }
                     }));
                 });
             });
@@ -681,6 +778,27 @@
                 }
             }
             if (stoneTr.length) L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_dungeon_kit/stones.glb', stoneTr);
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const bannerTr = [], brazierTr = [], lionTr = [], trapTr = [];
+                for (let i = 2; i < n - 2; i += 4) {
+                    const u = (i + 0.5) / n;
+                    const p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u);
+                    const yaw = Math.atan2(t.x, t.z), side = V(Math.cos(yaw), 0, -Math.sin(yaw));
+                    for (const s of [-1, 1]) {
+                        bannerTr.push({ pos: [p.x + side.x * s * 3.48, 3.6, p.z + side.z * s * 3.48], rot: yaw - s * Math.PI / 2, scale: 1.55 });
+                        brazierTr.push({ pos: [p.x + side.x * s * 3.15, 0, p.z + side.z * s * 3.15], rot: yaw, scale: 1.35 });
+                    }
+                    if (i % 12 === 2) {
+                        for (const s of [-1, 1]) lionTr.push({ pos: [p.x + side.x * s * 2.95, 0, p.z + side.z * s * 2.95], rot: yaw - s * Math.PI / 2, scale: 1.45 });
+                    }
+                    if (i % 8 === 6) trapTr.push({ pos: [p.x, 0.02, p.z], rot: yaw, scale: 1.5 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_dungeon_kit/banner.glb', bannerTr);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', brazierTr);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', lionTr);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_dungeon_kit/trap.glb', trapTr);
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', { pos: [TEMPLE_PTS[0].x, 0, 6], scale: 1.45 });
+            }
             void colTr;
             // ceiling
             const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, R.len + 40), std(0x2a1d10, 1));
@@ -797,11 +915,39 @@
                     const t = kind === 'floor' ? A.bullseye(radius, 1.25, 'classic') : A.bullseye(radius, 0, 'classic');
                     if (kind !== 'floor') t.mesh.children.slice(1).forEach((c) => (c.visible = false));
                     const face = R.curve.getPointAt(clamp01((S2.data.dist + 2) / R.len));
+                    const isGoldenIdol = kind === 'floor' && rng() < 0.22;
+                    if (isGoldenIdol) {
+                        const ig = new THREE.Group();
+                        const idolCore = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), std(0xfacc15, 0.2, 0.9, { emissive: 0xa16207, emissiveIntensity: 0.6 }));
+                        idolCore.position.y = 0.85;
+                        const pedBase = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.42, 0.55, 8), std(0x78716c, 0.85));
+                        pedBase.position.y = 0.28;
+                        ig.add(pedBase, idolCore);
+                        if (BO.Assets && BO.Assets.placeGLB) {
+                            BO.Assets.placeGLB(ig, 'mini_arena_kit/trophy.glb', { pos: [0, 0.42, 0], fitSize: [0.85, 1.05, 0.85], hideFallback: idolCore });
+                        }
+                        const itg = S2.addTarget({
+                            mesh: ig, hitMeshes: [idolCore, pedBase], pos, yaw: A.yawTo(pos, face),
+                            points: 400, bonus: true, life: life * 1.15, appear: 'rise', riseDepth: 1.5, death: 'burst', deathColor: 0xfacc15,
+                            onKill: () => {
+                                SFX.fanfare();
+                                if (BO.Assets && BO.Assets.playClip) {
+                                    BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.48, rateJitter: 0.05 });
+                                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.05 });
+                                }
+                                S2.award(180, itg.root.position.clone().add(V(0, 1.2, 0)), 'GOLDEN IDOL!', '#fde047');
+                            }
+                        });
+                        return;
+                    }
                     S2.addTarget(Object.assign(t, {
                         pos, yaw: A.yawTo(pos, face), points: 120, life,
                         appear: kind === 'wall' ? 'slide' : kind === 'ceiling' ? 'drop' : 'rise', slideDir: -side, slideDist: 1.4, riseDepth: kind === 'floor' ? 1.6 : 2.2,
                         death: kind === 'floor' ? 'knock' : 'tumble',
-                        motion: swing ? (tg, tt, out) => { out.set(Math.sin(tt * 2.6) * 1.1, Math.cos(tt * 5.2) * 0.12, 0); } : null
+                        motion: swing ? (tg, tt, out) => { out.set(Math.sin(tt * 2.6) * 1.1, Math.cos(tt * 5.2) * 0.12, 0); } : null,
+                        onKill: () => {
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.28, rateJitter: 0.07 });
+                        }
                     }));
                 });
             });
@@ -821,12 +967,28 @@
         duration: 60, stars: [2000, 4000, 6500, 9000], standardWeapon: 'm1014_cod4', forgivingMisses: false, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1d4ed8, skyBottom: 0xbfdbfe, fogColor: 0xc7d9ee, fogDensity: 0.004, sunColor: 0xfffbeb, sunIntensity: 1.7, sunPos: [20, 70, 50], hemiSky: 0xdbeafe, hemiGround: 0x3f6212, hemiIntensity: 0.9 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -0.5, -30, 240, 1, 240, 'nuketown_grass')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('range');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             K.booth(S, { roof: false, w: 3.6, wood: 0x9a7448 });
+            if (BO.Assets && BO.Assets.placeGLB) {
+                // 3D Forest Club Lodge, Weapon Rack, Fence Line & Instanced Pines
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/building-structure.glb', { pos: [-19, 0, -4], rot: 0.45, scale: 3.2 });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/building-roof.glb', { pos: [-19, 3.1, -4], rot: 0.45, scale: 3.2 });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.8, 0, -0.6], rot: 0.3, scale: 1.5 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [2.8, 0, -0.7], rot: -0.25, scale: 1.55 });
+                const fenceTr = [], forestTr = [];
+                for (let fx = -38; fx <= 38; fx += 4) fenceTr.push({ pos: [fx, 0, -58], scale: 1.9 });
+                for (let fi = 0; fi < 34; fi++) {
+                    forestTr.push({ pos: [-68 + fi * 4.1, 0, -64 - (fi % 4) * 6], rot: fi * 0.9, scale: 2.8 + (fi % 3) * 0.6 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/fence.glb', fenceTr);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/tree-high.glb', forestTr);
+            }
             const house = (x, h, col, label) => {
                 const g = new THREE.Group();
                 const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, h, 3.2), std(col, 0.8));
@@ -928,7 +1090,12 @@
                     outT: 0.05,
                     onKill: () => {
                         SFX.shatter();
+                        if (BO.Assets && BO.Assets.playClip) {
+                            BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_001.ogg', { volume: 0.36, rateJitter: 0.09 });
+                            if (golden) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.46, rateJitter: 0.05 });
+                        }
                         if (golden && BO.MinigameAudio) BO.MinigameAudio.steelPing(1.5);
+                        if (golden) S2.award(150, tg.root.position.clone().add(V(0, 0.8, 0)), 'GOLDEN CLAY!', '#fde047');
                         if (S2.t - S2.data.lastKill < 1.0) {
                             S2.award(100, tg.root.position.clone().add(V(0, 0.8, 0)), 'DOUBLE!', '#38bdf8');
                         }
@@ -944,7 +1111,7 @@
                 const speed = lerp(13, 21, k) + rng() * 2;
                 const up = lerp(9, 12, rng());
                 const cross = (rng() - 0.5) * 6;
-                const golden = rng() < 0.06;
+                const golden = rng() < 0.14;
                 S.at(at, (S2) => launch(S2, from, speed, up, cross, golden));
                 if (k > 0.25 && rng() < k * 0.75) {
                     const other = from === 'high' ? 'low' : 'high';
@@ -1078,6 +1245,43 @@
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
                 { pos: [4.5, 0, -14], rot: 0.2, scale: 1.4 }, { pos: [-5.0, 0, -39], rot: -0.3, scale: 1.4 }
             ]);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', { pos: [2.8, 0, -19.5], scale: 1.55 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [-5.6, 0, -22.5], rot: Math.PI / 2, scale: 1.65 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [5.6, 0, -36.5], rot: -Math.PI / 2, scale: 1.65 });
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', [
+                    { pos: [-5.8, 0, -11.5], scale: 1.35 }, { pos: [5.8, 0, -11.5], scale: 1.35 },
+                    { pos: [-5.8, 0, -45.5], scale: 1.35 }, { pos: [5.8, 0, -45.5], scale: 1.35 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-hanging-trade-sign.glb', [
+                    { pos: [-6.8, 4.2, -12], rot: Math.PI / 2, scale: 1.35 },
+                    { pos: [6.8, 4.2, -21.5], rot: -Math.PI / 2, scale: 1.35 }
+                ]);
+            }
+            // Shootable Explosive Chain Barrels in Main Street!
+            if (BO.CourseScenery && BO.CourseScenery.explosiveBarrel) {
+                for (const [bx, bz] of [[-2.2, -19.5], [2.4, -30.5], [-1.8, -43.5]]) {
+                    const eb = BO.CourseScenery.explosiveBarrel();
+                    S.addTarget({
+                        mesh: eb.group, hitMeshes: eb.hitMeshes, pos: V(bx, 0, bz), points: 220, bonus: true, life: 0,
+                        appear: 'none', inT: 0.01, death: 'burst', deathColor: 0xf97316,
+                        onKill: (tg) => {
+                            const c = tg.root.position.clone().add(V(0, 0.7, 0));
+                            BO.FX.spawnExplosion(c, 4.8, 0xf97316);
+                            BO.Sound.playExplosion(0.5);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.48, rateJitter: 0.06 });
+                            for (const other of S.targets) {
+                                if (!other.alive || other === tg || other.penalty > 0) continue;
+                                if (other.root.position.distanceTo(c) < 8.5) {
+                                    S.award(180, other.root.position.clone().add(V(0, 1.4, 0)), 'DYNAMITE BLAST!', '#fb923c');
+                                    other.kill({ pt: other.root.position.clone() });
+                                }
+                            }
+                        }
+                    });
+                }
+            }
             const wagon = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 1.8), std(0x854d0e, 0.9));
             wagon.position.set(-1, 1.1, -28);
             S.add(wagon);
@@ -1153,7 +1357,11 @@
                     S2.addTarget(Object.assign(t, {
                         pos: sl.pos.clone(), yaw, points: 120, penalty: civ ? 300 : 0, penaltyLabel: 'CIVILIAN!', life: civ ? life * 1.2 : life,
                         appear, slideDist: 1.1, slideDir: sl.yawSide || 1, riseDepth: 1.3 * sl.scale + 0.4, death: 'knock', deathColor: 0xc8a36a,
-                        onKill: () => { SFX.thunk(); free(); },
+                        onKill: () => {
+                            SFX.thunk();
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.07 });
+                            free();
+                        },
                         onExpire: () => {
                             free();
                             if (!civ && S2.rt.state === 'running') {

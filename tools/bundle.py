@@ -69,8 +69,6 @@ def classify_script(path: str) -> str:
         or path.startswith("src/systems/Survival")
         or path.startswith("src/systems/Zone")
         or path in (
-            "src/engine/WorldCore.js",
-            "src/systems/SpatialHash.js",
             "src/systems/NodeBatch.js",
             "src/modes/SurvivalMode.js",
             "src/ui/SurvivalIcons.js",

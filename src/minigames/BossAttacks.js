@@ -137,6 +137,9 @@
 
     const geoCache = new Map();
     const sphere = (r) => { const k = Math.round(r * 100); if (!geoCache.has(k)) geoCache.set(k, new THREE.SphereGeometry(r, 10, 8)); return geoCache.get(k); };
+    function playClip(rel, volume = 0.36, rateJitter = 0.08) {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(rel, { volume, rateJitter });
+    }
 
     /* -------------------------------------------------------------- runner */
     class Runner {
@@ -225,11 +228,17 @@
         /* ---------------- projectiles */
         shoot(origin, dir, st, extra) {
             const size = st.size || 0.35;
-            const mesh = new THREE.Mesh(sphere(size), basic(st.color || 0xffffff));
-            if (st.flat) mesh.scale.set(2.2, 0.35, 1);
-            mesh.position.copy(origin);
-            this.S.add(mesh);
-            this.proj.push(Object.assign({ mesh, pos: origin.clone(), vel: dir.clone().multiplyScalar(st.speed || 15), size, dmg: this.dmg(st.n > 4 ? 0.45 : 0.75), grav: st.grav || 0, life: st.life || 5, color: st.color, splash: st.splash || 0, tier: this._tier }, extra || {}));
+            const grp = new THREE.Group();
+            const core = new THREE.Mesh(sphere(size), basic(st.color || 0xffffff));
+            if (st.flat) core.scale.set(2.2, 0.35, 1);
+            grp.add(core);
+            const isBoulder = (st.grav && size >= 0.4) || size >= 0.85;
+            if (isBoulder && BO.Assets) {
+                BO.Assets.placeGLB(grp, 'castle_kit/rocks-small.glb', { pos: [0, -size * 0.4, 0], fitSize: [size * 2.2, size * 2.2, size * 2.2] });
+            }
+            grp.position.copy(origin);
+            this.S.add(grp);
+            this.proj.push(Object.assign({ mesh: grp, spin: isBoulder, pos: origin.clone(), vel: dir.clone().multiplyScalar(st.speed || 15), size, dmg: this.dmg(st.n > 4 ? 0.45 : 0.75), grav: st.grav || 0, life: st.life || 5, color: st.color, splash: st.splash || 0, tier: this._tier }, extra || {}));
         }
         p_fan(st) {
             const o = this.eye();
@@ -300,6 +309,7 @@
                 const wall = len > 0 ? BO.World.raycastWorld(p.pos, step.clone().divideScalar(len), len + p.size) : null;
                 p.pos.add(step);
                 p.mesh.position.copy(p.pos);
+                if (p.spin) { p.mesh.rotation.x += dt * 4.5; p.mesh.rotation.z += dt * 3.2; }
                 const hit = P.alive && p.pos.distanceTo(pc) < p.size + 0.55;
                 const ground = p.pos.y < 0.1;
                 if (hit) this.hitPlayer(p.dmg, p.pos, false);
@@ -313,6 +323,7 @@
         }
         _splash(pos, r, dmg, color) {
             BO.FX.spawnExplosion(pos.clone(), r, color || 0xffffff);
+            playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', 0.35, 0.08);
             const P = BO.Player;
             if (P.alive && Math.hypot(P.pos.x - pos.x, P.pos.z - pos.z) < r && P.pos.y < pos.y + r) this.hitPlayer(dmg, pos, true);
         }
@@ -331,12 +342,22 @@
         clampIn(x, z, pad = 2) { const r = Math.hypot(x, z), R = this.arenaR - pad; return r > R ? [x / r * R, z / r * R] : [x, z]; }
         p_rain(st) {
             const P = BO.Player;
+            const useObelisk = this.boss.spec.id === 'super_seraph_harbinger' || this.boss.spec.id === 'super_titan_colossus';
+            const glb = useObelisk ? 'graveyard_kit/pillar-obelisk.glb' : 'castle_kit/rocks-large.glb';
             for (let i = 0; i < st.n; i++) {
                 const make = () => {
                     let x = P.pos.x, z = P.pos.z;
                     if (!st.follow) { x += (Math.random() - 0.5) * 2 * (st.scatter || 6); z += (Math.random() - 0.5) * 2 * (st.scatter || 6); if (i === 0) { x = P.pos.x; z = P.pos.z; } }
                     [x, z] = this.clampIn(x, z);
-                    this.haz.push({ kind: 'rain', x, z, r: st.r, t: 0, delay: st.delay, color: st.color, meshes: this.decal(x, z, st.r, st.color), dmg: this.dmg(0.9) });
+                    const fallMesh = new THREE.Group();
+                    const core = new THREE.Mesh(sphere(Math.min(1.1, st.r * 0.36)), basic(st.color));
+                    fallMesh.add(core);
+                    if (BO.Assets) {
+                        BO.Assets.placeGLB(fallMesh, glb, { pos: [0, -0.5, 0], fitSize: [st.r * 0.9, st.r * 1.15, st.r * 0.9], hideFallback: core });
+                    }
+                    fallMesh.position.set(x, 19, z);
+                    this.S.add(fallMesh);
+                    this.haz.push({ kind: 'rain', x, z, r: st.r, t: 0, delay: st.delay, color: st.color, mesh: fallMesh, meshes: this.decal(x, z, st.r, st.color), dmg: this.dmg(0.9) });
                 };
                 if (st.follow && i > 0) this.tasks.push({ t: i * (st.seq || 0.4), tier: this._tier, step: { p: '_fn', fn: make } });
                 else make();
@@ -344,15 +365,24 @@
         }
         p_mines(st) {
             const P = BO.Player;
+            playClip('rpg_sfx/metalClick.ogg', 0.38, 0.08);
+            const isTech = this.boss.spec.id === 'super_dreadnought_mech' || this.boss.spec.id === 'boss_colossus';
+            const glb = isTech ? 'blaster_kit/grenade-a.glb' : 'mini_dungeon_kit/trap.glb';
             for (let i = 0; i < st.n; i++) {
                 let x, z;
                 if (st.ringR) { const a = i / st.n * Math.PI * 2; x = this.boss.pos.x + Math.sin(a) * st.ringR; z = this.boss.pos.z + Math.cos(a) * st.ringR; }
                 else { const a = Math.random() * Math.PI * 2, r = 3 + Math.random() * 14; x = P.pos.x * 0.4 + Math.sin(a) * r; z = P.pos.z * 0.4 + Math.cos(a) * r; }
                 [x, z] = this.clampIn(x, z);
-                const mesh = new THREE.Mesh(sphere(0.35), basic(st.color));
-                mesh.position.set(x, 0.35, z);
-                this.S.add(mesh);
-                this.haz.push({ kind: 'mine', x, z, r: st.r, t: 0, delay: st.delay + i * 0.08, color: st.color, mesh, meshes: this.decal(x, z, st.r, st.color, 0.4), dmg: this.dmg(0.8), pool: st.pool });
+                const grp = new THREE.Group();
+                const beacon = new THREE.Mesh(sphere(0.28), basic(st.color));
+                beacon.position.y = 0.35;
+                grp.add(beacon);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(grp, glb, { pos: [0, 0, 0], fitSize: [1.05, 0.65, 1.05] });
+                }
+                grp.position.set(x, 0, z);
+                this.S.add(grp);
+                this.haz.push({ kind: 'mine', x, z, r: st.r, t: 0, delay: st.delay + i * 0.08, color: st.color, mesh: grp, meshes: this.decal(x, z, st.r, st.color, 0.4), dmg: this.dmg(0.8), pool: st.pool });
             }
         }
         p_pool(st) {
@@ -395,11 +425,17 @@
             const side = V(-dir.z, 0, dir.x);
             const gapAt = (Math.random() - 0.5) * 16;
             const meshes = [];
+            playClip('sfx/Impact Sounds (Kenney)/Audio/impactMining_000.ogg', 0.35, 0.06);
             for (let s = -this.arenaR; s <= this.arenaR; s += 1.6) {
                 if (Math.abs(s - gapAt) < st.gapW / 2) continue;
+                const grp = new THREE.Group();
                 const m = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 1.0), basic(st.color));
-                meshes.push({ m, s });
-                this.S.add(m);
+                grp.add(m);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(grp, 'mini_arena_kit/column-damaged.glb', { pos: [0, -1.1, 0], fitSize: [1.55, 2.3, 1.2], hideFallback: m });
+                }
+                meshes.push({ m: grp, s });
+                this.S.add(grp);
             }
             this.haz.push({ kind: 'wall', origin: V(-dir.x * this.arenaR, 0, -dir.z * this.arenaR), dir, side, d: 0, speed: st.speed, gapAt, gapW: st.gapW, meshes, hit: false, dmg: this.dmg(0.9) });
         }
@@ -422,6 +458,7 @@
             const D = this.S.data;
             const spec = (BO.ZombiesData.ZOMBIE_TYPES || []).find((z) => z.id === st.type) || BO.ZombiesData.ZOMBIE_TYPES[0];
             const alive = (D.zombies || []).filter((z) => z.alive && z.mgMinion).length;
+            playClip('overhaul/zombies/zombie_scream.mp3', 0.34, 0.08);
             for (let i = 0; i < Math.min(st.n, 8 - alive); i++) {
                 const a = Math.random() * Math.PI * 2;
                 const [x, z] = this.clampIn(this.boss.pos.x + Math.sin(a) * (this.boss.radius + 2.5), this.boss.pos.z + Math.cos(a) * (this.boss.radius + 2.5));
@@ -429,6 +466,13 @@
                 ent.mgMinion = true;
                 D.zombies.push(ent);
                 BO.FX.spawnParticles(V(x, 1, z), 14, 0x111827, 4, 3, 0.5, 1.2);
+                if (BO.Assets) {
+                    const totem = new THREE.Group();
+                    totem.position.set(x, 0, z);
+                    BO.Assets.placeGLB(totem, 'graveyard_kit/gravestone-cross-large.glb', { pos: [0, 0, 0], fitSize: [1.1, 2.0, 0.6] });
+                    this.S.add(totem);
+                    this.haz.push({ kind: 'totem', mesh: totem, t: 0, dur: 2.2 });
+                }
             }
         }
 
@@ -470,6 +514,7 @@
                 if (k >= 1) {
                     b.pos.y = 0;
                     BO.FX.spawnExplosion(mv.to.clone(), mv.r * 0.7, mv.color || 0xd6d3d1);
+                    playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', 0.46, 0.06);
                     P.cameraShake = Math.max(P.cameraShake, 0.1);
                     SFX.rumble(0.5);
                     if (P.alive && Math.hypot(P.pos.x - mv.to.x, P.pos.z - mv.to.z) < mv.r && P.pos.y < 2.2) this.hitPlayer(mv.dmg, mv.to, true);
@@ -496,12 +541,21 @@
                 h.t = (h.t || 0) + dt;
                 let done = false;
                 const pd = (x, z) => Math.hypot(P.pos.x - x, P.pos.z - z);
-                if (h.kind === 'rain' || h.kind === 'mine') {
+                if (h.kind === 'totem') {
+                    if (h.mesh) h.mesh.position.y = h.t < 0.35 ? -1.8 * (1 - h.t / 0.35) : (h.t > h.dur - 0.5 ? -2.0 * ((h.t - (h.dur - 0.5)) / 0.5) : 0);
+                    done = h.t >= h.dur;
+                } else if (h.kind === 'rain' || h.kind === 'mine') {
                     const k = Math.min(1, h.t / h.delay);
                     h.meshes[1].material.opacity = 0.12 + k * 0.4;
-                    if (h.mesh) h.mesh.scale.setScalar(1 + Math.sin(h.t * (6 + k * 20)) * 0.15);
+                    if (h.kind === 'rain' && h.mesh) {
+                        h.mesh.position.y = (1 - k * k) * 19 + 0.5;
+                        h.mesh.rotation.y += dt * 3.2;
+                    } else if (h.mesh) {
+                        h.mesh.scale.setScalar(1 + Math.sin(h.t * (6 + k * 20)) * 0.14);
+                    }
                     if (h.t >= h.delay) {
                         BO.FX.spawnExplosion(V(h.x, 0.3, h.z), h.r * 0.8, h.color);
+                        playClip(h.kind === 'rain' ? 'sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg' : 'sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', 0.38, 0.08);
                         if (P.alive && pd(h.x, h.z) < h.r && P.pos.y < 3) this.hitPlayer(h.dmg, V(h.x, 0, h.z), true);
                         if (h.pool) this.haz.push({ kind: 'pool', x: h.x, z: h.z, r: h.r * 0.8, t: 0, dur: 4, color: h.color, meshes: this.decal(h.x, h.z, h.r * 0.8, h.color, 0.6), dps: h.dmg * 0.5 });
                         done = true;
@@ -523,8 +577,8 @@
                     h.meshes[1].scale.setScalar(Math.max(0.01, k));
                     if (h.t >= h.delay) {
                         BO.FX.spawnExplosion(V(h.x, 1, h.z), Math.min(10, h.r * 0.6), h.color);
+                        playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-c.ogg', 0.48, 0.05);
                         P.cameraShake = Math.max(P.cameraShake, 0.12);
-                        // los novas can be blocked by hiding behind a pillar
                         const safe = h.los && !BO.World.hasLineOfSight(h.x, 1.5, h.z, P.pos.x, P.pos.y + 1.2, P.pos.z);
                         if (P.alive && pd(h.x, h.z) < h.r && !safe) this.hitPlayer(h.dmg, V(h.x, 0, h.z), true);
                         done = true;

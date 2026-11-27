@@ -211,3 +211,15 @@
 .ow-mount-card small, .ow-bounty-card small, .ow-codex-card small { display: block; font-size: 11.5px; color: var(--ow-dim); margin-top: 2px; }
 .ow-mount-card em { display: block; font-size: 11px; color: #fca5a5; font-style: normal; margin-top: 3px; }
 .ow-mount-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font: 700 11px var(--font-mono, monospace); color: #bae6fd; }
+
+/* Frontier navigation and persistent mastery */
+.ow-mastery-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+.ow-mastery { padding:18px; border:1px solid #334155; border-top:2px solid var(--c); border-radius:10px; background:#111b25; }
+.ow-mastery > div { display:flex; justify-content:space-between; gap:12px; color:var(--c); }
+.ow-mastery p { color:#cbd5e1; line-height:1.5; min-height:4.5em; font-size:13px; }
+.ow-mastery progress { width:100%; height:8px; accent-color:var(--c); }
+.ow-mastery small { display:block; text-align:right; margin-top:7px; color:#94a3b8; }
+.ow-compass { width:min(420px,45vw); height:34px; }
+.ow-compass .ow-bearing { position:absolute; top:-14px; transform:translateX(-50%); font-size:11px; color:#e2e8f0; text-shadow:0 1px 4px #000; }
+.ow-compass-needle { position:absolute; left:50%; top:-24px; transform:translateX(-50%); color:#fbbf24; }
+#ow-map { width:100%; height:auto; border:1px solid #475569; border-radius:8px; cursor:crosshair; }

@@ -51,6 +51,7 @@
             if (!entry) return;
             this.initItem(entry);
             if (entry.maxDur == null || entry.dur <= 0) return;
+            amount *= 1 - Math.min(0.8, BO.OWRPGCharacter.perkFx(s).durSave || 0);
             const prev = entry.dur;
             entry.dur = Math.max(0, Number((entry.dur - amount).toFixed(2)));
             const d = BO.OWRPGStatsData.ITEMS[entry.id];

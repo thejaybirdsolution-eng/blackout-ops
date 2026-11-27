@@ -182,6 +182,7 @@
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('ff:explore');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
             K.groundPlane(S, 200, 0x14532d, 0.002);
             const pathM = std(0x78716c, 0.95), woodM = std(0x78350f, 0.85), sandM = std(0xb45309, 0.9), stoneM = std(0x334155, 0.85);
             const roofM = std(0x991b1b, 0.75), winM = basic(0xfef08a), postM = std(0x1f2937, 0.5, 0.7);
@@ -206,6 +207,20 @@
             for (const gx of [-4.2, 4.2]) {
                 L.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [gx, 0, 12], scale: 2.0 });
                 L.placeGLB(S.scene, 'castle_kit/tower-square-roof.glb', { pos: [gx, 3.8, 12], scale: 2.0 });
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [11.5, 0, 21.5], rot: -0.45, fitSize: [3.6, 3.2, 2.8] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-weapon-rack.glb', { pos: [5.4, 0, 23.0], rot: 0.25, fitSize: [1.8, 1.9, 0.9] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', { pos: [-11.5, 0, 21.5], rot: 0.35, fitSize: [2.4, 2.8, 2.4] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-hanging-trade-sign.glb', { pos: [8.0, 3.2, 23.2], fitSize: [1.4, 1.5, 0.5] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-root-entangled-wayside-shrine.glb', { pos: [-51.5, 0, -4], rot: Math.PI / 2, fitSize: [2.8, 3.4, 2.4] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', { pos: [0, 0, -79.5], fitSize: [3.4, 2.2, 2.2] });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', [
+                    { pos: [-2.8, 0, 14.5], rot: 0, scale: 1.6 }, { pos: [2.8, 0, 14.5], rot: 0, scale: 1.6 },
+                    { pos: [-4.5, 0, -72], rot: 0, scale: 1.8 }, { pos: [4.5, 0, -72], rot: 0, scale: 1.8 }
+                ]);
             }
             // Central Crystalia Mana Fountain with rotating crystal spire
             const fBasin = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 0.65, 20), stoneM); fBasin.position.set(0, 0.32, 24);
@@ -312,7 +327,11 @@
                 const lid = new THREE.Mesh(new THREE.BoxGeometry(1.18, 0.28, 0.86), std(0xb45309, 0.5)); lid.position.y = 0.66;
                 const trim = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.10, 0.88), std(0xfacc15, 0.25, 0.85)); trim.position.y = 0.55;
                 const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.42, 3.2, 10), basic(0xfde047, { transparent: true, opacity: 0.28 })); beam.position.y = 1.9;
-                cg.add(base, lid, trim, beam); cg.position.set(cx, 0, cz); S.add(cg);
+                cg.add(base, lid, trim, beam);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(cg, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { fitSize: [1.3, 0.95, 0.95], hideFallback: [base, trim] });
+                }
+                cg.position.set(cx, 0, cz); S.add(cg);
                 return { id: i, pos: V(cx, 0, cz), mesh: cg, lid, beam, loot, opened: false };
             });
 
@@ -467,6 +486,10 @@
                     if (ch.lid) { ch.lid.rotation.x = -1.25; ch.lid.position.set(0, 0.82, -0.35); }
                     if (ch.beam) ch.beam.visible = false;
                     SFX.ding(1.3);
+                    if (BO.Assets && BO.Assets.playClip) {
+                        BO.Assets.playClip('rpg_sfx/doorOpen_1.ogg', { volume: 0.36, rateJitter: 0.06 });
+                        BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.45, rateJitter: 0.06 });
+                    }
                     const lt = ch.loot;
                     if (lt.item === 'gil') D.gil += lt.amt;
                     else if (lt.item === 'wep' && !D.ownedWeps.includes(lt.idx)) D.ownedWeps.push(lt.idx);
@@ -1011,9 +1034,19 @@
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('bunker');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
             const diffKey = (S.opts && DIFF_CONF[S.opts.inspDiff]) ? S.opts.inspDiff : 'easy';
             S.data.dc = DIFF_CONF[diffKey];
             K.groundPlane(S, 96, 0x27272a, 0.002);
+            if (BO.Assets && BO.Assets.pbrMat) {
+                const secFloor = new THREE.Mesh(new THREE.PlaneGeometry(35.5, 42), BO.Assets.pbrMat('cyberpunk/Security Facilities/armored-checkpoint-floor-001.png', 8, 10, { roughness: 0.55 }));
+                secFloor.rotation.x = -Math.PI / 2; secFloor.position.set(0, 0.015, 14); S.add(secFloor);
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/shipping-container-c.glb', { pos: [-11.5, 0, -14.5], rot: 0.25, fitSize: [3.2, 2.8, 6.4] });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/detail-tank.glb', { pos: [11.5, 0, -14.5], rot: -0.25, fitSize: [2.8, 3.2, 2.8] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [-2.4, 0, 2.6], rot: 0.2, fitSize: [1.6, 0.9, 1.0] });
+            }
             const wallM = std(0x475569, 0.85), gateM = std(0x334155, 0.55, 0.5), bunkM = std(0x334155, 0.8), steelM = std(0x1f2937, 0.4, 0.8);
             const hazTex = L.canvasTex('bunker-haz', 128, 32, (g, w, h) => {
                 g.fillStyle = '#eab308'; g.fillRect(0, 0, w, h); g.fillStyle = '#111827';
@@ -1120,6 +1153,7 @@
             D.manualEl.style.display = D.manualOpen ? 'flex' : 'none';
             if (D.manualOpen && document.pointerLockElement) document.exitPointerLock();
             SFX.clack();
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/bookFlip1.ogg', { volume: 0.40, rateJitter: 0.08 });
         },
         _nextEntrant(S) {
             const D = S.data;
@@ -1260,6 +1294,7 @@
             }
             if (code === 'KeyG') {
                 D.gateClosed = !D.gateClosed;
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalLatch.ogg', { volume: 0.44, rateJitter: 0.05 });
                 if (BO.MinigameAudio) BO.MinigameAudio.bunkerShutter(); else SFX.rumble(0.25);
                 MG.toast(D.gateClosed ? 'GATE SHUTTER LOCKED' : 'GATE OPEN', '#fde047'); return true;
             }

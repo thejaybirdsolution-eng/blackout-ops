@@ -49,7 +49,7 @@
                     }
                     if (n.choices && n.choices.every((c) => c.req && !c.req.quest && !c.req.flag && !c.req.stage && !c.req.notFlag)) warn(`${npc}.${id}: every choice is gated — player can get stuck`);
                 }
-                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id)) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
+                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id) && !(t.entry && t.entry.toString().includes(id))) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
             }
         },
 
@@ -137,7 +137,7 @@
                 if (interior) return;
                 const h = W.terrainHeight(x, z);
                 if (h < D.WATER - 0.2) warn(`${label} is under water (h=${h.toFixed(1)})`);
-                if (Math.abs(x) > 318 || Math.abs(z) > 318) err(`${label} is outside the map`);
+                if (x < D.BOUNDS.minX || x > D.BOUNDS.maxX || z < D.BOUNDS.minZ || z > D.BOUNDS.maxZ) err(`${label} is outside the map`);
             };
             for (const p of D.POIS) check('POI ' + p.id, p.x, p.z, p.interior);
             for (const n of D.NPCS) check('NPC ' + n.id, n.x, n.z, false);

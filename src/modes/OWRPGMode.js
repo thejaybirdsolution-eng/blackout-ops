@@ -258,7 +258,7 @@
         giveXp(amount, label, quiet) {
             const s = this.state;
             const levels = BO.OWRPGCharacter.addXp(s, amount);
-            if (!quiet || label) BO.OWRPGUI.xpPop(Math.round(amount), label);
+            if (!quiet || label) BO.OWRPGUI.xpPop(Math.round(amount * (1 + (BO.OWRPGCharacter.perkFx(s).xpMult || 0))), label);
             if (levels > 0) {
                 this.applyDerived();
                 BO.Player.hp = BO.Player.maxHp;
@@ -361,16 +361,23 @@
             const e = I.byUid(s, uid);
             if (!e) return;
             const d = I.def(e.id);
+            if (!d.heal && !d.ammo && !d.stim && !d.xpBoost) return;
             if (d.heal) {
                 const fx = BO.OWRPGCharacter.perkFx(s);
                 BO.OWRPGCombat.heal = { left: d.heal * (1 + (fx.medMult || 0)), rate: d.heal / 1.5 };
-            } else if (d.ammo) {
+            }
+            if (d.ammo) {
                 for (const w of BO.Player.weapons) if (w.stats.kind !== 'melee') w.reserve = w.stats.reserveMax;
                 this.toast('Ammunition restocked', '#fbbf24');
-            } else if (d.stim) {
+            }
+            if (d.stim) {
                 this.stimT = d.stim;
                 this.toast('Stim: +25% speed, damage resistance', '#f472b6');
-            } else return;
+            }
+            if (d.xpBoost) {
+                s.worldFlags.xpBoostUntil = Math.max(s.worldFlags.xpBoostUntil || 0, s.playtimeSec) + d.xpBoost;
+                this.toast('Wisdom draught · +30% XP for 3 minutes', '#c084fc');
+            }
             I.remove(s, e.id, 1);
         },
 
