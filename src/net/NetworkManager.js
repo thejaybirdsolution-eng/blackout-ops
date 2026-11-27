@@ -865,14 +865,10 @@
 
         _playRemoteFx(fx, senderId) {
             if (!fx || !BO.World.scene || BO.State.screen !== 'playing') return;
-            const P = BO.Player;
             if (fx.kind === 'shot') {
                 const st = this.remoteStates.get(senderId);
-                if (st) {
-                    const d = BO.Math.dist3D(P.pos.x, P.pos.y, P.pos.z, st.x, st.y, st.z);
-                    const vol = BO.Math.clamp(1 - d / 55, 0.08, 0.85);
-                    BO.Sound.playGunshot(fx.soundProfile || 'ar_light', !!fx.suppressed, !!fx.isPaP, vol);
-                }
+                if (st) BO.Sound.playGunshot(fx.soundProfile || 'ar_light', !!fx.suppressed, !!fx.isPaP,
+                    { x: st.x, y: st.y + 1.35, z: st.z });
             } else if (fx.kind === 'tracer') {
                 BO.FX.spawnTracer(
                     new THREE.Vector3(fx.sx, fx.sy, fx.sz),
@@ -884,9 +880,7 @@
             } else if (fx.kind === 'explosion') {
                 const pos = new THREE.Vector3(fx.x, fx.y, fx.z);
                 BO.FX.spawnExplosion(pos, fx.radius || 5.0, fx.color || 0xff6600);
-                const d = P.pos.distanceTo(pos);
-                const vol = BO.Math.clamp(1 - d / 65, 0.1, 1.0);
-                BO.Sound.playExplosion(vol);
+                BO.Sound.playExplosion(pos);
             }
         }
 

@@ -56,42 +56,96 @@
 
     /* ---------------------------------------------------------------- sound */
     const SFX = {
-        _ok() { return BO.Sound && BO.Sound.ctx; },
-        tone(a, b, d, type, v, delay) { if (this._ok()) BO.Sound.playTone(a, b, d, type || 'sine', v ?? 0.2, delay || 0); },
-        noise(d, f, type, q, v, delay) { if (this._ok()) BO.Sound.playNoise(d, f, type || 'bandpass', q ?? 1.2, v ?? 0.25, delay || 0); },
-        ding(pitch = 1) {
-            this.tone(1760 * pitch, 1720 * pitch, 0.55, 'sine', 0.22);
-            this.tone(2640 * pitch, 2600 * pitch, 0.35, 'triangle', 0.08);
-            this.tone(880 * pitch, 870 * pitch, 0.25, 'sine', 0.06);
+        tone(from, to, duration, type = 'sine', volume = 0.2, delay = 0) {
+            if (!BO.Sound?.ensureContext?.()) return;
+            const filter = type === 'square' || type === 'sawtooth'
+                ? ['lowpass', Math.min(9000, from * 3.8 + 700), 0.76] : null;
+            BO.Sound.synthTone(from, to || from, duration, type, volume, { delay, filter });
         },
-        thunk() { this.noise(0.09, 420, 'lowpass', 0.8, 0.45); this.tone(190, 90, 0.12, 'triangle', 0.22); },
-        pop() { this.noise(0.07, 2600, 'bandpass', 0.9, 0.5); this.tone(700, 160, 0.1, 'square', 0.08); },
-        shatter() { this.noise(0.22, 5200, 'highpass', 0.6, 0.38); this.noise(0.12, 1800, 'bandpass', 2, 0.2, 0.02); },
-        bonk() { this.tone(520, 180, 0.16, 'square', 0.14); this.noise(0.05, 900, 'bandpass', 1, 0.3); },
-        boing() { this.tone(180, 620, 0.22, 'sine', 0.18); this.tone(620, 300, 0.2, 'sine', 0.12, 0.2); },
-        buzzer() { this.tone(146, 138, 0.42, 'sawtooth', 0.2); this.tone(155, 147, 0.42, 'square', 0.08); },
-        whoosh(v = 0.22) { this.noise(0.35, 900, 'bandpass', 0.7, v); },
-        launch() { this.noise(0.12, 300, 'lowpass', 0.7, 0.55); this.noise(0.4, 1400, 'bandpass', 0.6, 0.12, 0.05); },
+        noise(duration, frequency, type = 'bandpass', q = 1.2, volume = 0.25, delay = 0, endFrequency, attack) {
+            if (!BO.Sound?.ensureContext?.()) return;
+            BO.Sound.synthNoise(duration, frequency, type, q, volume, { delay, endFrequency, attack });
+        },
+        ding(pitch = 1) {
+            this.tone(1168 * pitch, 1164 * pitch, 0.32, 'triangle', 0.20);
+            this.tone(2397 * pitch, 2390 * pitch, 0.15, 'sine', 0.10);
+            this.tone(1770 * pitch, 1766 * pitch, 0.27, 'sine', 0.09, 0.052);
+        },
+        thunk() {
+            this.noise(0.10, 840, 'bandpass', 0.95, 0.28, 0, 310);
+            this.tone(146, 49, 0.15, 'sine', 0.30);
+            this.tone(299, 107, 0.061, 'triangle', 0.11, 0.018);
+        },
+        pop() {
+            this.noise(0.055, 2880, 'bandpass', 0.92, 0.38, 0, 940);
+            this.tone(630, 151, 0.075, 'triangle', 0.19);
+        },
+        shatter() {
+            this.noise(0.17, 5400, 'highpass', 0.76, 0.35, 0, 2100);
+            [0.012, 0.049, 0.095].forEach((delay, i) => this.tone(3170 - i * 370, 2100 - i * 260, 0.10, 'sine', 0.084, delay));
+        },
+        bonk() {
+            this.tone(410, 155, 0.15, 'triangle', 0.25);
+            this.tone(667, 288, 0.089, 'sine', 0.12, 0.018);
+            this.noise(0.056, 1050, 'bandpass', 1.05, 0.25, 0, 520);
+        },
+        boing() {
+            this.tone(209, 680, 0.16, 'triangle', 0.22);
+            this.tone(666, 350, 0.19, 'sine', 0.17, 0.093);
+            this.tone(360, 274, 0.15, 'triangle', 0.09, 0.193);
+        },
+        buzzer() {
+            this.tone(230, 145, 0.16, 'square', 0.20);
+            this.tone(173, 125, 0.21, 'triangle', 0.18, 0.127);
+        },
+        whoosh(v = 0.22) { this.noise(0.31, 580, 'bandpass', 0.76, v, 0, 3850, 0.09); },
+        launch() {
+            this.noise(0.15, 620, 'lowpass', 0.85, 0.43, 0, 190);
+            this.tone(121, 47, 0.17, 'sine', 0.25);
+            this.whoosh(0.21);
+        },
         beep(final) {
-            if (final) { this.tone(988, 988, 0.5, 'square', 0.14); this.tone(1976, 1976, 0.45, 'sine', 0.08); }
-            else this.tone(660, 660, 0.16, 'square', 0.12);
+            const pitch = final ? 988 : 660;
+            this.tone(pitch, pitch * (final ? 1.02 : 0.98), final ? 0.26 : 0.095, 'triangle', 0.20);
+            if (final) this.tone(1480, 1500, 0.24, 'sine', 0.14, 0.11);
         },
         combo(level) {
             const base = 523 * Math.pow(1.122, Math.min(12, level));
-            this.tone(base, base, 0.08, 'triangle', 0.12);
-            this.tone(base * 1.26, base * 1.26, 0.08, 'triangle', 0.12, 0.07);
-            this.tone(base * 1.5, base * 1.5, 0.14, 'triangle', 0.12, 0.14);
+            [1, 1.26, 1.5].forEach((ratio, i) => {
+                this.tone(base * ratio, base * ratio, i === 2 ? 0.135 : 0.077, 'triangle', 0.13, i * 0.051);
+            });
         },
-        comboBreak() { this.tone(330, 160, 0.25, 'triangle', 0.12); },
-        star(i) { const f = [784, 988, 1175, 1568][i] || 1568; this.tone(f, f, 0.32, 'triangle', 0.18); this.tone(f * 2, f * 2, 0.22, 'sine', 0.06, 0.04); },
+        comboBreak() {
+            this.tone(394, 238, 0.12, 'triangle', 0.17);
+            this.tone(238, 161, 0.16, 'sine', 0.14, 0.081);
+        },
+        star(i) {
+            const f = [784, 988, 1175, 1568][i] || 1568;
+            this.tone(f, f, 0.33, 'triangle', 0.20);
+            this.tone(f * 1.5, f * 1.5, 0.24, 'sine', 0.10, 0.056);
+            this.tone(f * 2, f * 2, 0.21, 'sine', 0.07, 0.091);
+        },
         fanfare() {
-            [523, 659, 784, 1047].forEach((f, i) => this.tone(f, f, 0.26, 'triangle', 0.16, i * 0.11));
-            this.tone(1047, 1047, 0.9, 'sine', 0.1, 0.45);
+            [523, 659, 784, 1047].forEach((f, i) => this.tone(f, f, 0.34, 'triangle', 0.17, i * 0.092));
+            this.tone(524, 520, 0.51, 'sine', 0.16, 0.275);
+            this.tone(1569, 1564, 0.57, 'sine', 0.089, 0.35);
         },
-        crowd(v = 0.18) { this.noise(1.6, 900, 'bandpass', 0.4, v); this.noise(1.2, 2200, 'bandpass', 0.5, v * 0.5, 0.2); },
-        rumble(v = 0.35) { this.noise(0.5, 110, 'lowpass', 0.6, v); },
-        clack() { this.noise(0.03, 1600, 'bandpass', 3, 0.22); },
-        heal() { [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, f * 1.01, 0.3, 'sine', 0.13, i * 0.06)); }
+        crowd(v = 0.18) {
+            this.noise(1.40, 860, 'bandpass', 0.55, v, 0, 620, 0.16);
+            this.noise(0.98, 1720, 'bandpass', 0.66, v * 0.64, 0.18, 1240, 0.20);
+        },
+        rumble(v = 0.35) {
+            this.noise(0.53, 280, 'lowpass', 0.83, v, 0, 90);
+            this.tone(79, 32, 0.44, 'sine', v * 0.65);
+        },
+        clack() {
+            this.noise(0.046, 2550, 'bandpass', 2.2, 0.25, 0, 1050);
+            this.tone(627, 511, 0.048, 'triangle', 0.15);
+        },
+        heal() {
+            [392, 523, 659, 784, 1047].forEach((f, i) => this.tone(f, f * 1.013, 0.28, 'sine', 0.13, i * 0.056));
+            this.tone(233, 389, 0.35, 'triangle', 0.10, 0.056);
+        }
     };
 
     /* ------------------------------------------------------------ textures */
@@ -860,7 +914,10 @@
                 if (S.duration && S.t >= S.duration) this._beginFinish('TIME!');
             } else if (this.state === 'finish') {
                 this.finishTimer -= dt;
-                if (this.finishTimer <= 0) this._showResults();
+                if (this.finishTimer <= 0) {
+                    if (S.opts && S.opts.exampleMode) this.launch(def.id, Object.assign({}, this.opts, { exampleMode: false }));
+                    else this._showResults();
+                }
             }
 
             if (def.update) def.update(S, dt, this.lib, this.state);
@@ -896,7 +953,8 @@
             const S = this.session;
             S.timeline.push(S.score);
             for (const tg of S.targets) if (tg.alive) tg.retire();
-            this._showCountdown(label, opts.color || '#fde68a', true);
+            const isExample = !!(S && S.opts && S.opts.exampleMode);
+            this._showCountdown(isExample ? 'EXAMPLE COMPLETE — YOUR TURN!' : label, isExample ? '#67e8f9' : (opts.color || '#fde68a'), true);
             SFX.beep(true);
         }
 
@@ -1250,7 +1308,8 @@
             this.blockingUI = false;
             BO.State.paused = false;
             if (act === 'retry') {
-                BO.App.restartMatch();
+                if (opts && opts.exampleMode) this.launch(def.id, Object.assign({}, opts, { exampleMode: false }));
+                else BO.App.restartMatch();
             } else if (act === 'next') {
                 const n = this._nextDef();
                 if (n) this.launch(n.id, Object.assign({}, opts));

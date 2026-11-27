@@ -291,6 +291,7 @@
             if (BO.Minigames) BO.Minigames.stop();
             if (BO.RPGMode) BO.RPGMode.stop();
             if (BO.OWRPGMode) BO.OWRPGMode.stop();
+            BO.Sound.stopEffects();
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
@@ -395,6 +396,7 @@
             BO.SurvivalMode.stop();
             BO.ExpansionShop.close();
             BO.Superpowers.reset();
+            BO.Sound.stopEffects();
             BO.State.activeMode = null;
             BO.State.paused = false;
             if (document.pointerLockElement) document.exitPointerLock();

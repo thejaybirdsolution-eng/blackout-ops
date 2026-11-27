@@ -234,7 +234,7 @@
                 ${dual}
                 ${options}
                 <div class="mgh-keys">${def.keys ? def.keys.map(([k, t]) => `<span><kbd>${esc(k)}</kbd> ${esc(t)}</span>`).join('') : def.cat === 'boss' ? '<span><kbd>H</kbd> Max heal (rest only)</span><span><kbd>N</kbd> Skip rest</span>' : '<span><kbd>R</kbd> Retry from results</span><span><kbd>N</kbd> Next course</span>'}<span><kbd>ESC</kbd> Pause</span></div>
-                ${def.hasExample ? `<button class="mgh-example" data-example="${def.id}">▶ WATCH 100% PERFECT EXAMPLE</button>` : ''}
+                ${def.hasExample ? `<button class="mgh-example" data-example="${def.id}">▶ EXAMPLE</button>` : ''}
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
         },
 

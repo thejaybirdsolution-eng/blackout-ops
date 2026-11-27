@@ -291,13 +291,7 @@
         'bowser': { tempo: 0.105, mel: [N.E4, N.E4, N.B4, N.E4, N.C5, N.B4, N.A4, N.G4, N.Fs4, N.G4, N.A4, N.E5, N.D5, N.C5, N.B4, N.A4], bass: [N.E3, N.E3, N.E3, N.E3, N.C3, N.C3, N.D3, N.D3] }
     };
     const mTone = (freq, dur, wave = 'square', vol = 0.08, delay = 0) => {
-        if (!BO.Sound || !BO.Sound.ctx || !freq) return;
-        const ctx = BO.Sound.ctx, t0 = ctx.currentTime + delay;
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = wave; o.frequency.setValueAtTime(freq, t0);
-        g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        o.connect(g); g.connect(BO.Sound.sfxGain || ctx.destination);
-        o.start(t0); o.stop(t0 + dur + 0.02);
+        if (freq) SFX.tone(freq, freq, dur, wave, vol, delay);
     };
     const mCoinSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioCoin(); else { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); } };
     const mPowerSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPowerup(); else [523, 659, 784, 1047, 1319].forEach((f, i) => mTone(f, 0.1, 'square', 0.09, i * 0.055)); };

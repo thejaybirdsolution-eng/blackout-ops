@@ -65,6 +65,7 @@
             this.strafeDir = Math.random() < 0.5 ? 1 : -1;
             this.strafeTimer = 1.2;
             this.animPhase = Math.random() * 6;
+            this.stepTimer = Math.random() * 0.3;
             this.path = [];
             this.pathTimer = 0;
             this.roamGoal = null;
@@ -432,6 +433,13 @@
             this.pos.y = BO.World.getGroundHeight(this.pos.x, this.pos.z, this.pos.y);
 
             this.animPhase += dt * (moveSpeed * 2.2 + 1.0);
+            if (BO.State.activeMode === 'mp' && moveSpeed > 0.6) {
+                this.stepTimer -= dt;
+                if (this.stepTimer <= 0) {
+                    this.stepTimer = moveSpeed > 4 ? 0.31 : 0.42;
+                    BO.Sound.playFootstep(moveSpeed > 4, this.pos);
+                }
+            }
             this.parts.root.position.copy(this.pos);
             this.parts.root.rotation.y = this.yaw;
             const pose = this.animPose;
@@ -531,7 +539,7 @@
                 this.animPose.recoil = 1;
                 if (dist > 2.4) return;
                 this.fireTimer = 0.65;
-                BO.Sound.playMelee();
+                BO.Sound.playMelee(this.pos);
                 const dmg = this.oneShotKills ? 9999 : Math.round(spec.damage * 0.45 * this.difficulty.dmgMult);
                 if (target.kind === 'player' && context.onBotShootPlayer) context.onBotShootPlayer(this, dmg);
                 else if (target.bot && target.bot.alive && target.bot.takeDamage(dmg, this) && context.onBotKillBot) context.onBotKillBot(this, target.bot);
@@ -553,8 +561,7 @@
                 target.z + (Math.random() - 0.5) * dist * this.difficulty.accuracy * 2
             );
 
-            const dScale = BO.Math.clamp(1 - this.pos.distanceTo(BO.Player.pos) / 40, 0, 0.75);
-            if (dScale > 0.05) BO.Sound.playGunshot(spec.soundProfile, false, false, dScale);
+            BO.Sound.playGunshot(spec.soundProfile, false, false, start);
             BO.FX.spawnTracer(start, end, 0xfca5a5, 0.02, 0.07);
             if (context.onRecordFx) context.onRecordFx({ kind: 'tracer', sx: start.x, sy: start.y, sz: start.z, ex: end.x, ey: end.y, ez: end.z, color: 0xfca5a5 });
 

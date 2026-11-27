@@ -735,6 +735,21 @@
             }
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
+            const btnExample = document.getElementById('btn-pause-example');
+            if (btnExample) {
+                const mg = BO.Minigames;
+                const canExample = !!(open && BO.State.activeMode === 'minigame' && mg?.def?.hasExample);
+                btnExample.classList.toggle('hidden', !canExample);
+                if (canExample) {
+                    const isExample = !!mg.opts?.exampleMode;
+                    btnExample.textContent = isExample ? 'STOP EXAMPLE & PLAY' : '▶ EXAMPLE';
+                    btnExample.onclick = () => {
+                        BO.Sound.playUIClick();
+                        this.setPauseOpen(false);
+                        mg.launch(mg.def.id, Object.assign({}, mg.opts, { exampleMode: !isExample }));
+                    };
+                }
+            }
             // RPG delves restart from the Haven, so the pause-menu restart is hidden there.
             const btnRestart = document.getElementById('btn-pause-restart');
             if (btnRestart) btnRestart.classList.toggle('hidden', BO.State.activeMode === 'rpg');

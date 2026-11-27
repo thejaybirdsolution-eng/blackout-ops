@@ -24,17 +24,7 @@
     const lerp = (a, b, t) => a + (b - a) * t;
 
     function tone(f0, f1, dur = 0.14, type = 'sine', vol = 0.09, delay = 0) {
-        if (!BO.Sound || !BO.Sound.ctx) return;
-        const ctx = BO.Sound.ctx, t0 = ctx.currentTime + delay;
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = type;
-        o.frequency.setValueAtTime(Math.max(30, f0), t0);
-        if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t0 + dur);
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(vol, t0 + 0.012);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        o.connect(g); g.connect(BO.Sound.sfxGain || ctx.destination);
-        o.start(t0); o.stop(t0 + dur + 0.02);
+        SFX.tone(f0, f1, dur, type, vol, delay);
     }
 
     function labelSprite(text, color, wScale = 2.5) {

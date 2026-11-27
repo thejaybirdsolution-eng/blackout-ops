@@ -717,7 +717,7 @@
                     owner: zombie
                 });
             }
-            BO.Sound.playZombieGroan(zombie.soundProfile, 0.75);
+            BO.Sound.playZombieGroan(zombie.soundProfile, zombie.pos);
         }
 
         _onBulletHit(z, dmg, hitbox, weaponInst, impactPos, dir, dist) {
@@ -803,7 +803,7 @@
             if (this.modifiers.explosiveHeadshots && isHead) {
                 const pt = z.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
                 BO.FX.spawnExplosion(pt, 5.2, 0xf97316);
-                BO.Sound.playExplosion(0.55);
+                BO.Sound.playExplosion(pt, 0.65);
                 this._onExplode(pt, 5.8, 180, false, 0, 'explosive_hs');
             }
             if (isHead) {
@@ -1116,7 +1116,7 @@
                     dx: inter.destX, dy: inter.destY, dz: inter.destZ,
                     arcHeight: 2.2, duration: 0.55, t: 0
                 };
-                BO.Sound.playTrapZap();
+                BO.Sound.playTrapZap(P.pos);
                 BO.Events.emit('hud:toast', { text: '🗼 ZIPPED TO MINI SNIPER TOWER!', color: '#38bdf8' });
                 return;
             }
@@ -1131,6 +1131,7 @@
                 this.points -= d.cost;
                 if (P.zombiePerks.has('gate_share')) this.points += Math.floor(d.cost * 0.2);
                 BO.World.openDoor(inter);
+                BO.Sound.playShopBuy();
                 BO.Events.emit('hud:toast', { text: `${d.label} UNLOCKED`, color: '#f5a623' });
                 if (BO.Net && BO.Net.active) {
                     BO.Net.broadcast({
@@ -1170,7 +1171,7 @@
                     BO.Sound.playReload('in');
                 } else {
                     P.giveWeapon(wb.weaponId, false, false);
-                    BO.Sound.playUIClick();
+                    BO.Sound.playShopBuy();
                 }
             } else if (inter.type === 'armor_wall') {
                 const cost = inter.data.cost;
@@ -1828,10 +1829,11 @@
                 },
                 onMeleePlayer: (attacker) => {
                     BO.Player.takeDamage(this._enemyAttackDamage(attacker), attacker.pos, false);
-                    BO.Sound.playZombieGroan(attacker.soundProfile, 0.9);
+                    BO.Sound.playZombieStrike(attacker.pos);
                 },
                 onBonusAttack: (attacker, multiplier, effect) => {
                     const player = BO.Player;
+                    BO.Sound.playZombieStrike(attacker.pos, true);
                     player.takeDamage(this._enemyAttackDamage(attacker) * multiplier, attacker.pos, false);
                     if (player.alive && !player.aetherActive) effect(attacker, player);
                 },

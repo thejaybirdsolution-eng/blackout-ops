@@ -471,6 +471,7 @@
                 const n = worldHit.face ? worldHit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
                 BO.FX.spawnDecal(worldHit.point, n, false);
                 BO.FX.spawnParticles(worldHit.point, 4, 0xd4d4d8, 3.0, 11, 0.25, 0.7);
+                BO.Sound.playBulletImpact(worldHit);
             }
 
             const tracerCol = (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.tracerColor) || (w.isPaP ? 0xc084fc : 0xffd166);
@@ -1183,12 +1184,12 @@
                                 p.stuck = true;
                                 p.vel.set(0, 0, 0);
                                 p.pos.copy(hit.point);
-                                BO.Sound.playGrenadeBounce();
+                                BO.Sound.playGrenadeBounce(hit.point, stepDist / dt, true);
                             } else {
                                 const normal = hit.face ? hit.face.normal : new THREE.Vector3(0, 1, 0);
                                 p.vel.reflect(normal).multiplyScalar(0.45);
                                 p.pos.copy(hit.point).addScaledVector(normal, 0.08);
-                                if (p.vel.length() > 1.2) BO.Sound.playGrenadeBounce();
+                                if (p.vel.lengthSq() > 1.44) BO.Sound.playGrenadeBounce(hit.point, p.vel.length());
                             }
                         } else {
                             p.pos.copy(nextPos);
@@ -1215,7 +1216,7 @@
                 }
 
                 if (p.kind === 'monkey_bomb' && Math.floor(p.life * 3) !== Math.floor((p.life + dt) * 3)) {
-                    BO.Sound.playTone(980, 1240, 0.08, 'sine', 0.14);
+                    BO.Sound.playMonkeyChime(p.pos);
                 }
 
                 if (p.kind === 'tomahawk') {
@@ -1255,11 +1256,11 @@
                         this._spawnNapalmPool(p.pos.clone(), p.radius || 6.2, 9.0);
                     }
                     if (p.kind === 'tomahawk') {
-                        BO.Sound.playGrenadeBounce();
+                        BO.Sound.playGrenadeBounce(p.pos, 4);
                     } else if (p.kind === 'smoke') {
                         this.smokeClouds.push({ pos: p.pos.clone().add(new THREE.Vector3(0, 1, 0)), life: 7, radius: p.radius, pulse: 0 });
                     } else if (p.kind === 'decoy') {
-                        BO.Sound.playGunshot('smg', false, false, 0.45);
+                        BO.Sound.playGunshot('smg', false, false, p.pos);
                         for (const bot of BO.MPMode.active ? BO.MPMode.bots : []) {
                             if (bot.alive && bot.pos.distanceToSquared(p.pos) < p.radius * p.radius) {
                                 bot.roamGoal = p.pos.clone();
@@ -1590,16 +1591,14 @@
         _detonateExplosion(pos, radius, damage, owner, isFlash = false, stunDur = 0, weaponId = 'frag', color = 0xff7722) {
             if (!isFlash && owner === 'player' && BO.Player.matchRules.noExplosiveDamage) return;
             const distToPlayer = pos.distanceTo(BO.Player.pos);
-            const distScale = BO.Math.clamp(1 - distToPlayer / 48, 0.15, 1.0);
-
             if (isFlash) {
-                BO.Sound.playFlashbang();
+                BO.Sound.playFlashbang(pos, BO.Math.clamp(1 - distToPlayer / Math.max(1, radius), 0, 1));
                 BO.FX.spawnParticles(pos, 18, 0xffffff, 8, 2, 0.35, 1.8);
                 if (distToPlayer < radius) {
                     BO.Player.flashBlindTimer = Math.max(BO.Player.flashBlindTimer, 1.8 * (1 - distToPlayer / radius) * (BO.Player.mpPerks.includes('tactical_mask') ? 0.35 : 1));
                 }
             } else {
-                BO.Sound.playExplosion(distScale);
+                BO.Sound.playExplosion(pos);
                 BO.FX.spawnExplosion(pos, radius, color);
                 if (distToPlayer < radius) {
                     const mine = weaponId === 'claymore' || weaponId === 'bouncing_betty';

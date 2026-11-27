@@ -233,9 +233,10 @@
         g.gain.setValueAtTime(0.0001, t);
         g.gain.linearRampToValueAtTime(vol, t + Math.min(0.012, dur * 0.2));
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        let f = null;
         let node = o;
         if (lp) {
-            const f = ctx.createBiquadFilter();
+            f = ctx.createBiquadFilter();
             f.type = 'lowpass';
             f.frequency.value = lp;
             f.Q.value = 2;
@@ -244,6 +245,7 @@
         }
         node.connect(g);
         g.connect(bus.layers[layer]);
+        o.onended = () => { o.disconnect(); f?.disconnect(); g.disconnect(); };
         o.start(t);
         o.stop(t + dur + 0.03);
     }
@@ -257,15 +259,25 @@
         f.type = type;
         f.frequency.value = freq;
         const g = ctx.createGain();
-        g.gain.setValueAtTime(vol, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + Math.min(0.003, dur * 0.15));
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         src.connect(f); f.connect(g); g.connect(bus.layers[layer]);
+        src.onended = () => { src.disconnect(); f.disconnect(); g.disconnect(); };
         src.start(t, Math.random() * 0.5);
         src.stop(t + dur + 0.02);
     }
 
-    const kick = (bus, t, v = 0.95) => { bOsc(bus, 'drums', t, 155, 42, 0.32, 'sine', v); bNoise(bus, 'drums', t, 0.02, 2500, 'bandpass', 0.18 * v); };
-    const snare = (bus, t, v = 0.34) => { bNoise(bus, 'drums', t, 0.16, 1900, 'bandpass', v); bOsc(bus, 'drums', t, 220, 160, 0.1, 'triangle', v * 0.45); };
+    const kick = (bus, t, v = 0.95) => {
+        bOsc(bus, 'drums', t, 158, 40, 0.32, 'sine', v);
+        bOsc(bus, 'drums', t, 240, 72, 0.075, 'triangle', 0.28 * v, 1400);
+        bNoise(bus, 'drums', t, 0.022, 2600, 'bandpass', 0.20 * v);
+    };
+    const snare = (bus, t, v = 0.34) => {
+        bNoise(bus, 'drums', t, 0.16, 2050, 'bandpass', v);
+        bNoise(bus, 'drums', t, 0.09, 4400, 'highpass', 0.38 * v);
+        bOsc(bus, 'drums', t, 215, 138, 0.105, 'triangle', v * 0.48, 2200);
+    };
     const hat = (bus, t, v = 0.14, open) => bNoise(bus, 'drums', t, open ? 0.14 : 0.05, 8500, 'highpass', v);
 
     /** Drum pattern for one 16th step: returns [kick, snare, hat] intensities (0 = silent). */

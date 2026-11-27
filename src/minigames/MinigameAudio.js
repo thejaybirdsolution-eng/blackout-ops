@@ -14,7 +14,7 @@
 
     const NOTE = {
         C2: 65.41, Cs2: 69.30, D2: 73.42, Eb2: 77.78, E2: 82.41, F2: 87.31, Fs2: 92.50, G2: 98.00, Ab2: 103.83, A2: 110.00, Bb2: 116.54, B2: 123.47,
-        C3: 130.81, Cs3: 138.59, D3: 146.83, Eb3: 155.56, E3: 164.81, F3: 174.61, Fs3: 185.00, G3: 196.00, Ab3: 207.65, A3: 220.00, Bb3: 233.08, B3: 246.94,
+        C3: 130.81, Cs3: 138.59, Db3: 138.59, D3: 146.83, Eb3: 155.56, E3: 164.81, F3: 174.61, Fs3: 185.00, G3: 196.00, Ab3: 207.65, A3: 220.00, Bb3: 233.08, B3: 246.94,
         C4: 261.63, Cs4: 277.18, D4: 293.66, Eb4: 311.13, E4: 329.63, F4: 349.23, Fs4: 369.99, G4: 392.00, Ab4: 415.30, A4: 440.00, Bb4: 466.16, B4: 493.88,
         C5: 523.25, Cs5: 554.37, D5: 587.33, Eb5: 622.25, E5: 659.25, F5: 698.46, Fs5: 739.99, G5: 783.99, Ab5: 830.61, A5: 880.00, Bb5: 932.33, B5: 987.77,
         C6: 1046.50, D6: 1174.66, E6: 1318.51, F6: 1396.91, G6: 1567.98, A6: 1760.00
@@ -81,45 +81,15 @@
         }
 
         /* ---------------------------------------------------- Core Synth Voices */
-        _osc(freq, dur, type = 'sawtooth', vol = 0.14, opts = {}) {
-            const ctx = this._ensureBus();
-            if (!ctx || !freq || vol <= 0.001) return;
-            const t0 = ctx.currentTime + (opts.delay || 0);
-            const osc = ctx.createOscillator();
-            osc.type = type;
-            osc.frequency.setValueAtTime(Math.max(22, freq), t0);
-            if (opts.detune) osc.detune.setValueAtTime(opts.detune, t0);
-            if (opts.slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(22, opts.slideTo), t0 + dur);
-
-            let lastNode = osc;
-            if (opts.cutoff) {
-                const flt = ctx.createBiquadFilter();
-                flt.type = opts.filterType || 'lowpass';
-                flt.frequency.setValueAtTime(opts.cutoff, t0);
-                if (opts.cutoffEnd) flt.frequency.exponentialRampToValueAtTime(Math.max(80, opts.cutoffEnd), t0 + dur);
-                flt.Q.value = opts.q || 1.8;
-                lastNode.connect(flt);
-                lastNode = flt;
-            }
-
-            const g = ctx.createGain();
-            const atk = opts.attack ?? 0.008;
-            g.gain.setValueAtTime(0.0001, t0);
-            g.gain.linearRampToValueAtTime(vol, t0 + atk);
-            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-            lastNode.connect(g);
-
-            const dest = opts.sfx ? (BO.Sound.sfxGain || ctx.destination) : this.bus;
-            if (opts.pan && typeof ctx.createStereoPanner === 'function') {
-                const pan = ctx.createStereoPanner();
-                pan.pan.value = Math.max(-1, Math.min(1, opts.pan));
-                g.connect(pan);
-                pan.connect(dest);
-            } else {
-                g.connect(dest);
-            }
-            osc.start(t0);
-            osc.stop(t0 + dur + 0.025);
+        _osc(freq, duration, type = 'sawtooth', volume = 0.14, opts = {}) {
+            if (!freq || volume <= 0.001 || !this._ensureBus()) return;
+            const cutoff = opts.cutoff || (opts.sfx && (type === 'square' || type === 'sawtooth')
+                ? Math.min(8100, freq * 4.2 + 680) : null);
+            const filter = cutoff ? [opts.filterType || 'lowpass', cutoff, opts.q || 1.8, opts.cutoffEnd] : null;
+            BO.Sound.synthTone(freq, opts.slideTo || freq, duration, type, volume, {
+                dest: opts.sfx ? 'sfx' : this.bus, filter, detune: opts.detune,
+                attack: opts.attack ?? 0.008, delay: opts.delay, pan: opts.pan
+            });
         }
 
         _supersaw(freq, dur, vol = 0.08, cutoff = 3200, delay = 0) {
@@ -141,31 +111,13 @@
             this._noise(open ? 0.16 : 0.042, 7800, 'highpass', 1.2, vol, pan, false);
         }
 
-        _noise(dur, freq, type = 'bandpass', q = 1.2, vol = 0.15, pan = 0, sfx = false, delay = 0) {
-            const ctx = this._ensureBus();
-            if (!ctx || !BO.Sound.noiseBuffer || vol <= 0.001) return;
-            const t0 = ctx.currentTime + delay;
-            const src = ctx.createBufferSource();
-            src.buffer = BO.Sound.noiseBuffer;
-            const flt = ctx.createBiquadFilter();
-            flt.type = type;
-            flt.frequency.setValueAtTime(freq, t0);
-            flt.Q.value = q;
-            const g = ctx.createGain();
-            g.gain.setValueAtTime(vol, t0);
-            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-            src.connect(flt);
-            flt.connect(g);
-            const dest = sfx ? (BO.Sound.sfxGain || ctx.destination) : this.bus;
-            if (pan && typeof ctx.createStereoPanner === 'function') {
-                const p = ctx.createStereoPanner();
-                p.pan.value = Math.max(-1, Math.min(1, pan));
-                g.connect(p);
-                p.connect(dest);
-            } else {
-                g.connect(dest);
-            }
-            src.start(t0, Math.random() * 0.5, dur + 0.02);
+        _noise(duration, freq, type = 'bandpass', q = 1.2, volume = 0.15, pan = 0, sfx = false, delay = 0) {
+            if (volume <= 0.001 || !this._ensureBus()) return;
+            BO.Sound.synthNoise(duration, freq, type, q, volume, {
+                dest: sfx ? 'sfx' : this.bus, delay, pan,
+                attack: sfx ? undefined : 0.0005,
+                endFrequency: sfx && type === 'bandpass' ? freq * 0.7 : undefined
+            });
         }
 
         /* ====================================================================
@@ -187,9 +139,12 @@
                     g.gain.value = 0.0001;
                     src.connect(flt);
                     flt.connect(g);
-                    g.connect(BO.Sound.sfxGain || ctx.destination);
-                    src.start();
-                    return { ctx, src, flt, g };
+                    const pan = ctx.createStereoPanner?.();
+                    if (pan) g.connect(pan).connect(BO.Sound.sfxGain);
+                    else g.connect(BO.Sound.sfxGain);
+                    src.onended = () => { src.disconnect(); flt.disconnect(); g.disconnect(); pan?.disconnect(); };
+                    src.start(0, Math.random() * src.buffer.duration);
+                    return { ctx, source: src, flt, g, pan };
                 };
                 this.carveLoop = mkLoop('bandpass', 1500, 1.8);
                 this.windLoop = mkLoop('lowpass', 620, 0.8);
@@ -205,22 +160,27 @@
                 rG.gain.value = 0.0001;
                 osc.connect(rFlt);
                 rFlt.connect(rG);
-                rG.connect(BO.Sound.sfxGain || ctx.destination);
+                rG.connect(BO.Sound.sfxGain);
+                osc.onended = () => { osc.disconnect(); rFlt.disconnect(); rG.disconnect(); };
                 osc.start();
-                this.grindLoop = { ctx, osc, flt: rFlt, g: rG };
+                this.grindLoop = { ctx, source: osc, flt: rFlt, g: rG };
             }
             const t = ctx.currentTime;
             const spdNorm = Math.min(1.4, Math.max(0, speed / 30));
             const carveGain = onGround && !onRail ? Math.min(0.16, (0.025 + Math.abs(carveAmt) * 0.085) * spdNorm) : 0.0001;
             this.carveLoop.flt.frequency.setTargetAtTime(1100 + Math.abs(carveAmt) * 1400 + spdNorm * 500, t, 0.05);
             this.carveLoop.g.gain.setTargetAtTime(carveGain, t, 0.04);
+            this.carveLoop.pan?.pan.setTargetAtTime(Math.max(-0.72, Math.min(0.72, carveAmt * 0.65)), t, 0.065);
 
-            const windGain = Math.min(0.14, 0.015 + spdNorm * (onGround ? 0.045 : 0.095) + (boostActive ? 0.05 : 0));
+            const windGain = Math.min(0.14, spdNorm * (onGround ? 0.049 : 0.097) + (boostActive ? 0.05 : 0));
             this.windLoop.flt.frequency.setTargetAtTime(380 + spdNorm * 650 + (boostActive ? 500 : 0), t, 0.06);
             this.windLoop.g.gain.setTargetAtTime(windGain, t, 0.05);
 
             const grindGain = onRail ? Math.min(0.13, 0.06 + spdNorm * 0.05) : 0.0001;
-            if (onRail) this.grindLoop.osc.frequency.setTargetAtTime(360 + spdNorm * 140, t, 0.04);
+            if (onRail) {
+                this.grindLoop.source.frequency.setTargetAtTime(295 + spdNorm * 180, t, 0.04);
+                this.grindLoop.flt.frequency.setTargetAtTime(1250 + spdNorm * 1050, t, 0.05);
+            }
             this.grindLoop.g.gain.setTargetAtTime(grindGain, t, 0.03);
         }
 
@@ -228,7 +188,9 @@
             for (const k of ['carveLoop', 'windLoop', 'grindLoop']) {
                 const l = this[k];
                 if (!l) continue;
-                try { l.g.gain.value = 0.0001; if (l.src) l.src.stop(); if (l.osc) l.osc.stop(); } catch (e) {}
+                const now = l.ctx.currentTime;
+                l.g.gain.setTargetAtTime(0.0001, now, 0.014);
+                l.source.stop(now + 0.075);
                 this[k] = null;
             }
         }
@@ -759,32 +721,39 @@
            BESPOKE MODE SOUND EFFECTS
         ==================================================================== */
         acidSpit() {
-            this._osc(520, 0.14, 'sawtooth', 0.16, { slideTo: 140, cutoff: 1900, sfx: true });
-            this._noise(0.18, 2800, 'bandpass', 2.4, 0.22, 0, true);
+            const v = 0.94 + Math.random() * 0.12;
+            this._osc(540 * v, 0.16, 'sawtooth', 0.16, { slideTo: 135, cutoff: 2100, cutoffEnd: 480, sfx: true });
+            this._noise(0.19, 3100 * v, 'bandpass', 2.2, 0.24, 0, true);
+            this._noise(0.08, 4600 * v, 'highpass', 1.4, 0.12, 0.12, true, 0.03);
         }
         acidSplash() {
-            this._noise(0.32, 2200, 'bandpass', 1.8, 0.26, 0, true);
-            this._osc(260, 0.22, 'sine', 0.15, { slideTo: 70, sfx: true });
+            this._noise(0.34, 2400, 'bandpass', 1.7, 0.27, -0.15, true);
+            this._noise(0.24, 3800, 'highpass', 1.2, 0.14, 0.18, true, 0.04);
+            this._osc(260, 0.22, 'sine', 0.16, { slideTo: 65, sfx: true });
         }
         clawRend() {
-            this._noise(0.14, 1650, 'bandpass', 1.2, 0.30, -0.25, true);
-            this._noise(0.14, 2100, 'bandpass', 1.2, 0.26, 0.25, true, 0.05);
-            this._osc(210, 0.16, 'sawtooth', 0.18, { slideTo: 68, sfx: true });
+            this._noise(0.14, 1750, 'bandpass', 1.2, 0.30, -0.28, true);
+            this._noise(0.14, 2250, 'bandpass', 1.2, 0.27, 0.28, true, 0.048);
+            this._osc(220, 0.16, 'sawtooth', 0.19, { slideTo: 64, cutoff: 1400, cutoffEnd: 320, sfx: true });
+            this._kick(0.18, 125, 42, 0.12, true);
         }
         hordeRoar() {
-            this._osc(96, 0.55, 'sawtooth', 0.24, { slideTo: 52, cutoff: 750, sfx: true });
-            this._osc(144, 0.48, 'sawtooth', 0.16, { slideTo: 74, cutoff: 950, sfx: true, delay: 0.04 });
-            this._noise(0.50, 460, 'lowpass', 1.1, 0.24, 0, true);
+            const v = 0.93 + Math.random() * 0.14;
+            this._osc(96 * v, 0.56, 'sawtooth', 0.24, { slideTo: 48, cutoff: 820, cutoffEnd: 260, pan: -0.18, sfx: true });
+            this._osc(144 * v, 0.50, 'sawtooth', 0.17, { slideTo: 70, cutoff: 1050, cutoffEnd: 340, pan: 0.18, sfx: true, delay: 0.04 });
+            this._osc(62, 0.52, 'sine', 0.22, { slideTo: 34, sfx: true });
+            this._noise(0.52, 480, 'lowpass', 1.1, 0.25, 0, true);
         }
         evolveSting() {
             [NOTE.D4, NOTE.F4, NOTE.A4, NOTE.D5, NOTE.F5].forEach((f, i) => {
-                this._osc(f, 0.24, 'sawtooth', 0.13, { cutoff: 3200, sfx: true, delay: i * 0.065 });
+                this._osc(f, 0.26, 'sawtooth', 0.13, { cutoff: 3400, cutoffEnd: 1100, pan: (i % 2 ? 0.22 : -0.22), sfx: true, delay: i * 0.065 });
             });
             this.hordeRoar();
         }
         wardenStep() {
-            this._kick(0.32, 95, 32, 0.26, true);
-            this._noise(0.12, 620, 'bandpass', 2.0, 0.16, 0, true);
+            this._kick(0.34, 98, 30, 0.28, true);
+            this._noise(0.14, 620, 'bandpass', 1.8, 0.18, 0, true);
+            this._noise(0.08, 1450, 'bandpass', 2.2, 0.09, 0.15, true, 0.02);
         }
         spinTick(quarter) {
             const freqs = [587.3, 784.0, 987.8, 1318.5];
@@ -793,20 +762,23 @@
             if (quarter >= 3) this._osc(f * 1.5, 0.18, 'sine', 0.12, { sfx: true, delay: 0.03 });
         }
         bouncePad() {
-            this._osc(140, 0.34, 'sine', 0.24, { slideTo: 680, sfx: true });
-            this._noise(0.22, 1800, 'bandpass', 1.5, 0.18, 0, true);
+            this._osc(140, 0.36, 'sine', 0.25, { slideTo: 700, sfx: true });
+            this._osc(280, 0.26, 'triangle', 0.12, { slideTo: 1120, sfx: true, delay: 0.03 });
+            this._noise(0.24, 1900, 'bandpass', 1.4, 0.19, 0, true);
         }
         sniperKillcamBoom() {
             // Heavy sniper crack + sub-bass drop + brass shell clink + crowd cheer!
-            this._noise(0.28, 1800, 'bandpass', 0.8, 0.38, 0, true);
-            this._osc(125, 0.75, 'sine', 0.34, { slideTo: 28, sfx: true });
-            [3450, 4120, 3890].forEach((f, i) => this._osc(f, 0.06, 'sine', 0.07, { sfx: true, delay: 0.32 + i * 0.09, pan: 0.4 }));
-            [NOTE.E5, NOTE.B5, NOTE.E6].forEach((f, i) => this._osc(f, 0.28, 'sawtooth', 0.11, { cutoff: 3500, sfx: true, delay: 0.08 + i * 0.07 }));
+            this._noise(0.28, 1950, 'bandpass', 0.85, 0.40, 0, true);
+            this._noise(0.14, 4200, 'highpass', 0.9, 0.20, 0, true);
+            this._osc(132, 0.78, 'sine', 0.36, { slideTo: 28, sfx: true });
+            [3450, 4120, 3890].forEach((f, i) => this._osc(f, 0.06, 'sine', 0.075, { sfx: true, delay: 0.32 + i * 0.09, pan: 0.4 }));
+            [NOTE.E5, NOTE.B5, NOTE.E6].forEach((f, i) => this._osc(f, 0.28, 'sawtooth', 0.11, { cutoff: 3400, cutoffEnd: 1200, pan: (i - 1) * 0.22, sfx: true, delay: 0.08 + i * 0.07 }));
         }
         gongRicochet() {
-            this._osc(880, 0.65, 'triangle', 0.22, { slideTo: 862, sfx: true });
-            this._osc(1328, 0.50, 'sine', 0.15, { sfx: true });
-            this._osc(2480, 0.18, 'sawtooth', 0.12, { slideTo: 920, sfx: true });
+            this._osc(880, 0.68, 'triangle', 0.22, { slideTo: 862, pan: -0.18, sfx: true });
+            this._osc(1328, 0.54, 'sine', 0.16, { pan: 0.18, sfx: true });
+            this._osc(2480, 0.18, 'sawtooth', 0.12, { slideTo: 920, cutoff: 3800, sfx: true });
+            this._noise(0.06, 3600, 'highpass', 1.4, 0.14, 0, true);
         }
         marioCoin() {
             this._osc(NOTE.B5, 0.075, 'square', 0.13, { sfx: true });
@@ -824,8 +796,9 @@
             });
         }
         marioBrickBreak() {
-            this._noise(0.18, 950, 'bandpass', 0.9, 0.28, 0, true);
-            [320, 220, 150].forEach((f, i) => this._osc(f, 0.08, 'square', 0.13, { sfx: true, delay: i * 0.04 }));
+            this._kick(0.22, 160, 54, 0.12, true);
+            this._noise(0.20, 1050, 'bandpass', 0.95, 0.29, 0, true);
+            [320, 220, 150].forEach((f, i) => this._osc(f, 0.08, 'square', 0.12, { pan: (i - 1) * 0.25, sfx: true, delay: i * 0.04 }));
         }
         marioShellKick() {
             this._osc(220, 0.12, 'square', 0.16, { slideTo: 640, sfx: true });
@@ -843,28 +816,32 @@
             if (kind === 1) {
                 // Chuck high-pitched zippy squawk
                 this._osc(780, 0.16, 'triangle', 0.16, { slideTo: 1480, sfx: true });
-                this._osc(1200, 0.12, 'sawtooth', 0.09, { slideTo: 620, sfx: true, delay: 0.08 });
+                this._osc(1200, 0.12, 'sawtooth', 0.09, { slideTo: 620, cutoff: 2600, sfx: true, delay: 0.08 });
             } else if (kind === 2) {
                 // Bomb deep grunt
-                this._osc(260, 0.22, 'sawtooth', 0.18, { slideTo: 130, cutoff: 900, sfx: true });
+                this._osc(260, 0.24, 'sawtooth', 0.19, { slideTo: 120, cutoff: 900, sfx: true });
+                this._osc(120, 0.20, 'sine', 0.16, { slideTo: 56, sfx: true });
             } else if (kind === 3) {
                 // Blues playful triple-chirp
-                [980, 1240, 1520].forEach((f, i) => this._osc(f, 0.07, 'sine', 0.13, { slideTo: f * 1.2, sfx: true, delay: i * 0.045 }));
+                [980, 1240, 1520].forEach((f, i) => this._osc(f, 0.07, 'sine', 0.13, { slideTo: f * 1.2, pan: (i - 1) * 0.25, sfx: true, delay: i * 0.045 }));
             } else {
                 // Red classic "WAAAH-HAA!" battle cry
                 this._osc(540, 0.18, 'sawtooth', 0.15, { slideTo: 920, cutoff: 2200, sfx: true });
                 this._osc(880, 0.16, 'triangle', 0.13, { slideTo: 480, sfx: true, delay: 0.12 });
             }
-            this._noise(0.14, 900, 'bandpass', 1.2, 0.14, 0, true);
+            this._noise(0.16, 980, 'bandpass', 1.15, 0.16, 0, true);
         }
         pigOink(king = false) {
-            const base = king ? 135 : 220 + Math.random() * 60;
-            this._osc(base, 0.11, 'sawtooth', 0.15, { slideTo: base * 1.45, cutoff: 950, sfx: true });
-            this._osc(base * 1.35, 0.10, 'sawtooth', 0.12, { slideTo: base * 0.85, cutoff: 900, sfx: true, delay: 0.09 });
+            const base = king ? 132 : 220 + Math.random() * 60;
+            this._osc(base, 0.12, 'sawtooth', 0.15, { slideTo: base * 1.45, cutoff: 950, sfx: true });
+            this._osc(base * 1.35, 0.11, 'sawtooth', 0.12, { slideTo: base * 0.85, cutoff: 900, sfx: true, delay: 0.09 });
+            this._noise(0.06, 650, 'bandpass', 1.8, 0.09, 0, true, 0.04);
         }
         woodBreak() {
-            this._noise(0.14, 1100, 'bandpass', 1.4, 0.24, 0, true);
-            this._osc(240, 0.08, 'square', 0.10, { slideTo: 95, sfx: true });
+            const v = 0.9 + Math.random() * 0.2;
+            this._noise(0.15, 1180 * v, 'bandpass', 1.35, 0.26, -0.12, true);
+            this._noise(0.09, 2400 * v, 'bandpass', 1.8, 0.14, 0.15, true, 0.03);
+            this._osc(235 * v, 0.085, 'triangle', 0.14, { slideTo: 88, sfx: true });
         }
         ffVictory() {
             const N = NOTE;
@@ -876,15 +853,18 @@
         }
         ffSpell(elem = 'fire') {
             if (elem === 'heal') {
-                [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((f, i) => this._osc(f, 0.24, 'sine', 0.12, { sfx: true, delay: i * 0.055 }));
+                [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6].forEach((f, i) => this._osc(f, 0.26, 'sine', 0.13, { pan: (i - 1.5) * 0.18, sfx: true, delay: i * 0.055 }));
+                this._osc(NOTE.C4, 0.38, 'triangle', 0.09, { sfx: true, delay: 0.04 });
             } else if (elem === 'ice') {
-                [1480, 1960, 2480].forEach((f, i) => this._osc(f, 0.14, 'triangle', 0.11, { slideTo: f * 0.85, sfx: true, delay: i * 0.04 }));
+                [1480, 1960, 2480].forEach((f, i) => this._osc(f, 0.15, 'triangle', 0.12, { slideTo: f * 0.85, pan: (i - 1) * 0.22, sfx: true, delay: i * 0.04 }));
+                this._noise(0.18, 4200, 'highpass', 1.3, 0.12, 0, true);
             } else if (elem === 'thunder') {
-                this._noise(0.24, 3200, 'bandpass', 1.2, 0.30, 0, true);
-                this._osc(880, 0.18, 'sawtooth', 0.15, { slideTo: 120, sfx: true });
+                this._noise(0.26, 3200, 'bandpass', 1.15, 0.32, 0, true);
+                this._osc(880, 0.20, 'sawtooth', 0.16, { slideTo: 110, cutoff: 3200, cutoffEnd: 420, sfx: true });
+                this._kick(0.24, 130, 38, 0.20, true);
             } else {
-                this._noise(0.32, 950, 'bandpass', 1.4, 0.28, 0, true);
-                this._osc(260, 0.26, 'sawtooth', 0.15, { slideTo: 95, cutoff: 1600, sfx: true });
+                this._noise(0.34, 980, 'bandpass', 1.3, 0.29, 0, true);
+                this._osc(260, 0.28, 'sawtooth', 0.16, { slideTo: 90, cutoff: 1700, cutoffEnd: 380, sfx: true });
             }
         }
         ffLimit() {
@@ -915,19 +895,21 @@
             this._osc(3136, 0.22, 'triangle', 0.08, { sfx: true });
         }
         kaijuRoar() {
-            this._osc(92, 0.85, 'sawtooth', 0.28, { slideTo: 48, cutoff: 820, sfx: true });
-            this._osc(138, 0.72, 'sawtooth', 0.20, { slideTo: 64, cutoff: 1100, sfx: true, delay: 0.05 });
-            this._noise(0.75, 420, 'lowpass', 1.3, 0.26, 0, true);
+            this._osc(92, 0.88, 'sawtooth', 0.28, { slideTo: 46, cutoff: 840, cutoffEnd: 240, pan: -0.2, sfx: true });
+            this._osc(138, 0.76, 'sawtooth', 0.20, { slideTo: 62, cutoff: 1120, cutoffEnd: 320, pan: 0.2, sfx: true, delay: 0.05 });
+            this._osc(58, 0.80, 'sine', 0.24, { slideTo: 29, sfx: true });
+            this._noise(0.78, 420, 'lowpass', 1.2, 0.28, 0, true);
         }
         kaijuStep() {
-            this._kick(0.28, 84, 28, 0.24, true);
-            this._noise(0.10, 320, 'lowpass', 1.2, 0.14, 0, true);
+            this._kick(0.32, 86, 26, 0.26, true);
+            this._noise(0.14, 340, 'lowpass', 1.1, 0.18, 0, true);
         }
         bumperCrash(intensity = 1) {
             const v = Math.min(1.4, Math.max(0.5, intensity));
-            this._kick(0.26 * v, 155, 52, 0.16, true);
-            this._osc(260, 0.14, 'triangle', 0.14 * v, { slideTo: 420, sfx: true });
-            this._noise(0.12, 2400, 'bandpass', 1.8, 0.18 * v, 0, true);
+            this._kick(0.28 * v, 155, 48, 0.18, true);
+            this._osc(260, 0.15, 'triangle', 0.15 * v, { slideTo: 420, pan: -0.18, sfx: true });
+            this._osc(520, 0.10, 'sine', 0.09 * v, { slideTo: 820, pan: 0.18, sfx: true });
+            this._noise(0.13, 2400, 'bandpass', 1.7, 0.20 * v, 0, true);
         }
         derbyZap() {
             this._osc(920, 0.18, 'sawtooth', 0.14, { slideTo: 240, cutoff: 2800, sfx: true });
@@ -941,8 +923,9 @@
             this._osc(3520, 0.26, 'triangle', 0.09, { sfx: true });
         }
         cannonBoom() {
-            this._kick(0.36, 110, 28, 0.34, true);
-            this._noise(0.42, 650, 'lowpass', 1.1, 0.32, 0, true);
+            this._kick(0.38, 112, 26, 0.36, true);
+            this._noise(0.45, 680, 'lowpass', 1.05, 0.34, 0, true);
+            this._noise(0.18, 1900, 'bandpass', 0.9, 0.20, 0, true);
         }
         bugleCall() {
             [NOTE.G4, NOTE.C5, NOTE.E5, NOTE.G5].forEach((f, i) => this._osc(f, 0.14, 'sawtooth', 0.11, { cutoff: 2800, sfx: true, delay: i * 0.08 }));
@@ -968,8 +951,10 @@
             this._noise(0.14, 1800, 'bandpass', 1.5, 0.20, 0, true);
         }
         katanaSlash() {
-            this._noise(0.16, 4800, 'highpass', 1.2, 0.24, 0, true);
-            this._osc(1280, 0.15, 'sawtooth', 0.14, { slideTo: 280, sfx: true });
+            const v = 0.94 + Math.random() * 0.12;
+            this._noise(0.16, 4800 * v, 'highpass', 1.15, 0.25, -0.2, true);
+            this._noise(0.08, 2200 * v, 'bandpass', 1.4, 0.16, 0.2, true, 0.03);
+            this._osc(1320 * v, 0.15, 'sawtooth', 0.14, { slideTo: 270, cutoff: 3400, cutoffEnd: 780, sfx: true });
         }
         pinballBumper() {
             this._osc(784, 0.09, 'square', 0.12, { slideTo: 1175, sfx: true });
@@ -981,14 +966,17 @@
             });
         }
         steelPing(pitch = 1) {
+            const v = pitch * (0.96 + Math.random() * 0.08);
             this._noise(0.05, 4200, 'bandpass', 1.6, 0.16, 0, true);
-            this._osc(1480 * pitch, 0.24, 'triangle', 0.14, { sfx: true });
-            this._osc(2960 * pitch, 0.18, 'sine', 0.08, { sfx: true, delay: 0.01 });
+            this._osc(1480 * v, 0.26, 'triangle', 0.15, { pan: -0.14, sfx: true });
+            this._osc(2960 * v, 0.20, 'sine', 0.085, { pan: 0.14, sfx: true, delay: 0.01 });
+            this._osc(4420 * v, 0.11, 'sine', 0.045, { sfx: true, delay: 0.015 });
         }
         westernBell() {
-            this._osc(620, 0.72, 'sine', 0.18, { sfx: true });
-            this._osc(1240, 0.55, 'triangle', 0.09, { sfx: true, delay: 0.01 });
-            this._osc(930, 0.45, 'sine', 0.06, { sfx: true, delay: 0.015 });
+            this._noise(0.04, 2900, 'bandpass', 1.9, 0.12, 0, true);
+            this._osc(620, 0.74, 'sine', 0.19, { pan: -0.12, sfx: true });
+            this._osc(1240, 0.56, 'triangle', 0.10, { pan: 0.12, sfx: true, delay: 0.01 });
+            this._osc(930, 0.46, 'sine', 0.065, { sfx: true, delay: 0.015 });
         }
     }
 

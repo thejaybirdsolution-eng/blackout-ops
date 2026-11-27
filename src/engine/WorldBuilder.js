@@ -129,7 +129,9 @@
                 if (propObj) {
                     scene.add(propObj);
                     propObj.traverse((child) => {
-                        if (child.isMesh) this.worldMeshes.push(child);
+                        if (!child.isMesh) return;
+                        child.userData.surfaceMaterial = b.mat;
+                        this.worldMeshes.push(child);
                     });
                 } else {
                     const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
@@ -142,6 +144,7 @@
                     mesh.position.set(b.x, b.y, b.z);
                     mesh.receiveShadow = true;
                     mesh.castShadow = b.h > 0.7;
+                    mesh.userData.surfaceMaterial = b.mat;
                     scene.add(mesh);
                     this.worldMeshes.push(mesh);
                 }
@@ -260,6 +263,7 @@
             mesh.receiveShadow = true;
             mesh.castShadow = true;
 
+            mesh.userData.surfaceMaterial = r.mat;
             if (r.axis === 'z') {
                 mesh.position.set(r.x, (r.y1 + r.y2) * 0.5 - 0.11, (r.z1 + r.z2) * 0.5);
                 mesh.rotation.x = r.z2 < r.z1 ? angle : -angle;

@@ -149,10 +149,10 @@
 
             if (hitbox === 'shield') {
                 dmg *= 0.25;
-                BO.Sound.playZombieGroan('metal_clang', 0.45);
+                BO.Sound.playZombieGroan('metal_clang', this.pos);
             } else if (this.wardTimer > 0 && hitbox !== 'head') {
                 dmg *= 0.45;
-                BO.Sound.playZombieGroan('metal_clang', 0.35);
+                BO.Sound.playZombieGroan('metal_clang', this.pos);
             } else if (hitbox === 'head') {
                 if (this.spec.bodySpec?.headless) {
                     dmg *= 0.7; // No head to crit!
@@ -179,7 +179,7 @@
                 if (this.superMechanic === 'seraph_nova') this.wardTimer = 4.5;
                 const auraCol = this.spec.bodySpec?.eyeColor || 0xfbbf24;
                 BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 2.5, 0)), 26, auraCol, 6.5, 3, 0.75, 1.6);
-                BO.Sound.playZombieGroan(this.soundProfile, 1.0);
+                BO.Sound.playZombieGroan(this.soundProfile, this.pos, 60);
                 BO.Events.emit('hud:toast', {
                     text: `👑 ${this.spec.name} ENRAGED — PHASE II UNLEASHED!`,
                     color: '#fbbf24'
@@ -210,7 +210,7 @@
                 }
                 if (this.attackType === 'suicide_blast' || this.explosiveDeath) {
                     BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 4.2, 0xa3e635);
-                    BO.Sound.playExplosion(0.65);
+                    BO.Sound.playExplosion(this.pos, 0.75);
                     if (this.pos.distanceTo(BO.Player.pos) < 4.2) {
                         BO.Player.takeDamage(this.damage * 0.75, this.pos, true);
                     }
@@ -290,8 +290,7 @@
             this.groanTimer -= dt;
             if (this.groanTimer <= 0) {
                 this.groanTimer = 3.5 + Math.random() * 6.0;
-                const dScale = BO.Math.clamp(1 - this.pos.distanceTo(P.pos) / 30, 0, 0.9);
-                if (dScale > 0.08) BO.Sound.playZombieGroan(this.soundProfile, dScale);
+                BO.Sound.playZombieGroan(this.soundProfile, this.pos);
             }
 
             // Physics & Gravity
@@ -361,7 +360,7 @@
                         win.planksRemaining--;
                         const pm = win.plankMeshes[win.planksRemaining];
                         if (pm) pm.visible = false;
-                        BO.Sound.playReload('out');
+                        BO.Sound.playBarricadeBreak(this.pos);
                         if (win.planksRemaining <= 0) {
                             this.state = 'vault_window';
                             this.vaultTimer = 0.65;
@@ -455,7 +454,7 @@
                         this.pos.z += (dz / d) * step;
                         BO.World.resolveHorizontal(this.pos, this.radius, this.height, false);
                         BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 10, 0xc084fc, 4, 2, 0.4, 1.4);
-                        BO.Sound.playZombieGroan('wail_void', 0.6);
+                        BO.Sound.playZombieGroan('wail_void', this.pos, 42);
                     }
                 }
 
@@ -686,7 +685,7 @@
                     color: col
                 });
             }
-            BO.Sound.playZombieGroan(this.soundProfile, 0.85);
+            BO.Sound.playZombieGroan(this.soundProfile, this.pos);
         }
 
         _tickSuperBolts(dt) {
@@ -718,7 +717,7 @@
 
             if (m === 'titan_quake') {
                 BO.FX.spawnExplosion(this.pos.clone().add(new THREE.Vector3(0, 0.35, 0)), 7.2, 0xf97316);
-                BO.Sound.playExplosion(0.72);
+                BO.Sound.playExplosion(this.pos, 0.85);
                 if (P) P.cameraShake = Math.max(P.cameraShake || 0, 0.14);
                 if (P && P.alive && !customTarget && BO.Math.dist2D(P.pos.x, P.pos.z, this.pos.x, this.pos.z) < 8.6) {
                     if (P.pos.y - this.pos.y < 0.72) {

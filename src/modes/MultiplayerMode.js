@@ -436,7 +436,7 @@
             }
             if (this.customRules.explosiveRounds && !this.customRules.noExplosiveDamage && hitPt) {
                 BO.FX.spawnExplosion(hitPt, 2.8, 0xf97316);
-                BO.Sound.playExplosion(0.45);
+                BO.Sound.playExplosion(hitPt, 0.55);
                 finalDmg *= 1.5;
             }
             const wName = weaponInst?.stats?.shortName || 'MELEE';
@@ -644,7 +644,7 @@
 
             BO.Progression.recordStat('mpKillstreaksCalled', 1);
             const ks = BO.AttachmentsData.KILLSTREAKS[ksId];
-            BO.Sound.playKillstreakReady();
+            BO.Sound.playKillstreakDeploy();
             BO.Events.emit('hud:banner', { title: ks.name.toUpperCase() + ' DEPLOYED', sub: 'TACTICAL SUPPORT INBOUND', color: '#38bdf8' });
 
             if (ksId === 'blackbird') {
@@ -977,7 +977,7 @@
                         BO.World.hasLineOfSight(sentry.pos.x, sentry.pos.y, sentry.pos.z, bot.pos.x, bot.pos.y + 1.2, bot.pos.z));
                     if (target) {
                         sentry.mesh.lookAt(target.pos.x, target.pos.y + 1.0, target.pos.z);
-                        BO.Sound.playTurretFire();
+                        BO.Sound.playTurretFire(sentry.pos);
                         BO.FX.spawnTracer(sentry.pos, target.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfacc15, 0.035, 0.08);
                         if (target.takeDamage(36, 'player')) this._awardPlayerKill(target, false, 'SENTRY GUN', null);
                     }
@@ -1010,7 +1010,7 @@
                     if (enemies.length > 0) {
                         const t = BO.Math.pick(enemies);
                         BO.FX.spawnTracer(BO.FX.chopper.group.position.clone(), t.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b, 0.06, 0.16);
-                        BO.Sound.playGunshot('lmg', false, false, 0.6);
+                        BO.Sound.playGunshot('lmg', false, false, BO.FX.chopper.group.position);
                         if (t.takeDamage(120, 'player')) {
                             this._awardPlayerKill(t, false, 'ATTACK CHOPPER', null);
                         }
@@ -1206,8 +1206,10 @@
             if (!holder) return;
             holder.maxHp *= 2;
             holder.hp *= 2;
-            if (holder === BO.Player) holder.reloading = false;
-            else holder.reloadTimer = 0;
+            if (holder === BO.Player) {
+                holder.reloading = false;
+                BO.Sound.playObjectiveSignal('bounty');
+            } else holder.reloadTimer = 0;
             const name = holder === BO.Player ? 'YOU' : holder.name;
             BO.Events.emit('hud:toast', { text: 'BOUNTY HOLDER • ' + name, color: '#fde047' });
         }
@@ -1236,17 +1238,23 @@
             if (!site || BO.Math.dist3D(BO.Player.pos.x, BO.Player.pos.y, BO.Player.pos.z, site.x, site.y || 0, site.z) > 3.5) return;
             const attackTeam = (this.searchRound - 1) % 2;
             if (!this.searchBomb && this.playerTeam === attackTeam) {
-                this.searchBomb = 35;
-                this.searchProgress = 0;
                 BO.Progression.recordStat('mpObjectives', 1);
-                BO.Events.emit('hud:toast', { text: 'CHARGE PLANTED • 35 SECONDS', color: '#fbbf24' });
+                this._armSearchCharge();
             } else if (this.searchBomb && this.playerTeam !== attackTeam) {
                 BO.Progression.recordStat('mpObjectives', 1);
                 this._finishSearchRound(this.playerTeam, 'CHARGE DEFUSED');
             }
         }
 
+        _armSearchCharge() {
+            this.searchBomb = 35;
+            this.searchProgress = 0;
+            BO.Sound.playObjectiveSignal('charge_armed');
+            BO.Events.emit('hud:toast', { text: 'CHARGE PLANTED • 35 SECONDS', color: '#fbbf24' });
+        }
+
         _finishSearchRound(winningTeam, reason) {
+            if (reason === 'CHARGE DEFUSED') BO.Sound.playObjectiveSignal('charge_safe');
             if (++this.teamScores[winningTeam] >= this.scoreLimit) {
                 this._queueWinnerKillcam(winningTeam === this.playerTeam, reason);
                 return;
@@ -1305,13 +1313,18 @@
                     BO.Math.dist3D(bot.pos.x, bot.pos.y, bot.pos.z, site.x, site.y || 0, site.z) < 3.5);
                 this.searchProgress = atSite ? this.searchProgress + dt : 0;
                 if (this.searchBomb) {
+                    const tickUnits = this.searchBomb <= 5 ? 2 : 1;
+                    const priorTick = Math.ceil(this.searchBomb * tickUnits);
                     this.searchBomb -= dt;
-                    if (this.searchBomb <= 0) this._finishSearchRound(attackers, 'CHARGE DETONATED');
-                    else if (this.searchProgress >= 5) this._finishSearchRound(defenders, 'CHARGE DEFUSED');
+                    if (this.searchBomb <= 0) {
+                        BO.Sound.playExplosion(site ?? 0.8);
+                        this._finishSearchRound(attackers, 'CHARGE DETONATED');
+                    } else if (this.searchProgress >= 5) this._finishSearchRound(defenders, 'CHARGE DEFUSED');
+                    else if (site && Math.ceil(this.searchBomb * tickUnits) < priorTick) {
+                        BO.Sound.playObjectiveSignal('charge_tick', site);
+                    }
                 } else if (this.searchProgress >= 4) {
-                    this.searchBomb = 35;
-                    this.searchProgress = 0;
-                    BO.Events.emit('hud:toast', { text: 'CHARGE PLANTED • 35 SECONDS', color: '#fbbf24' });
+                    this._armSearchCharge();
                 }
             }
             return true;

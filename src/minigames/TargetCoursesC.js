@@ -255,38 +255,48 @@
                 } else S.data.songT = S.t;
                 if (state === 'running') S.data.grooveTime[S.data.level] += dt;
                 if (state === 'running' && S.opts.exampleMode) {
+                    const due = [];
                     let best = null, bestT = Infinity;
                     for (const tg of S.targets) {
-                        if (tg.alive && tg.hitT !== undefined && tg.hitT < bestT) { bestT = tg.hitT; best = tg; }
+                        if (!tg.alive || tg.hitT === undefined) continue;
+                        if (tg.hitT < bestT) { bestT = tg.hitT; best = tg; }
+                        if (S.data.songT >= tg.hitT - 0.008) due.push(tg);
                     }
-                    if (best) {
-                        const cam = BO.App.worldCamera;
+                    due.sort((a, b) => a.hitT - b.hitT);
+                    const cam = BO.App.worldCamera;
+                    const aimAt = due[0] || best;
+                    if (aimAt && cam) {
+                        const dx = aimAt.root.position.x - cam.position.x;
+                        const dy = aimAt.root.position.y - cam.position.y;
+                        const dz = aimAt.root.position.z - cam.position.z;
+                        const dist = Math.max(0.1, Math.hypot(dx, dz));
+                        const wy = Math.atan2(-dx, -dz);
+                        const wp = BO.Math.clamp(Math.atan2(dy, dist), -1.2, 1.2);
+                        const timeLeft = aimAt.hitT - S.data.songT;
+                        const trackSpd = timeLeft < 0.05 ? 1 : Math.min(1, dt * (timeLeft < 0.16 ? 28 : 14));
+                        BO.Player.yaw += BO.Math.angleDiff(BO.Player.yaw, wy) * trackSpd;
+                        BO.Player.pitch = BO.Math.lerp(BO.Player.pitch, wp, trackSpd);
+                    }
+                    for (const tg of due) {
+                        if (!tg.alive) continue;
                         if (cam) {
-                            const dx = best.root.position.x - cam.position.x;
-                            const dy = best.root.position.y - cam.position.y;
-                            const dz = best.root.position.z - cam.position.z;
+                            const dx = tg.root.position.x - cam.position.x;
+                            const dy = tg.root.position.y - cam.position.y;
+                            const dz = tg.root.position.z - cam.position.z;
                             const dist = Math.max(0.1, Math.hypot(dx, dz));
-                            const wy = Math.atan2(-dx, -dz);
-                            const wp = BO.Math.clamp(Math.atan2(dy, dist), -1.2, 1.2);
-                            const trackSpd = Math.min(1, dt * ((best.hitT - S.data.songT) < 0.16 ? 26 : 12));
-                            BO.Player.yaw += BO.Math.angleDiff(BO.Player.yaw, wy) * trackSpd;
-                            BO.Player.pitch = BO.Math.lerp(BO.Player.pitch, wp, trackSpd);
+                            BO.Player.yaw = Math.atan2(-dx, -dz);
+                            BO.Player.pitch = BO.Math.clamp(Math.atan2(dy, dist), -1.2, 1.2);
+                            const fwd = V(Math.cos(BO.Player.pitch) * -Math.sin(BO.Player.yaw), Math.sin(BO.Player.pitch), Math.cos(BO.Player.pitch) * -Math.cos(BO.Player.yaw));
+                            const right = V().crossVectors(fwd, V(0, 1, 0)).normalize();
+                            const muzzle = cam.position.clone().addScaledVector(fwd, 0.55).addScaledVector(right, 0.22).add(V(0, -0.16, 0));
+                            BO.FX.spawnTracer(muzzle, tg.root.position.clone(), 0x22d3ee, 0.045, 0.12);
+                            BO.FX.spawnParticles(muzzle, 4, 0xfef08a, 2.2, 0, 0.12, 0.55);
+                            BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.006);
                         }
-                        if (S.data.songT >= best.hitT - 0.008) {
-                            S.shots++;
-                            S.shotHits++;
-                            if (cam) {
-                                const fwd = new THREE.Vector3(), right = new THREE.Vector3();
-                                cam.getWorldDirection(fwd);
-                                right.crossVectors(fwd, V(0, 1, 0)).normalize();
-                                const muzzle = cam.position.clone().addScaledVector(fwd, 0.55).addScaledVector(right, 0.22).add(V(0, -0.16, 0));
-                                BO.FX.spawnTracer(muzzle, best.root.position.clone(), 0x22d3ee, 0.045, 0.12);
-                                BO.FX.spawnParticles(muzzle, 4, 0xfef08a, 2.2, 0, 0.12, 0.55);
-                                BO.Player.cameraShake = Math.max(BO.Player.cameraShake || 0, 0.006);
-                            }
-                            this.gunSound(S);
-                            this.onHit(S, best, { pt: best.root.position.clone() });
-                        }
+                        S.shots++;
+                        S.shotHits++;
+                        this.gunSound(S);
+                        this.onHit(S, tg, { pt: tg.root.position.clone() });
                     }
                 }
             }
@@ -362,7 +372,7 @@
         hud(S) {
             const g = S.data.groove;
             const fresh = performance.now() - (S.data.lastJudgeT || 0) < 450;
-            const demoBadge = S.opts.exampleMode ? '<div class="mgx-chip mgx-hot">🎬 1ST-PERSON EXAMPLE POV • 0 PTS EARNED • [ESC] EXIT</div>' : '';
+            const demoBadge = S.opts.exampleMode ? '<div class="mgx-chip mgx-hot">🎬 EXAMPLE PLAYBACK • 0 PTS (PRACTICE) • [ESC] PAUSE / TAKE CONTROL</div>' : '';
             return `${demoBadge}<div class="mgx-groove"><small>GROOVE</small><div class="mgx-groove-bar"><i style="width:${g.toFixed(0)}%"></i>${LAYERS.map((ly) => `<em style="left:${ly.at}%"></em>`).join('')}</div>
                 <div class="mgx-layers"><span class="on">DRUMS</span>${LAYERS.map((ly, i) => `<span class="${i < S.data.level ? 'on' : ''}">${ly.id.toUpperCase()}</span>`).join('')}</div></div>
                 ${fresh ? `<div class="mgx-judge mgx-j-${S.data.lastJudge}">${S.data.lastJudge}</div>` : ''}`;
