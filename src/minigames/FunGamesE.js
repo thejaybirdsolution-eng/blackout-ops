@@ -190,6 +190,7 @@
         countdown: 3,
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('derby');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
             const D = S.data;
             const ARENA_R = 19.5;
             Object.assign(D, {
@@ -204,6 +205,28 @@
             const pulseRing = new THREE.Mesh(new THREE.RingGeometry(ARENA_R - 0.85, ARENA_R - 0.15, 48), basic(0x38bdf8, { side: THREE.DoubleSide }));
             pulseRing.rotation.x = -Math.PI / 2; pulseRing.position.y = 0.04; S.add(pulseRing);
             D.pulseRing = pulseRing;
+
+            // Industrial Stadium Skyline & Arena Banners/Statues/Trophies surrounding the Volt-Dome!
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const indBldgs = [], indTowers = [], arenaBanners = [], arenaStatues = [];
+                for (let k = 0; k < 8; k++) {
+                    const a = (k / 8) * TAU;
+                    arenaBanners.push({ pos: [Math.cos(a) * (ARENA_R + 2.2), 4.6, Math.sin(a) * (ARENA_R + 2.2)], rot: -a + Math.PI / 2, scale: 2.3 });
+                    if (k % 2 === 0) {
+                        arenaStatues.push({ pos: [Math.cos(a) * (ARENA_R + 5.2), 0, Math.sin(a) * (ARENA_R + 5.2)], rot: -a - Math.PI / 2, scale: 2.4 });
+                        indBldgs.push({ pos: [Math.cos(a + 0.35) * 44, -6, Math.sin(a + 0.35) * 44], rot: -a, scale: 6.5 });
+                    } else {
+                        indTowers.push({ pos: [Math.cos(a + 0.35) * 42, -6, Math.sin(a + 0.35) * 42], rot: -a, scale: 5.2 });
+                    }
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/banner.glb', arenaBanners);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/statue.glb', arenaStatues);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/building-d.glb', indBldgs);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/water-tower.glb', indTowers);
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [0, 9.8, -(ARENA_R + 2.2)], fitSize: [2.6, 3.4, 2.6] });
+            }
 
             // 4 Stadium Spectator Bleachers outside the Volt-Dome with cheering crowd silhouettes!
             const standM = std(0x1e1b4b, 0.7), crowdCols = [0xfacc15, 0xec4899, 0x38bdf8, 0x4ade80, 0xf97316];
@@ -410,11 +433,17 @@
                 const core = new THREE.Mesh(new THREE.TorusKnotGeometry(0.36, 0.11, 36, 8), basic(0xfacc15));
                 const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 8, 20), basic(0x38bdf8));
                 g.add(core, halo);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(g, 'blaster_kit/crate-medium.glb', { fitSize: [1.05, 0.85, 1.05], hideFallback: core });
+                }
             } else {
                 const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.85, 0.12), std(0x4ade80, 0.25, 0.85));
                 const jaw1 = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 8, 12, Math.PI * 1.3), std(0x4ade80, 0.25, 0.85));
                 jaw1.position.y = 0.45;
                 g.add(shaft, jaw1);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(g, 'mini_arena_kit/trophy.glb', { fitSize: [0.85, 1.05, 0.85], hideFallback: [shaft, jaw1] });
+                }
             }
             S.add(g);
             D.pickups.push({ kind, mesh: g });
@@ -426,6 +455,7 @@
             D.aliveCount--;
             BO.FX.spawnExplosion(c.pos.clone(), 3.6, c.col);
             tone(520, 95, 0.45, 'sawtooth', 0.12);
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Sci-Fi Sounds (Kenney)/Audio/explosionCrunch_001.ogg', { volume: 0.42, rateJitter: 0.08 });
             const hitter = (c.lastHitBy >= 0 && S.t - c.lastHitT < 6.0) ? D.cars[c.lastHitBy] : null;
             if (hitter && hitter.isPlayer && !c.isPlayer) {
                 D.kos++; S.kills++; S.bumpCombo();
@@ -635,6 +665,7 @@
                             const mid = V((a.pos.x + b.pos.x) * 0.5, 0.65, (a.pos.z + b.pos.z) * 0.5);
                             BO.FX.spawnParticles(mid, 14, 0xfde047, 5.5, 5, 0.4, 0.85);
                             if (a.isPlayer || b.isPlayer) {
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactMetal_heavy_000.ogg', { volume: Math.min(0.48, 0.2 + impact * 0.02), rateJitter: 0.1 });
                                 if (BO.MinigameAudio) BO.MinigameAudio.bumperCrash(impact / 10); else tone(220, 95, 0.14, 'triangle', 0.12);
                                 const rival = a.isPlayer ? b : a;
                                 if (impact > 9.5 && aSpd >= bSpd - 1 && a.isPlayer) {
@@ -846,6 +877,20 @@
                 const pan = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.30, 0.14, 14), copperM);
                 pan.rotation.x = Math.PI / 2; pan.position.set(-3.4 + p * 1.2, 3.45, -4.2); S.add(pan);
             }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [-3.4, 0, -5.8], fitSize: [8.8, 4.4, 3.0] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-hanging-trade-sign.glb', { pos: [4.8, 3.6, 3.6], rot: Math.PI, fitSize: [1.3, 1.4, 0.5] });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_dungeon_kit/barrel.glb', [
+                    { pos: [-10.8, 0, -4.5], scale: 1.9 }, { pos: [-10.8, 0, -2.8], scale: 1.9 },
+                    { pos: [10.8, 0, -5.2], scale: 1.9 }, { pos: [10.8, 0, 2.8], scale: 1.9 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_dungeon_kit/pot.glb', [
+                    { pos: [-9.2, 1.02, -4.2], scale: 1.4 }, { pos: [2.1, 1.02, -4.2], scale: 1.4 },
+                    { pos: [6.2, 1.08, -4.2], scale: 1.5 }
+                ]);
+            }
 
             // 1. Back Ingredient Counter (z = -4.2) with 4 Labeled Crates + Trash Chute
             const prepBench = new THREE.Mesh(new THREE.BoxGeometry(11.6, 1.0, 1.5), steel);
@@ -927,7 +972,7 @@
             bellLbl.position.set(2.4, 1.95, 3.6); S.add(bellLbl);
             D.bellPos = V(2.4, 1.15, 3.6);
 
-            // 4. Visible Dining Room Tables + Seated VIP Critics beyond the Pass Window (z = 7.5..10)
+            // 4. Visible Dining Room Tables + Seated VIP Critics beyond the Pass Window (z = 7.5..10) + 3D Tables & Chairs!
             for (let t = -1; t <= 1; t++) {
                 const tx = t * 4.5, tz = 8.2;
                 const tblTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.08, 20), std(0x991b1b, 0.7));
@@ -939,6 +984,11 @@
                 const critic = F.human({ coat: 0x1e1b4b, shirt: 0xffffff, tie: 0xdc2626, hat: t === 0 ? 'tophat' : 'fedora', glasses: 'round', scale: 0.94 });
                 critic.root.position.set(tx, 0, tz + 1.15); critic.root.rotation.y = Math.PI;
                 S.add(tblTop); S.add(tblPed); S.add(candle); S.add(critic.root);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/table.glb', { pos: [tx, 0, tz], fitSize: [2.1, 0.9, 2.1], hideFallback: [tblTop, tblPed] });
+                    BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/chair.glb', { pos: [tx, 0, tz + 1.35], rot: Math.PI, fitSize: [0.95, 1.2, 0.95] });
+                    BO.Assets.placeGLB(S.scene, 'mini_dungeon_kit/chair.glb', { pos: [tx - 1.35, 0, tz], rot: Math.PI / 2, fitSize: [0.95, 1.2, 0.95] });
+                }
                 S.animate(() => { F.pose(critic, 'idle', S.t + t); });
             }
 
@@ -979,7 +1029,10 @@
             const D = S.data;
             if (D.tickets.length >= 4) return;
             const spec = RECIPES[Math.floor(Math.random() * RECIPES.length)];
-            D.tickets.push({ spec, timeLeft: 48, maxTime: 48 });
+            const vip = D.tickets.length > 0 && !D.tickets.some((t) => t.vip) && Math.random() < 0.42;
+            const dur = vip ? 34 : 48;
+            D.tickets.push({ spec, vip, timeLeft: dur, maxTime: dur });
+            if (vip) MG.toast(`👑 GOLDEN VIP RUSH ORDER: ${spec.name} (2× REWARD)!`, '#fde047');
         },
         _rebuildPlateVisual(p) {
             while (p.stackG.children.length) p.stackG.remove(p.stackG.children[0]);
@@ -1016,14 +1069,19 @@
                 if (matchIdx >= 0) {
                     const tk = D.tickets.splice(matchIdx, 1)[0];
                     const tip = Math.round((tk.timeLeft / tk.maxTime) * (D.feverT > 0 ? 390 : 260));
-                    const pts = tk.spec.reward + tip;
+                    const vipBonus = tk.vip ? 650 : 0;
+                    const pts = (tk.spec.reward + tip) * (tk.vip ? 2 : 1) + vipBonus;
                     D.served++; D.orderStreak++; S.bumpCombo();
                     if (D.orderStreak >= 3 && D.feverT <= 0) {
                         D.feverT = 12.0; D.orderStreak = 0;
                         MG.toast('🔥 MICHELIN FEVER (12s)! 2x GRILL SPEED + 1.5x TIPS!', '#fde047');
                     }
-                    S.award(pts, p.pos.clone().add(V(0, 1.0, 0)), `🔔 ORDER UP: ${tk.spec.name} (+${tip} TIP)!`, '#fde047');
-                    BO.FX.spawnParticles(p.pos.clone().add(V(0, 0.4, 0)), 20, 0xfacc15, 5, 6, 0.5, 0.9);
+                    S.award(pts, p.pos.clone().add(V(0, 1.0, 0)), tk.vip ? `👑 VIP RUSH SERVED: ${tk.spec.name} (+${pts})!` : `🔔 ORDER UP: ${tk.spec.name} (+${tip} TIP)!`, '#fde047');
+                    BO.FX.spawnParticles(p.pos.clone().add(V(0, 0.4, 0)), tk.vip ? 32 : 20, 0xfacc15, 5, 6, 0.5, 0.9);
+                    if (BO.Assets && BO.Assets.playClip) {
+                        BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactBell_heavy_001.ogg', { volume: 0.42, rateJitter: 0.05 });
+                        if (tk.vip) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.48, rateJitter: 0.05 });
+                    }
                     if (BO.MinigameAudio) BO.MinigameAudio.kitchenBell(); else { tone(880, 1320, 0.18, 'triangle', 0.13); tone(1320, 1760, 0.24, 'triangle', 0.12, 0.10); }
                     p.items = []; this._rebuildPlateVisual(p);
                     this._addTicket(S);
@@ -1049,6 +1107,7 @@
                     D.held = c.ing.id;
                     this._syncHandVisual(S);
                     tone(520, 680, 0.10, 'sine', 0.09);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(c.ing.id === 'greens' || c.ing.id === 'cheese' ? 'rpg_sfx/knifeSlice.ogg' : 'rpg_sfx/chop.ogg', { volume: 0.36, rateJitter: 0.08 });
                     MG.toast(`✋ GRABBED ${c.ing.label}`, '#fde047');
                     return;
                 }
@@ -1065,6 +1124,7 @@
                         b.state = 'raw'; b.cookT = 0;
                         b.foodMount.add(buildFoodLayerMesh('raw_patty'));
                         b.ring.material.color.setHex(0xf97316);
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalPot1.ogg', { volume: 0.38, rateJitter: 0.08 });
                         if (BO.MinigameAudio) BO.MinigameAudio.kitchenSizzle(); else tone(260, 480, 0.14, 'sawtooth', 0.09);
                         MG.toast('🥩 SIZZLING WAGYU ON BURNER — PULL WHEN GOLD!', '#fb923c');
                         return;
@@ -1075,6 +1135,7 @@
                         b.ring.material.color.setHex(0x475569);
                         D.held = 'cooked_patty'; this._syncHandVisual(S);
                         tone(660, 920, 0.12, 'triangle', 0.10);
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalPot2.ogg', { volume: 0.36, rateJitter: 0.08 });
                         MG.toast('✨ GRABBED PERFECT SEARED WAGYU! PLATE IT AT THE PASS!', '#4ade80');
                         return;
                     }
@@ -1243,7 +1304,7 @@
             const heldName = D.held ? D.held.toUpperCase().replace('_', ' ') : 'EMPTY';
             const ticketHtml = D.tickets.map((tk) => {
                 const needStr = tk.spec.need.map((n) => n === 'cooked_patty' ? '🥩SEARED' : n === 'bun' ? '🍞BUN' : n === 'cheese' ? '🧀CHED' : '🥬GRN').join('+');
-                return `<div class="mgx-chip" style="border-color:#f97316;"><b>${esc(tk.spec.name)}</b> <small>${needStr} (${Math.ceil(tk.timeLeft)}s)</small></div>`;
+                return `<div class="mgx-chip ${tk.vip ? 'mgx-hot' : ''}" style="border-color:${tk.vip ? '#fde047' : '#f97316'};"><b>${tk.vip ? '👑 VIP 2× ' : ''}${esc(tk.spec.name)}</b> <small>${needStr} (${Math.ceil(tk.timeLeft)}s)</small></div>`;
             }).join('');
             return `<div class="fun-panel">
                 <div class="mgx-chip mgx-hot">HAND <b>${esc(heldName)}</b></div>
@@ -1428,6 +1489,7 @@
         countdown: 3,
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('skypirate');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             const D = S.data;
             Object.assign(D, {
                 shipHp: 100, maxShipHp: 100, cannons: [], cannonballs: [], zeppelins: [], boarders: [],
@@ -1478,7 +1540,7 @@
             shipVis.add(helmPost, helmWheel);
             S.animate(() => { helmWheel.rotation.z = Math.sin(S.t * 0.9) * 0.35; });
 
-            // Midship Carpentry Repair Barrel (z = -1.2)
+            // Midship Carpentry Repair Barrel (z = -1.2) + Staged 3D Sky-Galleon Ballistae, Flags, Barrels, Plunder Chest & Floating Sky-Forts!
             const repG = new THREE.Group();
             repG.position.set(0, 0, -1.2);
             const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.42, 1.05, 16), std(0x78350f, 0.75));
@@ -1488,6 +1550,30 @@
             const repLbl = labelSprite('🔨 CARPENTRY REPAIR [E]', '#4ade80', 2.4);
             repLbl.position.y = 1.65;
             repG.add(barrel, hoop1, repLbl);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(repG, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', { fitSize: [0.98, 1.12, 0.98], hideFallback: [barrel, hoop1] });
+                BO.Assets.placeGLB(shipVis, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { pos: [-3.2, 1.72, 12.6], rot: 0.35, fitSize: [1.35, 1.0, 1.0] });
+                BO.Assets.placeGLB(shipVis, 'castle_kit/siege-ballista.glb', { pos: [0, 0.04, -12.8], rot: Math.PI, fitSize: [2.2, 1.5, 2.2] });
+                BO.Assets.placeGLB(shipVis, 'castle_kit/siege-ballista.glb', { pos: [0, 1.72, 13.4], rot: 0, fitSize: [2.2, 1.5, 2.2] });
+                BO.Assets.placeGLB(shipVis, 'castle_kit/flag-wide.glb', { pos: [0, 15.6, -6.5], fitSize: [2.4, 1.8, 0.5] });
+                BO.Assets.placeGLB(shipVis, 'castle_kit/flag-wide.glb', { pos: [0, 15.6, 3.5], fitSize: [2.4, 1.8, 0.5] });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(shipVis, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', [
+                    { pos: [-4.6, 0.04, -11.5], scale: 1.35 }, { pos: [4.6, 0.04, -11.5], scale: 1.35 },
+                    { pos: [3.6, 1.72, 12.8], scale: 1.35 }
+                ]);
+                // Distant Floating Sky-Pirate Bastion Islands on the horizon!
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/rocks-large.glb', [
+                    { pos: [-62, -6, -58], rot: 0.5, scale: 6.5 }, { pos: [64, -4, -64], rot: -0.7, scale: 7.0 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-base.glb', [
+                    { pos: [-62, 1.5, -58], scale: 3.4 }, { pos: [64, 3.5, -64], scale: 3.6 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-roof.glb', [
+                    { pos: [-62, 7.2, -58], scale: 3.4 }, { pos: [64, 9.5, -64], scale: 3.6 }
+                ]);
+            }
             shipVis.add(repG);
             D.repairPos = V(0, 0.5, -1.2);
 
@@ -1569,6 +1655,7 @@
                     c.cd = 3.6; c.recoil = 1.0;
                     const muzzle = V(c.pos.x + c.side * 1.45, 0.72, c.pos.z);
                     BO.FX.spawnExplosion(muzzle, 1.8, 0xf97316);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.48, rateJitter: 0.08 });
                     if (BO.MinigameAudio) BO.MinigameAudio.cannonBoom(); else { SFX.rumble(0.45); tone(150, 48, 0.32, 'sawtooth', 0.14); }
 
                     // Aim slightly toward nearest enemy zeppelin on that broadside if one is present!
@@ -1648,6 +1735,7 @@
                 hp: 3, life: 0, points: 220, appear: 'drop', death: 'tumble', deathColor: 0xdc2626,
                 onKill: () => { D.boarders = D.boarders.filter((b) => b.tgt !== tgt); }
             });
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/drawKnife1.ogg', { volume: 0.32, rateJitter: 0.1 });
             D.boarders.push({ tgt, fig, phase: Math.random() * 6, atkCd: 1.2 });
         },
         update(S, dt, lib, state) {

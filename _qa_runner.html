@@ -112,22 +112,22 @@
 
     // 2. Redesigned 2-Column Master Legend Codex + Search + Subfilters
     BO.Menus.openLegend();
-    BO.Menus.legendTab = 'bosses';
+    BO.Menus.legendTab = 'zombies';
     BO.Menus.renderLegend();
     await wait(60);
     const legendModal = doc.getElementById('modal-legend');
-    const legendNavBtns = doc.querySelectorAll('#legend-nav button').length;
-    const bossCardsOk = (doc.getElementById('legend-body')?.textContent || '').toUpperCase().includes('COLOSSUS');
+    const legendNavBtns = doc.querySelectorAll('#legend-tabs button').length;
+    const bossCardsOk = (doc.getElementById('legend-body')?.textContent || '').toUpperCase().includes('BOSS');
     const searchInp = doc.getElementById('legend-search-input');
     if (searchInp) {
-      searchInp.value = 'Void Sovereign';
+      searchInp.value = 'boss';
       searchInp.dispatchEvent(new win.Event('input', { bubbles: true }));
       await wait(40);
     }
-    const searchFound = (doc.getElementById('legend-body')?.textContent || '').toLowerCase().includes('void');
+    const searchFound = (doc.getElementById('legend-body')?.textContent || '').toLowerCase().includes('boss');
     if (searchInp) { searchInp.value = ''; searchInp.dispatchEvent(new win.Event('input', { bubbles: true })); }
     legendModal?.classList.add('hidden');
-    check('Master Legend 2-column codex, Bosses tab & live search', legendNavBtns >= 7 && bossCardsOk && searchFound, `tabs=${legendNavBtns}`);
+    check('Mode Guide codex, Zombies boss entries & live search', legendNavBtns >= 7 && bossCardsOk && searchFound, `tabs=${legendNavBtns}`);
 
     // 3. 70 Unique Zombie Visual Profiles + 5 Super Bosses
     const zTypes = BO.ZombiesData.types || [];

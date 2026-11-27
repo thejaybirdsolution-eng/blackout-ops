@@ -1,13 +1,65 @@
 /* ============================================================================
    BLACKOUT OPS — COURSE SCENERY & AAA TEXTURED 3D PROP KIT
-   Shared architectural & mechanical prop builders using BO.Textures PBR maps,
-   beveled framing, vehicles, corrugated containers, turrets, lodges, bounce pads,
-   and articulated boss / creature rigs. All dimensions are in world metres.
+   Shared architectural & mechanical prop builders using BO.Assets 3D GLB kits,
+   PBR surfaces, skyboxes, staged audio, vehicles, corrugated containers,
+   turrets, lodges, bounce pads, and shootable chrono-crystals.
 ============================================================================ */
 (function (BO) {
     'use strict';
     const { std, basic } = BO.MinigameLib;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+    function cleanModelRel(relPath) {
+        return String(relPath || '').replace(/^staged_assets\/3d_models\//, '');
+    }
+
+    function glbProp(parent, relPath, opts = {}) {
+        const rel = cleanModelRel(relPath);
+        if (BO.Assets && BO.Assets.placeGLB) {
+            return BO.Assets.placeGLB(parent, rel, opts);
+        }
+        if (BO.MinigameLib && BO.MinigameLib.placeGLB) {
+            return BO.MinigameLib.placeGLB(parent, 'staged_assets/3d_models/' + rel, opts);
+        }
+        return null;
+    }
+
+    function glbBatch(parent, relPath, transforms, opts = {}) {
+        if (!transforms || !transforms.length) return null;
+        const rel = cleanModelRel(relPath);
+        if (BO.Assets && BO.Assets.placeGLBInstanced) {
+            return BO.Assets.placeGLBInstanced(parent, rel, transforms, opts);
+        }
+        if (BO.MinigameLib && BO.MinigameLib.placeGLBInstanced) {
+            return BO.MinigameLib.placeGLBInstanced(parent, 'staged_assets/3d_models/' + rel, transforms, opts);
+        }
+        return null;
+    }
+
+    function pbrSurface(relPath, repeatX = 2, repeatY = 2, extraOpts = {}) {
+        const clean = String(relPath || '').replace(/^staged_assets\/textures\//, '');
+        if (BO.Assets && BO.Assets.pbrMat) {
+            return BO.Assets.pbrMat(clean, repeatX, repeatY, extraOpts);
+        }
+        if (BO.MinigameArt && BO.MinigameArt.pbrMat) {
+            return BO.MinigameArt.pbrMat(clean, repeatX, repeatY, extraOpts);
+        }
+        return std((extraOpts && extraOpts.color) || 0x475569, (extraOpts && extraOpts.roughness) ?? 0.85, (extraOpts && extraOpts.metalness) ?? 0.1);
+    }
+
+    function skybox(sceneOrSession, skyName = 'skybox-day.png') {
+        const scene = (sceneOrSession && sceneOrSession.isScene) ? sceneOrSession : (sceneOrSession && sceneOrSession.scene);
+        if (scene && BO.Assets && BO.Assets.applySkybox) {
+            BO.Assets.applySkybox(scene, skyName);
+        }
+    }
+
+    function sfx(relPath, volume = 0.4, rateJitter = 0.08) {
+        const clean = String(relPath || '').replace(/^staged_assets\/audio\//, '');
+        if (BO.Assets && BO.Assets.playClip) {
+            BO.Assets.playClip(clean, { volume, rateJitter });
+        }
+    }
 
     function part(parent, geometry, material, x, y, z) {
         const obj = new THREE.Mesh(geometry, material);
@@ -54,6 +106,67 @@
             : std(0x475569, 0.85);
     }
 
+    /** Tactical or medieval 3D weapon rack with flanking ammo crates. */
+    function weaponRackProp(parent, x, y, z, yaw = 0, variant = 'arena', scale = 1.6) {
+        const g = group(parent, x, y, z);
+        g.rotation.y = yaw;
+        const model = variant === 'wood'
+            ? 'pixel_fantasy/pixel-fantasy-wooden-weapon-rack.glb'
+            : 'mini_arena_kit/weapon-rack.glb';
+        glbProp(g, model, { pos: [0, 0, 0], scale });
+        glbProp(g, 'blaster_kit/crate-small.glb', { pos: [0.95 * (scale / 1.6), 0, 0.12], rot: 0.25, scale: scale * 0.72 });
+        return g;
+    }
+
+    /** Multi-tiered 3D medieval castle tower with flying banner. */
+    function castleTowerProp(parent, x, y, z, yaw = 0, hex = false, scale = 2.6) {
+        const g = group(parent, x, y, z);
+        g.rotation.y = yaw;
+        if (hex) {
+            glbProp(g, 'castle_kit/tower-hexagon-base.glb', { pos: [0, 0, 0], scale });
+            glbProp(g, 'castle_kit/tower-hexagon-mid.glb', { pos: [0, scale * 0.95, 0], scale });
+            glbProp(g, 'castle_kit/tower-hexagon-roof.glb', { pos: [0, scale * 1.9, 0], scale });
+        } else {
+            glbProp(g, 'castle_kit/tower-square-base.glb', { pos: [0, 0, 0], scale });
+            glbProp(g, 'castle_kit/tower-square-mid-windows.glb', { pos: [0, scale * 0.95, 0], scale });
+            glbProp(g, 'castle_kit/tower-square-top-roof-high.glb', { pos: [0, scale * 1.9, 0], scale });
+        }
+        glbProp(g, 'castle_kit/flag-banner-long.glb', { pos: [0, scale * 1.35, scale * 0.48], scale: scale * 0.75 });
+        return g;
+    }
+
+    /** Suburban 3D house with planter & ornamental tree. */
+    function suburbanHouseProp(parent, x, y, z, yaw = 0, typeChar = 'a', scale = 3.2) {
+        const g = group(parent, x, y, z);
+        g.rotation.y = yaw;
+        const ch = String(typeChar || 'a').toLowerCase();
+        glbProp(g, `city_suburban_kit/building-type-${ch}.glb`, { pos: [0, 0, 0], scale });
+        glbProp(g, 'city_suburban_kit/planter.glb', { pos: [scale * 0.55, 0, scale * 0.55], scale: scale * 0.5 });
+        glbProp(g, 'city_suburban_kit/tree-small.glb', { pos: [-scale * 0.65, 0, scale * 0.52], scale: scale * 0.58 });
+        return g;
+    }
+
+    /** Industrial 3D facility with smokestack chimney & storage tank. */
+    function industrialFacilityProp(parent, x, y, z, yaw = 0, typeChar = 'a', scale = 3.4) {
+        const g = group(parent, x, y, z);
+        g.rotation.y = yaw;
+        const ch = String(typeChar || 'a').toLowerCase();
+        glbProp(g, `city_industrial_kit/building-${ch}.glb`, { pos: [0, 0, 0], scale });
+        glbProp(g, 'city_industrial_kit/chimney-large.glb', { pos: [-scale * 0.52, 0, -scale * 0.42], scale: scale * 0.68 });
+        glbProp(g, 'city_industrial_kit/detail-tank-large.glb', { pos: [scale * 0.62, 0, -scale * 0.25], scale: scale * 0.55 });
+        return g;
+    }
+
+    /** Festival / frontier 3D canvas market stall with wooden barrel & crate. */
+    function marketStallProp(parent, x, y, z, yaw = 0, scale = 1.8) {
+        const g = group(parent, x, y, z);
+        g.rotation.y = yaw;
+        glbProp(g, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [0, 0, 0], scale });
+        glbProp(g, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', { pos: [scale * 0.82, 0, 0.25], scale: scale * 0.65 });
+        glbProp(g, 'pixel_fantasy/pixel-fantasy-rustic-cube-crate.glb', { pos: [-scale * 0.82, 0, 0.25], rot: 0.3, scale: scale * 0.62 });
+        return g;
+    }
+
     /** Detailed tactical Humvee / armored SUV with wheels, cabin, glass, roof rack & headlights. */
     function humvee(parent, x, y, z, yaw = 0, paintHex = 0x3f4d36, wrecked = false) {
         const g = group(parent, x, y, z);
@@ -69,10 +182,10 @@
         const chassis = box(g, 0, 0.68, 0, 2.25, 0.76, 4.55, bodyM);
         const cabin = box(g, 0, 1.38, -0.25, 2.08, 0.72, 2.55, bodyM);
         box(g, 0, 1.38, -0.25, 2.12, 0.52, 2.15, glassM);
-        box(g, 0, 1.02, 1.52, 2.18, 0.22, 1.35, darkM); // Armored hood louver
-        box(g, 0, 0.52, 2.32, 2.30, 0.28, 0.22, darkM); // Front bullbar
-        box(g, 0, 0.52, -2.30, 2.28, 0.26, 0.18, darkM); // Rear bumper
-        box(g, 0, 1.79, -0.25, 1.92, 0.08, 2.2, darkM);  // Roof rack
+        box(g, 0, 1.02, 1.52, 2.18, 0.22, 1.35, darkM);
+        box(g, 0, 0.52, 2.32, 2.30, 0.28, 0.22, darkM);
+        box(g, 0, 0.52, -2.30, 2.28, 0.26, 0.18, darkM);
+        box(g, 0, 1.79, -0.25, 1.92, 0.08, 2.2, darkM);
 
         for (const sx of [-0.82, 0.82]) {
             const hl = drum(g, sx, 0.76, 2.29, 0.14, 0.14, 0.06, lampM, 10);
@@ -91,21 +204,14 @@
         return { root: g, blocker: chassis, cabin };
     }
 
-    /** Corrugated shipping container with corner castings, locking bars & PBR container texture. */
+    /** Corrugated shipping container with 3D GLB skin + corner castings & solid collider. */
     function cargoContainer(S, x, y, z, w, h, d, variant = 'red', yaw = 0) {
         const matName = variant === 'blue' ? 'container_blue' : variant === 'olive' ? 'container_olive' : 'container_red';
         const g = group(S.scene, x, y, z);
         g.rotation.y = yaw;
         const body = box(g, 0, h / 2, 0, w, h, d, texMat(matName, Math.max(w, d), h));
-        const trim = std(0x1e293b, 0.45, 0.75);
-        for (const sx of [-1, 1]) {
-            for (const sz of [-1, 1]) {
-                box(g, sx * (w / 2 - 0.08), h / 2, sz * (d / 2 - 0.08), 0.18, h + 0.02, 0.18, trim);
-            }
-            for (const bxOff of [-0.35, 0.35]) {
-                drum(g, bxOff * (w * 0.4), h / 2, sx * (d / 2 + 0.03), 0.025, 0.025, h * 0.88, std(0x94a3b8, 0.3, 0.85), 6);
-            }
-        }
+        const glbName = variant === 'blue' ? 'shipping-container-b.glb' : variant === 'olive' ? 'shipping-container-c.glb' : 'shipping-container-a.glb';
+        glbProp(g, 'city_industrial_kit/' + glbName, { pos: [0, 0, 0], fitSize: [w, h, d], hideFallback: body });
         if (Math.abs(yaw) < 0.05) {
             S.collider(x - w / 2, y, z - d / 2, x + w / 2, y + h, z + d / 2);
             S.solid(body);
@@ -113,7 +219,7 @@
         return { root: g, body };
     }
 
-    /** Explosive red hazard barrel with yellow hazard bands (shootable / acid-detonatable). */
+    /** Explosive red hazard barrel with yellow hazard bands (shootable / chain-detonatable). */
     function explosiveBarrel() {
         const g = new THREE.Group();
         const red = std(0xb91c1c, 0.42, 0.48);
@@ -150,7 +256,7 @@
         return { group: g, head, eye, hitMeshes: [housing] };
     }
 
-    /** Glowing Pneumatic Bounce Pad / Shock Mattress for 360 Trick Shot. */
+    /** Glowing Pneumatic Bounce Pad / Shock Mattress. */
     function bouncePad(parent, x, y, z, radius = 2.2, color = 0x22d3ee) {
         const g = group(parent, x, y, z);
         drum(g, 0, 0.14, 0, radius, radius * 1.12, 0.28, std(0x1e293b, 0.45, 0.75), 24);
@@ -177,7 +283,7 @@
         roof.rotation.y = Math.PI / 4;
         const snowRoof = part(g, new THREE.ConeGeometry(7.0, 2.9, 4), snow, 0, 6.28, 0);
         snowRoof.rotation.y = Math.PI / 4;
-        box(g, 3.4, 4.6, -1.6, 1.1, 5.8, 1.1, stone); // Stone chimney
+        box(g, 3.4, 4.6, -1.6, 1.1, 5.8, 1.1, stone);
         for (const wx of [-2.8, 0, 2.8]) {
             box(g, wx, 3.3, 3.08, 1.35, 1.05, 0.08, warm);
             box(g, wx, 3.3, -3.08, 1.35, 1.05, 0.08, warm);
@@ -185,8 +291,30 @@
         return g;
     }
 
+    /** Shootable Time-Shave Chrono-Crystal for Speed Runs (-shaveSec off S.t!). */
+    function spawnChronoCrystal(S, pos, shaveSec = 1.5, scale = 1.0, color = 0x22d3ee) {
+        const g = new THREE.Group();
+        const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.65 * scale, 0), basic(color));
+        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.92 * scale, 0.06 * scale, 8, 22), basic(0xfde047));
+        g.add(gem, halo);
+        glbProp(g, 'platformer_kit/jewel.glb', { fitSize: [1.35 * scale, 1.35 * scale, 1.35 * scale], hideFallback: gem });
+        const tg = S.addTarget({
+            mesh: g, hitMeshes: [gem, halo], pos: pos.clone(), life: 0,
+            appear: 'none', inT: 0.01, death: 'shatter', deathColor: color, bonus: true,
+            onTick: (_t, dt) => {
+                g.rotation.y += dt * 2.6;
+                halo.rotation.x += dt * 1.9;
+            }
+        });
+        tg.isChronoCrystal = true;
+        tg.shaveSec = shaveSec;
+        return tg;
+    }
+
     BO.CourseScenery = {
         group, part, box, drum, rod, ring, sign, std, basic, texMat,
-        humvee, cargoContainer, explosiveBarrel, sentryTurret, bouncePad, alpineChalet
+        glbProp, glbBatch, pbrSurface, skybox, sfx,
+        weaponRackProp, castleTowerProp, suburbanHouseProp, industrialFacilityProp, marketStallProp,
+        humvee, cargoContainer, explosiveBarrel, sentryTurret, bouncePad, alpineChalet, spawnChronoCrystal
     };
 })(window.BO);

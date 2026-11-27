@@ -200,6 +200,7 @@
             }
             const big = out.items.some((it) => it.rarity === 'epic' || it.rarity === 'legendary');
             s.pityCounter = big ? 0 : s.pityCounter + 1;
+            out.credits = Math.round(out.credits * (1 + (BO.OWRPGCharacter.perkFx(s).creditFind || 0) + (table === 'boss' || table === 'dragon' ? BO.OWRPGCharacter.perkFx(s).bountyMult || 0 : 0)));
             return out;
         },
 
@@ -247,8 +248,9 @@
             const d = this.def(e.id);
             if (d.type === 'quest' || d.type === 'consumable') return 0;
             const fx = BO.OWRPGCharacter.perkFx(s);
-            const base = d.type === 'junk' ? d.scrap * 4 : Math.round(d.value * 0.25);
+            const base = d.type === 'junk' ? (d.scrap || Math.max(1, d.value / 4)) * 4 : Math.round(d.value * 0.25);
             const each = Math.round(base * (1 + (fx.salvage || 0)));
+            BO.OWRPGCharacter.addSkillXp(s, 'mining', Math.max(5, Math.min(30, each)));
             if (e.n > 1) e.n--; else this.removeUid(s, uid);
             s.player.credits += each;
             return each;

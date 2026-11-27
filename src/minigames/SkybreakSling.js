@@ -127,32 +127,102 @@
         return g;
     }
 
+    function sfxClip(relPath, volume = 0.38, rateJitter = 0.08) {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(relPath, { volume, rateJitter });
+    }
+
     function build(S) {
         const D = S.data, scene = S.scene, rng = L.mulberry32(731);
+        const Assets = BO.Assets;
         Object.assign(D, {
             selected: 0, charge: 0, drawing: false, wind: 0, knocked: 0, activeShot: null,
-            blocks: [], pigs: [], shots: [], direction: V(), origin: V(), velocity: V(), scratch: V(), local: V(),
+            blocks: [], pigs: [], eggs: [], eggsTaken: 0, shots: [], direction: V(), origin: V(), velocity: V(), scratch: V(), local: V(),
             oinkTimer: 2.5
         });
+        if (Assets && Assets.applySkybox) Assets.applySkybox(scene, 'skybox-day.png');
         Kit.cloudLayer(S, 14, 34, 170);
 
         // Lush Sunny Piggy Island Rolling Green Hills & Wooden Slingshot Perch!
-        const grassM = std(0x4ade80, 0.88), darkGrassM = std(0x22c55e, 0.9), dirtM = std(0x92400e, 0.92);
+        const grassM = (Assets && Assets.pbrMat)
+            ? Assets.pbrMat('fantasy_painterly/Grass Meadows/emerald-meadow-grass-001.png', 18, 18, { roughness: 0.86 })
+            : std(0x4ade80, 0.88);
+        const darkGrassM = std(0x22c55e, 0.9), dirtM = std(0x92400e, 0.92);
         const woodM = BO.CourseScenery.texMat('wood_plank', 4, 2);
         const stoneM = BO.CourseScenery.texMat('bunker_stone', 4, 4);
         const iceM = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.14, metalness: 0.15, transparent: true, opacity: 0.78 });
         const tntM = new THREE.MeshStandardMaterial({ map: L.signTex('TNT', { bg: '#b91c1c', color: '#fef08a', borderColor: '#facc15', w: 256, h: 256, size: 0.42 }), roughness: 0.65 });
 
-        // Scenic rolling green hills flanking Piggy Island
+        const meadowOverlay = mesh(scene, new THREE.PlaneGeometry(176, 176), grassM, 0, 0.01, -20);
+        meadowOverlay.rotation.x = -Math.PI / 2;
+        meadowOverlay.castShadow = false;
+
+        // Scenic rolling green hills + GPU-instanced 3D Forest Trees & Boulders flanking Piggy Island
+        const tallTreeTr = [], smallTreeTr = [], rockTr = [];
         for (let i = 0; i < 36; i++) {
             const x = (i % 2 ? 1 : -1) * (20 + rng() * 24), z = 10 - rng() * 76;
             const rad = 4.5 + rng() * 6.5, h = 2.8 + rng() * 6.2;
             const hill = mesh(scene, new THREE.SphereGeometry(rad, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), i % 2 ? grassM : darkGrassM, x, -0.4, z);
             hill.scale.set(1.2, h / rad, 1.3);
-            if (rng() < 0.45) {
-                const tr = Art.tree(1.2 + rng() * 0.7, 0x16a34a);
-                tr.position.set(x * 0.88, 0, z); scene.add(tr);
+            if (rng() < 0.62) {
+                const sc = 2.2 + rng() * 1.6;
+                (i % 2 === 0 ? tallTreeTr : smallTreeTr).push({ pos: [x * 0.86, 0, z], rot: rng() * Math.PI * 2, scale: sc });
             }
+            if (i % 3 === 0) {
+                rockTr.push({ pos: [x * 0.74, 0, z + (rng() - 0.5) * 4], rot: rng() * Math.PI * 2, scale: 1.8 + rng() * 1.1 });
+            }
+        }
+        if (Assets && Assets.placeGLBInstanced) {
+            Assets.placeGLBInstanced(scene, 'mini_forest_kit/tree-high.glb', tallTreeTr);
+            Assets.placeGLBInstanced(scene, 'mini_forest_kit/tree.glb', smallTreeTr);
+            Assets.placeGLBInstanced(scene, 'mini_forest_kit/rocks-high.glb', rockTr);
+            // Castle watchtowers, siege catapults & royal banners framing Piggy Island & King Pig's Palace!
+            Assets.placeGLBInstanced(scene, 'castle_kit/tower-hexagon-base.glb', [
+                { pos: [-19, 0, -34], scale: 2.3 }, { pos: [19, 0, -34], scale: 2.3 },
+                { pos: [0.5, 0, -45.5], scale: 2.5 }, { pos: [11.5, 0, -45.5], scale: 2.5 }
+            ]);
+            Assets.placeGLBInstanced(scene, 'castle_kit/tower-hexagon-mid.glb', [
+                { pos: [-19, 3.6, -34], scale: 2.2 }, { pos: [19, 3.6, -34], scale: 2.2 },
+                { pos: [0.5, 3.9, -45.5], scale: 2.4 }, { pos: [11.5, 3.9, -45.5], scale: 2.4 }
+            ]);
+            Assets.placeGLBInstanced(scene, 'castle_kit/tower-hexagon-roof.glb', [
+                { pos: [-19, 7.0, -34], scale: 2.3 }, { pos: [19, 7.0, -34], scale: 2.3 },
+                { pos: [0.5, 7.6, -45.5], scale: 2.5 }, { pos: [11.5, 7.6, -45.5], scale: 2.5 }
+            ]);
+            Assets.placeGLBInstanced(scene, 'castle_kit/siege-catapult.glb', [
+                { pos: [-16.5, 0, -14], rot: 0.35, scale: 1.9 },
+                { pos: [16.5, 0, -16], rot: -0.35, scale: 1.9 }
+            ]);
+            Assets.placeGLBInstanced(scene, 'castle_kit/flag-banner-long.glb', [
+                { pos: [-5.1, 1.2, 1.8], scale: 1.8 }, { pos: [5.1, 1.2, 1.8], scale: 1.8 },
+                { pos: [1.5, 2.5, -41], scale: 2.2 }, { pos: [10.5, 2.5, -41], scale: 2.2 }
+            ]);
+        }
+        if (Assets && Assets.placeGLB) {
+            Assets.placeGLB(scene, 'pixel_fantasy/pixel-fantasy-giant-keep-banner.glb', { pos: [6.0, 2.8, -44.8], fitSize: [3.4, 5.2, 0.8] });
+            Assets.placeGLB(scene, 'mini_forest_kit/tent.glb', { pos: [-7.8, 0, 4.2], rot: 0.45, fitSize: [3.2, 2.4, 3.2] });
+            Assets.placeGLB(scene, 'mini_forest_kit/target.glb', { pos: [7.6, 0, 2.5], rot: -0.35, fitSize: [1.5, 1.8, 0.8] });
+            // Royal Piglin/Imp Court Jesters flanking King Pig's Palace!
+            Assets.placeGLB(scene, 'monsters/Puglin.glb', { pos: [1.2, 0.85, -40.2], rot: 0.25, fitSize: [1.3, 1.5, 1.3] });
+            Assets.placeGLB(scene, 'monsters/Imp.glb', { pos: [10.8, 0.85, -40.2], rot: -0.25, fitSize: [1.3, 1.5, 1.3] });
+        }
+
+        // 3 Golden Egg Bonus Pedestals (+750 pts each when struck by a Bird or blast!)
+        const goldEggMat = std(0xfacc15, 0.16, 0.92, { emissive: 0xca8a04, emissiveIntensity: 0.35 });
+        for (const [ex, ey, ez] of [[0, 2.65, -18.5], [-12.5, 3.1, -30.5], [13.5, 3.4, -36.5]]) {
+            const ped = mesh(scene, new THREE.CylinderGeometry(0.55, 0.72, ey - 0.55, 12), stoneM, ex, (ey - 0.55) * 0.5, ez);
+            if (Assets && Assets.placeGLB) {
+                Assets.placeGLB(scene, 'mini_arena_kit/column.glb', { pos: [ex, 0, ez], fitSize: [1.25, ey - 0.45, 1.25], hideFallback: ped });
+            }
+            const eggG = new THREE.Group();
+            eggG.position.set(ex, ey, ez);
+            const eggMesh = mesh(eggG, new THREE.SphereGeometry(0.42, 16, 14), goldEggMat, 0, 0, 0);
+            eggMesh.scale.set(0.86, 1.24, 0.86);
+            const halo = mesh(eggG, new THREE.TorusGeometry(0.62, 0.045, 8, 22), basic(0xfef08a), 0, 0, 0);
+            if (Assets && Assets.placeGLB) {
+                Assets.placeGLB(eggG, 'mini_arena_kit/trophy.glb', { pos: [0, -0.35, 0], fitSize: [0.85, 0.95, 0.85] });
+            }
+            scene.add(eggG);
+            D.eggs.push({ g: eggG, halo, pos: V(ex, ey, ez), taken: false });
         }
 
         // Raised Grassy & Timber Slingshot Mound
@@ -244,6 +314,17 @@
         if (MA()) MA().start('angrybirds');
     }
 
+    function popEgg(S, egg) {
+        if (!egg || egg.taken) return;
+        egg.taken = true; egg.g.visible = false; S.data.eggsTaken++;
+        S.bumpCombo();
+        S.award(Math.round(750 * S.comboMult), egg.pos, '★ GOLDEN EGG BONUS! +750 ★', '#fde047');
+        BO.FX.spawnExplosion(egg.pos, 3.6, 0xfacc15);
+        SFX.star(3);
+        sfxClip('rpg_sfx/handleCoins.ogg', 0.48, 0.06);
+        sfxClip('overhaul/env/coin_collect.wav', 0.42, 0.05);
+    }
+
     function popPig(S, pig) {
         if (pig.dead) return;
         pig.dead = true; pig.g.visible = false; S.data.knocked++; S.kills++; S.bumpCombo();
@@ -251,6 +332,8 @@
         S.award(pts * S.comboMult, pig.g.position, pig.role === 'king' ? 'KING PIG POPPED!' : 'PIGGY POP!', '#84cc16');
         BO.FX.spawnParticles(pig.g.position, 18, 0x84cc16, 4.5, 2.5, 0.55, 1.1);
         SFX.pop();
+        sfxClip('overhaul/combat/crunch_splat.wav', 0.34, 0.12);
+        if (pig.role === 'king') sfxClip('rpg_sfx/handleCoins.ogg', 0.45, 0.05);
         if (MA()) MA().pigOink(pig.role === 'king');
     }
 
@@ -259,6 +342,8 @@
         b.falling = true; b.m.visible = false;
         BO.FX.spawnExplosion(pos, 7.2, 0xf97316);
         SFX.rumble(0.8);
+        sfxClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', 0.52, 0.08);
+        sfxClip('sfx/Sci-Fi Sounds (Kenney)/Audio/explosionCrunch_000.ogg', 0.36, 0.08);
         S.award(450, pos, 'TNT CHAIN BLAST!', '#facc15');
         for (const ob of S.data.blocks) {
             if (!ob.falling && ob.m.visible && ob.m.position.distanceTo(pos) < 6.4) {
@@ -267,13 +352,20 @@
             }
         }
         for (const pg of S.data.pigs) if (!pg.dead && pg.g.position.distanceTo(pos) < 6.8) popPig(S, pg);
+        for (const eg of S.data.eggs || []) if (!eg.taken && eg.pos.distanceTo(pos) < 6.8) popEgg(S, eg);
     }
 
     function strike(S, p, position) {
         const D = S.data, bSpec = p.bird;
         BO.FX.spawnParticles(position, 14, bSpec.color, 5, 3, 0.45, 1);
-        if (bSpec.id === 'bomb') { BO.FX.spawnExplosion(position, bSpec.radius, 0xf97316); SFX.rumble(0.65); }
-        else if (MA()) MA().woodBreak(); else SFX.bonk();
+        if (bSpec.id === 'bomb') {
+            BO.FX.spawnExplosion(position, bSpec.radius, 0xf97316);
+            SFX.rumble(0.65);
+            sfxClip('sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', 0.50, 0.08);
+        } else {
+            sfxClip(bSpec.id === 'blues' ? 'sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_000.ogg' : 'sfx/Impact Sounds (Kenney)/Audio/impactWood_heavy_000.ogg', 0.38, 0.1);
+            if (MA()) MA().woodBreak(); else SFX.bonk();
+        }
 
         let scored = false;
         for (const b of D.blocks) {
@@ -292,6 +384,11 @@
         for (const pg of D.pigs) {
             if (!pg.dead && pg.g.position.distanceTo(position) <= bSpec.radius + 0.55) {
                 popPig(S, pg); scored = true;
+            }
+        }
+        for (const eg of D.eggs || []) {
+            if (!eg.taken && eg.pos.distanceTo(position) <= bSpec.radius + 0.65) {
+                popEgg(S, eg); scored = true;
             }
         }
         if (scored && !p.scored) { p.scored = true; S.shotHits++; S.hits++; }
@@ -341,7 +438,8 @@
                 pt.addScaledVector(p.vel, h); pt.x += 0.5 * p.wind * h * h; pt.y -= 0.5 * GRAVITY * h * h;
                 p.vel.x += p.wind * h; p.vel.y -= GRAVITY * h; p.life -= h;
                 const target = D.blocks.find((b) => !b.falling && !p.seen.has(b) && Math.abs(pt.x - b.m.position.x) < b.width / 2 + 0.22 && Math.abs(pt.y - b.m.position.y) < b.height / 2 + 0.22 && Math.abs(pt.z - b.m.position.z) < 1.05)
-                    || D.pigs.find((pg) => !pg.dead && pg.g.position.distanceToSquared(pt) < 0.72);
+                    || D.pigs.find((pg) => !pg.dead && pg.g.position.distanceToSquared(pt) < 0.72)
+                    || (D.eggs && D.eggs.find((eg) => !eg.taken && eg.pos.distanceToSquared(pt) < 0.85));
                 if (target || pt.y < 0.28) {
                     strike(S, p, pt);
                     if (target && p.pierces > 0) { p.seen.add(target); p.pierces--; }
@@ -372,6 +470,7 @@
         if (held) {
             if (!D.drawing) {
                 if (triggerMidAirAbility(S)) return;
+                sfxClip('rpg_sfx/creak1.ogg', 0.30, 0.08);
                 if (MA()) MA().slingStretch();
             }
             D.drawing = true;
@@ -435,9 +534,15 @@
             pg.g.position.y = pg.y + Math.abs(Math.sin(S.t * 3.0 + pg.phase)) * 0.08;
             pg.g.rotation.y = Math.sin(S.t * 1.4 + pg.phase) * 0.32;
         }
+        for (const eg of D.eggs || []) {
+            if (eg.taken) continue;
+            eg.g.rotation.y += dt * 1.9;
+            eg.halo.rotation.x = Math.sin(S.t * 2.5) * 0.6;
+        }
         if (D.knocked === D.pigs.length) {
             const secondsLeft = Math.max(0, Math.floor(90 - S.t));
             S.award(2000 + secondsLeft * 35, null, null);
+            sfxClip('overhaul/stingers/level_complete.wav', 0.45, 0.02);
             MG.finish('ALL BAD PIGGIES POPPED!', { color: '#84cc16' });
         }
     }
@@ -476,7 +581,7 @@
         },
         hud(S) {
             const D = S.data, b = BIRDS[D.selected];
-            return `<div class="course-console" style="border-bottom-color:#ef4444"><strong>🐦 ${b.name} (${b.role})</strong><span>DRAW <b>${Math.round(D.charge * 100)}%</b></span><span>WIND <b>${(D.wind < 0 ? '← ' : '→ ') + Math.abs(D.wind).toFixed(1)}</b></span><span>PIGS LEFT <b>${D.pigs.length - D.knocked} / ${D.pigs.length}</b></span><span>[1-4] SWITCH BIRD</span></div>`;
+            return `<div class="course-console" style="border-bottom-color:#ef4444"><strong>🐦 ${b.name} (${b.role})</strong><span>DRAW <b>${Math.round(D.charge * 100)}%</b></span><span>WIND <b>${(D.wind < 0 ? '← ' : '→ ') + Math.abs(D.wind).toFixed(1)}</b></span><span>PIGS LEFT <b>${D.pigs.length - D.knocked} / ${D.pigs.length}</b></span><span>🥚 EGGS <b>${D.eggsTaken || 0}/3</b></span><span>[1-4] SWITCH BIRD</span></div>`;
         }
     });
 })(window.BO);

@@ -72,6 +72,35 @@
             L.placeGLB(S.scene, 'staged_assets/3d_models/city_industrial_kit/water-tower.glb', {
                 pos: [9.5, 0, 9], fitSize: [3.2, 4.2, 3.2], hideFallback: wtBox
             });
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-4.5, 0, 10.8], rot: Math.PI, scale: 1.5 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [4.5, 0, 10.8], rot: Math.PI - 0.2, scale: 1.65 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/solar-panel-landscape-group.glb', { pos: [-9.2, 0, -8.8], rot: 0.45, scale: 1.6 });
+            }
+            // Shootable EMP Fuel Barrels on rooftop corners — chain-detonate nearby drones!
+            if (BO.CourseScenery && BO.CourseScenery.explosiveBarrel) {
+                for (const [bx, bz] of [[-11.2, -11.2], [11.2, -11.2], [-11.2, 4.5], [11.2, 4.5]]) {
+                    const eb = BO.CourseScenery.explosiveBarrel();
+                    S.addTarget({
+                        mesh: eb.group, hitMeshes: eb.hitMeshes, pos: V(bx, 0, bz), points: 250, bonus: true, life: 0,
+                        appear: 'none', inT: 0.01, death: 'burst', deathColor: 0x22d3ee,
+                        onKill: (tg) => {
+                            const c = tg.root.position.clone().add(V(0, 1.0, 0));
+                            BO.FX.spawnExplosion(c, 5.5, 0x22d3ee);
+                            BO.Sound.playExplosion(0.45);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Sci-Fi Sounds (Kenney)/Audio/explosionCrunch_000.ogg', { volume: 0.45, rateJitter: 0.06 });
+                            for (const other of S.targets) {
+                                if (!other.alive || other === tg) continue;
+                                if (other.root.position.distanceTo(c) < 12) {
+                                    S.award(220, other.root.position.clone().add(V(0, 1.2, 0)), 'EMP CHAIN!', '#67e8f9');
+                                    other.kill({ pt: other.root.position.clone() });
+                                }
+                            }
+                        }
+                    });
+                }
+            }
             const rSign = A.sign('ROOFTOP DEFENSE • WATCH SIX', 2.8, 0.55, { bg: '#090d26', color: '#67e8f9', borderColor: '#22d3ee', size: 0.45 });
             rSign.position.set(9.5, 3.55, 7.45); S.add(rSign);
             const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 10, 6), std(0xd4d4d8, 0.4, 0.8));
@@ -153,8 +182,19 @@
                             tg.pivot.rotation.z = Math.sin(tg.age * 2) * 0.15;
                             if (!tg.faceSet) { tg.root.rotation.y = A.yawTo(tg.root.position, V(0, 1.6, 0)); }
                         },
-                        onDamage: (tg) => { BO.FX.spawnParticles(tg.root.position.clone(), 6, 0xfbbf24, 4, 6, 0.3, 0.8); },
-                        onKill: (tg) => { SFX.pop(); BO.FX.spawnExplosion(tg.root.position.clone(), 1.2, 0xf97316); BO.Sound.playExplosion(0.25); }
+                        onDamage: (tg) => {
+                            BO.FX.spawnParticles(tg.root.position.clone(), 6, 0xfbbf24, 4, 6, 0.3, 0.8);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalClick.ogg', { volume: 0.35, rateJitter: 0.08 });
+                        },
+                        onKill: (tg) => {
+                            SFX.pop();
+                            BO.FX.spawnExplosion(tg.root.position.clone(), 1.2, 0xf97316);
+                            BO.Sound.playExplosion(0.25);
+                            if (BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.07 });
+                                BO.Assets.playClip('sfx/Sci-Fi Sounds (Kenney)/Audio/explosionCrunch_001.ogg', { volume: 0.34, rateJitter: 0.08 });
+                            }
+                        }
                     }));
                     SFX.tone(1200, 1500, 0.12, 'sine', 0.05);
                 });
@@ -262,6 +302,18 @@
             }
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tree-high.glb', valleyTreeTr);
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/rocks-high.glb', valleyRockTr);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.8, 0, 2.2], rot: 0.35, scale: 1.5 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [2.8, 0, 2.2], rot: -0.35, scale: 1.55 });
+                BO.Assets.placeGLB(S.scene, 'weapons/cheytac_m200_intervention.glb', { pos: [-0.95, 1.15, -0.72], rot: [0, 0.25, 0], fitSize: [1.1, 0.32, 0.24] });
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-d.glb', [
+                    { pos: [-65, -23, -110], rot: 0.4, scale: 5.2 },
+                    { pos: [72, -23, -155], rot: -0.5, scale: 5.5 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [48, -23, -95], scale: 4.2 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', { pos: [-54, -23, -104], scale: 2.6 });
+            }
             // wind flags
             for (const [x, z] of [[-30, -80], [25, -140], [-10, -190]]) {
                 const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 6, 6), std(0xe5e7eb, 0.5));
@@ -307,9 +359,11 @@
                         motion: moving ? (tg, tt, out) => { const s = Math.sin(tt * 1.4 + ph) * 1.0; out.set(Math.cos(yaw) * s, 0, -Math.sin(yaw) * s); } : null,
                         onKill: () => {
                             S2.data.busy.delete(idx);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.32, rateJitter: 0.05 });
                             setTimeout(() => {
                                 SFX.ding(0.9 + (200 - sp.d) / 400);
                                 if (BO.MinigameAudio) BO.MinigameAudio.steelPing(0.85 + (200 - sp.d) / 360);
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.42, rateJitter: 0.05 });
                             }, sp.d / 340 * 1000);
                         },
                         onExpire: () => S2.data.busy.delete(idx)
@@ -552,6 +606,14 @@
                 const wtRf = roofs[Math.floor(roofs.length * 0.35)];
                 L.placeGLB(S.scene, 'staged_assets/3d_models/city_industrial_kit/water-tower.glb', { pos: [wtRf.x - wtRf.w * 0.2, wtRf.h, wtRf.z + wtRf.d * 0.2], fitSize: [2.4, 3.2, 2.4] });
             }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', [
+                    { pos: [-16.5, 0, 5.5], rot: 0, scale: 1.8 }, { pos: [16.5, 0, -5.5], rot: Math.PI, scale: 1.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/shipping-container-a.glb', [
+                    { pos: [-27.5, 0, -16.5], rot: Math.PI / 2, scale: 2.0 }, { pos: [27.5, 0, 16.5], rot: 0, scale: 2.0 }
+                ]);
+            }
 
             // Outer city ring skyline — fixed at y = h / 2 so towers sit grounded on the asphalt!
             for (let i = 0; i < 74; i++) {
@@ -630,6 +692,7 @@
                         const center = tg.root.position.clone();
                         BO.FX.spawnExplosion(center, 4.5, 0xf97316);
                         BO.Sound.playExplosion(0.5);
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', { volume: 0.5, rateJitter: 0.05 });
                         BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.045);
                         for (const other of S.targets) {
                             if (!other.alive || other === tg || other.penalty || !other.fig) continue;
@@ -932,7 +995,9 @@
                             if (rocketeer) {
                                 S2.data.rpgLocks = Math.max(0, S2.data.rpgLocks - 1);
                                 S2.award(150, t.root.position.clone().add(V(0, 2.2, 0)), 'RPG INTERCEPT!', '#fde047');
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.4, rateJitter: 0.05 });
                             }
+                            if (BO.Assets && BO.Assets.playClip && !civ) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.06 });
                             SFX.thunk();
                         },
                         onExpire: () => {
@@ -971,12 +1036,34 @@
         duration: 60, stars: [4500, 9000, 15000, 22000], standardWeapon: 'famas_f1', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x312e81, skyBottom: 0xfb923c, fogColor: 0xc38a73, fogDensity: 0.006, sunColor: 0xffb070, sunIntensity: 1.3, sunPos: [-50, 14, -80], hemiSky: 0xfda4af, hemiGround: 0x365314, hemiIntensity: 0.8 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -0.5, -25, 200, 1, 200, 'nuketown_grass')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('pinball');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             K.booth(S, { awning: '#db2777', wood: 0xf5f5f4, trim: 0xbe185d });
+            // 3D Festival Market Stalls, Suburban Fairground Backdrop & Prize Chests
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', [
+                    { pos: [-16, 0, -8], rot: 0.45, scale: 1.9 },
+                    { pos: [16, 0, -8], rot: -0.45, scale: 1.9 },
+                    { pos: [-21, 0, -22], rot: 0.6, scale: 2.0 },
+                    { pos: [21, 0, -22], rot: -0.6, scale: 2.0 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', [
+                    { pos: [-14, 0, -7.2], scale: 1.35 }, { pos: [14, 0, -7.2], scale: 1.35 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-a.glb', [
+                    { pos: [-48, 0, -68], rot: 0.25, scale: 4.8 },
+                    { pos: [48, 0, -68], rot: -0.25, scale: 4.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/tree-large.glb', [
+                    { pos: [-28, 0, -18], scale: 2.8 }, { pos: [28, 0, -18], scale: 2.8 },
+                    { pos: [-32, 0, -38], scale: 3.0 }, { pos: [32, 0, -38], scale: 3.0 }
+                ]);
+            }
             const arch = A.sign('BALLOON FESTIVAL', 7.2, 1.15, { bg: '#4c0519', color: '#fde68a', borderColor: '#f472b6', size: 0.62 });
             arch.position.set(0, 6.2, -10.2); S.add(arch);
             const archPts = [];
@@ -1067,7 +1154,22 @@
                         out.set(Math.sin(tt * 1.3 + ph) * sway * Math.min(1, lift), lift * rise, Math.cos(tt * 0.9 + ph) * sway * 0.4);
                         tg.pivot.rotation.z = Math.sin(tt * 1.3 + ph) * 0.12;
                     },
-                    onKill: () => { if (isBomb) BO.Sound.playExplosion(0.4); else SFX.pop(); }
+                    onKill: (tg) => {
+                        if (isBomb) {
+                            BO.Sound.playExplosion(0.4);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', { volume: 0.45, rateJitter: 0.06 });
+                        } else {
+                            SFX.pop();
+                            if (isGold && BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.44, rateJitter: 0.05 });
+                                BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.38, rateJitter: 0.05 });
+                            }
+                            if (S2.combo > 0 && S2.combo % 10 === 0) {
+                                S2.award(250, tg.root.position.clone().add(V(0, 0.8, 0)), `${S2.combo}× POP STREAK!`, '#fde047');
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.4, rateJitter: 0.05 });
+                            }
+                        }
+                    }
                 }));
             };
             K.ramp(S, { from: 0.85, to: 0.32, start: 0.2 }, (at, k, rng) => {
@@ -1203,6 +1305,18 @@
             }
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', khCrateTr, { solidSession: S });
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank.glb', khTankTr);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.1, 0, -2.5], rot: Math.PI / 2, scale: 1.45 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-medium.glb', { pos: [2.0, 0, -2.8], rot: -0.3, scale: 1.45 });
+                const barWinTr = [], doorFrameTr = [];
+                for (let di = 0; di < doors.length; di++) {
+                    const dd = doors[di];
+                    if (di % 2 === 0) doorFrameTr.push({ pos: [dd.p.x, 0, dd.p.z], rot: dd.yaw + (dd.side > 0 ? Math.PI / 2 : -Math.PI / 2), scale: 1.15 });
+                    else barWinTr.push({ pos: [dd.p.x, 2.35, dd.p.z], rot: dd.yaw + Math.PI / 2, scale: 1.0 });
+                }
+                if (doorFrameTr.length) BO.Assets.placeGLBInstanced(S.scene, 'building_kit/door-rotate-square-a.glb', doorFrameTr);
+                if (barWinTr.length) BO.Assets.placeGLBInstanced(S.scene, 'building_kit/barricade-window-a.glb', barWinTr);
+            }
             S.data.doors = doors;
             if (BO.Settings.getQualityPreset().pointLights) {
                 const lamp = new THREE.PointLight(0xfff7d6, 1.8, 18, 1.6);
@@ -1273,11 +1387,28 @@
                         pos = p.clone().addScaledVector(V(Math.cos(yaw), 0, -Math.sin(yaw)), lat);
                         appear = kind === 'drop' ? 'drop' : 'rise';
                     }
+                    const isBreachPlate = !hostage && kind === 'crate' && rng() < 0.24;
+                    if (isBreachPlate) {
+                        const bp = A.steelPlate(0.42, 0xfacc15);
+                        const btg = S2.addTarget(Object.assign(bp, {
+                            pos: pos.clone().add(V(0, 1.15, 0)), yaw: A.yawTo(pos, face), points: 300, bonus: true,
+                            life: life * 0.95, appear: 'flip', death: 'knock', deathColor: 0xfacc15,
+                            onKill: () => {
+                                SFX.ding(1.45);
+                                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.42, rateJitter: 0.05 });
+                                S2.award(150, btg.root.position.clone().add(V(0, 0.7, 0)), 'BREACH BONUS!', '#fde047');
+                            }
+                        }));
+                        return;
+                    }
                     const t = A.silhouette(hostage ? 'hostage' : 'hostile', 0.95);
                     S2.addTarget(Object.assign(t, {
                         pos, yaw: A.yawTo(pos, face), points: 130, penalty: hostage ? 400 : 0, penaltyLabel: 'HOSTAGE!', life: hostage ? life * 1.3 : life,
                         appear, slideDir, slideDist: 1.4, riseDepth: kind === 'drop' ? 2.6 : 1.9, death: 'knock', deathColor: 0xb08d57,
-                        onKill: () => SFX.thunk()
+                        onKill: () => {
+                            SFX.thunk();
+                            if (!hostage && BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.06 });
+                        }
                     }));
                 });
             });

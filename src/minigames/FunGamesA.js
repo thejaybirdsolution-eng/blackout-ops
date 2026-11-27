@@ -153,6 +153,16 @@
             ]);
             L.placeGLB(S.scene, 'staged_assets/3d_models/graveyard_kit/crypt-large.glb', { pos: [-28, 0, -14], rot: Math.PI / 2, scale: 2.4 });
             L.placeGLB(S.scene, 'staged_assets/3d_models/graveyard_kit/crypt-a.glb', { pos: [28, 0, -14], rot: -Math.PI / 2, scale: 2.4 });
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', [
+                    { pos: [-5.8, 0, -8.8], scale: 1.9 }, { pos: [5.8, 0, -8.8], scale: 1.9 },
+                    { pos: [-8.5, 0, -35.5], scale: 1.9 }, { pos: [8.5, 0, -35.5], scale: 1.9 }
+                ]);
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'monsters/Imp.glb', { pos: [-18, 8.6, -10], rot: 0.4, fitSize: [1.8, 2.2, 1.8] });
+                BO.Assets.placeGLB(S.scene, 'monsters/Puglin.glb', { pos: [18, 8.6, -10], rot: -0.4, fitSize: [1.8, 2.2, 1.8] });
+            }
             const sign = A.sign('BASTION OMEGA — QUARANTINE CITADEL', 9.2, 1.15, { bg: '#0f172a', color: '#fde047', borderColor: '#ef4444', size: 0.40 });
             sign.position.set(0, 5.4, -9.7); S.add(sign);
 
@@ -408,6 +418,7 @@
                 if (hit || ac.life <= 0) {
                     BO.FX.spawnExplosion(ac.mesh.position.clone(), 3.2, 0x4ade80);
                     if (BO.MinigameAudio) BO.MinigameAudio.acidSplash(); else SFX.pop();
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/crunch_splat.wav', { volume: 0.30, rateJitter: 0.1 });
                     if (w.evoStage >= 2 && ac.mesh.position.y <= 0.8) BO.BastionWarden.spawnAcidPool(S, ac.mesh.position);
                     BO.BastionWarden.damage(S, 108, ac.mesh.position, 3.7, this);
                     for (const h of D.humans) if (h.alive && h.root.position.distanceTo(ac.mesh.position) < 3.7) this._damageHuman(S, h, 80, 'ACID BURN!');
@@ -683,6 +694,7 @@
         build(S) {
             if (S.opts.snowCourse !== 'endurance') { BO.SummitRally.build(S); return; }
             if (BO.MinigameAudio) BO.MinigameAudio.start('snow');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             const slopeM = std(0xf1f5f9, 0.85), cliffM = std(0x475569, 0.9);
             const snowPlane = new THREE.Mesh(new THREE.PlaneGeometry(34, SNOW_LEN + 160), slopeM);
             snowPlane.rotation.x = -Math.PI / 2; snowPlane.position.set(0, 0.02, -SNOW_LEN * 0.5); S.add(snowPlane);
@@ -708,9 +720,20 @@
                 }
                 S.add(rock); S.add(caps);
             }
+            const pineTr = [];
             for (let z = -30; z > -SNOW_LEN; z -= 65) {
-                const tr = A.tree(1.8 + rnd() * 0.9, 0x0f766e);
-                tr.position.set((rnd() < 0.5 ? -1 : 1) * (12.2 + rnd() * 2), 0, z); S.add(tr);
+                const px = (rnd() < 0.5 ? -1 : 1) * (12.6 + rnd() * 2.5);
+                pineTr.push({ pos: [px, 0, z], rot: rnd() * TAU, scale: 2.5 + rnd() * 1.3 });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'platformer_kit/tree-pine-snow.glb', pineTr);
+            } else {
+                for (const pt of pineTr) { const tr = A.tree(1.8, 0x0f766e); tr.position.set(pt.pos[0], 0, pt.pos[2]); S.add(tr); }
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/building-structure.glb', { pos: [-14.5, 0, -8], rot: 0.35, fitSize: [5.2, 4.8, 5.2] });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/tent.glb', { pos: [14.5, 0, -8], rot: -0.35, fitSize: [4.2, 3.2, 4.2] });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [0, 0, -SNOW_LEN - 4], fitSize: [2.8, 3.6, 2.8] });
             }
             const zones = ['ZONE 1: GLACIAL SUMMIT', 'ZONE 2: PINE CANYON', 'ZONE 3: AVALANCHE GORGE', 'ZONE 4: NEON ICE TUNNEL', 'ZONE 5: ZOMBIE CHASE FINALE'];
             zones.forEach((lbl, zi) => {

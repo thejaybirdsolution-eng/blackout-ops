@@ -11,6 +11,7 @@
     const UP = new THREE.Vector3(0, 1.2, 0);
     const SIDE = { militia: 0, aegis: 0, raiders: 1, syndicate: 1, helix: 1, brood: 2 };
     const CONE_COS = Math.cos((110 / 2) * Math.PI / 180);
+    const AGENT_DETAIL_DIST = 28;   // metres: beyond this agents render as a merged proxy (MeshProxy)
 
     // Distinct uniform tint palettes per faction (applied to BotAI meshes)
     const FACTION_PALETTE = {
@@ -107,7 +108,7 @@
         get s() { return BO.OWRPGMode.state; },
 
         clear() {
-            for (const a of this.agents) a.ent.destroy();
+            for (const a of this.agents.slice()) this.despawn(a);
             for (const p of this.projectiles) p.mesh.removeFromParent();
             this.agents = [];
             this.projectiles = [];
@@ -151,10 +152,36 @@
             };
             ent.owAgent = agent;
             this.agents.push(agent);
+            if (!def.glb && BO.MeshProxy) {
+                // Far LOD shared by every agent of the same rig type (see MeshProxy.js).
+                const key = def.kind === 'bot' ? 'ow-bot:' + def.faction + ':' + !!def.boss + ':' + def.weapon : 'ow-beast:' + def.body + ':' + !!def.boss;
+                agent.lod = BO.MeshProxy.attach(ent.parts.root, key);
+            }
+            if (def.glb && BO.Assets) {
+                const root = ent.parts.root;
+                const fallback = root.children.filter(child => child !== bar.sprite);
+                agent.visual = BO.Assets.placeGLB(root, def.glb, {
+                    fitSize: [100, (def.glbScale || 1.8) / root.scale.y, 100], uniform: true,
+                    guardScene: BO.World.scene, ownerSession: null,
+                    onLoad: (holder, model) => {
+                        if (!agent.alive || !this.agents.includes(agent)) { holder.removeFromParent(); return; }
+                        for (const child of fallback) child.visible = false;
+                        bar.sprite.position.y = (def.glbScale || 1.8) / root.scale.y + 0.35;
+                        if (model.animations?.length) {
+                            agent.mixer = new THREE.AnimationMixer(model);
+                            agent.clips = model.animations;
+                            agent.actions = {};
+                        }
+                    }
+                });
+            }
             return agent;
         },
 
         despawn(agent) {
+            if (agent.lod) { BO.MeshProxy.detach(agent.lod); agent.lod = null; }
+            if (agent.mixer) { agent.mixer.stopAllAction(); agent.mixer.uncacheRoot(agent.mixer.getRoot()); }
+            if (agent.bar) { agent.bar.tex.dispose(); agent.bar.sprite.material.dispose(); }
             agent.ent.destroy();
             const i = this.agents.indexOf(agent);
             if (i >= 0) this.agents.splice(i, 1);
@@ -235,9 +262,12 @@
             const s = this.s;
             if (a._chilled) a._chilled = false;
             if (!ctx.byNpc) {
-                const xp = a.def.xp * BO.OWRPGCharacter.killXpMult(s, a.lvl) * (ctx.sneak ? 1.5 : 1);
+                const xp = a.def.xp * BO.OWRPGCharacter.killXpMult(s, a.lvl) * (1 + (BO.OWRPGCharacter.perkFx(s).killXpBonus || 0)) * (ctx.sneak ? 1.5 : 1);
                 M.giveXp(xp, ctx.sneak ? 'Sneak kill' : null);
                 s.stats.kills++;
+                if (ctx.source === 'gun' || ctx.source === 'melee') BO.OWRPGCharacter.addSkillXp(s, 'combat', Math.max(8, a.lvl * 3));
+                if (a.kind === 'beast' || a.boss) BO.OWRPGCharacter.addSkillXp(s, 'slayer', a.boss ? 100 : Math.max(10, a.lvl * 3));
+                if (BO.OWRPGWorldData.isInterior(a.ent.pos.x, a.ent.pos.z)) BO.OWRPGCharacter.addSkillXp(s, 'delving', a.boss ? 120 : 12);
                 if (s.player.codex && s.player.codex.enemies) {
                     s.player.codex.enemies[a.defId] = (s.player.codex.enemies[a.defId] || 0) + 1;
                 }
@@ -247,7 +277,7 @@
                         s.player.bounties.progress = (s.player.bounties.progress || 0) + 1;
                         if (s.player.bounties.progress >= B.count) {
                             M.giveXp(B.xp, 'Bounty');
-                            s.player.credits += B.credits;
+                            s.player.credits += Math.round(B.credits * (1 + (BO.OWRPGCharacter.perkFx(s).bountyMult || 0)));
                             for (const [f, v] of Object.entries(B.rep || {})) M.changeRep(f, v);
                             s.player.bounties.completed = (s.player.bounties.completed || 0) + 1;
                             s.player.bounties.active = null;
@@ -277,7 +307,7 @@
         refreshHostility() {
             const s = this.s;
             for (const a of this.agents) {
-                const h = BO.OWRPGFactions.isHostile(s, a.faction);
+                const h = a.eventHostile || BO.OWRPGFactions.isHostile(s, a.faction);
                 if (h === a.hostile) continue;
                 a.hostile = h;
                 if (!h && a.state === 'combat') { a.state = 'idle'; a.detect = 0; }
@@ -363,11 +393,13 @@
                 if (a.alive && !ent.alive) this.onKilled(a, { byNpc: true });
                 if (a.alive) BO.OWRPGCombat.tickStatuses(a, dt);
                 if (!a.alive) {
+                    if (a.lod) BO.MeshProxy.set(a.lod, false);
                     if (a.kind === 'beast') { if (!ent.update(dt, ents, beastCb)) { this.despawn(a); } }
                     else { a.deadT = (a.deadT || 0) + dt; if (a.deadT > 0.2) this.despawn(a); }
                     continue;
                 }
                 const dist = BO.Math.dist2D(ent.pos.x, ent.pos.z, P.pos.x, P.pos.z);
+                if (a.lod) BO.MeshProxy.set(a.lod, dist > AGENT_DETAIL_DIST);
 
                 // Floating 3D world-space bar visibility
                 if (a.bar) {
@@ -396,6 +428,23 @@
                     a.investigate.t -= dt;
                     if (this._walk(a, a.investigate.x, a.investigate.z, 2.2, dt) < 1.5 || a.investigate.t <= 0) { a.investigate = null; a.detect *= 0.6; }
                 } else this._idle(a, dt);
+                if (a.visual && dist < 130) {
+                    const speed = a.lastVisualPos ? ent.pos.distanceTo(a.lastVisualPos) / Math.max(0.001, dt) : 0;
+                    a.lastVisualPos = ent.pos.clone();
+                    if (a.mixer) {
+                        const desired = speed > 0.2 ? /walk|run/i : engaged && dist < 3 ? /attack|punch|bite/i : /idle/i;
+                        const clip = a.clips.find(c => desired.test(c.name)) || a.clips[0];
+                        if (clip && a.clip !== clip.name) {
+                            const next = a.actions[clip.name] || (a.actions[clip.name] = a.mixer.clipAction(clip));
+                            if (a.action) a.action.fadeOut(0.18);
+                            next.reset().fadeIn(0.18).play(); a.action = next; a.clip = clip.name;
+                        }
+                        a.mixer.update(dt);
+                    } else {
+                        a.visual.position.y = speed > 0.2 ? Math.abs(Math.sin((a.idlePhase += dt * 8))) * 0.06 : Math.sin((a.idlePhase += dt * 1.6)) * 0.015;
+                        a.visual.rotation.z = speed > 0.2 ? Math.sin(a.idlePhase) * 0.035 : 0;
+                    }
+                }
                 if (dist < 130 && ent.parts.root.visible) {
                     const meshes = ent.getHitboxMeshes();
                     for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);

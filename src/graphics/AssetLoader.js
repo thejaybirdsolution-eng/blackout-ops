@@ -118,6 +118,7 @@
             const loader = new THREE.GLTFLoader();
             loader.load(path, (gltf) => {
                 const sc = gltf.scene || gltf.scenes[0];
+                sc.animations = gltf.animations || [];
                 sc.traverse((o) => {
                     if (!o.isMesh) return;
                     o.castShadow = true;

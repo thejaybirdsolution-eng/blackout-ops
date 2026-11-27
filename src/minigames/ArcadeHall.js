@@ -38,6 +38,10 @@
         return true;
     }
 
+    function playClip(rel, volume = 0.38, rateJitter = 0.06) {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(rel, { volume, rateJitter });
+    }
+
     function lockPlayer(S, x, z, eye = 1.6) {
         BO.Player.rideState = { kind: 'minigame', pos: V(x, 0, z), roll: 0, pitch: 0, eye };
     }
@@ -79,24 +83,41 @@
         P.yaw = (S.rng() - 0.5) * 0.5;
         P.pitch = -0.38 - S.rng() * 0.12;
         MG.toast(`ROUND ${D.round} — ${D.oppName.toUpperCase()}`, '#fde68a');
+        playClip('rpg_sfx/handleSmallLeather.ogg', 0.36, 0.06);
         SFX.tone(220, 220, 0.5, 'triangle', 0.06);
     }
 
-    function resolve(S, won, why) {
+    function resolve(S, won, why, isHead) {
         const D = S.data;
         D.phase = won ? 'won' : 'lost';
         D.resT = 2.4;
         const P = BO.Player;
         if (won) {
             D.wins++;
+            D.streak = (D.streak || 0) + 1;
             D.times.push(D.reactMs);
             D.best = Math.min(D.best, D.reactMs);
-            const pts = 1000 + Math.max(0, 700 - D.reactMs) * 2;
-            S.award(pts, D.opp.root.position.clone().add(V(0, 2.3, 0)), D.reactMs + ' ms', '#fde68a');
+            const lightning = D.reactMs <= 280;
+            if (lightning) D.lightningDraws = (D.lightningDraws || 0) + 1;
+            const bounty = (lightning ? 500 : 0) + (isHead ? 350 : 0);
+            const pts = 1000 + Math.max(0, 700 - D.reactMs) * 2 + bounty;
+            const tag = lightning ? `⚡ ${D.reactMs} ms LIGHTNING!` : isHead ? `🎯 ${D.reactMs} ms BULLSEYE!` : D.reactMs + ' ms';
+            S.award(pts, D.opp.root.position.clone().add(V(0, 2.3, 0)), tag, lightning ? '#facc15' : '#fde68a');
             S.bumpCombo();
-            SFX.ding(1.1);
-            BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.01);
+            SFX.ding(lightning ? 1.35 : 1.1);
+            if (lightning) {
+                playClip('sfx/Gameplay Effects (Desert Shooter)/coin-a.ogg', 0.42, 0.04);
+                MG.flashScreen('rgba(250,204,21,0.22)');
+            }
+            if (isHead) playClip('overhaul/combat/MW2Hitmarker.mp3', 0.38, 0.02);
+            if (D.streak % 4 === 0 && D.lives < 3) {
+                D.lives++;
+                playClip('sfx/Digital Audio (Kenney)/Audio/powerUp3.ogg', 0.42, 0.03);
+                MG.toast('★ 4-DUEL BOUNTY STREAK — +1 HEART RESTORED!', '#86efac');
+            }
+            BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.015);
         } else {
+            D.streak = 0;
             D.lives--;
             if (why !== 'foul') {
                 // the outlaw fires
@@ -105,6 +126,7 @@
                 if (gun) gun.getWorldPosition(from);
                 BO.FX.spawnTracer(from, BO.App.worldCamera.position.clone().add(V(0.2, -0.1, 0)), 0xff7a3d, 0.03, 0.1);
                 BO.FX.spawnParticles(from, 8, 0xfbbf24, 3, 2, 0.15, 0.7);
+                playClip('sfx/Weapons & Combat/Gunshots - Single Shot/Pistols & Handguns (Single Shot)/037 - Gun SFX Colt Python.mp3', 0.44, 0.04);
                 SFX.noise(0.2, 1300, 'bandpass', 0.8, 0.5);
                 SFX.tone(140, 55, 0.25, 'triangle', 0.25);
                 MG.flashScreen('rgba(185,28,28,0.5)');
@@ -121,34 +143,63 @@
     MG.register({
         id: 'quickdraw', cat: 'arcade', order: 1,
         name: 'Pistol Quickdraw', icon: '🤠', accent: '#f59e0b',
-        tagline: 'Holster. Buzzer. Draw.',
-        desc: 'A Western duel at high noon. Your pistol sits in the holster while you wait. Fire before the buzzer and you foul. When it sounds, draw, aim up and hit the outlaw before he fires. Your reaction is timed in milliseconds. Each round the next gunslinger draws faster. Three lives.',
+        tagline: 'Holster. High-Noon Bell. Lightning Draw.',
+        desc: 'A Western duel at high noon on Deadwood Main Street. Your pistol sits in the holster while you wait. Fire before the bell and you foul! Draw under 280 ms for a ⚡ Lightning Bounty, land headshots for Bullseye gold, and chain 4 wins in a row to earn back a lost heart!',
         heroLabel: 'ARCADE HALL • REFLEX DUEL', duration: 0, customMusic: true,
         stars: [3, 6, 9, 12], starLabel: (th) => 'ROUND ' + th,
-        standardWeapon: 'python_magnum', lockWeapon: true, weaponLabel: 'COLT PYTHON .357', weaponNote: 'Holstered until the buzzer', infiniteMag: true, forgivingMisses: true,
+        standardWeapon: 'python_magnum', lockWeapon: true, weaponLabel: 'COLT PYTHON .357', weaponNote: 'Holstered until the buzzer • <280ms Lightning Bounty', infiniteMag: true, forgivingMisses: true,
         formatBest: (b) => (b.extra ? b.extra.rounds + ' rounds • best ' + (b.extra.best < 9999 ? b.extra.best + 'ms' : '—') : Number(b.score).toLocaleString()),
         keys: [['WAIT', 'Hands off until the buzzer'], ['LMB', 'Draw & fire']],
         map: {
             skybox: 'skybox-morning.png',
-            atmosphere: { skyTop: 0x60a5fa, skyBottom: 0xfde68a, fogColor: 0xe8c48e, fogDensity: 0.01, sunColor: 0xfff0c2, sunIntensity: 2.0, sunPos: [10, 80, 5], hemiSky: 0xfef3c7, hemiGround: 0x8b5a2b, hemiIntensity: 0.9 },
+            atmosphere: { skyTop: 0x60a5fa, skyBottom: 0xfde68a, fogColor: 0xe8c48e, fogDensity: 0.0085, sunColor: 0xfff0c2, sunIntensity: 2.0, sunPos: [10, 80, 5], hemiSky: 0xfef3c7, hemiGround: 0x8b5a2b, hemiIntensity: 0.9 },
             boxes: [B(0, -0.5, -10, 80, 1, 80, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         countdown: 2,
         build(S) {
-            if (BO.MinigameAudio) {
-                BO.MinigameAudio.start('western');
-                if (BO.MinigameAudio.playStagedMusic) BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Country/country-lukewarm-banjo-cf90c87c.m4a', 0.24);
+            if (BO.MinigameAudio) BO.MinigameAudio.start('western');
+            if (BO.Assets) {
+                BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
+                BO.Assets.crossfadeMusic('music/FreePD CC0 Music Tracks/Country/country-lukewarm-banjo-cf90c87c.m4a', { volume: 0.23, fadeSec: 0.8 });
             }
-            A.placeGLB(S.scene, 'mini_dungeon_kit/barrel.glb', { pos: [-4.2, 0, -4.5], scale: 1.6 });
-            A.placeGLB(S.scene, 'mini_dungeon_kit/barrel.glb', { pos: [4.2, 0, -7.5], rot: 0.8, scale: 1.6 });
-            A.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [-5.8, 0, -11], rot: 1.57, scale: 2.2 });
-            A.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [5.8, 0, -11], rot: 1.57, scale: 2.2 });
-            Object.assign(S.data, { round: 0, wins: 0, lives: 3, times: [], best: 9999, phase: 'intro', reactMs: 0 });
+            // Dusty Western street PBR overlay + weathered boardwalk planks
+            if (BO.Assets) {
+                const dustFloor = new THREE.Mesh(
+                    new THREE.PlaneGeometry(24, 68),
+                    BO.Assets.pbrMat('fantasy_painterly/Sand Desert Coast/ochre-dust-001.png', 6, 16, { roughness: 0.95 })
+                );
+                dustFloor.rotation.x = -Math.PI / 2;
+                dustFloor.position.set(0, 0.012, -16);
+                dustFloor.receiveShadow = true;
+                S.add(dustFloor);
+
+                const plankMat = BO.Assets.pbrMat('fantasy_painterly/Wood Bark Boards/weathered-planks-001.png', 2, 14, { roughness: 0.88 });
+                for (const sx of [-5.2, 5.2]) {
+                    const walk = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 42), plankMat);
+                    walk.position.set(sx, 0.08, -10);
+                    S.add(walk);
+                }
+
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', [
+                    { pos: [-4.2, 0.16, -4.5], rot: 0.2 },
+                    { pos: [-4.6, 0.16, -5.4], rot: 1.1 },
+                    { pos: [4.2, 0.16, -7.5], rot: 0.8 },
+                    { pos: [4.5, 0.16, -15.5], rot: -0.5 },
+                    { pos: [-4.4, 0.16, -19.0], rot: 0.4 }
+                ], { fitSize: [0.95, 1.15, 0.95] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-cargo-handcart.glb', { pos: [-4.8, 0.16, -12.8], rot: 0.35, fitSize: [1.8, 1.3, 2.4] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/coffin.glb', { pos: [-5.6, 0.16, -22.5], rot: Math.PI / 2, fitSize: [1.1, 0.9, 2.2] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [5.4, 0.16, -21.0], rot: -Math.PI / 2, fitSize: [3.2, 2.8, 2.2] });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [-5.8, 0, -11], rot: 1.57, scale: 2.2 });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [5.8, 0, -11], rot: 1.57, scale: 2.2 });
+            }
+            Object.assign(S.data, { round: 0, wins: 0, streak: 0, lightningDraws: 0, lives: 3, times: [], best: 9999, phase: 'intro', reactMs: 0 });
             lockPlayer(S, 0, 0);
             const woods = [0x8b5a2b, 0x7c4a1e, 0xa16207, 0x6b3f17, 0x92400e];
             const names = ['SALOON', 'BANK', 'SHERIFF', 'GENERAL STORE', 'HOTEL', 'BARBER', 'UNDERTAKER', 'LIVERY'];
             const lanternPts = [];
+            const hangingLanternTf = [];
             for (let i = 0; i < 8; i++) {
                 const side = i % 2 ? 1 : -1;
                 const z = 4 - Math.floor(i / 2) * 9;
@@ -163,12 +214,16 @@
                 b.add(body, facade, porch);
                 for (const pz of [-3.8, 0, 3.8]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3, 0.15), std(0x3f2a14, 0.9)); post.position.set(-side * 5.9, 1.5, pz); b.add(post); }
                 lanternPts.push(V(side * 10 - side * 5.85, 2.75, z - 1.6), V(side * 10 - side * 5.85, 2.75, z + 1.6));
+                hangingLanternTf.push({ pos: [side * 4.15, 2.55, z], rot: side > 0 ? -Math.PI / 2 : Math.PI / 2 });
                 const sg = A.sign(names[i], 4.6, 0.8, { bg: '#3f2a14', color: '#fde68a', borderColor: '#78350f', size: 0.5 });
                 sg.position.set(-side * 3.82, h + 0.8, 0);
                 sg.rotation.y = -side * Math.PI / 2;
                 b.add(sg);
                 b.position.set(side * 10, 0, z);
                 S.add(b);
+            }
+            if (BO.Assets) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-hanging-lantern.glb', hangingLanternTf, { fitSize: [0.5, 0.75, 0.5] });
             }
             const lanterns = A.bulbs(lanternPts, [0xfbbf24, 0xf59e0b, 0xfde68a], 0.11);
             S.add(lanterns);
@@ -194,6 +249,9 @@
             roofB.position.y = 13.5;
             roofB.rotation.y = Math.PI / 4;
             bell.add(tower, clockFace, brassBell, roofB);
+            if (BO.Assets) {
+                BO.Assets.placeGLB(bell, 'pixel_fantasy/pixel-fantasy-wall-mounted-signal-bell.glb', { pos: [0, 11.7, 1.55], fitSize: [1.2, 1.3, 1.2] });
+            }
             bell.position.set(0, 0, -40);
             S.add(bell);
             // tumbleweed + hanging sign
@@ -207,7 +265,6 @@
                 tw.rotation.z -= dt * 6;
             });
             for (let i = 0; i < 10; i++) { const r = A.rock(0.4 + (i % 3) * 0.3, 0x9a6a44); r.position.set((i % 2 ? 1 : -1) * (3 + i * 0.7), 0.1, -3 - i * 3); S.add(r); }
-            // Western hitching rails + desert mesas + circling hawk
             for (const sx of [-5.2, 5.2]) {
                 const post1 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.1, 6), std(0x451a03, 0.9)); post1.position.set(sx, 0.55, -5.5);
                 const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 6), std(0x451a03, 0.9)); bar.rotation.x = Math.PI / 2; bar.position.set(sx, 0.95, -5.5);
@@ -223,7 +280,10 @@
             S.animate(() => { const t = performance.now() * 0.0008; hawk.position.set(Math.cos(t) * 14, 15 + Math.sin(t * 2), -20 + Math.sin(t) * 10); hawk.rotation.y = -t; });
         },
         onGo(S) { startRound(S); },
-        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
+        dispose() {
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.25);
+        },
         hideViewmodel(S) { return S.data.phase === 'ready' || S.data.phase === 'intro'; },
         blockFire(S) { return S.data.phase !== 'draw'; },
         update(S, dt, lib, state) {
@@ -237,7 +297,6 @@
             if (D.phase === 'ready') {
                 D.wait -= dt;
                 if (D.opp && D.opp.fig) {
-                    // Tense western standoff breathing + nervous trigger finger twitch as wait nears 0
                     D.opp.fig.root.position.y = Math.sin(S.t * 2.4) * 0.012;
                     if (D.opp.fig.parts.head) D.opp.fig.parts.head.rotation.y = Math.sin(S.t * 1.1) * 0.06;
                     if (D.wait < 0.9 && D.opp.fig.parts.armR) D.opp.fig.parts.armR.rotation.x = Math.sin(S.t * 28) * 0.08 - 0.1;
@@ -247,6 +306,7 @@
                     D.phase = 'draw';
                     D.drawAt = performance.now();
                     if (BO.MinigameAudio) BO.MinigameAudio.westernBell();
+                    playClip('sfx/Impact Sounds (Kenney)/Audio/impactBell_heavy_000.ogg', 0.45, 0.03);
                     SFX.tone(1320, 1320, 0.32, 'square', 0.16);
                     SFX.tone(2640, 2640, 0.2, 'sine', 0.06);
                     MG._showCountdown('DRAW!', '#fde68a');
@@ -259,7 +319,6 @@
                     D.reactMs = Math.round(el);
                     resolve(S, false, 'slow');
                 } else if (el > D.oppMs * 0.55) {
-                    // he's going for the gun
                     const k = (el - D.oppMs * 0.55) / (D.oppMs * 0.45);
                     D.opp.fig.parts.armR.rotation.x = -k * Math.PI / 2;
                 }
@@ -282,16 +341,18 @@
             if (!ent.duelist || D.phase !== 'draw') return false;
             D.reactMs = Math.round(performance.now() - D.drawAt);
             S.hits++;
-            if (info.hitbox === 'head') S.headshots++;
-            resolve(S, true);
+            const isHead = info.hitbox === 'head';
+            if (isHead) S.headshots++;
+            resolve(S, true, null, isHead);
             return true;
         },
         hud(S) {
             const D = S.data;
             const lives = '❤'.repeat(Math.max(0, D.lives)) + '<s>' + '❤'.repeat(Math.max(0, 3 - D.lives)) + '</s>';
             const big = D.phase === 'won' ? `<div class="mgx-ms win">${D.reactMs}<small>MS</small></div>` : D.phase === 'lost' && D.reactMs ? `<div class="mgx-ms lose">${D.oppName.toUpperCase()} WAS FASTER<small>${D.oppMs} MS</small></div>` : '';
-            const state = D.phase === 'ready' ? '<div class="mgx-chip">HANDS OFF… WAIT FOR THE BUZZER</div>' : D.phase === 'draw' ? '<div class="mgx-chip mgx-hot">DRAW!</div>' : '';
-            return `<div class="mgx-duel-frame"></div><div class="mgx-duel"><div class="mgx-chip">ROUND <b>${D.round}</b></div><div class="mgx-chip">vs <b>${(D.oppName || '').toUpperCase()}</b> • ~${D.oppMs || 0}ms</div><div class="mgx-chip mgx-lives">${lives}</div><div class="mgx-chip">BEST <b>${D.best < 9999 ? D.best + 'ms' : '—'}</b></div></div>${state}${big}`;
+            const state = D.phase === 'ready' ? '<div class="mgx-chip">HANDS OFF… WAIT FOR THE BELL</div>' : D.phase === 'draw' ? '<div class="mgx-chip mgx-hot">DRAW!</div>' : '';
+            const streakChip = D.streak > 0 ? `<div class="mgx-chip">STREAK <b>${D.streak}</b></div>` : '';
+            return `<div class="mgx-duel-frame"></div><div class="mgx-duel"><div class="mgx-chip">ROUND <b>${D.round}</b></div><div class="mgx-chip">vs <b>${(D.oppName || '').toUpperCase()}</b> • ~${D.oppMs || 0}ms</div><div class="mgx-chip mgx-lives">${lives}</div><div class="mgx-chip">BEST <b>${D.best < 9999 ? D.best + 'ms' : '—'}</b></div>${streakChip}</div>${state}${big}`;
         },
         scoreText(S) { return S.data.wins + ' WINS'; },
         result(S) {
@@ -302,7 +363,7 @@
                 score: S.score, stars, saveExtra: { rounds: D.wins, best: D.best },
                 betterKey: D.wins,
                 title: stars >= 4 ? 'FASTEST GUN IN THE WEST' : stars === 3 ? 'GUNSLINGER' : stars === 2 ? 'DEPUTY' : stars === 1 ? 'GREENHORN' : 'SIX FEET UNDER',
-                stats: [['ROUNDS WON', D.wins], ['BEST DRAW', D.best < 9999 ? D.best + ' ms' : '—'], ['AVERAGE', avg ? avg + ' ms' : '—'], ['FASTEST BEATEN', D.wins ? oppDrawMs(D.wins) + ' ms' : '—'], ['HEADSHOTS', S.headshots], ['SHOTS', S.shots]],
+                stats: [['ROUNDS WON', D.wins], ['BEST DRAW', D.best < 9999 ? D.best + ' ms' : '—'], ['AVERAGE', avg ? avg + ' ms' : '—'], ['LIGHTNING (<280ms)', D.lightningDraws || 0], ['HEADSHOTS', S.headshots], ['SHOTS', S.shots]],
                 accuracy: S.shots ? S.shotHits / S.shots : 0,
                 graph: D.times.length > 1 ? D.times.map((t) => 1000 - t) : null, graphLabel: 'REACTION PER ROUND (HIGHER = FASTER)',
                 noGraph: D.times.length < 2,
@@ -317,37 +378,33 @@
     const SW = 320, SH = 240, HORIZON = 112, GROUND = 236;
     const groundY = (z) => HORIZON + (GROUND - HORIZON) * z;
 
-    function arcadeRoom(S, accent) {
-        const carpet = L.canvasTex('arcade-carpet', 256, 256, (g, w, h) => {
-            g.fillStyle = '#0b0620'; g.fillRect(0, 0, w, h);
-            const cols = ['#f472b6', '#22d3ee', '#facc15', '#a3e635', '#a78bfa'];
-            const rnd = L.mulberry32(42);
-            for (let i = 0; i < 70; i++) {
-                g.strokeStyle = cols[i % 5]; g.lineWidth = 3;
-                const x = rnd() * w, y = rnd() * h, r = 4 + rnd() * 10;
-                if (i % 3 === 0) { g.beginPath(); g.arc(x, y, r, 0, TAU); g.stroke(); }
-                else if (i % 3 === 1) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + r, y + r * 0.6); g.lineTo(x + r * 2, y); g.stroke(); }
-                else { g.strokeRect(x, y, r, r); }
-            }
-        });
-        carpet.wrapS = carpet.wrapT = THREE.RepeatWrapping;
-        carpet.repeat.set(6, 6);
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), new THREE.MeshStandardMaterial({ map: carpet, roughness: 0.95 }));
+    function arcadeRoom(S, accent, themeId) {
+        const floorMat = BO.Assets
+            ? BO.Assets.pbrMat('cyberpunk/Commercial Neon/food-court-arcade-carpet-pattern-001.png', 6, 6, { roughness: 0.9 })
+            : std(0x0b0620, 0.95);
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.position.set(0, 0.004, -4);
         S.add(floor);
         S.solid(floor);
-        const wallM = std(0x110a24, 0.9);
+
+        const wallM = BO.Assets
+            ? BO.Assets.pbrMat('cyberpunk/Commercial Neon/led-strip-wall-cladding-001.png', 6, 2, { roughness: 0.8 })
+            : std(0x110a24, 0.9);
         for (const [x, z, w, d] of [[0, -12, 24, 0.3], [-12, -4, 0.3, 24], [12, -4, 0.3, 24], [0, 8, 24, 0.3]]) {
             const wall = new THREE.Mesh(new THREE.BoxGeometry(w, 5, d), wallM);
             wall.position.set(x, 2.5, z);
             S.add(wall);
             S.solid(wall);
         }
-        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), std(0x0a0614, 0.9));
+        const ceilMat = BO.Assets
+            ? BO.Assets.pbrMat('cyberpunk/Commercial Neon/retail-ceiling-light-diffuser-001.png', 6, 6, { roughness: 0.85 })
+            : std(0x0a0614, 0.9);
+        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), ceilMat);
         ceil.rotation.x = Math.PI / 2;
         ceil.position.set(0, 5, -4);
         S.add(ceil);
+
         // neon tubes
         const neon = [0xf472b6, 0x22d3ee, 0xfacc15, 0xa78bfa];
         for (let i = 0; i < 4; i++) {
@@ -381,9 +438,28 @@
         });
         // posters
         for (let i = 0; i < 4; i++) {
-            const p = A.sign(['HIGH SCORE!', 'PLAY', '1UP', 'BONUS'][i], 1.6, 2.2, { bg: '#1e1b4b', color: ['#f472b6', '#22d3ee', '#facc15', '#a3e635'][i], borderColor: accent, size: 0.2 });
+            const p = A.sign(['HIGH SCORE!', 'PLAY', '1UP', 'JACKPOT'][i], 1.6, 2.2, { bg: '#1e1b4b', color: ['#f472b6', '#22d3ee', '#facc15', '#a3e635'][i], borderColor: accent, size: 0.2 });
             p.position.set(-5 + i * 3.4, 2.6, -11.8);
             S.add(p);
+        }
+        // Prize Counter + Theme-Specific 3D Diorama Props Flanking the Active Cabinet!
+        if (BO.Assets) {
+            BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+            BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { pos: [-5.8, 0, -4.8], rot: 0.4, fitSize: [1.3, 1.1, 1.0] });
+            BO.Assets.placeGLB(S.scene, 'platformer_kit/coin-gold.glb', { pos: [-5.8, 1.35, -4.8], fitSize: [0.55, 0.55, 0.2] });
+            BO.Assets.placeGLB(S.scene, 'platformer_kit/star.glb', { pos: [5.8, 1.35, -4.8], fitSize: [0.7, 0.7, 0.3] });
+            if (themeId === 'cab_night_terrors') {
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/crypt-small.glb', { pos: [-3.4, 0, -3.2], rot: 0.35, fitSize: [2.2, 2.6, 2.2] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/character-skeleton.glb', { pos: [-2.3, 0, -1.9], rot: 0.45, fitSize: [0.9, 1.65, 0.9] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/character-ghost.glb', { pos: [2.5, 0.35, -2.0], rot: -0.45, fitSize: [0.95, 1.6, 0.95] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/pumpkin-carved.glb', { pos: [1.85, 0, -1.4], rot: -0.3, fitSize: [0.65, 0.65, 0.65] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/iron-fence.glb', { pos: [3.6, 0, -2.8], rot: -0.4, fitSize: [2.2, 1.5, 0.35] });
+            } else {
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/tree-high.glb', { pos: [-3.2, 0, -3.0], fitSize: [1.8, 3.4, 1.8] });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/tent.glb', { pos: [3.4, 0, -3.1], rot: -0.5, fitSize: [2.2, 1.7, 2.2] });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/target.glb', { pos: [-2.2, 0, -1.8], rot: 0.4, fitSize: [0.95, 1.35, 0.6] });
+                BO.Assets.placeGLB(S.scene, 'mini_forest_kit/rocks-high.glb', { pos: [2.3, 0, -1.9], rot: -0.3, fitSize: [1.2, 1.1, 1.2] });
+            }
         }
         // Neon ceiling strips & token change machine on wall
         for (const sx of [-3.5, 3.5]) {
@@ -398,7 +474,7 @@
         const ab = A.bulbs(aPts, neon, 0.08);
         S.add(ab); A.animateBulbs(S, ab, 6, 'chase');
         if (BO.Settings.getQualityPreset().pointLights) {
-            const pl = new THREE.PointLight(0xc4b5fd, 1.2, 14, 1.6);
+            const pl = new THREE.PointLight(0xc4b5fd, 1.3, 15, 1.6);
             pl.position.set(0, 4, -2);
             S.add(pl);
         }
@@ -409,7 +485,6 @@
         const body = std(cfg.body || 0x1e1b4b, 0.5, 0.2);
         const trim = std(cfg.trim || 0x0f0a2e, 0.5);
         const W = 2.2, H = 1.65;
-        // sides
         for (const s of [-1, 1]) {
             const side = new THREE.Mesh(new THREE.BoxGeometry(0.12, 3.0, 1.4), body);
             side.position.set(s * (W / 2 + 0.16), 1.5, -0.3);
@@ -433,6 +508,10 @@
             btn.position.set(-0.4 + i * 0.27, 1.06, 0.18);
             btn.rotation.x = 0.25;
             g.add(btn);
+        }
+        if (BO.Assets) {
+            BO.Assets.placeGLB(g, 'blaster_kit/blaster-d.glb', { pos: [-0.88, 1.08, 0.28], rot: 0.3, fitSize: [0.32, 0.22, 0.45] });
+            BO.Assets.placeGLB(g, 'blaster_kit/blaster-g.glb', { pos: [0.88, 1.08, 0.28], rot: -0.3, fitSize: [0.32, 0.22, 0.45] });
         }
         const bezel = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, H + 0.2, 0.08), std(0x050505, 0.4));
         bezel.position.set(0, 1.0 + H / 2 + 0.12, -0.42);
@@ -469,7 +548,7 @@
 
     /** Arcade-shooter world state shared by both cabinets. */
     function newGame(S, cab) {
-        return { cab, objs: [], pops: [], flashes: [], t: 0, lives: 3, over: false, shake: 0, idn: 1, scroll: 0 };
+        return { cab, objs: [], pops: [], flashes: [], t: 0, lives: 3, over: false, shake: 0, idn: 1, scroll: 0, overdriveT: 0 };
     }
 
     function screenHit(S, info) {
@@ -482,17 +561,21 @@
     function pop(game, x, y, text, color) { game.pops.push({ x, y, text, color, t: 0 }); }
 
     function drawHud(g, game, S, title, col) {
-        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillStyle = 'rgba(0,0,0,0.58)';
         g.fillRect(0, 0, SW, 14);
         g.font = 'bold 9px monospace';
         g.textBaseline = 'top';
-        g.fillStyle = col;
+        g.fillStyle = game.overdriveT > 0 ? '#fde047' : col;
         g.fillText('SCORE ' + String(S.score).padStart(6, '0'), 4, 3);
         g.fillStyle = '#ffffff';
         const left = Math.max(0, Math.ceil((MG.def.duration || 60) - S.t));
-        g.fillText('TIME ' + String(left).padStart(2, '0'), 140, 3);
+        g.fillText('TIME ' + String(left).padStart(2, '0'), 132, 3);
+        if (game.overdriveT > 0) {
+            g.fillStyle = '#facc15';
+            g.fillText('2X ' + Math.ceil(game.overdriveT) + 's', 194, 3);
+        }
         g.fillStyle = '#f87171';
-        g.fillText('♥'.repeat(Math.max(0, game.lives)), 250, 3);
+        g.fillText('♥'.repeat(Math.max(0, game.lives)), 256, 3);
         g.fillStyle = 'rgba(255,255,255,0.5)';
         g.fillText(title, 4, SH - 11);
     }
@@ -507,18 +590,30 @@
         g.fillRect(0, 0, SW, SH);
     }
 
+    const CAB_BONUS_TYPE = {
+        size: 22, points: 350, bonus: true, isCrate: true,
+        hit: (o, s) => ({ w: s * 1.3, h: s * 1.3, cy: -s * 0.1 }),
+        move(o, dt) { o.x += o.vx * dt; o.y = o.y0 + Math.sin(o.t * 4.5) * 10; },
+        draw(g, s, o) {
+            const spr = o.horror ? 'tiny_dungeon/Tiles/tile_0089.png' : 'desert_shooter/PNG/Interface/Tiles/tile_0015.png';
+            g.fillStyle = 'rgba(250,204,21,0.35)';
+            g.beginPath(); g.arc(0, 0, s * 0.65, 0, TAU); g.fill();
+            if (!drawArcadeSprite(g, spr, -s * 0.5, -s * 0.5, s, s)) {
+                g.fillStyle = '#facc15'; g.fillRect(-s * 0.4, -s * 0.4, s * 0.8, s * 0.8);
+            }
+        }
+    };
+
     /**
      * Registers an arcade cabinet game.
-     * cfg: { id, order, name, icon, accent, tagline, desc, title, neon, body, marqColor,
-     *        types: { kind: { draw(g, o, t), hit(o) -> {w,h,cy}, points, hp, penalty, onReach } },
-     *        drawBg(g, game, t), schedule(S, spawn), lifeLossOnReach }
      */
     function cabinet(cfg) {
+        const allTypes = Object.assign({ _powerup: CAB_BONUS_TYPE }, cfg.types);
         MG.register({
             id: cfg.id, cat: 'arcade', order: cfg.order,
             name: cfg.name, icon: cfg.icon, accent: cfg.accent, tagline: cfg.tagline, desc: cfg.desc,
             heroLabel: 'ARCADE HALL • CABINET • 60 SECONDS', duration: 60, stars: cfg.stars, customMusic: true,
-            standardWeapon: 'm1911', lockWeapon: true, weaponLabel: 'LIGHT GUN', weaponNote: 'Bottomless light gun • aim at the screen', infiniteMag: true, tracerColor: 0x111111,
+            standardWeapon: 'm1911', lockWeapon: true, weaponLabel: 'LIGHT GUN', weaponNote: 'Bottomless light gun • shoot glowing 2X Overdrive crates!', infiniteMag: true, tracerColor: 0x111111,
             keys: [['LMB', 'Shoot the screen'], ['R', 'Retry from results']],
             map: {
                 atmosphere: { skyTop: 0x05010f, skyBottom: 0x0b0620, fogColor: 0x0b0620, fogDensity: 0.02, sunColor: 0xc4b5fd, sunIntensity: 0.3, sunPos: [0, 50, 10], hemiSky: 0xa78bfa, hemiGround: 0x1e1b4b, hemiIntensity: 1.0 },
@@ -528,7 +623,13 @@
             countdown: 3,
             build(S) {
                 if (BO.MinigameAudio) BO.MinigameAudio.start(cfg.id === 'cab_night_terrors' ? 'siege' : 'pinball');
-                arcadeRoom(S, cfg.accentHex || cfg.accent);
+                if (BO.Assets) {
+                    BO.Assets.crossfadeMusic(
+                        cfg.id === 'cab_night_terrors' ? 'music_curated/horror-alien-invasion-e86892ed.m4a' : 'music_curated/country-burning-trapezoid-of-fire-a22385ed.m4a',
+                        { volume: 0.21, fadeSec: 0.8 }
+                    );
+                }
+                arcadeRoom(S, cfg.accentHex || cfg.accent, cfg.id);
                 S.data.cab = buildCabinet(S, cfg);
                 S.data.game = newGame(S, S.data.cab);
                 if (cfg.freeMove) {
@@ -545,11 +646,17 @@
             schedule(S) {
                 const spawn = (at, kind, o) => S.at(at, (S2) => {
                     const game = S2.data.game;
-                    const T = cfg.types[kind];
+                    const T = allTypes[kind];
+                    if (kind === 'eyebeast') playClip('sfx/Digital Audio (Kenney)/Audio/phaserUp4.ogg', 0.42, 0.03);
                     game.objs.push(Object.assign({ id: game.idn++, kind, t: 0, hp: T.hp || 1, x: 160, y: 180, z: 0.5, vx: 0, vy: 0, dead: false }, o));
                     if (!T.penalty && !T.bonus) S2.spawned++;
                 });
                 cfg.schedule(S, spawn, S.rng);
+                // Arcade 2X Overdrive / Smart-Zap Bonus Pickups!
+                [15, 33, 49].forEach((at, idx) => {
+                    const left = idx % 2 === 0;
+                    spawn(at, '_powerup', { x: left ? -18 : SW + 18, y: 66, y0: 66, z: 0.55, vx: (left ? 1 : -1) * 62, fly: true, horror: cfg.id === 'cab_night_terrors' });
+                });
             },
             extraTargets(S, pool) { if (S.data.cab) pool.push(S.data.cab.screen); },
             update(S, dt, lib, state) {
@@ -560,10 +667,11 @@
                 if (run) {
                     game.t += dt;
                     game.scroll += dt;
+                    game.overdriveT = Math.max(0, (game.overdriveT || 0) - dt);
                     for (const o of game.objs) {
                         if (o.dead) { o.deadT = (o.deadT || 0) + dt; continue; }
                         o.t += dt;
-                        const T = cfg.types[o.kind];
+                        const T = allTypes[o.kind];
                         if (T.move) T.move(o, dt, game);
                         else { o.x += o.vx * dt; o.y += o.vy * dt; }
                         if (o.approach) {
@@ -603,7 +711,7 @@
                 cfg.drawBg(g, game, game.t);
                 const objs = game.objs.slice().sort((a, b) => a.z - b.z);
                 for (const o of objs) {
-                    const T = cfg.types[o.kind];
+                    const T = allTypes[o.kind];
                     const s = (T.size || 24) * (0.35 + o.z * 1.1);
                     g.save();
                     g.translate(Math.round(o.x), Math.round(o.y));
@@ -619,6 +727,11 @@
                     g.restore();
                 }
                 if (cfg.drawFg) cfg.drawFg(g, game, game.t);
+                if (game.overdriveT > 0) {
+                    g.strokeStyle = 'rgba(250,204,21,0.55)';
+                    g.lineWidth = 4;
+                    g.strokeRect(2, 15, SW - 4, SH - 17);
+                }
                 for (const f of game.flashes) {
                     g.fillStyle = `rgba(255,255,255,${0.9 - f.t * 7})`;
                     g.beginPath(); g.arc(f.x, f.y, 3 + f.t * 40, 0, TAU); g.fill();
@@ -657,7 +770,7 @@
                 let best = null;
                 for (const o of game.objs) {
                     if (o.dead) continue;
-                    const T = cfg.types[o.kind];
+                    const T = allTypes[o.kind];
                     const s = (T.size || 24) * (0.35 + o.z * 1.1);
                     const hb = T.hit ? T.hit(o, s) : { w: s, h: s * 0.8, cy: -s * 0.4 };
                     const cx = o.x + (hb.cx || 0) * ((o.vx || 0) > 0 ? -1 : 1);
@@ -671,7 +784,7 @@
                     SFX.tone(300, 200, 0.05, 'square', 0.05);
                     return true;
                 }
-                const T = cfg.types[best.kind];
+                const T = allTypes[best.kind];
                 if (T.weak && !T.weak(best, p)) {
                     best.flash = 0.05;
                     SFX.tone(500, 300, 0.05, 'square', 0.08);
@@ -692,6 +805,7 @@
                 best.flash = 0.06;
                 if (best.hp > 0) {
                     S.hits++;
+                    playClip('sfx/Digital Audio (Kenney)/Audio/laser4.ogg', 0.25, 0.1);
                     SFX.tone(700, 500, 0.06, 'square', 0.1);
                     pop(game, p.x, p.y, 'HIT', '#e2e8f0');
                     if (T.onDamage) T.onDamage(best, game);
@@ -699,18 +813,27 @@
                 }
                 best.dead = true; best.deadT = 0;
                 S.hits++;
+                if (T.isCrate) {
+                    game.overdriveT = 6.5;
+                    game.shake = 0.35;
+                    playClip('sfx/Digital Audio (Kenney)/Audio/powerUp8.ogg', 0.45, 0.04);
+                    pop(game, best.x, best.y - 24, '★ 2X OVERDRIVE!', '#fde047');
+                    MG.toast('★ CABINET 2X SCORE OVERDRIVE (6s)!', '#fde047');
+                }
                 if (!T.bonus) S.kills++;
                 S.bumpCombo();
-                const mult = S.comboMult;
+                const odMult = game.overdriveT > 0 ? 2 : 1;
+                const mult = S.comboMult * odMult;
                 const pts = Math.round((T.points || 100) * (0.8 + best.z * 0.5) * mult);
                 S.award(pts);
-                pop(game, best.x, best.y - 30, '+' + pts + (mult > 1 ? ' x' + mult.toFixed(1).replace('.0', '') : ''), T.bonus ? '#facc15' : (cfg.hudCol || '#fde68a'));
+                playClip('sfx/Digital Audio (Kenney)/Audio/laser4.ogg', 0.28, 0.12);
+                pop(game, best.x, best.y - 30, '+' + pts + (mult > 1 ? ' x' + mult.toFixed(1).replace('.0', '') : ''), T.bonus || odMult > 1 ? '#facc15' : (cfg.hudCol || '#fde68a'));
                 if (T.die) T.die(best, game); else { SFX.tone(880, 220, 0.18, 'square', 0.1); SFX.noise(0.1, 1200, 'bandpass', 1, 0.2); }
                 return true;
             },
             dispose(S) {
                 if (BO.MinigameAudio) BO.MinigameAudio.stop();
-                /* canvas texture is mgOwned and released with the scene */
+                if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.25);
             }
         });
     }
