@@ -64,6 +64,7 @@
     <script defer src="src/data/OWRPGWorldData.js?v=mega1"></script>
     <script defer src="src/data/OWRPGDialogueData.js?v=mega1"></script>
     <script defer src="src/data/OWRPGQuestsData.js?v=mega1"></script>
+    <script defer src="src/data/OWRPGAct2Data.js?v=1.0"></script>
     <script defer src="src/data/UpdateLogData.js?v=mega1"></script>
 
     <!-- Audio & 3D Graphics -->
@@ -180,6 +181,7 @@
     <script defer src="src/owrpg/OWRPGEvents.js?v=mega1"></script>
     <script defer src="src/owrpg/OWRPGValidator.js?v=mega1"></script>
     <script defer src="src/modes/OWRPGMode.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGCompanions.js?v=1.0"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
@@ -272,7 +274,7 @@
                     <button class="mode-card mode-card-z" id="btn-menu-zombies" data-tip-title="Zombies" data-tip="Survive endless rounds of 70 unique zombies, 10 bosses & 5 colossal Super Bosses. Buy doors, drink perks, spin the Mystery Box and Pack-a-Punch your guns.">
                         <span class="mode-card-ico">🧟</span>
                         <span class="mode-card-text">
-                            <b>ZOMBIES <span class="mode-card-badge">alpha demo</span></b>
+                            <b>ZOMBIES <span class="mode-card-badge">co-op • 70 foes</span></b>
                             <small>Round-based survival • 70 enemies • 15 bosses &amp; Super Bosses • Pack-a-Punch</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -280,7 +282,7 @@
                     <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Play 11 arena formats, including Infection, Search and Destroy, Hardcore and King of the Hill Bounty.">
                         <span class="mode-card-ico">🎯</span>
                         <span class="mode-card-text">
-                            <b>MULTIPLAYER <span class="mode-card-badge">alpha demo</span></b>
+                            <b>MULTIPLAYER <span class="mode-card-badge">arena • 11 modes</span></b>
                             <small>11 formats • 6 arenas • custom rules &amp; killcam</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -288,7 +290,7 @@
                     <button class="mode-card mode-card-survival" id="btn-menu-survival" data-tip-title="Exclusion Zone Survival" data-tip="Open-world survival: gather and build your first shelter before dark, then grow a base with rooms, farms and livestock, raid sites for loot, level Survivor Skills, fill the Field Catalogue and hunt seven bosses.">
                         <span class="mode-card-ico" aria-hidden="true">◈</span>
                         <span class="mode-card-text">
-                            <b>SURVIVAL <span class="mode-card-badge">Tech Demo / Proof of Concept</span></b>
+                            <b>SURVIVAL <span class="mode-card-badge">open zone • story</span></b>
                             <small>Open-world Zone • build, farm, raid &amp; hunt seven bosses</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -296,7 +298,7 @@
                     <button class="mode-card mode-card-rpg" id="btn-menu-rpg" data-tip-title="Rogue Lite" data-tip="Choose a class, chain elemental combos, and extract to bank your loot. Push deeper for better rewards or head back to the Haven to upgrade your gear and talents.">
                         <span class="mode-card-ico" aria-hidden="true">✦</span>
                         <span class="mode-card-text">
-                            <b>ROGUE LITE <span class="mode-card-badge">new • solo</span></b>
+                            <b>ROGUE LITE <span class="mode-card-badge">co-op • deep vaults</span></b>
                             <small>15 operatives • 8 door types • 300+ unlockables • delve, extract or lose it all</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -304,15 +306,15 @@
                     <button class="mode-card mode-card-owrpg" id="btn-menu-owrpg" data-tip-title="Open World RPG" data-tip="Operation Meridian: a 640 m open world with six regions, four rival factions, attribute and perk builds, branching dialogue with skill checks, multi-path quests, stealth and elemental combos. Three save slots.">
                         <span class="mode-card-ico" aria-hidden="true">&#9678;</span>
                         <span class="mode-card-text">
-                            <b>OPEN WORLD RPG <span class="mode-card-badge">new &bull; solo &bull; early access</span></b>
-                            <small>6 regions &bull; 4 factions &bull; branching quests &bull; stealth &amp; skill checks</small>
+                            <b>OPEN WORLD RPG <span class="mode-card-badge">act I–VI • ng+</span></b>
+                            <small>6+ regions &bull; 3 companions &bull; branching quests &bull; stealth &amp; skill checks</small>
                         </span>
                         <span class="mode-card-go">PLAY &rarr;</span>
                     </button>
                     <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
                         <span class="mode-card-ico">🏰</span>
                         <span class="mode-card-text">
-                            <b>TOWER DEFENSE <span class="mode-card-badge">alpha demo</span></b>
+                            <b>TOWER DEFENSE <span class="mode-card-badge">co-op • 3 castles</span></b>
                             <small>3 castles • sniper towers • shopkeeper • turrets &amp; deployables</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -320,10 +322,10 @@
                     <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Choose from 22 Fun &amp; Specials modes, 16 Target &amp; Action courses, nine Speed Runs, 15 Arcade Hall games and Boss Rush. Open a challenge guide for rules, controls and tips.">
                         <span class="mode-card-ico">🎪</span>
                         <span class="mode-card-text">
-                            <b>MINIGAMES</b>
+                            <b>MINIGAMES <span class="mode-card-badge">daily • versus</span></b>
                             <small>Fun &amp; Specials (22) • Target (16) • Speed Runs (9) • Arcade Hall (15) • Boss Rush</small>
                         </span>
-                        <span class="mg-new-badge">NEW</span>
+                        <span class="mg-new-badge">63</span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
                 </div>

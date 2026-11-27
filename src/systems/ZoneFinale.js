@@ -255,6 +255,8 @@
                 career.bankExtraction?.(this.mode.points); // the research buys a second share
             }
             this.applyEffect(ending);
+            BO.Events?.emit?.('survival:ending', { ending, tier });
+            BO.emitGameEvent?.('game:survivalEnding', { ending, tier });
             BO.SurvivalUI.show('epilogue', null, ending);
         }
 
