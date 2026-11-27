@@ -1,0 +1,185 @@
+/* ============================================================================
+   BLACKOUT OPS — Core Stability, Logging, Scene Teardown & Legend Guard
+   Zero-build IIFE module (ADR-002).
+   - BO.log(scope, level, msg, err): structured ring-buffered logger
+   - BO.emitGameEvent(type, payload): canonical gameplay event dispatcher
+   - BO.SceneCleanup.disposeScene(scene, renderer): deterministic leak teardown
+   - Wraps BO.Menus.renderLegend so unknown legendTab keys (e.g. 'bosses') fall back safely
+   ============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO = global.BO || {};
+    const HISTORY_LIMIT = 200;
+    const history = [];
+
+    function log(scope, level, msg, err) {
+        const entry = {
+            t: Date.now(),
+            scope: String(scope || 'Core'),
+            level: level || 'info',
+            msg: String(msg || ''),
+            err: err ? (err.message || String(err)) : ''
+        };
+        history.push(entry);
+        if (history.length > HISTORY_LIMIT) history.shift();
+
+        const tag = `[BO:${entry.scope}] ${entry.msg}`;
+        if (level === 'error') {
+            console.error(tag, err || '');
+            const devToast = (BO.Settings && BO.Settings.get && BO.Settings.get('devLogToast')) ||
+                /[?&]debug=([^&]*errors[^&]*)/i.test(global.location?.search || '');
+            if (devToast && BO.Events?.emit) {
+                BO.Events.emit('hud:toast', { text: `${entry.scope}: ${entry.msg}`, color: '#ef4444' });
+            }
+        } else if (level === 'warn') {
+            console.warn(tag, err || '');
+        } else if (level === 'debug') {
+            if (/[?&]debug=/i.test(global.location?.search || '')) console.debug(tag, err || '');
+        }
+        return entry;
+    }
+    log.history = history;
+
+    function emitGameEvent(type, payload) {
+        if (!BO.Events || !BO.Events.emit) return;
+        const evName = type && type.indexOf(':') === -1 ? 'game:' + type : type;
+        try {
+            BO.Events.emit(evName, payload || {});
+        } catch (err) {
+            log('Events', 'error', 'Listener failed for ' + evName, err);
+        }
+    }
+
+    function isSharedAsset(obj) {
+        if (!obj) return false;
+        if (obj.userData && obj.userData.sharedAsset) return true;
+        return false;
+    }
+
+    function isCachedTexture(tex) {
+        if (!tex || !BO.Textures) return false;
+        if (tex === BO.Textures.darkMatterTex || tex === BO.Textures.papTex) return true;
+        for (const k in BO.Textures.textures) if (BO.Textures.textures[k] === tex) return true;
+        for (const k in BO.Textures.heightMaps) if (BO.Textures.heightMaps[k] === tex) return true;
+        for (const k in BO.Textures.roughMaps) if (BO.Textures.roughMaps[k] === tex) return true;
+        for (const k in BO.Textures.camoTextures) if (BO.Textures.camoTextures[k] === tex) return true;
+        return false;
+    }
+
+    function isCachedMaterial(mat) {
+        if (!mat) return false;
+        if (BO.Assets?.hasSharedMatValue && BO.Assets.hasSharedMatValue(mat)) return true;
+        if (BO.Textures?.materials) {
+            for (const k in BO.Textures.materials) if (BO.Textures.materials[k] === mat) return true;
+        }
+        if (BO.FX && (mat === BO.FX.decalMat || mat === BO.FX.scorchMat || mat === BO.FX.shellMat)) return true;
+        return false;
+    }
+
+    function isCachedGeometry(geo) {
+        if (!geo) return false;
+        if (BO.Assets?.isSharedGeo && BO.Assets.isSharedGeo(geo)) return true;
+        if (BO.FX && (geo === BO.FX.decalGeo || geo === BO.FX.particleGeo || geo === BO.FX.shellGeo)) return true;
+        return false;
+    }
+
+    const TEX_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'bumpMap', 'emissiveMap', 'alphaMap', 'aoMap'];
+
+    function disposeMaterial(mat) {
+        if (!mat || isCachedMaterial(mat)) return;
+        for (let i = 0; i < TEX_SLOTS.length; i++) {
+            const t = mat[TEX_SLOTS[i]];
+            if (t && !isCachedTexture(t) && typeof t.dispose === 'function') {
+                try { t.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'tex dispose', err); }
+            }
+        }
+        if (typeof mat.dispose === 'function') {
+            try { mat.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'mat dispose', err); }
+        }
+    }
+
+    function disposeScene(scene, renderer) {
+        if (scene) {
+            try {
+                scene.traverse((obj) => {
+                    if (!obj || isSharedAsset(obj)) return;
+                    if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
+                        try { obj.dispose(); } catch (_) {}
+                    }
+                    if (obj.geometry && !isCachedGeometry(obj.geometry)) {
+                        try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
+                    }
+                    const mat = obj.material;
+                    if (Array.isArray(mat)) {
+                        for (let i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
+                    } else if (mat) {
+                        disposeMaterial(mat);
+                    }
+                });
+                while (scene.children.length > 0) {
+                    scene.remove(scene.children[0]);
+                }
+            } catch (err) {
+                log('SceneCleanup', 'warn', 'Scene traversal error during cleanup', err);
+            }
+        }
+        if (BO.FX) {
+            try {
+                if (typeof BO.FX.clear === 'function') BO.FX.clear();
+                BO.FX.attachScene?.(null);
+            } catch (err) {
+                log('SceneCleanup', 'warn', 'FX cleanup error', err);
+            }
+        }
+        if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') {
+            BO.Combat.setTargetPool([]);
+        }
+        if (BO.HitboxDebug && typeof BO.HitboxDebug.clear === 'function') {
+            BO.HitboxDebug.clear();
+        }
+        if (BO.Sound && typeof BO.Sound.stopEffects === 'function') {
+            BO.Sound.stopEffects();
+        }
+        if (renderer && renderer.renderLists && typeof renderer.renderLists.dispose === 'function') {
+            try { renderer.renderLists.dispose(); } catch (_) {}
+        }
+    }
+
+    // Wrap MenuController.renderLegend so invalid/retired legendTab keys (e.g. 'bosses') fall back safely
+    function installLegendGuard() {
+        const M = BO.Menus;
+        if (!M || M._legendGuardInstalled || typeof M.renderLegend !== 'function') return false;
+        M._legendGuardInstalled = true;
+        const origRenderLegend = M.renderLegend.bind(M);
+        M.renderLegend = function (keepScroll) {
+            const modes = BO.ModeGuide && BO.ModeGuide.MODES;
+            if (modes && !modes[this.legendTab]) {
+                const firstKey = Object.keys(modes)[0];
+                if (firstKey) this.legendTab = firstKey;
+            }
+            return origRenderLegend(keepScroll);
+        };
+        return true;
+    }
+
+    function waitInstall() {
+        if (installLegendGuard()) return;
+        const id = setInterval(() => {
+            if (installLegendGuard()) clearInterval(id);
+        }, 50);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', waitInstall);
+    } else {
+        waitInstall();
+    }
+
+    BO.log = log;
+    BO.emitGameEvent = emitGameEvent;
+    BO.SceneCleanup = {
+        disposeScene,
+        installLegendGuard
+    };
+})(window);

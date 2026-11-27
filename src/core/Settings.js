@@ -229,6 +229,13 @@
             if (!s.colorBlindMode) s.colorBlindMode = 'none'; // 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia'
             if (s.subtitles === undefined) s.subtitles = true;
             if (s.reducedMotion === undefined) s.reducedMotion = false;
+            if (s.showPerfOverlay === undefined) s.showPerfOverlay = false;
+            if (s.devLogToast === undefined) s.devLogToast = false;
+            if (s.gamepadAimAssist === undefined) s.gamepadAimAssist = false;
+            if (!s.qualityAutoDetected) {
+                s.qualityAutoDetected = true;
+                if (!s.quality) s.quality = this.detectQualityPreset();
+            }
             this.applyAccessibility();
             if (!s.keybinds || typeof s.keybinds !== 'object') {
                 s.keybinds = Object.assign({}, DEFAULT_KEYBINDS);
@@ -354,37 +361,86 @@
             return String(code).replace(/^Key/, '').replace(/^Digit/, '').replace(/^Numpad/, 'NUM ').toUpperCase();
         }
 
+        detectQualityPreset() {
+            try {
+                const cores = Number(global.navigator?.hardwareConcurrency || 4);
+                const mem = Number(global.navigator?.deviceMemory || 8);
+                const dpr = Number(global.devicePixelRatio || 1);
+                if (cores <= 2 || mem <= 2) return 'low';
+                if (cores <= 4 || mem <= 4 || dpr > 2.2) return 'medium';
+                if (cores >= 8 && mem >= 8) return 'high';
+                return 'medium';
+            } catch (_) {
+                return 'medium';
+            }
+        }
+
         getQualityPreset() {
             const q = this.get('quality') || 'high';
             const dynLights = this.get('dynamicLights') !== false;
             const decalsOn = this.get('wallDecals') !== false;
+            const postFxUser = this.get('postFx') !== false;
             const scale = BO.Math.clamp(this.get('resScale') || 1.0, 0.5, 1.0);
             if (q === 'low') {
                 return {
-                    pixelRatioCap: 1.0 * scale,
+                    name: 'low',
+                    pixelRatioCap: 0.85 * scale,
                     shadows: false,
                     shadowMapSize: 512,
-                    maxParticles: 80,
-                    maxDecals: decalsOn ? 25 : 0,
+                    maxShadowCasters: 0,
+                    postFx: false,
+                    drawDistance: 360,
+                    maxParticles: 60,
+                    maxDecals: decalsOn ? 20 : 0,
+                    foliageDensity: 0.45,
+                    nodeViewRadius: 95,
                     pointLights: false
                 };
             }
             if (q === 'medium') {
                 return {
-                    pixelRatioCap: 1.35 * scale,
+                    name: 'medium',
+                    pixelRatioCap: 1.0 * scale,
                     shadows: true,
                     shadowMapSize: 1024,
-                    maxParticles: 160,
-                    maxDecals: decalsOn ? 55 : 0,
+                    maxShadowCasters: 1,
+                    postFx: postFxUser,
+                    drawDistance: 650,
+                    maxParticles: 140,
+                    maxDecals: decalsOn ? 45 : 0,
+                    foliageDensity: 0.75,
+                    nodeViewRadius: 135,
+                    pointLights: dynLights
+                };
+            }
+            if (q === 'ultra') {
+                return {
+                    name: 'ultra',
+                    pixelRatioCap: 2.0 * scale,
+                    shadows: true,
+                    shadowMapSize: 2048,
+                    maxShadowCasters: 3,
+                    postFx: postFxUser,
+                    drawDistance: 1500,
+                    maxParticles: 340,
+                    maxDecals: decalsOn ? 100 : 0,
+                    foliageDensity: 1.0,
+                    nodeViewRadius: 210,
                     pointLights: dynLights
                 };
             }
             return {
-                pixelRatioCap: 1.8 * scale,
+                name: 'high',
+                pixelRatioCap: 1.5 * scale,
                 shadows: true,
-                shadowMapSize: 2048,
-                maxParticles: 280,
-                maxDecals: decalsOn ? 80 : 0,
+                shadowMapSize: 1536,
+                maxShadowCasters: 2,
+                postFx: postFxUser,
+                drawDistance: 1100,
+                maxParticles: 240,
+                maxDecals: decalsOn ? 75 : 0,
+                foliageDensity: 1.0,
+                nodeViewRadius: 170,
                 pointLights: dynLights
             };
         }

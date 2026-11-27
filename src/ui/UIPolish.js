@@ -163,8 +163,47 @@
         const activeBtn = tabs.querySelector('.btn-primary, .active, [aria-selected="true"]');
         const activeTab = activeBtn ? (activeBtn.dataset.stab || '') : '';
 
+        if (activeTab === 'gfx') {
+            const qSel = document.getElementById('set-quality');
+            if (qSel && !qSel.querySelector('option[value="ultra"]')) {
+                const opt = document.createElement('option');
+                opt.value = 'ultra';
+                opt.textContent = 'ULTRA (Max Shadows, Draw Distance & Particles)';
+                qSel.insertBefore(opt, qSel.firstChild);
+                qSel.value = BO.Settings.get('quality') || 'high';
+            }
+        }
+
         if (activeTab === 'video') {
             const s = BO.Settings.all;
+            if (!document.getElementById('set-video-quality')) {
+                const row = document.createElement('label');
+                row.className = 'setting-row';
+                row.setAttribute('data-tip-title', 'Graphics Preset');
+                row.setAttribute('data-tip', 'Global quality preset controlling shadows, post-FX, foliage/node draw distance and particle limits.');
+                const qNow = s.quality || 'high';
+                row.innerHTML = `<span>Graphics Quality Preset</span><select id="set-video-quality">` +
+                    `<option value="ultra"${qNow === 'ultra' ? ' selected' : ''}>ULTRA</option>` +
+                    `<option value="high"${qNow === 'high' ? ' selected' : ''}>HIGH</option>` +
+                    `<option value="medium"${qNow === 'medium' ? ' selected' : ''}>MEDIUM</option>` +
+                    `<option value="low"${qNow === 'low' ? ' selected' : ''}>LOW</option>` +
+                    `</select>`;
+                body.appendChild(row);
+                row.querySelector('#set-video-quality').addEventListener('change', (e) => {
+                    BO.Settings.set('quality', e.target.value);
+                });
+            }
+            if (!document.getElementById('set-perf-overlay')) {
+                const row = document.createElement('label');
+                row.className = 'setting-row';
+                row.setAttribute('data-tip-title', 'Perf & Draw-Call Overlay');
+                row.setAttribute('data-tip', 'Displays live FPS, frame-time p95, draw calls, geometry/texture memory and heap.');
+                row.innerHTML = `<span>FPS / Frame-Time / Draw-Call Overlay</span><input type="checkbox" id="set-perf-overlay" ${s.showPerfOverlay ? 'checked' : ''}>`;
+                body.appendChild(row);
+                row.querySelector('#set-perf-overlay').addEventListener('change', (e) => {
+                    BO.Settings.set('showPerfOverlay', !!e.target.checked);
+                });
+            }
             if (!document.getElementById('set-reduced-motion')) {
                 const row = document.createElement('label');
                 row.className = 'setting-row';

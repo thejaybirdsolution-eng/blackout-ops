@@ -106,6 +106,12 @@
             this.renderer.shadowMap.enabled = q.shadows;
             this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             this.renderer.toneMappingExposure = BO.Settings.get('exposure') || 1.08;
+            if (this.worldCamera && BO.State.activeMode !== 'survival' && q.drawDistance) {
+                if (this.worldCamera.far !== q.drawDistance) {
+                    this.worldCamera.far = q.drawDistance;
+                    this.worldCamera.updateProjectionMatrix();
+                }
+            }
             if (BO.PostFX && BO.PostFX.ready) BO.PostFX.applyQuality();
             const hudEl = document.getElementById('hud-layer');
             if (hudEl) hudEl.style.opacity = String(BO.Settings.get('hudOpacity') ?? 1.0);
@@ -318,11 +324,13 @@
             if (BO.RPGMode) BO.RPGMode.stop();
             if (BO.OWRPGMode) BO.OWRPGMode.stop();
             BO.Sound.stopEffects();
+            BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
             BO.State.paused = false;
             BO.State.timeScale = 1;
+            BO.emitGameEvent?.('game:modeStart', { mode: opts.mode, mapId: opts.mapId });
 
             if (opts.mode === 'minigame') {
                 BO.Minigames.start(this.worldCamera, opts);
@@ -421,10 +429,13 @@
             BO.SurvivalUI.close();
             BO.SurvivalMode.stop();
             BO.ExpansionShop.close();
+            const prevMode = BO.State.activeMode;
             BO.Superpowers.reset();
             BO.Sound.stopEffects();
+            BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
             BO.State.activeMode = null;
             BO.State.paused = false;
+            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();
             else BO.Menus.showScreen(mgReturn || 'main_menu');
@@ -812,9 +823,11 @@
         _loop(now) {
             requestAnimationFrame((t) => this._loop(t));
             // timeScale < 1 gives short slow-motion beats (Survival rare finds, solo only).
-            const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000)) * (BO.State.timeScale || 1);
+            const rawDt = Math.max(0.0005, (now - this.lastTime) / 1000);
+            const dt = Math.min(0.05, Math.max(0.001, rawDt)) * (BO.State.timeScale || 1);
             this.lastTime = now;
             this.elapsed += dt;
+            BO.PerfOverlay?.tick?.(rawDt, this.renderer);
 
             // Update live animated camos (Dark Matter / Pack-a-Punch)
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
