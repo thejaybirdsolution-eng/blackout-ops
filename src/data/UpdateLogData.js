@@ -3077,6 +3077,29 @@
                                 "text": "Fixed the CheyTac M200 Intervention vertex painting and UV projection to use world-space coordinates instead of raw Blender mesh coordinates, delivering crisp MW2 Desert Tan / FDE and matte black two-tone colors with zero grid artifacts. Seated the Beretta M9 properly into the operator's hands right below the slide/beavertail and added glowing 3-dot green tritium iron sights aligned for clean ADS."
                         }
                 ]
+        },
+        {
+                "id": 154,
+                "hash": "v2.8",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "11:22 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Redesigned Tactical First-Person Hands, 3D Monsters & Arena Props",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "owrpg",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Rebuilt first-person operator hands and forearms with tapered sleeves, matte black tactical combat gloves, properly aligned wrist cuffs, a slim low-profile watch, and a clean two-handed thumbs-forward pistol ADS grip. Integrated sculpted 3D GLB dungeon monsters (Imp & Puglin) for fiend, spitter, stalker, and brute archetypes across Zombies, Open World RPG, Rogue Lite, and Tower Defense, added Mini Arena 3D weapon racks, banners, statues, columns, and trophies across Multiplayer and Open World RPG, and restored the missing industrial building colormap texture."
+                        }
+                ]
         }
 ]
     };

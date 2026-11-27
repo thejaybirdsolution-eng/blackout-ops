@@ -2804,6 +2804,11 @@
                 BO.Assets.placeGLBInstanced(scene, 'city_industrial_kit/building-a.glb', skylineTrs.filter((_, i) => i % 2 === 0), { frustumCulled: false, guardScene: scene });
                 BO.Assets.placeGLBInstanced(scene, 'city_industrial_kit/building-h.glb', skylineTrs.filter((_, i) => i % 2 === 1), { frustumCulled: false, guardScene: scene });
                 BO.Assets.placeGLB(scene, 'city_industrial_kit/water-tower.glb', { pos: [spanX + 18, 0, -spanZ - 14], scale: 4.5, guardScene: scene });
+                // Tactical arena armory racks & battle banners from Mini Arena kit along arena perimeter
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-spanX + 2.2, 0, -spanZ + 2.2], rot: Math.PI * 0.25, scale: 2.2, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/weapon-rack.glb', { pos: [spanX - 2.2, 0, spanZ - 2.2], rot: -Math.PI * 0.75, scale: 2.2, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/banner.glb', { pos: [-spanX + 1.5, 0, 0], rot: Math.PI * 0.5, scale: 2.6, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/banner.glb', { pos: [spanX - 1.5, 0, 0], rot: -Math.PI * 0.5, scale: 2.6, guardScene: scene });
             }
             if (this.mapData.domFlags) {
                 for (const f of this.mapData.domFlags) {

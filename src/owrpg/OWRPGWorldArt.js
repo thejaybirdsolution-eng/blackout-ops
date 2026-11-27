@@ -76,6 +76,12 @@
                 const fY = t.height(-20, 12);
                 BO.Assets.placeGLB(scene, 'mini_forest_kit/tent.glb', { pos: [-22, fY, 14], rot: 0.4, scale: 3.4, guardScene: scene });
                 BO.Assets.placeGLB(scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [148, t.height(148, -148), -148], scale: 2.8, guardScene: scene });
+                // Freestead Town & Meridian landmarks dressed with Mini Arena 3D props
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-16, t.height(-16, 10), 10], rot: -0.6, scale: 2.3, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/banner.glb', { pos: [-12, t.height(-12, 16), 16], rot: 0.2, scale: 2.8, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/statue.glb', { pos: [-4, t.height(-4, 6), 6], rot: 0.8, scale: 2.8, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/column-damaged.glb', { pos: [8, t.height(8, -14), -14], rot: 0.3, scale: 2.6, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'mini_arena_kit/trophy.glb', { pos: [-18, t.height(-18, 6), 6], rot: 0, scale: 2.0, guardScene: scene });
             }
             return out;
         },

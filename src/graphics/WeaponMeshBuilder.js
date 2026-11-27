@@ -687,8 +687,8 @@
                     // Seat first-person hands cleanly around the upper pistol grip below the beavertail
                     const arms = built.root?.userData?.arms;
                     if (arms) {
-                        if (arms.rArm) arms.rArm.position.set(0.0, -0.004, -0.006);
-                        if (arms.lArm) arms.lArm.position.set(0.0, -0.008, 0.016);
+                        if (arms.rArm) arms.rArm.position.set(0.0, 0.004, 0.004);
+                        if (arms.lArm) arms.lArm.position.set(0.0, 0.004, 0.004);
                     }
                 }
 
@@ -1457,90 +1457,172 @@
 
         _attachFirstPersonArms(root, isPistol) {
             const T = BO.Textures;
-            const clothMap = T?.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture('bdu', 0x2d3729) : null;
+            const clothMap = T?.createMilitaryFatigueTexture ? T.createMilitaryFatigueTexture('bdu', 0x262e24) : null;
             const clothBump = T?.createBumpTexture ? T.createBumpTexture('cloth') : null;
             const gloveMap = T?.createPolymerGripTexture ? T.createPolymerGripTexture() : null;
-            const sleeveMat = new THREE.MeshStandardMaterial({ color: clothMap ? 0xffffff : 0x2c3429, map: clothMap, bumpMap: clothBump, bumpScale: 0.012, roughness: 0.84, metalness: 0.06 });
-            const cuffMat = new THREE.MeshStandardMaterial({ color: 0x22291f, map: clothMap, roughness: 0.88, metalness: 0.04 });
-            const gloveMat = new THREE.MeshStandardMaterial({ color: gloveMap ? 0xffffff : 0x161a20, map: gloveMap, roughness: 0.62, metalness: 0.24 });
-            const carbonMat = new THREE.MeshStandardMaterial({ color: 0x28303b, roughness: 0.34, metalness: 0.62 });
-            const watchBezelMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.24, metalness: 0.88 });
-            const skinMat = new THREE.MeshStandardMaterial({ color: 0xb98b6c, roughness: 0.66, metalness: 0.04 });
+            const gloveBump = T?.createBumpTexture ? T.createBumpTexture('polymer') : null;
 
-            const makeGloveHand = (isLeft) => {
+            const sleeveMat = new THREE.MeshStandardMaterial({
+                color: clothMap ? 0xd8dfd5 : 0x283026,
+                map: clothMap,
+                bumpMap: clothBump,
+                bumpScale: 0.010,
+                roughness: 0.88,
+                metalness: 0.04
+            });
+            const cuffMat = new THREE.MeshStandardMaterial({
+                color: 0x101318,
+                map: gloveMap,
+                bumpMap: gloveBump,
+                bumpScale: 0.010,
+                roughness: 0.90,
+                metalness: 0.04,
+                envMapIntensity: 0.16
+            });
+            const gloveMat = new THREE.MeshStandardMaterial({
+                color: 0x101318,
+                map: gloveMap,
+                bumpMap: gloveBump,
+                bumpScale: 0.010,
+                roughness: 0.88,
+                metalness: 0.05,
+                envMapIntensity: 0.20
+            });
+            const leatherMat = new THREE.MeshStandardMaterial({
+                color: 0x14181f,
+                map: gloveMap,
+                bumpMap: gloveBump,
+                bumpScale: 0.008,
+                roughness: 0.84,
+                metalness: 0.06,
+                envMapIntensity: 0.20
+            });
+            const knuckleMat = new THREE.MeshStandardMaterial({
+                color: 0x0a0c10,
+                roughness: 0.72,
+                metalness: 0.16,
+                envMapIntensity: 0.24
+            });
+
+            const makeGloveHand = (isLeft, pistolMode) => {
                 const g = new THREE.Group();
-                const palmGeo = new THREE.CapsuleGeometry(0.023, 0.044, 6, 12);
+                // Smooth rounded anatomical gloved hand (zero flat cylinder caps facing camera)
+                const palmGeo = new THREE.CapsuleGeometry(0.019, 0.044, 8, 14);
                 palmGeo.rotateX(Math.PI * 0.5);
-                palmGeo.scale(1.08, 0.82, 1.0);
+                palmGeo.scale(1.06, 0.82, 1.0);
                 const palm = new THREE.Mesh(palmGeo, gloveMat);
-                const strap = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.027, 0.020, 12), cuffMat);
-                strap.rotation.x = Math.PI * 0.5;
-                strap.position.set(0, 0.002, 0.036);
-                const knuck = new THREE.Mesh(new THREE.CapsuleGeometry(0.0085, 0.030, 5, 10), carbonMat);
-                knuck.rotation.z = Math.PI * 0.5;
-                knuck.position.set(0, 0.017, -0.008);
-                const thumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.008, 0.026, 4, 8), skinMat);
-                thumb.rotation.set(0.45, 0, isLeft ? -0.42 : 0.42);
-                thumb.position.set(isLeft ? 0.022 : -0.022, 0.008, -0.016);
-                g.add(palm, strap, knuck, thumb);
+
+                // Smooth rounded wrist transition blending into forearm
+                const wristGeo = new THREE.CapsuleGeometry(0.017, 0.036, 6, 12);
+                wristGeo.rotateX(Math.PI * 0.5);
+                const wrist = new THREE.Mesh(wristGeo, cuffMat);
+                wrist.position.set(isLeft ? -0.006 : 0.006, -0.008, 0.038);
+                wrist.rotation.set(0.22, isLeft ? 0.24 : -0.24, 0);
+
+                // Matte dark knuckle ridge
+                const knuckGeo = new THREE.CapsuleGeometry(0.0052, 0.024, 5, 10);
+                knuckGeo.rotateZ(Math.PI * 0.5);
+                const knuck = new THREE.Mesh(knuckGeo, knuckleMat);
+                knuck.position.set(0, 0.012, -0.012);
+
+                // Sculpted gloved thumb wrapping cleanly forward along the side of the frame
+                const thumbGeo = new THREE.CapsuleGeometry(0.0066, 0.030, 6, 10);
+                thumbGeo.rotateX(Math.PI * 0.5);
+                const thumb = new THREE.Mesh(thumbGeo, leatherMat);
+                if (pistolMode) {
+                    thumb.position.set(isLeft ? 0.015 : -0.015, 0.008, -0.016);
+                    thumb.rotation.set(0.12, isLeft ? -0.14 : 0.14, 0);
+                } else {
+                    thumb.position.set(isLeft ? 0.018 : -0.018, 0.006, -0.014);
+                    thumb.rotation.set(0.28, isLeft ? -0.32 : 0.32, 0);
+                }
+
+                g.add(palm, wrist, knuck, thumb);
+                // Wrapped fingers curling naturally around grip / handguard
                 for (let f = -1; f <= 1; f++) {
-                    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.0062, 0.024, 4, 8), gloveMat);
-                    finger.rotation.x = 1.15;
-                    finger.position.set(f * 0.013, -0.006, -0.034);
+                    const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.0052, 0.022, 4, 8), gloveMat);
+                    finger.rotation.x = pistolMode ? 1.35 : 1.15;
+                    finger.position.set(f * 0.0105, -0.006, -0.028);
                     g.add(finger);
                 }
                 return g;
             };
 
-            // Right firing arm
+            // Tapered tactical sleeve geometry with rounded wrist end
+            const makeForearmMesh = (len) => {
+                const geo = new THREE.CapsuleGeometry(0.024, len, 8, 14);
+                geo.rotateX(Math.PI * 0.5);
+                const m = new THREE.Mesh(geo, sleeveMat);
+                return m;
+            };
+
             const rArm = new THREE.Group();
-            const rForeGeo = new THREE.CapsuleGeometry(0.034, 0.27, 8, 14);
-            rForeGeo.rotateX(Math.PI * 0.5);
-            const rForearm = new THREE.Mesh(rForeGeo, sleeveMat);
-            rForearm.position.set(0.056, -0.084, 0.245);
-            rForearm.rotation.set(0.18, -0.18, 0);
-            const rCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.038, 0.024, 14), cuffMat);
-            rCuff.rotation.x = Math.PI * 0.5;
-            rCuff.position.set(0.034, -0.068, 0.125);
-            rCuff.rotation.set(0.18, -0.18, 0);
-            const rHand = makeGloveHand(false);
-            rHand.position.set(0.010, -0.050, 0.086);
-            rArm.add(rForearm, rCuff, rHand);
-            root.add(rArm);
-
-            // Left support arm + tactile wrist watch
             const lArm = new THREE.Group();
-            const targetZ = isPistol ? 0.05 : -0.14;
-            const targetX = isPistol ? -0.038 : -0.045;
-            const lForeGeo = new THREE.CapsuleGeometry(0.033, 0.29, 8, 14);
-            lForeGeo.rotateX(Math.PI * 0.5);
-            const lForearm = new THREE.Mesh(lForeGeo, sleeveMat);
-            lForearm.position.set(targetX - 0.078, -0.074, targetZ + 0.19);
-            lForearm.rotation.set(0.15, 0.42, 0);
-            const lCuff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.037, 0.024, 14), cuffMat);
-            lCuff.rotation.x = Math.PI * 0.5;
-            lCuff.position.set(targetX - 0.022, -0.058, targetZ + 0.072);
-            lCuff.rotation.set(0.15, 0.42, 0);
+            let dial = null;
 
-            const lHand = makeGloveHand(true);
-            lHand.position.set(isPistol ? -0.014 : -0.008, isPistol ? -0.048 : -0.022, targetZ);
+            if (isPistol) {
+                // Authentic two-handed thumbs-forward tactical pistol grip with connected forearms
+                const rHand = makeGloveHand(false, true);
+                rHand.position.set(0.014, -0.056, 0.068);
+                rHand.rotation.set(0.12, -0.14, -0.10);
 
-            // Round tactical wristwatch on left forearm
-            const watchX = isPistol ? -0.018 : -0.018;
-            const watchY = isPistol ? -0.044 : -0.020;
-            const watchZ = targetZ + 0.044;
-            const lStrap = new THREE.Mesh(new THREE.CylinderGeometry(0.030, 0.031, 0.022, 16), carbonMat);
-            lStrap.rotation.x = Math.PI * 0.5;
-            lStrap.position.set(watchX, watchY - 0.006, watchZ);
-            const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.013, 0.0026, 8, 18), watchBezelMat);
-            bezel.rotation.x = Math.PI * 0.5;
-            bezel.position.set(watchX, watchY + 0.024, watchZ);
-            const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.004, 16),
-                new THREE.MeshStandardMaterial({ color: 0x09111c, emissive: 0x0ea5e9, emissiveIntensity: 0.65, roughness: 0.25 }));
-            dial.position.set(watchX, watchY + 0.022, watchZ);
+                const rForearm = makeForearmMesh(0.26);
+                rForearm.position.set(0.046, -0.098, 0.188);
+                rForearm.rotation.set(0.32, -0.24, -0.08);
+                rArm.add(rForearm, rHand);
 
-            lArm.add(lForearm, lCuff, lHand, lStrap, bezel, dial);
-            root.add(lArm);
+                const lHand = makeGloveHand(true, true);
+                lHand.position.set(-0.015, -0.060, 0.058);
+                lHand.rotation.set(0.12, 0.16, 0.12);
+
+                const lForearm = makeForearmMesh(0.26);
+                lForearm.position.set(-0.048, -0.100, 0.180);
+                lForearm.rotation.set(0.32, 0.26, 0.08);
+
+                // Slim low-profile matte-black tactical watch tucked naturally on left wrist
+                const watchBandGeo = new THREE.TorusGeometry(0.0245, 0.0032, 6, 16);
+                const watchBand = new THREE.Mesh(watchBandGeo, knuckleMat);
+                watchBand.position.set(0, 0, -0.108);
+                dial = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.008, 0.008, 0.003, 12),
+                    new THREE.MeshStandardMaterial({ color: 0x0b1218, emissive: 0x10b981, emissiveIntensity: 0.45, roughness: 0.35 })
+                );
+                dial.position.set(0, 0.025, -0.108);
+                lForearm.add(watchBand, dial);
+
+                lArm.add(lForearm, lHand);
+            } else {
+                // Rifle / SMG / Sniper two-handed grip
+                const rHand = makeGloveHand(false, false);
+                rHand.position.set(0.010, -0.050, 0.086);
+                const rForearm = makeForearmMesh(0.27);
+                rForearm.position.set(0.058, -0.088, 0.242);
+                rForearm.rotation.set(0.18, -0.20, 0);
+                rArm.add(rForearm, rHand);
+
+                const targetZ = -0.14;
+                const targetX = -0.045;
+                const lHand = makeGloveHand(true, false);
+                lHand.position.set(-0.008, -0.022, targetZ);
+                const lForearm = makeForearmMesh(0.29);
+                lForearm.position.set(targetX - 0.072, -0.076, targetZ + 0.185);
+                lForearm.rotation.set(0.16, 0.40, 0);
+
+                const watchBandGeo = new THREE.CylinderGeometry(0.0225, 0.0230, 0.014, 14);
+                watchBandGeo.rotateX(Math.PI * 0.5);
+                const watchBand = new THREE.Mesh(watchBandGeo, knuckleMat);
+                watchBand.position.set(0, 0, -0.125);
+                dial = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.009, 0.009, 0.003, 12),
+                    new THREE.MeshStandardMaterial({ color: 0x0b1218, emissive: 0x0ea5e9, emissiveIntensity: 0.55, roughness: 0.3 })
+                );
+                dial.position.set(0, 0.022, -0.125);
+                lForearm.add(watchBand, dial);
+
+                lArm.add(lForearm, lHand);
+            }
+
+            root.add(rArm, lArm);
             root.userData.arms = { rArm, lArm, watchDial: dial };
             return root.userData.arms;
         }

@@ -780,6 +780,65 @@
 
             const parts = { root, bodyPivot, headGroup, armL, armR, legL, legR, haloGroup, forearmL, forearmR, jaws };
             BO.ArsenalDetails.undeadDetails(parts, spec, chestW, chestD);
+
+            // Upgrade select fiend/spitter/brute archetypes across Zombies, OWRPG, Rogue Lite & TD with sculpted 3D GLB monsters
+            if (BO.Assets && typeof BO.Assets.loadGLB === 'function' && !bs.missingLegs && !isFloating && !spec.isSuperBoss) {
+                const sid = String(spec.id || '').toLowerCase();
+                const sname = String(spec.name || '').toLowerCase();
+                let monsterPath = null;
+                let targetH = 1.72;
+                if (/imp|flame|pyro|hell|demon|hunch_spitter|acid|spitter|ankle_biter|stalker|sprinter/.test(sid) || /imp|fiend|spitter|stalker|crawler/.test(sname)) {
+                    monsterPath = 'monsters/Imp.glb';
+                    targetH = 1.65;
+                } else if (/club_goliath|bloater|brute|berserker|mauler|golem|ogre/.test(sid) || /brute|matriarch|goliath|ogre/.test(sname)) {
+                    monsterPath = 'monsters/Puglin.glb';
+                    targetH = 1.92;
+                }
+                if (monsterPath) {
+                    const hitboxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
+                    BO.Assets.loadGLB(monsterPath).then((sc) => {
+                        if (!root.parent && !bodyPivot.parent) return;
+                        const wrap = new THREE.Group();
+                        wrap.add(sc);
+                        wrap.updateMatrixWorld(true);
+                        const box = new THREE.Box3().setFromObject(sc);
+                        if (!box.isEmpty()) {
+                            const sz = new THREE.Vector3();
+                            box.getSize(sz);
+                            const scale = targetH / Math.max(sz.y, 1e-4);
+                            sc.scale.multiplyScalar(scale);
+                            sc.updateMatrixWorld(true);
+                            box.setFromObject(sc);
+                            const ctr = new THREE.Vector3();
+                            box.getCenter(ctr);
+                            sc.position.x -= ctr.x;
+                            sc.position.z -= ctr.z;
+                            sc.position.y -= box.min.y;
+                        }
+                        // Offset downward by bodyPivot.position.y so feet stand cleanly on ground while bobbing with bodyPivot
+                        wrap.position.y = -(bodyPivot.position.y || 0.84);
+                        // Keep raycast hitbox meshes invisible (preserving headshots & hit detection) and hide decorative meshes
+                        root.traverse((o) => {
+                            if (!o.isMesh) return;
+                            if (o.userData && o.userData.hitbox) {
+                                o.material = hitboxMat;
+                                o.castShadow = false;
+                                o.receiveShadow = false;
+                            } else {
+                                o.visible = false;
+                            }
+                        });
+                        sc.traverse((o) => {
+                            if (!o.isMesh) return;
+                            o.userData.noHit = true;
+                            o.castShadow = true;
+                            o.receiveShadow = true;
+                        });
+                        bodyPivot.add(wrap);
+                    }).catch(() => {});
+                }
+            }
+
             return parts;
         };
 
