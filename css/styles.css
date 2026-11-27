@@ -2577,7 +2577,14 @@ input[type="range"] {
 .gs-class-pill { padding: 4px 10px !important; border-radius: 999px !important; font-size: 11.5px !important; }
 .opt-list { display: flex; flex-direction: column; gap: 6px; }
 .picker-body.weapon-picker-body { display: flex; flex-direction: column; overflow: hidden; }
-.weapon-picker-body .picker-tools { flex-shrink: 0; }
+.weapon-picker-body .picker-tools {
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+}
+.weapon-picker-body .picker-tools > label { display: grid; gap: 3px; font-size: 12px; }
+.weapon-picker-body .gs-class-pills { grid-column: 1 / -1; }
 .weapon-picker-body .opt-list {
     flex: 1;
     min-height: 0;
