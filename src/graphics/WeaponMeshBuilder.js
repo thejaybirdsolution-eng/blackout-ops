@@ -38,10 +38,10 @@
             rot: [0, 0, 0],
             hidePatterns: [],
             offset: [0, 0.022, -0.03],
-            muzzleOffset: [0, 0.048, -0.16],
-            sightY: 0.068,
-            sightZ: 0.04,
-            sightEyeRelief: 0.23
+            muzzleOffset: [0, 0.088, -0.16],
+            sightY: 0.098,
+            sightZ: 0.045,
+            sightEyeRelief: 0.34
         }
     };
 
