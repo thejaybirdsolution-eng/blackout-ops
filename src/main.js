@@ -115,6 +115,7 @@
                 }
             }
             if (BO.PostFX && BO.PostFX.ready) BO.PostFX.applyQuality();
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             const hudEl = document.getElementById('hud-layer');
             if (hudEl) hudEl.style.opacity = String(BO.Settings.get('hudOpacity') ?? 1.0);
         }
@@ -417,6 +418,7 @@
                 });
             }
 
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
             BO.Menus.showScreen('playing');
             this._safePointerLock();

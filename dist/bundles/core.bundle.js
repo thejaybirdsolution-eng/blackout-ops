@@ -52911,6 +52911,35 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
     }
 
+    function applySceneQualityBudgets(scene) {
+        if (!scene || !BO.Settings?.getQualityPreset) return;
+        const q = BO.Settings.getQualityPreset();
+        const maxCasters = Number.isFinite(q.maxShadowCasters) ? q.maxShadowCasters : 120;
+        let castersKept = 0;
+        scene.traverse((obj) => {
+            if (!obj || (!obj.isMesh && !obj.isInstancedMesh)) return;
+            if (!q.shadows || maxCasters <= 0) {
+                obj.castShadow = false;
+                return;
+            }
+            if (!obj.castShadow) return;
+            if (obj.userData && (obj.userData.entity || obj.userData.isHeroShadow)) {
+                castersKept++;
+                return;
+            }
+            const g = obj.geometry;
+            if (g && !g.boundingSphere && typeof g.computeBoundingSphere === 'function') {
+                g.computeBoundingSphere();
+            }
+            const rad = g && g.boundingSphere ? g.boundingSphere.radius * Math.max(obj.scale.x, obj.scale.y, obj.scale.z) : 1.0;
+            if (rad < 1.35 || castersKept >= maxCasters) {
+                obj.castShadow = false;
+            } else {
+                castersKept++;
+            }
+        });
+    }
+
     // Wrap MenuController.renderLegend so invalid/retired legendTab keys (e.g. 'bosses') fall back safely
     function installLegendGuard() {
         const M = BO.Menus;
@@ -52945,6 +52974,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     BO.emitGameEvent = emitGameEvent;
     BO.SceneCleanup = {
         disposeScene,
+        applySceneQualityBudgets,
         installLegendGuard
     };
 })(window);
@@ -53900,6 +53930,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
             }
             if (BO.PostFX && BO.PostFX.ready) BO.PostFX.applyQuality();
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             const hudEl = document.getElementById('hud-layer');
             if (hudEl) hudEl.style.opacity = String(BO.Settings.get('hudOpacity') ?? 1.0);
         }
@@ -54202,6 +54233,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 });
             }
 
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
             BO.Menus.showScreen('playing');
             this._safePointerLock();

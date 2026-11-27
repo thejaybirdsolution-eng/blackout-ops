@@ -136,11 +136,12 @@
     const superBosses = bossList.filter((b) => b.isSuperBoss);
     let builtMeshesOk = 0;
     for (const sb of superBosses) {
-      const rig = BO.CharacterMesh.buildZombie(sb);
-      const sc = Array.isArray(sb.scale) ? sb.scale[1] : (sb.scale || 1);
+      const rig = BO.CharacterMesh.buildZombie(sb.id);
+      const scArr = sb.bodySpec?.scale || sb.scale;
+      const sc = Array.isArray(scArr) ? scArr[1] : (scArr || 1);
       if (rig?.root && sc >= 3.0) builtMeshesOk++;
     }
-    check('70 zombie types + 15 bosses including 5 Colossal Super Bosses', zTypes.length >= 70 && superBosses.length === 5 && builtMeshesOk === 5, `zombies=${zTypes.length}, superBosses=${superBosses.length}`);
+    check('70 zombie types + 15 bosses including 5 Colossal Super Bosses', zTypes.length >= 70 && superBosses.length === 5 && builtMeshesOk === 5, `zombies=${zTypes.length}, superBosses=${superBosses.length}, built=${builtMeshesOk}`);
 
     // 4. Gun Audio, Multi-stage Reload & Halo-Style Announcer
     BO.Sound?.init?.();
@@ -163,7 +164,7 @@
     ZM.zombies.push(sbEnt);
     ZM.update(0.05);
     BO.HUD.update(0.05);
-    const bossHudShown = !doc.getElementById('boss-bar-wrap')?.classList.contains('hidden');
+    const bossHudShown = !doc.getElementById('hud-multi-boss')?.classList.contains('hidden');
     check('Zombies Mode Colossal Super Boss spawn & Crown HUD bar', !!sbEnt.isSuperBoss && sbEnt.sizeMult >= 3.0 && bossHudShown);
 
     // 7. Launch Survival Mode (with Unlimited Tech modifier!) & Test All Pillar 3 & 4 Mechanics Live!
@@ -251,13 +252,18 @@
     const pineSp = WP.signposts.find((s) => s.id === 'sp_pine') || WP.signposts[1];
     WP.unlockedSignposts.add('sp_hollow');
     WP.unlockedSignposts.add(pineSp.id);
-    // Stand next to Pine Signpost and instant-travel to Hollow Signpost (>15m away, with no nearby hostiles)
+    // Clear any blocking enemies/rider/pack limit before testing instant signpost transit
+    P.alive = true;
+    SM.rider = false;
+    SM.exfil = false;
+    SM.zombies = [];
+    SM.bots = [];
+    if (camp.deep) camp.deep.bleeding = 0;
     P.pos.set(pineSp.x + 1, (pineSp.y || BO.World.getGroundHeight(pineSp.x, pineSp.z, 20)) + 0.1, pineSp.z + 1);
-    SM.zombies = SM.zombies.filter((z) => z.pos.distanceTo(P.pos) > 15);
     const hoursBefore = camp.restHours;
     const travelled = camp.travel('sp:sp_hollow');
     const instantZeroHours = Math.abs(camp.restHours - hoursBefore) < 0.01;
-    check('Fast Travel Signpost network & 0h instant signpost transit', travelled && instantZeroHours && Math.hypot(P.pos.x - hollowSp.x, P.pos.z - hollowSp.z) < 6, `travelled=${travelled}`);
+    check('Fast Travel Signpost network & 0h instant signpost transit', travelled && instantZeroHours && Math.hypot(P.pos.x - hollowSp.x, P.pos.z - hollowSp.z) < 6, `travelled=${travelled}, canSave=${camp.canSave()}, w=${camp.pack.weight().toFixed(1)}/${camp.pack.limits.weight}`);
 
     // 12. NPC Fort Defense Siege -> Liberation -> Armory Chests + Patrolling/Shooting/Aggro-Drawing Defenders!
     SM.hostilesReleased = true;
@@ -278,7 +284,7 @@
     for (let i = 0; i < 20; i++) WP.update(0.15);
     const defenderShotZombie = !testZ.alive || testZ.hp < zHpBefore;
     if (testZ.alive) SM.hit(testZ, 9999, 'head', null, 'bullet');
-    check('Fort Siege event -> Liberation + Chests + Defenders patrol/shoot/draw aggro', siegeStarted && siegeWaveCount >= 8 && fortLiberated && drawsAggro && defenderShotZombie, `wave=${siegeWaveCount}, defs=${fort.defenders.length}, aggro=${drawsAggro}, shot=${defenderShotZombie}`);
+    check('Fort Siege event -> Liberation + Chests + Defenders patrol/shoot/draw aggro', siegeStarted && siegeWaveCount >= 8 && fortLiberated && drawsAggro && defenderShotZombie, `lib=${fort.liberated}, defs=${fort.defenders.length}, tp=${camp.travelPoints.some((t) => t.id === 'fort:bastion')}, shot=${defenderShotZombie}`);
 
     // 13. Walkable Stairs, Interactive Doors & Shared Quantum Ender-Chests
     camp.place({ id: '900', x: base.x + 4, y: base.y, z: base.z, size: [2.8, 2.8, 2.8], type: 'woodStairs', alive: true, stairDir: 0 });
@@ -291,24 +297,28 @@
     camp.place({ id: '903', x: base.x - 2, y: base.y, z: base.z + 3, size: [1.18, 0.86, 0.80], type: 'quantumChest', alive: true });
     const qKeyA = WP.resolveChestKey('902');
     const qKeyB = WP.resolveChestKey('903');
-    check('Walkable 4-step stairs, interactive hinged doors & shared Quantum Chests', stairPiece?.stepColliders?.length === 4 && doorOpened && qKeyA === 'quantum:stash' && qKeyA === qKeyB);
+    check('Walkable 4-step stairs, interactive hinged doors & shared Quantum Chests', stairPiece?.stepColliders?.length === 4 && doorOpened && qKeyA === 'quantum:stash' && qKeyA === qKeyB, `steps=${stairPiece?.stepColliders?.length}, doorOpen=${doorPiece?.doorOpen}, colAct=${doorPiece?.part?.collider?.active}, qA=${qKeyA}`);
 
     // 14. Totem of Undying (`resurrection_idol`), Phase Pearl & Potions
     SM.grant({ resurrection_idol: 1, phase_pearl: 1, swiftness_draught: 1, xp_bottle: 1 });
     SM.consume('swiftness_draught');
     SM.consume('xp_bottle');
     const speedBoosted = WP.speedMult() > 1.2;
+    P.pos.set(base.x, base.y + 0.25, base.z);
+    P.yaw = 0;
+    P.pitch = 0;
     P.update(0.02, BO.App.worldCamera);
     const posBeforePearl = P.pos.clone();
-    SM.consume('phase_pearl');
-    const pearlTeleported = P.pos.distanceTo(posBeforePearl) > 1.0;
+    const pearlUsed = SM.consume('phase_pearl');
+    const pearlDist = P.pos.distanceTo(posBeforePearl);
+    const pearlTeleported = pearlDist > 1.0;
     P.invulnTimer = 0;
     P.reviveGraceTimer = 0;
     P.armor = 0;
     P.hp = 10;
     P.takeDamage(500);
     const totemSavedPlayer = P.alive && P.hp > 30 && (SM.points.resurrection_idol || 0) === 0;
-    check('Potions, Phase Ender-Pearl teleport & Totem of Undying fatal-damage save', speedBoosted && pearlTeleported && totemSavedPlayer, `hpAfterTotem=${P.hp}`);
+    check('Potions, Phase Ender-Pearl teleport & Totem of Undying fatal-damage save', speedBoosted && pearlTeleported && totemSavedPlayer, `spd=${speedBoosted}, pearl=${pearlUsed}/${pearlDist.toFixed(1)}m, hpAfterTotem=${P.hp}`);
 
     // 15. Roaming Black Market Brokers & Gated NPC Bribes
     SM.grant({ scrap: 12, emerald_chip: 10, quartz: 6 });

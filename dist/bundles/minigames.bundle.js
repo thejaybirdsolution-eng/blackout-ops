@@ -737,7 +737,7 @@
             this.active = true;
             this.def = def;
             this.camera = camera;
-            this.opts = Object.assign({}, opts.mgOptions || {});
+            this.opts = Object.assign({}, opts.mgOptions || {}, opts.seed !== undefined ? { seed: opts.seed } : {});
             this.blockingUI = false;
             this.matchRules = Object.assign({ noHealthRegen: false }, def.matchRules || {});
             this.infiniteMag = !!def.infiniteMag;

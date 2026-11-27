@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "3dcbb7e46f",
+      "hash": "77ba311514",
       "fileCount": 66,
-      "rawBytes": 3070081,
-      "gzipBytes": 679993,
+      "rawBytes": 3071467,
+      "gzipBytes": 680314,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -226,10 +226,10 @@
     "minigames": {
       "name": "minigames",
       "path": "dist/bundles/minigames.bundle.js",
-      "hash": "3f270b7da4",
+      "hash": "4e54856adf",
       "fileCount": 40,
-      "rawBytes": 2407163,
-      "gzipBytes": 626735,
+      "rawBytes": 2407215,
+      "gzipBytes": 626752,
       "files": [
         "src/minigames/MinigameHelpers.js",
         "src/minigames/MinigameCore.js",
