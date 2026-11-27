@@ -45,6 +45,7 @@
             const d = BO.OWRPGCharacter.derived(s);
             let a = amount * this.diff().inc * (100 / (100 + d.armor));
             if (attackerEntity?.owAgent?.boss) a *= 1 - Math.min(0.8, d.fx.bossDR || 0);
+            if (attackerEntity?.owAgent && BO.OWRPGChampions) a *= BO.OWRPGChampions.dealtMult(attackerEntity.owAgent);
             if (d.fx.crouchDR && BO.Player.crouching) a *= 1 - d.fx.crouchDR;
             if (BO.OWRPGMounts && BO.OWRPGMounts.mounted) a *= BO.OWRPGMounts.drMult();
             const attElem = attackerEntity && attackerEntity.owAgent && attackerEntity.owAgent.def && attackerEntity.owAgent.def.elem;
@@ -65,6 +66,7 @@
                     if (eq) BO.OWRPGDurability.degrade(s, eq, 0.22);
                 }
             }
+            if (attackerEntity?.owAgent?.champ) BO.OWRPGChampions.afterHitPlayer(attackerEntity.owAgent, a);
             BO.OWRPGMode.onPlayerHurt();
             return a;
         },
@@ -100,6 +102,7 @@
             if (agent.kind === 'beast') m *= 1 + (d.fx.beastDmg || 0);
             if (agent.kind === 'beast' || agent.boss) m *= 1 + (d.fx.monsterDmg || 0);
             if (agent.boss) m *= 1 + (d.fx.bossDmg || 0);
+            if (agent.champ) m *= BO.OWRPGChampions.takenMult(agent);
             if (ctx.source === 'gun' && ctx.dist > 22) m *= 1 + (d.fx.rangeDmg22 || 0);
             if (ctx.source === 'ability' || ctx.source === 'reaction') m *= 1 + (d.fx.arcanaDmg || 0);
             if (ctx.source === 'gun') m *= ws.dmgMult;
@@ -153,6 +156,7 @@
             const killed = agent.kind === 'bot'
                 ? ent.takeDamage(dmg, 'player')
                 : ent.takeDamage(dmg, ctx.isHead ? 'head' : 'torso', crit, null, ctx.source === 'melee' ? 'melee' : 'bullet');
+            if (agent.champ && ctx.source !== 'dot') BO.OWRPGChampions.afterDamaged(agent, dmg);
 
             // Only play hitmarker here for ability/reaction (CombatSystem already plays it for gun/melee!)
             if (ctx.source === 'ability' || ctx.source === 'reaction') {

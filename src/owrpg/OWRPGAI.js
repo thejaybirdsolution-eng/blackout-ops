@@ -64,7 +64,7 @@
         if (!b) return;
         const stKeys = Object.keys(a.st);
         const hpInt = Math.ceil(a.ent.hp);
-        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
+        const key = `${hpInt}|${a.state}|${a.hostile ? 1 : 0}|${a.champ ? 'c' : ''}|${stKeys.map((k) => k + (a.st[k].stacks || 1)).join(',')}`;
         if (b.lastKey === key) return;
         b.lastKey = key;
 
@@ -77,24 +77,29 @@
         g.textAlign = 'center';
         g.fillStyle = 'rgba(0,0,0,0.75)';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 129, 20);
-        g.fillStyle = a.boss ? '#fde047' : '#f8fafc';
+        g.fillStyle = a.boss ? '#fde047' : a.champ ? '#f0abfc' : '#f8fafc';
         g.fillText(`LV ${a.lvl} ${a.name.slice(0, 18)}`, 128, 19);
 
         // HP Bar
         g.fillStyle = 'rgba(10,12,14,0.85)';
         g.fillRect(28, 25, 200, 12);
-        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : '#ef4444') : facCol;
+        g.fillStyle = a.hostile ? (a.boss ? '#f59e0b' : a.champ ? a.champ.color : '#ef4444') : facCol;
         g.fillRect(30, 27, Math.round(196 * pct), 8);
         g.strokeStyle = 'rgba(255,255,255,0.28)';
         g.lineWidth = 1;
         g.strokeRect(28, 25, 200, 12);
 
-        // Status icons
+        // Status icons, or the Champion's affixes when it has no statuses.
         if (stKeys.length) {
             g.font = 'bold 16px "Segoe UI", sans-serif';
             const badges = stKeys.map((k) => (ELEM_ICON[k] || '*') + (k === 'venom' && a.st[k].stacks > 1 ? a.st[k].stacks : '')).join(' ');
             g.fillStyle = '#fde68a';
             g.fillText(badges, 128, 52);
+        } else if (a.champ) {
+            g.font = 'bold 14px "Segoe UI", sans-serif';
+            const lbl = '★ ' + BO.OWRPGChampions.label(a).toUpperCase();
+            g.fillStyle = 'rgba(0,0,0,0.8)'; g.fillText(lbl, 129, 53);
+            g.fillStyle = a.champ.color; g.fillText(lbl, 128, 52);
         }
         b.tex.needsUpdate = true;
     }
@@ -175,6 +180,7 @@
                     }
                 });
             }
+            BO.OWRPGChampions?.onSpawn(agent, opts);
             return agent;
         },
 
@@ -298,6 +304,7 @@
                 if (fx.killHeal) M.heal(fx.killHeal);
                 if (BO.OWRPGFactionsData.FACTIONS[a.faction]) BO.OWRPGFactions.onFactionKill(s, a.faction);
             }
+            BO.OWRPGChampions?.onKilled(a, ctx);
             M.setFlag('killed_' + a.defId, true);
             BO.OWRPGQuests.onEvent(s, 'kill', a.defId);
             if (a.poiId) BO.OWRPGWorldSim.onAgentKilled(a);
@@ -403,7 +410,7 @@
 
                 // Floating 3D world-space bar visibility
                 if (a.bar) {
-                    const showBar = ent.parts.root.visible && dist < 34 && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || Object.keys(a.st).length > 0);
+                    const showBar = ent.parts.root.visible && dist < (a.champ ? 48 : 34) && (a.state === 'combat' || ent.hp < ent.maxHp || a.boss || a.champ || Object.keys(a.st).length > 0);
                     a.bar.sprite.visible = showBar;
                     if (showBar) updateBarSprite(a);
                 }

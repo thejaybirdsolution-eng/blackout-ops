@@ -37,6 +37,11 @@
             add('salvage', rank('mining') * 0.007);
             add('durSave', rank('mining') * 0.007);
             add('arcanaDmg', rank('arcana') * 0.006);
+            add('speedMult', rank('exploration') * 0.002);
+            add('discoveryXp', rank('exploration') * 0.01);
+            // Timed shrine blessing (Discoveries): fx bundle that expires on playtime.
+            const bl = s.player.blessing;
+            if (bl && bl.until > s.playtimeSec && bl.fx) for (const [k, v] of Object.entries(bl.fx)) add(k, v);
             return out;
         },
 
