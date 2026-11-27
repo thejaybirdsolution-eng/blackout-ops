@@ -296,25 +296,34 @@
         },
         schedule(S) {
             const notes = BS.chart(S.data.song, S.data.mode);
-            // Discs that share a spot while both are on screen sit one behind the other, oldest in front.
+            S.data.noteCount = notes.length;
             for (let i = 0; i < notes.length; i++) {
                 const n = notes[i];
                 n.c = NEON[n.ci % NEON.length];
                 n.z = -14;
-                for (let j = i - 1; j >= 0 && notes[j].t > n.t - n.approach - 0.3; j--) {
-                    const o = notes[j];
-                    if (Math.abs(o.x - n.x) < 1.3 && Math.abs(o.y - n.y) < 1.3) n.z = Math.min(n.z, o.z - 0.09);
-                }
-            }
-            S.data.noteCount = notes.length;
-            for (const n of notes) {
-                const approach = n.approach;
-                S.at(Math.max(0, n.t - approach), (S2) => {
+                const spawnT = i === 0 ? Math.max(0, n.t - n.approach) : Math.max(notes[i - 1].t + 0.01, n.t - n.approach);
+                const approach = Math.max(0.06, n.t - spawnT);
+                const grace = i < notes.length - 1 ? Math.min(0.22, Math.max(0.04, (notes[i + 1].t - n.t) * 0.45)) : 0.24;
+                const inT = Math.min(0.09, approach * 0.35);
+                S.at(spawnT, (S2) => {
+                    // Enforce strictly one active target at a time across all difficulties.
+                    for (let j = S2.targets.length - 1; j >= 0; j--) {
+                        const old = S2.targets[j];
+                        if (old.alive) {
+                            S2.data.judge.MISS++;
+                            S2.data.groove = Math.max(0, S2.data.groove - 12);
+                            S2.breakCombo('TOO SLOW');
+                        }
+                        old.alive = false;
+                        old.removed = true;
+                        if (old.root && old.root.parent) old.root.parent.remove(old.root);
+                        S2.targets.splice(j, 1);
+                    }
                     const radius = n.radius;
                     const bt = beatTarget(n.c, radius);
                     const tg = S2.addTarget({
                         mesh: bt.mesh, hitMeshes: bt.hitMeshes, pos: V(n.x, n.y, n.z), yaw: 0,
-                        points: 100, appear: 'scale', vanish: 'scale', inT: 0.12, life: approach - 0.12 + 0.24, outT: 0.1,
+                        points: 100, appear: 'scale', vanish: 'scale', inT, life: Math.max(0.04, approach - inT + grace), outT: 0.05,
                         death: 'pop', deathColor: n.c,
                         motion: n.drift ? (t, age, out) => out.set(Math.sin(age * 2.2) * n.drift * 0.5, 0, 0) : null,
                         onTick: (t) => {

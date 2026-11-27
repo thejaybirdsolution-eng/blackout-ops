@@ -63,7 +63,7 @@
             return { got, max };
         },
 
-        render() {
+        render(opts = {}) {
             if (!this.el) this.init();
             const cat = (MG.hubCat && CATS.some((c) => c.id === MG.hubCat)) ? MG.hubCat : 'fun';
             const list = MG.list(cat);
@@ -73,6 +73,10 @@
             const allGot = totals.reduce((a, t) => a + t.got, 0);
             const allMax = totals.reduce((a, t) => a + t.max, 0);
             const body = this.el.querySelector('#mgh-body');
+            const prevBodyScroll = body.scrollTop;
+            const prevCatsScroll = body.querySelector('.mgh-cats')?.scrollTop || 0;
+            const prevListScroll = body.querySelector('.mgh-list')?.scrollTop || 0;
+            const prevDetailScroll = body.querySelector('.mgh-detail')?.scrollTop || 0;
             body.innerHTML = `
                 <nav class="mgh-cats">
                     ${CATS.map((c, i) => {
@@ -108,6 +112,24 @@
                 </section>
                 <aside class="mgh-detail" style="--mc:${sel ? sel.accent : '#f59e0b'}">${sel ? this._detail(sel) : ''}</aside>`;
             this._bind(body);
+            body.scrollTop = opts.resetList ? 0 : prevBodyScroll;
+            const catsEl = body.querySelector('.mgh-cats');
+            const listEl = body.querySelector('.mgh-list');
+            const detailEl = body.querySelector('.mgh-detail');
+            if (catsEl) catsEl.scrollTop = prevCatsScroll;
+            if (listEl) listEl.scrollTop = opts.resetList ? 0 : prevListScroll;
+            if (detailEl) detailEl.scrollTop = opts.resetDetail ? 0 : prevDetailScroll;
+        },
+
+        _refreshDetail(def, resetScroll = false) {
+            if (!this.el || !def) return;
+            const detailEl = this.el.querySelector('.mgh-detail');
+            if (!detailEl) return;
+            const prevScroll = detailEl.scrollTop;
+            detailEl.style.setProperty('--mc', def.accent || '#f59e0b');
+            detailEl.innerHTML = this._detail(def);
+            this._bindDetail(detailEl);
+            detailEl.scrollTop = resetScroll ? 0 : prevScroll;
         },
 
         _card(def, i, active) {
@@ -249,46 +271,62 @@
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
         },
 
-        _bind(body) {
-            body.querySelectorAll('[data-cat]').forEach((b) => {
-                b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render(); };
-            });
-            body.querySelectorAll('[data-id]').forEach((b) => {
-                b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubSel[MG.hubCat] = b.dataset.id; this.render(); };
-                b.ondblclick = () => this._play(b.dataset.id);
-            });
-            body.querySelectorAll('[data-opt]').forEach((b) => {
+        _bindDetail(root) {
+            const refreshCur = () => {
+                const cat = (MG.hubCat && CATS.some((c) => c.id === MG.hubCat)) ? MG.hubCat : 'fun';
+                this._refreshDetail(MG.get(MG.hubSel[cat]));
+            };
+            root.querySelectorAll('[data-opt]').forEach((b) => {
                 b.onclick = () => {
                     BO.Sound.playUIClick();
                     MG.hubOpts[b.dataset.opt] = b.dataset.val;
                     if (b.dataset.opt === 'song' && BO.BeatSongs?.previewingId?.()) {
-                        BO.BeatSongs.preview(b.dataset.val, () => { if (BO.State?.screen === 'minigames') this.render(); });
+                        BO.BeatSongs.preview(b.dataset.val, () => { if (BO.State?.screen === 'minigames') refreshCur(); });
                     }
-                    this.render();
+                    refreshCur();
                 };
             });
-            body.querySelectorAll('[data-preview-song]').forEach((b) => {
+            root.querySelectorAll('[data-preview-song]').forEach((b) => {
                 b.onclick = () => {
                     BO.Sound.playUIClick();
                     const sid = b.dataset.previewSong;
                     if (BO.BeatSongs?.previewingId?.() === sid) {
                         BO.BeatSongs.stopPreview(true);
                     } else {
-                        BO.BeatSongs?.preview?.(sid, () => { if (BO.State?.screen === 'minigames') this.render(); });
+                        BO.BeatSongs?.preview?.(sid, () => { if (BO.State?.screen === 'minigames') refreshCur(); });
                     }
-                    this.render();
+                    refreshCur();
                 };
             });
-            body.querySelectorAll('[data-play]').forEach((b) => {
+            root.querySelectorAll('[data-play]').forEach((b) => {
                 b.onclick = () => this._play(b.dataset.play);
             });
-            body.querySelectorAll('[data-example]').forEach((b) => {
+            root.querySelectorAll('[data-example]').forEach((b) => {
                 b.onclick = () => this._play(b.dataset.example, { exampleMode: true });
             });
-            body.querySelectorAll('[data-guide]').forEach((b) => {
+            root.querySelectorAll('[data-guide]').forEach((b) => {
                 b.onclick = () => { BO.Sound.playUIClick(); const d = MG.get(b.dataset.guide); if (d) this._openGuideModal(d); };
             });
-            body.querySelectorAll('.mgh-card, .mgh-cat, .mgh-play, .mgh-example, .mgh-preview-btn').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
+            root.querySelectorAll('.mgh-play, .mgh-example, .mgh-preview-btn').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
+        },
+
+        _bind(body) {
+            body.querySelectorAll('[data-cat]').forEach((b) => {
+                b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render({ resetList: true, resetDetail: true }); };
+            });
+            body.querySelectorAll('[data-id]').forEach((b) => {
+                b.onclick = () => {
+                    BO.BeatSongs?.stopPreview?.();
+                    BO.Sound.playUIClick();
+                    MG.hubSel[MG.hubCat] = b.dataset.id;
+                    body.querySelectorAll('[data-id]').forEach((c) => c.classList.toggle('active', c === b));
+                    this._refreshDetail(MG.get(b.dataset.id), true);
+                };
+                b.ondblclick = () => this._play(b.dataset.id);
+            });
+            const detailEl = body.querySelector('.mgh-detail');
+            if (detailEl) this._bindDetail(detailEl);
+            body.querySelectorAll('.mgh-card, .mgh-cat').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
         },
 
         _play(id, extraOpts) {

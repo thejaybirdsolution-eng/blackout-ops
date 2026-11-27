@@ -104,10 +104,10 @@
             desc: 'The final boss track. 174 BPM, no mercy.'
         },
         {
-            id: 'king_for_a_day', name: 'King for a Day', artist: 'Pierce The Veil ft. Kellin Quinn', diff: 9, bpm: 162, drums: 'posthardcore',
+            id: 'king_for_a_day', name: 'King for a Day (Tribute)', artist: 'Blackout Band (ft. Kellin Quinn Style)', diff: 9, bpm: 162, drums: 'posthardcore',
             chords: ['Dm', 'Bb', 'F', 'C'], key: 'D', minor: true, lead: 'sawtooth', bass: 'sawtooth', rock: true,
             hook: [5, -1, 5, 4, 3, -1, 2, 3, 4, -1, 4, 3, 2, -1, 0, 2, 5, -1, 6, 5, 4, -1, 3, 4, 5, 4, 3, 2, 1, 2, 0, -1],
-            desc: 'Post-hardcore anthem at 162 BPM with double-kick bursts, soaring hooks, and a heavy breakdown.'
+            desc: 'Post-hardcore anthem tribute at 162 BPM with double-kick bursts, soaring hooks, and a heavy breakdown.'
         }
     ];
     for (const s of SONGS) {
@@ -123,8 +123,8 @@
     const MODES = {
         easy: { label: 'EASY', approach: 1.35, window: 1.45, radius: 0.75, walk: 1, desc: 'On the beat only, slow rings, big discs, generous timing.' },
         medium: { label: 'MEDIUM', approach: 1.0, window: 1.0, radius: 0.6, walk: 2, desc: 'The standard chart: beats plus some off-beats in the chorus.' },
-        hard: { label: 'HARD', approach: 0.8, window: 0.85, radius: 0.52, walk: 3, desc: 'More off-beats, double notes, faster rings, tighter timing.' },
-        hell: { label: 'HELL', approach: 0.62, window: 0.7, radius: 0.45, walk: 3, drift: true, desc: '16th-note bursts, triples, drifting discs and razor timing.' }
+        hard: { label: 'HARD', approach: 0.8, window: 0.85, radius: 0.52, walk: 3, desc: 'More off-beats, faster rings, tighter timing.' },
+        hell: { label: 'HELL', approach: 0.62, window: 0.7, radius: 0.45, walk: 3, drift: true, desc: '16th-note bursts, drifting discs and razor timing.' }
     };
 
     function section(song, bar) {
@@ -201,15 +201,6 @@
             }
             if (!want) continue;
             push(t, sec, st);
-            // doubles / triples: a second disc at the mirrored column
-            const pDouble = modeId === 'medium' ? (sec === 'finale' && beat ? 0.18 : 0) : modeId === 'hard' ? (beat && sec !== 'intro' ? 0.12 + d * 0.01 : 0) : modeId === 'hell' ? (beat ? 0.25 : 0.06) : 0;
-            if (pDouble && rng() < pDouble) {
-                const last = notes[notes.length - 1];
-                const mx = -last.x || (rng() < 0.5 ? -4 : 4);
-                const my = YS[3 - YS.indexOf(last.y)];
-                notes.push(Object.assign({}, last, { x: mx, y: my, ci: (last.ci + 2) % 5, drift: -last.drift }));
-                if (modeId === 'hell' && sec === 'finale' && rng() < 0.3) notes.push(Object.assign({}, last, { x: 0, y: YS[(YS.indexOf(last.y) + 2) % 4], ci: (last.ci + 3) % 5, drift: 0 }));
-            }
         }
         return notes;
     }
