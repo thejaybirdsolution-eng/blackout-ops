@@ -1745,9 +1745,11 @@
             let pz = BO.Math.lerp(hip[2], adsZ, this.adsAlpha) + this.recoilZ;
 
             const weaponSway = 1 - this.adsAlpha * 0.7;
-            let rx = (this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2) * weaponSway;
-            let ry = this.recoilYaw * 0.45 * weaponSway;
-            let rz = this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
+            const hipRot = w.stats.hipRot;
+            const hipBlend = 1 - this.adsAlpha;
+            let rx = (hipRot ? hipRot[0] * hipBlend : 0) + (this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2) * weaponSway;
+            let ry = (hipRot ? hipRot[1] * hipBlend : 0) + this.recoilYaw * 0.45 * weaponSway;
+            let rz = (hipRot ? hipRot[2] * hipBlend : 0) + this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
 
             // Parkour Vault / Mantle one-handed weapon tuck
             if (this.rideState && this.rideState.kind === 'parkour') {

@@ -291,6 +291,7 @@
                 papEffect: isPaP ? base.papEffect : null,
                 soundProfile: base.soundProfile,
                 hipPos: base.hipPos,
+                hipRot: base.hipRot || null,
                 adsPos: base.adsPos,
                 muzzleOffset: base.muzzleOffset,
                 ejectOffset: base.ejectOffset,
