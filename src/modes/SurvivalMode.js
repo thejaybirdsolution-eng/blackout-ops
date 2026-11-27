@@ -171,6 +171,8 @@
             BO.ZoneThrill?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
+            BO.Sound.stopMusic();
+            this.campaign?.pack?.batch?.dispose?.();
             this.campaign?.stop();
             this.campaign = null;
             this.loot?.stop();

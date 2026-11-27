@@ -738,6 +738,11 @@
                 BO.Player.parkourPitch = 0;
                 BO.Player.eyeHeight = 1.6;
             }
+            if (this._resTimers) {
+                for (let i = 0; i < this._resTimers.length; i++) clearTimeout(this._resTimers[i]);
+                this._resTimers.length = 0;
+            }
+            if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') BO.Combat.setTargetPool([]);
             this._hideHud();
             this._hideResults();
         }
@@ -1312,15 +1317,21 @@
                 if (p < 1) requestAnimationFrame(tick);
             };
             requestAnimationFrame(tick);
+            if (this._resTimers) {
+                for (let i = 0; i < this._resTimers.length; i++) clearTimeout(this._resTimers[i]);
+                this._resTimers.length = 0;
+            } else {
+                this._resTimers = [];
+            }
             const stars = el.querySelectorAll('.mg-star');
             for (let i = 0; i < stars.length; i++) {
                 if (i < res.stars) {
-                    setTimeout(() => { stars[i].classList.add('mg-star-on'); SFX.star(i); }, 650 + i * 330);
+                    this._resTimers.push(setTimeout(() => { stars[i].classList.add('mg-star-on'); SFX.star(i); }, 650 + i * 330));
                 }
             }
-            if (res.stars >= 3) setTimeout(() => SFX.fanfare(), 650 + res.stars * 330);
+            if (res.stars >= 3) this._resTimers.push(setTimeout(() => SFX.fanfare(), 650 + res.stars * 330));
             if (res.stars >= 2 && BO.Assets?.playClip) {
-                setTimeout(() => BO.Assets.playClip(res.stars >= 3 ? 'overhaul/stingers/level_complete.wav' : 'overhaul/stingers/chime_positive.wav', { volume: 0.34 }), 650 + res.stars * 300);
+                this._resTimers.push(setTimeout(() => BO.Assets.playClip(res.stars >= 3 ? 'overhaul/stingers/level_complete.wav' : 'overhaul/stingers/chime_positive.wav', { volume: 0.34 }), 650 + res.stars * 300));
             }
             // Score-over-time sparkline.
             const cv = el.querySelector('#mg-res-canvas');

@@ -283,6 +283,8 @@
             }
             this.playerAvatar3P = null;
             this.kcFrames = [];
+            if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') BO.Combat.setTargetPool([]);
+            BO.Sound.stopMusic();
         }
 
         _spawnBots(map) {

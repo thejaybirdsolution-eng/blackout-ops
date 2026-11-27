@@ -400,6 +400,9 @@
             }
             this.supplyDrops = [];
             this.layers = [];
+            this.activePrompt = null;
+            if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') BO.Combat.setTargetPool([]);
+            BO.Sound.stopMusic();
         }
 
         _buildCastleStructures(scene, map) {
