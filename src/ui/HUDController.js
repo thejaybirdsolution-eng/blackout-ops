@@ -486,9 +486,12 @@
                 this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ⚗ ${BO.RPGMode.run.potions} POTIONS [${kbP}]`;
             } else if (this.elHpText) {
                 const vest = P.plateSlots;
+                const hidePlates = mode === 'owrpg' || mode === 'rpg' || (mode === 'minigame' && P.armor <= 0 && P.armorReservePlates <= 0);
                 this.elHpText.textContent = vest
                     ? `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  VEST ${vest.filter((s) => s && s.hp > 0).length}/3`
-                    : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
+                    : (hidePlates
+                        ? `${Math.ceil(P.hp)} / ${P.maxHp} HP`
+                        : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`);
             }
             const plateRow = this.elPlates[0]?.parentElement?.parentElement;
             if (plateRow) plateRow.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
@@ -591,6 +594,8 @@
                 // RPG & OWRPG abilities replace COD grenades.
                 this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
                 this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                const gearDock = this.elLethalInfo?.closest('.gear-dock');
+                if (gearDock) gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0

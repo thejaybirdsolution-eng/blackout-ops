@@ -10,6 +10,12 @@
     const BO = global.BO;
     const _tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
     const _tmpAimDir = new THREE.Vector3();
+    const _tmpAimOrigin = new THREE.Vector3();
+    const _tmpAimRay = { origin: _tmpAimOrigin, dir: _tmpAimDir };
+    const _tmpForward = new THREE.Vector3();
+    const _tmpRight = new THREE.Vector3();
+    const _tmpMoveVecs = { forward: _tmpForward, right: _tmpRight };
+    const _tmpMoveInput = new THREE.Vector3();
 
     class PlayerController {
         constructor() {
@@ -47,6 +53,9 @@
             this.tacStamina = 1.0;
             this.sprinting = false;
             this.tacSprinting = false;
+            this.padMoveX = 0;
+            this.padMoveY = 0;
+            this.padSprint = false;
             this.stepDist = 0;
             this.eyeHeight = 1.60;
             this.rideState = null;
@@ -482,15 +491,15 @@
         }
 
         getMoveDirectionVectors() {
-            const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-            const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-            return { forward, right };
+            _tmpForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+            _tmpRight.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+            return _tmpMoveVecs;
         }
 
         getAimRay(worldCamera) {
-            const origin = worldCamera.position.clone();
-            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(worldCamera.quaternion).normalize();
-            return { origin, dir };
+            _tmpAimOrigin.copy(worldCamera.position);
+            _tmpAimDir.set(0, 0, -1).applyQuaternion(worldCamera.quaternion).normalize();
+            return _tmpAimRay;
         }
 
         adjustScopeZoom(direction) {
@@ -571,6 +580,8 @@
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.activeSlot = next;
             this.reloading = false;
+            this.reloadTimer = 0;
+            this.reloadStage = 0;
             this.burstRemaining = 0;
             this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.28;
             if (stowing) {
@@ -813,6 +824,19 @@
                 } else {
                     this.hp = 0;
                     this.alive = false;
+                    this.reloading = false;
+                    this.reloadTimer = 0;
+                    this.reloadStage = 0;
+                    this.platingTimer = 0;
+                    this.sliding = false;
+                    this.adsHeld = false;
+                    this.triggerHeld = false;
+                    this.cookingFrag = false;
+                    this.burstRemaining = 0;
+                    this.rideState = null;
+                    this.padMoveX = 0;
+                    this.padMoveY = 0;
+                    this.padSprint = false;
                 }
             }
         }
@@ -1133,11 +1157,13 @@
             if (this.keys[kb.back] || this.keys['KeyS']) iz -= 1;
             if (this.keys[kb.right] || this.keys['KeyD']) ix += 1;
             if (this.keys[kb.left] || this.keys['KeyA']) ix -= 1;
+            if (this.padMoveX) ix = BO.Math.clamp(ix + this.padMoveX, -1, 1);
+            if (this.padMoveY) iz = BO.Math.clamp(iz + this.padMoveY, -1, 1);
 
-            const moveInput = new THREE.Vector3();
+            const moveInput = _tmpMoveInput.set(0, 0, 0);
             if (iz !== 0) moveInput.addScaledVector(forward, iz);
             if (ix !== 0) moveInput.addScaledVector(right, ix);
-            if (moveInput.lengthSq() > 0) moveInput.normalize();
+            if (moveInput.lengthSq() > 1) moveInput.normalize();
 
             const w = this.activeWeapon;
             let gunMoveMult = w ? w.stats.moveMult : 1.0;
@@ -1148,7 +1174,7 @@
             const stalker = this.mpPerks.includes('stalker');
 
             if (this.matchRules.lowProfile) this.crouching = true;
-            const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight']) && iz > 0 && !this.adsHeld && !this.inLastStand;
+            const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.padSprint) && iz > 0.15 && !this.adsHeld && !this.inLastStand;
             if (wantsSprint && !this.crouching && !this.sliding) {
                 this.sprinting = true;
                 if (this.tacStamina > 0.12 || BO.Mods?.fxActive?.().endlessStamina) {

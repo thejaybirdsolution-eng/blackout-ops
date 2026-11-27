@@ -543,8 +543,13 @@
                     if (gait && directLOS && !forceDirect) {
                         const dx = (tx - this.pos.x) / Math.max(0.1, distToTarget);
                         const dz = (tz - this.pos.z) / Math.max(0.1, distToTarget);
-                        const neighbors = this.movementHabit === 'crowd_edge'
-                            ? allZombies.filter((z) => z !== this && z.alive && z.pos.distanceToSquared(this.pos) < 16).length : 0;
+                        let neighbors = 0;
+                        if (this.movementHabit === 'crowd_edge') {
+                            for (let zi = 0; zi < allZombies.length; zi++) {
+                                const oz = allZombies[zi];
+                                if (oz !== this && oz.alive && oz.pos.distanceToSquared(this.pos) < 16) neighbors++;
+                            }
+                        }
                         const [forward, side, speed] = gait(this.gaitClock, distToTarget, this.id % 2 ? 1 : -1, neighbors, this.flinchTimer > 0);
                         goalX += dx * forward - dz * side;
                         goalZ += dz * forward + dx * side;
@@ -567,17 +572,17 @@
                         const moved = BO.Math.dist2D(this.pos.x, this.pos.z, this._lastCheckX, this._lastCheckZ);
                         this._lastCheckX = this.pos.x;
                         this._lastCheckZ = this.pos.z;
-                        if (moved < 0.30 && curSpeed > 0.5) {
+                        if (moved < 0.28 && curSpeed > 0.5) {
                             this._stuckAccum += 0.45;
                             this._sidestepTimer = 0.90;
                             if (this._stuckAccum >= 0.90) this._sidestepSign *= -1;
                             if (this.pos.y <= floorY + 0.16) this.vel.y = 7.4; // Vault low crates/sandbags!
-                            if (this._stuckAccum >= 1.8) {
+                            if (this._stuckAccum >= 1.35) {
                                 // Unstick nudge around obstacle & recalculate path
                                 const ndx = tx - this.pos.x, ndz = tz - this.pos.z;
                                 const nd = Math.max(0.1, Math.hypot(ndx, ndz));
-                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.15 + (ndx / nd) * 0.45;
-                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.15 + (ndz / nd) * 0.45;
+                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.25 + (ndx / nd) * 0.48;
+                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.25 + (ndz / nd) * 0.48;
                                 this.pathTimer = 0;
                                 this.path = [];
                                 this._stuckAccum = 0.45;

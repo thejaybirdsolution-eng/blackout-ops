@@ -890,6 +890,7 @@
                     } else {
                         if (this.mouseDown) BO.Combat.handleFireInput(true, false);
                         if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
+                        BO.GamepadInput?.poll?.(dt);
                         BO.Player.update(dt, this.worldCamera);
                         BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
                         BO.Superpowers.tick(dt);

@@ -398,8 +398,11 @@
             this.def = def;
             this.scene = scene;
             this.opts = opts || {};
-            this.seed = hashStr('blackout-mg:' + def.id + ':' + (opts.variant || ''));
-            this.rng = mulberry32(this.seed);
+            this.seed = (this.opts.seed !== undefined && this.opts.seed !== null)
+                ? (typeof this.opts.seed === 'number' ? (this.opts.seed >>> 0) : hashStr(String(this.opts.seed)))
+                : hashStr('blackout-mg:' + def.id + ':' + (this.opts.variant || ''));
+            this.rng = BO.MinigameHelpers?.createRng ? BO.MinigameHelpers.createRng(this.seed) : mulberry32(this.seed);
+            this.random = () => this.rng();
             this.t = 0;
             this.duration = def.duration || 0;
             this.targets = [];

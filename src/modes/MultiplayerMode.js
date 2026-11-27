@@ -408,8 +408,9 @@
                 }
 
                 const clusterPenalty = minAnyDist < 2.8 ? -200 : (minAnyDist < 5.5 ? -30 : 0);
+                const trapPenalty = minEnemyDist < 14 ? -45 : 0;
                 const score = Math.min(minEnemyDist, 32) * 2.2 + Math.min(minAnyDist, 14) * 1.4
-                    + (losExposed ? -28 : 12) + cooldownPenalty + clusterPenalty + Math.random() * 1.5;
+                    + (losExposed ? -55 : 14) + cooldownPenalty + clusterPenalty + trapPenalty + Math.random() * 1.5;
 
                 if (score > bestScore) {
                     bestScore = score;
