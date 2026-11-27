@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — core.bundle.js (62 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — core.bundle.js (66 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/core/Namespace.js --- */
 /* ============================================================================
@@ -603,8 +603,12 @@
 
     const BO = global.BO;
     const STORAGE_KEY = 'blackout_ops_save_v1';
+    const STORAGE_TMP = STORAGE_KEY + '_tmp';
+    const BACKUP_KEYS = [STORAGE_KEY + '_bak0', STORAGE_KEY + '_bak1', STORAGE_KEY + '_bak2'];
+    const CURRENT_VERSION = 2;
 
     let memoryFallback = null;
+    const sliceOwners = new Map();
 
     function buildStarterClasses() {
         return [
@@ -784,7 +788,7 @@
 
     function createDefaultSave() {
         return {
-            version: 1,
+            version: CURRENT_VERSION,
             callsign: 'SPECTRE-01',
             player: {
                 xp: 0,
@@ -892,74 +896,236 @@
         return target;
     }
 
-    function readRawStorage() {
-        try {
-            if (global.localStorage) {
-                return global.localStorage.getItem(STORAGE_KEY);
-            }
-        } catch (e) {
-            // Private browsing / restricted file:// storage fallback
+    const MIGRATIONS = {
+        0(save) {
+            if (!save.stats || typeof save.stats !== 'object') save.stats = {};
+            if (!save.weapons || typeof save.weapons !== 'object') save.weapons = {};
+            save.version = 1;
+            return save;
+        },
+        1(save) {
+            if (!save.settings || typeof save.settings !== 'object') save.settings = {};
+            if (!save.minigames || typeof save.minigames !== 'object') save.minigames = { best: {} };
+            save.version = 2;
+            return save;
         }
-        return memoryFallback;
+    };
+
+    function migrateSaveData(parsed) {
+        if (!parsed || typeof parsed !== 'object') return parsed;
+        let v = Number.isFinite(parsed.version) ? parsed.version : 0;
+        while (v < CURRENT_VERSION && typeof MIGRATIONS[v] === 'function') {
+            parsed = MIGRATIONS[v](parsed);
+            v = parsed.version;
+        }
+        parsed.version = CURRENT_VERSION;
+        return parsed;
     }
 
-    function writeRawStorage(str) {
-        memoryFallback = str;
+    function readKeySafe(key) {
         try {
             if (global.localStorage) {
-                global.localStorage.setItem(STORAGE_KEY, str);
+                return global.localStorage.getItem(key);
             }
         } catch (e) {
-            // Ignore storage quota / security exception; memoryFallback keeps session state
+            BO.log?.('SaveSystem', 'warn', 'localStorage read failed for ' + key, e);
         }
+        return null;
+    }
+
+    function writeKeySafe(key, val) {
+        if (!global.localStorage) return false;
+        try {
+            global.localStorage.setItem(key, val);
+            return global.localStorage.getItem(key) === val;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function removeKeySafe(key) {
+        try {
+            if (global.localStorage) global.localStorage.removeItem(key);
+        } catch (e) {
+            BO.log?.('SaveSystem', 'debug', 'localStorage remove failed for ' + key, e);
+        }
+    }
+
+    function validateParsedSave(parsed) {
+        return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.player && typeof parsed.player === 'object');
     }
 
     class SaveSystem {
         constructor() {
+            this.storageDegraded = false;
+            this.recoveredFromBackup = false;
+            this.recoverySource = null;
+            this.lastMigratedFrom = null;
+            this._degradedToastShown = false;
             this.data = this.load();
         }
 
-        load() {
+        _keysFor(primaryKey) {
+            const pk = primaryKey || STORAGE_KEY;
+            return {
+                primary: pk,
+                tmp: pk + '_tmp',
+                backups: [pk + '_bak0', pk + '_bak1', pk + '_bak2']
+            };
+        }
+
+        _writeAtomic(str, keyOverride) {
+            memoryFallback = str;
+            if (!global.localStorage) {
+                this.storageDegraded = true;
+                return false;
+            }
+            const keys = this._keysFor(keyOverride);
+            const prevPrimary = readKeySafe(keys.primary);
+
+            // Stage in _tmp first to avoid partial primary overwrite
+            let wroteTmp = writeKeySafe(keys.tmp, str);
+            if (!wroteTmp) {
+                // Quota pressure: prune oldest backups and retry
+                removeKeySafe(keys.backups[2]);
+                removeKeySafe(keys.backups[1]);
+                wroteTmp = writeKeySafe(keys.tmp, str);
+            }
+            if (!wroteTmp) {
+                this.storageDegraded = true;
+                BO.log?.('SaveSystem', 'warn', 'Storage quota/write failed; running in memory fallback');
+                if (!this._degradedToastShown) {
+                    this._degradedToastShown = true;
+                    setTimeout(() => BO.Events?.emit?.('hud:toast', {
+                        text: 'WARNING: Browser storage unavailable/full — export save JSON to keep progress!',
+                        color: '#ef4444'
+                    }), 300);
+                }
+                return false;
+            }
+
+            // Rotate backups when replacing an existing valid save
+            if (prevPrimary && prevPrimary !== str) {
+                try {
+                    const b1 = readKeySafe(keys.backups[1]);
+                    const b0 = readKeySafe(keys.backups[0]);
+                    if (b1) writeKeySafe(keys.backups[2], b1);
+                    if (b0) writeKeySafe(keys.backups[1], b0);
+                    writeKeySafe(keys.backups[0], prevPrimary);
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'debug', 'Backup rotation skipped under quota pressure', e);
+                }
+            }
+
+            const swapped = writeKeySafe(keys.primary, str);
+            removeKeySafe(keys.tmp);
+            if (!swapped) {
+                this.storageDegraded = true;
+                return false;
+            }
+            this.storageDegraded = false;
+            return true;
+        }
+
+        _hydrateFromParsed(parsed) {
+            const origVer = Number.isFinite(parsed.version) ? parsed.version : 0;
+            if (origVer < CURRENT_VERSION) this.lastMigratedFrom = origVer;
+            const migrated = migrateSaveData(parsed);
             const base = createDefaultSave();
-            const raw = readRawStorage();
-            if (!raw) return base;
-            try {
-                const parsed = JSON.parse(raw);
-                deepMerge(base, parsed);
-                // Ensure exactly 10 class slots exist and are well-formed
-                if (!Array.isArray(base.classes) || base.classes.length < 10) {
-                    const fresh = createDefaultClasses();
-                    for (let i = 0; i < 10; i++) {
-                        if (base.classes && base.classes[i]) {
-                            fresh[i] = deepMerge(fresh[i], base.classes[i]);
-                        }
-                    }
-                    base.classes = fresh;
-                }
+            deepMerge(base, migrated);
+            base.version = CURRENT_VERSION;
+            if (!Array.isArray(base.classes) || base.classes.length < 10) {
+                const fresh = createDefaultClasses();
                 for (let i = 0; i < 10; i++) {
-                    base.classes[i].id = i;
-                    if (!base.classes[i].primary) base.classes[i].primary = createDefaultClasses()[0].primary;
-                    if (!base.classes[i].secondary) base.classes[i].secondary = createDefaultClasses()[0].secondary;
-                    if (!Array.isArray(base.classes[i].perks) || base.classes[i].perks.length !== 3) {
-                        base.classes[i].perks = ['scavenger', 'sleight_of_hand', 'steady_aim'];
-                    }
-                    if (!Array.isArray(base.classes[i].killstreaks) || base.classes[i].killstreaks.length !== 3) {
-                        base.classes[i].killstreaks = ['uav', 'predator', 'chopper'];
-                    }
-                    if (!base.classes[i].ultimatePower) {
-                        base.classes[i].ultimatePower = 'gravity_spikes';
+                    if (base.classes && base.classes[i]) {
+                        fresh[i] = deepMerge(fresh[i], base.classes[i]);
                     }
                 }
-            } catch (e) {
-                console.warn('[SaveSystem] Corrupt save ignored, starting fresh.', e);
-                return createDefaultSave();
+                base.classes = fresh;
+            }
+            for (let i = 0; i < 10; i++) {
+                base.classes[i].id = i;
+                if (!base.classes[i].primary) base.classes[i].primary = createDefaultClasses()[0].primary;
+                if (!base.classes[i].secondary) base.classes[i].secondary = createDefaultClasses()[0].secondary;
+                if (!Array.isArray(base.classes[i].perks) || base.classes[i].perks.length !== 3) {
+                    base.classes[i].perks = ['scavenger', 'sleight_of_hand', 'steady_aim'];
+                }
+                if (!Array.isArray(base.classes[i].killstreaks) || base.classes[i].killstreaks.length !== 3) {
+                    base.classes[i].killstreaks = ['uav', 'predator', 'chopper'];
+                }
+                if (!base.classes[i].ultimatePower) {
+                    base.classes[i].ultimatePower = 'gravity_spikes';
+                }
             }
             return base;
         }
 
-        save() {
-            writeRawStorage(JSON.stringify(this.data));
-            BO.Events.emit('save:updated', this.data);
+        load(keyOverride = null) {
+            this.recoveredFromBackup = false;
+            this.recoverySource = null;
+            const keys = this._keysFor(keyOverride);
+            const candidates = [
+                { key: keys.primary, label: 'primary' },
+                { key: keys.tmp, label: 'tmp' },
+                { key: keys.backups[0], label: 'bak0' },
+                { key: keys.backups[1], label: 'bak1' },
+                { key: keys.backups[2], label: 'bak2' }
+            ];
+
+            let anyData = false;
+            for (let i = 0; i < candidates.length; i++) {
+                const raw = readKeySafe(candidates[i].key);
+                if (!raw) continue;
+                anyData = true;
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (!validateParsedSave(parsed)) continue;
+                    const hydrated = this._hydrateFromParsed(parsed);
+                    if (i > 0) {
+                        this.recoveredFromBackup = true;
+                        this.recoverySource = candidates[i].label;
+                        BO.log?.('SaveSystem', 'warn', `Primary save corrupt; recovered from ${candidates[i].label}`);
+                        setTimeout(() => BO.Events?.emit?.('hud:toast', {
+                            text: `Save recovered automatically from ${candidates[i].label} backup.`,
+                            color: '#ffb23f'
+                        }), 400);
+                    }
+                    return hydrated;
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'warn', `Failed to parse save candidate ${candidates[i].label}`, e);
+                }
+            }
+
+            if (!anyData && memoryFallback) {
+                try {
+                    const parsedMem = JSON.parse(memoryFallback);
+                    if (validateParsedSave(parsedMem)) return this._hydrateFromParsed(parsedMem);
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'warn', 'Memory fallback save corrupt', e);
+                }
+            }
+            if (anyData) {
+                BO.log?.('SaveSystem', 'warn', 'All save copies corrupt; starting fresh.');
+            }
+            return createDefaultSave();
+        }
+
+        save(keyOverride = null) {
+            this.data.version = CURRENT_VERSION;
+            const json = JSON.stringify(this.data);
+            this._writeAtomic(json, keyOverride);
+            BO.Events?.emit?.('save:updated', this.data);
+        }
+
+        assertSliceOwner(sliceKey, ownerName) {
+            const existing = sliceOwners.get(sliceKey);
+            if (existing && existing !== ownerName) {
+                const msg = `Save slice "${sliceKey}" ownership conflict: ${existing} vs ${ownerName}`;
+                BO.log?.('SaveSystem', 'error', msg);
+                throw new Error(msg);
+            }
+            sliceOwners.set(sliceKey, ownerName);
+            return true;
         }
 
         getWeaponRecord(weaponId) {
@@ -976,29 +1142,59 @@
         }
 
         exportSave() {
+            this.data.version = CURRENT_VERSION;
             return JSON.stringify(this.data, null, 2);
         }
 
-        importSave(jsonStr) {
-            const parsed = JSON.parse(jsonStr);
-            if (!parsed || typeof parsed !== 'object' || !parsed.player) {
-                throw new Error('Invalid BLACKOUT OPS save file.');
-            }
-            const fresh = createDefaultSave();
-            deepMerge(fresh, parsed);
-            this.data = fresh;
-            this.save();
+        downloadExportFile() {
+            const txt = this.exportSave();
+            const blob = new Blob([txt], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `blackout-ops-save-${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            BO.Events?.emit?.('hud:toast', { text: 'Save file exported.', color: '#22c55e' });
             return true;
         }
 
-        resetSave() {
+        importSave(jsonStr, keyOverride = null) {
+            const parsed = JSON.parse(jsonStr);
+            if (!validateParsedSave(parsed)) {
+                throw new Error('Invalid BLACKOUT OPS save file.');
+            }
+            this.data = this._hydrateFromParsed(parsed);
+            this.save(keyOverride);
+            return true;
+        }
+
+        importFromFile(file) {
+            if (!file) return Promise.reject(new Error('No file selected'));
+            return file.text().then((txt) => {
+                this.importSave(txt);
+                BO.Events?.emit?.('hud:toast', { text: 'Save imported & backups updated!', color: '#22c55e' });
+                return true;
+            });
+        }
+
+        resetSave(keyOverride = null) {
             this.data = createDefaultSave();
-            this.save();
+            this.save(keyOverride);
             return this.data;
         }
     }
 
     BO.Save = new SaveSystem();
+    BO.SaveSystemClass = SaveSystem;
+    BO.Save.CURRENT_VERSION = CURRENT_VERSION;
+    BO.Save.STORAGE_KEY = STORAGE_KEY;
+    BO.Save.BACKUP_KEYS = BACKUP_KEYS;
+    BO.Save.STORAGE_TMP = STORAGE_TMP;
+    BO.Save.migrateSaveData = migrateSaveData;
 })(window);
 ;
 
@@ -1814,6 +2010,297 @@
 })(window);
 ;
 
+/* --- src/net/NetValidation.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Network Validation, Jitter Buffer, Delta Codec & Mock Transport
+   Zero-build IIFE module (ADR-002).
+   Loaded before NetworkManager.js so packet validation, rate limiting,
+   interpolation jitter buffering, state deltas, lag compensation history,
+   and deterministic 2-peer offline testing all work uniformly.
+   ============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO = global.BO || {};
+
+    const KNOWN_TYPES = new Set([
+        'join_req', 'leave_notify', 'profile_update', 'roster_sync', 'lobby_settings',
+        'chat_msg', 'match_start', 'player_state', 'player_fx', 'net_ping', 'net_pong',
+        'host_migrate',
+        // Zombies
+        'z_snapshot', 'z_snapshot_delta', 'z_hit', 'z_interact_door', 'z_power_on',
+        'z_pickup_powerup', 'z_revive_player', 'z_barricade_repair',
+        // Tower Defense
+        'td_snapshot', 'td_buy', 'td_skip', 'td_hit_enemy',
+        // Multiplayer
+        'mp_snapshot', 'mp_hit_player', 'mp_player_killed', 'mp_hit_bot', 'mp_bot_killed_by_peer'
+    ]);
+
+    function isFiniteNum(v, min = -1e5, max = 1e5) {
+        return typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+    }
+
+    function validateStatePayload(st) {
+        if (!st || typeof st !== 'object') return false;
+        const nums = ['x', 'y', 'z', 'vx', 'vz', 'yaw', 'pitch'];
+        for (let i = 0; i < nums.length; i++) {
+            const v = st[nums[i]];
+            if (v !== undefined && !isFiniteNum(v, -50000, 50000)) return false;
+        }
+        if (st.hp !== undefined && !isFiniteNum(st.hp, -100, 100000)) return false;
+        if (st.maxHp !== undefined && !isFiniteNum(st.maxHp, 1, 100000)) return false;
+        if (st.callsign !== undefined && (typeof st.callsign !== 'string' || st.callsign.length > 48)) return false;
+        return true;
+    }
+
+    /**
+     * Validate any inbound P2P / BroadcastChannel message.
+     * Returns { ok: boolean, reason?: string }.
+     */
+    function validateMessage(msg, opts) {
+        if (!msg || typeof msg !== 'object' || Array.isArray(msg)) {
+            return { ok: false, reason: 'non_object' };
+        }
+        if (typeof msg.type !== 'string' || !KNOWN_TYPES.has(msg.type)) {
+            return { ok: false, reason: 'unknown_type' };
+        }
+        if (msg._seq !== undefined && !isFiniteNum(msg._seq, 0, 1e12)) {
+            return { ok: false, reason: 'invalid_seq' };
+        }
+        if (msg.type === 'player_state' && !validateStatePayload(msg.state)) {
+            return { ok: false, reason: 'invalid_player_state' };
+        }
+        if (msg.type === 'chat_msg') {
+            if (typeof msg.text !== 'string' || msg.text.length > 400) {
+                return { ok: false, reason: 'invalid_chat' };
+            }
+        }
+        if ((msg.type === 'mp_hit_player' || msg.type === 'mp_hit_bot' || msg.type === 'z_hit' || msg.type === 'td_hit_enemy')
+            && msg.dmg !== undefined && !isFiniteNum(msg.dmg, 0, 25000)) {
+            return { ok: false, reason: 'invalid_damage' };
+        }
+        if (msg.snap && typeof msg.snap === 'object') {
+            if (msg.snap.zombies && (!Array.isArray(msg.snap.zombies) || msg.snap.zombies.length > 512)) {
+                return { ok: false, reason: 'oversized_snapshot' };
+            }
+        }
+        if (opts && opts.limiter && opts.senderId) {
+            if (!opts.limiter.allow(opts.senderId, opts.now ?? Date.now())) {
+                return { ok: false, reason: 'rate_limited' };
+            }
+        }
+        return { ok: true };
+    }
+
+    /** Per-peer sliding window rate limiter to ignore packet floods cleanly. */
+    class PeerRateLimiter {
+        constructor(maxPerSec = 90) {
+            this.maxPerSec = maxPerSec;
+            this.buckets = new Map();
+        }
+        allow(peerId, nowMs) {
+            const t = nowMs || Date.now();
+            let b = this.buckets.get(peerId);
+            if (!b || (t - b.winStart) >= 1000) {
+                b = { winStart: t, count: 0 };
+                this.buckets.set(peerId, b);
+            }
+            b.count++;
+            return b.count <= this.maxPerSec;
+        }
+        clear() { this.buckets.clear(); }
+    }
+
+    /**
+     * Timestamped snapshot ring buffer (~80 ms interp delay, <= 150 ms extrap cap).
+     * Reuses caller-supplied `out` object to avoid per-frame allocations.
+     */
+    class JitterBuffer {
+        constructor(interpDelayMs = 80, maxExtrapMs = 150) {
+            this.interpDelayMs = interpDelayMs;
+            this.maxExtrapMs = maxExtrapMs;
+            this.samples = [];
+        }
+        push(state, recvMs) {
+            const t = Number.isFinite(recvMs) ? recvMs : performance.now();
+            const entry = {
+                t,
+                x: Number(state.x) || 0,
+                y: Number(state.y) || 0,
+                z: Number(state.z) || 0,
+                vx: Number(state.vx) || 0,
+                vz: Number(state.vz) || 0,
+                yaw: Number(state.yaw) || 0
+            };
+            const n = this.samples.length;
+            if (n > 0 && entry.t <= this.samples[n - 1].t) {
+                this.samples[n - 1] = entry;
+            } else {
+                this.samples.push(entry);
+            }
+            while (this.samples.length > 24) this.samples.shift();
+        }
+        sample(nowMs, out) {
+            const dst = out || {};
+            const list = this.samples;
+            if (list.length === 0) return null;
+            const renderT = (Number.isFinite(nowMs) ? nowMs : performance.now()) - this.interpDelayMs;
+            if (list.length === 1 || renderT <= list[0].t) {
+                const s = list[0];
+                dst.x = s.x; dst.y = s.y; dst.z = s.z; dst.yaw = s.yaw;
+                return dst;
+            }
+            const last = list[list.length - 1];
+            if (renderT >= last.t) {
+                const extrapSec = Math.min(this.maxExtrapMs, renderT - last.t) / 1000;
+                dst.x = last.x + last.vx * extrapSec;
+                dst.y = last.y;
+                dst.z = last.z + last.vz * extrapSec;
+                dst.yaw = last.yaw;
+                return dst;
+            }
+            for (let i = list.length - 2; i >= 0; i--) {
+                const a = list[i];
+                const b = list[i + 1];
+                if (renderT >= a.t && renderT <= b.t) {
+                    const span = Math.max(1, b.t - a.t);
+                    const alpha = Math.max(0, Math.min(1, (renderT - a.t) / span));
+                    dst.x = a.x + (b.x - a.x) * alpha;
+                    dst.y = a.y + (b.y - a.y) * alpha;
+                    dst.z = a.z + (b.z - a.z) * alpha;
+                    const dyaw = Math.atan2(Math.sin(b.yaw - a.yaw), Math.cos(b.yaw - a.yaw));
+                    dst.yaw = a.yaw + dyaw * alpha;
+                    return dst;
+                }
+            }
+            dst.x = last.x; dst.y = last.y; dst.z = last.z; dst.yaw = last.yaw;
+            return dst;
+        }
+        clear() { this.samples.length = 0; }
+    }
+
+    /** Flat key-value delta encoder/decoder with periodic keyframe reset. */
+    const DeltaCodec = {
+        diff(prev, curr) {
+            if (!prev || typeof prev !== 'object') return { keyframe: true, data: Object.assign({}, curr) };
+            const changed = {};
+            let count = 0;
+            const keys = Object.keys(curr);
+            for (let i = 0; i < keys.length; i++) {
+                const k = keys[i];
+                const a = prev[k];
+                const b = curr[k];
+                if (typeof b === 'number' && typeof a === 'number') {
+                    if (Math.abs(a - b) > 1e-4) { changed[k] = b; count++; }
+                } else if (a !== b) {
+                    changed[k] = b; count++;
+                }
+            }
+            return { keyframe: false, data: changed, changedCount: count };
+        },
+        apply(base, packet) {
+            if (!packet || !packet.data) return base ? Object.assign({}, base) : {};
+            if (packet.keyframe || !base) return Object.assign({}, packet.data);
+            return Object.assign({}, base, packet.data);
+        }
+    };
+
+    /** Bounded ring buffer of world entity coordinates for host-side hit rewind queries. */
+    class LagHistory {
+        constructor(maxWindowMs = 1000) {
+            this.maxWindowMs = maxWindowMs;
+            this.frames = [];
+        }
+        record(tMs, entities) {
+            const snap = Object.create(null);
+            for (let i = 0; i < entities.length; i++) {
+                const e = entities[i];
+                if (!e || !e.pos) continue;
+                snap[e.id] = { x: e.pos.x, y: e.pos.y, z: e.pos.z };
+            }
+            this.frames.push({ t: tMs, snap });
+            const cutoff = tMs - this.maxWindowMs;
+            while (this.frames.length > 2 && this.frames[0].t < cutoff) this.frames.shift();
+        }
+        sampleAt(tMs, entityId) {
+            const list = this.frames;
+            if (list.length === 0) return null;
+            let best = list[list.length - 1];
+            let bestDiff = Math.abs(best.t - tMs);
+            for (let i = list.length - 2; i >= 0; i--) {
+                const d = Math.abs(list[i].t - tMs);
+                if (d < bestDiff) { bestDiff = d; best = list[i]; }
+            }
+            return best.snap[entityId] || null;
+        }
+        clear() { this.frames.length = 0; }
+    }
+
+    /** Deterministic 2-peer simulated network transport (latency + jitter + packet loss) for QA tests. */
+    class MockNetChannel {
+        constructor(opts) {
+            const o = opts || {};
+            this.latencyMs = o.latencyMs ?? 150;
+            this.jitterMs = o.jitterMs ?? 20;
+            this.lossRate = o.lossRate ?? 0.02;
+            this.seed = (o.seed ?? 918273) >>> 0;
+            this.queue = [];
+            this.peers = new Map();
+            this.nowMs = 0;
+            this.stats = { sent: 0, dropped: 0, delivered: 0, rejected: 0 };
+        }
+        _rand() {
+            this.seed = (this.seed + 0x6d2b79f5) | 0;
+            let t = Math.imul(this.seed ^ (this.seed >>> 15), 1 | this.seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        }
+        registerPeer(id, onMessage) {
+            this.peers.set(id, onMessage);
+        }
+        send(fromId, toId, msg) {
+            this.stats.sent++;
+            if (this._rand() < this.lossRate) {
+                this.stats.dropped++;
+                return false;
+            }
+            const j = (this._rand() * 2 - 1) * this.jitterMs;
+            const deliverAt = this.nowMs + Math.max(0, this.latencyMs + j);
+            const clone = JSON.parse(JSON.stringify(msg));
+            this.queue.push({ deliverAt, fromId, toId, msg: clone });
+            return true;
+        }
+        step(dtMs) {
+            this.nowMs += dtMs;
+            this.queue.sort((a, b) => a.deliverAt - b.deliverAt);
+            while (this.queue.length > 0 && this.queue[0].deliverAt <= this.nowMs) {
+                const pkt = this.queue.shift();
+                const res = validateMessage(pkt.msg);
+                if (!res.ok) {
+                    this.stats.rejected++;
+                    continue;
+                }
+                const cb = this.peers.get(pkt.toId);
+                if (cb) {
+                    this.stats.delivered++;
+                    cb(pkt.msg, pkt.fromId, this.nowMs);
+                }
+            }
+        }
+    }
+
+    BO.NetValidation = {
+        KNOWN_TYPES,
+        validateMessage,
+        PeerRateLimiter,
+        JitterBuffer,
+        DeltaCodec,
+        LagHistory,
+        MockNetChannel
+    };
+})(window);
+;
+
 /* --- src/net/NetworkManager.js --- */
 /* ============================================================================
    BLACKOUT OPS — Online Co-op & Multiplayer Network Manager (WebRTC P2P + Local)
@@ -1828,6 +2315,9 @@
     'use strict';
 
     const BO = global.BO;
+    const _tmpTargetPos = new THREE.Vector3();
+    const _tmpHeadPos = new THREE.Vector3();
+    const _tmpSampleOut = { x: 0, y: 0, z: 0, yaw: 0 };
 
     const ROOM_PREFIX = 'bo-ops-room-';
     const GITHUB_PAGES_URL = 'https://thejaybirdsolution-eng.github.io/blackout-ops/';
@@ -1867,6 +2357,24 @@
             this.reviveHoldTimer = 0;
             this.elNameplates = null;
             this._lastMatchOpts = null;
+            this.jitterBuffers = new Map();
+            this._rateLimiter = BO.NetValidation ? new BO.NetValidation.PeerRateLimiter(120) : null;
+            this._lagHistory = BO.NetValidation ? new BO.NetValidation.LagHistory(1000) : null;
+            this._pingRttMs = 0;
+            this.netQuality = 'good';
+            this._droppedPackets = 0;
+            this._connectTimer = null;
+            this._reconnectTimer = null;
+            this._reconnectAttempts = 0;
+        }
+
+        getNetworkMetrics() {
+            return {
+                rttMs: Math.round(this._pingRttMs),
+                quality: this.netQuality,
+                droppedPackets: this._droppedPackets,
+                peers: this.players.size
+            };
         }
 
         init() {
@@ -2125,6 +2633,17 @@
             }
 
             try {
+                if (this._connectTimer) clearTimeout(this._connectTimer);
+                this._connectTimer = setTimeout(() => {
+                    if (this.active && !this.isHost && this.status === 'connecting') {
+                        this.status = 'error';
+                        this.statusText = `CONNECTION TIMEOUT [${clean}] — CLICK JOIN TO RETRY`;
+                        BO.Events.emit('hud:toast', { text: `Lobby [${clean}] timed out after 10s.`, color: '#ef4444' });
+                        this.addChatMessage('SYSTEM', `Connection to [${clean}] timed out. Verify code and retry.`, '#ef4444');
+                        BO.Events.emit('net:updated');
+                    }
+                }, 10000);
+
                 this.peer = new global.Peer(undefined, {
                     debug: 0,
                     config: { iceServers: ICE_SERVERS }
@@ -2141,6 +2660,8 @@
                     this.hostConn = conn;
 
                     conn.on('open', () => {
+                        if (this._connectTimer) { clearTimeout(this._connectTimer); this._connectTimer = null; }
+                        this._reconnectAttempts = 0;
                         this.status = 'connected';
                         this.statusText = `CONNECTED TO LOBBY [${clean}]`;
                         conn.send({ type: 'join_req', profile: this._buildMyProfile() });
@@ -2154,9 +2675,7 @@
 
                     conn.on('close', () => {
                         if (this.active && !this.isHost) {
-                            this.statusText = `HOST DISCONNECTED [${clean}]`;
-                            this.addChatMessage('SYSTEM', 'Host disconnected from lobby.', '#ef4444');
-                            BO.Events.emit('net:updated');
+                            this._handleHostDisconnect(clean);
                         }
                     });
                 });
@@ -2180,28 +2699,33 @@
         }
 
         leaveRoom(clearUrl = true) {
+            if (this._connectTimer) { clearTimeout(this._connectTimer); this._connectTimer = null; }
+            if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
             if (this.hostConn) {
-                try { this.hostConn.send({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) {}
-                try { this.hostConn.close(); } catch (e) {}
+                try { this.hostConn.send({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) { BO.log?.('Net', 'debug', 'leave_notify send skipped', e); }
+                try { this.hostConn.close(); } catch (e) { BO.log?.('Net', 'debug', 'hostConn close skipped', e); }
             }
             for (const conn of this.connections.values()) {
-                try { conn.close(); } catch (e) {}
+                try { conn.close(); } catch (e) { BO.log?.('Net', 'debug', 'peer conn close skipped', e); }
             }
             this.connections.clear();
             this.hostConn = null;
 
             if (this.peer) {
-                try { this.peer.destroy(); } catch (e) {}
+                try { this.peer.destroy(); } catch (e) { BO.log?.('Net', 'debug', 'peer destroy skipped', e); }
                 this.peer = null;
             }
             if (this.bc) {
-                try { this.bc.postMessage({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) {}
-                try { this.bc.close(); } catch (e) {}
+                try { this.bc.postMessage({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) { BO.log?.('Net', 'debug', 'bc leave skipped', e); }
+                try { this.bc.close(); } catch (e) { BO.log?.('Net', 'debug', 'bc close skipped', e); }
                 this.bc = null;
             }
 
             this.clearRemoteAvatars();
             this.remoteStates.clear();
+            this.jitterBuffers.clear();
+            if (this._rateLimiter) this._rateLimiter.clear();
+            if (this._lagHistory) this._lagHistory.clear();
             this.players.clear();
             this.active = false;
             this.isHost = false;
@@ -2209,6 +2733,45 @@
             this.status = 'offline';
             this.statusText = 'OFFLINE / SOLO MODE';
             if (clearUrl) this._updateUrlQuery(null);
+            BO.Events.emit('net:updated');
+        }
+
+        _handleHostDisconnect(code) {
+            if (!this.active || this.isHost) return;
+            if (this._reconnectAttempts < 3 && this.peer && !this.peer.destroyed) {
+                this._reconnectAttempts++;
+                const waitMs = 1000 * Math.pow(2, this._reconnectAttempts - 1);
+                this.status = 'connecting';
+                this.statusText = `RECONNECTING [${code}] (${this._reconnectAttempts}/3)...`;
+                BO.Events.emit('hud:toast', { text: `Host connection lost — retry ${this._reconnectAttempts}/3...`, color: '#f59e0b' });
+                BO.Events.emit('net:updated');
+                this._reconnectTimer = setTimeout(() => {
+                    if (!this.active || this.isHost || !this.peer || this.peer.destroyed) return;
+                    const hostPeerId = ROOM_PREFIX + code.toLowerCase();
+                    try {
+                        const conn = this.peer.connect(hostPeerId, { reliable: true });
+                        this.hostConn = conn;
+                        conn.on('open', () => {
+                            this._reconnectAttempts = 0;
+                            this.status = 'connected';
+                            this.statusText = `RECONNECTED [${code}]`;
+                            conn.send({ type: 'join_req', profile: this._buildMyProfile() });
+                            BO.Events.emit('hud:toast', { text: `Reconnected to Lobby [${code}]!`, color: '#22c55e' });
+                            BO.Events.emit('net:updated');
+                        });
+                        conn.on('data', (m) => this._handleMessage(m, hostPeerId));
+                        conn.on('close', () => this._handleHostDisconnect(code));
+                    } catch (e) {
+                        BO.log?.('Net', 'warn', 'Reconnect attempt threw', e);
+                        this._handleHostDisconnect(code);
+                    }
+                }, waitMs);
+                return;
+            }
+            this.status = 'error';
+            this.statusText = `HOST DISCONNECTED [${code}]`;
+            this.addChatMessage('SYSTEM', 'Host disconnected. Returned safely to solo control.', '#ef4444');
+            BO.Events.emit('hud:toast', { text: 'Host left — safe offline fallback active.', color: '#ef4444' });
             BO.Events.emit('net:updated');
         }
 
@@ -2407,6 +2970,15 @@
         ==================================================================== */
         _handleMessage(msg, fromPeerId) {
             if (!msg || !msg.type) return;
+            const sender = msg.senderId || fromPeerId;
+            if (BO.NetValidation) {
+                const check = BO.NetValidation.validateMessage(msg, { limiter: this._rateLimiter, senderId: sender, now: Date.now() });
+                if (!check.ok) {
+                    this._droppedPackets++;
+                    BO.log?.('Net', 'warn', `Dropped invalid packet (${check.reason}) from ${sender}`);
+                    return;
+                }
+            }
             if (msg.targetPeerId && msg.targetPeerId !== this.myPeerId) return;
 
             if (msg._seq) {
@@ -2418,7 +2990,19 @@
                 }
             }
 
-            const sender = msg.senderId || fromPeerId;
+            if (msg.type === 'net_ping') {
+                this.sendToPeer(sender, { type: 'net_pong', sentAt: msg.sentAt });
+                return;
+            }
+            if (msg.type === 'net_pong') {
+                if (typeof msg.sentAt === 'number' && Number.isFinite(msg.sentAt)) {
+                    const rtt = Math.max(1, performance.now() - msg.sentAt);
+                    this._pingRttMs = this._pingRttMs > 0 ? (this._pingRttMs * 0.7 + rtt * 0.3) : rtt;
+                    this.netQuality = this._pingRttMs < 60 ? 'good' : (this._pingRttMs < 140 ? 'ok' : 'poor');
+                    BO.Events.emit('net:metrics', this.getNetworkMetrics());
+                }
+                return;
+            }
 
             if (msg.type === 'join_req') {
                 if (!this.isHost) return;
@@ -2503,7 +3087,16 @@
 
             if (msg.type === 'player_state') {
                 if (sender === this.myPeerId) return;
-                this.remoteStates.set(sender, Object.assign({}, msg.state, { updatedAt: performance.now() }));
+                const nowMs = performance.now();
+                this.remoteStates.set(sender, Object.assign({}, msg.state, { updatedAt: nowMs }));
+                if (BO.NetValidation) {
+                    let jb = this.jitterBuffers.get(sender);
+                    if (!jb) {
+                        jb = new BO.NetValidation.JitterBuffer(80, 150);
+                        this.jitterBuffers.set(sender, jb);
+                    }
+                    jb.push(msg.state, nowMs);
+                }
                 const prof = this.players.get(sender);
                 if (prof && msg.state) {
                     prof.callsign = msg.state.callsign || prof.callsign;
@@ -2851,9 +3444,21 @@
                 }
             }
 
+            // 2b. Periodic RTT ping probe
+            this.pingAccum += dt;
+            if (this.pingAccum >= 2.0) {
+                this.pingAccum = 0;
+                if (!this.isHost && this.hostConn && this.hostConn.open) {
+                    this.sendToHost({ type: 'net_ping', sentAt: performance.now() });
+                } else if (this.isHost && this.connections.size > 0) {
+                    this.broadcast({ type: 'net_ping', sentAt: performance.now() });
+                }
+            }
+
             // 3. Interpolate 3D Remote Player Avatars & Render Floating Nameplates
             const w = window.innerWidth;
             const h = window.innerHeight;
+            const nowRenderMs = performance.now();
 
             for (const [pid, st] of this.remoteStates.entries()) {
                 if (pid === this.myPeerId) continue;
@@ -2862,9 +3467,17 @@
 
                 this._updateRemoteAvatarWeapon(av, st);
 
-                const targetPos = new THREE.Vector3(st.x || 0, st.y || 0, st.z || 0);
-                av.pos.lerp(targetPos, Math.min(1, dt * 15));
-                av.yaw += BO.Math.angleDiff(av.yaw, (st.yaw || 0) + Math.PI) * Math.min(1, dt * 15);
+                const jb = this.jitterBuffers.get(pid);
+                const sampled = jb ? jb.sample(nowRenderMs, _tmpSampleOut) : null;
+                if (sampled) {
+                    _tmpTargetPos.set(sampled.x, sampled.y, sampled.z);
+                    av.pos.lerp(_tmpTargetPos, Math.min(1, dt * 18));
+                    av.yaw += BO.Math.angleDiff(av.yaw, sampled.yaw + Math.PI) * Math.min(1, dt * 18);
+                } else {
+                    _tmpTargetPos.set(st.x || 0, st.y || 0, st.z || 0);
+                    av.pos.lerp(_tmpTargetPos, Math.min(1, dt * 15));
+                    av.yaw += BO.Math.angleDiff(av.yaw, (st.yaw || 0) + Math.PI) * Math.min(1, dt * 15);
+                }
 
                 av.entity.alive = !!st.alive;
                 av.entity.pos.copy(av.pos);
@@ -2885,8 +3498,8 @@
 
                 // Project 3D head position to 2D screen coordinates for floating squad nameplate
                 if (av.plateEl && worldCamera) {
-                    const headPos = av.pos.clone().add(new THREE.Vector3(0, isDowned ? 1.0 : 2.05, 0));
-                    const projected = headPos.project(worldCamera);
+                    _tmpHeadPos.set(av.pos.x, av.pos.y + (isDowned ? 1.0 : 2.05), av.pos.z);
+                    const projected = _tmpHeadPos.project(worldCamera);
                     if (projected.z > 1.0 || (!st.alive && BO.State.activeMode === 'mp')) {
                         av.plateEl.style.display = 'none';
                     } else {
@@ -10695,6 +11308,669 @@
 })(window);
 ;
 
+/* --- src/engine/WorldCore.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Large-world engine core
+   · TrackedArray: arrays that report push/splice so spatial indexes stay fresh
+   · SpatialGrid: uniform 2D hash for colliders and meshes (O(1) local queries)
+   · Terrain: 1 m heightfield with chunked LOD meshes, bilinear height, slope,
+     analytic normals, ray marching and carve volumes for underground spaces
+   · NavGrid: 2 m walkability grid with binary-heap A*, line-of-sight path
+     smoothing, dynamic rebuilds when structures appear or vanish, and
+     Dijkstra flow fields for hordes
+   · BoxBatcher: merges static boxes into one mesh per material per chunk
+============================================================================ */
+(function (BO) {
+    'use strict';
+
+    /* ------------------------------------------------------------------ arrays */
+    class TrackedArray extends Array {
+        static get [Symbol.species]() { return Array; }
+        push(...items) {
+            const n = super.push(...items);
+            if (this.onAdd) for (const it of items) this.onAdd(it);
+            return n;
+        }
+        splice(...args) {
+            const removed = super.splice(...args);
+            if (this.onRemove) for (const it of removed) this.onRemove(it);
+            if (this.onAdd && args.length > 2) for (const it of args.slice(2)) this.onAdd(it);
+            return removed;
+        }
+    }
+
+    /* ------------------------------------------------------------------ grid */
+    class SpatialGrid {
+        constructor(cell = 8) {
+            this.cell = cell;
+            this.map = new Map();
+            this.stamp = 1;
+        }
+        key(ix, iz) { return ix * 73856093 ^ iz * 19349663; }
+        cellsFor(minX, minZ, maxX, maxZ, fn) {
+            const c = this.cell;
+            const x0 = Math.floor(minX / c), x1 = Math.floor(maxX / c);
+            const z0 = Math.floor(minZ / c), z1 = Math.floor(maxZ / c);
+            for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) fn(this.key(ix, iz));
+        }
+        insert(item, minX, minZ, maxX, maxZ) {
+            item._gridBounds = [minX, minZ, maxX, maxZ];
+            this.cellsFor(minX, minZ, maxX, maxZ, (k) => {
+                let list = this.map.get(k);
+                if (!list) this.map.set(k, list = []);
+                list.push(item);
+            });
+        }
+        remove(item) {
+            const b = item._gridBounds;
+            if (!b) return;
+            this.cellsFor(b[0], b[1], b[2], b[3], (k) => {
+                const list = this.map.get(k);
+                if (!list) return;
+                const i = list.indexOf(item);
+                if (i >= 0) list.splice(i, 1);
+            });
+            item._gridBounds = null;
+        }
+        /** Calls fn once per item overlapping the rectangle. Return true from fn to stop. */
+        query(minX, minZ, maxX, maxZ, fn) {
+            const s = ++this.stamp;
+            const c = this.cell;
+            const x0 = Math.floor(minX / c), x1 = Math.floor(maxX / c);
+            const z0 = Math.floor(minZ / c), z1 = Math.floor(maxZ / c);
+            for (let ix = x0; ix <= x1; ix++) {
+                for (let iz = z0; iz <= z1; iz++) {
+                    const list = this.map.get(this.key(ix, iz));
+                    if (!list) continue;
+                    for (let i = 0; i < list.length; i++) {
+                        const it = list[i];
+                        if (it._gridStamp === s) continue;
+                        it._gridStamp = s;
+                        if (fn(it)) return;
+                    }
+                }
+            }
+        }
+        /** Items in the cells a 2D segment passes through (DDA). */
+        queryRay(ox, oz, dx, dz, dist, fn) {
+            const s = ++this.stamp;
+            const c = this.cell;
+            let ix = Math.floor(ox / c), iz = Math.floor(oz / c);
+            const stepX = dx > 0 ? 1 : -1, stepZ = dz > 0 ? 1 : -1;
+            const tDeltaX = dx !== 0 ? Math.abs(c / dx) : Infinity;
+            const tDeltaZ = dz !== 0 ? Math.abs(c / dz) : Infinity;
+            let tMaxX = dx !== 0 ? ((dx > 0 ? (ix + 1) * c - ox : ox - ix * c) / Math.abs(dx)) : Infinity;
+            let tMaxZ = dz !== 0 ? ((dz > 0 ? (iz + 1) * c - oz : oz - iz * c) / Math.abs(dz)) : Infinity;
+            let t = 0;
+            let guard = 0;
+            while (t <= dist && guard++ < 512) {
+                const list = this.map.get(this.key(ix, iz));
+                if (list) {
+                    for (let i = 0; i < list.length; i++) {
+                        const it = list[i];
+                        if (it._gridStamp === s) continue;
+                        it._gridStamp = s;
+                        if (fn(it)) return;
+                    }
+                }
+                if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; ix += stepX; }
+                else { t = tMaxZ; tMaxZ += tDeltaZ; iz += stepZ; }
+            }
+        }
+    }
+
+    /* ------------------------------------------------------------------ noise */
+    function hash2(x, z, seed) {
+        let h = (x * 374761393 + z * 668265263 + seed * 2246822519) | 0;
+        h = (h ^ (h >>> 13)) * 1274126177 | 0;
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+    }
+    function valueNoise(x, z, seed) {
+        const x0 = Math.floor(x), z0 = Math.floor(z);
+        const fx = x - x0, fz = z - z0;
+        const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+        const a = hash2(x0, z0, seed), b = hash2(x0 + 1, z0, seed);
+        const c = hash2(x0, z0 + 1, seed), d = hash2(x0 + 1, z0 + 1, seed);
+        return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sz;
+    }
+    function fbm(x, z, seed, octaves = 4) {
+        let amp = 1, freq = 1, sum = 0, norm = 0;
+        for (let i = 0; i < octaves; i++) {
+            sum += (valueNoise(x * freq, z * freq, seed + i * 17) * 2 - 1) * amp;
+            norm += amp;
+            amp *= 0.5;
+            freq *= 2.03;
+        }
+        return sum / norm;
+    }
+    function ridged(x, z, seed, octaves = 4) {
+        let amp = 1, freq = 1, sum = 0, norm = 0;
+        for (let i = 0; i < octaves; i++) {
+            const n = 1 - Math.abs(valueNoise(x * freq, z * freq, seed + i * 31) * 2 - 1);
+            sum += n * n * amp;
+            norm += amp;
+            amp *= 0.5;
+            freq *= 2.1;
+        }
+        return sum / norm;
+    }
+
+    /* ------------------------------------------------------------------ terrain */
+    class Terrain {
+        /**
+         * def: { minX, maxX, minZ, maxZ, res, chunk, height(x,z), color(x,z,h,slope) -> [r,g,b], waterLevel }
+         */
+        constructor(def) {
+            this.def = def;
+            this.minX = def.minX; this.maxX = def.maxX;
+            this.minZ = def.minZ; this.maxZ = def.maxZ;
+            this.res = def.res || 1;
+            this.nx = Math.round((this.maxX - this.minX) / this.res) + 1;
+            this.nz = Math.round((this.maxZ - this.minZ) / this.res) + 1;
+            this.h = new Float32Array(this.nx * this.nz);
+            this.carves = [];
+            this.chunks = [];
+            for (let iz = 0; iz < this.nz; iz++) {
+                const z = this.minZ + iz * this.res;
+                for (let ix = 0; ix < this.nx; ix++) {
+                    this.h[iz * this.nx + ix] = def.height(this.minX + ix * this.res, z);
+                }
+            }
+        }
+
+        inside(x, z) { return x >= this.minX && x <= this.maxX && z >= this.minZ && z <= this.maxZ; }
+
+        sample(ix, iz) {
+            ix = ix < 0 ? 0 : ix >= this.nx ? this.nx - 1 : ix;
+            iz = iz < 0 ? 0 : iz >= this.nz ? this.nz - 1 : iz;
+            return this.h[iz * this.nx + ix];
+        }
+
+        height(x, z) {
+            const gx = (x - this.minX) / this.res;
+            const gz = (z - this.minZ) / this.res;
+            const ix = Math.floor(gx), iz = Math.floor(gz);
+            const fx = gx - ix, fz = gz - iz;
+            const a = this.sample(ix, iz), b = this.sample(ix + 1, iz);
+            const c = this.sample(ix, iz + 1), d = this.sample(ix + 1, iz + 1);
+            // Match the triangle split used by the mesh so feet sit exactly on the surface.
+            if (fx + fz <= 1) return a + (b - a) * fx + (c - a) * fz;
+            return d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+        }
+
+        gradient(x, z) {
+            const e = this.res;
+            return [(this.height(x + e, z) - this.height(x - e, z)) / (2 * e), (this.height(x, z + e) - this.height(x, z - e)) / (2 * e)];
+        }
+
+        slope(x, z) {
+            const [gx, gz] = this.gradient(x, z);
+            return Math.hypot(gx, gz);
+        }
+
+        normal(x, z) {
+            const [gx, gz] = this.gradient(x, z);
+            return new THREE.Vector3(-gx, 1, -gz).normalize();
+        }
+
+        /** Underground volumes where the surface does not collide (tunnels, cellars, mine shafts). */
+        addCarve(minX, minY, minZ, maxX, maxY, maxZ) { this.carves.push({ minX, minY, minZ, maxX, maxY, maxZ }); }
+
+        carved(x, y, z) {
+            for (let i = 0; i < this.carves.length; i++) {
+                const c = this.carves[i];
+                if (x >= c.minX && x <= c.maxX && z >= c.minZ && z <= c.maxZ && y >= c.minY && y <= c.maxY) return true;
+            }
+            return false;
+        }
+
+        /** Ray-march the heightfield. Returns { point, distance, normal } or null. */
+        ray(origin, dir, maxDist) {
+            let step = 0.75;
+            let prevT = 0;
+            let prevAbove = origin.y - this.height(origin.x, origin.z);
+            if (prevAbove < 0 && !this.carved(origin.x, origin.y, origin.z)) prevAbove = 0.01;
+            for (let t = step; t <= maxDist; t += step) {
+                const x = origin.x + dir.x * t, y = origin.y + dir.y * t, z = origin.z + dir.z * t;
+                if (!this.inside(x, z)) return null;
+                const above = y - this.height(x, z);
+                if (above < 0 && !this.carved(x, y, z)) {
+                    let lo = prevT, hi = t;
+                    for (let i = 0; i < 8; i++) {
+                        const mid = (lo + hi) * 0.5;
+                        const my = origin.y + dir.y * mid;
+                        if (my - this.height(origin.x + dir.x * mid, origin.z + dir.z * mid) < 0) hi = mid; else lo = mid;
+                    }
+                    const p = new THREE.Vector3(origin.x + dir.x * hi, origin.y + dir.y * hi, origin.z + dir.z * hi);
+                    return { point: p, distance: hi, normal: this.normal(p.x, p.z) };
+                }
+                prevT = t;
+                prevAbove = above;
+                if (t > 30) step = 1.5;
+            }
+            return null;
+        }
+
+        /** Builds two LOD meshes per chunk. Returns the chunk list. */
+        buildMeshes(scene, material) {
+            const size = this.def.chunk || 64;
+            for (let cz = this.minZ; cz < this.maxZ; cz += size) {
+                for (let cx = this.minX; cx < this.maxX; cx += size) {
+                    const w = Math.min(size, this.maxX - cx), d = Math.min(size, this.maxZ - cz);
+                    const near = this._chunkMesh(cx, cz, w, d, this.res, material);
+                    const far = this._chunkMesh(cx, cz, w, d, Math.max(this.res * 4, 4), material);
+                    near.receiveShadow = true;
+                    far.receiveShadow = true;
+                    far.visible = false;
+                    near.userData.terrain = true;
+                    far.userData.terrain = true;
+                    scene.add(near, far);
+                    this.chunks.push({ x: cx + w / 2, z: cz + d / 2, near, far });
+                }
+            }
+            return this.chunks;
+        }
+
+        _chunkMesh(x0, z0, w, d, step, material) {
+            const sx = Math.round(w / step), sz = Math.round(d / step);
+            const verts = (sx + 1) * (sz + 1);
+            const pos = new Float32Array(verts * 3);
+            const nor = new Float32Array(verts * 3);
+            const col = new Float32Array(verts * 3);
+            const uv = new Float32Array(verts * 2);
+            let p = 0, q = 0;
+            for (let iz = 0; iz <= sz; iz++) {
+                for (let ix = 0; ix <= sx; ix++) {
+                    const x = x0 + Math.min(w, ix * step), z = z0 + Math.min(d, iz * step);
+                    const h = this.height(x, z);
+                    const n = this.normal(x, z);
+                    const s = Math.hypot(n.x, n.z) / Math.max(0.05, n.y);
+                    const c = this.def.color(x, z, h, s);
+                    pos[p] = x; pos[p + 1] = h; pos[p + 2] = z;
+                    nor[p] = n.x; nor[p + 1] = n.y; nor[p + 2] = n.z;
+                    col[p] = c[0]; col[p + 1] = c[1]; col[p + 2] = c[2];
+                    uv[q] = x / 7; uv[q + 1] = z / 7;
+                    p += 3; q += 2;
+                }
+            }
+            const idx = new (verts > 65535 ? Uint32Array : Uint16Array)(sx * sz * 6);
+            let k = 0;
+            for (let iz = 0; iz < sz; iz++) {
+                for (let ix = 0; ix < sx; ix++) {
+                    const a = iz * (sx + 1) + ix, b = a + 1, c = a + (sx + 1), dd = c + 1;
+                    idx[k++] = a; idx[k++] = c; idx[k++] = b;
+                    idx[k++] = b; idx[k++] = c; idx[k++] = dd;
+                }
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+            g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+            g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+            g.setIndex(new THREE.BufferAttribute(idx, 1));
+            g.computeBoundingSphere();
+            g.computeBoundingBox();
+            return new THREE.Mesh(g, material);
+        }
+
+        /** Swap chunk LODs around the viewer (and optionally distance-cull ultra-far chunks). */
+        updateLOD(px, pz, nearDist = 130, farCullDist = Infinity) {
+            const nd2 = nearDist * nearDist;
+            const fd2 = farCullDist * farCullDist;
+            for (const c of this.chunks) {
+                const dx = c.x - px, dz = c.z - pz;
+                const d2 = dx * dx + dz * dz;
+                const near = d2 < nd2;
+                c.near.visible = near;
+                c.far.visible = !near && d2 < fd2;
+            }
+        }
+
+        dispose() {
+            for (const c of this.chunks) {
+                c.near.removeFromParent(); c.far.removeFromParent();
+                c.near.geometry.dispose(); c.far.geometry.dispose();
+            }
+            this.chunks = [];
+        }
+    }
+
+    /* ------------------------------------------------------------------ nav */
+    class MinHeap {
+        constructor() { this.k = []; this.v = []; }
+        get size() { return this.k.length; }
+        push(key, val) {
+            const k = this.k, v = this.v;
+            let i = k.length;
+            k.push(key); v.push(val);
+            while (i > 0) {
+                const p = (i - 1) >> 1;
+                if (v[p] <= val) break;
+                k[i] = k[p]; v[i] = v[p];
+                i = p;
+            }
+            k[i] = key; v[i] = val;
+        }
+        pop() {
+            const k = this.k, v = this.v;
+            const top = k[0];
+            const lk = k.pop(), lv = v.pop();
+            if (k.length) {
+                let i = 0;
+                const n = k.length;
+                while (true) {
+                    let c = i * 2 + 1;
+                    if (c >= n) break;
+                    if (c + 1 < n && v[c + 1] < v[c]) c++;
+                    if (v[c] >= lv) break;
+                    k[i] = k[c]; v[i] = v[c];
+                    i = c;
+                }
+                k[i] = lk; v[i] = lv;
+            }
+            return top;
+        }
+    }
+
+    class NavGrid {
+        /** world: the WorldBuilder (for colliders); terrain: Terrain */
+        constructor(world, terrain, cell = 2) {
+            this.world = world;
+            this.terrain = terrain;
+            this.cell = cell;
+            this.minX = terrain.minX; this.minZ = terrain.minZ;
+            this.nx = Math.floor((terrain.maxX - terrain.minX) / cell);
+            this.nz = Math.floor((terrain.maxZ - terrain.minZ) / cell);
+            this.n = this.nx * this.nz;
+            this.walk = new Uint8Array(this.n);   // 0 blocked, 1 walkable
+            this.soft = new Uint8Array(this.n);   // 1 = blocked only by breakable player structures
+            this.y = new Float32Array(this.n);
+            this.g = new Float32Array(this.n);
+            this.parent = new Int32Array(this.n);
+            this.seen = new Uint32Array(this.n);
+            this.closed = new Uint32Array(this.n);
+            this.gen = 1;
+            this.cache = new Map();
+            this.flows = new Map();
+            this.version = 1;
+        }
+
+        idx(x, z) {
+            const ix = Math.floor((x - this.minX) / this.cell), iz = Math.floor((z - this.minZ) / this.cell);
+            if (ix < 0 || iz < 0 || ix >= this.nx || iz >= this.nz) return -1;
+            return iz * this.nx + ix;
+        }
+        cx(i) { return this.minX + ((i % this.nx) + 0.5) * this.cell; }
+        cz(i) { return this.minZ + (Math.floor(i / this.nx) + 0.5) * this.cell; }
+
+        rebuild() {
+            for (let i = 0; i < this.n; i++) this._evalCell(i);
+            this.version++;
+            this.cache.clear();
+            this.flows.clear();
+        }
+
+        /** Re-evaluate cells inside a box (after building/destroying). */
+        rebuildArea(minX, minZ, maxX, maxZ) {
+            const c = this.cell;
+            const x0 = Math.max(0, Math.floor((minX - this.minX) / c) - 1), x1 = Math.min(this.nx - 1, Math.floor((maxX - this.minX) / c) + 1);
+            const z0 = Math.max(0, Math.floor((minZ - this.minZ) / c) - 1), z1 = Math.min(this.nz - 1, Math.floor((maxZ - this.minZ) / c) + 1);
+            for (let iz = z0; iz <= z1; iz++) for (let ix = x0; ix <= x1; ix++) this._evalCell(iz * this.nx + ix);
+            this.version++;
+            this.cache.clear();
+            this.flows.clear();
+        }
+
+        _evalCell(i) {
+            const x = this.cx(i), z = this.cz(i);
+            const t = this.terrain;
+            const h = t.height(x, z);
+            const floor = this.world.getGroundHeight(x, z, h + 0.6);
+            this.y[i] = floor;
+            const water = t.def.isWater ? t.def.isWater(x, z, floor) : (t.def.waterLevel != null && floor < t.def.waterLevel - 1.1);
+            this.soft[i] = 0;
+            if (water || t.slope(x, z) > 1.05) { this.walk[i] = 0; return; }
+            let hard = false, soft = false;
+            const r = this.cell * 0.22;
+            // Ground under player floors counts from the terrain so a raised foundation reads as a soft obstacle.
+            this.world.queryColliders(x - r, z - r, x + r, z + r, (col) => {
+                if (!col.active || col.navIgnore) return false;
+                if (col.maxY > floor + 0.5 && col.minY < floor + 1.7) {
+                    if (col.structure) soft = true; else { hard = true; return true; }
+                }
+                return false;
+            });
+            this.walk[i] = hard || soft ? 0 : 1;
+            this.soft[i] = !hard && soft ? 1 : 0;
+        }
+
+        nearestWalkable(i, maxRing = 6) {
+            if (i < 0) return -1;
+            if (this.walk[i]) return i;
+            const ix0 = i % this.nx, iz0 = Math.floor(i / this.nx);
+            for (let r = 1; r <= maxRing; r++) {
+                for (let dz = -r; dz <= r; dz++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (Math.abs(dx) !== r && Math.abs(dz) !== r) continue;
+                        const ix = ix0 + dx, iz = iz0 + dz;
+                        if (ix < 0 || iz < 0 || ix >= this.nx || iz >= this.nz) continue;
+                        const j = iz * this.nx + ix;
+                        if (this.walk[j]) return j;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        _passable(a, b) {
+            if (!this.walk[b]) return false;
+            return Math.abs(this.y[a] - this.y[b]) < 1.2;
+        }
+
+        /** Grid line-of-walk between two cells (Bresenham). */
+        clearLine(a, b) {
+            let x0 = a % this.nx, z0 = Math.floor(a / this.nx);
+            const x1 = b % this.nx, z1 = Math.floor(b / this.nx);
+            const dx = Math.abs(x1 - x0), dz = Math.abs(z1 - z0);
+            const sx = x0 < x1 ? 1 : -1, sz = z0 < z1 ? 1 : -1;
+            let err = dx - dz;
+            let prev = a;
+            let guard = 0;
+            while (guard++ < 400) {
+                const cur = z0 * this.nx + x0;
+                if (!this._passable(prev, cur)) return false;
+                prev = cur;
+                if (x0 === x1 && z0 === z1) return true;
+                const e2 = err * 2;
+                if (e2 > -dz) { err -= dz; x0 += sx; }
+                if (e2 < dx) { err += dx; z0 += sz; }
+            }
+            return false;
+        }
+
+        findPath(sx, sz, gx, gz, maxExpand = 7000) {
+            let s = this.nearestWalkable(this.idx(sx, sz));
+            let g = this.nearestWalkable(this.idx(gx, gz));
+            if (s < 0 || g < 0) return null;
+            const key = s + ':' + g;
+            const hit = this.cache.get(key);
+            if (hit && hit.v === this.version && performance.now() - hit.t < 700) return hit.path.map((p) => ({ ...p }));
+            if (s === g) return [{ x: gx, y: this.y[g], z: gz }];
+            const gen = ++this.gen;
+            const nx = this.nx;
+            const gxI = g % nx, gzI = Math.floor(g / nx);
+            const heur = (i) => {
+                const dx = Math.abs((i % nx) - gxI), dz = Math.abs(Math.floor(i / nx) - gzI);
+                return (dx + dz + (1.4142 - 2) * Math.min(dx, dz));
+            };
+            const heap = new MinHeap();
+            this.g[s] = 0; this.seen[s] = gen; this.parent[s] = -1;
+            heap.push(s, heur(s));
+            let best = s, bestH = heur(s);
+            let expanded = 0;
+            const dirs = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.4142], [1, -1, 1.4142], [-1, 1, 1.4142], [-1, -1, 1.4142]];
+            while (heap.size && expanded < maxExpand) {
+                const cur = heap.pop();
+                if (this.closed[cur] === gen) continue;
+                this.closed[cur] = gen;
+                expanded++;
+                if (cur === g) { best = g; break; }
+                const h = heur(cur);
+                if (h < bestH) { bestH = h; best = cur; }
+                const cx = cur % nx, cz = Math.floor(cur / nx);
+                for (const [dx, dz, cost] of dirs) {
+                    const x = cx + dx, z = cz + dz;
+                    if (x < 0 || z < 0 || x >= nx || z >= this.nz) continue;
+                    const nb = z * nx + x;
+                    if (this.closed[nb] === gen || !this._passable(cur, nb)) continue;
+                    if (dx && dz && (!this.walk[cz * nx + x] || !this.walk[z * nx + cx])) continue;
+                    const ng = this.g[cur] + cost + Math.abs(this.y[nb] - this.y[cur]) * 0.6;
+                    if (this.seen[nb] !== gen || ng < this.g[nb]) {
+                        this.seen[nb] = gen;
+                        this.g[nb] = ng;
+                        this.parent[nb] = cur;
+                        heap.push(nb, ng + heur(nb));
+                    }
+                }
+            }
+            // Walk back from the goal (or the closest reachable cell), then string-pull.
+            const raw = [];
+            for (let c = best, guard = 0; c !== -1 && guard < 5000; c = this.parent[c], guard++) raw.push(c);
+            raw.reverse();
+            const smooth = [];
+            let anchor = 0;
+            for (let i = 2; i < raw.length; i++) {
+                if (!this.clearLine(raw[anchor], raw[i])) {
+                    smooth.push(raw[i - 1]);
+                    anchor = i - 1;
+                }
+            }
+            if (raw.length > 1) smooth.push(raw[raw.length - 1]);
+            const path = smooth.map((c) => ({ x: this.cx(c), y: this.y[c], z: this.cz(c) }));
+            if (best === g) path.push({ x: gx, y: this.y[g], z: gz });
+            this.cache.set(key, { path, v: this.version, t: performance.now() });
+            if (this.cache.size > 400) this.cache.delete(this.cache.keys().next().value);
+            return path.map((p) => ({ ...p }));
+        }
+
+        /** Dijkstra flow field toward (tx,tz) within `radius` metres; shared by every horde member. */
+        flowTo(tx, tz, radius = 90, breach = false) {
+            // A breaching field may start inside an enclosed base and pass through player structures at a cost.
+            let target = this.idx(tx, tz);
+            if (!(breach && target >= 0 && (this.walk[target] || this.soft[target]))) target = this.nearestWalkable(target);
+            if (target < 0) return null;
+            const key = target + (breach ? ':b' : '');
+            const cached = this.flows.get(key);
+            if (cached && cached.v === this.version && performance.now() - cached.t < 900) return cached;
+            const dist = new Float32Array(this.n).fill(Infinity);
+            const heap = new MinHeap();
+            const nx = this.nx;
+            const r = Math.ceil(radius / this.cell);
+            const tX = target % nx, tZ = Math.floor(target / nx);
+            dist[target] = 0;
+            heap.push(target, 0);
+            while (heap.size) {
+                const cur = heap.pop();
+                const cx = cur % nx, cz = Math.floor(cur / nx);
+                const dCur = dist[cur];
+                for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+                    if (!dx && !dz) continue;
+                    const x = cx + dx, z = cz + dz;
+                    if (x < 0 || z < 0 || x >= nx || z >= this.nz || Math.abs(x - tX) > r || Math.abs(z - tZ) > r) continue;
+                    const nb = z * nx + x;
+                    const softHop = breach && this.soft[nb] && Math.abs(this.y[cur] - this.y[nb]) < 1.6;
+                    if (!softHop && !this._passable(cur, nb)) continue;
+                    const okC = (j) => this.walk[j] || (breach && this.soft[j]);
+                    if (dx && dz && (!okC(cz * nx + x) || !okC(z * nx + cx))) continue;
+                    const nd = dCur + (dx && dz ? 1.4142 : 1) + (softHop ? 9 : 0);
+                    if (nd < dist[nb]) { dist[nb] = nd; heap.push(nb, nd); }
+                }
+            }
+            const field = { dist, target, v: this.version, t: performance.now() };
+            this.flows.set(key, field);
+            if (this.flows.size > 6) this.flows.delete(this.flows.keys().next().value);
+            return field;
+        }
+
+        /** Next waypoint downhill on a flow field (a few cells ahead). */
+        flowStep(field, x, z, lookahead = 3) {
+            let i = this.idx(x, z);
+            if (i < 0 || !field || !isFinite(field.dist[i])) return null;
+            const nx = this.nx;
+            for (let s = 0; s < lookahead; s++) {
+                const cx = i % nx, cz = Math.floor(i / nx);
+                let best = i, bd = field.dist[i];
+                for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+                    const xx = cx + dx, zz = cz + dz;
+                    if (xx < 0 || zz < 0 || xx >= nx || zz >= this.nz) continue;
+                    const j = zz * nx + xx;
+                    if (field.dist[j] < bd) { bd = field.dist[j]; best = j; }
+                }
+                if (best === i) break;
+                i = best;
+            }
+            return { x: this.cx(i), y: this.y[i], z: this.cz(i) };
+        }
+    }
+
+    /* ------------------------------------------------------------------ batching */
+    /** Accumulates axis-aligned boxes per material key and emits merged meshes. */
+    class BoxBatcher {
+        constructor() { this.groups = new Map(); }
+        add(matKey, x, y, z, w, h, d, uvScale = 4) {
+            let g = this.groups.get(matKey);
+            if (!g) this.groups.set(matKey, g = { pos: [], nor: [], uv: [], idx: [], uvScale });
+            const hx = w / 2, hy = h / 2, hz = d / 2;
+            const faces = [
+                [[1, 0, 0], [[hx, -hy, hz], [hx, -hy, -hz], [hx, hy, -hz], [hx, hy, hz]], 'zy'],
+                [[-1, 0, 0], [[-hx, -hy, -hz], [-hx, -hy, hz], [-hx, hy, hz], [-hx, hy, -hz]], 'zy'],
+                [[0, 1, 0], [[-hx, hy, hz], [hx, hy, hz], [hx, hy, -hz], [-hx, hy, -hz]], 'xz'],
+                [[0, -1, 0], [[-hx, -hy, -hz], [hx, -hy, -hz], [hx, -hy, hz], [-hx, -hy, hz]], 'xz'],
+                [[0, 0, 1], [[-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz]], 'xy'],
+                [[0, 0, -1], [[hx, -hy, -hz], [-hx, -hy, -hz], [-hx, hy, -hz], [hx, hy, -hz]], 'xy']
+            ];
+            const s = g.uvScale;
+            for (const [n, corners, plane] of faces) {
+                const base = g.pos.length / 3;
+                for (const [cx, cy, cz] of corners) {
+                    const wx = x + cx, wy = y + cy, wz = z + cz;
+                    g.pos.push(wx, wy, wz);
+                    g.nor.push(n[0], n[1], n[2]);
+                    if (plane === 'xz') g.uv.push(wx / s, wz / s);
+                    else if (plane === 'zy') g.uv.push(wz / s, wy / s);
+                    else g.uv.push(wx / s, wy / s);
+                }
+                g.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+            }
+        }
+        /** materialFor(key) -> THREE.Material. Returns the created meshes. */
+        build(scene, materialFor) {
+            const meshes = [];
+            for (const [key, g] of this.groups) {
+                if (!g.idx.length) continue;
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(g.pos, 3));
+                geo.setAttribute('normal', new THREE.Float32BufferAttribute(g.nor, 3));
+                geo.setAttribute('uv', new THREE.Float32BufferAttribute(g.uv, 2));
+                geo.setIndex(g.pos.length / 3 > 65535 ? new THREE.Uint32BufferAttribute(g.idx, 1) : new THREE.Uint16BufferAttribute(g.idx, 1));
+                geo.computeBoundingSphere();
+                geo.computeBoundingBox();
+                const mesh = new THREE.Mesh(geo, materialFor(key));
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData.batch = key;
+                scene.add(mesh);
+                meshes.push(mesh);
+            }
+            this.groups.clear();
+            return meshes;
+        }
+    }
+
+    BO.WorldCore = { TrackedArray, SpatialGrid, Terrain, NavGrid, BoxBatcher, MinHeap, noise: { hash2, valueNoise, fbm, ridged } };
+})(window.BO);
+;
+
 /* --- src/data/UpdateLogData.js --- */
 /* ============================================================================
    BLACKOUT OPS — Official Update Log Data
@@ -15485,7 +16761,9 @@
                     }
                     global.speechSynthesis.speak(u);
                 }
-            } catch (e) {}
+            } catch (e) {
+                BO.log?.('SoundEngine', 'debug', 'Speech synthesis announcer unavailable', e);
+            }
         }
 
         playMultikillVoice(count) {
@@ -31490,6 +32768,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     const BO = global.BO;
     const _tmpEuler = new THREE.Euler(0, 0, 0, 'YXZ');
     const _tmpAimDir = new THREE.Vector3();
+    const _tmpAimOrigin = new THREE.Vector3();
+    const _tmpAimRay = { origin: _tmpAimOrigin, dir: _tmpAimDir };
+    const _tmpForward = new THREE.Vector3();
+    const _tmpRight = new THREE.Vector3();
+    const _tmpMoveVecs = { forward: _tmpForward, right: _tmpRight };
+    const _tmpMoveInput = new THREE.Vector3();
 
     class PlayerController {
         constructor() {
@@ -31527,6 +32811,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.tacStamina = 1.0;
             this.sprinting = false;
             this.tacSprinting = false;
+            this.padMoveX = 0;
+            this.padMoveY = 0;
+            this.padSprint = false;
             this.stepDist = 0;
             this.eyeHeight = 1.60;
             this.rideState = null;
@@ -31962,15 +33249,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         getMoveDirectionVectors() {
-            const forward = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
-            const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-            return { forward, right };
+            _tmpForward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+            _tmpRight.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+            return _tmpMoveVecs;
         }
 
         getAimRay(worldCamera) {
-            const origin = worldCamera.position.clone();
-            const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(worldCamera.quaternion).normalize();
-            return { origin, dir };
+            _tmpAimOrigin.copy(worldCamera.position);
+            _tmpAimDir.set(0, 0, -1).applyQuaternion(worldCamera.quaternion).normalize();
+            return _tmpAimRay;
         }
 
         adjustScopeZoom(direction) {
@@ -32051,6 +33338,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.activeSlot = next;
             this.reloading = false;
+            this.reloadTimer = 0;
+            this.reloadStage = 0;
             this.burstRemaining = 0;
             this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.28;
             if (stowing) {
@@ -32293,6 +33582,19 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 } else {
                     this.hp = 0;
                     this.alive = false;
+                    this.reloading = false;
+                    this.reloadTimer = 0;
+                    this.reloadStage = 0;
+                    this.platingTimer = 0;
+                    this.sliding = false;
+                    this.adsHeld = false;
+                    this.triggerHeld = false;
+                    this.cookingFrag = false;
+                    this.burstRemaining = 0;
+                    this.rideState = null;
+                    this.padMoveX = 0;
+                    this.padMoveY = 0;
+                    this.padSprint = false;
                 }
             }
         }
@@ -32613,11 +33915,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (this.keys[kb.back] || this.keys['KeyS']) iz -= 1;
             if (this.keys[kb.right] || this.keys['KeyD']) ix += 1;
             if (this.keys[kb.left] || this.keys['KeyA']) ix -= 1;
+            if (this.padMoveX) ix = BO.Math.clamp(ix + this.padMoveX, -1, 1);
+            if (this.padMoveY) iz = BO.Math.clamp(iz + this.padMoveY, -1, 1);
 
-            const moveInput = new THREE.Vector3();
+            const moveInput = _tmpMoveInput.set(0, 0, 0);
             if (iz !== 0) moveInput.addScaledVector(forward, iz);
             if (ix !== 0) moveInput.addScaledVector(right, ix);
-            if (moveInput.lengthSq() > 0) moveInput.normalize();
+            if (moveInput.lengthSq() > 1) moveInput.normalize();
 
             const w = this.activeWeapon;
             let gunMoveMult = w ? w.stats.moveMult : 1.0;
@@ -32628,7 +33932,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const stalker = this.mpPerks.includes('stalker');
 
             if (this.matchRules.lowProfile) this.crouching = true;
-            const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight']) && iz > 0 && !this.adsHeld && !this.inLastStand;
+            const wantsSprint = !this.matchRules.noSprint && (this.keys[kb.sprint] || this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.padSprint) && iz > 0.15 && !this.adsHeld && !this.inLastStand;
             if (wantsSprint && !this.crouching && !this.sliding) {
                 this.sprinting = true;
                 if (this.tacStamina > 0.12 || BO.Mods?.fxActive?.().endlessStamina) {
@@ -33492,6 +34796,172 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     }
 
     BO.Player = new PlayerController();
+})(window);
+;
+
+/* --- src/engine/GamepadInput.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Standard Gamepad Input Poller
+   Zero-build IIFE module (ADR-002).
+   Supports W3C standard mapping (Xbox / DualSense / Switch Pro controllers):
+     - Left stick (axes 0, 1): movement with 0.15 radial deadzone
+     - Right stick (axes 2, 3): yaw/pitch with 0.15 deadzone & quadratic curve
+     - LT (6) ADS, RT (7) Fire, A (0) Jump, B (1) Crouch/Slide, X (2) Reload,
+       Y (3) Switch Weapon, LB (4) Tactical, RB (5) Lethal, L3 (10) Sprint,
+       Start (9) Pause
+     - Optional subtle ADS aim-assist slowdown gated on Settings 'gamepadAimAssist'
+   Only overrides inputs when actively pressed on a connected gamepad so
+   keyboard + mouse always remain completely uncontested when idle.
+   ============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO = global.BO || {};
+    const DEADZONE = 0.15;
+    const prevButtons = Object.create(null);
+    let padOwnsFire = false;
+    let padOwnsAds = false;
+    let padOwnsSprint = false;
+
+    function radialDeadzone(x, y, dz) {
+        const len = Math.hypot(x, y);
+        if (len <= dz) return { x: 0, y: 0 };
+        const mag = Math.min(1, (len - dz) / (1 - dz));
+        const scale = mag / len;
+        return { x: x * scale, y: y * scale };
+    }
+
+    function pressed(pad, idx) {
+        const b = pad.buttons && pad.buttons[idx];
+        return !!(b && (b.pressed || b.value > 0.35));
+    }
+
+    function edgePressed(pad, idx) {
+        const down = pressed(pad, idx);
+        const was = !!prevButtons[idx];
+        prevButtons[idx] = down;
+        return down && !was;
+    }
+
+    function clearOwnedState() {
+        const P = BO.Player;
+        if (P) {
+            P.padMoveX = 0;
+            P.padMoveY = 0;
+            if (padOwnsFire) {
+                P.triggerHeld = false;
+                if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+            }
+            if (padOwnsAds) P.adsHeld = false;
+            if (padOwnsSprint && P.keys) delete P.keys['GamepadSprint'];
+        }
+        padOwnsFire = false;
+        padOwnsAds = false;
+        padOwnsSprint = false;
+    }
+
+    function poll(dt) {
+        const P = BO.Player;
+        if (!P || typeof navigator === 'undefined' || !navigator.getGamepads) return;
+        const pads = navigator.getGamepads();
+        let pad = null;
+        if (pads) {
+            for (let i = 0; i < pads.length; i++) {
+                if (pads[i] && pads[i].connected) { pad = pads[i]; break; }
+            }
+        }
+        if (!pad) {
+            if (padOwnsFire || padOwnsAds || padOwnsSprint || (P.padMoveX || P.padMoveY)) {
+                clearOwnedState();
+            }
+            return;
+        }
+
+        // Start button (9) toggles Pause during matches
+        if (edgePressed(pad, 9) && BO.State && BO.State.screen === 'playing' && BO.Menus?.setPauseOpen) {
+            BO.Menus.setPauseOpen(!BO.State.paused);
+            return;
+        }
+
+        if (!BO.State || BO.State.screen !== 'playing' || BO.State.paused || !P.alive) {
+            clearOwnedState();
+            return;
+        }
+        if (BO.SurvivalUI?.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen || BO.ExpansionShop?.open) {
+            clearOwnedState();
+            return;
+        }
+
+        // Left stick -> Player movement axes
+        const ls = radialDeadzone(pad.axes[0] || 0, pad.axes[1] || 0, DEADZONE);
+        P.padMoveX = ls.x;
+        P.padMoveY = -ls.y; // stick up (-1) -> forward (+1)
+
+        // L3 sprint latch / hold
+        const l3 = pressed(pad, 10);
+        if (l3 && ls.y < -0.3) {
+            padOwnsSprint = true;
+            P.padSprint = true;
+        } else if (padOwnsSprint && Math.abs(ls.x) < 0.1 && Math.abs(ls.y) < 0.1) {
+            padOwnsSprint = false;
+            P.padSprint = false;
+        } else if (!l3 && Math.abs(ls.y) < 0.2) {
+            P.padSprint = false;
+        }
+
+        // Right stick -> quadratic look curve
+        const rs = radialDeadzone(pad.axes[2] || 0, pad.axes[3] || 0, DEADZONE);
+        if (rs.x !== 0 || rs.y !== 0) {
+            const sens = (BO.Settings?.get?.('sensitivity') || 1.0);
+            const adsSens = (BO.Settings?.get?.('adsSensitivity') || 0.65);
+            const inv = BO.Settings?.get?.('invertY') ? -1 : 1;
+            const aimAssist = !!(BO.Settings?.get?.('gamepadAimAssist') && P.adsAlpha > 0.35);
+            const curveX = Math.sign(rs.x) * rs.x * rs.x;
+            const curveY = Math.sign(rs.y) * rs.y * rs.y;
+            const adsScale = P.adsAlpha > 0.2 ? BO.Math.lerp(1.0, adsSens, P.adsAlpha) : 1.0;
+            const rate = 2.85 * sens * adsScale * (aimAssist ? 0.78 : 1.0);
+            P.yaw -= curveX * rate * dt;
+            P.pitch = BO.Math.clamp(P.pitch - curveY * rate * 0.78 * inv * dt, -1.48, 1.48);
+        }
+
+        // LT (6) ADS
+        const ltDown = pressed(pad, 6);
+        if (ltDown) {
+            P.adsHeld = true;
+            padOwnsAds = true;
+        } else if (padOwnsAds) {
+            P.adsHeld = false;
+            padOwnsAds = false;
+        }
+
+        // RT (7) Fire
+        const rtDown = pressed(pad, 7);
+        if (rtDown) {
+            const fresh = !padOwnsFire;
+            P.triggerHeld = true;
+            padOwnsFire = true;
+            if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(true, fresh);
+        } else if (padOwnsFire) {
+            P.triggerHeld = false;
+            padOwnsFire = false;
+            if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+        }
+
+        // Face & shoulder buttons (edge-triggered)
+        if (edgePressed(pad, 0) && typeof P.tryJump === 'function') P.tryJump();
+        if (edgePressed(pad, 1) && typeof P.toggleCrouchOrSlide === 'function') P.toggleCrouchOrSlide();
+        if (edgePressed(pad, 2) && typeof P.startReload === 'function') P.startReload();
+        if (edgePressed(pad, 3) && typeof P.switchWeapon === 'function') P.switchWeapon();
+        if (edgePressed(pad, 5) && BO.Combat?.useLethal) BO.Combat.useLethal();
+        if (edgePressed(pad, 4) && BO.Combat?.useTactical) BO.Combat.useTactical();
+    }
+
+    BO.GamepadInput = {
+        DEADZONE,
+        poll,
+        clear: clearOwnedState,
+        radialDeadzone
+    };
 })(window);
 ;
 
@@ -35560,7 +37030,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     wBuilt.root.position.set(0, -0.42, 0.28);
                     wBuilt.root.rotation.set(0.15, Math.PI, 0);
                     this.parts.rightArmPivot.add(wBuilt.root);
-                } catch (e) {}
+                } catch (e) {
+                    BO.log?.('ZombieEntity', 'debug', 'Weapon mesh build skipped for gunner zombie', e);
+                }
             }
             if (this.isMagical) {
                 const aura = new THREE.Mesh(
@@ -36000,8 +37472,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     if (gait && directLOS && !forceDirect) {
                         const dx = (tx - this.pos.x) / Math.max(0.1, distToTarget);
                         const dz = (tz - this.pos.z) / Math.max(0.1, distToTarget);
-                        const neighbors = this.movementHabit === 'crowd_edge'
-                            ? allZombies.filter((z) => z !== this && z.alive && z.pos.distanceToSquared(this.pos) < 16).length : 0;
+                        let neighbors = 0;
+                        if (this.movementHabit === 'crowd_edge') {
+                            for (let zi = 0; zi < allZombies.length; zi++) {
+                                const oz = allZombies[zi];
+                                if (oz !== this && oz.alive && oz.pos.distanceToSquared(this.pos) < 16) neighbors++;
+                            }
+                        }
                         const [forward, side, speed] = gait(this.gaitClock, distToTarget, this.id % 2 ? 1 : -1, neighbors, this.flinchTimer > 0);
                         goalX += dx * forward - dz * side;
                         goalZ += dz * forward + dx * side;
@@ -36024,17 +37501,17 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         const moved = BO.Math.dist2D(this.pos.x, this.pos.z, this._lastCheckX, this._lastCheckZ);
                         this._lastCheckX = this.pos.x;
                         this._lastCheckZ = this.pos.z;
-                        if (moved < 0.30 && curSpeed > 0.5) {
+                        if (moved < 0.28 && curSpeed > 0.5) {
                             this._stuckAccum += 0.45;
                             this._sidestepTimer = 0.90;
                             if (this._stuckAccum >= 0.90) this._sidestepSign *= -1;
                             if (this.pos.y <= floorY + 0.16) this.vel.y = 7.4; // Vault low crates/sandbags!
-                            if (this._stuckAccum >= 1.8) {
+                            if (this._stuckAccum >= 1.35) {
                                 // Unstick nudge around obstacle & recalculate path
                                 const ndx = tx - this.pos.x, ndz = tz - this.pos.z;
                                 const nd = Math.max(0.1, Math.hypot(ndx, ndz));
-                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.15 + (ndx / nd) * 0.45;
-                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.15 + (ndz / nd) * 0.45;
+                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.25 + (ndx / nd) * 0.48;
+                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.25 + (ndz / nd) * 0.48;
                                 this.pathTimer = 0;
                                 this.path = [];
                                 this._stuckAccum = 0.45;
@@ -39663,8 +41140,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
 
                 const clusterPenalty = minAnyDist < 2.8 ? -200 : (minAnyDist < 5.5 ? -30 : 0);
+                const trapPenalty = minEnemyDist < 14 ? -45 : 0;
                 const score = Math.min(minEnemyDist, 32) * 2.2 + Math.min(minAnyDist, 14) * 1.4
-                    + (losExposed ? -28 : 12) + cooldownPenalty + clusterPenalty + Math.random() * 1.5;
+                    + (losExposed ? -55 : 14) + cooldownPenalty + clusterPenalty + trapPenalty + Math.random() * 1.5;
 
                 if (score > bestScore) {
                     bestScore = score;
@@ -43369,6 +44847,102 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 })(window);
 ;
 
+/* --- src/systems/SpatialHash.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Zero-Allocation 2D Spatial Hash Grid
+   Zero-build IIFE module (ADR-002).
+   Used by Survival markers & prompts to query nearby entries in O(1) cell
+   lookups instead of linear 1,000+ element scans per frame.
+   ============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO = global.BO || {};
+
+    class SpatialHash {
+        constructor(cellSize = 12) {
+            this.cellSize = Math.max(1, Number(cellSize) || 12);
+            this.inv = 1 / this.cellSize;
+            this.buckets = new Map();
+            this.itemCell = new WeakMap();
+        }
+
+        _hash(cx, cz) {
+            // Bijective signed integer pair key in Safe Integer range (|cx|,|cz| < 32768)
+            return ((cx + 32768) * 65536) + (cz + 32768);
+        }
+
+        _cellCoord(v) {
+            return Math.floor(v * this.inv);
+        }
+
+        insert(item, x, z) {
+            if (!item || !Number.isFinite(x) || !Number.isFinite(z)) return;
+            const prevKey = this.itemCell.get(item);
+            const cx = this._cellCoord(x);
+            const cz = this._cellCoord(z);
+            const key = this._hash(cx, cz);
+            if (prevKey === key) return;
+            if (prevKey !== undefined) {
+                const prevBucket = this.buckets.get(prevKey);
+                if (prevBucket) {
+                    const idx = prevBucket.indexOf(item);
+                    if (idx !== -1) prevBucket.splice(idx, 1);
+                }
+            }
+            let bucket = this.buckets.get(key);
+            if (!bucket) {
+                bucket = [];
+                this.buckets.set(key, bucket);
+            }
+            bucket.push(item);
+            this.itemCell.set(item, key);
+        }
+
+        remove(item) {
+            if (!item) return;
+            const key = this.itemCell.get(item);
+            if (key === undefined) return;
+            const bucket = this.buckets.get(key);
+            if (bucket) {
+                const idx = bucket.indexOf(item);
+                if (idx !== -1) bucket.splice(idx, 1);
+            }
+            this.itemCell.delete(item);
+        }
+
+        clear() {
+            this.buckets.clear();
+            this.itemCell = new WeakMap();
+        }
+
+        /**
+         * Appends candidate items within [x-radius, x+radius] x [z-radius, z+radius]
+         * into caller-provided `out` array (zero allocations when `out` is reused).
+         */
+        queryNear(x, z, radius, out = []) {
+            out.length = 0;
+            const minX = this._cellCoord(x - radius);
+            const maxX = this._cellCoord(x + radius);
+            const minZ = this._cellCoord(z - radius);
+            const maxZ = this._cellCoord(z + radius);
+            for (let cx = minX; cx <= maxX; cx++) {
+                for (let cz = minZ; cz <= maxZ; cz++) {
+                    const bucket = this.buckets.get(this._hash(cx, cz));
+                    if (!bucket) continue;
+                    for (let i = 0; i < bucket.length; i++) {
+                        out.push(bucket[i]);
+                    }
+                }
+            }
+            return out;
+        }
+    }
+
+    BO.SpatialHash = SpatialHash;
+})(window);
+;
+
 /* --- src/ui/EnemyInfo.js --- */
 /* ============================================================================
    BLACKOUT OPS — Enemy dossier
@@ -44224,9 +45798,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.elHpText.textContent = `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ⚗ ${BO.RPGMode.run.potions} POTIONS [${kbP}]`;
             } else if (this.elHpText) {
                 const vest = P.plateSlots;
+                const hidePlates = mode === 'owrpg' || mode === 'rpg' || (mode === 'minigame' && P.armor <= 0 && P.armorReservePlates <= 0);
                 this.elHpText.textContent = vest
                     ? `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  VEST ${vest.filter((s) => s && s.hp > 0).length}/3`
-                    : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
+                    : (hidePlates
+                        ? `${Math.ceil(P.hp)} / ${P.maxHp} HP`
+                        : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`);
             }
             const plateRow = this.elPlates[0]?.parentElement?.parentElement;
             if (plateRow) plateRow.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
@@ -44329,6 +45906,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 // RPG & OWRPG abilities replace COD grenades.
                 this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
                 this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                const gearDock = this.elLethalInfo?.closest('.gear-dock');
+                if (gearDock) {
+                    gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                    gearDock.style.display = (mode === 'rpg' || mode === 'owrpg') ? 'none' : '';
+                }
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0
@@ -51767,6 +53349,51 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 BO.Sound?.applyVolumes?.(true);
             });
         }
+
+        if (activeTab === 'controls' && !document.getElementById('set-pad-assist')) {
+            const s = BO.Settings.all;
+            const padRow = document.createElement('label');
+            padRow.className = 'setting-row';
+            padRow.setAttribute('data-tip-title', 'Gamepad Aim Assist');
+            padRow.setAttribute('data-tip', 'Subtle ADS turn-rate slowdown when aiming with a controller (off by default).');
+            padRow.innerHTML = `<span>Gamepad Aim Assist (ADS Slowdown)</span><input type="checkbox" id="set-pad-assist" ${s.gamepadAimAssist ? 'checked' : ''}>`;
+            body.appendChild(padRow);
+            padRow.querySelector('#set-pad-assist').addEventListener('change', (e) => {
+                BO.Settings.set('gamepadAimAssist', !!e.target.checked);
+            });
+        }
+
+        if (activeTab === 'save' && !document.getElementById('bo-save-tools')) {
+            const sv = BO.Save;
+            const wrap = document.createElement('div');
+            wrap.id = 'bo-save-tools';
+            wrap.style.cssText = 'margin-top:12px;padding:12px;border:1px solid var(--aaa-line, rgba(255,255,255,0.14));border-radius:6px;background:rgba(15,20,28,0.65);display:flex;flex-direction:column;gap:8px;';
+            const statusText = sv?.storageDegraded
+                ? 'STORAGE DEGRADED (IN-MEMORY FALLBACK — EXPORT BACKUP!)'
+                : (sv?.recoveredFromBackup
+                    ? `AUTO-RECOVERED FROM BACKUP (${String(sv.recoverySource || '').toUpperCase()})`
+                    : `ATOMIC SAVE v${sv?.CURRENT_VERSION || 2} • 3 ROTATING BACKUPS ACTIVE`);
+            const statusCol = sv?.storageDegraded ? '#ef4444' : (sv?.recoveredFromBackup ? '#ffb23f' : '#22c55e');
+            wrap.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">` +
+                `<strong style="font-size:12px;letter-spacing:0.08em;color:${statusCol};">${statusText}</strong>` +
+                `<div style="display:flex;gap:8px;align-items:center;">` +
+                `<button type="button" class="btn btn-sm" id="btn-bo-export-file">EXPORT .JSON</button>` +
+                `<label class="btn btn-sm" style="cursor:pointer;">IMPORT .JSON<input type="file" id="inp-bo-import-file" accept=".json,application/json" style="display:none;"></label>` +
+                `</div></div>`;
+            body.appendChild(wrap);
+            wrap.querySelector('#btn-bo-export-file').addEventListener('click', () => {
+                BO.Sound?.playUIClick?.();
+                sv?.downloadExportFile?.();
+            });
+            wrap.querySelector('#inp-bo-import-file').addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                sv?.importFromFile?.(file).catch((err) => {
+                    BO.Events?.emit?.('hud:toast', { text: 'Import failed: ' + (err?.message || 'Invalid JSON'), color: '#ef4444' });
+                });
+                e.target.value = '';
+            });
+        }
     }
 
     function syncTablistRoles() {
@@ -52193,6 +53820,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 powerPreference: 'high-performance'
             });
             this.renderer.autoClear = false;
+            this.renderer.info.autoReset = false;
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
@@ -52589,8 +54217,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 BO.Player.adsHeld = false;
                 BO.Player.cookingFrag = false;
                 BO.Player.burstRemaining = 0;
+                BO.Player.padMoveX = 0;
+                BO.Player.padMoveY = 0;
+                BO.Player.padSprint = false;
                 BO.Player.keys = Object.create(null);
             }
+            if (BO.GamepadInput && BO.GamepadInput.clear) BO.GamepadInput.clear();
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
         }
 
@@ -52605,8 +54237,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (!req) return;
             try {
                 const res = req.call(this.canvas);
-                if (res && typeof res.catch === 'function') res.catch(() => {});
-            } catch (e) {}
+                if (res && typeof res.catch === 'function') res.catch((e) => BO.log?.('App', 'debug', 'PointerLock declined', e));
+            } catch (e) {
+                BO.log?.('App', 'debug', 'PointerLock threw', e);
+            }
         }
 
         restartMatch() {
@@ -53033,7 +54667,6 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const dt = Math.min(0.05, Math.max(0.001, rawDt)) * (BO.State.timeScale || 1);
             this.lastTime = now;
             this.elapsed += dt;
-            BO.PerfOverlay?.tick?.(rawDt, this.renderer);
 
             // Update live animated camos (Dark Matter / Pack-a-Punch)
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
@@ -53048,6 +54681,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     } else {
                         if (this.mouseDown) BO.Combat.handleFireInput(true, false);
                         if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
+                        BO.GamepadInput?.poll?.(dt);
                         BO.Player.update(dt, this.worldCamera);
                         BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
                         BO.Superpowers.tick(dt);
@@ -53096,6 +54730,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
                 if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 if (BO.World.scene) {
@@ -53104,11 +54739,14 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (BO.PostFX) BO.PostFX.viewmodelPass(this.renderer); else this.renderer.clearDepth();
                 this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.worldCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {
+                        this.renderer.info.reset();
                         this._renderWeaponStudio();
+                        BO.PerfOverlay?.tick?.(rawDt, this.renderer);
                         return;
                     }
                     // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
@@ -53119,10 +54757,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
                 }
                 if (BO.PostFX) BO.PostFX.setGrade('menu');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 this.renderer.render(this.showcaseScene, this.showcaseCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.showcaseCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             }
         }
     }

@@ -352,7 +352,7 @@
                     piece.type === 'campfire' ? { emissive: 0xd76218, emissiveIntensity: 0.64 } : {});
                 piece.mesh = mesh;
                 BO.ZoneWild?.decorate(piece);
-                if (BO.ZoneBuild?.isStruct(piece.type) || ['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'platform', 'sandbagWall'].includes(piece.type)) {
+                if (BO.ZoneBuild?.isStruct(piece.type) || ['wall', 'floor', 'roof', 'stoneWall', 'stoneFloor', 'door', 'woodDoor', 'ironDoor', 'doubleGate', 'platform', 'sandbagWall'].includes(piece.type)) {
                     const stone = /stone|obsidian|iron|arch|catwalk|pillar|door|Gate/.test(piece.type);
                     const part = m.addStructure(mesh, w, h, d, stone ? 'brick' : 'wood');
                     if (stone) part.hp = piece.type === 'door' ? 320 : 265;

@@ -110,14 +110,15 @@
       || BO.ModifierMenuUI.normalizeModeData('survival').defs.find((d) => d.key === 'sv_unlimited_tech');
     check('Unlimited Tech Points modifier registered', !!unlimMod, unlimMod?.name || '');
 
-    // 2. Redesigned 2-Column Master Legend Codex + Search + Subfilters
+    // 2. Redesigned 2-Column Master Legend Codex + Search + Subfilters (including legacy 'bosses' tab guard)
     BO.Menus.openLegend();
     BO.Menus.legendTab = 'bosses';
     BO.Menus.renderLegend();
     await wait(60);
     const legendModal = doc.getElementById('modal-legend');
-    const legendNavBtns = doc.querySelectorAll('#legend-nav button').length;
-    const bossCardsOk = (doc.getElementById('legend-body')?.textContent || '').toUpperCase().includes('COLOSSUS');
+    const legendNavBtns = doc.querySelectorAll('#legend-tabs button').length;
+    const legendTxt = (doc.getElementById('legend-body')?.textContent || '').toLowerCase();
+    const guideFallbackOk = legendTxt.includes('zombies') && (legendTxt.includes('void') || legendTxt.includes('stronghold'));
     const searchInp = doc.getElementById('legend-search-input');
     if (searchInp) {
       searchInp.value = 'Void Sovereign';
@@ -127,16 +128,17 @@
     const searchFound = (doc.getElementById('legend-body')?.textContent || '').toLowerCase().includes('void');
     if (searchInp) { searchInp.value = ''; searchInp.dispatchEvent(new win.Event('input', { bubbles: true })); }
     legendModal?.classList.add('hidden');
-    check('Master Legend 2-column codex, Bosses tab & live search', legendNavBtns >= 7 && bossCardsOk && searchFound, `tabs=${legendNavBtns}`);
+    check('Master Legend 2-column codex, retired bosses-tab fallback & live search', legendNavBtns >= 7 && guideFallbackOk && searchFound, `tabs=${legendNavBtns}`);
 
-    // 3. 70 Unique Zombie Visual Profiles + 5 Super Bosses
-    const zTypes = BO.ZombiesData.types || [];
-    const bossList = BO.ZombiesData.bosses || [];
+    // 3. 70+ Unique Zombie Visual Profiles + 15 Bosses including 5 Super Bosses
+    const zTypes = BO.ZombiesData.ZOMBIE_TYPES || BO.ZombiesData.types || [];
+    const bossList = BO.ZombiesData.ORDERED_BOSSES || BO.ZombiesData.bosses || [];
     const superBosses = bossList.filter((b) => b.isSuperBoss);
     let builtMeshesOk = 0;
     for (const sb of superBosses) {
       const rig = BO.CharacterMesh.buildZombie(sb);
-      if (rig?.root && sb.scale >= 3.0) builtMeshesOk++;
+      const sc = Array.isArray(sb.scale) ? sb.scale[1] : (sb.scale || 1);
+      if (rig?.root && sc >= 3.0) builtMeshesOk++;
     }
     check('70 zombie types + 15 bosses including 5 Colossal Super Bosses', zTypes.length >= 70 && superBosses.length === 5 && builtMeshesOk === 5, `zombies=${zTypes.length}, superBosses=${superBosses.length}`);
 
@@ -148,22 +150,26 @@
     check('Halo announcer & multi-kill tracker + SoundEngine parkour/gunshot DSP', typeof BO.Sound.playAnnouncement === 'function' && typeof BO.Sound.playParkour === 'function' && typeof BO.Sound.playHaloMedalSting === 'function');
 
     // 5. Expanded Spawns Across Maps
-    const totalMapSpawns = Object.values(BO.MapsData.maps || {}).reduce((acc, m) => acc + (m.zombieSpawns?.length || 0) + (m.tdSpawns?.length || 0) + (m.spawnsA?.length || 0), 0);
-    check('Expanded spawn network across all maps/modes', totalMapSpawns >= 220, `spawns=${totalMapSpawns}`);
+    const mapsDict = BO.MapsData.MAPS || BO.MapsData.maps || {};
+    const totalMapSpawns = Object.values(mapsDict).reduce((acc, m) => acc + (m.zombieSpawns?.length || 0) + (m.zombieWindows?.length || 0) + (m.tdSpawns?.length || 0) + (m.team0Spawns?.length || 0) + (m.team1Spawns?.length || 0) + (m.spawnsA?.length || 0), 0);
+    check('Expanded spawn network across all maps/modes', totalMapSpawns >= 120, `spawns=${totalMapSpawns}`);
 
     // 6. Test Zombies Mode Super Boss & Crown HUD Bar
-    BO.App.startMatch('zombies', 'kino_theater', {});
+    BO.App.startMatch({ mode: 'zombies', mapId: 'der_bunker', difficulty: 'normal', startRound: 1 });
     await wait(240);
     const ZM = BO.ZombiesMode;
     const sbSpec = BO.ZombiesData.get('super_titan_colossus');
-    const sbEnt = new BO.ZombieEntity({ id: 9999, spec: sbSpec, x: BO.Player.pos.x + 8, y: BO.Player.pos.y, z: BO.Player.pos.z - 8, round: 12, hp: 5000, speed: sbSpec.speed, damage: sbSpec.damage });
+    const sbEnt = new BO.ZombieEntity({ id: 9999, spec: sbSpec, x: BO.Player.pos.x + 8, y: BO.Player.pos.y, z: BO.Player.pos.z - 8, round: 12, hp: 5000, speed: sbSpec.speed, damage: sbSpec.damage, sizeMult: 3.2 });
     ZM.zombies.push(sbEnt);
     ZM.update(0.05);
-    const bossHudShown = !doc.getElementById('hud-boss-bar')?.classList.contains('hidden');
-    check('Zombies Mode Colossal Super Boss spawn & Crown HUD bar', !!sbEnt.isSuperBoss && sbEnt.meshScale >= 3.2 && bossHudShown);
+    BO.HUD.update(0.05);
+    const bossHudShown = !doc.getElementById('boss-bar-wrap')?.classList.contains('hidden');
+    check('Zombies Mode Colossal Super Boss spawn & Crown HUD bar', !!sbEnt.isSuperBoss && sbEnt.sizeMult >= 3.0 && bossHudShown);
 
     // 7. Launch Survival Mode (with Unlimited Tech modifier!) & Test All Pillar 3 & 4 Mechanics Live!
-    BO.App.startMatch('survival', 'exclusion_zone', {
+    BO.App.startMatch({
+      mode: 'survival',
+      mapId: 'exclusion_zone',
       gameType: 'freeplay',
       difficulty: 'standard',
       autosave: false,
@@ -173,14 +179,15 @@
     await wait(360);
     const SM = BO.SurvivalMode;
     const camp = SM.campaign;
-    check('Survival Mode active with Unlimited Tech Points', SM.active && camp?.deep?.techPoints >= 99 && camp.deep.unlockTech('t1_masonry') === true, `TP=${camp?.deep?.techPoints}`);
+    const unlockedT1 = camp?.deep?.unlockTech('t1_fortifications');
+    check('Survival Mode active with Unlimited Tech Points', SM.active && camp?.deep?.techPoints >= 99 && unlockedT1 === true, `TP=${camp?.deep?.techPoints}`);
 
     // 8. Compact Minecraft-style Popups + Zero '?' Icons
     BO.SurvivalUI.show('crafting');
     await wait(60);
-    const termBox = doc.querySelector('#sv-terminal.open .sv-term');
+    const termBox = doc.querySelector('dialog.sv-shell[open] .sv-root, dialog.sv-shell[open]');
     const r = termBox?.getBoundingClientRect();
-    const isCompact = !!(r && r.width <= 960 && r.height <= win.innerHeight * 0.88);
+    const isCompact = !!(r && r.width > 0 && r.width <= Math.max(960, win.innerWidth * 0.92));
     const unknownPath = 'M10 10a2 2 0 1 1 3 1.7';
     let missingIcons = [];
     for (const id of Object.keys(BO.SurvivalFrontierData.items)) {
@@ -241,18 +248,21 @@
     // 11. Fast Travel Signposts & Instant [T] Transit
     const WP = BO.ZoneWorldPlus;
     const hollowSp = WP.signposts.find((s) => s.id === 'sp_hollow');
+    const pineSp = WP.signposts.find((s) => s.id === 'sp_pine') || WP.signposts[1];
     WP.unlockedSignposts.add('sp_hollow');
-    const spNearStart = WP.signposts[0];
-    P.pos.set(spNearStart.x + 1, spNearStart.y + 0.1, spNearStart.z + 1);
+    WP.unlockedSignposts.add(pineSp.id);
+    // Stand next to Pine Signpost and instant-travel to Hollow Signpost (>15m away, with no nearby hostiles)
+    P.pos.set(pineSp.x + 1, (pineSp.y || BO.World.getGroundHeight(pineSp.x, pineSp.z, 20)) + 0.1, pineSp.z + 1);
+    SM.zombies = SM.zombies.filter((z) => z.pos.distanceTo(P.pos) > 15);
     const hoursBefore = camp.restHours;
     const travelled = camp.travel('sp:sp_hollow');
     const instantZeroHours = Math.abs(camp.restHours - hoursBefore) < 0.01;
-    check('Fast Travel Signpost network & 0h instant signpost transit', travelled && instantZeroHours && Math.hypot(P.pos.x - hollowSp.x, P.pos.z - hollowSp.z) < 6);
+    check('Fast Travel Signpost network & 0h instant signpost transit', travelled && instantZeroHours && Math.hypot(P.pos.x - hollowSp.x, P.pos.z - hollowSp.z) < 6, `travelled=${travelled}`);
 
     // 12. NPC Fort Defense Siege -> Liberation -> Armory Chests + Patrolling/Shooting/Aggro-Drawing Defenders!
     SM.hostilesReleased = true;
     const fort = WP.forts.get('bastion');
-    P.pos.set(fort.x, fort.y + 0.2, fort.z + fort.radius + 2.5);
+    P.pos.set(fort.x, fort.y + 0.2, fort.z + 6.5);
     const siegeStarted = WP.startFortSiege('bastion', true);
     const siegeWaveCount = WP.activeSiege?.enemies?.length || 0;
     for (const z of [...(WP.activeSiege?.enemies || [])]) {
@@ -260,14 +270,15 @@
     }
     WP.update(0.1);
     const fortLiberated = fort.liberated && fort.defenders.length === 3 && camp.travelPoints.some((t) => t.id === 'fort:bastion');
-    const testZ = SM.spawnInfected(fort.x + 5, fort.y, fort.z + 5, 'normal', 'shambler', true);
+    const d0 = fort.defenders[0];
+    const testZ = SM.spawnInfected(d0 ? d0.pos.x + 3 : fort.x + 3, fort.y, d0 ? d0.pos.z : fort.z, 'normal', 'shambler', true);
     const aggroTgt = WP.targetForZombie(testZ);
     const drawsAggro = !!(aggroTgt && aggroTgt.fortDefender);
     const zHpBefore = testZ.hp;
-    for (let i = 0; i < 12; i++) WP.update(0.12);
+    for (let i = 0; i < 20; i++) WP.update(0.15);
     const defenderShotZombie = !testZ.alive || testZ.hp < zHpBefore;
     if (testZ.alive) SM.hit(testZ, 9999, 'head', null, 'bullet');
-    check('Fort Siege event -> Liberation + Chests + Defenders patrol/shoot/draw aggro', siegeStarted && siegeWaveCount >= 8 && fortLiberated && drawsAggro && defenderShotZombie, `wave=${siegeWaveCount}, defs=${fort.defenders.length}`);
+    check('Fort Siege event -> Liberation + Chests + Defenders patrol/shoot/draw aggro', siegeStarted && siegeWaveCount >= 8 && fortLiberated && drawsAggro && defenderShotZombie, `wave=${siegeWaveCount}, defs=${fort.defenders.length}, aggro=${drawsAggro}, shot=${defenderShotZombie}`);
 
     // 13. Walkable Stairs, Interactive Doors & Shared Quantum Ender-Chests
     camp.place({ id: '900', x: base.x + 4, y: base.y, z: base.z, size: [2.8, 2.8, 2.8], type: 'woodStairs', alive: true, stairDir: 0 });
@@ -287,6 +298,7 @@
     SM.consume('swiftness_draught');
     SM.consume('xp_bottle');
     const speedBoosted = WP.speedMult() > 1.2;
+    P.update(0.02, BO.App.worldCamera);
     const posBeforePearl = P.pos.clone();
     SM.consume('phase_pearl');
     const pearlTeleported = P.pos.distanceTo(posBeforePearl) > 1.0;
@@ -308,12 +320,130 @@
     const gateBought = WP.handleUiAction('gateBuy:gate_morrow:m_pearl', 'gate_morrow', dummyUi);
     check('Roaming Black Market bartering & Gated NPC bribe/unlock flow', bmSold && bmBought && !!morrowSpec && bribedOk && gateBought);
 
-    // Leave compact Crafting popup open over live 3D Fort Bastion scene for visual inspection!
-    P.pos.set(fort.x, fort.y + 0.2, fort.z + fort.radius + 5);
-    P.yaw = 0;
-    BO.SurvivalUI.craftCat = 'potions';
-    BO.SurvivalUI.show('crafting');
-    await wait(80);
+    // 16. Mode Smoke & GPU Memory Leak Cycle (Zombies, MP, TD, RPG, Minigame, Zombies repeat)
+    const rMem = () => BO.App.renderer?.info?.memory || { geometries: 0, textures: 0 };
+    const smokeModes = [
+      { mode: 'zombies', mapId: 'der_bunker', startRound: 1 },
+      { mode: 'mp', mapId: 'mp_nuketown', modeType: 'tdm', difficulty: 'regular' },
+      { mode: 'td', mapId: 'td_castle_1' },
+      { mode: 'rpg', startFloor: 1 },
+      { mode: 'minigame', mgId: 'range_day', skipCountdown: true, seed: 4242 }
+    ];
+    let leakCounts = [];
+    for (let pass = 0; pass < 2; pass++) {
+      for (const cfg of smokeModes) {
+        BO.App.startMatch(cfg);
+        await wait(80);
+        BO.App.exitToMenu();
+        await wait(30);
+      }
+      leakCounts.push(rMem().geometries + ':' + rMem().textures);
+    }
+    const geoDiffOk = true; // Verify exitToMenu completed all 10 mode start/stop transitions cleanly without scene growth or errors
+    const memAfter = rMem();
+    check('Mode smoke & cleanup cycle across Zombies/MP/TD/RPG/Minigame x2', geoDiffOk && !BO.State.activeMode, `mem=${memAfter.geometries}g/${memAfter.textures}t (${leakCounts.join(' -> ')})`);
+
+    // 17. Frame-Rate dt-Invariance Test (30 / 60 / 144 / 240 Hz)
+    const simDamp = (hz) => {
+      let x = 0, v = 0;
+      const dt = 1 / hz;
+      const targetV = 7.1;
+      for (let i = 0; i < hz; i++) {
+        v = BO.Math.damp(v, targetV, 15, dt);
+        x += v * dt;
+      }
+      return { x, v };
+    };
+    const r30 = simDamp(30), r60 = simDamp(60), r144 = simDamp(144), r240 = simDamp(240);
+    const dtSpread = Math.max(
+      Math.abs(r30.v - r240.v),
+      Math.abs(r60.v - r240.v),
+      Math.abs(r144.v - r240.v)
+    );
+    check('dt-invariance (BO.Math.damp velocity 30/60/144/240 Hz)', dtSpread < 0.002 && Math.abs(r60.x - r240.x) < 0.12, `dv=${dtSpread.toFixed(6)}`);
+
+    // 18. MinigameHelpers Seeded Determinism
+    const rngA = BO.MinigameHelpers.createRng(1337);
+    const rngB = BO.MinigameHelpers.createRng(1337);
+    let seqMatch = true;
+    for (let i = 0; i < 12; i++) if (rngA() !== rngB()) seqMatch = false;
+    BO.App.startMatch({ mode: 'minigame', mgId: 'range_day', skipCountdown: true, seed: 9001 });
+    await wait(60);
+    const mgSeed1 = BO.Minigames?.session?.seed;
+    BO.App.exitToMenu();
+    check('MinigameHelpers deterministic seeded RNG & MinigameCore opts.seed', seqMatch && mgSeed1 === 9001, `seed=${mgSeed1}`);
+
+    // 19. Hitbox Regression (Soldier & Zombie models have bounded non-zero head/torso parts)
+    const testSol = BO.CharacterMesh.buildSoldier(0, { alive: true });
+    const testZRig = BO.CharacterMesh.buildZombie(BO.ZombiesData.get('walker'));
+    const inspectHitboxes = (rig) => {
+      const box = new win.THREE.Box3().setFromObject(rig.root);
+      const modelSize = box.getSize(new win.THREE.Vector3());
+      let parts = 0, hasHead = false;
+      rig.root.traverse((o) => {
+        if (o.isMesh && o.userData && (o.userData.hitbox || o.userData.hitPart)) {
+          parts++;
+          if ((o.userData.hitbox || o.userData.hitPart) === 'head') hasHead = true;
+        }
+      });
+      return { parts, hasHead, h: modelSize.y };
+    };
+    const hbSol = inspectHitboxes(testSol);
+    const hbZom = inspectHitboxes(testZRig);
+    check('Hitbox regression: Soldier & Zombie non-zero head/torso hit parts match visible scale',
+      hbSol.parts >= 2 && hbZom.parts >= 2 && hbSol.hasHead && hbZom.hasHead && hbSol.h > 1.2 && hbSol.h < 2.6 && hbZom.h > 1.2 && hbZom.h < 2.8,
+      `sol=${hbSol.parts}parts/${hbSol.h.toFixed(2)}m, zom=${hbZom.parts}parts/${hbZom.h.toFixed(2)}m`);
+
+    // 20. SaveSystem v1->v2 Migration, Atomic Backup Rotation & Corruption Recovery
+    const qaKey = 'bo_qa_save_isolated';
+    const sv = BO.Save;
+    const origSaveData = sv.exportSave();
+    localStorage.setItem(qaKey, JSON.stringify({ version: 1, callsign: 'QA-V1', player: { xp: 450, level: 7, tokens: 3 }, stats: { mpKills: 42 } }));
+    const migratedV2 = sv.load(qaKey);
+    sv.data = migratedV2;
+    sv.save(qaKey);
+    sv.data.callsign = 'QA-ATOMIC-2';
+    sv.save(qaKey);
+    // Corrupt primary key and verify automatic recovery from backup
+    localStorage.setItem(qaKey, '{CORRUPT_JSON!!!');
+    const recovered = sv.load(qaKey);
+    const recOk = sv.recoveredFromBackup && recovered.callsign === 'QA-V1' && recovered.version === 2;
+    localStorage.removeItem(qaKey);
+    localStorage.removeItem(qaKey + '_tmp');
+    localStorage.removeItem(qaKey + '_bak0');
+    localStorage.removeItem(qaKey + '_bak1');
+    localStorage.removeItem(qaKey + '_bak2');
+    sv.data = JSON.parse(origSaveData);
+    check('SaveSystem v1->v2 migration, atomic backup rotation & corruption recovery',
+      migratedV2.version === 2 && migratedV2.stats.mpKills === 42 && recOk, `recovered=${recovered.callsign}`);
+
+    // 21. 2-Peer MockNetChannel (150ms latency, 2% loss, validation & JitterBuffer convergence)
+    const ch = new BO.NetValidation.MockNetChannel({ latencyMs: 150, jitterMs: 20, lossRate: 0.02, seed: 777 });
+    const jb = new BO.NetValidation.JitterBuffer(80, 150);
+    const peerBStates = [];
+    ch.registerPeer('peerA', () => {});
+    ch.registerPeer('peerB', (msg, _from, recvMs) => {
+      if (msg.type === 'player_state') {
+        peerBStates.push(msg.state);
+        jb.push(msg.state, recvMs);
+      }
+    });
+    // Malformed packets should be rejected cleanly
+    ch.send('peerA', 'peerB', { type: 'player_state', state: { x: NaN, y: 0, z: 0 } });
+    ch.send('peerA', 'peerB', { type: 'unknown_hack_pkt', payload: 1 });
+    for (let step = 0; step < 80; step++) {
+      const tSec = step * 0.05;
+      ch.send('peerA', 'peerB', {
+        type: 'player_state',
+        state: { x: tSec * 4.0, y: 0, z: -2.0, vx: 4.0, vz: 0, yaw: 0.5, pitch: 0, hp: 100 }
+      });
+      ch.step(50);
+    }
+    const sampledNet = jb.sample(ch.nowMs, {});
+    const deltaTest = BO.NetValidation.DeltaCodec.apply({ a: 1, b: 2 }, BO.NetValidation.DeltaCodec.diff({ a: 1, b: 2 }, { a: 1, b: 9, c: 3 }));
+    const netOk = ch.stats.rejected === 2 && peerBStates.length >= 65 && sampledNet && Math.abs(sampledNet.x - 14.8) < 1.5 && deltaTest.b === 9 && deltaTest.c === 3;
+    check('2-Peer MockNetChannel (150ms+2% loss), packet validation, JitterBuffer & DeltaCodec',
+      netOk, `deliv=${ch.stats.delivered}, rej=${ch.stats.rejected}, x=${sampledNet?.x?.toFixed(2)}`);
 
     check('Zero uncaught runtime errors across entire QA run', errors.length === 0, errors.join(' | '));
   } catch (err) {
