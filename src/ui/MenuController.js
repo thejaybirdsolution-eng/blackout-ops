@@ -147,7 +147,6 @@
             this.tdConfig.startProtocol = 'custom';
             this.zStartProtocol = 'custom';
             this.lobbySection = { zombies: 'map', mp: 'mode', td: 'castle' };
-            this.modFilter = { cat: 'all', q: '', onlyActive: false };
             this.barracksTab = 'record';
             this.settingsTab = 'controls';
             this.legendTab = 'zombies';
@@ -281,12 +280,6 @@
             }
             updateAudioButtons();
             BO.Events.on('settings:changed', updateAudioButtons);
-            document.getElementById('screen-lobby').addEventListener('change', (event) => {
-                if (event.target.matches('select, input[type="checkbox"], input[type="number"], input[type="range"]')) {
-                    event.target.classList.remove('selection-changed');
-                    requestAnimationFrame(() => event.target.classList.add('selection-changed'));
-                }
-            });
             document.getElementById('btn-menu-gunsmith').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('btn-menu-barracks').onclick = () => { BO.Sound.playUIClick(); this.showScreen('barracks'); };
             document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend(); };
@@ -871,8 +864,10 @@
             body.querySelectorAll('[data-proto]').forEach((b) => {
                 b.onclick = () => {
                     BO.Sound.playUIClick();
+                    const previous = BO.SelectionHighlight.capture(body);
                     this._setLobbyProtocol(mode, b.dataset.proto);
                     body.querySelectorAll('[data-proto]').forEach((x) => x.classList.toggle('active', x === b));
+                    BO.SelectionHighlight.update(body, previous);
                     this._lobbyBroadcast();
                     this._renderLobbySummary();
                 };
@@ -906,11 +901,12 @@
         }
 
         renderLobby() {
+            const screen = this.screens.play_lobby;
+            const previousSelection = BO.SelectionHighlight.capture(screen);
             const left = document.getElementById('lobby-left');
             const mode = this.lobbyMode; // 'zombies' | 'mp' | 'td'
             const roundsUnlocked = !!(BO.Cheats && (BO.Cheats.isModMenuUnlocked() || BO.Cheats.isActive('rounds', true)));
             if (!this.lobbySection) this.lobbySection = { zombies: 'map', mp: 'mode', td: 'castle' };
-            if (!this.modFilter) this.modFilter = { cat: 'all', q: '', onlyActive: false };
             if (!this.customRules.mods) this.customRules.mods = {};
 
             const tabs = [
@@ -930,6 +926,9 @@
             let sec = this.lobbySection[mode];
             if (!sections.find((s) => s.id === sec)) { sec = sections[0].id; this.lobbySection[mode] = sec; }
             const idx = sections.findIndex((s) => s.id === sec);
+            const sectionKey = mode + ':' + sec;
+            const scroll = left.dataset.sectionKey === sectionKey ? left.querySelector('.lobby-step-body')?.scrollTop || 0 : 0;
+            left.dataset.sectionKey = sectionKey;
             const modCount = BO.Mods.countActive(this._lobbyMods(mode), mode);
 
             left.innerHTML = `
@@ -963,10 +962,24 @@
             if (mode === 'zombies') this._renderZSection(body, sec, roundsUnlocked);
             else if (mode === 'mp') this._renderMpSection(body, sec);
             else this._renderTdSection(body, sec);
-            body.scrollTop = 0;
+            body.scrollTop = scroll;
 
             this._lobbyBroadcast();
             this._renderLobbyRight(mode, roundsUnlocked);
+            BO.SelectionHighlight.register(screen, {
+                'lobby-mode': '[data-lmode]',
+                ['lobby-step-' + mode]: '[data-lsec]',
+                ['start-protocol-' + mode]: '[data-proto]',
+                'zombies-map': '[data-zmap]',
+                'zombies-difficulty': '[data-zdiff]',
+                'mp-mode': '[data-mpmode]',
+                'mp-map': '[data-mpmap]',
+                'mp-difficulty': '[data-diff]',
+                'tower-map': '[data-tdmap]',
+                'tower-mode': '[data-tdmode]',
+                'tower-difficulty': '[data-tddiff]'
+            });
+            BO.SelectionHighlight.update(screen, previousSelection);
         }
 
         _renderZSection(body, sec, roundsUnlocked) {
@@ -1042,7 +1055,7 @@
                     inp.onchange = (e) => { this.zCustomValues[e.target.dataset.zk] = Number(e.target.value); this._lobbyBroadcast(); };
                 });
             } else {
-                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('zombies'));
+                body.innerHTML = this._modifiersHtml('zombies');
                 this._bindModifiers(body, 'zombies');
             }
         }
@@ -1089,9 +1102,6 @@
                             BO.Sound.playUIClick();
                             this[field] = value;
                             this.renderLobby();
-                            const selected = body.querySelector(`[data-${attr}="${value}"]`);
-                            selected?.classList.add('selection-changed');
-                            selected?.focus({ preventScroll: true });
                         };
                     });
                 }
@@ -1211,7 +1221,7 @@
                 body.innerHTML = this._section('Starting weapons', 'What you spawn with each life. "Custom Class" uses the class selected on the right.', this._protocolHtml('mp'));
                 this._bindProtocol(body, 'mp');
             } else {
-                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('mp'));
+                body.innerHTML = this._modifiersHtml('mp');
                 this._bindModifiers(body, 'mp');
             }
         }
@@ -1316,7 +1326,7 @@
                     </button>`);
                 document.getElementById('btn-td-open-ep').onclick = () => { BO.Sound.playUIClick(); this.openEnemyPoolModal(); };
             } else {
-                body.innerHTML = this._section('Modifiers', 'Mix and match. Hover any tile to read its effect. They stack.', this._modifiersHtml('td'));
+                body.innerHTML = this._modifiersHtml('td');
                 this._bindModifiers(body, 'td');
             }
         }
@@ -1833,8 +1843,8 @@
             body.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button class="btn btn-sm btn-primary" id="btn-mod-all-on" data-tip-title="Enable All Cheats" data-tip="Turn ON every Zombies cheat below at once!">ENABLE ALL CHEATS</button>
-                        <button class="btn btn-sm" id="btn-mod-all-off" data-tip-title="Disable All Cheats" data-tip="Turn OFF all active Zombies cheats.">DISABLE ALL CHEATS</button>
+                        <button class="btn btn-sm btn-primary" id="btn-mod-all-on" data-tip-title="Enable All Cheats" data-tip="Turn on the cheats listed below.">ENABLE ALL CHEATS</button>
+                        <button class="btn btn-sm" id="btn-mod-all-off" data-tip-title="Disable All Cheats" data-tip="Turn off all active cheats.">DISABLE ALL CHEATS</button>
                         <button class="btn btn-sm" id="btn-mod-open-choose" style="border-color:#38bdf8;color:#38bdf8;">★ SANDBOX DIRECTOR (CHOOSE)</button>
                     </div>
                     <div style="display:flex;align-items:center;gap:8px;background:rgba(245,166,35,0.14);border:1px solid var(--amber);padding:6px 12px;">

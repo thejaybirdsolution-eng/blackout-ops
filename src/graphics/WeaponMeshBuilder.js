@@ -81,6 +81,47 @@
             return this._accentMaterial('polymer', 0x141820);
         }
 
+        // Measure the finished receiver, rails, and decorative pieces in gun space.
+        _mountSights(gun, ms, attachments, darkMat, steelMat, topY, recL, frontZ) {
+            gun.updateWorldMatrix(true, true);
+            const inverseGun = gun.matrixWorld.clone().invert();
+            const transform = new THREE.Matrix4();
+            const bounds = [];
+            gun.traverseVisible((part) => {
+                if (!part.isMesh || !part.geometry || part.userData.skipSightClearance) return;
+                if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
+                transform.multiplyMatrices(inverseGun, part.matrixWorld);
+                bounds.push(part.geometry.boundingBox.clone().applyMatrix4(transform));
+            });
+            const surface = (z, depth) => {
+                let y = -Infinity;
+                for (const box of bounds) {
+                    if (box.min.x > 0.006 || box.max.x < -0.006 || box.min.z > z + depth || box.max.z < z - depth) continue;
+                    y = Math.max(y, box.max.y);
+                }
+                return y;
+            };
+            const iron = (attachments.optic || (ms.defaultScope ? 'sniper_scope' : 'iron')) === 'iron';
+            const rearZ = iron ? recL * 0.34 : -0.02;
+            const railY = Math.max(topY, surface(0, Infinity) + 0.004);
+            const support = (z, width, depth) => {
+                const base = Math.min(railY, Math.max(topY - 0.015, surface(z, depth * 0.5)));
+                const rise = railY - base;
+                if (rise < 0.003) return;
+                const mount = new THREE.Mesh(new THREE.BoxGeometry(width, rise, depth), darkMat);
+                mount.position.set(0, base + rise * 0.5, z);
+                gun.add(mount);
+            };
+            if (iron) {
+                support(rearZ, 0.024, 0.017);
+                support(frontZ, 0.009, 0.013);
+            } else {
+                support(rearZ, 0.026, 0.047);
+            }
+            const sightY = this._attachOptic(gun, ms, attachments, darkMat, steelMat, railY, rearZ, frontZ);
+            return { sightY, sightZ: rearZ, sightEyeRelief: ms.isPistol ? 0.23 : 0.18 };
+        }
+
         buildWeapon(weaponId, attachments = {}, camoId = 'default', isPaP = false, withArms = false, isDualWield = false) {
             const spec = BO.WeaponsData.get(weaponId);
             const ms = spec.modelSpec;
@@ -95,32 +136,38 @@
             const accentMat = this._accentMaterial(profile.accMat || (ms.wood ? 'walnut' : 'polymer'), profile.accHex || ms.accentColor);
             const steelMat = this._darkMat(0x525e6e, 0.26, 0.92);
 
+            const finishSpecial = (built, topY = 0.035, recL = 0.25) => {
+                BO.ArsenalDetails.specialDetails(built, spec, isPaP);
+                const frontZ = built.muzzleAnchor.position.z + 0.055;
+                return Object.assign(built, this._mountSights(gun, ms, attachments, darkMat, steelMat, topY, recL, frontZ));
+            };
             if (ms.isMelee) {
                 return BO.ArsenalDetails.specialDetails(this._buildMeleeWeapon(root, gun, spec, camoId, isPaP, withArms), spec, isPaP);
             }
             if (ms.isMinigun) {
-                return BO.ArsenalDetails.specialDetails(this._buildMinigun(root, gun, spec, camoId, isPaP, withArms), spec, isPaP);
+                return finishSpecial(this._buildMinigun(root, gun, spec, camoId, isPaP, withArms), 0.055, 0.34);
             }
             if (ms.wonderType === 'megabuster') {
                 return BO.ArsenalDetails.specialDetails(this._buildMegaBuster(root, gun, spec, isPaP, withArms), spec, isPaP);
             }
             if (ms.wonderType === 'raygun') {
-                return BO.ArsenalDetails.specialDetails(this._buildRayGun(root, gun, spec, isPaP, withArms), spec, isPaP);
+                return finishSpecial(this._buildRayGun(root, gun, spec, isPaP, withArms));
             }
             if (ms.wonderType === 'thundergun') {
-                return BO.ArsenalDetails.specialDetails(this._buildThundergun(root, gun, spec, isPaP, withArms), spec, isPaP);
+                return finishSpecial(this._buildThundergun(root, gun, spec, isPaP, withArms));
             }
             if (ms.wonderType) {
-                return BO.ArsenalDetails.specialDetails(this._buildMagicWeapon(root, gun, spec, isPaP, withArms), spec, isPaP);
+                const built = this._buildMagicWeapon(root, gun, spec, isPaP, withArms);
+                return ms.wonderType === 'tesla' ? finishSpecial(built) : BO.ArsenalDetails.specialDetails(built, spec, isPaP);
             }
             if (spec.id === 'rpg7_warhead') {
-                return this._buildLauncher(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, withArms);
+                return finishSpecial(this._buildLauncher(root, gun, accentMat, darkMat, steelMat, withArms), 0.02, 0.34);
             }
             if (spec.id === 'python_magnum') {
-                return this._buildRevolver(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, attachments, withArms);
+                return finishSpecial(this._buildRevolver(root, gun, bodyMat, darkMat, accentMat, steelMat, withArms), 0.04, 0.16);
             }
             if (spec.id === 'double_barrel') {
-                return this._buildDoubleBarrel(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, attachments, withArms);
+                return finishSpecial(this._buildDoubleBarrel(root, gun, bodyMat, darkMat, accentMat, steelMat, withArms), 0.027, 0.16);
             }
 
             const recH = ms.receiverH;
@@ -374,10 +421,11 @@
                 gun.add(laserBeam);
             }
 
-            const sightY = this._attachOptic(gun, ms, attachments, darkMat, steelMat, topY, recL, hgLen);
-
-            if (withArms) this._attachFirstPersonArms(root, ms.isPistol);
+            if (laserBeam) laserBeam.userData.skipSightClearance = true;
             BO.ArsenalDetails.firearmDetails(gun, spec, attachments, isPaP || (effectiveCamo && effectiveCamo !== 'default'));
+            const frontZ = ms.isPistol ? -recL * 0.44 : -recL * 0.5 - Math.max(hgLen, 0.08) * 0.85;
+            const sight = this._mountSights(gun, ms, attachments, darkMat, steelMat, topY, recL, frontZ);
+            if (withArms) this._attachFirstPersonArms(root, ms.isPistol);
 
             if (isDualWield) {
                 const leftGun = gun.clone();
@@ -386,7 +434,7 @@
                 root.add(leftGun);
             }
 
-            return { root, gun, magGroup, boltGroup, muzzleAnchor, laserBeam, sightY };
+            return { root, gun, magGroup, boltGroup, muzzleAnchor, laserBeam, ...sight };
         }
 
         _buildMagazineGroup(spec, profile, attachments, darkMat, accentMat, steelMat, recH, recL) {
@@ -460,38 +508,40 @@
             return magGroup;
         }
 
-        _attachOptic(gun, ms, attachments, darkMat, steelMat, topY, recL, hgLen) {
+        _attachOptic(gun, ms, attachments, darkMat, steelMat, topY, rearZ, frontZ) {
             const optic = attachments.optic || (ms.defaultScope ? 'sniper_scope' : 'iron');
             let sightY = topY + 0.022;
             const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false, side: THREE.DoubleSide });
             const glassMat = (hex, op) => new THREE.MeshStandardMaterial({
-                color: hex, roughness: 0.06, metalness: 0.28, transparent: true, opacity: op, side: THREE.DoubleSide
+                color: hex, roughness: 0.06, metalness: 0.28, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide
             });
 
             if (optic === 'iron') {
                 const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.008, 0.018), darkMat);
-                rearBase.position.set(0, topY + 0.007, recL * 0.34);
-                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.016, 0.014), darkMat);
-                rearL.position.set(-0.009, topY + 0.016, recL * 0.34);
-                const rearR = rearL.clone(); rearR.position.x = 0.009;
-                const tritiumMat = new THREE.MeshBasicMaterial({ color: 0x4ade80, toneMapped: false });
-                const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), tritiumMat);
-                rearDotL.position.set(-0.009, topY + 0.019, recL * 0.34 + 0.0075);
-                const rearDotR = rearDotL.clone(); rearDotR.position.x = 0.009;
+                rearBase.position.set(0, topY + 0.007, rearZ);
+                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.019, 0.014), darkMat);
+                rearL.position.set(-0.009, topY + 0.017, rearZ);
+                const rearR = rearL.clone();
+                rearR.position.x = 0.009;
+                const tritiumMat = new THREE.MeshBasicMaterial({ color: 0x9aefad, toneMapped: false });
+                const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0014, 8, 8), tritiumMat);
+                rearDotL.position.set(-0.009, topY + 0.022, rearZ + 0.0075);
+                const rearDotR = rearDotL.clone();
+                rearDotR.position.x = 0.009;
 
-                const frontZ = ms.isPistol ? (-recL * 0.44) : (-recL * 0.5 - Math.max(hgLen, 0.08) * 0.85);
-                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.020, 0.010), darkMat);
-                frontPost.position.set(0, topY + 0.014, frontZ);
+                sightY = topY + 0.023;
+                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.0045, 0.018, 0.010), darkMat);
+                frontPost.position.set(0, topY + 0.010, frontZ);
                 if (!ms.isPistol) {
-                    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.011, 0.0022, 6, 14, Math.PI * 1.25), darkMat);
-                    hood.rotation.z = -Math.PI * 0.125;
-                    hood.position.set(0, topY + 0.018, frontZ);
+                    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0022, 6, 14, Math.PI * 1.08), darkMat);
+                    hood.rotation.z = Math.PI * 0.95;
+                    hood.position.set(0, sightY, frontZ);
                     gun.add(hood);
                 }
-                const tritium = new THREE.Mesh(new THREE.SphereGeometry(0.0020, 8, 8), tritiumMat);
-                tritium.position.set(0, topY + 0.023, frontZ + 0.002);
-                gun.add(rearBase, rearL, rearR, rearDotL, rearDotR, frontPost, tritium);
-                sightY = topY + 0.024;
+                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0020, 8, 8), tritiumMat);
+                bead.position.set(0, sightY, frontZ + 0.004);
+                bead.userData.aimMarker = true;
+                gun.add(rearBase, rearL, rearR, rearDotL, rearDotR, frontPost, bead);
             } else if (optic === 'reflex') {
                 const base = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.011, 0.056), darkMat);
                 base.position.set(0, topY + 0.010, -0.02);
@@ -506,6 +556,7 @@
                 lens.position.set(0, topY + 0.026, -0.02);
                 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0019, 8, 8), reticleMat);
                 dot.position.set(0, topY + 0.026, -0.02);
+                dot.userData.aimMarker = true;
                 gun.add(base, lockNut, shroud, lens, dot);
                 sightY = topY + 0.026;
             } else if (optic === 'holo') {
@@ -525,6 +576,7 @@
                 ring.position.set(0, topY + 0.031, -0.019);
                 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), reticleMat);
                 dot.position.set(0, topY + 0.031, -0.019);
+                dot.userData.aimMarker = true;
                 gun.add(base, qdLever, hood, sideL, sideR, lens, ring, dot);
                 sightY = topY + 0.031;
             } else {
@@ -532,18 +584,18 @@
                 const len = isSniper ? 0.22 : 0.115;
                 const rad = isSniper ? 0.022 : 0.019;
                 const scopeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.36, metalness: 0.82, side: THREE.DoubleSide });
-                const tubeGeo = new THREE.CylinderGeometry(rad * 0.84, rad * 0.84, len * 0.64, 18, 1, !isSniper);
+                const tubeGeo = new THREE.CylinderGeometry(rad * 0.84, rad * 0.84, len * 0.64, 18, 1, true);
                 tubeGeo.rotateX(Math.PI * 0.5);
                 const scopeTube = new THREE.Mesh(tubeGeo, scopeMat);
                 scopeTube.position.set(0, topY + 0.032, -0.02);
 
                 // Stepped objective & ocular bells
-                const objBellGeo = new THREE.CylinderGeometry(rad * 1.18, rad * 0.86, len * 0.24, 18, 1, false);
+                const objBellGeo = new THREE.CylinderGeometry(rad * 1.18, rad * 0.86, len * 0.24, 18, 1, true);
                 objBellGeo.rotateX(Math.PI * 0.5);
                 const objBell = new THREE.Mesh(objBellGeo, scopeMat);
                 objBell.position.set(0, topY + 0.032, -0.02 - len * 0.38);
 
-                const ocBellGeo = new THREE.CylinderGeometry(rad * 0.86, rad * 1.04, len * 0.20, 18, 1, false);
+                const ocBellGeo = new THREE.CylinderGeometry(rad * 0.86, rad * 1.04, len * 0.20, 18, 1, true);
                 ocBellGeo.rotateX(Math.PI * 0.5);
                 const ocBell = new THREE.Mesh(ocBellGeo, scopeMat);
                 ocBell.position.set(0, topY + 0.032, -0.02 + len * 0.38);
@@ -571,13 +623,14 @@
                 rearLens.position.set(0, topY + 0.032, -0.02 + len * 0.48);
                 const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 8, 8), reticleMat);
                 dot.position.set(0, topY + 0.032, -0.02);
+                dot.userData.aimMarker = true;
                 gun.add(scopeTube, objBell, ocBell, topTurret, sideTurret, rMount1, rMount2, foot1, foot2, glint, rearLens, dot);
                 sightY = topY + 0.032;
             }
             return sightY;
         }
 
-        _buildLauncher(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, withArms) {
+        _buildLauncher(root, gun, accentMat, darkMat, steelMat, withArms) {
             // Iconic RPG-7 shoulder-fired rocket launcher + conical PG-7V warhead!
             const tubeGeo = new THREE.CylinderGeometry(0.026, 0.026, 0.82, 14);
             tubeGeo.rotateX(Math.PI * 0.5);
@@ -602,13 +655,6 @@
             const rGrip = fGrip.clone();
             rGrip.position.set(0, -0.062, -0.04);
 
-            // Front blade sight + PGO-7 side scope
-            const fSight = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.045, 0.014), darkMat);
-            fSight.position.set(0, 0.044, -0.34);
-            const sideScope = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 10), bodyMat);
-            sideScope.rotation.x = Math.PI * 0.5;
-            sideScope.position.set(-0.036, 0.036, -0.14);
-
             // Olive PG-7V Rocket Warhead seated at muzzle (animates via magGroup on reload!)
             const magGroup = new THREE.Group();
             const oliveMat = new THREE.MeshStandardMaterial({ color: 0x3b4d2e, roughness: 0.52, metalness: 0.25 });
@@ -624,13 +670,13 @@
 
             const muzzleAnchor = new THREE.Object3D();
             muzzleAnchor.position.set(0, 0, -0.75);
-            gun.add(tube, woodWrap, flare, fGrip, rGrip, fSight, sideScope, magGroup, muzzleAnchor);
+            gun.add(tube, woodWrap, flare, fGrip, rGrip, magGroup, muzzleAnchor);
 
             if (withArms) this._attachFirstPersonArms(root, false);
             return { root, gun, magGroup, boltGroup: new THREE.Group(), muzzleAnchor, laserBeam: null, sightY: 0.056 };
         }
 
-        _buildRevolver(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, attachments, withArms) {
+        _buildRevolver(root, gun, bodyMat, darkMat, accentMat, steelMat, withArms) {
             // Iconic Colt Python .357 Revolver: sculpted frame, rotating 6-shot fluted cylinder, full underlug & vent rib!
             const frame = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.042, 0.14), bodyMat);
             const topStrap = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.13), bodyMat);
@@ -656,8 +702,6 @@
             underlug.position.set(0, 0.002, -0.148);
             const ventRib = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.010, 0.175), bodyMat);
             ventRib.position.set(0, 0.035, -0.148);
-            const frontRamp = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.014, 0.016), darkMat);
-            frontRamp.position.set(0, 0.044, -0.22);
 
             const grip = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.098, 0.040), accentMat);
             grip.position.set(0, -0.052, 0.072); grip.rotation.x = 0.42;
@@ -668,14 +712,13 @@
 
             const muzzleAnchor = new THREE.Object3D();
             muzzleAnchor.position.set(0, 0.020, -0.245);
-            gun.add(frame, topStrap, boltGroup, barrel, underlug, ventRib, frontRamp, grip, hammer, trigGuard, muzzleAnchor);
+            gun.add(frame, topStrap, boltGroup, barrel, underlug, ventRib, grip, hammer, trigGuard, muzzleAnchor);
 
-            const sightY = this._attachOptic(gun, spec.modelSpec, attachments, darkMat, steelMat, 0.042, 0.16, 0.08);
             if (withArms) this._attachFirstPersonArms(root, true);
-            return { root, gun, magGroup: new THREE.Group(), boltGroup, muzzleAnchor, laserBeam: null, sightY };
+            return { root, gun, magGroup: new THREE.Group(), boltGroup, muzzleAnchor, laserBeam: null };
         }
 
-        _buildDoubleBarrel(root, gun, spec, bodyMat, darkMat, accentMat, steelMat, attachments, withArms) {
+        _buildDoubleBarrel(root, gun, bodyMat, darkMat, accentMat, steelMat, withArms) {
             // Classic Olympia Coach Gun: twin side-by-side blued barrels, center rib, brass bead, twin hammers & walnut stock!
             const frame = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.056, 0.14), steelMat);
             for (const s of [-1, 1]) {
@@ -688,8 +731,6 @@
             }
             const centerRib = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.010, 0.50), bodyMat);
             centerRib.position.set(0, 0.026, -0.31);
-            const brassBead = new THREE.Mesh(new THREE.SphereGeometry(0.0035, 8, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
-            brassBead.position.set(0, 0.034, -0.55);
 
             const forend = new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.028, 0.22), accentMat);
             forend.position.set(0, -0.012, -0.20);
@@ -702,10 +743,9 @@
 
             const muzzleAnchor = new THREE.Object3D();
             muzzleAnchor.position.set(0, 0.012, -0.59);
-            gun.add(frame, centerRib, brassBead, forend, wrist, stock, buttPlate, muzzleAnchor);
-            const sightY = 0.038;
+            gun.add(frame, centerRib, forend, wrist, stock, buttPlate, muzzleAnchor);
             if (withArms) this._attachFirstPersonArms(root, false);
-            return { root, gun, magGroup: new THREE.Group(), boltGroup: new THREE.Group(), muzzleAnchor, laserBeam: null, sightY };
+            return { root, gun, magGroup: new THREE.Group(), boltGroup: new THREE.Group(), muzzleAnchor, laserBeam: null };
         }
 
         buildTopHat() {

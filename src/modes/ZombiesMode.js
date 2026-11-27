@@ -104,7 +104,7 @@
             this.surgeUsedRound = -1;
             this.lastSodaTarget = null;
             this.lastSodaHit = -Infinity;
-            this._addIndividualSodaMachines(map.playerSpawn);
+            this._addIndividualSodaMachines(map);
             if (this.modifiers.lowGravity) map.gravityScale = 0.45;
             if (this.modifiers.nightmareDarkness && scene.fog) {
                 scene.fog.color.setHex(0x020308);
@@ -560,29 +560,13 @@
             return !this.modifiers.noPerks && !(BO.Cheats?.isActive('choose') && BO.Save.data.chooseConfig?.disNoPerks);
         }
 
-        _addIndividualSodaMachines(spawn) {
-            const world = BO.World;
-            const y = spawn.y || 0;
+        _addIndividualSodaMachines(map) {
             const sodas = BO.ExpansionData.sodas;
-            let placed = 0;
-            // Pick a repeatable assortment for each map so machines stay in familiar locations.
-            const offset = [...this.mapId].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) % sodas.length, 0);
-            for (const radius of [3.1, 5.1, 7.1, 10.1, 13.1]) {
-                for (let i = 0; i < 12; i++) {
-                    const angle = (spawn.yaw || 0) + (i + 2) * Math.PI / 6;
-                    const x = spawn.x + Math.sin(angle) * radius;
-                    const z = spawn.z + Math.cos(angle) * radius;
-                    if (Math.abs(world.getGroundHeight(x, z, y + 0.4) - y) > 0.3) continue;
-                    if (world.colliders.some((c) => c.active !== false && c.maxY > y + 0.12 && c.minY < y + 2.6 &&
-                        c.minX < x + 0.85 && c.maxX > x - 0.85 && c.minZ < z + 0.85 && c.maxZ > z - 0.85)) continue;
-                    if (world.interactives.some((inter) => Math.hypot(inter.x - x, inter.z - z) < 2.4 && Math.abs(inter.y - y) < 2)) continue;
-                    if (!world.hasLineOfSight(spawn.x, y + 1.2, spawn.z, x, y + 1.2, z)) continue;
-                    const soda = sodas[(offset + placed * 7) % sodas.length];
-                    world._spawnPerkMachine({
-                        ...soda, x, y, z, rotY: Math.atan2(spawn.x - x, spawn.z - z)
-                    });
-                    if (++placed >= 4) return;
-                }
+            // Keep each machine's drink familiar when players return to this map.
+            const offset = [...map.id].reduce((hash, c) => (hash * 31 + c.charCodeAt(0)) % sodas.length, 0);
+            for (const [index, spot] of (map.sodaMachineSpots || []).entries()) {
+                const soda = sodas[(offset + index * 7) % sodas.length];
+                BO.World._spawnPerkMachine({ ...soda, ...spot });
             }
         }
 

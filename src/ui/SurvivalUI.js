@@ -1291,9 +1291,7 @@
         }
 
         stepModifiers(o) {
-            const total = Object.keys(rules().modifiers || {}).length;
-            return `<p class="sv-lede">${o.modifiers.length} of ${total} modifiers active. Modifiers stack; hover any card to read its exact effect.</p>
-                <div id="sv-mod-host">${BO.ModifierMenuUI ? BO.ModifierMenuUI.renderHtml({ mode: 'survival', active: o.modifiers }) : ''}</div>`;
+            return '<div id="sv-mod-host">' + (BO.ModifierMenuUI?.renderHtml({ mode: 'survival', active: o.modifiers }) || '') + '</div>';
         }
 
         bindModifiers() {
@@ -1308,8 +1306,6 @@
                     const o = career.profile.options;
                     const aside = this.root.querySelector('.sv-summary');
                     if (aside) aside.innerHTML = this.summary(o, this.matchPreset(o));
-                    const lede = this.root.querySelector('.sv-step-body .sv-lede');
-                    if (lede) lede.textContent = `${o.modifiers.length} of ${Object.keys(rules().modifiers || {}).length} modifiers active. Modifiers stack; hover any card to read its exact effect.`;
                     const stepV = this.root.querySelector('.sv-step[data-arg="modifiers"] small');
                     if (stepV) stepV.textContent = this.stepValue('modifiers', o);
                     const quickV = this.root.querySelector('.sv-step[data-arg="quick"] small');

@@ -140,6 +140,23 @@
             const rimCyan = new THREE.PointLight(0x38bdf8, 1.8, 6);
             rimCyan.position.set(1.6, -0.4, -1.2);
             this.showcaseScene.add(amb, key, rimAmber, rimCyan);
+            this.weaponStudio = new THREE.Group();
+            this.weaponStudio.visible = false;
+            const fill = new THREE.HemisphereLight(0xe2efff, 0x9fa8b3, 1.35);
+            const studioKey = new THREE.DirectionalLight(0xf7fbff, 2.1);
+            studioKey.position.set(-3, 2, 5);
+            const rim = new THREE.DirectionalLight(0xb6d7ff, 1.8);
+            rim.position.set(1, 2, -3);
+            this.weaponStudio.add(fill, studioKey, rim);
+            this.showcaseScene.add(this.weaponStudio);
+            this.weaponStudioBackground = new THREE.Color(0x52667b);
+            this.menuShowcaseBackground = this.showcaseScene.background;
+            this.menuShowcaseFog = this.showcaseScene.fog;
+            this.weaponStudioViewport = document.getElementById('gs-model-viewport');
+            this.showcaseCenter = new THREE.Vector3();
+            this.showcaseCorners = [];
+            this.studioCorner = new THREE.Vector3();
+            this.studioClearColor = new THREE.Color();
 
             const podium = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.95, 1.15, 0.16, 32),
@@ -152,7 +169,9 @@
             );
             ring.rotation.x = -Math.PI * 0.5;
             ring.position.y = -0.338;
-            this.showcaseScene.add(podium, ring);
+            this.showcasePodium = new THREE.Group();
+            this.showcasePodium.add(podium, ring);
+            this.showcaseScene.add(this.showcasePodium);
 
             this.showcasePivot = new THREE.Group();
             this.showcaseScene.add(this.showcasePivot);
@@ -174,6 +193,83 @@
                 this.showcasePivot.add(hat);
             }
             this.showcaseWeapon = built.root;
+            const bounds = new THREE.Box3();
+            const partBox = new THREE.Box3();
+            if (built.laserBeam) built.laserBeam.visible = false;
+            this.showcasePivot.updateWorldMatrix(true, true);
+            const toPivot = this.showcasePivot.matrixWorld.clone().invert();
+            const transform = new THREE.Matrix4();
+            built.root.traverseVisible((part) => {
+                if (!part.isMesh || !part.geometry) return;
+                if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
+                transform.multiplyMatrices(toPivot, part.matrixWorld);
+                bounds.union(partBox.copy(part.geometry.boundingBox).applyMatrix4(transform));
+            });
+            bounds.getCenter(this.showcaseCenter);
+            this.showcaseCorners = [];
+            if (!bounds.isEmpty()) {
+                for (const x of [bounds.min.x, bounds.max.x]) {
+                    for (const y of [bounds.min.y, bounds.max.y]) {
+                        for (const z of [bounds.min.z, bounds.max.z]) {
+                            this.showcaseCorners.push(new THREE.Vector3(x, y, z).sub(this.showcaseCenter));
+                        }
+                    }
+                }
+            }
+        }
+
+        _renderWeaponStudio() {
+            const vp = this.weaponStudioViewport.getBoundingClientRect();
+            const renderer = this.renderer;
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            renderer.getClearColor(this.studioClearColor);
+            renderer.setClearColor(0x111a25);
+            renderer.clear();
+            const left = Math.max(0, vp.left + 1);
+            const right = Math.min(w, vp.right - 1);
+            const top = Math.max(0, vp.top + 1);
+            const bottom = Math.min(h, vp.bottom - 1);
+            if (right > left && bottom > top) {
+                const gs = BO.GunsmithUI;
+                const camera = this.showcaseCamera;
+                const scene = this.showcaseScene;
+                const pivot = this.showcasePivot;
+                this.weaponStudio.visible = true;
+                this.showcasePodium.visible = false;
+                scene.background = this.weaponStudioBackground;
+                scene.fog = null;
+                pivot.scale.setScalar(1);
+                pivot.rotation.set(gs.orbitPitch, gs.orbitYaw, 0);
+                pivot.position.copy(this.showcaseCenter).applyQuaternion(pivot.quaternion).negate();
+                camera.aspect = vp.width / vp.height;
+                const vertical = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+                const horizontal = vertical * camera.aspect;
+                let fitDistance = 0.35;
+                for (const vertex of this.showcaseCorners) {
+                    const corner = this.studioCorner.copy(vertex).applyQuaternion(pivot.quaternion);
+                    const span = Math.max(Math.abs(corner.x) / horizontal, Math.abs(corner.y) / vertical);
+                    fitDistance = Math.max(fitDistance, corner.z + 1.2 * span);
+                }
+                camera.position.set(0, 0, fitDistance * gs.orbitZoom / 0.92);
+                camera.rotation.set(0, 0, 0);
+                camera.updateProjectionMatrix();
+                renderer.setViewport(vp.left, h - vp.bottom, vp.width, vp.height);
+                renderer.setScissor(left, h - bottom, right - left, bottom - top);
+                renderer.setScissorTest(true);
+                renderer.clearDepth();
+                renderer.render(scene, camera);
+                renderer.setScissorTest(false);
+                renderer.setViewport(0, 0, w, h);
+                this.weaponStudio.visible = false;
+                this.showcasePodium.visible = true;
+                scene.background = this.menuShowcaseBackground;
+                scene.fog = this.menuShowcaseFog;
+                camera.aspect = w / h;
+                camera.rotation.set(0, 0, 0);
+                camera.updateProjectionMatrix();
+            }
+            renderer.setClearColor(this.studioClearColor);
         }
 
         startMatch(opts) {
@@ -760,19 +856,15 @@
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {
-                        const gs = BO.GunsmithUI;
-                        this.showcasePivot.scale.setScalar(1);
-                        this.showcasePivot.position.set(0.0, 0.04, 0);
-                        this.showcasePivot.rotation.set(gs.orbitPitch, gs.orbitYaw, 0);
-                        this.showcaseCamera.position.set(0, 0.12, gs.orbitZoom);
-                    } else {
-                        // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
-                        const aspect = this.showcaseCamera.aspect || 1.6;
-                        this.showcasePivot.scale.setScalar(0.72);
-                        this.showcasePivot.position.set(0.16 + 0.26 * Math.min(1.8, aspect) / 1.8, -0.04 + Math.sin(this.elapsed * 0.8) * 0.008, 0);
-                        this.showcasePivot.rotation.set(0.06, this.elapsed * 0.32, 0);
-                        this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
+                        this._renderWeaponStudio();
+                        return;
                     }
+                    // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
+                    const aspect = this.showcaseCamera.aspect || 1.6;
+                    this.showcasePivot.scale.setScalar(0.72);
+                    this.showcasePivot.position.set(0.16 + 0.26 * Math.min(1.8, aspect) / 1.8, -0.04 + Math.sin(this.elapsed * 0.8) * 0.008, 0);
+                    this.showcasePivot.rotation.set(0.06, this.elapsed * 0.32, 0);
+                    this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
                 }
                 if (BO.PostFX) BO.PostFX.setGrade('menu');
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);

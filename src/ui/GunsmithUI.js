@@ -67,7 +67,7 @@
             this.searchQuery = '';
             this.streakIndex = 0;
             this.hoverPreviewCfg = null;
-            this.orbitYaw = 0.55;
+            this.orbitYaw = 1.03;
             this.orbitPitch = 0.14;
             this.orbitZoom = 0.92;
             this.dragging = false;
@@ -80,47 +80,43 @@
             this.onRebuildShowcase = onRebuildShowcase;
             this.elScreen = document.getElementById('screen-gunsmith');
 
-            const canvas = document.getElementById('game-canvas');
-            const startDrag = (e) => {
-                if (BO.State.screen !== 'gunsmith') return;
-                this.dragging = true;
-                this.lastX = e.clientX;
-                this.lastY = e.clientY;
-            };
-            const moveDrag = (e) => {
-                if (!this.dragging || BO.State.screen !== 'gunsmith') return;
-                const dx = e.clientX - this.lastX;
-                const dy = e.clientY - this.lastY;
-                this.lastX = e.clientX;
-                this.lastY = e.clientY;
-                this.orbitYaw += dx * 0.01;
-                this.orbitPitch = BO.Math.clamp(this.orbitPitch + dy * 0.008, -0.7, 0.85);
-            };
-            const stopDrag = () => { this.dragging = false; };
-            const wheelZoom = (e) => {
-                if (BO.State.screen !== 'gunsmith') return;
-                if (e.target && e.target.closest && e.target.closest('.panel')) return;
-                this.orbitZoom = BO.Math.clamp(this.orbitZoom + e.deltaY * 0.0008, 0.55, 1.55);
-            };
-
-            if (canvas) {
-                canvas.addEventListener('mousedown', startDrag);
-                window.addEventListener('mousemove', moveDrag);
-                window.addEventListener('mouseup', stopDrag);
-                canvas.addEventListener('wheel', wheelZoom, { passive: true });
-            }
-            if (this.elScreen) {
-                this.elScreen.addEventListener('mousedown', (e) => {
-                    const t = e.target;
-                    if (t === this.elScreen || t.classList.contains('cac-layout') || t.classList.contains('gunsmith-center-stage')) startDrag(e);
+            const viewport = document.getElementById('gs-model-viewport');
+            if (viewport) {
+                viewport.addEventListener('pointerdown', (e) => {
+                    if (e.button !== 0 || !e.isPrimary) return;
+                    this.dragging = true;
+                    this.lastX = e.clientX;
+                    this.lastY = e.clientY;
+                    viewport.setPointerCapture(e.pointerId);
                 });
-                this.elScreen.addEventListener('wheel', wheelZoom, { passive: true });
+                viewport.addEventListener('pointermove', (e) => {
+                    if (!this.dragging || !e.isPrimary) return;
+                    this.orbitYaw += (e.clientX - this.lastX) * 0.01;
+                    this.orbitPitch = BO.Math.clamp(this.orbitPitch + (e.clientY - this.lastY) * 0.008, -0.7, 0.85);
+                    this.lastX = e.clientX;
+                    this.lastY = e.clientY;
+                });
+                viewport.addEventListener('lostpointercapture', () => { this.dragging = false; });
+                viewport.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.orbitZoom = BO.Math.clamp(this.orbitZoom + e.deltaY * 0.0008, 0.55, 1.55);
+                }, { passive: false });
+                viewport.addEventListener('keydown', (e) => {
+                    const steps = { ArrowLeft: [-.12, 0, 0], ArrowRight: [.12, 0, 0],
+                        ArrowUp: [0, -.1, 0], ArrowDown: [0, .1, 0], '+': [0, 0, -.08], '-': [0, 0, .08] };
+                    const delta = steps[e.key];
+                    if (!delta) return;
+                    e.preventDefault();
+                    this.orbitYaw += delta[0];
+                    this.orbitPitch = BO.Math.clamp(this.orbitPitch + delta[1], -.7, .85);
+                    this.orbitZoom = BO.Math.clamp(this.orbitZoom + delta[2], .55, 1.55);
+                });
             }
             const resetBtn = document.getElementById('gs-reset-orbit');
             if (resetBtn) {
                 resetBtn.onclick = () => {
                     BO.Sound.playUIClick();
-                    this.orbitYaw = 0.55;
+                    this.orbitYaw = 1.03;
                     this.orbitPitch = 0.14;
                     this.orbitZoom = 0.92;
                 };
@@ -189,6 +185,8 @@
         }
 
         render() {
+            const select = BO.SelectionHighlight;
+            const previous = select.capture(this.elScreen);
             const idx = BO.Loadout.getSelectedClassIndex();
             const classes = BO.Loadout.getClasses();
             const cls = classes[idx];
@@ -196,6 +194,13 @@
             this._renderRight(cls, idx);
             this._renderCenterPlate(cls);
             this._renderStats(cls);
+            select.register(this.elScreen, {
+                'gunsmith-slot': '[data-slot]',
+                ['gunsmith-tabs-' + (isWeaponSlot(this.editingSlot) ? 'weapon' : this.editingSlot)]: '[data-view], [data-ks]',
+                'gunsmith-categories': '[data-wcat]',
+                ['gunsmith-choice-' + this.editingSlot + '-' + this.weaponView]: '.opt-card, .camo-swatch'
+            });
+            select.update(this.elScreen, previous);
         }
 
         /* ---------------- LEFT: class picker + loadout slots ---------------- */
@@ -426,7 +431,7 @@
             list.setAttribute('aria-label', 'Weapon results');
             host.appendChild(list);
 
-            const populate = () => {
+            const populate = (previous) => {
                 list.innerHTML = '';
                 list.scrollTop = 0;
                 const q = this.searchQuery.trim().toLowerCase();
@@ -477,15 +482,19 @@
                     }
                 }
                 if (!groups.length) list.innerHTML = '<div class="opt-empty">No weapons match.</div>';
+                BO.SelectionHighlight.register(host, { ['gunsmith-choice-' + slot + '-weapon']: '.opt-card' });
+                BO.SelectionHighlight.update(host, previous);
             };
             tools.querySelector('[data-weapon-game]').onchange = (e) => { this.activeSourceGame = e.target.value; populate(); };
             tools.querySelector('input').oninput = (e) => { this.searchQuery = e.target.value; populate(); };
             tools.querySelectorAll('[data-wcat]').forEach((pb) => {
                 pb.onclick = () => {
+                    if (this.activeWeaponClass === pb.dataset.wcat) return;
+                    const previous = BO.SelectionHighlight.capture(host);
                     BO.Sound.playUIClick();
                     this.activeWeaponClass = pb.dataset.wcat;
                     tools.querySelectorAll('[data-wcat]').forEach((x) => x.classList.toggle('active', x === pb));
-                    populate();
+                    populate(previous);
                 };
             });
             populate();

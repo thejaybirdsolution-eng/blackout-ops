@@ -716,10 +716,32 @@
     #screen-main-menu .mode-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     #screen-main-menu .menu-body { grid-template-columns: minmax(0, 1fr) !important; }
 }
-@keyframes selection-change {
-    from { opacity: .68; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+/* The canvas draws the weapon studio behind the Create a Class controls. */
+#screen-gunsmith.ui-screen { background: transparent !important; }
+#screen-gunsmith.ui-screen::after { opacity: .16; }
+
+/* A single indicator moves between choices, including when the option DOM is rebuilt. */
+[data-selection-group] { position: relative; isolation: isolate; }
+.selection-highlight {
+    position: absolute;
+    pointer-events: none;
+    z-index: 2;
+    transform-origin: top left;
+    border-radius: 7px;
+    border: 1px solid var(--selection-ink);
+    background: color-mix(in srgb, var(--selection-ink) 13%, transparent);
+    box-shadow: inset 0 0 14px color-mix(in srgb, var(--selection-ink) 15%, transparent);
 }
-@media (prefers-reduced-motion: no-preference) {
-    #screen-lobby .selection-changed { animation: selection-change 210ms ease-out; }
+.lobby-steps > .selection-highlight {
+    border: 0;
+    border-radius: 2px;
+    box-shadow: inset 0 -2px var(--selection-ink);
+    background: linear-gradient(0deg, color-mix(in srgb, var(--selection-ink) 16%, transparent), transparent);
 }
+.has-selection-highlight > [data-selection-option].active:not(.camo-swatch),
+.has-selection-highlight > [data-selection-option][aria-pressed="true"]:not(.camo-swatch) {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+.has-selection-highlight > .pick-card.active::after { opacity: 0 !important; }

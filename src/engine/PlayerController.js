@@ -1718,10 +1718,10 @@
             }
 
             const horizSpeed = Math.hypot(this.vel.x, this.vel.z);
-            const moveFactor = BO.Math.clamp(horizSpeed / 6.5, 0, 1) * (1 - this.adsAlpha * 0.85);
+            const moveFactor = BO.Math.clamp(horizSpeed / 6.5, 0, 1) * (1 - this.adsAlpha * 0.95);
             const idleT = performance.now() * 0.0016;
             const breathMult = this.holdBreath ? 0.18 : 1.0;
-            const idleFactor = (1 - moveFactor) * (1 - this.adsAlpha * 0.78) * breathMult;
+            const idleFactor = (1 - moveFactor) * (1 - this.adsAlpha * 0.9) * breathMult;
             const bobX = Math.cos(this.bobPhase) * 0.015 * moveFactor + Math.sin(idleT) * 0.0028 * idleFactor;
             const bobY = Math.abs(Math.sin(this.bobPhase)) * -0.017 * moveFactor + Math.cos(idleT * 1.7) * 0.0024 * idleFactor;
 
@@ -1731,7 +1731,7 @@
             const hip = w.stats.hipPos;
             const adsX = 0;
             const adsY = -this.vmBuild.sightY;
-            const adsZ = w.stats.adsPos[2];
+            const adsZ = this.vmBuild.sightZ === undefined ? w.stats.adsPos[2] : -this.vmBuild.sightZ - this.vmBuild.sightEyeRelief;
 
             // Smooth spring-damped transitions for tactical sprint, slide & airborne lag
             const wantTac = (this.tacSprinting && this.adsAlpha < 0.05 && !this.reloading) ? 1 : 0;
@@ -1744,8 +1744,9 @@
             let py = BO.Math.lerp(hip[1], adsY, this.adsAlpha) + bobY + this.swayY * (1 - this.adsAlpha * 0.7) - (this.landingDip || 0) + (this.vmKickUp || 0) - this._airLag;
             let pz = BO.Math.lerp(hip[2], adsZ, this.adsAlpha) + this.recoilZ;
 
-            let rx = this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2;
-            let ry = this.recoilYaw * 0.45;
+            const weaponSway = 1 - this.adsAlpha * 0.7;
+            let rx = (this.recoilPitch * 0.92 + (this.vmKickUp || 0) * 1.4 - (this.landingDip || 0) * 0.65 - this._airLag * 2.2) * weaponSway;
+            let ry = this.recoilYaw * 0.45 * weaponSway;
             let rz = this._slideBlend * 0.35 + (this.recoilRoll || 0) * 1.6 - strafeDot * 0.036 * (1 - this.adsAlpha * 0.7);
 
             // Parkour Vault / Mantle one-handed weapon tuck
@@ -1955,7 +1956,7 @@
             const hip = w.stats.hipPos;
             const adsX = 0;
             const adsY = -this.vmBuild.sightY;
-            const adsZ = w.stats.adsPos[2];
+            const adsZ = this.vmBuild.sightZ === undefined ? w.stats.adsPos[2] : -this.vmBuild.sightZ - this.vmBuild.sightEyeRelief;
 
             let px = BO.Math.lerp(hip[0], adsX, ads) + bobX + (pose.swayX || 0) * (1 - ads * 0.7);
             let py = BO.Math.lerp(hip[1], adsY, ads) + bobY + (pose.swayY || 0) * (1 - ads * 0.7);

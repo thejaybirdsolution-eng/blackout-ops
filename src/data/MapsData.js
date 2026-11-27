@@ -161,6 +161,12 @@
 
     const DER_BUNKER = {
         id: 'der_bunker',
+        sodaMachineSpots: [
+            { zone: 'vault', x: 3.6, y: 0.75, z: -22.2, rotY: -1.571 },
+            { zone: 'lab', x: 22.5, y: 0, z: -3.2, rotY: 3.142 },
+            { zone: 'generator', x: -11.91, y: 0, z: 5.43, rotY: -1.179 },
+            { zone: 'courtyard', x: 6.02, y: 0, z: -1.48, rotY: 0.785 },
+        ],
         name: 'DER BUNKER',
         mode: 'zombies',
         subtitle: 'Sector 04 Ruined Outpost • Blood Moon Night',
@@ -368,6 +374,12 @@
 
     const STATION_OMEGA = {
         id: 'station_omega',
+        sodaMachineSpots: [
+            { zone: 'silo', x: -2.67, y: 0, z: -8.38, rotY: -1.178 },
+            { zone: 'control', x: -10.3, y: 0, z: -20.5, rotY: 1.571 },
+            { zone: 'cryo', x: -24.57, y: 0, z: -2.41, rotY: 2.75 },
+            { zone: 'reactor', x: 18.1, y: 0, z: 0, rotY: -1.571 },
+        ],
         name: 'STATION OMEGA',
         mode: 'zombies',
         subtitle: 'Subterranean Missile Silo • Cryo Telemetry Complex',
@@ -782,6 +794,12 @@
     ======================================================================== */
     const NACHT_DER_UNTOTEN = {
         id: 'nacht_der_untoten',
+        sodaMachineSpots: [
+            { zone: 'spawn', x: 7.6, y: 0, z: 14.94, rotY: -2.75 },
+            { zone: 'help', x: -7.6, y: 0, z: -14.94, rotY: 0.391 },
+            { zone: 'upstairs', x: -1.91, y: 3.4, z: -4.43, rotY: -1.963 },
+            { zone: 'upstairs', x: 7.3, y: 3.4, z: 5.5, rotY: -1.571 },
+        ],
         name: 'NACHT DER UNTOTEN',
         mode: 'zombies',
         subtitle: 'COD World at War (100% 1:1 Official Replica) • Abandoned Airfield Bunker',
@@ -943,6 +961,12 @@
     ======================================================================== */
     const SHI_NO_NUMA = {
         id: 'shi_no_numa',
+        sodaMachineSpots: [
+            { zone: 'path_n', x: 1.07, y: 0.14, z: -15.09, rotY: -0.392 },
+            { zone: 'path_e', x: 15.09, y: 0.14, z: -1.07, rotY: -1.179 },
+            { zone: 'path_w', x: -15.09, y: 0.14, z: -1.07, rotY: 1.179 },
+            { zone: 'path_s', x: 1.07, y: 0.14, z: 15.09, rotY: -2.75 },
+        ],
         name: 'SHI NO NUMA',
         mode: 'zombies',
         subtitle: 'COD World at War (100% 1:1 Official Replica) • Swamp of Death & 4 Outer Huts',
@@ -1216,6 +1240,12 @@
     ======================================================================== */
     const DER_RIESE = {
         id: 'der_riese',
+        sodaMachineSpots: [
+            { zone: 'power_ct', x: 6.2, y: 2.5, z: -20, rotY: 1.571 },
+            { zone: 'animal', x: -20.59, y: 0, z: 3.07, rotY: 1.963 },
+            { zone: 'garage', x: 16.6, y: 0, z: 4, rotY: -1.571 },
+            { zone: 'power_ct', x: -2.59, y: 0, z: -14.93, rotY: 1.963 },
+        ],
         name: 'DER RIESE',
         mode: 'zombies',
         subtitle: 'COD World at War / BO1 (100% 1:1 Official Replica) • Group 935 Weapon Factory',
@@ -1400,6 +1430,12 @@
     ======================================================================== */
     const KINO_DER_TOTEN = {
         id: 'kino_der_toten',
+        sodaMachineSpots: [
+            { zone: 'dressing', x: 20.8, y: 0, z: -6, rotY: -1.571 },
+            { zone: 'stage', x: 1.98, y: 0.45, z: -16.02, rotY: -2.356 },
+            { zone: 'lower_hall', x: -20.8, y: 0, z: 8, rotY: 1.571 },
+            { zone: 'booth', x: -1.98, y: 3.8, z: 2.52, rotY: 0.785 },
+        ],
         name: 'KINO DER TOTEN',
         mode: 'zombies',
         subtitle: 'COD Black Ops 1 (100% 1:1 Official Replica) • Berlin Theater of the Damned',
@@ -1627,6 +1663,12 @@
     ======================================================================== */
     const FIVE_PENTAGON = {
         id: 'five_pentagon',
+        sodaMachineSpots: [
+            { zone: 'labs', x: -2.8, y: 0, z: -16, rotY: 1.571 },
+            { zone: 'war_room', x: -2.55, y: 6, z: -4.55, rotY: 0.785 },
+            { zone: 'spawn', x: 0, y: 12, z: 4.8, rotY: 3.142 },
+            { zone: 'spawn', x: 1.65, y: 12, z: 17.97, rotY: -2.748 },
+        ],
         name: '"FIVE" (THE PENTAGON)',
         mode: 'zombies',
         subtitle: 'COD Black Ops 1 (100% 1:1 Official 3-Floor Replica) • The Pentagon',
@@ -1851,6 +1893,12 @@
     ======================================================================== */
     const ASCENSION = {
         id: 'ascension',
+        sodaMachineSpots: [
+            { zone: 'rocket_pad', x: 3.6, y: 0, z: -24, rotY: -1.571 },
+            { zone: 'power_bldg', x: -16.52, y: 2.6, z: -12.48, rotY: -0.785 },
+            { zone: 'cosmodrome', x: 1.07, y: 0, z: -2.59, rotY: -0.392 },
+            { zone: 'spawn', x: 1.48, y: 0, z: 12.52, rotY: -0.785 },
+        ],
         name: 'ASCENSION',
         mode: 'zombies',
         subtitle: 'COD Black Ops 1 (100% 1:1 Official Replica) • Soviet Baikonur Cosmodrome',
@@ -2039,6 +2087,12 @@
     ======================================================================== */
     const NUKETOWN_ZOMBIES = {
         id: 'nuketown_zombies',
+        sodaMachineSpots: [
+            { zone: 'spawn', x: 2.8, y: 0, z: 8, rotY: -1.571 },
+            { zone: 'green_yard', x: -16, y: 0, z: -20.8, rotY: 0 },
+            { zone: 'yellow_yard', x: 17.98, y: 0, z: -19.98, rotY: -0.785 },
+            { zone: 'green_house', x: -18.1, y: 0, z: -2, rotY: 1.571 },
+        ],
         name: 'NUKETOWN ZOMBIES',
         mode: 'zombies',
         subtitle: 'COD Black Ops 2 (100% 1:1 Official Replica) • Nevada Nuclear Test Cul-de-Sac',

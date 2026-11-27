@@ -1539,7 +1539,7 @@
                                 b._startCorpse(null, 0, impulse);
                             }
                             b.alive = willLive;
-                            b.parts.root.visible = willLive || !!b.corpse;
+                            b.parts.root.visible = willLive || (b.corpse && b.corpse.age < 5) || false;
                             b.netTargetPos = new THREE.Vector3(x, y, z);
                             b.netTargetYaw = yaw;
                             b.hp = hp;

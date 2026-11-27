@@ -143,6 +143,3 @@
 .survival-map span.map-shrine { background: #2c2410ee; color: #fde047; border: 1px solid #ca8a04; font-size: .72rem; }
 .survival-map span.map-meteor { background: #2e1065ee; color: #e879f9; border: 1px solid #a855f7; }
 .survival-mods-details { grid-column: 1 / -1; }
-.mm-mode-survival .mm-deck { background: linear-gradient(160deg, rgba(16, 32, 28, 0.95), rgba(10, 20, 18, 0.97)); border-color: rgba(166, 221, 208, 0.35); }
-.mm-mode-survival .mm-body { max-height: 390px; }
-.mm-mode-survival .mm-tab.active { background: rgba(24, 56, 48, 0.96); }

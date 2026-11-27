@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
-    <link rel="stylesheet" href="css/styles.css?v=weapon-filters-compact">
+    <link rel="stylesheet" href="css/styles.css?v=weapon-studio">
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=sv9">
     <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
-    <link rel="stylesheet" href="css/modifier-board.css?v=field-update-1">
+    <link rel="stylesheet" href="css/modifier-board.css?v=modifier-library">
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=anim1">
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
     <link rel="stylesheet" href="css/owrpg.css?v=ow1">
     <link rel="stylesheet" href="css/update-log.css?v=ul1">
-    <link rel="stylesheet" href="css/aaa-theme.css?v=field-update-1">
+    <link rel="stylesheet" href="css/aaa-theme.css?v=selection-motion">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -26,9 +26,9 @@
     <!-- Core -->
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
     <script defer src="src/core/SaveSystem.js?v=field-update-1"></script>
-    <script defer src="src/core/Settings.js?v=field-update-1"></script>
+    <script defer src="src/core/Settings.js?v=ragdoll-physics"></script>
     <script defer src="src/graphics/Bevel.js?v=aaa4"></script>
-    <script defer src="src/net/NetworkManager.js?v=field-update-1"></script>
+    <script defer src="src/net/NetworkManager.js?v=ragdoll-physics"></script>
 
     <!-- Game Data -->
     <script defer src="src/data/ClassicWeapons.js?v=1"></script>
@@ -39,7 +39,7 @@
     <script defer src="src/data/ZombiesData.js?v=sv9"></script>
     <script defer src="src/data/ZombieBehaviors.js?v=1"></script>
     <script defer src="src/systems/ZombieCustomizer.js?v=field-update-1"></script>
-    <script defer src="src/data/MapsData.js?v=zm1"></script></script>
+    <script defer src="src/data/MapsData.js?v=perk-routes-1"></script>
     <script defer src="src/data/ReactiveModifiers.js?v=1"></script>
     <script defer src="src/data/ModeModifiersCatalog.js?v=sv9"></script>
     <script defer src="src/data/SurvivalData.js?v=20x1"></script>
@@ -65,7 +65,7 @@
     <script defer src="src/audio/SoundEngine.js?v=field-update-1"></script>
     <script defer src="src/graphics/TextureFactory.js?v=zm1"></script>
     <script defer src="src/graphics/ArsenalDetails.js?v=sv9"></script>
-    <script defer src="src/graphics/WeaponMeshBuilder.js?v=anim1"></script>
+    <script defer src="src/graphics/WeaponMeshBuilder.js?v=weapon-studio"></script>
     <script defer src="src/graphics/CharacterMeshBuilder.js?v=td1"></script>
     <script defer src="src/graphics/SoldierModel.js?v=field-update-1"></script>
     <script defer src="src/graphics/ZombieModel.js?v=anim1"></script>
@@ -84,13 +84,13 @@
     <!-- Engine & Entities -->
     <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
     <script defer src="src/engine/WorldBuilder.js?v=zm1"></script>
-    <script defer src="src/engine/PlayerController.js?v=field-update-1"></script>
+    <script defer src="src/engine/PlayerController.js?v=weapon-studio"></script>
     <script defer src="src/engine/CombatSystem.js?v=field-update-1"></script>
     <script defer src="src/entities/ZombieEntity.js?v=field-update-1"></script>
-    <script defer src="src/entities/BotAI.js?v=field-update-1"></script>
+    <script defer src="src/entities/BotAI.js?v=ragdoll-physics"></script>
 
     <!-- Modes -->
-    <script defer src="src/modes/ZombiesMode.js?v=field-update-1"></script>
+    <script defer src="src/modes/ZombiesMode.js?v=perk-routes-1"></script>
     <script defer src="src/modes/MultiplayerMode.js?v=field-update-1"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=td1"></script>
     <script defer src="src/rpg/RPGUnlocks.js?v=vaults1"></script>
@@ -174,14 +174,15 @@
     <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
     <script defer src="src/ui/HUDController.js?v=field-update-1"></script>
-    <script defer src="src/ui/GunsmithUI.js?v=weapon-filters"></script>
-    <script defer src="src/ui/ModifierMenuUI.js?v=field-update-1"></script>
+    <script defer src="src/ui/SelectionHighlight.js?v=1"></script>
+    <script defer src="src/ui/GunsmithUI.js?v=weapon-studio"></script>
+    <script defer src="src/ui/ModifierMenuUI.js?v=modifier-library"></script>
     <script defer src="src/ui/UpdateLogUI.js?v=ul3"></script>
-    <script defer src="src/ui/MenuController.js?v=field-update-1"></script>
+    <script defer src="src/ui/MenuController.js?v=modifier-library"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
     <script defer src="src/ui/ExpansionShop.js?v=field-update-1"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
-    <script defer src="src/ui/SurvivalUI.js?v=vaults1"></script>
+    <script defer src="src/ui/SurvivalUI.js?v=modifier-library"></script>
     <script defer src="src/ui/ModeGuide.js?v=field-update-1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
     <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Fun & Specials) -->
@@ -227,7 +228,7 @@
     <script defer src="src/ui/RPGUI.js?v=doors1"></script>
     <script defer src="src/ui/OWRPGUI.js?v=ow1"></script>
     <script defer src="src/ui/OWRPGPipPad.js?v=ow1"></script>
-    <script defer src="src/main.js?v=field-update-1"></script>
+    <script defer src="src/main.js?v=weapon-studio"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -402,7 +403,7 @@
             <aside id="gs-left-panel" class="panel cac-left"></aside>
             <div class="gunsmith-center-stage">
                 <div id="gs-viewport-plate" class="gs-viewport-plate"></div>
-                <div style="flex:1"></div>
+                <div id="gs-model-viewport" class="gs-model-viewport" role="group" tabindex="0" aria-label="Weapon preview. Use arrow keys to rotate and plus or minus to zoom."></div>
                 <div id="gs-stats-dock" class="gs-stats-dock"></div>
                 <div class="gunsmith-viewport-controls">
                     <div class="gunsmith-viewport-hint">DRAG TO ROTATE • SCROLL TO ZOOM</div>

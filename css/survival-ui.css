@@ -243,7 +243,6 @@ kbd {
 .sv-pad { padding: 16px 20px; }
 
 /* modifier deck inside deployment */
-dialog.sv-shell .mm-mode-survival .mm-body { max-height: none; }
 dialog.sv-shell .mm-shell { margin-top: 4px; }
 
 /* =========================================================== TERMINAL */

@@ -176,6 +176,7 @@
         fly: { code: 'fly', name: 'Fly Mode (3D Flight)', desc: 'Fly freely through the air! Hold [SPACE] to ascend and [C] / [CTRL] to descend.' },
         noclip: { code: 'noclip', name: 'Noclip (Walk Through Walls)', desc: 'Fly and phase straight through any wall, door, ceiling, or obstacle!' },
         megaman: { code: 'megaman', name: 'Mega Man Buster Weapon', desc: 'Equips the cybernetic MEGA BUSTER MK-X arm-cannon firing Solar Plasma blasts!' },
+        ragdoll: { code: 'ragdoll', name: 'Always Launch Ragdolls', mode: 'mp', desc: 'Every Multiplayer bot death uses the rare flying ragdoll and whistle.' },
         dance: { code: 'dance', name: 'Zombie Dance Party', desc: 'Once every minute (and right away!), all zombies stop and dance for 2 seconds!' },
         unlock: { code: 'unlock', name: 'Unlock Everything', desc: 'Unlocks all weapons, attachments, Gold Camo, Top Hat, Hard/Very Hard/Insanely Hard modes & Boss Rush!' },
         lock: { code: 'lock', name: 'Lock Everything', desc: 'Locks all progression-gated items, camos, Top Hat, and difficulty modes.' },
@@ -415,7 +416,7 @@
         }
 
         /**
-         * Returns true if the cheat is enabled AND we are currently in Zombies mode
+         * Returns true if the cheat is enabled in its applicable game mode
          * (or checkRaw=true for UI checkboxes/menus).
          */
         isActive(code, checkRaw = false) {
@@ -423,7 +424,7 @@
             if (code === 'cheats') return !!BO.Save.data.cheats.unlockedModMenu;
             const val = !!BO.Save.data.cheats[code];
             if (checkRaw) return val;
-            return val && this.isZombiesActive();
+            return val && BO.State?.activeMode === (CHEAT_DEFS[code]?.mode || 'zombies');
         }
 
         isModMenuUnlocked() {
@@ -510,7 +511,7 @@
             BO.Sound.playEmptyClick();
             return {
                 ok: false,
-                msg: `Unknown code "${rawInput}". Valid codes: infammo, infmoney, infhealth, fast, superfast, jump, 2jump, bighead, wondernomore, perks, rounds, tiny, choose, fly, noclip, megaman, dance, unlock, lock, maxlevel, resetlevel, cheats.`
+                msg: `Unknown code "${rawInput}". Valid codes: ${Object.keys(CHEAT_DEFS).join(', ')}, cheats.`
             };
         }
 

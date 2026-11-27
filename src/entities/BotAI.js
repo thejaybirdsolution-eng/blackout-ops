@@ -127,6 +127,10 @@
             this.parts.root.visible = true;
             if (this.parts.gunBody) this.parts.gunBody.visible = !this.unarmed;
             if (this.parts.headGroup) this.parts.headGroup.scale.setScalar(this.bigHeads ? 3.0 : 1.0);
+            for (const limb of this.corpse?.limbs || []) {
+                limb.part.rotation.x = limb.baseX;
+                limb.part.rotation.z = limb.baseZ;
+            }
             this.corpse = null;
             this.parts.root.rotation.set(0, this.yaw, 0);
             this._syncSquadMark();
@@ -154,22 +158,116 @@
 
         _startCorpse(attacker, force, snapshot = null) {
             const source = attacker === 'player' ? BO.Player.pos : attacker?.pos;
-            const velocity = source ? this.pos.clone().sub(source) : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-            if (velocity.lengthSq() < 0.01) velocity.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
-            const launched = snapshot ? !!snapshot[3] : Math.random() < 0.01;
+            const push = source ? this.pos.clone().sub(source).setY(0) : new THREE.Vector3();
+            if (push.lengthSq() < 0.01) push.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+            const launched = snapshot ? !!snapshot[3] : BO.Cheats.isActive('ragdoll') || Math.random() < 0.01;
             const strength = BO.Math.clamp(force / 35, 1.2, 9);
-            velocity.setY(0).normalize().multiplyScalar(launched ? 11 : strength);
-            velocity.y = launched ? 24 : 1.25 + strength * 0.33;
+            const velocity = push.normalize().multiplyScalar(launched ? 11 : strength).setY(launched ? 24 : 0.8 + strength * 0.31);
             if (snapshot) velocity.set(snapshot[0], snapshot[1], snapshot[2]);
+
+            // Integrate around the torso rather than rotating the whole body around its feet.
             const parts = this.parts;
-            this.corpse = {
-                velocity, launched, age: 0, bounce: 0, whistleAt: 0,
+            const body = this.corpse = {
+                center: this.pos.clone().add(new THREE.Vector3(0, 0.83, 0)),
+                orientation: new THREE.Quaternion().setFromEuler(new THREE.Euler(0, this.yaw, 0)),
+                velocity, angular: new THREE.Vector3(velocity.z, launched ? 2.7 : 0.75, -velocity.x)
+                    .multiplyScalar(launched ? 0.51 : 0.68),
+                launched, age: 0, whistleAt: 0, bounce: 0,
                 impulse: [velocity.x, velocity.y, velocity.z, Number(launched)],
-                limbs: [parts.armL, parts.armR, parts.legL, parts.legR, parts.headGroup].filter(Boolean).map((part) => ({
-                    part, pitch: BO.Math.randRange(-8, 8), roll: BO.Math.randRange(-5, 5)
+                axis: new THREE.Vector3(), probe: new THREE.Vector3(),
+                normal: new THREE.Vector3(), spin: new THREE.Quaternion(),
+                limbs: [parts.armL, parts.armR, parts.legL, parts.legR, parts.headGroup].filter(Boolean).map((part, i) => ({
+                    part, baseX: part.rotation.x, baseZ: part.rotation.z,
+                    pitch: 0, roll: 0, dp: BO.Math.randRange(-5, 5), dr: BO.Math.randRange(-3, 3),
+                    limit: i === 4 ? 0.48 : i < 2 ? 1.35 : 0.95,
+                    restPitch: i < 2 ? 0.45 : -0.12,
+                    restRoll: (i % 2 ? 1 : -1) * (i < 2 ? 0.32 : 0.10)
                 }))
             };
-            if (launched) this.respawnTimer = Math.max(2.6, this.respawnTimer);
+            if (launched) this.respawnTimer = Math.max(3.15, this.respawnTimer);
+            this._poseCorpse(body);
+        }
+
+        _poseCorpse(body) {
+            const root = this.parts.root;
+            root.quaternion.copy(body.orientation);
+            root.position.copy(body.center).addScaledVector(body.axis.set(0, 1, 0).applyQuaternion(body.orientation), -0.83);
+        }
+
+        _stepCorpse(body, step) {
+            const { velocity, angular, axis, center, orientation, spin, normal, probe } = body;
+            const prevFoot = center.y - (0.20 + Math.abs(axis.set(0, 1, 0).applyQuaternion(orientation).y) * 0.63);
+            const spinSpeed = angular.length();
+            if (spinSpeed > 0.001) {
+                spin.setFromAxisAngle(normal.copy(angular).divideScalar(spinSpeed), spinSpeed * step);
+                orientation.premultiply(spin).normalize();
+            }
+            axis.set(0, 1, 0).applyQuaternion(orientation);
+            const vertical = 0.20 + Math.abs(axis.y) * 0.63;
+            const horizontal = 0.22 + Math.sqrt(Math.max(0, 1 - axis.y * axis.y)) * 0.32;
+
+            velocity.y -= 18 * step;
+            center.addScaledVector(velocity, step);
+            probe.set(center.x, center.y - vertical, center.z);
+            BO.World.resolveHorizontal(probe, horizontal, vertical * 2, false);
+            normal.set(probe.x - center.x, 0, probe.z - center.z);
+            const wallImpact = normal.lengthSq() > 0.000001;
+            let contactImpulse = 0;
+            if (wallImpact) {
+                normal.normalize();
+                const toward = velocity.dot(normal);
+                if (toward < 0) {
+                    velocity.addScaledVector(normal, -toward * 1.32);
+                    angular.x += normal.z * toward * 0.32;
+                    angular.z -= normal.x * toward * 0.32;
+                    contactImpulse = Math.min(3.5, -toward * 0.32);
+                }
+                center.x = probe.x;
+                center.z = probe.z;
+            }
+
+            const floor = BO.World.getGroundHeight(center.x, center.z, prevFoot);
+            const onFloor = center.y < floor + vertical && velocity.y <= 0;
+            let settled = false;
+            if (onFloor) {
+                center.y = floor + vertical;
+                const impact = -velocity.y;
+                settled = impact < 1.65 || body.bounce >= 3;
+                velocity.y = settled ? 0 : Math.min(6.2, impact * 0.29);
+                if (!settled) {
+                    body.bounce++;
+                    contactImpulse += Math.min(4.5, impact * 0.26);
+                    angular.x += velocity.z * 0.36;
+                    angular.z -= velocity.x * 0.36;
+                    velocity.x *= 0.77;
+                    velocity.z *= 0.77;
+                } else {
+                    velocity.x *= Math.exp(-6.5 * step);
+                    velocity.z *= Math.exp(-6.5 * step);
+                    normal.set(axis.x, 0, axis.z);
+                    if (normal.lengthSq() > 0.001) {
+                        spin.setFromUnitVectors(axis, normal.normalize());
+                        angular.multiplyScalar(Math.exp(-7.5 * step));
+                        center.y = Math.max(floor + 0.20, center.y - Math.abs(axis.y) * 0.63 * Math.min(1, step * 6));
+                        orientation.premultiply(spin.slerp(new THREE.Quaternion(), Math.exp(-6 * step))).normalize();
+                    }
+                }
+            } else {
+                velocity.x *= Math.exp(-0.12 * step);
+                velocity.z *= Math.exp(-0.12 * step);
+                angular.multiplyScalar(Math.exp(-0.34 * step));
+            }
+
+            for (const [i, limb] of body.limbs.entries()) {
+                const side = i % 2 ? 1 : -1;
+                const damping = Math.exp(-(settled ? 9 : 3.5) * step);
+                limb.dp = (limb.dp + ((settled ? limb.restPitch : 0) - limb.pitch) * 16 * step + contactImpulse * side) * damping;
+                limb.dr = (limb.dr + ((settled ? limb.restRoll : 0) - limb.roll) * 13 * step + contactImpulse * 0.60 * side) * damping;
+                limb.pitch = BO.Math.clamp(limb.pitch + limb.dp * step, -limb.limit, limb.limit);
+                limb.roll = BO.Math.clamp(limb.roll + limb.dr * step, -limb.limit * 0.55, limb.limit * 0.55);
+                limb.part.rotation.x = limb.baseX + limb.pitch;
+                limb.part.rotation.z = limb.baseZ + limb.roll;
+            }
         }
 
         updateCorpse(dt) {
@@ -178,32 +276,16 @@
             body.age += dt;
             if (body.age >= 5) {
                 this.parts.root.visible = false;
-                this.corpse = null;
+                body.impulse = null;
                 return;
             }
-            const root = this.parts.root;
-            const force = body.velocity;
-            const prevY = root.position.y;
-            force.y -= 17 * dt;
-            root.position.addScaledVector(force, dt);
-            BO.World.resolveHorizontal(root.position, this.radius, 0.45, false);
-            const ground = BO.World.getGroundHeight(root.position.x, root.position.z, prevY);
-            if (root.position.y < ground && force.y < 0) {
-                root.position.y = ground;
-                force.y = body.bounce++ < 2 ? -force.y * 0.23 : 0;
-                force.x *= 0.72;
-                force.z *= 0.72;
-            }
-            const momentum = 1 / (1 + body.age * 4 + body.bounce * 0.6);
-            root.rotation.x += (body.launched ? 8 * momentum : (1.47 - root.rotation.x) * 6) * dt;
-            root.rotation.z += momentum * 2.5 * dt;
-            for (const limb of body.limbs) {
-                limb.part.rotation.x += limb.pitch * momentum * dt;
-                limb.part.rotation.z += limb.roll * momentum * dt;
-            }
+            const elapsed = Math.min(dt, 0.10);
+            const steps = Math.max(1, Math.ceil(elapsed * 120));
+            for (let i = 0; i < steps; i++) this._stepCorpse(body, elapsed / steps);
+            this._poseCorpse(body);
             if (body.launched && body.age < 1.55 && body.age >= body.whistleAt) {
                 body.whistleAt += 0.16;
-                const { pan, gain } = BO.Sound._spatialMetrics(root.position, 65);
+                const { pan, gain } = BO.Sound._spatialMetrics(body.center, 65);
                 const pitch = 1750 - body.age * 680;
                 if (gain > 0.01) BO.Sound.playSpatialTone(pitch, pitch - 112, 0.2, 'sine', gain * 0.17, pan);
             }
