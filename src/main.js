@@ -35,6 +35,7 @@
                 powerPreference: 'high-performance'
             });
             this.renderer.autoClear = false;
+            this.renderer.info.autoReset = false;
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
@@ -62,6 +63,7 @@
                 onExitToMenu: () => this.exitToMenu(),
                 onRestartMatch: () => this.restartMatch()
             });
+            this._bindModeBundleLoaders();
             if (BO.Net) BO.Net.init();
 
             this._bindInputs();
@@ -106,7 +108,14 @@
             this.renderer.shadowMap.enabled = q.shadows;
             this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             this.renderer.toneMappingExposure = BO.Settings.get('exposure') || 1.08;
+            if (this.worldCamera && BO.State.activeMode !== 'survival' && q.drawDistance) {
+                if (this.worldCamera.far !== q.drawDistance) {
+                    this.worldCamera.far = q.drawDistance;
+                    this.worldCamera.updateProjectionMatrix();
+                }
+            }
             if (BO.PostFX && BO.PostFX.ready) BO.PostFX.applyQuality();
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             const hudEl = document.getElementById('hud-layer');
             if (hudEl) hudEl.style.opacity = String(BO.Settings.get('hudOpacity') ?? 1.0);
         }
@@ -298,19 +307,66 @@
             renderer.setClearColor(this.studioClearColor);
         }
 
+        _bindModeBundleLoaders() {
+            const loader = BO.BundleLoader;
+            if (!loader || !loader.isBundled()) return;
+            const map = [
+                ['btn-menu-survival', 'survival'],
+                ['btn-menu-rpg', 'rpg'],
+                ['btn-menu-owrpg', 'owrpg'],
+                ['btn-menu-minigames', 'minigames']
+            ];
+            for (const [id, key] of map) {
+                const btn = document.getElementById(id);
+                if (!btn) continue;
+                btn.addEventListener('pointerenter', () => {
+                    if (!loader.isLoaded(key)) loader.ensure(key).catch(() => {});
+                }, { passive: true });
+                btn.addEventListener('click', (e) => {
+                    if (loader.isLoaded(key)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (btn.dataset.bundleBusy === '1') return;
+                    btn.dataset.bundleBusy = '1';
+                    BO.Events?.emit?.('hud:toast', { text: `Loading ${key.toUpperCase()} module...`, color: '#ffb23f' });
+                    loader.ensure(key).then(() => {
+                        delete btn.dataset.bundleBusy;
+                        btn.click();
+                    }).catch(() => {
+                        delete btn.dataset.bundleBusy;
+                        BO.Events?.emit?.('hud:toast', { text: `Failed to load ${key} module.`, color: '#ef4444' });
+                    });
+                }, true);
+            }
+        }
+
         startMatch(opts) {
+            const bundleKey = BO.BundleLoader?.bundleKeyForMode?.(opts?.mode);
+            if (bundleKey && BO.BundleLoader?.isBundled() && !BO.BundleLoader.isLoaded(bundleKey)) {
+                if (this._loadingBundle === bundleKey) return;
+                this._loadingBundle = bundleKey;
+                BO.Events?.emit?.('hud:toast', { text: `Loading ${bundleKey.toUpperCase()} module...`, color: '#ffb23f' });
+                BO.BundleLoader.ensure(bundleKey).then(() => {
+                    this._loadingBundle = null;
+                    this.startMatch(opts);
+                }).catch(() => {
+                    this._loadingBundle = null;
+                    BO.Events?.emit?.('hud:toast', { text: `Failed to load ${bundleKey} module.`, color: '#ef4444' });
+                });
+                return;
+            }
             // Request Pointer Lock at 0ms of user click gesture before world build!
             this._safePointerLock();
             this._clearInputState();
 
-            if (opts.mode !== "survival" && opts.mode !== 'minigame' && opts.mode !== 'rpg' && opts.mode !== 'owrpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
+            if (opts.mode !== 'survival' && opts.mode !== 'owrpg' && !opts._fromNetHost && BO.Net && BO.Net.active && BO.Net.isHost) {
                 BO.Net.broadcastMatchStart(opts);
             }
             if (BO.Net) BO.Net.clearRemoteAvatars();
 
             this.lastMatchOpts = BO.Math.deepClone(opts);
-            BO.SurvivalUI.close();
-            BO.SurvivalMode.stop();
+            BO.SurvivalUI?.close?.();
+            BO.SurvivalMode?.stop?.();
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
@@ -318,11 +374,13 @@
             if (BO.RPGMode) BO.RPGMode.stop();
             if (BO.OWRPGMode) BO.OWRPGMode.stop();
             BO.Sound.stopEffects();
+            BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
             BO.State.paused = false;
             BO.State.timeScale = 1;
+            BO.emitGameEvent?.('game:modeStart', { mode: opts.mode, mapId: opts.mapId });
 
             if (opts.mode === 'minigame') {
                 BO.Minigames.start(this.worldCamera, opts);
@@ -360,6 +418,7 @@
                 });
             }
 
+            BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
             BO.Menus.showScreen('playing');
             this._safePointerLock();
@@ -375,8 +434,12 @@
                 BO.Player.adsHeld = false;
                 BO.Player.cookingFrag = false;
                 BO.Player.burstRemaining = 0;
+                BO.Player.padMoveX = 0;
+                BO.Player.padMoveY = 0;
+                BO.Player.padSprint = false;
                 BO.Player.keys = Object.create(null);
             }
+            if (BO.GamepadInput && BO.GamepadInput.clear) BO.GamepadInput.clear();
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
         }
 
@@ -391,8 +454,10 @@
             if (!req) return;
             try {
                 const res = req.call(this.canvas);
-                if (res && typeof res.catch === 'function') res.catch(() => {});
-            } catch (e) {}
+                if (res && typeof res.catch === 'function') res.catch((e) => BO.log?.('App', 'debug', 'PointerLock declined', e));
+            } catch (e) {
+                BO.log?.('App', 'debug', 'PointerLock threw', e);
+            }
         }
 
         restartMatch() {
@@ -418,13 +483,16 @@
             BO.ZombiesMode.stop();
             BO.MPMode.stop();
             if (BO.TowerDefenseMode) BO.TowerDefenseMode.stop();
-            BO.SurvivalUI.close();
-            BO.SurvivalMode.stop();
+            BO.SurvivalUI?.close?.();
+            BO.SurvivalMode?.stop?.();
             BO.ExpansionShop.close();
+            const prevMode = BO.State.activeMode;
             BO.Superpowers.reset();
             BO.Sound.stopEffects();
+            BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
             BO.State.activeMode = null;
             BO.State.paused = false;
+            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();
             else BO.Menus.showScreen(mgReturn || 'main_menu');
@@ -557,7 +625,7 @@
 
             window.addEventListener('wheel', (e) => {
                 if (BO.State.screen !== 'playing' || BO.State.paused) return;
-                if (BO.SurvivalUI.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen) return;
+                if (BO.SurvivalUI?.open || BO.ExpansionShop.open || BO.RPGUI?.modalOpen || BO.OWRPGUI?.modalOpen) return;
                 if (Math.abs(e.deltaY) > 4) {
                     if (BO.State.activeMode === 'survival' && BO.ZoneWild?.spyglassZoom > 1) {
                         BO.ZoneWild.adjustSpyglassZoom(e.deltaY < 0 ? 1 : -1);
@@ -586,13 +654,13 @@
                 if (BO.ZoneLegends?.dialog) { BO.ZoneLegends.handleKey(e); return; }
                 if (BO.RPGUI?.modalOpen) { BO.RPGUI.handleKey(e); return; }
                 if (BO.OWRPGUI?.modalOpen) { BO.OWRPGUI.handleKey(e); return; }
-                if (BO.SurvivalUI.open) {
+                if (BO.SurvivalUI?.open) {
                     BO.SurvivalUI.handleKey(e);
                     return;
                 }
                 const code = e.code;
                 const kb = BO.Settings.getKeybinds();
-                const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode.active;
+                const survival = BO.State.activeMode === 'survival' && BO.SurvivalMode?.active;
                 const rpg = BO.State.activeMode === 'rpg' && BO.RPGMode?.active;
                 const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
 
@@ -812,7 +880,8 @@
         _loop(now) {
             requestAnimationFrame((t) => this._loop(t));
             // timeScale < 1 gives short slow-motion beats (Survival rare finds, solo only).
-            const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000)) * (BO.State.timeScale || 1);
+            const rawDt = Math.max(0.0005, (now - this.lastTime) / 1000);
+            const dt = Math.min(0.05, Math.max(0.001, rawDt)) * (BO.State.timeScale || 1);
             this.lastTime = now;
             this.elapsed += dt;
 
@@ -821,7 +890,7 @@
 
             if (BO.State.screen === 'playing') {
                 if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                if (!BO.State.paused && !BO.SurvivalUI?.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
                     const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
                     if (inKillcam) {
                         BO.FX.update(dt);
@@ -829,6 +898,7 @@
                     } else {
                         if (this.mouseDown) BO.Combat.handleFireInput(true, false);
                         if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
+                        BO.GamepadInput?.poll?.(dt);
                         BO.Player.update(dt, this.worldCamera);
                         BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
                         BO.Superpowers.tick(dt);
@@ -858,10 +928,10 @@
 
                     BO.HUD.update(dt);
                     BO.ExpansionShop.updateHud();
-                    BO.SurvivalUI.updateHud();
+                    BO.SurvivalUI?.updateHud?.();
                     if (BO.RPGUI) BO.RPGUI.updateHud(dt);
                     if (BO.OWRPGUI && BO.State.activeMode === 'owrpg') BO.OWRPGUI.updateHud(dt);
-                } else if (!BO.State.paused && BO.SurvivalUI.open && BO.State.activeMode === 'survival' && BO.SurvivalMode.active &&
+                } else if (!BO.State.paused && BO.SurvivalUI?.open && BO.State.activeMode === 'survival' && BO.SurvivalMode?.active &&
                     !['respawn', 'briefing', 'ending', 'epilogue'].includes(BO.SurvivalUI.section)) {
                     // Real-time menus: the Zone keeps moving while you rummage through your pack.
                     BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
@@ -875,7 +945,9 @@
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
 
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+                if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 if (BO.World.scene) {
@@ -884,11 +956,14 @@
                 if (BO.PostFX) BO.PostFX.viewmodelPass(this.renderer); else this.renderer.clearDepth();
                 this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.worldCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {
+                        this.renderer.info.reset();
                         this._renderWeaponStudio();
+                        BO.PerfOverlay?.tick?.(rawDt, this.renderer);
                         return;
                     }
                     // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
@@ -899,10 +974,12 @@
                     this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
                 }
                 if (BO.PostFX) BO.PostFX.setGrade('menu');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 this.renderer.render(this.showcaseScene, this.showcaseCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.showcaseCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             }
         }
     }

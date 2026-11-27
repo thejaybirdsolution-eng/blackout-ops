@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
     <link rel="stylesheet" href="css/owrpg.css?v=mega1">
     <link rel="stylesheet" href="css/update-log.css?v=ul1">
+    <link rel="stylesheet" href="css/profile-hub.css?v=1.0">
     <link rel="stylesheet" href="css/aaa-theme.css?v=selection-motion">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
@@ -30,7 +31,9 @@
     <script defer src="src/core/SaveSystem.js?v=mega1"></script>
     <script defer src="src/core/Settings.js?v=mega1"></script>
     <script defer src="src/graphics/Bevel.js?v=aaa4"></script>
+    <script defer src="src/net/NetValidation.js?v=core1"></script>
     <script defer src="src/net/NetworkManager.js?sound-mix-2"></script>
+    <script defer src="src/net/CoopExtensions.js?v=1.0"></script>
 
     <!-- Game Data -->
     <script defer src="src/data/ClassicWeapons.js?v=2"></script>
@@ -63,6 +66,7 @@
     <script defer src="src/data/OWRPGWorldData.js?v=mega1"></script>
     <script defer src="src/data/OWRPGDialogueData.js?v=mega1"></script>
     <script defer src="src/data/OWRPGQuestsData.js?v=mega1"></script>
+    <script defer src="src/data/OWRPGAct2Data.js?v=1.0"></script>
     <script defer src="src/data/UpdateLogData.js?v=mega1"></script>
 
     <!-- Audio & 3D Graphics -->
@@ -89,6 +93,7 @@
     <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
     <script defer src="src/engine/WorldBuilder.js?v=arena-props-1"></script>
     <script defer src="src/engine/PlayerController.js?v=mega1"></script>
+    <script defer src="src/engine/GamepadInput.js?v=core1"></script>
     <script defer src="src/engine/CombatSystem.js?v=mega1"></script>
     <script defer src="src/entities/ZombieEntity.js?sound-mix-2"></script>
     <script defer src="src/entities/BotAI.js?sound-mix-2"></script>
@@ -107,6 +112,7 @@
     <script defer src="src/rpg/RPGItems.js?v=mega1"></script>
     <script defer src="src/modes/RPGMode.js?v=mega1"></script>
     <script defer src="src/systems/SurvivalCareer.js?v=field-update-1"></script>
+    <script defer src="src/systems/SpatialHash.js?v=core1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
     <script defer src="src/systems/SurvivalPack.js?v=g5"></script>
     <script defer src="src/systems/SurvivalObjectives.js?v=au10"></script>
@@ -177,6 +183,7 @@
     <script defer src="src/owrpg/OWRPGEvents.js?v=mega1"></script>
     <script defer src="src/owrpg/OWRPGValidator.js?v=mega1"></script>
     <script defer src="src/modes/OWRPGMode.js?v=mega1"></script>
+    <script defer src="src/owrpg/OWRPGCompanions.js?v=1.0"></script>
 
     <!-- UI & Bootstrap -->
     <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
@@ -194,6 +201,7 @@
     <script defer src="src/ui/ModeGuide.js?v=mega1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
     <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Fun & Specials) -->
+    <script defer src="src/minigames/MinigameHelpers.js?v=core1"></script>
     <script defer src="src/minigames/MinigameCore.js?v=mega1"></script>
     <script defer src="src/minigames/MinigameArt.js?v=mega1"></script>
     <script defer src="src/minigames/TargetCoursesA.js?assets-v1"></script>
@@ -236,6 +244,18 @@
     <script defer src="src/ui/RPGUI.js?v=mega1"></script>
     <script defer src="src/ui/OWRPGUI.js?v=mega1"></script>
     <script defer src="src/ui/OWRPGPipPad.js?v=mega1"></script>
+    <script defer src="src/systems/ModeDepth10.js?v=1.0"></script>
+    <script defer src="src/core/ProfileSystem.js?v=1.0"></script>
+    <script defer src="src/ui/ProfileHubUI.js?v=1.0"></script>
+    <script defer src="src/data/CampaignData.js?v=1.0"></script>
+    <script defer src="src/systems/CampaignManager.js?v=1.0"></script>
+    <script defer src="src/ui/CampaignUI.js?v=1.0"></script>
+    <script defer src="src/core/BundleLoader.js?v=core1"></script>
+    <script defer src="src/core/CoreStability.js?v=core1"></script>
+    <script defer src="src/graphics/PerfOverlay.js?v=core1"></script>
+    <script defer src="src/ui/UIPolish.js?v=polish1"></script>
+    <script defer src="src/ui/UISounds.js?v=polish1"></script>
+    <script defer src="src/graphics/HitboxDebug.js?v=polish1"></script>
     <script defer src="src/main.js?v=mega1"></script>
 </head>
 <body>
@@ -262,7 +282,7 @@
                     <button class="mode-card mode-card-z" id="btn-menu-zombies" data-tip-title="Zombies" data-tip="Survive endless rounds of 70 unique zombies, 10 bosses & 5 colossal Super Bosses. Buy doors, drink perks, spin the Mystery Box and Pack-a-Punch your guns.">
                         <span class="mode-card-ico">🧟</span>
                         <span class="mode-card-text">
-                            <b>ZOMBIES <span class="mode-card-badge">alpha demo</span></b>
+                            <b>ZOMBIES <span class="mode-card-badge">co-op • 70 foes</span></b>
                             <small>Round-based survival • 70 enemies • 15 bosses &amp; Super Bosses • Pack-a-Punch</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -270,7 +290,7 @@
                     <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Play 11 arena formats, including Infection, Search and Destroy, Hardcore and King of the Hill Bounty.">
                         <span class="mode-card-ico">🎯</span>
                         <span class="mode-card-text">
-                            <b>MULTIPLAYER <span class="mode-card-badge">alpha demo</span></b>
+                            <b>MULTIPLAYER <span class="mode-card-badge">arena • 11 modes</span></b>
                             <small>11 formats • 6 arenas • custom rules &amp; killcam</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -278,7 +298,7 @@
                     <button class="mode-card mode-card-survival" id="btn-menu-survival" data-tip-title="Exclusion Zone Survival" data-tip="Open-world survival: gather and build your first shelter before dark, then grow a base with rooms, farms and livestock, raid sites for loot, level Survivor Skills, fill the Field Catalogue and hunt seven bosses.">
                         <span class="mode-card-ico" aria-hidden="true">◈</span>
                         <span class="mode-card-text">
-                            <b>SURVIVAL <span class="mode-card-badge">Tech Demo / Proof of Concept</span></b>
+                            <b>SURVIVAL <span class="mode-card-badge">open zone • story</span></b>
                             <small>Open-world Zone • build, farm, raid &amp; hunt seven bosses</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -286,7 +306,7 @@
                     <button class="mode-card mode-card-rpg" id="btn-menu-rpg" data-tip-title="Rogue Lite" data-tip="Choose a class, chain elemental combos, and extract to bank your loot. Push deeper for better rewards or head back to the Haven to upgrade your gear and talents.">
                         <span class="mode-card-ico" aria-hidden="true">✦</span>
                         <span class="mode-card-text">
-                            <b>ROGUE LITE <span class="mode-card-badge">new • solo</span></b>
+                            <b>ROGUE LITE <span class="mode-card-badge">co-op • deep vaults</span></b>
                             <small>15 operatives • 8 door types • 300+ unlockables • delve, extract or lose it all</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -294,15 +314,15 @@
                     <button class="mode-card mode-card-owrpg" id="btn-menu-owrpg" data-tip-title="Open World RPG" data-tip="Operation Meridian: a 640 m open world with six regions, four rival factions, attribute and perk builds, branching dialogue with skill checks, multi-path quests, stealth and elemental combos. Three save slots.">
                         <span class="mode-card-ico" aria-hidden="true">&#9678;</span>
                         <span class="mode-card-text">
-                            <b>OPEN WORLD RPG <span class="mode-card-badge">new &bull; solo &bull; early access</span></b>
-                            <small>6 regions &bull; 4 factions &bull; branching quests &bull; stealth &amp; skill checks</small>
+                            <b>OPEN WORLD RPG <span class="mode-card-badge">act I–VI • ng+</span></b>
+                            <small>6+ regions &bull; 3 companions &bull; branching quests &bull; stealth &amp; skill checks</small>
                         </span>
                         <span class="mode-card-go">PLAY &rarr;</span>
                     </button>
                     <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
                         <span class="mode-card-ico">🏰</span>
                         <span class="mode-card-text">
-                            <b>TOWER DEFENSE <span class="mode-card-badge">alpha demo</span></b>
+                            <b>TOWER DEFENSE <span class="mode-card-badge">co-op • 3 castles</span></b>
                             <small>3 castles • sniper towers • shopkeeper • turrets &amp; deployables</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
@@ -310,10 +330,10 @@
                     <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Choose from 22 Fun &amp; Specials modes, 16 Target &amp; Action courses, nine Speed Runs, 15 Arcade Hall games and Boss Rush. Open a challenge guide for rules, controls and tips.">
                         <span class="mode-card-ico">🎪</span>
                         <span class="mode-card-text">
-                            <b>MINIGAMES</b>
+                            <b>MINIGAMES <span class="mode-card-badge">daily • versus</span></b>
                             <small>Fun &amp; Specials (22) • Target (16) • Speed Runs (9) • Arcade Hall (15) • Boss Rush</small>
                         </span>
-                        <span class="mg-new-badge">NEW</span>
+                        <span class="mg-new-badge">63</span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
                 </div>
@@ -646,7 +666,7 @@
         <div class="modal-box ul-modal-box" role="dialog" aria-modal="true" aria-labelledby="ul-modal-title">
             <header class="ul-head">
                 <div>
-                    <div class="ul-head-kicker">DEVELOPMENT TIMELINE • NOV 22 – NOV 26, 2026 (ET)</div>
+                    <div class="ul-head-kicker">DEVELOPMENT TIMELINE • NOV 22 – NOV 27, 2026 (ET)</div>
                     <h2 id="ul-modal-title">BLACKOUT OPS — UPDATE LOG</h2>
                 </div>
                 <div class="ul-head-actions">
@@ -700,7 +720,7 @@
                     <h2 style="margin:0;letter-spacing:1.5px;color:#c084fc;">MYSTERY BOX SELECTOR</h2>
                     <div style="font-size:11.5px;color:var(--text-dim);">Equip any Firearm, Melee, or Wonder Weapon immediately</div>
                 </div>
-                <button class="btn btn-sm" id="btn-box-picker-close">✕</button>
+                <button class="btn btn-sm" id="btn-box-picker-close" aria-label="Close Mystery Box Selector">✕</button>
             </div>
             <div id="box-picker-tabs" class="modal-tab-bar" style="margin-bottom:8px;padding-bottom:6px;"></div>
             <div id="box-picker-body" style="flex:1;overflow-y:auto;"></div>
@@ -729,7 +749,7 @@
                     <h2 style="margin:0;letter-spacing:1.5px;color:#38bdf8;">SWITCH LOADOUT</h2>
                     <div style="font-size:11.5px;color:var(--text-dim);">Applies on next respawn</div>
                 </div>
-                <button class="btn btn-sm" id="btn-mp-class-close">✕</button>
+                <button class="btn btn-sm" id="btn-mp-class-close" aria-label="Close Switch Loadout">✕</button>
             </div>
             <div id="mp-class-list" class="card-grid" style="flex:1;overflow-y:auto;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;"></div>
         </div>
@@ -746,7 +766,7 @@
                 <div style="display:flex;gap:6px;align-items:center;">
                     <span id="td-shop-gold" style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fde047;padding:4px 9px;border-radius:6px;border:1px solid var(--amber);background:rgba(245,166,35,0.12);">GOLD: 650</span>
                     <button class="btn btn-sm btn-primary" id="btn-td-skip-wait">START WAVE [N]</button>
-                    <button class="btn btn-sm" id="btn-td-shop-close">✕</button>
+                    <button class="btn btn-sm" id="btn-td-shop-close" aria-label="Close Quartermaster Shop">✕</button>
                 </div>
             </div>
             <div id="td-shop-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
@@ -775,7 +795,7 @@
                     <h2 style="margin:0;letter-spacing:1.5px;color:#fde047;">🎖 ARMORY DROP CRATE</h2>
                     <div id="td-cc-sub" style="font-size:11.5px;color:var(--text-dim);">Equip any custom class immediately</div>
                 </div>
-                <button class="btn btn-sm" id="btn-td-cc-close">✕</button>
+                <button class="btn btn-sm" id="btn-td-cc-close" aria-label="Close Armory Drop Crate">✕</button>
             </div>
             <div id="td-cc-list" class="card-grid" style="flex:1;overflow-y:auto;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;"></div>
         </div>
@@ -803,7 +823,7 @@
                     <h2 id="td-lift-title" style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🚀 TOWER SKY-LIFT</h2>
                     <div style="font-size:11.5px;color:var(--text-dim);">Choose a deck to zip-launch</div>
                 </div>
-                <button class="btn btn-sm" id="btn-td-lift-close">✕</button>
+                <button class="btn btn-sm" id="btn-td-lift-close" aria-label="Close Tower Sky-Lift">✕</button>
             </div>
             <div id="td-lift-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;"></div>
         </div>

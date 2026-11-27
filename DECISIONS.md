@@ -42,3 +42,39 @@ Decisions that look odd out of context. Read before refactoring.
 ## ADR-010 — Distance culling for NPCs and props
 **Decision:** Named NPCs hide beyond 110 m and props beyond 100 m; landmark struts are one `InstancedMesh`.
 **Consequence:** ~160 draw calls in the open, ~180 in town (target 180).
+
+## ADR-011 — Dev-only mode concatenation & lazy `BundleLoader`
+**Decision:** Keep unbundled `index.html` as the canonical source of truth (ADR-002). Provide a Python stdlib script (`tools/bundle.py`) that emits concatenated IIFE bundles (`vendor`, `core`, `survival`, `rpg`, `owrpg`, `minigames`) into `dist/bundles/` plus `index.bundled.html`, using `BO.BundleLoader` capture-phase menu hooks and `startMatch` guards to lazy-load non-core modes via dynamic `<script>`.
+**Consequence:** Initial boot shrinks from 212 script requests (2,223 KB gz) to 2 requests (859.7 KB gz) with zero runtime bundler dependencies and 100% compatibility with `file://` and GitHub Pages. `WorldCore.js` and `SpatialHash.js` remain in `core` because `WorldBuilder.js` and `OWRPGWorldData.js` depend on them outside Survival.
+
+## ADR-012 — Graphics Quality Presets, Scene Shadow Budget & `PerfOverlay`
+**Decision:** Define four explicit presets (`low`, `medium`, `high`, `ultra`) in `Settings.js` with first-launch GPU/memory heuristic detection (`detectQualityPreset`), enforce `maxShadowCasters` and `camera.far` via `BO.SceneCleanup.applySceneQualityBudgets`, and report true cumulative frame draw calls in `BO.PerfOverlay` using `renderer.info.autoReset = false` and explicit per-frame reset/sample around `World` + `Viewmodel` + `PostFX`.
+**Consequence:** Prevents shadow-pass draw-call explosion on prop-heavy maps (`MP Nuketown` dropped from 3,120 to 1,336 draw calls on Medium) while keeping hardware-specific visual fidelity configurable.
+
+## ADR-013 — Survival `SpatialHash` & Simulation Tier Throttling
+**Decision:** Replace per-frame linear scans across Exclusion Zone's 1,000+ markers and entities with `BO.SpatialHash` (`12 m` cell), dirty-flagged `_targetsDirty` pooling in `SurvivalMode`, `48 m` `NodeBatch` cells, 2 Hz landmark scans, and 10 Hz subsystem ticks mirroring ADR-005.
+**Consequence:** Eliminates GC churn and O(N) marker scan bottlenecks while maintaining full 60+ FPS responsiveness during open-world play and hordes.
+
+## ADR-014 — Atomic `SaveSystem` v2 with Rotating Backups
+**Decision:** Bump save schema to `version: 2` with explicit forward `MIGRATIONS` (`0 -> 1 -> 2`), stage writes through a temporary verification key (`_tmp`) before swapping primary storage, rotate 3 backup keys (`_bak0.._bak2`), auto-recover corrupt primary saves with a visible toast, detect quota/private-mode degradation, and enforce slice ownership via `assertSliceOwner`.
+**Consequence:** Player progression survives interrupted writes or malformed edits cleanly, and users can export/import full JSON backups from Settings › Save.
+
+## ADR-015 — Netcode Validation, Jitter Buffering & Resilience
+**Decision:** Place packet schema/bounds checks, per-peer rate limiting, `JitterBuffer` (`80 ms` interp / `150 ms` extrap cap), `DeltaCodec`, `LagHistory`, and a deterministic `MockNetChannel` into `src/net/NetValidation.js` ahead of `NetworkManager.js`. Add a 10 s signaling timeout and 3-attempt exponential-backoff reconnect handler.
+**Consequence:** Malformed or flooded packets cannot corrupt simulation state, remote avatars smooth over WebRTC jitter without per-frame vector allocations, and offline 2-peer regression tests run deterministically in `_qa_runner.html`.
+
+## ADR-016 — Unified Automated QA Suite (`_qa_runner.html`)
+**Decision:** Keep `_qa_runner.html` (general engine, Survival, Zombies, MP, TD, RPG, Minigames, save, net, dt-invariance, hitboxes) alongside `_qa_owrpg.html` (OWRPG world/quests/validator), preserving all user localStorage state across test runs.
+**Consequence:** Both suites run end-to-end in Chromium against `index.html` and reach 100% pass (`24/24` and `120/120`) without mutating real saves.
+
+## ADR-017 — Online Co-op Scope for 1.0 (`CoopExtensions.js`)
+**Decision:** Support WebRTC P2P + `BroadcastChannel` co-op/multiplayer in 1.0 for **Zombies** (up to 8p), **Tower Defense** (up to 8p), **Multiplayer** (co-op vs bots & PvP), **Rogue Lite** (2–4p host-synced delves, floor/seed replication, gate voting & peer hit relay), and **Minigames** (Same-Room Versus live HUD leaderboard & room-seeded finish boards). Explicitly defer **Survival** and **Open World RPG** co-op post-1.0.
+**Consequence:** All arcade & delve modes share instant room invites over `PeerJS`/`BroadcastChannel` cleanly within the zero-server budget, while large persistent chunk/NPC/quest-graph world sync in Survival & OWRPG stays out of 1.0 scope without destabilizing single-player saves.
+
+## ADR-018 — Unified v3 Player Profile & Cross-Mode Event Bus (`ProfileSystem.js`)
+**Decision:** Consolidate cross-mode identity (Account Level 1–100, Calling Cards, Emblems, Titles, Offline Seeded 3 Daily / 5 Weekly Challenges, Unified 70-Weapon Armory, and Last-Played Continue Banner) in a dedicated `BO.Save.data.profile` slice (`CURRENT_VERSION = 3`) guarded via `assertSliceOwner('profile', 'ProfileSystem')` and fed purely by event-bus listeners (`game:modeStart`, `match:ended`, `owrpg:quest`, `game:survivalEnding`, `game:minigameDaily`).
+**Consequence:** Every mode advances account rank and cosmetic identity cleanly without writing directly into any other mode's private save slice.
+
+## ADR-019 — Operation Blackout Capstone Architecture (`CampaignData.js` / `CampaignManager.js`)
+**Decision:** Implement **Operation Blackout** as a 10-mission sequential cross-mode campaign driving the 7 existing game modes rather than building a bespoke single-use campaign engine, persisting campaign progress inside `BO.Save.data.profile.campaign`.
+**Consequence:** New and returning players experience a structured 10-mission progression arc across Minigames, Multiplayer, Zombies, Tower Defense, Survival, Rogue Lite, and Open World RPG while reusing ~95% of tested gameplay systems.

@@ -545,8 +545,8 @@
                     );
                     shield.position.set(-0.08, -0.34, 0.24);
                     shield.rotation.x = 1.25;
-                    const viewport = new THREE.Mesh(this._geo('shield_vp', () => new THREE.BoxGeometry(0.38, 0.14, 0.095)),
-                        this._mat('shield_vp_m', () => new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 })));
+                    const viewport = this._tagHitbox(new THREE.Mesh(this._geo('shield_vp', () => new THREE.BoxGeometry(0.38, 0.14, 0.095)),
+                        this._mat('shield_vp_m', () => new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 }))), entity, 'shield');
                     viewport.position.set(-0.08, -0.14, 0.32);
                     viewport.rotation.x = 1.25;
                     armL.add(shield, viewport);
@@ -1076,8 +1076,11 @@
             return { root, sign };
         }
 
-        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0) {
+        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0, hitZone = 'torso') {
             const amp = BO.Math.clamp(speed / 4.0, 0, 1) * 0.68;
+            const headKick = hitZone === 'head' ? 1.45 : 0.7;
+            const bodyHunch = hitZone === 'head' ? 0.35 : (hitZone === 'limb' ? 0.45 : 1.0);
+            const limbTwist = hitZone === 'limb' ? 1.0 : 0.0;
 
             if (parts.isQuadruped) {
                 // Authentic 4-legged gallop gait + spine rock + head stabilize + tail lash + jaw snap
@@ -1120,14 +1123,15 @@
                 const walkBob = moving ? Math.abs(Math.sin(phase)) * 0.05 : 0;
                 const breathBob = Math.sin(phase * 0.6) * 0.012;
                 parts.bodyPivot.position.y = baseY + walkBob + breathBob;
-                parts.bodyPivot.rotation.x = (parts.bodyPivot.userData.baseRotX || 0) + flinch * -0.25 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.28 : 0);
+                parts.bodyPivot.rotation.x = (parts.bodyPivot.userData.baseRotX || 0) + flinch * -0.25 * bodyHunch + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.28 : 0);
                 // Expressive undead shambling lateral sway (soft idle sway even when standing)
-                parts.bodyPivot.rotation.z = Math.sin(phase * 0.5) * (moving ? 0.08 : 0.025);
+                parts.bodyPivot.rotation.z = Math.sin(phase * 0.5) * (moving ? 0.08 : 0.025) + flinch * limbTwist * 0.22;
+                parts.bodyPivot.rotation.y = flinch * limbTwist * 0.14;
             }
             if (parts.headGroup) {
-                parts.headGroup.rotation.z = Math.sin(phase * 0.5 + 0.8) * 0.10;
+                parts.headGroup.rotation.z = Math.sin(phase * 0.5 + 0.8) * 0.10 + flinch * limbTwist * 0.08;
                 parts.headGroup.rotation.y = Math.sin(phase * 0.35) * 0.12;
-                parts.headGroup.rotation.x = flinch * -0.35;
+                parts.headGroup.rotation.x = flinch * -0.35 * headKick;
             }
             if (parts.jaws && parts.jaws.length) {
                 const jawOpen = 0.16 + Math.abs(Math.sin(phase * 0.9)) * 0.16 + (attackSwing > 0 ? Math.sin(attackSwing * Math.PI) * 0.42 : 0);

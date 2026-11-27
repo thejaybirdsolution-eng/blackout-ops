@@ -256,6 +256,20 @@
             const title = A.sign('BEAT DROP', 6.4, 1.25, { bg: '#0b0216', color: '#f0abfc', borderColor: '#22d3ee', glow: '#f0abfc', size: 0.62 });
             title.position.set(0, 12.45, -17.65);
             S.add(title);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-space.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/column.glb', [
+                    { pos: [-17.5, 0, -16.5], scale: 2.6 }, { pos: [17.5, 0, -16.5], scale: 2.6 },
+                    { pos: [-19.5, 0, -8.5], scale: 2.4 }, { pos: [19.5, 0, -8.5], scale: 2.4 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/trophy.glb', [
+                    { pos: [-1.72, 1.04, -1.0], scale: 0.55 }, { pos: [1.72, 1.04, -1.0], scale: 0.55 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', [
+                    { pos: [-20, 0, -3.5], rot: Math.PI / 2, scale: 1.85 },
+                    { pos: [20, 0, -3.5], rot: -Math.PI / 2, scale: 1.85 }
+                ]);
+            }
 
             // Stage animation driven by the song clock
             S.animate((dt) => {
@@ -596,6 +610,14 @@
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/target-small.glb', [
                 { pos: [-14, 0, -10], scale: 1.6 }, { pos: [14, 0, -20], scale: 1.6 }
             ]);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-2.8, 0, -0.5], rot: 0.35, scale: 1.55 });
+                BO.Assets.placeGLB(S.scene, 'weapons/barrett-m82_optimized.glb', { pos: [1.15, 1.15, -0.74], rot: [0, -0.3, 0], fitSize: [1.05, 0.3, 0.22] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', { pos: [-17, 0, -6], rot: 0.6, scale: 1.85 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/building-e.glb', { pos: [24, 0, -24], rot: -Math.PI / 2, scale: 4.0 });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/shipping-container-c.glb', { pos: [-22, 0, -26], rot: 0.35, scale: 2.2 });
+            }
             const gM = std(0x334155, 0.5, 0.7);
             for (const gx of [-8.5, 8.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.26, 5.8, 0.26), gM); p.position.set(gx, 2.9, -12); S.add(p); }
             const gTop = new THREE.Mesh(new THREE.BoxGeometry(17.6, 0.32, 0.32), gM); gTop.position.set(0, 5.7, -12); S.add(gTop);
@@ -663,6 +685,10 @@
                         onKill: () => {
                             SFX.ding(1 + (i % 4) * 0.08);
                             if (BO.MinigameAudio) BO.MinigameAudio.steelPing(isGold ? 1.4 : 1.0 + (i % 4) * 0.06);
+                            if (BO.Assets && BO.Assets.playClip) {
+                                BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: isGold ? 0.45 : 0.34, rateJitter: 0.05 });
+                                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.28, rateJitter: 0.05 });
+                            }
                         }
                     }));
                 });
@@ -788,11 +814,13 @@
         duration: 60, stars: [3500, 7000, 11000, 15500], standardWeapon: 'python_magnum', rail: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xe7b98a, fogDensity: 0.0042, sunColor: 0xffc58a, sunIntensity: 1.8, sunPos: [-80, 30, -40], hemiSky: 0xfed7aa, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -1.2, -525, 520, 1, 1300, 'desert_sand')],
             spawn: { x: TRAIL_PTS[0].x, y: TRAIL_PTS[0].y, z: TRAIL_PTS[0].z, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('western');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             const R = K.rail(TRAIL_PTS, false, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
@@ -862,6 +890,52 @@
             if (townLanterns.length) {
                 const tl = A.bulbs(townLanterns, [0xfbbf24, 0xf59e0b, 0xfde68a], 0.22);
                 S.add(tl); A.animateBulbs(S, tl, 4, 'chase');
+            }
+            // 3D Frontier Landmarks across all 5 Biomes + Stagecoach Bounty Chests!
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const passRocks = [], campTents = [], townStalls = [], townBarrels = [];
+                for (let i = 0; i < 12; i++) {
+                    const f = railFrame(R, (i / 12) * R.len * 0.20);
+                    const p = f.p.clone().addScaledVector(f.side, (i % 2 ? 1 : -1) * 11);
+                    passRocks.push({ pos: [p.x, p.y, p.z], rot: i, scale: 3.2 });
+                }
+                for (let i = 0; i < 6; i++) {
+                    const f = railFrame(R, R.len * (0.23 + i * 0.03));
+                    const p = f.p.clone().addScaledVector(f.side, (i % 2 ? 1 : -1) * 10);
+                    campTents.push({ pos: [p.x, p.y, p.z], rot: f.yaw, scale: 2.2 });
+                }
+                for (let i = 0; i < 8; i++) {
+                    const f = railFrame(R, R.len * (0.61 + i * 0.025));
+                    const sd = i % 2 ? 1 : -1;
+                    const p = f.p.clone().addScaledVector(f.side, sd * 7.6);
+                    townStalls.push({ pos: [p.x, p.y, p.z], rot: f.yaw + (sd > 0 ? -Math.PI / 2 : Math.PI / 2), scale: 1.7 });
+                    townBarrels.push({ pos: [p.x + f.t.x * 2.2, p.y, p.z + f.t.z * 2.2], scale: 1.4 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/rocks-large.glb', passRocks);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/tent.glb', campTents);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', townStalls);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', townBarrels);
+                const wellF = railFrame(R, R.len * 0.68);
+                const wellP = wellF.p.clone().addScaledVector(wellF.side, -7.8);
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', { pos: [wellP.x, wellP.y, wellP.z], scale: 1.65 });
+            }
+            for (let ci = 0; ci < 6; ci++) {
+                const cf = railFrame(R, R.len * (0.16 + ci * 0.14));
+                const cp = cf.p.clone().addScaledVector(cf.side, (ci % 2 ? 1 : -1) * 6.2);
+                const cg = new THREE.Group();
+                const fb = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.85), std(0xfacc15, 0.25, 0.85));
+                fb.position.y = 0.45;
+                cg.add(fb);
+                if (BO.Assets && BO.Assets.placeGLB) BO.Assets.placeGLB(cg, 'mini_dungeon_kit/chest.glb', { fitSize: [1.3, 1.1, 1.0], hideFallback: fb });
+                const ctg = S.addTarget({
+                    mesh: cg, hitMeshes: [fb], pos: cp, yaw: cf.yaw, points: 350, bonus: true, life: 0,
+                    appear: 'none', inT: 0.01, death: 'burst', deathColor: 0xfacc15,
+                    onKill: () => {
+                        SFX.fanfare();
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.48, rateJitter: 0.05 });
+                        S.award(180, ctg.root.position.clone().add(V(0, 1.2, 0)), 'STAGECOACH GOLD!', '#fde047');
+                    }
+                });
             }
             // 5. Busy Road & Traffic (78..100%) -> Moving wagons & vintage motorcars
             for (let i = 0; i < 14; i++) {
@@ -1036,6 +1110,7 @@
             onKill: (t) => {
                 SFX.thunk();
                 SFX.tone(420, 120, 0.25, 'sawtooth', 0.06);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.34, rateJitter: 0.06 });
                 // rider tumbles off, horse bolts away
                 const rider = fig.rider.root;
                 S.scene.attach(rider);

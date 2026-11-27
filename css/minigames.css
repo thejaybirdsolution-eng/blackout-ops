@@ -14,11 +14,11 @@
 @keyframes mgNewPulse { 50% { filter: brightness(1.35); transform: scale(1.06); } }
 
 /* ---------- hub screen ---------- */
-#screen-minigames { gap: 12px; }
-#screen-minigames .brand-title { background: linear-gradient(90deg, #fde68a, #f472b6 55%, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent !important; }
+#screen-minigames { gap: var(--sp-3, 12px); }
+#screen-minigames .brand-title { color: var(--aaa-text, #eef1f4); }
 #mgh-body {
     flex: 1; min-height: 0;
-    display: grid; grid-template-columns: 290px minmax(0, 1fr) 380px; gap: 14px;
+    display: grid; grid-template-columns: 290px minmax(0, 1fr) 380px; gap: var(--sp-3, 14px);
 }
 .mgh-cats, .mgh-list, .mgh-detail {
     background: linear-gradient(180deg, rgba(12, 18, 30, 0.92), rgba(8, 12, 20, 0.9));
@@ -26,6 +26,7 @@
     padding: 14px; min-height: 0; overflow-y: auto;
 }
 .mgh-cats { display: flex; flex-direction: column; gap: 10px; }
+.mgh-cats > *, .mgh-detail > * { flex-shrink: 0; }
 .mgh-cat {
     --mc: #f59e0b;
     display: grid; grid-template-columns: 46px 1fr auto; gap: 10px; align-items: center;
@@ -184,8 +185,8 @@
     font: 800 10px var(--font-mono); color: #0b0b0b; background: #e2e8f0; border-bottom: 2px solid #94a3b8; text-align: center;
 }
 .mgh-play {
-    position: sticky; bottom: 0; z-index: 2; flex-shrink: 0;
-    margin-top: auto; padding: 16px; border-radius: 10px; cursor: pointer; border: 0;
+    flex-shrink: 0;
+    margin-top: 6px; padding: 14px 16px; border-radius: 10px; cursor: pointer; border: 0;
     font: 900 16px var(--font-ui); letter-spacing: 2px; color: #0b0b0b;
     background: linear-gradient(90deg, var(--mc), color-mix(in srgb, var(--mc) 60%, #fde68a));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 10px 26px color-mix(in srgb, var(--mc) 45%, transparent);
@@ -200,8 +201,11 @@
     transition: transform .12s ease, background .15s ease;
 }
 .mgh-example:hover { transform: translateY(-2px); background: rgba(14, 116, 144, 0.85); color: #fff; }
-@media (max-width: 1280px) { #mgh-body { grid-template-columns: 240px minmax(0, 1fr) 330px; } }
-@media (max-width: 1020px) { #mgh-body { grid-template-columns: 1fr; overflow-y: auto; } }
+@media (max-width: 1200px) { #mgh-body { grid-template-columns: 220px minmax(0, 1fr) 310px; } }
+@media (max-width: 900px) {
+    #mgh-body { grid-template-columns: 1fr; overflow-y: auto; }
+    .mgh-cats, .mgh-list, .mgh-detail { min-height: 220px; }
+}
 
 /* ---------- in-game HUD ---------- */
 .mg-hud { position: fixed; inset: 0; pointer-events: none; z-index: 30; font-family: var(--font-ui); --mg-accent: #f59e0b; }

@@ -103,7 +103,9 @@
                     wBuilt.root.position.set(0, -0.42, 0.28);
                     wBuilt.root.rotation.set(0.15, Math.PI, 0);
                     this.parts.rightArmPivot.add(wBuilt.root);
-                } catch (e) {}
+                } catch (e) {
+                    BO.log?.('ZombieEntity', 'debug', 'Weapon mesh build skipped for gunner zombie', e);
+                }
             }
             if (this.isMagical) {
                 const aura = new THREE.Mesh(
@@ -126,9 +128,10 @@
         }
 
         getHitboxMeshes() {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
             });
             return list;
         }
@@ -170,6 +173,7 @@
             }
 
             this.hp -= Math.max(1, dmg);
+            this.lastHitZone = hitbox || 'torso';
             this.flinchTimer = this.isSuperBoss ? 0.03 : (this.isBoss ? 0.06 : 0.16);
 
             if (this.isSuperBoss && !this.superEnraged && this.hp > 0 && this.hp <= this.maxHp * 0.50) {
@@ -229,7 +233,10 @@
             if (!this.alive) {
                 this.deathTimer -= dt;
                 const fall = BO.Math.clamp(1 - this.deathTimer / (this.isBoss ? 2.6 : 1.5), 0, 1);
-                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, Math.min(1, fall * 4));
+                const easeFall = Math.sin(Math.min(1, fall * 3.4) * Math.PI * 0.5);
+                if (!this.deathSide) this.deathSide = Math.random() < 0.5 ? -1 : 1;
+                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, easeFall);
+                this.parts.root.rotation.z = easeFall * this.deathSide * 0.14;
                 this.parts.root.position.y = this.pos.y - Math.max(0, fall - 0.65) * 1.2;
                 return this.deathTimer > 0;
             }
@@ -538,8 +545,13 @@
                     if (gait && directLOS && !forceDirect) {
                         const dx = (tx - this.pos.x) / Math.max(0.1, distToTarget);
                         const dz = (tz - this.pos.z) / Math.max(0.1, distToTarget);
-                        const neighbors = this.movementHabit === 'crowd_edge'
-                            ? allZombies.filter((z) => z !== this && z.alive && z.pos.distanceToSquared(this.pos) < 16).length : 0;
+                        let neighbors = 0;
+                        if (this.movementHabit === 'crowd_edge') {
+                            for (let zi = 0; zi < allZombies.length; zi++) {
+                                const oz = allZombies[zi];
+                                if (oz !== this && oz.alive && oz.pos.distanceToSquared(this.pos) < 16) neighbors++;
+                            }
+                        }
                         const [forward, side, speed] = gait(this.gaitClock, distToTarget, this.id % 2 ? 1 : -1, neighbors, this.flinchTimer > 0);
                         goalX += dx * forward - dz * side;
                         goalZ += dz * forward + dx * side;
@@ -562,17 +574,17 @@
                         const moved = BO.Math.dist2D(this.pos.x, this.pos.z, this._lastCheckX, this._lastCheckZ);
                         this._lastCheckX = this.pos.x;
                         this._lastCheckZ = this.pos.z;
-                        if (moved < 0.30 && curSpeed > 0.5) {
+                        if (moved < 0.28 && curSpeed > 0.5) {
                             this._stuckAccum += 0.45;
                             this._sidestepTimer = 0.90;
                             if (this._stuckAccum >= 0.90) this._sidestepSign *= -1;
                             if (this.pos.y <= floorY + 0.16) this.vel.y = 7.4; // Vault low crates/sandbags!
-                            if (this._stuckAccum >= 1.8) {
+                            if (this._stuckAccum >= 1.35) {
                                 // Unstick nudge around obstacle & recalculate path
                                 const ndx = tx - this.pos.x, ndz = tz - this.pos.z;
                                 const nd = Math.max(0.1, Math.hypot(ndx, ndz));
-                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.15 + (ndx / nd) * 0.45;
-                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.15 + (ndz / nd) * 0.45;
+                                this.pos.x += (-ndz / nd) * this._sidestepSign * 1.25 + (ndx / nd) * 0.48;
+                                this.pos.z += (ndx / nd) * this._sidestepSign * 1.25 + (ndz / nd) * 0.48;
                                 this.pathTimer = 0;
                                 this.path = [];
                                 this._stuckAccum = 0.45;
@@ -592,7 +604,8 @@
             const hoverOffset = this.movementHabit === 'hover_drift' ? Math.sin(this.habitPhase) * 0.16 : 0;
             this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
             this.parts.root.rotation.y = this.yaw;
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, this.flinchTimer > 0 ? 1 : 0);
+            const flinchAmt = this.flinchTimer > 0 ? BO.Math.clamp(this.flinchTimer / 0.16, 0, 1) : 0;
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso');
 
             return true;
         }

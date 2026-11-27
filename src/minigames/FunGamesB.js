@@ -140,6 +140,19 @@
             }
             S.box(0, 8.6, -41, 38.5, 0.55, 0.6, steelM);
             for (let x = -16; x <= 16; x += 4) S.box(x, 8.22, -40.8, 1.6, 0.16, 0.24, basic(0x98e6ed));
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-26, 0, -32], fitSize: [7.5, 13.5, 7.5] });
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [26, 0, -32], fitSize: [7.5, 13.5, 7.5] });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [0, 8.9, -41], fitSize: [2.2, 2.8, 2.2] });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/shipping-container-b.glb', [
+                    { pos: [-21, 0, -18], rot: 0.2, scale: 2.3 }, { pos: [21, 0, -18], rot: -0.2, scale: 2.3 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/banner.glb', [
+                    { pos: [-19, 5.2, -40.5], scale: 2.2 }, { pos: [19, 5.2, -40.5], scale: 2.2 }
+                ]);
+            }
             const route = new THREE.BufferGeometry();
             route.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(97 * 3), 3));
             S.data.route = new THREE.Line(route, new THREE.LineBasicMaterial({ color: 0x69d8e5 }));
@@ -479,6 +492,10 @@
             D.kills++; if (!D.isSandbox) D.round++; S.kills++; S.bumpCombo();
             S.award((1200 + bonus + (snap <= 0.20 ? 300 : 0)) * S.comboMult, info.pt, banner, '#facc15');
             SFX.star(3); BO.FX.spawnExplosion(info.pt, 3.6, 0xfacc15);
+            if (BO.Assets && BO.Assets.playClip) {
+                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.46, rateJitter: 0.03 });
+                BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.04 });
+            }
             D.killcamT = 1.85;
             MG.toast('🎬 ' + banner + '!', '#facc15');
             return true;
@@ -540,7 +557,10 @@
     const mTone = (freq, dur, wave = 'square', vol = 0.08, delay = 0) => {
         if (freq) SFX.tone(freq, freq, dur, wave, vol, delay);
     };
-    const mCoinSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioCoin(); else { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); } };
+    const mCoinSfx = () => {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.36, rateJitter: 0.05 });
+        if (BO.MinigameAudio) BO.MinigameAudio.marioCoin(); else { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); }
+    };
     const mPowerSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPowerup(); else [523, 659, 784, 1047, 1319].forEach((f, i) => mTone(f, 0.1, 'square', 0.09, i * 0.055)); };
     const mPipeSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioPipe(); else [620, 480, 340, 220].forEach((f, i) => mTone(f, 0.09, 'square', 0.1, i * 0.07)); };
 
@@ -884,6 +904,19 @@
                 });
                 this._addBox(S, 0, -20.5, -58, 12, 1, 22, new THREE.MeshStandardMaterial({ map: marioTex('ubrick'), roughness: 0.8 }), true);
                 for (let cz = -53; cz >= -64; cz -= 2.2) for (const cx of [-2.4, 0, 2.4]) this._addCoin(S, cx, -18.5, cz);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    const secChest = BO.Assets.placeGLB(S.scene, 'platformer_kit/chest.glb', { pos: [0, -20.0, -64.5], fitSize: [1.5, 1.2, 1.2] });
+                    S.data.stageObjs.push(secChest);
+                }
+                if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                    const mushTr = [], flowTr = [];
+                    for (let mz = -14; mz > -120; mz -= 24) {
+                        mushTr.push({ pos: [-7.4, 0, mz], rot: 0.3, scale: 1.8 });
+                        flowTr.push({ pos: [7.4, 0, mz - 8], rot: -0.3, scale: 1.9 });
+                    }
+                    S.data.stageObjs.push(BO.Assets.placeGLBInstanced(S.scene, 'platformer_kit/mushrooms.glb', mushTr));
+                    S.data.stageObjs.push(BO.Assets.placeGLBInstanced(S.scene, 'platformer_kit/flowers.glb', flowTr));
+                }
                 this._addPipe(S, 0, -20, -66, 1.6, false, () => { mPipeSfx(); S.data.inBonus = false; P.pos.set(0, 0.2, -92); MG.toast('WARPED TO END OF 1-1!', '#4ade80'); });
 
                 this._addBox(S, 0, 2.8, -66, 4.5, 1.2, 1.4, brickM); pushBrickGLB(-1.5, 2.8, -66, 1.25, 1.25, 1.25); pushBrickGLB(0, 2.8, -66, 1.25, 1.25, 1.25); pushBrickGLB(1.5, 2.8, -66, 1.25, 1.25, 1.25); addQ(0, 2.8, -68, 'star');
@@ -1078,6 +1111,17 @@
             for (const [px, pz] of [[-12, -2], [12, -2], [-12, -16], [12, -16]]) {
                 this._addBox(S, px, 2.4, pz, 2.2, 4.8, 2.2, cBrick, true);
                 const fl = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 7), basic(0xfacc15)); fl.position.set(px, 5.3, pz); this._addObj(S, fl);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    S.data.stageObjs.push(BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', { pos: [px, 4.8, pz], fitSize: [1.5, 1.6, 1.5] }));
+                }
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                S.data.stageObjs.push(BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-base.glb', [
+                    { pos: [-18, -1, -24], scale: 3.0 }, { pos: [18, -1, -24], scale: 3.0 }
+                ]));
+                S.data.stageObjs.push(BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-roof.glb', [
+                    { pos: [-18, 4.4, -24], scale: 3.0 }, { pos: [18, 4.4, -24], scale: 3.0 }
+                ]));
             }
 
             // Sculpted Articulated 3D Bowser (Hex-Plated Shell, Flared Spike Collars, Plastron Belly, Articulated Jaw/Limbs/Tail, Form Evolutions)

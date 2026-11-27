@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLACKOUT OPS — Offline COD FPS &amp; Zombies</title>
+    <link rel="stylesheet" href="css/styles.css?h=00fdeee9">
+    <link rel="stylesheet" href="css/expansion.css?h=1a4de1fc">
+    <link rel="stylesheet" href="css/survival.css?h=04ee337c">
+    <link rel="stylesheet" href="css/survival-ui.css?h=be793cf8">
+    <link rel="stylesheet" href="css/modifier-board.css?h=ab5c6c58">
+    <link rel="stylesheet" href="css/zone-thrill.css?h=0feba466">
+    <link rel="stylesheet" href="css/gm.css?h=7439c98d">
+    <link rel="stylesheet" href="css/ui-polish.css?h=4366cd5a">
+    <link rel="stylesheet" href="css/minigames.css?h=7f2f9212">
+    <link rel="stylesheet" href="css/rpg.css?h=5e92c559">
+    <link rel="stylesheet" href="css/vault-visuals.css?h=b99237ee">
+    <link rel="stylesheet" href="css/owrpg.css?h=89bb194a">
+    <link rel="stylesheet" href="css/update-log.css?h=147a1448">
+    <link rel="stylesheet" href="css/profile-hub.css?h=b35bb8bd">
+    <link rel="stylesheet" href="css/aaa-theme.css?h=b74769a6">
+
+    <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
+    <script>
+        window.BO = window.BO || {};
+        window.BO.BUNDLE_MANIFEST = {"version": 1, "bundles": {"rpg": {"path": "dist/bundles/rpg.bundle.js", "hash": "2a4cb2e1c7", "rawBytes": 454918, "gzipBytes": 113233}, "owrpg": {"path": "dist/bundles/owrpg.bundle.js", "hash": "c71df95ac1", "rawBytes": 611772, "gzipBytes": 153767}, "survival": {"path": "dist/bundles/survival.bundle.js", "hash": "41a82243b7", "rawBytes": 1882741, "gzipBytes": 515844}, "minigames": {"path": "dist/bundles/minigames.bundle.js", "hash": "108906ebb8", "rawBytes": 2408535, "gzipBytes": 627123}}};
+    </script>
+    <script defer src="dist/bundles/vendor.bundle.js?h=7fe08f76a2"></script>
+    <script defer src="dist/bundles/core.bundle.js?h=e886175e48"></script>
+</head>
+<body>
+    <canvas id="game-canvas"></canvas>
+
+    <!-- MAIN MENU -->
+    <section id="screen-main-menu" class="ui-screen">
+        <header class="top-bar">
+            <div class="brand-lockup">
+                <span class="brand-tag">ONLINE &amp; OFFLINE CO-OP</span>
+                <div class="brand-title">BLACKOUT OPS</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="rank-pill js-rank-pill" data-tip-title="Your Military Rank" data-tip="Earn XP by getting kills, surviving rounds, and completing challenges. Level up from 1 to 55 to unlock new guns, perks, and Prestige!" data-tip-sub="Higher Prestige gives a permanent +10% XP bonus per tier."></div>
+                <button type="button" class="btn menu-audio" id="btn-menu-music" aria-label="Mute music" aria-pressed="false" title="Mute music">&#9835;</button>
+                <button type="button" class="btn menu-audio" id="btn-menu-sfx" aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">&#128266;</button>
+                <button class="btn btn-sm" id="btn-edit-callsign" data-tip-title="Change Name" data-tip="Pick your own soldier nickname shown on the scoreboard and killfeed.">CALLSIGN</button>
+            </div>
+        </header>
+        <div class="menu-body">
+            <div class="menu-col">
+                <div class="menu-group-label">PLAY</div>
+                <div class="mode-cards">
+                    <button class="mode-card mode-card-z" id="btn-menu-zombies" data-tip-title="Zombies" data-tip="Survive endless rounds of 70 unique zombies, 10 bosses & 5 colossal Super Bosses. Buy doors, drink perks, spin the Mystery Box and Pack-a-Punch your guns.">
+                        <span class="mode-card-ico">🧟</span>
+                        <span class="mode-card-text">
+                            <b>ZOMBIES <span class="mode-card-badge">co-op • 70 foes</span></b>
+                            <small>Round-based survival • 70 enemies • 15 bosses &amp; Super Bosses • Pack-a-Punch</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Play 11 arena formats, including Infection, Search and Destroy, Hardcore and King of the Hill Bounty.">
+                        <span class="mode-card-ico">🎯</span>
+                        <span class="mode-card-text">
+                            <b>MULTIPLAYER <span class="mode-card-badge">arena • 11 modes</span></b>
+                            <small>11 formats • 6 arenas • custom rules &amp; killcam</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-survival" id="btn-menu-survival" data-tip-title="Exclusion Zone Survival" data-tip="Open-world survival: gather and build your first shelter before dark, then grow a base with rooms, farms and livestock, raid sites for loot, level Survivor Skills, fill the Field Catalogue and hunt seven bosses.">
+                        <span class="mode-card-ico" aria-hidden="true">◈</span>
+                        <span class="mode-card-text">
+                            <b>SURVIVAL <span class="mode-card-badge">open zone • story</span></b>
+                            <small>Open-world Zone • build, farm, raid &amp; hunt seven bosses</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-rpg" id="btn-menu-rpg" data-tip-title="Rogue Lite" data-tip="Choose a class, chain elemental combos, and extract to bank your loot. Push deeper for better rewards or head back to the Haven to upgrade your gear and talents.">
+                        <span class="mode-card-ico" aria-hidden="true">✦</span>
+                        <span class="mode-card-text">
+                            <b>ROGUE LITE <span class="mode-card-badge">co-op • deep vaults</span></b>
+                            <small>15 operatives • 8 door types • 300+ unlockables • delve, extract or lose it all</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-owrpg" id="btn-menu-owrpg" data-tip-title="Open World RPG" data-tip="Operation Meridian: a 640 m open world with six regions, four rival factions, attribute and perk builds, branching dialogue with skill checks, multi-path quests, stealth and elemental combos. Three save slots.">
+                        <span class="mode-card-ico" aria-hidden="true">&#9678;</span>
+                        <span class="mode-card-text">
+                            <b>OPEN WORLD RPG <span class="mode-card-badge">act I–VI • ng+</span></b>
+                            <small>6+ regions &bull; 3 companions &bull; branching quests &bull; stealth &amp; skill checks</small>
+                        </span>
+                        <span class="mode-card-go">PLAY &rarr;</span>
+                    </button>
+                    <button class="mode-card mode-card-td" id="btn-menu-td" data-tip-title="Tower Defense" data-tip="Defend a castle against rising waves. Spend gold between waves on weapons, turrets, perks and upgrades.">
+                        <span class="mode-card-ico">🏰</span>
+                        <span class="mode-card-text">
+                            <b>TOWER DEFENSE <span class="mode-card-badge">co-op • 3 castles</span></b>
+                            <small>3 castles • sniper towers • shopkeeper • turrets &amp; deployables</small>
+                        </span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                    <button class="mode-card mode-card-mg" id="btn-menu-minigames" data-tip-title="Minigames" data-tip="Choose from 22 Fun &amp; Specials modes, 16 Target &amp; Action courses, nine Speed Runs, 15 Arcade Hall games and Boss Rush. Open a challenge guide for rules, controls and tips.">
+                        <span class="mode-card-ico">🎪</span>
+                        <span class="mode-card-text">
+                            <b>MINIGAMES <span class="mode-card-badge">daily • versus</span></b>
+                            <small>Fun &amp; Specials (22) • Target (16) • Speed Runs (9) • Arcade Hall (15) • Boss Rush</small>
+                        </span>
+                        <span class="mg-new-badge">63</span>
+                        <span class="mode-card-go">PLAY →</span>
+                    </button>
+                </div>
+                <button class="online-card" id="btn-menu-online" data-tip-title="Play with friends" data-tip="Creates an online room and copies an invite link. Friends who open it join your lobby for any mode.">
+                    <span class="online-dot"></span>
+                    <span><b>PLAY WITH FRIENDS</b><small>Create a lobby and copy an invite link</small></span>
+                    <span class="mode-card-go">INVITE →</span>
+                </button>
+
+                <div class="menu-group-label">LOADOUT &amp; INFO</div>
+                <div class="menu-mini-grid">
+                    <button class="mini-tile" id="btn-menu-gunsmith" data-tip-title="Create a Class" data-tip="Build up to 10 loadouts: weapons, attachments, camo, perks, equipment and powers.">
+                        <span class="mini-ico">🎖</span><b>Create a Class</b><small>Weapons, perks &amp; gear</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-barracks" data-tip-title="Barracks" data-tip="Career stats, prestige, medals, challenges, the enemy bestiary and save backups.">
+                        <span class="mini-ico">📊</span><b>Barracks</b><small>Stats, prestige &amp; bestiary</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-legend" data-tip-title="Game Guide" data-tip="Rules, controls, progression and tips for all six game modes.">
+                        <span class="mini-ico">📖</span><b>Game Guide</b><small>How to play each mode</small>
+                    </button>
+                    <button class="mini-tile" id="btn-menu-settings" data-tip-title="Settings" data-tip="Controls, video, audio, gore, fullscreen, cheat codes and save data.">
+                        <span class="mini-ico">⚙</span><b>Settings</b><small>Controls, video &amp; cheats</small>
+                    </button>
+                    <button class="mini-tile mini-tile-updates" id="btn-menu-updates" data-tip-title="Update Log" data-tip="Browse new modes, features, and fixes.">
+                        <span class="mini-ico">📜</span><b>Update Log</b><small data-ul-meta="tile"></small>
+                    </button>
+                    <button class="mini-tile mini-tile-gold hidden" id="btn-menu-modmenu" data-tip-title="Mod Menu" data-tip="Turn any zombies cheat on or off and pick a starting round.">
+                        <span class="mini-ico">★</span><b>Mod Menu</b><small>Toggle cheats</small>
+                    </button>
+                </div>
+                <div id="menu-round-picker-wrap" class="round-picker-card hidden" data-tip-title="Zombies start round" data-tip="Pick the round to start on when deploying into Zombies.">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <span style="font-size:12px;font-weight:800;letter-spacing:1.2px;color:#fde047;">ZOMBIES START ROUND</span>
+                        <input type="number" id="menu-round-input" min="1" max="999" value="1" style="width:68px;color:#fde047;padding:4px 8px;font-family:var(--font-mono);font-weight:800;">
+                        <button class="btn btn-sm btn-zombies" id="btn-menu-go-round">DEPLOY</button>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-right-col">
+                <aside id="menu-update-preview" class="menu-update-preview" aria-label="Latest Updates">
+                    <div class="ul-prev-header">
+                        <span class="ul-prev-kicker"><span class="ul-prev-dot"></span>PATCH NOTES</span>
+                        <span class="ul-prev-count" data-ul-meta="preview"></span>
+                    </div>
+                    <div id="menu-update-preview-list" class="ul-prev-list"></div>
+                    <button type="button" class="btn btn-sm btn-primary ul-prev-all-btn" id="btn-open-all-updates">VIEW FULL UPDATE LOG →</button>
+                </aside>
+                <div class="menu-showcase-caption">
+                    <div class="showcase-label">ACTIVE CLASS</div>
+                    <div id="menu-showcase-name" class="showcase-name">M4A1 SOPMOD</div>
+                    <div class="showcase-sub">Shown in 3D behind the menu</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MINIGAMES HUB -->
+    <section id="screen-minigames" class="ui-screen hidden">
+        <header class="top-bar">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <button class="btn js-back-menu">← BACK</button>
+                <div class="brand-title" style="font-size:22px;">MINIGAMES</div>
+            </div>
+            <div class="rank-pill js-rank-pill"></div>
+        </header>
+        <div id="mgh-body"></div>
+    </section>
+
+    <!-- PLAY LOBBY -->
+    <section id="screen-lobby" class="ui-screen hidden">
+        <header class="top-bar">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <button class="btn js-back-menu">← BACK</button>
+                <div class="brand-title" style="font-size:22px;">DEPLOYMENT LOBBY</div>
+                <div id="lobby-mode-tabs" style="display:flex;gap:8px;margin-left:12px;"></div>
+            </div>
+            <div class="rank-pill js-rank-pill"></div>
+        </header>
+        <div class="lobby-grid">
+            <div id="lobby-left" class="panel"></div>
+            <div id="lobby-right" class="panel"></div>
+        </div>
+    </section>
+
+    <!-- CREATE A CLASS / 3D GUNSMITH -->
+    <section id="screen-gunsmith" class="ui-screen gunsmith-screen hidden">
+        <header class="top-bar">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <button class="btn js-back-menu">← BACK</button>
+                <div class="brand-title" style="font-size:22px;">CREATE A CLASS</div>
+            </div>
+            <div class="rank-pill js-rank-pill"></div>
+        </header>
+        <div class="cac-layout">
+            <aside id="gs-left-panel" class="panel cac-left"></aside>
+            <div class="gunsmith-center-stage">
+                <div id="gs-viewport-plate" class="gs-viewport-plate"></div>
+                <div id="gs-model-viewport" class="gs-model-viewport" role="group" tabindex="0" aria-label="Weapon preview. Use arrow keys to rotate and plus or minus to zoom."></div>
+                <div id="gs-stats-dock" class="gs-stats-dock"></div>
+                <div class="gunsmith-viewport-controls">
+                    <div class="gunsmith-viewport-hint">DRAG TO ROTATE • SCROLL TO ZOOM</div>
+                    <button class="btn btn-sm" id="gs-reset-orbit" title="Reset 3D camera angle">↺ RESET VIEW</button>
+                </div>
+            </div>
+            <aside id="gs-right-panel" class="panel cac-right"></aside>
+        </div>
+    </section>
+
+    <!-- BARRACKS -->
+    <section id="screen-barracks" class="ui-screen hidden">
+        <header class="top-bar">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <button class="btn js-back-menu">← BACK</button>
+                <div class="brand-title" style="font-size:22px;">BARRACKS &amp; SERVICE RECORD</div>
+            </div>
+            <div class="rank-pill js-rank-pill"></div>
+        </header>
+        <div id="barracks-tabs" style="display:flex;gap:8px;margin-bottom:14px;"></div>
+        <div id="barracks-body" class="panel" style="flex:1;"></div>
+    </section>
+
+    <!-- AFTER ACTION REPORT -->
+    <section id="screen-aar" class="ui-screen hidden" style="justify-content:center;align-items:center;">
+        <div class="modal-box" style="width:min(860px,95vw);">
+            <div style="font-size:12px;letter-spacing:2px;color:var(--text-dim);">AFTER-ACTION REPORT</div>
+            <h1 id="aar-title" style="margin:6px 0 2px;font-size:34px;letter-spacing:3px;">MATCH COMPLETE</h1>
+            <div id="aar-sub" style="color:var(--text-dim);margin-bottom:16px;"></div>
+            <div id="aar-stats" class="card-grid" style="margin-bottom:16px;"></div>
+            <div id="aar-scoreboard" style="max-height:260px;overflow-y:auto;margin-bottom:18px;"></div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button class="btn" id="btn-aar-lobby">MAIN MENU</button>
+                <button class="btn btn-primary" id="btn-aar-replay">DEPLOY AGAIN</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- IN-GAME HUD -->
+    <div id="hud-layer" class="hidden">
+        <div id="damage-vignette"></div>
+        <div id="flash-overlay"></div>
+        <div id="sniper-scope-overlay" class="hidden">
+            <div class="scope-h"></div>
+            <div class="scope-v"></div>
+            <div class="scope-dot"></div>
+            <div id="scope-zoom-readout" style="position:fixed;bottom:22%;left:50%;transform:translateX(-50%);font-family:var(--font-mono);font-size:14px;font-weight:800;color:#38bdf8;background:rgba(5,8,13,0.78);border:1px solid rgba(56,189,248,0.5);padding:4px 12px;border-radius:4px;letter-spacing:1.5px;"></div>
+        </div>
+        <div id="damage-arcs"></div>
+
+        <div id="crosshair">
+            <div class="ch-tick ch-top"></div>
+            <div class="ch-tick ch-bot"></div>
+            <div class="ch-tick ch-left"></div>
+            <div class="ch-tick ch-right"></div>
+            <div class="ch-tick ch-dot"></div>
+        </div>
+        <div id="hitmarker"></div>
+
+        <div class="hud-top-left">
+            <canvas id="minimap-canvas" width="148" height="148"></canvas>
+        </div>
+
+        <div class="hud-top-center">
+            <div id="hud-compass" class="compass-bar">N • 000°</div>
+            <div id="hud-mp-score" class="mp-score-pill hidden"></div>
+            <div id="hud-z-powerups" class="zombies-powerups-row"></div>
+            <div id="hud-td-status" class="td-hud-panel hidden"></div>
+            <div id="hud-enemy-tracker" class="hidden" style="background:rgba(7,10,15,0.82);border:1px solid rgba(248,113,113,0.45);padding:4px 10px;border-radius:4px;font-size:11px;font-family:var(--font-mono);color:#e2e8f0;max-width:740px;text-align:center;line-height:1.35;"></div>
+            <div id="hud-multi-boss" style="display:flex;flex-direction:column;gap:4px;width:min(540px,84vw);"></div>
+            <div id="boss-bar-wrap" class="hidden">
+                <div class="boss-bar-header">
+                    <span id="boss-bar-name" class="boss-bar-name">BOSS</span>
+                    <span id="boss-bar-hp" class="boss-bar-hp-txt">0 / 0</span>
+                </div>
+                <div class="boss-bar-track"><div id="boss-bar-fill" class="boss-bar-fill" style="width:100%"></div></div>
+                <div id="boss-bar-weak" class="boss-bar-weak"></div>
+            </div>
+        </div>
+
+        <div class="hud-top-right">
+            <div id="hud-fps" class="fps-badge">60 FPS</div>
+            <div id="killfeed"></div>
+        </div>
+
+        <div id="hud-medal" class="hidden"></div>
+        <div id="hud-banner" class="hidden">
+            <div class="banner-title"></div>
+            <div class="banner-sub"></div>
+        </div>
+        <div id="hud-toast" class="hidden"></div>
+        <div id="hud-survival" hidden><strong></strong><span></span></div>
+        <div id="hud-prompt" class="hidden"></div>
+        <div id="td-dir-hints" style="position:fixed;inset:0;pointer-events:none;z-index:26;overflow:hidden;"></div>
+        <div id="hud-buster-charge" class="buster-charge-wrap hidden">
+            <div class="buster-charge-label" id="buster-charge-label">MEGA BUSTER CHARGE • 1.0x</div>
+            <div class="buster-charge-track"><div class="buster-charge-fill" id="buster-charge-fill" style="width:0%"></div></div>
+        </div>
+        <div id="killcam-overlay" class="killcam-overlay hidden">
+            <div class="killcam-bar-top">
+                <div class="killcam-badge">★ GAME WINNING KILLCAM ★</div>
+                <div class="killcam-timer" id="killcam-timer">REPLAY 15.0s</div>
+            </div>
+            <div class="killcam-bar-bottom">
+                <div class="killcam-card" id="killcam-card">KILLER → VICTIM • WEAPON</div>
+                <button class="btn btn-sm btn-primary" id="btn-skip-killcam" style="pointer-events:auto;">[SPACE] SKIP KILLCAM</button>
+            </div>
+        </div>
+        <div id="pointer-lock-hint" class="hidden">
+            <div style="font-size:15px;font-weight:800;color:var(--amber);">CLICK VIEWPORT TO LOCK MOUSE AIM</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Press [P] or [ESC] to Pause • Arrow Keys or Drag also turn camera</div>
+        </div>
+
+        <div class="hud-bottom-left">
+            <div id="hud-z-chalk-row" class="zombies-chalk-row hidden">
+                <div id="hud-round-chalk" class="round-chalk">I</div>
+                <div class="points-box">
+                    <div id="hud-points-val" class="points-val">500</div>
+                    <div id="points-popups"></div>
+                </div>
+            </div>
+            <div id="hud-perk-tray" class="perk-tray"></div>
+            <div id="hud-superpower" hidden></div>
+            <div class="vitals-box">
+                <div class="armor-plates">
+                    <div class="plate-seg"><div id="plate-0" class="plate-seg-fill" style="width:0%"></div></div>
+                    <div class="plate-seg"><div id="plate-1" class="plate-seg-fill" style="width:0%"></div></div>
+                    <div class="plate-seg"><div id="plate-2" class="plate-seg-fill" style="width:0%"></div></div>
+                </div>
+                <div class="hp-bar-bg"><div id="hud-hp-fill" class="hp-bar-fill" style="width:100%"></div></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-dim);">
+                    <span id="hud-hp-text">100 / 100 HP</span>
+                    <span>TAC <span style="display:inline-block;width:46px;height:4px;background:rgba(255,255,255,0.12);vertical-align:middle;"><span id="hud-tac-bar" style="display:block;height:100%;width:100%;background:#f5a623;"></span></span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hud-bottom-right">
+            <div id="hud-ks-dock" class="killstreaks-dock hidden"></div>
+            <div class="weapon-dock">
+                <div>
+                    <div id="hud-weapon-name" style="font-size:15px;font-weight:800;letter-spacing:1.5px;">M4A1</div>
+                    <div id="hud-fire-mode" style="font-size:11px;color:var(--text-dim);letter-spacing:1px;">AUTO</div>
+                </div>
+                <div class="ammo-readout">
+                    <span id="hud-ammo-mag" class="ammo-mag">30</span>
+                    <span id="hud-ammo-res" class="ammo-res">/ 180</span>
+                </div>
+                <div class="gear-dock">
+                    <div class="gear-item"><span>[G]</span><b id="hud-lethal">FRAG x2</b></div>
+                    <div class="gear-item"><span>[Q]</span><b id="hud-tactical">FLSH x2</b></div>
+                    <div class="gear-item"><span>[X]</span><b id="hud-field">READY</b></div>
+                    <div class="gear-item"><span style="color:#fde047">[U]</span><b id="hud-ult">35%</b></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB SCOREBOARD -->
+        <div id="scoreboard-overlay" class="ui-modal hidden" style="pointer-events:none;">
+            <div class="modal-box" style="width:min(760px,92vw);">
+                <div id="sb-title" class="panel-title" style="margin-bottom:10px;">SCOREBOARD</div>
+                <table class="sb-table">
+                    <thead><tr><th>OPERATOR</th><th>TEAM</th><th>KILLS</th><th>DEATHS</th><th>SCORE</th></tr></thead>
+                    <tbody id="sb-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAUSE MODAL -->
+    <div id="modal-pause" class="ui-modal hidden">
+        <div class="modal-box" style="width:430px;text-align:center;display:flex;flex-direction:column;gap:10px;">
+            <h2 style="margin:0;letter-spacing:3px;color:var(--amber);">MATCH PAUSED</h2>
+            <button class="btn btn-primary" id="btn-pause-resume" data-tip-title="Resume Game" data-tip="Jump right back into the action.">RESUME COMBAT</button>
+            <button class="btn hidden" id="btn-pause-example" style="border-color:#22d3ee;color:#67e8f9;" data-tip-title="Example" data-tip="Watch the game shoot every target perfectly on time, then hand control back to you. Does not count toward high score or points.">▶ EXAMPLE</button>
+            <button class="btn" id="btn-pause-controls" style="border-color:#8fe3c8;color:#8fe3c8;" data-tip-title="Controls" data-tip="See every control for this mode and rebind any key the way you like. Changes save automatically.">CONTROLS &amp; KEYBINDS</button>
+            <button class="btn" id="btn-pause-invite" style="border-color:#22c55e;color:#4ade80;" data-tip-title="Invite Friends to Match" data-tip="Copies your online room link! Friends who open the link will join your lobby and hot-join this match!">🔗 COPY FRIEND INVITE LINK</button>
+            <button class="btn hidden" id="btn-pause-change-class" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Change Class In Battle" data-tip="Pick another Custom Class — your new weapons, attachments & perks take effect cleanly after your next death!">CHANGE CLASS [M] (ON RESPAWN)</button>
+            <button class="btn hidden" id="btn-pause-modmenu" style="border-color:#fde047;color:#fde047;" data-tip-title="Zombies Mod Menu" data-tip="Turn any Zombies cheat ON or OFF with checkboxes right in the middle of your match!">★ MOD MENU (CHEATS)</button>
+            <div id="pause-round-picker-wrap" class="round-picker-card hidden" data-tip-title="Jump to Any Round" data-tip="Pick any Zombies wave (like Boss Rounds 5, 10, 20, 25, or 50) and click GO to jump there immediately!">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                    <span style="font-size:12px;font-weight:800;color:#fde047;">PICK ROUND:</span>
+                    <input type="number" id="pause-round-input" min="1" max="999" value="5" style="width:68px;background:#0d131d;color:#fde047;border:1px solid var(--amber);padding:4px 8px;font-family:var(--font-mono);font-weight:800;">
+                    <button class="btn btn-sm btn-zombies" id="btn-pause-jump-round">JUMP NOW</button>
+                </div>
+                <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
+                    <button class="btn btn-sm js-quick-round" data-rnd="1">RD 1</button>
+                    <button class="btn btn-sm js-quick-round" data-rnd="5">RD 5 BOSS</button>
+                    <button class="btn btn-sm js-quick-round" data-rnd="10">RD 10 BOSS</button>
+                    <button class="btn btn-sm js-quick-round" data-rnd="20">RD 20 BOSS</button>
+                    <button class="btn btn-sm js-quick-round" data-rnd="25">RD 25 BOSS</button>
+                    <button class="btn btn-sm js-quick-round" data-rnd="50">RD 50 BOSS</button>
+                </div>
+            </div>
+            <button class="btn hidden" id="btn-pause-dev" style="border-color:#a78bfa;color:#c4b5fd;" data-tip-title="Dev panel" data-tip="Open the Survival Dev panel (also F8).">⚙ DEV PANEL [F8]</button>
+            <button class="btn" id="btn-pause-legend" style="border-color:#38bdf8;color:#38bdf8;" data-tip-title="Game Guide" data-tip="Open the guide for your current game mode.">GAME GUIDE</button>
+            <button class="btn" id="btn-pause-settings" data-tip-title="Settings & Cheat Codes" data-tip="Customize controls, sound, video, GFX, blood, fullscreen, save game, or type cheat codes.">SETTINGS &amp; CHEAT CODES</button>
+            <button class="btn" id="btn-pause-restart" data-tip-title="Restart Match" data-tip="Start this match over from the beginning.">RESTART MATCH</button>
+            <button class="btn btn-zombies" id="btn-pause-quit" data-tip-title="Quit to Main Menu" data-tip="Leave the current match and return to the Main Menu.">EXIT TO MAIN MENU</button>
+        </div>
+    </div>
+
+    <!-- SETTINGS MODAL (7 TABS: CONTROLS, VIDEO, GFX & BLOOD, SOUND, CHEATS, SAVE, LEGEND) -->
+    <div id="modal-settings" class="ui-modal hidden">
+        <div class="modal-box" style="width:min(940px,95vw);max-height:90vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                <h2 style="margin:0;letter-spacing:2px;color:var(--amber);">SETTINGS, CONTROLS &amp; CHEAT CODES</h2>
+                <button class="btn btn-sm" id="btn-settings-close">DONE</button>
+            </div>
+            <div id="settings-tabs" class="modal-tab-bar"></div>
+            <div id="settings-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
+        </div>
+    </div>
+
+    <div id="modal-legend" class="ui-modal hidden">
+        <div class="modal-box mode-guide-box" role="dialog" aria-modal="true" aria-labelledby="game-guide-title">
+            <header class="mode-guide-head">
+                <h2 id="game-guide-title">Game Guide</h2>
+                <div class="mode-guide-search">
+                    <input type="search" id="legend-search-input" aria-label="Search this mode">
+                    <button type="button" id="legend-search-clear" class="btn btn-sm hidden">Clear</button>
+                </div>
+                <button class="btn btn-sm" id="btn-legend-close">Close <kbd>Esc</kbd></button>
+            </header>
+            <nav id="legend-tabs" class="mode-guide-tabs" role="tablist" aria-label="Game modes"></nav>
+            <div id="legend-body" class="mode-guide-body" role="tabpanel"></div>
+        </div>
+    </div>
+
+    <!-- UPDATE LOG / PATCH NOTES MODAL -->
+    <div id="modal-updates" class="ui-modal hidden">
+        <div class="modal-box ul-modal-box" role="dialog" aria-modal="true" aria-labelledby="ul-modal-title">
+            <header class="ul-head">
+                <div>
+                    <div class="ul-head-kicker">DEVELOPMENT TIMELINE • NOV 22 – NOV 27, 2026 (ET)</div>
+                    <h2 id="ul-modal-title">BLACKOUT OPS — UPDATE LOG</h2>
+                </div>
+                <div class="ul-head-actions">
+                    <div class="ul-search-box">
+                        <span style="color:#94a3b8;font-size:13px;">⌕</span>
+                        <input type="search" id="ul-search" placeholder="Search updates, modes, or hashes..." aria-label="Search update log">
+                        <button type="button" id="ul-search-clear" class="btn btn-sm hidden" style="padding:2px 7px;font-size:10px;">CLEAR</button>
+                    </div>
+                    <button type="button" class="btn btn-sm" id="btn-updates-close">CLOSE <kbd>Esc</kbd></button>
+                </div>
+            </header>
+            <div class="ul-kpi-strip">
+                <div class="ul-kpi"><b data-ul-meta="count"></b><span>Total Updates</span></div>
+                <div class="ul-kpi"><b>7 Modes</b><span>Zombies · MP · Survival · TD · Rogue · OWRPG · Minigames</span></div>
+                <div class="ul-kpi"><b data-ul-meta="milestones"></b><span>Major Releases &amp; Overhauls</span></div>
+                <div class="ul-kpi"><b data-ul-meta="build"></b><span data-ul-meta="latest"></span></div>
+            </div>
+            <div class="ul-toolbar">
+                <div id="ul-cat-pills" class="ul-pills-row"></div>
+                <div class="ul-toolbar-sub">
+                    <div id="ul-day-pills" class="ul-pills-row"></div>
+                    <div class="ul-meta-right">
+                        <span id="ul-count" class="ul-count"></span>
+                        <button type="button" class="btn btn-sm" id="ul-sort-btn">↓ NEWEST FIRST</button>
+                    </div>
+                </div>
+            </div>
+            <div id="ul-list" class="ul-list"></div>
+        </div>
+    </div>
+
+    <!-- ZOMBIES MOD MENU MODAL (UNLOCKED BY 'cheats' CODE) -->
+    <div id="modal-modmenu" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box" style="width:min(740px,94vw);max-height:84vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:2px;color:#fde047;">★ ZOMBIES MOD MENU</h2>
+                    <div style="font-size:11.5px;color:var(--text-dim);">Toggle cheats or jump rounds instantaneously</div>
+                </div>
+                <button class="btn btn-sm" id="btn-modmenu-close">DONE</button>
+            </div>
+            <div id="modmenu-body" style="flex:1;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- MYSTERY BOX WEAPON PICKER MODAL ('wondernomore' CHEAT) -->
+    <div id="modal-box-picker" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box" style="width:min(860px,94vw);max-height:82vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#c084fc;">MYSTERY BOX SELECTOR</h2>
+                    <div style="font-size:11.5px;color:var(--text-dim);">Equip any Firearm, Melee, or Wonder Weapon immediately</div>
+                </div>
+                <button class="btn btn-sm" id="btn-box-picker-close" aria-label="Close Mystery Box Selector">✕</button>
+            </div>
+            <div id="box-picker-tabs" class="modal-tab-bar" style="margin-bottom:8px;padding-bottom:6px;"></div>
+            <div id="box-picker-body" style="flex:1;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- CHOOSE SANDBOX DIRECTOR MODAL ('choose' CHEAT) -->
+    <div id="modal-choose" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box" style="width:min(960px,95vw);max-height:86vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:2px;color:#38bdf8;">★ SANDBOX DIRECTOR</h2>
+                    <div style="font-size:11.5px;color:var(--text-dim);">Configure Round, Active Zombie Pool, Advantages &amp; Starting Gear</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn-choose-close">APPLY</button>
+            </div>
+            <div id="choose-body" style="flex:1;overflow-y:auto;padding-right:6px;"></div>
+        </div>
+    </div>
+
+    <!-- MID-BATTLE CHANGE CLASS MODAL (MULTIPLAYER) -->
+    <div id="modal-mp-class" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box" style="width:min(680px,92vw);max-height:78vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#38bdf8;">SWITCH LOADOUT</h2>
+                    <div style="font-size:11.5px;color:var(--text-dim);">Applies on next respawn</div>
+                </div>
+                <button class="btn btn-sm" id="btn-mp-class-close" aria-label="Close Switch Loadout">✕</button>
+            </div>
+            <div id="mp-class-list" class="card-grid" style="flex:1;overflow-y:auto;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- TOWER DEFENSE SHOPKEEPER MODAL (30s INTERMISSION) -->
+    <div id="modal-td-shop" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box td-modal-box" style="width:min(920px,94vw);max-height:82vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#fde047;">★ QUARTERMASTER SHOP</h2>
+                    <div id="td-shop-sub" style="font-size:11.5px;color:#cbd5e1;">Intermission • Weapons, Deployables &amp; Castle Defenses</div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <span id="td-shop-gold" style="font-family:var(--font-mono);font-size:14px;font-weight:800;color:#fde047;padding:4px 9px;border-radius:6px;border:1px solid var(--amber);background:rgba(245,166,35,0.12);">GOLD: 650</span>
+                    <button class="btn btn-sm btn-primary" id="btn-td-skip-wait">START WAVE [N]</button>
+                    <button class="btn btn-sm" id="btn-td-shop-close" aria-label="Close Quartermaster Shop">✕</button>
+                </div>
+            </div>
+            <div id="td-shop-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
+        </div>
+    </div>
+
+    <!-- TOWER DEFENSE GUNSMITH ATTACHMENT STATION MODAL -->
+    <div id="modal-td-attachments" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box td-modal-box" style="width:min(760px,93vw);max-height:78vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🔧 ATTACHMENT BENCH</h2>
+                    <div id="td-att-sub" style="font-size:11.5px;color:var(--text-dim);">Click parts to fit optics, muzzles, mags &amp; camos</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn-td-att-close">DONE</button>
+            </div>
+            <div id="td-att-body" style="flex:1;overflow-y:auto;padding-right:4px;"></div>
+        </div>
+    </div>
+
+    <!-- PAY-TO-USE CUSTOM CLASS ARMORY MODAL (TOWER DEFENSE) -->
+    <div id="modal-td-custom-class" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box td-modal-box" style="width:min(700px,92vw);max-height:78vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#fde047;">🎖 ARMORY DROP CRATE</h2>
+                    <div id="td-cc-sub" style="font-size:11.5px;color:var(--text-dim);">Equip any custom class immediately</div>
+                </div>
+                <button class="btn btn-sm" id="btn-td-cc-close" aria-label="Close Armory Drop Crate">✕</button>
+            </div>
+            <div id="td-cc-list" class="card-grid" style="flex:1;overflow-y:auto;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- MASTER PERK KIOSK MODAL (ALL 14 PERKS — MAX 8 EQUIPPED) -->
+    <div id="modal-td-perks" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box td-modal-box" style="width:min(820px,93vw);max-height:80vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#c084fc;">🧪 WUNDERFIZZ PERK KIOSK</h2>
+                    <div id="td-perks-sub" style="font-size:11.5px;color:var(--text-dim);">Equip up to 8 Perks at once</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn-td-perks-close">DONE</button>
+            </div>
+            <div id="td-perks-list" class="card-grid" style="flex:1;overflow-y:auto;padding-right:4px;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- SNIPER TOWER SKY-LIFT FLOOR SELECTOR MODAL -->
+    <div id="modal-td-lift" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box td-modal-box" style="width:min(440px,90vw);max-height:76vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                <div>
+                    <h2 id="td-lift-title" style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🚀 TOWER SKY-LIFT</h2>
+                    <div style="font-size:11.5px;color:var(--text-dim);">Choose a deck to zip-launch</div>
+                </div>
+                <button class="btn btn-sm" id="btn-td-lift-close" aria-label="Close Tower Sky-Lift">✕</button>
+            </div>
+            <div id="td-lift-list" style="display:flex;flex-direction:column;gap:6px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- ZOMBIES MODE TACTICAL FORTIFICATION BUILDER MODAL ([B]) -->
+    <div id="modal-z-build" class="ui-modal ui-modal-compact hidden">
+        <div class="modal-box" style="width:min(660px,92vw);max-height:76vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:1.5px;color:#38bdf8;">🛠 FIELD FORTIFICATIONS</h2>
+                    <div id="z-build-sub" style="font-size:11.5px;color:var(--text-dim);">Click a piece to deploy in front of you</div>
+                </div>
+                <button class="btn btn-sm btn-primary" id="btn-z-build-close">✕ [B]</button>
+            </div>
+            <div id="z-build-list" class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- CUSTOMIZE ENEMY POOL & ZOMBIE STATS MODAL (APPLIES TO SURVIVAL, ZOMBIES & TOWER DEFENSE) -->
+    <div id="modal-enemy-pool" class="ui-modal hidden">
+        <div class="modal-box" style="width:min(1340px,98vw);max-height:94vh;display:flex;flex-direction:column;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px;">
+                <div>
+                    <h2 style="margin:0;letter-spacing:2px;color:#f87171;">🧟 ZOMBIE CUSTOMIZER &amp; ENEMY POOL</h2>
+                    <div id="ep-modal-sub" style="font-size:12px;color:var(--text-dim);">Edit stats, start round/day, per-zombie &amp; category spawn %, and save setups — applies to Survival, Zombies &amp; Tower Defense.</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn btn-sm" id="btn-ep-all-on" style="border-color:#22c55e;color:#4ade80;">ENABLE ALL</button>
+                    <button class="btn btn-sm" id="btn-ep-all-off" style="border-color:#ef4444;color:#f87171;">DISABLE ALL</button>
+                    <button class="btn btn-sm" id="btn-ep-reset-all" style="border-color:#f59e0b;color:#fbbf24;">RESET ALL</button>
+                    <button class="btn btn-sm btn-primary" id="btn-ep-close">SAVE &amp; CLOSE</button>
+                </div>
+            </div>
+            <!-- Saved Setups / Configs & Search Bar -->
+            <div id="ep-presets-bar" class="ep-toolbar">
+                <div class="ep-toolbar-group">
+                    <span class="ep-tb-lbl">SETUP:</span>
+                    <select id="ep-preset-select" class="ep-select" title="Load a saved zombie setup"></select>
+                    <input type="text" id="ep-preset-name" class="ep-input" placeholder="New setup name..." maxlength="48">
+                    <button class="btn btn-sm" id="btn-ep-save-preset" style="border-color:#38bdf8;color:#7dd3fc;">SAVE SETUP</button>
+                    <button class="btn btn-sm" id="btn-ep-del-preset" style="border-color:#ef4444;color:#fca5a5;">DELETE</button>
+                    <button class="btn btn-sm" id="btn-ep-export" title="Copy setup JSON to clipboard">EXPORT</button>
+                    <button class="btn btn-sm" id="btn-ep-import" title="Paste setup JSON">IMPORT</button>
+                </div>
+                <div class="ep-toolbar-group">
+                    <input type="search" id="ep-search" class="ep-input ep-search" placeholder="Search zombies or bosses...">
+                </div>
+            </div>
+            <!-- Category Spawn % Bar -->
+            <div id="ep-cat-bar" class="ep-cat-bar"></div>
+            <div style="display:flex;gap:14px;flex:1;min-height:0;overflow:hidden;">
+                <div id="enemy-pool-body" style="flex:1;overflow-y:auto;padding-right:6px;"></div>
+                <div id="enemy-preview-panel" style="width:355px;flex-shrink:0;display:flex;flex-direction:column;background:rgba(6,10,18,0.95);border:1px solid rgba(56,189,248,0.35);border-radius:10px;padding:12px;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <canvas id="enemy-preview-canvas" width="144" height="144" style="width:128px;height:128px;flex-shrink:0;border-radius:8px;background:radial-gradient(circle at 50% 45%,#1e293b,#060911);border:1px solid rgba(148,163,184,0.22);"></canvas>
+                        <div id="enemy-preview-info" style="font-size:11.5px;color:#cbd5e1;line-height:1.4;min-width:0;flex:1;">Click any zombie or boss on the left to edit its stats, start round/day &amp; spawn %!</div>
+                    </div>
+                    <div id="enemy-editor-form" class="ep-editor-form"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

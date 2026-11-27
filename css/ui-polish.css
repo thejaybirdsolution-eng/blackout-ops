@@ -8,7 +8,6 @@
    · menu windows never exceed the viewport and always keep their close button
 ============================================================================ */
 
-:root { accent-color: #f59e0b; color-scheme: dark; }
 dialog.sv-shell { accent-color: #5fd1a6; }
 .gm-dev { accent-color: #8b5cf6; }
 
@@ -29,26 +28,22 @@ dialog.sv-shell { accent-color: #5fd1a6; }
 #modal-settings input[type="checkbox"]::after {
     content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #e2e8f0; transition: transform 0.15s;
 }
-#modal-settings input[type="checkbox"]:checked { background: #f59e0b; border-color: #fbbf24; }
+#modal-settings input[type="checkbox"]:checked { background: var(--aaa-accent, #ffb23f); border-color: var(--aaa-accent, #ffb23f); }
 #modal-settings input[type="checkbox"]:checked::after { transform: translateX(18px); background: #fff; }
-#modal-settings input[type="range"] { accent-color: #f59e0b; cursor: pointer; }
+#modal-settings input[type="range"] { accent-color: var(--aaa-accent, #ffb23f); cursor: pointer; }
 #modal-settings select { min-width: 150px; }
 
 /* ---- Focus & disabled: consistent everywhere ---- */
-.btn:focus-visible, .mode-card:focus-visible, .pick-card:focus-visible, .lobby-step:focus-visible, .mode-tab:focus-visible,
 .mmx-tile:focus-visible, .mmx-cat:focus-visible, .mmx-seg:focus-visible, .mmx-pack:focus-visible,
 .legend-rail-btn:focus-visible, #settings-tabs button:focus-visible, .gm-dev button:focus-visible {
-    outline: 2px solid #fbbf24; outline-offset: 2px;
+    outline: 2px solid var(--aaa-accent, #ffb23f); outline-offset: 2px;
 }
-.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); transform: none !important; }
-
-/* ---- Scrollbars: thin and themed in every scrolling panel ---- */
-.ui-modal *, .ui-screen * { scrollbar-width: thin; scrollbar-color: rgba(245, 158, 11, 0.45) transparent; }
+.ui-modal *, .ui-screen * { scrollbar-width: thin; scrollbar-color: var(--aaa-line-strong, rgba(232, 236, 241, 0.22)) transparent; }
 
 /* ---- Small screens: windows use the space they have ---- */
 @media (max-width: 900px), (max-height: 620px) {
     .ui-modal .modal-box { width: calc(100vw - 20px) !important; max-width: none; padding: 14px !important; }
-    #settings-tabs { overflow-x: auto; flex-wrap: nowrap !important; }
+    #settings-tabs { overflow-x: auto; flex-wrap: wrap; }
     #settings-tabs button { flex: none; }
 }
 
@@ -190,6 +185,17 @@ dialog.elab[open] .elab-box,
     transform: scale(0.97);
 }
 
+body.sv-reduced-motion .ui-modal:not(.hidden) .modal-box,
+body.sv-reduced-motion dialog.elab[open] .elab-box,
+body.sv-reduced-motion .ow-panel,
+body.sv-reduced-motion .rpg-modal:not(.hidden) .rpg-modal-card,
+body.sv-reduced-motion .mg-results:not(.hidden) .mg-res-card,
+body.sv-reduced-motion .rpg-boon-row .rpg-boon,
+body.sv-reduced-motion .ow-choices .ow-choice,
+body.sv-reduced-motion .mg-count:not(.hidden) { animation: none; }
+body.sv-reduced-motion .btn, body.sv-reduced-motion .mode-card, body.sv-reduced-motion .pick-card,
+body.sv-reduced-motion .mode-tab, body.sv-reduced-motion .mmx-tile, body.sv-reduced-motion .select-card,
+body.sv-reduced-motion .td-shop-card, body.sv-reduced-motion .rpg-nav-btn, body.sv-reduced-motion .ow-tab { transition: none; }
 @media (prefers-reduced-motion: reduce) {
     .ui-modal:not(.hidden) .modal-box,
     dialog.elab[open] .elab-box,

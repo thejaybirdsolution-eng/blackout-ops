@@ -166,7 +166,7 @@
                 <div class="ow-slot ow-empty"><div><b>Empty slot ${i + 1}</b><small>Create a new operative</small></div><button class="ow-btn" data-act="slotNew" data-v="${i}">NEW CHARACTER</button></div>`).join('');
             this.open('slots', `
                 <div class="ow-head"><span class="ow-kicker">OPEN WORLD RPG</span><h2>Operation Meridian</h2>
-                <p class="ow-dim">A 640 m frontier of six regions, four factions and choices that stick. Build a character, take sides, and find out what is calling from the crater.</p></div>
+                <p class="ow-dim">A 1280 × 1280 m frontier of twelve regions, twelve dungeons and choices that stick. Every new operative begins at level 1. Build a character, take sides, and find out what is calling from the crater.</p></div>
                 <div class="ow-slots">${rows}</div>
                 <div class="ow-row ow-end"><button class="ow-btn ow-ghost" data-act="close">BACK</button></div>`);
         },
@@ -417,7 +417,7 @@
         /** Pins, active World Event, and tracked quest as bearings on a ±70° strip under the compass. */
         _compassHtml(tracked) {
             const s = this.s, P = BO.Player, D = BO.OWRPGWorldData;
-            if (D.isInterior(P.pos.x, P.pos.z)) return '';
+            if (s.worldFlags.compassEnabled === false) return '';
             const marks = s.pins.map((p) => ({ x: p[0], z: p[1], c: '#f472b6', g: '✚' }));
             if (BO.OWRPGEvents?.activeEvent) {
                 const ev = BO.OWRPGEvents.activeEvent;
@@ -426,10 +426,22 @@
             if (s.worldFlags.compassQuest && tracked) {
                 const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tracked);
                 const poi = m && D.POIS.find((p) => p.id === m.poi);
-                if (poi && !poi.interior) marks.push({ x: poi.x, z: poi.z, c: '#a3e635', g: '◆' });
+                if (poi) {
+                    let target = poi;
+                    if (poi.interior && !D.isInterior(P.pos.x, P.pos.z)) target = D.DUNGEONS.find(d => d.id === poi.id)?.surf || poi;
+                    if (D.isInterior(P.pos.x, P.pos.z) && (!poi.interior || Math.hypot(poi.x-P.pos.x, poi.z-P.pos.z) > 130)) {
+                        const dungeon = D.DUNGEONS.find(d => Math.hypot(P.pos.x-d.x, P.pos.z-d.z) < 130);
+                        if (dungeon) target = { x: dungeon.x, z: dungeon.z - 4.5 };
+                    }
+                    marks.push({ x: target.x, z: target.z, c: '#a3e635', g: '◆' });
+                }
             }
             const fwd = Math.atan2(-Math.sin(P.yaw), -Math.cos(P.yaw));
-            return marks.map((m) => {
+            const cardinal = [['N', Math.PI], ['NE', Math.PI*0.75], ['E', Math.PI/2], ['SE', Math.PI/4], ['S', 0], ['SW', -Math.PI/4], ['W', -Math.PI/2], ['NW', -Math.PI*0.75]].map(([name, angle]) => {
+                const deg = -BO.Math.wrapAngle(angle-fwd) * 180/Math.PI;
+                return Math.abs(deg) <= 70 ? '<b class="ow-bearing" style="left:' + (50+deg/70*50) + '%">' + name + '</b>' : '';
+            }).join('');
+            return '<span class="ow-compass-needle">▾</span>' + cardinal + marks.map((m) => {
                 const ang = BO.Math.wrapAngle(Math.atan2(m.x - P.pos.x, m.z - P.pos.z) - fwd);
                 const deg = -ang * 180 / Math.PI;
                 if (Math.abs(deg) > 70) return '';

@@ -182,6 +182,38 @@
                 { pos: [-8, 0, -4], scale: 1.5 }, { pos: [8, 0, -4], scale: 1.5 },
                 { pos: [-14, 0, -44], scale: 1.5 }, { pos: [14, 0, -44], scale: 1.5 }
             ]);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                // Citadel Corner Watchtowers, Keep Lion Statues, Wellhead, Banners & Weapon Racks
+                if (BO.CourseScenery && BO.CourseScenery.castleTowerProp) {
+                    for (const [tx, tz] of [[-68, 16], [68, 16], [-68, -190], [68, -190]]) {
+                        BO.CourseScenery.castleTowerProp(S.scene, tx, 0, tz, Math.atan2(-tx, -tz - 90), true, 2.8);
+                    }
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', [
+                    { pos: [-8.5, 0, -138], rot: 0, scale: 1.8 }, { pos: [8.5, 0, -138], rot: 0, scale: 1.8 },
+                    { pos: [-5.5, 0, -184], rot: 0, scale: 1.6 }, { pos: [5.5, 0, -184], rot: 0, scale: 1.6 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-giant-keep-banner.glb', [
+                    { pos: [-6.2, 2.2, -139.8], scale: 1.7 }, { pos: [6.2, 2.2, -139.8], scale: 1.7 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-weapon-rack.glb', [
+                    { pos: [-20, 0, -12], rot: Math.PI / 2, scale: 1.5 }, { pos: [20, 0, -12], rot: -Math.PI / 2, scale: 1.5 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', { pos: [0, 0, -22], scale: 1.65 });
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_dungeon_kit/chest.glb', [
+                    { pos: [-54, 0, -36], scale: 1.45 }, { pos: [54, 0, -92], scale: 1.45 }, { pos: [-26, 0, -152], scale: 1.45 }
+                ]);
+            }
+            S.data.chronoCrystals = [[-22, -52], [22, -52], [0, -112], [0, -172]].map(([cx, cz]) => {
+                const g = new THREE.Group();
+                const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.55, 0), basic(0x67e8f9));
+                g.add(gem);
+                if (BO.Assets && BO.Assets.placeGLB) BO.Assets.placeGLB(g, 'platformer_kit/jewel.glb', { fitSize: [1.15, 1.15, 1.15], hideFallback: gem });
+                g.position.set(cx, 1.8, cz);
+                S.add(g);
+                return { g, pos: V(cx, 1.8, cz), hit: false };
+            });
             for (const [lx, lz] of [[-8, 6], [8, 6], [-22, -52], [22, -52], [-12, -132], [12, -132], [-6, -184], [6, -184]]) S.add(A.torch(S, V(lx, 0, lz), 0xf97316, false));
 
             S.data.scrolls = [
@@ -286,6 +318,7 @@
             for (const sc of S.data.scrolls || []) {
                 if (!sc.collected && Math.hypot(P.pos.x - sc.pos.x, P.pos.z - sc.pos.z) < 3.0) {
                     sc.collected = true; sc.mesh.visible = false; sc.halo.visible = false; S.data.scrollsGot++;
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.45, rateJitter: 0.05 });
                     S.award(900, sc.pos, 'SECRET SCROLL!', '#fde047');
                     SR.stageBurst(S, sc.pos, `STOLE ${sc.name}`, S.data.scrollsGot - 1, 3, 0xfde047);
                     return true;
@@ -322,6 +355,15 @@
             const P = BO.Player, D = S.data;
             D.slashT = 0.32;
             SFX.whoosh(0.18);
+            for (const cc of D.chronoCrystals || []) {
+                if (!cc.hit && Math.hypot(P.pos.x - cc.pos.x, P.pos.z - cc.pos.z) < 3.2) {
+                    cc.hit = true; cc.g.visible = false;
+                    S.t = Math.max(0.05, S.t - 2.5);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                    BO.FX.spawnParticles(cc.pos, 16, 0x67e8f9, 5, 3, 0.45, 1.1);
+                    MG.popup(cc.pos, '-2.5s SHINOBI CHRONO!', '#67e8f9', true);
+                }
+            }
             for (const g of D.guards || []) {
                 if (!g.alive) continue;
                 const d = Math.hypot(P.pos.x - g.root.position.x, P.pos.z - g.root.position.z);
@@ -332,6 +374,7 @@
                 if (dot < 0.35 || g.st.blindT > 0 || P.vel.y < -1.0) {
                     g.kill({ pt: g.root.position.clone().add(V(0, 1.3, 0)) });
                     D.stealthKills++; S.kills++; S.bumpCombo(); SFX.shatter();
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.38, rateJitter: 0.06 });
                     if (g.isShogun) { D.shogunDown = true; MG.toast('SHOGUN ASSASSINATED! EXTRACT AT NORTH TORII!', '#fde047'); }
                     BO.FX.spawnParticles(g.root.position.clone().add(V(0, 1.2, 0)), 16, 0x6366f1, 4, 2, 0.4, 1.0);
                     S.award(g.isShogun ? 1500 : 450, g.root.position.clone().add(V(0, 1.9, 0)), g.isShogun ? 'SHOGUN SLAIN!' : 'KATANA TAKEDOWN!', '#818cf8');
@@ -347,6 +390,7 @@
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
             for (const sc of D.scrolls || []) if (!sc.collected) sc.mesh.rotation.x += dt * 3;
+            for (const cc of D.chronoCrystals || []) if (!cc.hit) cc.g.rotation.y += dt * 2.6;
             // Animate Shinobi First-Person Viewmodel
             if (D.vm) {
                 const spd = Math.hypot(P.vel.x, P.vel.z);
@@ -392,10 +436,23 @@
             for (let i = D.shurikens.length - 1; i >= 0; i--) {
                 const sh = D.shurikens[i]; sh.life -= dt; sh.mesh.position.addScaledVector(sh.vel, dt); sh.mesh.rotation.y += dt * 20;
                 let rm = sh.life <= 0 || !canSeeLOS(sh.mesh.position.clone().addScaledVector(sh.vel, -dt), sh.mesh.position, D.losMeshes);
+                if (!rm) {
+                    for (const cc of D.chronoCrystals || []) {
+                        if (!cc.hit && cc.pos.distanceTo(sh.mesh.position) < 1.35) {
+                            cc.hit = true; cc.g.visible = false; rm = true;
+                            S.t = Math.max(0.05, S.t - 2.5);
+                            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                            BO.FX.spawnParticles(cc.pos, 16, 0x67e8f9, 5, 3, 0.45, 1.1);
+                            MG.popup(cc.pos, '-2.5s SHURIKEN CHRONO!', '#67e8f9', true);
+                            break;
+                        }
+                    }
+                }
                 if (!rm) for (const g of D.guards) if (g.alive && g.root.position.clone().add(V(0, 1.2, 0)).distanceTo(sh.mesh.position) < 1.1) {
                     rm = true; g.hp--;
                     if (g.hp <= 0) {
                         g.kill({ pt: sh.mesh.position.clone() }); D.stealthKills++; S.kills++; S.bumpCombo(); SFX.shatter();
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.38, rateJitter: 0.06 });
                         if (g.isShogun) D.shogunDown = true;
                         S.award(450, g.root.position.clone().add(V(0, 1.8, 0)), 'SHURIKEN KILL!', '#a5f3fc');
                     } else { SFX.clack(); MG.popup(sh.mesh.position, 'SHOGUN ARMOR HIT!', '#fde047'); }
@@ -598,9 +655,27 @@
             if (BO.MinigameAudio && BO.MinigameAudio.playStagedMusic) {
                 BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Epic Dramatic/epic-dramatic-strength-of-the-titans-661803f4.m4a', 0.28);
             }
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-alien.png');
             L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/tower-square-base.glb', { pos: [-21, 0, -4], scale: 3.2 });
             L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/tower-square-base.glb', { pos: [21, 0, -4], scale: 3.2 });
             L.placeGLB(S.scene, 'staged_assets/3d_models/mini_dungeon_kit/rocks.glb', { pos: [0, 0, -21], scale: 4.5 });
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-ballista.glb', { pos: [-16, 0, 14], rot: Math.PI * 0.85, scale: 1.85 });
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-ballista.glb', { pos: [16, 0, 14], rot: -Math.PI * 0.85, scale: 1.85 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', { pos: [0, 0, 19.5], scale: 1.65 });
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', [
+                    { pos: [-8, 0, 18.5], scale: 1.55 }, { pos: [8, 0, 18.5], scale: 1.55 },
+                    { pos: [-16, 0, -14], scale: 1.55 }, { pos: [16, 0, -14], scale: 1.55 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', [
+                    { pos: [-4.8, 0, 19.2], rot: Math.PI, scale: 1.6 }, { pos: [4.8, 0, 19.2], rot: Math.PI, scale: 1.6 }
+                ]);
+            }
+            if (BO.CourseScenery && BO.CourseScenery.spawnChronoCrystal) {
+                for (const [cx, cz] of [[-18, 2], [18, 2], [-10, -17], [10, -17]]) {
+                    BO.CourseScenery.spawnChronoCrystal(S, V(cx, 2.8, cz), 2.0, 1.1, 0xf97316);
+                }
+            }
 
             const torsoPBR = makeDragonScalePBR('torso', 0x2a272a, '#f97316');
             const obsM = new THREE.MeshStandardMaterial({
@@ -1160,6 +1235,9 @@
         },
         onHit(S, ent, info) {
             const D = S.data;
+            if (ent && ent.alive && ent.isChronoCrystal) {
+                return SR.hitZ(S, ent, info);
+            }
             if (ent.isMagmaHeart) {
                 if (!D.phase2 || D.headsDown >= 3) return false;
                 const last = D.heads.find((h) => !h.deadHead);
@@ -1167,12 +1245,14 @@
                 const critDmg = info.dmg * 2.5;
                 last.hp -= critDmg; last.flinchT = 0.45;
                 S.hits++; SFX.ding(1.3);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.42, rateJitter: 0.05 });
                 BO.FX.spawnParticles(info.pt, 14, 0xfef08a, 6, 4, 0.45, 1.2);
                 MG.popup(info.pt, `HEART CORE 2.5× CRIT! -${Math.round(critDmg)}`, '#fde047', true);
                 if (last.hp <= 0) {
                     last.hp = 0; last.deadHead = true; last.hitMeshes = []; last.critTg.hitMeshes = [];
                     D.headsDown++; S.kills++; S.bumpCombo();
                     const hp = V(); last.headPivot.getWorldPosition(hp); BO.FX.spawnExplosion(hp, 8, last.col); SFX.rumble(0.75);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-c.ogg', { volume: 0.52, rateJitter: 0.05 });
                     SR.done(S, 'THREE-HEADED DRAGON SLAIN!');
                 }
                 return true;
@@ -1183,11 +1263,13 @@
                 const critDmg = info.dmg * 2.5;
                 h.hp -= critDmg; h.flinchT = 0.45; S.hits++; S.headshots++;
                 SFX.ding(1.25); BO.Sound.playBossIntro && BO.Sound.playBossIntro();
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.4, rateJitter: 0.05 });
                 BO.FX.spawnParticles(info.pt, 12, h.accent, 5, 4, 0.45, 1.15);
                 MG.popup(info.pt, `${info.mesh?.userData?.weakpoint || 'WEAKPOINT'} 2.5× CRIT!`, '#fde047', true);
                 if (h.hp <= 0) {
                     h.hp = 0; h.deadHead = true; h.hitMeshes = []; ent.hitMeshes = []; D.headsDown++; S.kills++; S.bumpCombo();
                     const hp = V(); h.headPivot.getWorldPosition(hp); BO.FX.spawnExplosion(hp, 8, h.col); SFX.rumble(0.75);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-c.ogg', { volume: 0.5, rateJitter: 0.05 });
                     SR.stageBurst(S, hp, `${h.name} SLAIN`, D.headsDown - 1, 3, h.col);
                     if (D.headsDown >= 3) SR.done(S, 'THREE-HEADED DRAGON SLAIN!');
                 }
@@ -1196,9 +1278,11 @@
             if (ent.dragonHead) {
                 if (ent.deadHead) return false;
                 ent.hp -= info.dmg * 1.15; S.hits++; SFX.thunk();
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.06 });
                 if (ent.hp <= 0) {
                     ent.hp = 0; ent.deadHead = true; ent.hitMeshes = []; ent.critTg.hitMeshes = []; D.headsDown++; S.kills++; S.bumpCombo();
                     const hp = V(); ent.headPivot.getWorldPosition(hp); BO.FX.spawnExplosion(hp, 8, ent.col); SFX.rumble(0.75);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-c.ogg', { volume: 0.5, rateJitter: 0.05 });
                     SR.stageBurst(S, hp, `${ent.name} SLAIN`, D.headsDown - 1, 3, ent.col);
                     if (D.headsDown >= 3) SR.done(S, 'THREE-HEADED DRAGON SLAIN!');
                 }

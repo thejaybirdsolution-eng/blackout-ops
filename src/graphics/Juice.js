@@ -27,7 +27,10 @@
             BO.Events.on('hud:hitmarker', (e) => this.onHit(e || {}));
         }
 
-        _reduced() { return !!BO.Settings.get('reducedMotion'); }
+        _reduced() {
+            return !!BO.Settings.get('reducedMotion') ||
+                !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        }
 
         onHit(e) {
             if (BO.PostFX) BO.PostFX.impact(e.isKill ? (e.isHeadshot ? 0.85 : 0.6) : 0.16);
@@ -40,7 +43,7 @@
             if (this._reduced() || !BO.Player) return;
             const scale = BO.Settings ? (BO.Settings.get('screenShake') ?? 1.0) : 1.0;
             if (scale <= 0.01) return;
-            BO.Player.cameraShake = Math.min(0.45, (BO.Player.cameraShake || 0) + amount);
+            BO.Player.cameraShake = Math.min(0.45, (BO.Player.cameraShake || 0) + amount * scale);
         }
 
         screenFlash(color = '#ef4444', alpha = 0.22, ms = 320) {

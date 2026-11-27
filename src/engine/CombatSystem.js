@@ -5,6 +5,16 @@
     'use strict';
 
     const BO = global.BO;
+    const _tmpEject = new THREE.Vector3();
+    const _tmpShotDir = new THREE.Vector3();
+    const _tmpCastDir = new THREE.Vector3();
+    const _tmpHoming = new THREE.Vector3();
+    const _tmpBestTo = new THREE.Vector3();
+    const _tmpMuzzle = new THREE.Vector3();
+    const _tmpEnd = new THREE.Vector3();
+    const _tmpNorm = new THREE.Vector3();
+    const _tmpRefl = new THREE.Vector3();
+    const _tmpOrig = new THREE.Vector3();
 
     class CombatSystem {
         constructor() {
@@ -289,10 +299,9 @@
             // Eject brass casing
             if (BO.World.scene && w.stats.kind === 'gun') {
                 const { right } = P.getMoveDirectionVectors();
-                const ejectPos = this.camera.position.clone()
-                    .addScaledVector(right, 0.24)
-                    .add(new THREE.Vector3(0, -0.14, 0));
-                BO.FX.spawnShellCasing(ejectPos, right);
+                _tmpEject.copy(this.camera.position).addScaledVector(right, 0.24);
+                _tmpEject.y -= 0.14;
+                BO.FX.spawnShellCasing(_tmpEject, right);
             }
 
             // Recoil kick + torsional roll + crisp upward muzzle snap
@@ -345,16 +354,16 @@
                     if (brRes.kills > 0) { anyKill = true; multiKills += brRes.kills; }
                 } else {
                     for (let i = 0; i < pellets; i++) {
-                        const shotDir = aim.dir.clone();
+                        _tmpShotDir.copy(aim.dir);
                         const fan = pellets > 1 && basePellets === 1 ? ((i - (pellets - 1) * 0.5) * 0.045) : 0;
                         const { right } = P.getMoveDirectionVectors();
-                        if (fan) shotDir.addScaledVector(right, fan);
-                        shotDir.x += (Math.random() - 0.5) * 2 * spread;
-                        shotDir.y += (Math.random() - 0.5) * 2 * spread;
-                        shotDir.z += (Math.random() - 0.5) * 2 * spread;
-                        shotDir.normalize();
+                        if (fan) _tmpShotDir.addScaledVector(right, fan);
+                        _tmpShotDir.x += (Math.random() - 0.5) * 2 * spread;
+                        _tmpShotDir.y += (Math.random() - 0.5) * 2 * spread;
+                        _tmpShotDir.z += (Math.random() - 0.5) * 2 * spread;
+                        _tmpShotDir.normalize();
 
-                        const res = this._castBulletRay(aim.origin, shotDir, shot, rpgMod);
+                        const res = this._castBulletRay(aim.origin, _tmpShotDir, shot, rpgMod);
                         if (res.hit) anyHit = true;
                         if (res.headshot) anyHeadshot = true;
                         if (res.kills > 0) {
@@ -399,7 +408,7 @@
             let hit = false, headshot = false, kills = 0;
             for (const h of hits) {
                 const ent = h.object.userData.entity;
-                if (!ent || !ent.alive || seen.has(ent)) continue;
+                if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || seen.has(ent)) continue;
                 seen.add(ent); hit = true;
                 const hb = h.object.userData.hitbox || 'torso';
                 if (hb === 'head') headshot = true;
@@ -412,22 +421,21 @@
         _castBulletRay(origin, dir, w, rpgMod = null, segDepth = 0) {
             const minRange = BO.State.activeMode === 'td' ? 195 : 85;
             const maxDist = Math.max(minRange, w.stats.range * 2.4 * (rpgMod?.rangeMult || 1));
-            let castDir = dir.clone();
+            const castDir = _tmpCastDir.copy(dir);
             // Homing assist (Spoon Bender / Sacred Heart) subtly bends shot toward nearest enemy in front cone!
             if (rpgMod && rpgMod.homing && segDepth === 0) {
-                let bestDot = 0.72, bestTo = null;
-                const tmp = new THREE.Vector3();
+                let bestDot = 0.72, hasBest = false;
                 for (let i = 0; i < this.targetPool.length; i++) {
                     const ent = this.targetPool[i].userData.entity;
                     if (!ent || !ent.alive || !ent.pos) continue;
-                    tmp.set(ent.pos.x, ent.pos.y + 1.15, ent.pos.z).sub(origin);
-                    const d = tmp.length();
+                    _tmpHoming.set(ent.pos.x, ent.pos.y + 1.15, ent.pos.z).sub(origin);
+                    const d = _tmpHoming.length();
                     if (d > maxDist || d < 0.5) continue;
-                    tmp.divideScalar(d);
-                    const dot = tmp.dot(castDir);
-                    if (dot > bestDot) { bestDot = dot; bestTo = tmp.clone(); }
+                    _tmpHoming.divideScalar(d);
+                    const dot = _tmpHoming.dot(castDir);
+                    if (dot > bestDot) { bestDot = dot; _tmpBestTo.copy(_tmpHoming); hasBest = true; }
                 }
-                if (bestTo) castDir.lerp(bestTo, 0.72).normalize();
+                if (hasBest) castDir.lerp(_tmpBestTo, 0.72).normalize();
             }
             const worldHit = BO.World.raycastWorld(origin, castDir, maxDist);
             const worldDist = worldHit ? worldHit.distance : maxDist;
@@ -435,17 +443,22 @@
             // Tracer start slightly offset right-down when hipfiring
             const P = BO.Player;
             const { right } = P.getMoveDirectionVectors();
-            const muzzlePos = segDepth > 0 ? origin.clone() : origin.clone()
-                .addScaledVector(castDir, 0.55)
-                .addScaledVector(right, (1 - P.adsAlpha) * 0.16)
-                .add(new THREE.Vector3(0, (1 - P.adsAlpha) * -0.10, 0));
+            if (segDepth > 0) {
+                _tmpMuzzle.copy(origin);
+            } else {
+                _tmpMuzzle.copy(origin).addScaledVector(castDir, 0.55).addScaledVector(right, (1 - P.adsAlpha) * 0.16);
+                _tmpMuzzle.y += (1 - P.adsAlpha) * -0.10;
+            }
+            const muzzlePos = _tmpMuzzle;
 
             this.raycaster.set(origin, castDir);
             this.raycaster.far = worldDist;
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
 
             if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
-            let endPoint = worldHit ? worldHit.point.clone() : origin.clone().addScaledVector(castDir, 60);
+            if (worldHit) _tmpEnd.copy(worldHit.point);
+            else _tmpEnd.copy(origin).addScaledVector(castDir, 60);
+            const endPoint = _tmpEnd;
             let pierceLeft = (w.stats.penetration || 0) + 1 + (rpgMod?.pierceAdd || 0);
             if (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.singleTargetShots) pierceLeft = 1;
             const hitEntities = new Set();
@@ -456,13 +469,20 @@
             for (let i = 0; i < hits.length && pierceLeft > 0; i++) {
                 const h = hits[i];
                 const ent = h.object.userData.entity;
-                if (!ent || !ent.alive || hitEntities.has(ent)) continue;
+                if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || hitEntities.has(ent)) continue;
                 hitEntities.add(ent);
-                pierceLeft--;
-                didHit = true;
-                endPoint = h.point.clone();
-
                 const hitbox = h.object.userData.hitbox || 'torso';
+                if (hitbox === 'shield') {
+                    // Shield blocks penetration and ricochets sparks/sound while preserving existing 0.25x chip math
+                    pierceLeft = 0;
+                    BO.FX.spawnParticles(h.point, 7, 0xfacc15, 4.4, 9, 0.28, 0.8);
+                    BO.Sound?.playShieldRicochet?.(h.point);
+                } else {
+                    pierceLeft--;
+                }
+                didHit = true;
+                endPoint.copy(h.point);
+
                 const isHead = hitbox === 'head';
                 if (isHead) didHead = true;
 
@@ -527,19 +547,27 @@
             }
 
             if (worldHit && (!didHit || pierceLeft > 0)) {
-                const n = worldHit.face ? worldHit.face.normal.clone() : new THREE.Vector3(0, 1, 0);
-                BO.FX.spawnDecal(worldHit.point, n, false);
-                BO.FX.spawnParticles(worldHit.point, 4, 0xd4d4d8, 3.0, 11, 0.25, 0.7);
+                if (worldHit.face) _tmpNorm.copy(worldHit.face.normal);
+                else _tmpNorm.set(0, 1, 0);
+                BO.FX.spawnDecal(worldHit.point, _tmpNorm, false);
+                const surfTag = worldHit.terrain ? 'earth' : String(worldHit.object?.userData?.surfaceMaterial || '');
+                let impactCol = 0xd4d4d8;
+                if (/metal|steel|iron|armor|car|grate/i.test(surfTag)) impactCol = 0xfde68a;
+                else if (/wood|timber|plank|crate/i.test(surfTag)) impactCol = 0xc2935c;
+                else if (/earth|dirt|grass|mud|sand|soil/i.test(surfTag)) impactCol = 0x8b7355;
+                else if (/glass|ice|window|mirror/i.test(surfTag)) impactCol = 0xbfefff;
+                else if (/water|liquid/i.test(surfTag)) impactCol = 0x7dd3fc;
+                BO.FX.spawnParticles(worldHit.point, 4, impactCol, 3.0, 11, 0.25, 0.7);
                 BO.Sound.playBulletImpact(worldHit);
                 if (rpgMod && rpgMod.explosive && !didHit && this.onExplodeAt) {
                     const rad = rpgMod.explosiveRadius || 3.4;
-                    BO.FX.spawnExplosion(worldHit.point.clone(), rad, rpgMod.tracerColor || 0x84cc16);
+                    BO.FX.spawnExplosion(worldHit.point, rad, rpgMod.tracerColor || 0x84cc16);
                     this.onExplodeAt(worldHit.point.clone(), rad, w.stats.damage * (rpgMod.damageMult || 1) * 0.65);
                 }
                 // Rubber Cement Wall-Bounce Ricochet!
                 if (rpgMod && rpgMod.bounceCount > segDepth) {
-                    const rDir = castDir.clone().reflect(n).normalize();
-                    const rOrig = worldHit.point.clone().addScaledVector(n, 0.12);
+                    const rDir = _tmpRefl.copy(castDir).reflect(_tmpNorm).normalize().clone();
+                    const rOrig = _tmpOrig.copy(worldHit.point).addScaledVector(_tmpNorm, 0.12).clone();
                     const br = this._castBulletRay(rOrig, rDir, w, rpgMod, segDepth + 1);
                     if (br.hit) didHit = true;
                     if (br.headshot) didHead = true;

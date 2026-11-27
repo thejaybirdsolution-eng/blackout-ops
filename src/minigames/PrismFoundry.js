@@ -42,9 +42,14 @@
         BO.World.colliders = [];
         S.spawned = 9; // 3 Drive Relays + 3 Sentinel Drones + 3 Governor Seals
         S.scene.background = new THREE.Color(0x1b2c36);
-        S.scene.fog = new THREE.FogExp2(0x243844, 0.010);
+        if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+        S.scene.fog = new THREE.FogExp2(0x1d2e3a, 0.0088);
 
-        const deck = texMat('diamond_plate', 4, 4), steel = texMat('rusted_metal', 4, 4), copper = std(0xc47b44, 0.36, 0.72);
+        const Assets = BO.Assets;
+        const deck = (Assets && Assets.pbrMat)
+            ? Assets.pbrMat('cyberpunk/Industrial Maintenance/diamond-plate-walkway-001.png', 4, 4, { roughness: 0.36, metalness: 0.68 })
+            : texMat('diamond_plate', 4, 4);
+        const steel = texMat('rusted_metal', 4, 4), copper = std(0xc47b44, 0.36, 0.72);
         const gold = basic(0xffbf74), aqua = basic(0x72e8dc), laserM = basic(0xf97316);
         const mats = [aqua, gold], surface = [std(0x288d8a, 0.38, 0.54), std(0xb96c3e, 0.42, 0.54)];
 
@@ -88,6 +93,10 @@
             for (const k of [-1, 1]) rod(g, V(k * 0.82, 0.28, 0), V(k * 0.55, 2.05, 0), 0.105, copper);
             const core = part(g, new THREE.OctahedronGeometry(0.56), aqua, 0, 1.5, 0);
             const halo = ring(g, 0, 1.5, 0, 0.90, 0.058, gold); sign(g, label, 0, 3.0, 0, 3.8, 0.56);
+            if (Assets && Assets.placeGLB) {
+                Assets.placeGLB(g, 'mini_dungeon_kit/chest.glb', { pos: [1.35, 0.02, 0.35], rot: -0.45, fitSize: [0.95, 0.8, 0.75] });
+                Assets.placeGLB(g, 'platformer_kit/lever.glb', { pos: [-1.35, 0.02, 0.35], rot: 0.45, fitSize: [0.75, 0.95, 0.75] });
+            }
             f.switches.push({ g, core, halo, done: false });
         }
 
@@ -95,6 +104,10 @@
             const g = group(S.scene, x, y, z);
             const outer = ring(g, 0, 0, 0, 0.92, 0.075, aqua);
             const gem = part(g, new THREE.OctahedronGeometry(0.28), gold, 0, 0, 0);
+            if (Assets && Assets.placeGLB) {
+                Assets.placeGLB(gem, 'mini_dungeon_kit/coin.glb', { fitSize: [0.78, 0.78, 0.24] });
+                Assets.placeGLB(g, 'mini_dungeon_kit/chest.glb', { pos: [0, -0.78, 0], fitSize: [0.62, 0.48, 0.52] });
+            }
             f.prisms.push({ g, outer, gem, taken: false });
         }
 
@@ -149,7 +162,8 @@
         sign(S.scene, 'PRISM FOUNDRY', 0, 10, -12, 12, 1.6, '#ffcf98', '#14242c');
         sign(S.scene, 'THE RUNAWAY GOVERNOR', 0, 14.5, -123, 11, 1.15, '#ffcf98', '#14242c');
 
-        // Cathedrals of Interlocking Gears & Glowing Polarity Conduits
+        // Cathedrals of Interlocking Gears, Industrial Tanks, Chimneys, Pipes & Platformer Props!
+        const tankTr = [], chimneyTr = [], pipeTr = [], platDecorTr = [];
         for (let i = 0; i < 10; i++) {
             const z = 5 - i * 14.2;
             for (const side of [-1, 1]) {
@@ -159,9 +173,25 @@
                 box(S.scene, x * 0.91, 12.8, z, 2.6, 0.22, 0.55, i % 2 ? gold : aqua);
                 const g = gear(S.scene, x - 0.5 * side, 5 + (i % 3), z - 0.4, 2.4 + (i % 2), copper);
                 g.rotation.y = side * Math.PI * 0.4; f.gears.push({ g, speed: side * (0.25 + (i % 3) * 0.1) });
+                if (i % 2 === 0) tankTr.push({ pos: [side * 15.5, -4.6, z - 4], rot: side > 0 ? -Math.PI / 2 : Math.PI / 2, scale: 2.6 });
+                else chimneyTr.push({ pos: [side * 16.5, -4.6, z - 2], scale: 3.4 });
+                pipeTr.push({ pos: [side * 11.4, 2.5, z - 6], rot: side > 0 ? -Math.PI / 2 : Math.PI / 2, scale: 3.2 });
             }
             box(S.scene, 0, 14.8, z, 26.6, 0.55, 0.75, steel);
             if (i % 2 === 0) rod(S.scene, V(-12, 14.6, z), V(12, 14.6, z - 14), 0.15, copper);
+            if (i < 8) platDecorTr.push({ pos: [(i % 2 ? 1 : -1) * 9.6, 3.2 + i * 0.35, z - 7], scale: 1.9 });
+        }
+        if (Assets && Assets.placeGLBInstanced) {
+            Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/detail-tank-large.glb', tankTr);
+            Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/chimney-large.glb', chimneyTr);
+            Assets.placeGLBInstanced(S.scene, 'building_kit/detail-pipe.glb', pipeTr);
+            Assets.placeGLBInstanced(S.scene, 'platformer_kit/platform-fortified.glb', platDecorTr);
+        }
+        if (Assets && Assets.placeGLB) {
+            Assets.placeGLB(S.scene, 'platformer_kit/conveyor-belt.glb', { pos: [-3.6, 3.02, 2.5], fitSize: [2.2, 0.5, 3.8] });
+            Assets.placeGLB(S.scene, 'platformer_kit/conveyor-belt.glb', { pos: [3.6, 3.02, 2.5], fitSize: [2.2, 0.5, 3.8] });
+            Assets.placeGLB(S.scene, 'city_industrial_kit/shipping-container-b.glb', { pos: [-8.5, 6.0, -116], rot: 0.35, fitSize: [3.2, 2.8, 6.2] });
+            Assets.placeGLB(S.scene, 'city_industrial_kit/shipping-container-c.glb', { pos: [8.5, 6.0, -116], rot: -0.35, fitSize: [3.2, 2.8, 6.2] });
         }
 
         box(S.scene, 0, -4.8, -54, 48, 0.4, 160, basic(0xd95326));
@@ -219,6 +249,7 @@
         f.lamp.material = basic(PALETTES[f.phase]);
         f.beam.material.color.setHex(PALETTES[f.phase]);
         SFX.clack();
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/metalLatch.ogg', { volume: 0.44, rateJitter: 0.06 });
     }
 
     function aimHook(S) {
@@ -277,6 +308,7 @@
                 BO.FX.spawnExplosion(pos.clone(), 2.8, PALETTES[f.phase]);
                 S.award(Math.round(380 * S.comboMult), pos.clone(), 'SENTINEL SHATTERED!', '#8ce8db');
                 SFX.shatter();
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactMetal_heavy_000.ogg', { volume: 0.42, rateJitter: 0.08 });
                 return;
             }
         }
@@ -295,6 +327,7 @@
         S.shotHits++; S.hits++; S.kills++; S.bumpCombo();
         S.award(Math.round(950 * S.comboMult), hit.clone(), 'GOVERNOR SEAL CRACKED!');
         SFX.star(2);
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_001.ogg', { volume: 0.45, rateJitter: 0.06 });
         BO.FX.spawnParticles(hit, 22, PALETTES[f.phase], 5.5, 2, 0.5, 1.1);
         if (f.bossHits === 3) {
             f.complete = true; f.shock.visible = false;
@@ -372,6 +405,7 @@
                 S.bumpCombo();
                 S.award(Math.round(250 * S.comboMult), pr.g.position, 'PRISM • LIFT READY', '#8ce8db');
                 SFX.ding(1.25);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.40, rateJitter: 0.08 });
             }
         }
 

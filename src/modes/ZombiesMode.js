@@ -249,6 +249,13 @@
                 if (tb.mesh && BO.World.scene) BO.World.scene.remove(tb.mesh);
             }
             this.thrownTowerBalls = [];
+            this.activePrompt = null;
+            this.packWeapon = null;
+            if (Array.isArray(this.doors)) this.doors.length = 0;
+            if (Array.isArray(this.windows)) this.windows.length = 0;
+            if (Array.isArray(this.wallBuys)) this.wallBuys.length = 0;
+            if (Array.isArray(this.perkMachines)) this.perkMachines.length = 0;
+            if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') BO.Combat.setTargetPool([]);
             BO.Sound.stopMusic();
         }
 

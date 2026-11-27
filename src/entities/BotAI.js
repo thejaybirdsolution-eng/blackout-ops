@@ -107,9 +107,10 @@
         }
 
         getHitboxMeshes() {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
             });
             return list;
         }
@@ -139,10 +140,11 @@
             this.path = [];
         }
 
-        takeDamage(dmg, attacker = null, impulse = null) {
+        takeDamage(dmg, attacker = null, impulse = null, hitbox = 'torso') {
             if (!this.alive) return false;
             this.hp -= dmg;
             this.animPose.flinch = 1;
+            this.animPose.hitZone = hitbox || 'torso';
             this.lastAttacker = attacker;
             if (this.hp <= 0) {
                 this.hp = 0;
@@ -446,7 +448,7 @@
             pose.aim += ((this.cachedTarget ? 1 : 0) - pose.aim) * Math.min(1, 9 * dt);
             pose.recoil = Math.max(0, pose.recoil - dt * 7);
             pose.flinch = Math.max(0, pose.flinch - dt * 5);
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, pose.recoil * 0.34, pose.flinch * 0.48);
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, pose.recoil * 0.34, pose.flinch * 0.48, pose.hitZone || 'torso');
             if (BO.State.activeMode === 'mp') {
                 const { bodyPivot, armL, armR, headGroup } = this.parts;
                 const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;

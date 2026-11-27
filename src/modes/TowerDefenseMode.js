@@ -400,6 +400,9 @@
             }
             this.supplyDrops = [];
             this.layers = [];
+            this.activePrompt = null;
+            if (BO.Combat && typeof BO.Combat.setTargetPool === 'function') BO.Combat.setTargetPool([]);
+            BO.Sound.stopMusic();
         }
 
         _buildCastleStructures(scene, map) {
@@ -1754,6 +1757,7 @@
                         return;
                     }
                     if (BO.Mods?.fx(this.modifiers, 'td').disablePap) {
+                        BO.Sound.playEmptyClick();
                         BO.Events.emit('hud:toast', { text: 'PACK-A-PUNCH DISABLED BY ANCIENT STEEL OATH!', color: '#ef4444' });
                         return;
                     }
@@ -2557,8 +2561,7 @@
                     const curTier = w ? (w.papTier || 0) : 3;
                     if (curTier >= 3) return { text: `${w.stats.name.toUpperCase()} MAXED (TIER III)`, affordable: false };
                     if (BO.Mods?.fx(this.modifiers, 'td').disablePap) {
-                        BO.Events.emit('hud:toast', { text: 'PACK-A-PUNCH DISABLED BY ANCIENT STEEL OATH!', color: '#ef4444' });
-                        return;
+                        return { text: 'PACK-A-PUNCH DISABLED BY ANCIENT STEEL OATH!', affordable: false };
                     }
                     const basePap = curTier === 0 ? 3000 : (curTier === 1 ? 6000 : 10000);
                     const cost = this.getCost(basePap, 'pap');

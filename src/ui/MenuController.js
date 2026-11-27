@@ -731,8 +731,26 @@
             const btnDev = document.getElementById('btn-pause-dev');
             if (btnDev) {
                 const dev = BO.GM?.active ? BO.GM.get('dev') : null;
-                btnDev.classList.toggle('hidden', !open || !dev?.active);
-                btnDev.onclick = () => { this.setPauseOpen(false); dev?.toggle(true); };
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                btnDev.classList.toggle('hidden', !open || (!dev?.active && !ow));
+                btnDev.dataset.tip = 'Open developer tools for the active mode (also F8).';
+                btnDev.onclick = () => { this.setPauseOpen(false); if (ow) BO.OWRPGUI.toggleDev(); else dev?.toggle(true); };
+            }
+            let compassBtn = document.getElementById('btn-pause-ow-compass');
+            if (!compassBtn && btnDev) {
+                compassBtn = document.createElement('button');
+                compassBtn.id = 'btn-pause-ow-compass'; compassBtn.className = 'btn hidden';
+                btnDev.after(compassBtn);
+            }
+            if (compassBtn) {
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                compassBtn.classList.toggle('hidden', !open || !ow);
+                if (ow) {
+                    const flags = BO.OWRPGMode.state.worldFlags;
+                    compassBtn.textContent = 'COMPASS · ' + (flags.compassEnabled !== false ? 'ON' : 'OFF');
+                    compassBtn.setAttribute('aria-pressed', String(flags.compassEnabled !== false));
+                    compassBtn.onclick = () => { flags.compassEnabled = flags.compassEnabled === false; this.setPauseOpen(true); };
+                }
             }
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');

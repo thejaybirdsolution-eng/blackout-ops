@@ -416,7 +416,7 @@
                 <dt>Position</dt><dd>${this.posText()}</dd><dt>Region</dt><dd>${esc(reg?.name || '')} · ${esc(reg?.biome || '')} · threat ${reg?.threat ?? '?'}</dd>
                 <dt>Infected</dt><dd>${this.mode.zombies.filter((z) => z.alive).length}</dd><dt>Animals</dt><dd>${(BO.ZoneWild?.animals || []).filter((a) => a.alive).length}</dd><dt>Markers</dt><dd>${this.mode.markers.length}</dd><dt>Structures</dt><dd>${this.c.placed.filter((x) => x.alive).length}</dd>
                 <dt>Clock</dt><dd>${this.mode.clock.toFixed(0)} s · ${esc(this.c.clockFace || '')}</dd><dt>Grounded</dt><dd>${p.onGround ? 'yes' : 'no'}</dd></dl>`) +
-                this.sec('Tools', `<div class="dev-grid2">${this.tog('hideHud', 'Hide the HUD', 'For screenshots')}</div><div class="dev-row">${this.btn('copyPos', 'Copy position')}${this.btn('save', 'Force-save checkpoint')}${this.btn('refresh', 'Refresh')}</div>`);
+                this.sec('Tools', `<div class="dev-grid2">${this.tog('hideHud', 'Hide the HUD', 'For screenshots')}<label class="dev-tog"><span><input type="checkbox" data-dev-hitboxes ${BO.HitboxDebug?.isEnabled?.() ? 'checked' : ''}><span>Hitbox Wireframes</span></span><small>Head / torso / limb / shield</small></label></div><div class="dev-row">${this.btn('copyPos', 'Copy position')}${this.btn('save', 'Force-save checkpoint')}${this.btn('refresh', 'Refresh')}</div>`);
         },
 
         spots() { try { return JSON.parse(localStorage.getItem(SPOTS_KEY) || '[]'); } catch (_) { return []; } },
@@ -465,6 +465,10 @@
                 this._focusSearch = true;
                 clearTimeout(this._qT);
                 this._qT = setTimeout(() => this.render(), 120);
+                return;
+            }
+            if (t.matches('[data-dev-hitboxes]')) {
+                BO.HitboxDebug?.setEnabled?.(t.checked);
                 return;
             }
             if (t.matches('[data-dev-flag]')) {

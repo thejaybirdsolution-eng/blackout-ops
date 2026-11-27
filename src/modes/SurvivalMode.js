@@ -8,6 +8,8 @@
 (function (BO) {
     'use strict';
     const NIGHT_FOG = new THREE.Color(0x10151c), BLOOD_FOG = new THREE.Color(0x521418), SUN_DIR = new THREE.Vector3();
+    const _tmpTracerA = new THREE.Vector3();
+    const _tmpTracerB = new THREE.Vector3();
 
     const distance = (a, b) => BO.Math.dist3D(a.x, a.y, a.z, b.x, b.y, b.z);
     const MAP_ID = 'zone';
@@ -20,6 +22,18 @@
             this.bots = [];
             this.markers = [];
             this.structures = new Map();
+            this._targetPoolBuf = [];
+            this._targetsDirty = true;
+            this._lastUnitSig = '';
+            this._markerGrid = null;
+            this._markerIndexedCount = 0;
+            this._nearQueryBuf = [];
+            this._discoverMarkers = [];
+            this._discClock = 0;
+            this._sysClock = 0;
+            this._aliveBots = [];
+            this._aliveZombies = [];
+            this._botTargetScratch = { x: 0, y: 0, z: 0, target: null, attackRange: 1.7, forceDirect: true };
         }
 
         /* ================================================================ lifecycle */
@@ -46,8 +60,13 @@
                 completed: new Set(), nextEnemy: 100, fireClock: 0, hazardClock: 0, exfil: null, core: false, flooded: false,
                 fire: [], structures: new Map(), markers: [], rider: false, near: null, threat: null, lastDay: 1, lastNight: 0,
                 patrolsDeployed: true, commanderDeployed: true, commander: null, commanderRetreated: false, commanderReturnAt: Infinity,
-                fracture: false, fallPeak: 0, wasAirborne: false, deaths: 0, lodClock: 0
+                fracture: false, fallPeak: 0, wasAirborne: false, deaths: 0, lodClock: 0,
+                _targetsDirty: true, _lastUnitSig: '', _markerIndexedCount: 0, _discClock: 0, _sysClock: 0
             });
+            this._markerGrid = BO.SpatialHash ? new BO.SpatialHash(12) : null;
+            this._discoverMarkers.length = 0;
+            this._nearQueryBuf.length = 0;
+            this._targetPoolBuf.length = 0;
             this.wind = new THREE.Vector3(1, 0, 0.32).normalize();
             this.points = { scrap: 1, cloth: 1, rations: 1, medkits: 0, bandage: 1 };
             const openSec = BO.SurvivalRules.openingSecondsFor ? BO.SurvivalRules.openingSecondsFor(campaignOptions) : BO.SurvivalRules.openingSeconds;
@@ -152,6 +171,8 @@
             BO.ZoneThrill?.stop();
             if (this.camera && this.camera.far !== 1500) { this.camera.far = 1500; this.camera.updateProjectionMatrix(); }
             this.active = false;
+            BO.Sound.stopMusic();
+            this.campaign?.pack?.batch?.dispose?.();
             this.campaign?.stop();
             this.campaign = null;
             this.loot?.stop();
@@ -166,6 +187,13 @@
                 mesh.material?.dispose?.();
             }
             this.owned.length = 0;
+            this._markerGrid?.clear?.();
+            this._discoverMarkers.length = 0;
+            this._nearQueryBuf.length = 0;
+            this._targetPoolBuf.length = 0;
+            this._aliveBots.length = 0;
+            this._aliveZombies.length = 0;
+            this._targetsDirty = true;
             this.scene = null;
         }
 
@@ -481,47 +509,98 @@
         }
 
         refreshTargets() {
-            BO.Combat.setTargetPool([...this.zombies, ...this.bots, ...(BO.ZoneWild?.animals || [])].filter((unit) => unit.alive && unit.team !== 0).flatMap((unit) => unit.getHitboxMeshes()));
+            this._targetsDirty = false;
+            const pool = this._targetPoolBuf;
+            pool.length = 0;
+            const pushMeshes = (list) => {
+                if (!list) return;
+                for (let i = 0; i < list.length; i++) {
+                    const u = list[i];
+                    if (!u || !u.alive || u.team === 0) continue;
+                    const meshes = u.getHitboxMeshes();
+                    for (let j = 0; j < meshes.length; j++) pool.push(meshes[j]);
+                }
+            };
+            pushMeshes(this.zombies);
+            pushMeshes(this.bots);
+            pushMeshes(BO.ZoneWild?.animals);
+            BO.Combat.setTargetPool(pool);
+        }
+
+        _distSqXZ(a, b) {
+            const dx = a.x - b.x, dy = (a.y || 0) - (b.y || 0), dz = a.z - b.z;
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        _closestInRange(list, pos, range) {
+            let nearest = null;
+            let bestSq = range * range;
+            for (let i = 0; i < list.length; i++) {
+                const u = list[i];
+                const d2 = this._distSqXZ(u.pos, pos);
+                if (d2 < bestSq) { bestSq = d2; nearest = u; }
+            }
+            return nearest;
         }
 
         updateFactions(dt) {
             const p = BO.Player;
             const D = BO.ZoneDirector;
-            const bots = this.bots.filter((unit) => unit.alive);
-            const infected = this.zombies.filter((unit) => unit.alive);
-            const closest = (list, pos, range) => list.reduce((nearest, unit) =>
-                unit.pos.distanceTo(pos) < (nearest?.pos.distanceTo(pos) ?? range) ? unit : nearest, null);
-            const callbacks = {
-                allowProjectiles: false,
-                getTarget: (z) => {
-                    const H = BO.ZoneHorde;
-                    if (z.breach) { const br = H.breachTarget(z); if (br) return br; }
-                    if (z.horde) return H.targetFor(z);
-                    const compTgt = BO.ZoneCompanions?.targetForZombie?.(z);
-                    if (compTgt) return compTgt;
-                    const fortTgt = BO.ZoneWorldPlus?.targetForZombie?.(z);
-                    if (fortTgt) return fortTgt;
-                    const bot = closest(bots, z.pos, 11);
-                    if (bot && (!z.zs || z.zs.state !== 'hunt' || bot.pos.distanceTo(z.pos) < p.pos.distanceTo(z.pos))) return { ...bot.pos, target: bot, attackRange: 1.7, forceDirect: true };
-                    return D.getTarget(z);
-                },
-                onAttackCustomTarget: (z, ct) => {
-                    if (ct?.structure) BO.ZoneHorde.strike(z, ct.structure);
-                    else if (ct?.companion) BO.ZoneCompanions?.damageCompanion(z.damage);
-                    else if (ct?.fortDefender) BO.ZoneWorldPlus?.damageDefender(ct.fortDefender, z.damage);
-                    else if (ct?.target) this.hit(ct.target, z.damage, 'torso', null, 'melee', z);
-                },
-                onMeleePlayer: (z) => {
-                    p.takeDamage(z.damage, z.pos, false, z);
-                    BO.ZoneThrill?.onEnemyMelee(z);
-                    D.onPlayerHurt();
-                    const deep = this.campaign?.deep;
-                    if (deep && p.alive && !p.guardingWithHands) {
-                        if (Math.random() < (this.campaign.has('infectBite') ? 0.35 : 0.12)) deep.bleeding = Math.max(deep.bleeding, 8);
-                        if (this.campaign.has('infectBite')) deep.infection = Math.min(100, deep.infection + 12);
+            const bots = this._aliveBots;
+            bots.length = 0;
+            for (let i = 0; i < this.bots.length; i++) if (this.bots[i].alive) bots.push(this.bots[i]);
+            const infected = this._aliveZombies;
+            infected.length = 0;
+            for (let i = 0; i < this.zombies.length; i++) if (this.zombies[i].alive) infected.push(this.zombies[i]);
+
+            const animalsLen = BO.ZoneWild?.animals?.length || 0;
+            const sig = `${this.zombies.length}:${infected.length}:${this.bots.length}:${bots.length}:${animalsLen}`;
+            if (sig !== this._lastUnitSig) {
+                this._lastUnitSig = sig;
+                this._targetsDirty = true;
+            }
+
+            if (!this._factionCallbacks) {
+                this._factionCallbacks = {
+                    allowProjectiles: false,
+                    getTarget: (z) => {
+                        const H = BO.ZoneHorde;
+                        if (z.breach) { const br = H.breachTarget(z); if (br) return br; }
+                        if (z.horde) return H.targetFor(z);
+                        const compTgt = BO.ZoneCompanions?.targetForZombie?.(z);
+                        if (compTgt) return compTgt;
+                        const fortTgt = BO.ZoneWorldPlus?.targetForZombie?.(z);
+                        if (fortTgt) return fortTgt;
+                        const bot = this._closestInRange(this._aliveBots, z.pos, 11);
+                        if (bot && (!z.zs || z.zs.state !== 'hunt' || this._distSqXZ(bot.pos, z.pos) < this._distSqXZ(BO.Player.pos, z.pos))) {
+                            const s = this._botTargetScratch;
+                            s.x = bot.pos.x; s.y = bot.pos.y; s.z = bot.pos.z;
+                            s.target = bot;
+                            return s;
+                        }
+                        return BO.ZoneDirector.getTarget(z);
+                    },
+                    onAttackCustomTarget: (z, ct) => {
+                        if (ct?.structure) BO.ZoneHorde.strike(z, ct.structure);
+                        else if (ct?.companion) BO.ZoneCompanions?.damageCompanion(z.damage);
+                        else if (ct?.fortDefender) BO.ZoneWorldPlus?.damageDefender(ct.fortDefender, z.damage);
+                        else if (ct?.target) this.hit(ct.target, z.damage, 'torso', null, 'melee', z);
+                    },
+                    onMeleePlayer: (z) => {
+                        const Pl = BO.Player;
+                        Pl.takeDamage(z.damage, z.pos, false, z);
+                        BO.ZoneThrill?.onEnemyMelee(z);
+                        BO.ZoneDirector.onPlayerHurt();
+                        const deep = this.campaign?.deep;
+                        if (deep && Pl.alive && !Pl.guardingWithHands) {
+                            if (Math.random() < (this.campaign.has('infectBite') ? 0.35 : 0.12)) deep.bleeding = Math.max(deep.bleeding, 8);
+                            if (this.campaign.has('infectBite')) deep.infection = Math.min(100, deep.infection + 12);
+                        }
                     }
-                }
-            };
+                };
+            }
+            const callbacks = this._factionCallbacks;
+
             for (let i = this.zombies.length - 1; i >= 0; i--) {
                 const z = this.zombies[i];
                 const step = z.alive ? D.lodTick(z, dt) : dt;
@@ -529,30 +608,38 @@
                 if (!z.update(step, this.zombies, callbacks)) {
                     z.destroy();
                     this.zombies.splice(i, 1);
+                    this._targetsDirty = true;
                 }
             }
-            const context = {
-                playerAlive: p.alive, playerPos: p.pos, playerTeam: 0, bots,
+            const context = this._botContext || (this._botContext = {
+                playerAlive: true, playerPos: p.pos, playerTeam: 0, bots,
                 modeType: 'survival', objectivePos: null,
                 onBotShootPlayer: (bot, dmg) => {
                     if (bot.team === 1 && !bot.gmProvoked && BO.GM?.get('bosses')?.hasReward?.('codebook')) return;
-                    p.takeDamage(dmg * 0.78, bot.pos, false); D.onPlayerHurt();
+                    BO.Player.takeDamage(dmg * 0.78, bot.pos, false); D.onPlayerHurt();
                 }
-            };
-            for (const bot of bots) {
+            });
+            context.playerAlive = p.alive;
+            context.playerPos = p.pos;
+            context.bots = bots;
+
+            for (let bi = 0; bi < bots.length; bi++) {
+                const bot = bots[bi];
                 const step = D.lodTick(bot, dt);
                 if (step === 0) continue;
                 bot.update(step, context);
-                const z = closest(infected, bot.pos, 14);
+                const z = this._closestInRange(infected, bot.pos, 14);
                 bot.infectedFire = (bot.infectedFire || 0) - step;
                 if (z?.alive && bot.infectedFire <= 0 && BO.World.hasLineOfSight(bot.pos.x, bot.pos.y + 1.3, bot.pos.z, z.pos.x, z.pos.y + 0.9, z.pos.z)) {
                     bot.infectedFire = 0.66;
-                    BO.FX.spawnTracer(bot.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), z.pos.clone().add(new THREE.Vector3(0, 0.9, 0)), 0xfba76a);
+                    _tmpTracerA.set(bot.pos.x, bot.pos.y + 1.3, bot.pos.z);
+                    _tmpTracerB.set(z.pos.x, z.pos.y + 0.9, z.pos.z);
+                    BO.FX.spawnTracer(_tmpTracerA, _tmpTracerB, 0xfba76a);
                     this.hit(z, bot.team === 0 ? 45 : 29, 'torso', null, 'bullet', bot);
                     D.noise(bot.pos.x, bot.pos.z, 90, 'gunshot');
                 }
             }
-            this.refreshTargets();
+            if (this._targetsDirty) this.refreshTargets();
         }
 
         /* ================================================================ frame */
@@ -570,26 +657,34 @@
             BO.ZoneDirector.update(dt);
             BO.ZoneHorde?.update(dt);
             BO.ZoneBuild.update(dt);
-            BO.ZoneFrontier.update(dt);
             BO.ZoneFinale.update(dt);
-            BO.ZoneArchive.update(dt);
-            BO.ZoneEvents.update(dt);
-            BO.ZoneInfest?.update(dt);
-            BO.ZoneContracts?.update(dt);
-            BO.ZoneThrill?.update(dt);
             BO.ZoneWild?.update(dt);
             BO.ZoneCompanions?.update(dt);
             BO.ZoneArmory?.update(dt);
             BO.ZoneDungeons?.update(dt);
             BO.ZoneLegends?.update(dt);
-            BO.ZoneQuests?.update(dt);
             BO.ZoneWorldPlus?.update(dt);
             BO.ZoneSandbox?.update(dt);
+            BO.ZoneThrill?.update(dt);
             BO.GM?.update(dt);
             this.loot.update(dt);
             this.updateBody(dt);
             this.updateHazards(dt, this.campaign?.darkness ?? 0);
-            this.updatePrompt();
+
+            // 10 Hz throttle for non-visual quest/contract/frontier/archive/infest tickers
+            this._sysClock += dt;
+            if (this._sysClock >= 0.1) {
+                const sdt = this._sysClock;
+                this._sysClock = 0;
+                BO.ZoneFrontier.update(sdt);
+                BO.ZoneArchive.update(sdt);
+                BO.ZoneEvents.update(sdt);
+                BO.ZoneInfest?.update(sdt);
+                BO.ZoneContracts?.update(sdt);
+                BO.ZoneQuests?.update(sdt);
+            }
+
+            this.updatePrompt(dt);
             this.campaign?.update(dt);
             BO.Zone.animate(BO.World, this.clock);
             if (!p.alive) this.handleDeath();
@@ -765,28 +860,53 @@
             });
         }
 
-        updatePrompt() {
+        _syncMarkerGrid() {
+            if (!this._markerGrid) return;
+            if (this._markerIndexedCount > this.markers.length) {
+                this._markerGrid.clear();
+                this._discoverMarkers.length = 0;
+                this._markerIndexedCount = 0;
+            }
+            for (let i = this._markerIndexedCount; i < this.markers.length; i++) {
+                const mk = this.markers[i];
+                if (!mk) continue;
+                if (mk.discover) this._discoverMarkers.push(mk);
+                else this._markerGrid.insert(mk, mk.x, mk.z);
+            }
+            this._markerIndexedCount = this.markers.length;
+        }
+
+        updatePrompt(dt = 0.016) {
             const p = BO.Player.pos;
             const score = (mk) => distance(p, mk) + (mk.id.startsWith('node:') || mk.id.startsWith('tree:') ? 0.9 : 0) + (mk.to ? 0.6 : 0) - (mk.container?.story ? 0.8 : 0);
+            this._syncMarkerGrid();
+            const list = this._markerGrid ? this._markerGrid.queryNear(p.x, p.z, 4.5, this._nearQueryBuf) : this.markers;
             let best = null, bestS = Infinity;
-            for (const mk of this.markers) {
-                if (mk.alive === false || mk.discover) continue;
+            for (let i = 0; i < list.length; i++) {
+                const mk = list[i];
+                if (!mk || mk.alive === false || mk.discover) continue;
                 const dx = Math.abs(mk.x - p.x);
-                if (dx > 3.1) continue;
+                if (dx > 3.2) continue;
                 const d = distance(p, mk);
-                if (d > (mk.reach || 3.05)) continue;
+                if (d > (mk.reach || 3.2)) continue;
                 const s = score(mk);
                 if (s < bestS) { bestS = s; best = mk; }
             }
             this.near = best;
-            // Landmarks are discovered by getting close.
-            for (const mk of this.markers) {
-                if (!mk.discover || mk.found) continue;
-                if (Math.hypot(mk.x - p.x, mk.z - p.z) < 22) {
-                    mk.found = true;
-                    this.campaign.mark('landmarks', 1, 25);
-                    this.campaign.mark('found_' + mk.id, 1, 0);
-                    this.toast('Discovered ' + mk.name + ' · +25 XP');
+            // Landmarks are discovered by getting close (2 Hz check instead of full scan every frame)
+            this._discClock -= dt;
+            if (this._discClock <= 0) {
+                this._discClock = 0.5;
+                for (let i = 0; i < this._discoverMarkers.length; i++) {
+                    const mk = this._discoverMarkers[i];
+                    if (mk.found) continue;
+                    const dx = mk.x - p.x, dz = mk.z - p.z;
+                    if (dx * dx + dz * dz < 484) {
+                        mk.found = true;
+                        this.campaign.mark('landmarks', 1, 25);
+                        this.campaign.mark('found_' + mk.id, 1, 0);
+                        this.toast('Discovered ' + mk.name + ' · +25 XP');
+                    }
                 }
             }
         }

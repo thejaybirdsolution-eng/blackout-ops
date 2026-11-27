@@ -393,41 +393,69 @@
                 }
             });
             // Drag & drop onto the hotbar.
+            this._dragSourceEl = null;
+            this._dragDropped = false;
             this.root.addEventListener('dragstart', (e) => {
                 const el = e.target.closest('[data-drag]');
                 if (!el) return;
+                this._dragSourceEl = el;
+                this._dragDropped = false;
                 e.dataTransfer.setData('text/plain', el.dataset.drag);
                 e.dataTransfer.effectAllowed = 'move';
                 this.root.classList.add('sv-dragging');
+                BO.Sound?.playUIDragStart?.();
             });
             this.root.addEventListener('dragend', () => {
                 this.root.classList.remove('sv-dragging');
                 this.root.querySelectorAll('.is-drop').forEach((n) => n.classList.remove('is-drop'));
+                if (!this._dragDropped && this._dragSourceEl && this._dragSourceEl.isConnected) {
+                    const src = this._dragSourceEl;
+                    src.classList.remove('bo-snap-back');
+                    void src.offsetWidth;
+                    src.classList.add('bo-snap-back');
+                    setTimeout(() => src.classList.remove('bo-snap-back'), 240);
+                    BO.Sound?.playUIDisabled?.();
+                }
+                this._dragSourceEl = null;
+                this._dragDropped = false;
             });
             this.root.addEventListener('dragover', (e) => {
                 const slot = e.target.closest('[data-hb-slot], [data-drop-clear]');
                 if (!slot) return;
                 e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
                 this.root.querySelectorAll('.is-drop').forEach((n) => n !== slot && n.classList.remove('is-drop'));
                 slot.classList.add('is-drop');
+            });
+            this.root.addEventListener('dragleave', (e) => {
+                const slot = e.target.closest('[data-hb-slot], [data-drop-clear]');
+                if (slot && (!e.relatedTarget || !slot.contains(e.relatedTarget))) {
+                    slot.classList.remove('is-drop');
+                }
             });
             this.root.addEventListener('drop', (e) => {
                 const slot = e.target.closest('[data-hb-slot], [data-drop-clear]');
                 if (!slot) return;
                 e.preventDefault();
+                slot.classList.remove('is-drop');
                 const payload = e.dataTransfer.getData('text/plain');
                 const hotbar = BO.SurvivalMode.campaign?.hotbar;
                 if (!hotbar || !payload) return;
                 const [kind, ...rest] = payload.split(':');
                 const id = rest.join(':');
+                let changed = false;
                 if (slot.dataset.dropClear !== undefined) {
-                    if (kind === 'slot') hotbar.clear(Number(id));
+                    if (kind === 'slot') { hotbar.clear(Number(id)); changed = true; }
                 } else {
                     const to = Number(slot.dataset.hbSlot);
-                    if (kind === 'slot') hotbar.move(Number(id), to);
-                    else this.assignToHotbar(to, kind, id);
+                    if (kind === 'slot') { hotbar.move(Number(id), to); changed = true; }
+                    else if (typeof this.assignToHotbar === 'function') { this.assignToHotbar(to, kind, id); changed = true; }
                 }
-                this.render();
+                if (changed) {
+                    this._dragDropped = true;
+                    BO.Sound?.playUIDrop?.();
+                    this.render();
+                }
             });
             this.root.addEventListener('mousedown', (e) => {
                 if (e.target.id !== 'sv-map-canvas' || e.button !== 0 || this.section !== 'map') return;

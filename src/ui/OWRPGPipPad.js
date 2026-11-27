@@ -10,6 +10,7 @@
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const TABS = [
         ['character', 'Character', 'staged_assets/ui/military_icons/Field Gear/ballistic-document-clipboard-001.png'],
+        ['mastery', 'Mastery', 'staged_assets/ui/fantasy_rpg_icons/Classes/warrior-class-001.png'],
         ['perks', 'Perks', 'staged_assets/ui/scifi_icons/Power Cores/amber-overdrive-cell-001.png'],
         ['inventory', 'Inventory', 'staged_assets/ui/military_icons/Field Gear/assault-day-pack-001.png'],
         ['abilities', 'Abilities', 'staged_assets/ui/scifi_icons/Gadgets/acoustic-hull-probe-001.png'],
@@ -64,8 +65,8 @@
             const s = this.s, SD = BO.OWRPGStatsData, C = BO.OWRPGCharacter, I = BO.OWRPGInventory;
             const d = C.derived(s), enc = C.encumbrance(s), p = s.player;
             const rows = SD.ATTRS.map((a) => `<div class="ow-attr"><div class="ow-attr-name" style="--c:${ATTR_COL[a.id]}"><b>${a.name}</b><small>${a.desc}</small></div>
-                <div class="ow-attr-ctl"><span class="ow-pips">${Array.from({ length: 10 }, (_, i) => `<i class="${i < C.attr(s, a.id) ? 'on' : ''}" style="--c:${ATTR_COL[a.id]}"></i>`).join('')}</span><b class="ow-num">${C.attr(s, a.id)}</b>
-                <button class="ow-btn ow-sq" data-act="raise" data-v="${a.id}" ${p.attrPoints > 0 && C.attr(s, a.id) < 10 ? '' : 'disabled'}>+</button></div></div>`).join('');
+                <div class="ow-attr-ctl"><span class="ow-pips">${Array.from({ length: SD.ATTR_MAX }, (_, i) => `<i class="${i < C.attr(s, a.id) ? 'on' : ''}" style="--c:${ATTR_COL[a.id]}"></i>`).join('')}</span><b class="ow-num">${C.attr(s, a.id)}</b>
+                <button class="ow-btn ow-sq" data-act="raise" data-v="${a.id}" ${p.attrPoints > 0 && C.attr(s, a.id) < SD.ATTR_MAX ? '' : 'disabled'}>+</button></div></div>`).join('');
             const stat = (k, v) => `<div class="ow-stat"><small>${k}</small><b>${v}</b></div>`;
             const res = d.elemRes || {};
             const resPills = ['burn', 'chill', 'shock', 'venom', 'void'].map((el) => {
@@ -92,6 +93,17 @@
                 <div class="ow-sub">ELEMENTAL RESISTANCES</div><div class="ow-elem-row">${resPills}</div>
                 <div class="ow-sub">ACTIVE SET BONUSES</div>${setsHtml}
                 <div class="ow-sub">RECORD</div><div class="ow-stats">${stat('Kills', s.stats.kills)}${stat('Sneak kills', s.stats.sneakKills)}${stat('Reactions', s.stats.reactions)}${stat('Events cleared', s.stats.eventsCleared || 0)}${stat('Discovered', s.stats.discovered)}${stat('Played', Math.round(s.playtimeSec / 60) + ' min')}</div></div></div>`;
+        },
+
+        _mastery() {
+            const s = this.s, SD = BO.OWRPGStatsData, C = BO.OWRPGCharacter;
+            const skills = Object.entries(SD.SKILLS).map(([id, def]) => {
+                const sk = C.skill(s, id), cap = sk.level >= SD.SKILL_CAP;
+                const need = SD.skillXpToNext(sk.level);
+                return '<article class="ow-mastery" style="--c:' + def.color + '"><div><b>' + def.icon + ' ' + def.name + '</b><strong>LV ' + sk.level + '</strong></div><p>' + def.desc + '</p><progress max="' + need + '" value="' + (cap ? need : sk.xp) + '" aria-label="' + def.name + ' progress"></progress><small>' + (cap ? 'MASTERED' : sk.xp + ' / ' + need + ' XP') + '</small></article>';
+            }).join('');
+            const stone = SD.STANDING_STONES[s.player.standingStone];
+            return '<p class="ow-dim">Skills grow through practice and persist with your character. Bonuses begin at level 2. Character levels have a separate, demanding XP curve.</p><div class="ow-mastery-grid">' + skills + '</div><div class="ow-sub">STANDING STONE</div><div class="ow-item"><div><b>' + (stone ? stone.name : 'No blessing active') + '</b><small>' + (stone ? stone.desc : 'Find a standing stone in the frontier to receive its blessing. Attuning to another stone replaces your current blessing.') + '</small></div></div>';
         },
 
         _perks() {
@@ -274,12 +286,12 @@
             if (!cv) return;
             const g = cv.getContext('2d');
             const s = this.s, D = BO.OWRPGWorldData, P = BO.Player;
-            const W = cv.width, S = W / 640;
-            const X = (x) => (x + 320) * S, Z = (z) => (z + 320) * S;
+            const W = cv.width, B = D.BOUNDS, span = B.maxX - B.minX, S = W / span;
+            const X = x => (x - B.minX) * S, Z = z => (z - B.minZ) * S;
             g.fillStyle = '#0b1118'; g.fillRect(0, 0, W, W);
             // Terrain shading from the heightfield.
-            const step = 8;
-            for (let x = -320; x < 320; x += step) for (let z = -320; z < 320; z += step) {
+            const step = span / 80;
+            for (let x = B.minX; x < B.maxX; x += step) for (let z = B.minZ; z < B.maxZ; z += step) {
                 const h = BO.World.terrainHeight(x + step / 2, z + step / 2);
                 const r = D.regionAt(x, z);
                 const k = Math.max(0.25, Math.min(1, 0.55 + h / 50));
@@ -302,23 +314,33 @@
             }
             for (const py of D.PYLONS) { g.fillStyle = s.pylons[py.id] ? '#22d3ee' : '#475569'; g.beginPath(); g.arc(X(py.x), Z(py.z), 3.5, 0, Math.PI * 2); g.fill(); }
             for (const m of BO.OWRPGQuests.markers(s)) {
-                const poi = D.POIS.find((p) => p.id === m.poi);
+                const target = D.POIS.find((p) => p.id === m.poi);
+                if (!target) continue;
+                const poi = target.interior ? D.DUNGEONS.find(d => d.id === target.id)?.surf : target;
                 if (!poi) continue;
                 g.strokeStyle = '#a3e635'; g.lineWidth = 2;
                 g.beginPath(); g.arc(X(poi.x), Z(poi.z), 9, 0, Math.PI * 2); g.stroke();
             }
             for (const pin of s.pins) { g.fillStyle = '#f472b6'; g.font = 'bold 16px Segoe UI'; g.fillText('✚', X(pin[0]), Z(pin[1]) + 5); }
+            const currentDungeon = D.DUNGEONS.find(d => Math.hypot(P.pos.x-d.x, P.pos.z-d.z) < 130);
+            if (currentDungeon) {
+                g.strokeStyle = '#f8fafc'; g.lineWidth = 2;
+                g.strokeRect(X(currentDungeon.surf.x)-7, Z(currentDungeon.surf.z)-7, 14, 14);
+                g.fillStyle = '#f8fafc'; g.fillText('YOU · ' + currentDungeon.name, X(currentDungeon.surf.x), Z(currentDungeon.surf.z)-12);
+            }
             if (!D.isInterior(P.pos.x, P.pos.z)) {
                 g.save(); g.translate(X(P.pos.x), Z(P.pos.z)); g.rotate(-P.yaw + Math.PI);
                 g.fillStyle = '#f8fafc'; g.beginPath(); g.moveTo(0, -8); g.lineTo(5, 6); g.lineTo(-5, 6); g.closePath(); g.fill(); g.restore();
             }
             cv.onclick = (e) => {
                 const r = cv.getBoundingClientRect();
-                const x = ((e.clientX - r.left) / r.width) * 640 - 320, z = ((e.clientY - r.top) / r.height) * 640 - 320;
+                const x = ((e.clientX - r.left) / r.width) * span + B.minX, z = ((e.clientY - r.top) / r.height) * (B.maxZ - B.minZ) + B.minZ;
                 const i = s.pins.findIndex((p) => Math.hypot(p[0] - x, p[1] - z) < 12);
                 if (i >= 0) s.pins.splice(i, 1); else if (s.pins.length < 6) s.pins.push([Math.round(x), Math.round(z)]);
                 this._drawMap();
             };
+            g.fillStyle = '#cbd5e1'; g.textAlign = 'left'; g.font = '12px Segoe UI';
+            g.fillText('N ↑    ' + span + ' × ' + (B.maxZ - B.minZ) + ' metres', 12, 20);
             const chk = this.UI.panel.querySelector('[data-act="compassQuest"]');
             if (chk) chk.onchange = () => { s.worldFlags.compassQuest = chk.checked; };
         },
@@ -339,7 +361,9 @@
         _system() {
             const M = BO.OWRPGMode;
             const can = M.canSave();
-            return `<div class="ow-list"><div class="ow-item"><div><b>Quick save</b><small>${can ? esc(can) : 'Saves to slot ' + (M.slot + 1) + ' (also F5). Checkpoints save automatically.'}</small></div><button class="ow-btn" data-act="sysSave" ${can ? 'disabled' : ''}>SAVE</button></div>
+            return `<div class="ow-list"><div class="ow-item"><div><b>Compass</b><small>Show cardinal directions, quest bearings and map pins.</small></div><button class="ow-btn" data-act="toggleCompass" aria-pressed="${this.s.worldFlags.compassEnabled !== false}">${this.s.worldFlags.compassEnabled !== false ? 'ON' : 'OFF'}</button></div>
+                <div class="ow-item"><div><b>Developer menu</b><small>Grants, teleportation and world diagnostics. Also available with F8.</small></div><button class="ow-btn" data-act="padTab" data-v="dev">OPEN</button></div>
+                <div class="ow-item"><div><b>Quick save</b><small>${can ? esc(can) : 'Saves to slot ' + (M.slot + 1) + ' (also F5). Checkpoints save automatically.'}</small></div><button class="ow-btn" data-act="sysSave" ${can ? 'disabled' : ''}>SAVE</button></div>
                 <div class="ow-item"><div><b>Load last save</b><small>${esc(M.lastSaveLabel || '')} (also F9)</small></div><button class="ow-btn ow-ghost" data-act="sysLoad">LOAD</button></div>
                 <div class="ow-item"><div><b>Save size</b><small>${(BO.OWRPGSave.byteSize() / 1024).toFixed(1)} KB of the 250 KB budget</small></div></div></div>
                 <div class="ow-sub">CONTROLS</div><p class="ow-dim">E interact · Q primer · F detonator · X gadget · H med-injector · B holster · Left Alt dodge · Tab Pip-Pad · J quests · M map · F5/F9 save/load · F8 dev tools. Rebind in Settings → Controls.</p>`;
@@ -357,6 +381,7 @@
 
         /* ------------------------------------------------ handlers */
         handlers: {
+            toggleCompass() { this.s.worldFlags.compassEnabled = this.s.worldFlags.compassEnabled === false; this.render(); },
             padTab(v) { this.tab = v; this.render(); },
             raise(v) { if (BO.OWRPGCharacter.raiseAttr(this.s, v)) { BO.OWRPGMode.applyDerived(); BO.OWRPGMode.refreshLoadout(); } this.render(); },
             perk(v) { if (BO.OWRPGCharacter.takePerk(this.s, v)) { BO.OWRPGMode.applyDerived(); BO.OWRPGMode.toast('Perk learned: ' + BO.OWRPGStatsData.perkIndex()[v].perk.name, '#fbbf24'); } this.render(); },
@@ -436,6 +461,8 @@
                 const x = p.x + (p.interior ? 0 : p.r * 0.6), z = p.z + (p.interior ? -20 : p.r * 0.6);
                 P.pos.set(x, p.interior ? 0.2 : BO.World.terrainHeight(x, z) + 0.5, z);
                 P.vel.set(0, 0, 0);
+                this.s.player.interiorId = p.interior ? p.id : null;
+                BO.OWRPGWorldSim.tick1(0);
                 this.UI.close();
             },
             devXp() { BO.OWRPGMode.giveXp(1000, 'Dev'); this.render(); },

@@ -229,6 +229,7 @@
         countdown: 3,
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('toywar');
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-day.png');
             const D = S.data;
             Object.assign(D, {
                 flagHp: 100, enemies: [], allies: [], bouncePads: [], medkits: [], allyCd: 0,
@@ -240,7 +241,7 @@
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(57, 57), new THREE.MeshStandardMaterial({ map: woodPlank, color: 0xd99b66, roughness: 0.65 }));
             floor.rotation.x = -Math.PI / 2; floor.position.y = 0.01; floor.receiveShadow = true; S.add(floor);
 
-            // Authentic 3D Blaster Kit props (target boards, blaster crates & foam darts) across the bedroom arena
+            // Authentic 3D Blaster Kit, Brick Kit & Platformer Kit Toybox Forts across the bedroom arena!
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
                 { pos: [-16, 0, -14], rot: 0.25, scale: 2.2 }, { pos: [16, 0, -14], rot: -0.25, scale: 2.2 },
                 { pos: [-18, 0, 15], rot: 0.4, scale: 2.0 }, { pos: [18, 0, 15], rot: -0.4, scale: 2.0 }
@@ -249,6 +250,26 @@
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/target-large.glb', [
                 { pos: [-12, 0, -18], rot: 0.3, scale: 2.0 }, { pos: [12, 0, -18], rot: -0.3, scale: 2.0 }
             ]);
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'brick_kit/bevel-hq-brick-2x4.glb', [
+                    { pos: [-5.5, 1.6, 7.5], scale: 2.4 }, { pos: [5.5, 1.6, 7.5], scale: 2.4 },
+                    { pos: [-11, 2.2, -13.5], scale: 2.6 }, { pos: [11, 2.2, -13.5], scale: 2.6 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'brick_kit/bevel-hq-brick-slope-2x4.glb', [
+                    { pos: [-1.8, 1.8, -2.5], scale: 2.4 }, { pos: [1.8, 1.8, -2.5], scale: 2.4 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'blaster_kit/crate-medium.glb', [
+                    { pos: [-3.5, 0, 13.5], rot: 0.2, scale: 1.8 }, { pos: [3.5, 0, 13.5], rot: -0.2, scale: 1.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'platformer_kit/spring.glb', [
+                    { pos: [-12.5, 0.44, -2.5], scale: 1.7 }, { pos: [12.5, 0.44, -2.5], scale: 1.7 }, { pos: [0, 0.44, 6.5], scale: 1.7 }
+                ]);
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-d.glb', { pos: [-21, 4.35, 8], rot: [0, 0.85, 0], fitSize: [3.2, 1.5, 1.0] });
+                BO.Assets.placeGLB(S.scene, 'platformer_kit/flag.glb', { pos: [-1.8, 0, 13.5], fitSize: [1.4, 3.2, 1.4] });
+                BO.Assets.placeGLB(S.scene, 'platformer_kit/block-grass-large.glb', { pos: [19.5, 0, -2], fitSize: [4.2, 2.8, 4.2] });
+            }
 
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(34, 34), new THREE.MeshStandardMaterial({ map: bedroomRugTex(), roughness: 0.88 }));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.03, 0); rug.receiveShadow = true; S.add(rug);
@@ -338,6 +359,7 @@
                         const c = tg.root.position.clone().add(V(0, 0.6, 0));
                         BO.FX.spawnExplosion(c, 5.5, 0xf97316);
                         SFX.rumble(0.6);
+                        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-b.ogg', { volume: 0.48, rateJitter: 0.08 });
                         let blasted = 0;
                         for (const e of D.enemies.slice()) {
                             if (e.tgt.alive && e.tgt.basePos.distanceTo(c) < 7.2) {
@@ -744,11 +766,17 @@
             const board = new THREE.Mesh(new THREE.PlaneGeometry(32, 32), new THREE.MeshStandardMaterial({ map: boardTex, roughness: 0.18, metalness: 0.25 }));
             board.rotation.x = -Math.PI / 2; board.position.y = 0.03; board.receiveShadow = true; S.add(board);
 
-            const border = new THREE.Mesh(new THREE.RingGeometry(22.6, 25.5, 4), std(0x78350f, 0.45, 0.5));
+            const borderMat = (BO.Assets && BO.Assets.pbrMat)
+                ? BO.Assets.pbrMat('fantasy_painterly/Decorative Tile Marble/onyx-gold-marble-001.png', 6, 6, { roughness: 0.24, metalness: 0.45 })
+                : std(0x78350f, 0.45, 0.5);
+            const border = new THREE.Mesh(new THREE.RingGeometry(22.6, 30.5, 4), borderMat);
             border.rotation.x = -Math.PI / 2; border.rotation.z = Math.PI / 4; border.position.y = 0.02; S.add(border);
 
-            // Cathedral Marble Columns + Stained-Glass Neon Arches around the board!
-            const colMat = std(0xe2e8f0, 0.35, 0.2), goldM = std(0xfacc15, 0.25, 0.88);
+            // Cathedral Marble Columns, Castle Corner Towers, Royal Banners & Guardian Statues around the board!
+            const colMat = (BO.Assets && BO.Assets.pbrMat)
+                ? BO.Assets.pbrMat('fantasy_painterly/Decorative Tile Marble/white-marble-001.png', 2, 6, { roughness: 0.28, metalness: 0.18 })
+                : std(0xe2e8f0, 0.35, 0.2);
+            const goldM = std(0xfacc15, 0.25, 0.88);
             for (let i = -16; i <= 16; i += 8) {
                 for (const side of [-19.5, 19.5]) {
                     const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.68, 11, 16), colMat);
@@ -757,6 +785,28 @@
                     cap.position.set(side, 11.1, i);
                     S.add(p1); S.add(cap);
                 }
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-square-base.glb', [
+                    { pos: [-19.5, 0, -19.5], scale: 2.8 }, { pos: [19.5, 0, -19.5], scale: 2.8 },
+                    { pos: [-19.5, 0, 19.5], scale: 2.8 }, { pos: [19.5, 0, 19.5], scale: 2.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-square-roof.glb', [
+                    { pos: [-19.5, 5.2, -19.5], scale: 2.8 }, { pos: [19.5, 5.2, -19.5], scale: 2.8 },
+                    { pos: [-19.5, 5.2, 19.5], scale: 2.8 }, { pos: [19.5, 5.2, 19.5], scale: 2.8 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/flag-banner-long.glb', [
+                    { pos: [-18.6, 5.2, -12], rot: Math.PI / 2, scale: 2.4 }, { pos: [18.6, 5.2, -12], rot: -Math.PI / 2, scale: 2.4 },
+                    { pos: [-18.6, 5.2, 12], rot: Math.PI / 2, scale: 2.4 }, { pos: [18.6, 5.2, 12], rot: -Math.PI / 2, scale: 2.4 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/statue.glb', [
+                    { pos: [-18.2, 0, -4], rot: Math.PI / 2, scale: 2.5 }, { pos: [18.2, 0, -4], rot: -Math.PI / 2, scale: 2.5 },
+                    { pos: [-18.2, 0, 4], rot: Math.PI / 2, scale: 2.5 }, { pos: [18.2, 0, 4], rot: -Math.PI / 2, scale: 2.5 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', [
+                    { pos: [-4.5, 0, 17.8], rot: Math.PI, scale: 2.2 }, { pos: [4.5, 0, 17.8], rot: Math.PI, scale: 2.2 },
+                    { pos: [-4.5, 0, -17.8], rot: 0, scale: 2.2 }, { pos: [4.5, 0, -17.8], rot: 0, scale: 2.2 }
+                ]);
             }
             const banner = A.sign('♟️ GRANDMASTER CATHEDRAL — PROTECT WHITE KING & SHATTER OBSIDIAN KING ♟️', 14, 1.2, { bg: '#1e1b4b', color: '#fde047', borderColor: '#c084fc', size: 0.34, glow: '#c084fc' });
             banner.position.set(0, 9.2, -21.2); S.add(banner);
@@ -831,6 +881,10 @@
                     }
                 },
                 onKill: () => {
+                    if (BO.Assets && BO.Assets.playClip) {
+                        BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_001.ogg', { volume: 0.38, rateJitter: 0.08 });
+                        BO.Assets.playClip('overhaul/combat/bone_snap.wav', { volume: 0.30, rateJitter: 0.1 });
+                    }
                     D.blackPieces = D.blackPieces.filter((p) => p.tgt !== tgt);
                     if (isKing) {
                         D.checkmate = true;
@@ -1029,6 +1083,17 @@
             helm.position.y = 2.15 * sc;
             root.add(helm);
         }
+        if (BO.Assets && BO.Assets.placeGLB) {
+            const glbRel = spec.boss
+                ? 'graveyard_kit/character-vampire.glb'
+                : spec.id === 'knight'
+                    ? 'graveyard_kit/character-skeleton.glb'
+                    : 'graveyard_kit/character-ghost.glb';
+            BO.Assets.placeGLB(root, glbRel, {
+                pos: [0, 0.2 * sc, 0],
+                fitSize: [1.45 * sc, 2.25 * sc, 1.45 * sc]
+            });
+        }
         return root;
     }
 
@@ -1073,7 +1138,7 @@
             const floor = new THREE.Mesh(new THREE.PlaneGeometry(37, 41), A.pbrMat('fantasy_painterly/Decorative Tile Marble/castle-tile-001.png', 10, 10, { color: 0x8f7a68, roughness: 0.45 }));
             floor.rotation.x = -Math.PI / 2; floor.position.y = 0.02; S.add(floor);
 
-            // Haunted Graveyard Kit accents: Gothic Gravestones, Iron Gates & Candelabra around the ballroom perimeter
+            // Haunted Graveyard Kit accents: Gothic Crypts, Coffins, Ritual Altar, Candelabra & Carved Pumpkins around the ballroom!
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/gravestone-cross.glb', [
                 { pos: [-16, 0, -16], rot: 0.3 }, { pos: [16, 0, -16], rot: -0.3 },
                 { pos: [-16, 0, 12], rot: 0.2 }, { pos: [16, 0, 12], rot: -0.2 }
@@ -1085,6 +1150,23 @@
                 { pos: [-17.5, 0, -8], rot: Math.PI / 2, scale: 2.0 }, { pos: [17.5, 0, -8], rot: -Math.PI / 2, scale: 2.0 },
                 { pos: [-17.5, 0, 2], rot: Math.PI / 2, scale: 2.0 }, { pos: [17.5, 0, 2], rot: -Math.PI / 2, scale: 2.0 }
             ]);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/crypt-large.glb', { pos: [-11.5, 0, -17.2], rot: 0.35, fitSize: [5.2, 5.0, 5.2] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/crypt-large.glb', { pos: [11.5, 0, -17.2], rot: -0.35, fitSize: [5.2, 5.0, 5.2] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/altar-stone.glb', { pos: [0, 0, -15.4], fitSize: [2.4, 1.35, 1.5] });
+            }
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'graveyard_kit/coffin.glb', [
+                    { pos: [-13.5, 0, 6.5], rot: 0.45, scale: 1.9 }, { pos: [13.5, 0, 6.5], rot: -0.45, scale: 1.9 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'graveyard_kit/candle-multiple.glb', [
+                    { pos: [-4.2, 0, -16.8], scale: 2.2 }, { pos: [4.2, 0, -16.8], scale: 2.2 },
+                    { pos: [-4.8, 0, 15.5], scale: 2.2 }, { pos: [4.8, 0, 15.5], scale: 2.2 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'graveyard_kit/pumpkin-carved.glb', [
+                    { pos: [-2.4, 0, -15.4], rot: 0.25, scale: 1.8 }, { pos: [2.4, 0, -15.4], rot: -0.25, scale: 1.8 }
+                ]);
+            }
 
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 32), std(0x4c0519, 0.9));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.03, -1); S.add(rug);
@@ -1215,8 +1297,11 @@
             D.ghosts.push(gObj);
             if (isBoss) {
                 D.boss = gObj;
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/doorOpen_2.ogg', { volume: 0.48, rateJitter: 0.04 });
                 MG.toast('🎹 LORD VOLTAIRE HAS RISEN FROM THE GRAND PIPE ORGAN!', '#f43f5e');
                 SFX.horn && SFX.horn();
+            } else if (BO.Assets && BO.Assets.playClip) {
+                BO.Assets.playClip('rpg_sfx/creak3.ogg', { volume: 0.28, rateJitter: 0.12 });
             }
         },
         _tossGhostTrap(S) {
@@ -1251,6 +1336,9 @@
             D.ghosts = D.ghosts.filter((g) => g !== gObj);
             D.captured++; S.kills++; S.bumpCombo();
             S.award(Math.round(pts * S.comboMult), gObj.pos.clone().add(V(0, 1.2, 0)), viaTrap ? `⚡ TRAPPED: ${gObj.spec.name}!` : `💥 VAPORIZED: ${gObj.spec.name}`, viaTrap ? '#fde047' : '#4ade80');
+            if (BO.Assets && BO.Assets.playClip) {
+                BO.Assets.playClip(viaTrap ? 'sfx/Sci-Fi Sounds (Kenney)/Audio/forceField_001.ogg' : 'sfx/Sci-Fi Sounds (Kenney)/Audio/explosionCrunch_000.ogg', { volume: 0.42, rateJitter: 0.08 });
+            }
             if (viaTrap && BO.MinigameAudio) BO.MinigameAudio.trapSnap(); else SFX.fanfare();
             if (gObj.spec.boss) {
                 D.bossTrapped = true;

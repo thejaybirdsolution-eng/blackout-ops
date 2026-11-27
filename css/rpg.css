@@ -411,3 +411,4 @@
 @media (prefers-reduced-motion: reduce) {
     .rpg-haven.rpg-enter, .rpg-main > *, .rpg-modal.rpg-modal-in .rpg-modal-box, .rpg-hero-emblem, .rpg-ab .rpg-ab-face { animation: none !important; }
 }
+body.sv-reduced-motion .rpg-haven.rpg-enter, body.sv-reduced-motion .rpg-main > *, body.sv-reduced-motion .rpg-modal.rpg-modal-in .rpg-modal-box, body.sv-reduced-motion .rpg-hero-emblem, body.sv-reduced-motion .rpg-ab .rpg-ab-face { animation: none !important; }

@@ -11,6 +11,9 @@
     'use strict';
 
     const BO = global.BO;
+    const _tmpTargetPos = new THREE.Vector3();
+    const _tmpHeadPos = new THREE.Vector3();
+    const _tmpSampleOut = { x: 0, y: 0, z: 0, yaw: 0 };
 
     const ROOM_PREFIX = 'bo-ops-room-';
     const GITHUB_PAGES_URL = 'https://thejaybirdsolution-eng.github.io/blackout-ops/';
@@ -50,6 +53,24 @@
             this.reviveHoldTimer = 0;
             this.elNameplates = null;
             this._lastMatchOpts = null;
+            this.jitterBuffers = new Map();
+            this._rateLimiter = BO.NetValidation ? new BO.NetValidation.PeerRateLimiter(120) : null;
+            this._lagHistory = BO.NetValidation ? new BO.NetValidation.LagHistory(1000) : null;
+            this._pingRttMs = 0;
+            this.netQuality = 'good';
+            this._droppedPackets = 0;
+            this._connectTimer = null;
+            this._reconnectTimer = null;
+            this._reconnectAttempts = 0;
+        }
+
+        getNetworkMetrics() {
+            return {
+                rttMs: Math.round(this._pingRttMs),
+                quality: this.netQuality,
+                droppedPackets: this._droppedPackets,
+                peers: this.players.size
+            };
         }
 
         init() {
@@ -308,6 +329,17 @@
             }
 
             try {
+                if (this._connectTimer) clearTimeout(this._connectTimer);
+                this._connectTimer = setTimeout(() => {
+                    if (this.active && !this.isHost && this.status === 'connecting') {
+                        this.status = 'error';
+                        this.statusText = `CONNECTION TIMEOUT [${clean}] — CLICK JOIN TO RETRY`;
+                        BO.Events.emit('hud:toast', { text: `Lobby [${clean}] timed out after 10s.`, color: '#ef4444' });
+                        this.addChatMessage('SYSTEM', `Connection to [${clean}] timed out. Verify code and retry.`, '#ef4444');
+                        BO.Events.emit('net:updated');
+                    }
+                }, 10000);
+
                 this.peer = new global.Peer(undefined, {
                     debug: 0,
                     config: { iceServers: ICE_SERVERS }
@@ -324,6 +356,8 @@
                     this.hostConn = conn;
 
                     conn.on('open', () => {
+                        if (this._connectTimer) { clearTimeout(this._connectTimer); this._connectTimer = null; }
+                        this._reconnectAttempts = 0;
                         this.status = 'connected';
                         this.statusText = `CONNECTED TO LOBBY [${clean}]`;
                         conn.send({ type: 'join_req', profile: this._buildMyProfile() });
@@ -337,9 +371,7 @@
 
                     conn.on('close', () => {
                         if (this.active && !this.isHost) {
-                            this.statusText = `HOST DISCONNECTED [${clean}]`;
-                            this.addChatMessage('SYSTEM', 'Host disconnected from lobby.', '#ef4444');
-                            BO.Events.emit('net:updated');
+                            this._handleHostDisconnect(clean);
                         }
                     });
                 });
@@ -363,28 +395,33 @@
         }
 
         leaveRoom(clearUrl = true) {
+            if (this._connectTimer) { clearTimeout(this._connectTimer); this._connectTimer = null; }
+            if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
             if (this.hostConn) {
-                try { this.hostConn.send({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) {}
-                try { this.hostConn.close(); } catch (e) {}
+                try { this.hostConn.send({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) { BO.log?.('Net', 'debug', 'leave_notify send skipped', e); }
+                try { this.hostConn.close(); } catch (e) { BO.log?.('Net', 'debug', 'hostConn close skipped', e); }
             }
             for (const conn of this.connections.values()) {
-                try { conn.close(); } catch (e) {}
+                try { conn.close(); } catch (e) { BO.log?.('Net', 'debug', 'peer conn close skipped', e); }
             }
             this.connections.clear();
             this.hostConn = null;
 
             if (this.peer) {
-                try { this.peer.destroy(); } catch (e) {}
+                try { this.peer.destroy(); } catch (e) { BO.log?.('Net', 'debug', 'peer destroy skipped', e); }
                 this.peer = null;
             }
             if (this.bc) {
-                try { this.bc.postMessage({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) {}
-                try { this.bc.close(); } catch (e) {}
+                try { this.bc.postMessage({ type: 'leave_notify', peerId: this.myPeerId }); } catch (e) { BO.log?.('Net', 'debug', 'bc leave skipped', e); }
+                try { this.bc.close(); } catch (e) { BO.log?.('Net', 'debug', 'bc close skipped', e); }
                 this.bc = null;
             }
 
             this.clearRemoteAvatars();
             this.remoteStates.clear();
+            this.jitterBuffers.clear();
+            if (this._rateLimiter) this._rateLimiter.clear();
+            if (this._lagHistory) this._lagHistory.clear();
             this.players.clear();
             this.active = false;
             this.isHost = false;
@@ -392,6 +429,45 @@
             this.status = 'offline';
             this.statusText = 'OFFLINE / SOLO MODE';
             if (clearUrl) this._updateUrlQuery(null);
+            BO.Events.emit('net:updated');
+        }
+
+        _handleHostDisconnect(code) {
+            if (!this.active || this.isHost) return;
+            if (this._reconnectAttempts < 3 && this.peer && !this.peer.destroyed) {
+                this._reconnectAttempts++;
+                const waitMs = 1000 * Math.pow(2, this._reconnectAttempts - 1);
+                this.status = 'connecting';
+                this.statusText = `RECONNECTING [${code}] (${this._reconnectAttempts}/3)...`;
+                BO.Events.emit('hud:toast', { text: `Host connection lost — retry ${this._reconnectAttempts}/3...`, color: '#f59e0b' });
+                BO.Events.emit('net:updated');
+                this._reconnectTimer = setTimeout(() => {
+                    if (!this.active || this.isHost || !this.peer || this.peer.destroyed) return;
+                    const hostPeerId = ROOM_PREFIX + code.toLowerCase();
+                    try {
+                        const conn = this.peer.connect(hostPeerId, { reliable: true });
+                        this.hostConn = conn;
+                        conn.on('open', () => {
+                            this._reconnectAttempts = 0;
+                            this.status = 'connected';
+                            this.statusText = `RECONNECTED [${code}]`;
+                            conn.send({ type: 'join_req', profile: this._buildMyProfile() });
+                            BO.Events.emit('hud:toast', { text: `Reconnected to Lobby [${code}]!`, color: '#22c55e' });
+                            BO.Events.emit('net:updated');
+                        });
+                        conn.on('data', (m) => this._handleMessage(m, hostPeerId));
+                        conn.on('close', () => this._handleHostDisconnect(code));
+                    } catch (e) {
+                        BO.log?.('Net', 'warn', 'Reconnect attempt threw', e);
+                        this._handleHostDisconnect(code);
+                    }
+                }, waitMs);
+                return;
+            }
+            this.status = 'error';
+            this.statusText = `HOST DISCONNECTED [${code}]`;
+            this.addChatMessage('SYSTEM', 'Host disconnected. Returned safely to solo control.', '#ef4444');
+            BO.Events.emit('hud:toast', { text: 'Host left — safe offline fallback active.', color: '#ef4444' });
             BO.Events.emit('net:updated');
         }
 
@@ -590,6 +666,15 @@
         ==================================================================== */
         _handleMessage(msg, fromPeerId) {
             if (!msg || !msg.type) return;
+            const sender = msg.senderId || fromPeerId;
+            if (BO.NetValidation) {
+                const check = BO.NetValidation.validateMessage(msg, { limiter: this._rateLimiter, senderId: sender, now: Date.now() });
+                if (!check.ok) {
+                    this._droppedPackets++;
+                    BO.log?.('Net', 'warn', `Dropped invalid packet (${check.reason}) from ${sender}`);
+                    return;
+                }
+            }
             if (msg.targetPeerId && msg.targetPeerId !== this.myPeerId) return;
 
             if (msg._seq) {
@@ -601,7 +686,19 @@
                 }
             }
 
-            const sender = msg.senderId || fromPeerId;
+            if (msg.type === 'net_ping') {
+                this.sendToPeer(sender, { type: 'net_pong', sentAt: msg.sentAt });
+                return;
+            }
+            if (msg.type === 'net_pong') {
+                if (typeof msg.sentAt === 'number' && Number.isFinite(msg.sentAt)) {
+                    const rtt = Math.max(1, performance.now() - msg.sentAt);
+                    this._pingRttMs = this._pingRttMs > 0 ? (this._pingRttMs * 0.7 + rtt * 0.3) : rtt;
+                    this.netQuality = this._pingRttMs < 60 ? 'good' : (this._pingRttMs < 140 ? 'ok' : 'poor');
+                    BO.Events.emit('net:metrics', this.getNetworkMetrics());
+                }
+                return;
+            }
 
             if (msg.type === 'join_req') {
                 if (!this.isHost) return;
@@ -686,7 +783,16 @@
 
             if (msg.type === 'player_state') {
                 if (sender === this.myPeerId) return;
-                this.remoteStates.set(sender, Object.assign({}, msg.state, { updatedAt: performance.now() }));
+                const nowMs = performance.now();
+                this.remoteStates.set(sender, Object.assign({}, msg.state, { updatedAt: nowMs }));
+                if (BO.NetValidation) {
+                    let jb = this.jitterBuffers.get(sender);
+                    if (!jb) {
+                        jb = new BO.NetValidation.JitterBuffer(80, 150);
+                        this.jitterBuffers.set(sender, jb);
+                    }
+                    jb.push(msg.state, nowMs);
+                }
                 const prof = this.players.get(sender);
                 if (prof && msg.state) {
                     prof.callsign = msg.state.callsign || prof.callsign;
@@ -1034,9 +1140,21 @@
                 }
             }
 
+            // 2b. Periodic RTT ping probe
+            this.pingAccum += dt;
+            if (this.pingAccum >= 2.0) {
+                this.pingAccum = 0;
+                if (!this.isHost && this.hostConn && this.hostConn.open) {
+                    this.sendToHost({ type: 'net_ping', sentAt: performance.now() });
+                } else if (this.isHost && this.connections.size > 0) {
+                    this.broadcast({ type: 'net_ping', sentAt: performance.now() });
+                }
+            }
+
             // 3. Interpolate 3D Remote Player Avatars & Render Floating Nameplates
             const w = window.innerWidth;
             const h = window.innerHeight;
+            const nowRenderMs = performance.now();
 
             for (const [pid, st] of this.remoteStates.entries()) {
                 if (pid === this.myPeerId) continue;
@@ -1045,9 +1163,17 @@
 
                 this._updateRemoteAvatarWeapon(av, st);
 
-                const targetPos = new THREE.Vector3(st.x || 0, st.y || 0, st.z || 0);
-                av.pos.lerp(targetPos, Math.min(1, dt * 15));
-                av.yaw += BO.Math.angleDiff(av.yaw, (st.yaw || 0) + Math.PI) * Math.min(1, dt * 15);
+                const jb = this.jitterBuffers.get(pid);
+                const sampled = jb ? jb.sample(nowRenderMs, _tmpSampleOut) : null;
+                if (sampled) {
+                    _tmpTargetPos.set(sampled.x, sampled.y, sampled.z);
+                    av.pos.lerp(_tmpTargetPos, Math.min(1, dt * 18));
+                    av.yaw += BO.Math.angleDiff(av.yaw, sampled.yaw + Math.PI) * Math.min(1, dt * 18);
+                } else {
+                    _tmpTargetPos.set(st.x || 0, st.y || 0, st.z || 0);
+                    av.pos.lerp(_tmpTargetPos, Math.min(1, dt * 15));
+                    av.yaw += BO.Math.angleDiff(av.yaw, (st.yaw || 0) + Math.PI) * Math.min(1, dt * 15);
+                }
 
                 av.entity.alive = !!st.alive;
                 av.entity.pos.copy(av.pos);
@@ -1068,8 +1194,8 @@
 
                 // Project 3D head position to 2D screen coordinates for floating squad nameplate
                 if (av.plateEl && worldCamera) {
-                    const headPos = av.pos.clone().add(new THREE.Vector3(0, isDowned ? 1.0 : 2.05, 0));
-                    const projected = headPos.project(worldCamera);
+                    _tmpHeadPos.set(av.pos.x, av.pos.y + (isDowned ? 1.0 : 2.05), av.pos.z);
+                    const projected = _tmpHeadPos.project(worldCamera);
                     if (projected.z > 1.0 || (!st.alive && BO.State.activeMode === 'mp')) {
                         av.plateEl.style.display = 'none';
                     } else {

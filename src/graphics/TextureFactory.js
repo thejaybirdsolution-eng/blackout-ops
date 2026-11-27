@@ -49,7 +49,8 @@
             if (srgb && THREE.sRGBEncoding) {
                 tex.encoding = THREE.sRGBEncoding;
             }
-            tex.anisotropy = 16; // clamped to the GPU max by three.js
+            const q = BO.Settings?.get?.('quality') || 'high';
+            tex.anisotropy = q === 'low' ? 2 : (q === 'medium' ? 4 : 8);
             tex.needsUpdate = true;
             return tex;
         }
