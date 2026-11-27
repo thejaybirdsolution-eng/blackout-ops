@@ -731,8 +731,44 @@
             const btnDev = document.getElementById('btn-pause-dev');
             if (btnDev) {
                 const dev = BO.GM?.active ? BO.GM.get('dev') : null;
-                btnDev.classList.toggle('hidden', !open || !dev?.active);
-                btnDev.onclick = () => { this.setPauseOpen(false); dev?.toggle(true); };
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                btnDev.classList.toggle('hidden', !open || (!dev?.active && !ow));
+                btnDev.dataset.tip = 'Open developer tools for the active mode (also F8).';
+                btnDev.onclick = () => { this.setPauseOpen(false); if (ow) BO.OWRPGUI.toggleDev(); else dev?.toggle(true); };
+            }
+            let compassBtn = document.getElementById('btn-pause-ow-compass');
+            if (!compassBtn && btnDev) {
+                compassBtn = document.createElement('button');
+                compassBtn.id = 'btn-pause-ow-compass'; compassBtn.className = 'btn hidden';
+                compassBtn.dataset.tip = 'Show or hide the compass strip (quest bearings, events and pins).';
+                btnDev.after(compassBtn);
+            }
+            if (compassBtn) {
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                compassBtn.classList.toggle('hidden', !open || !ow);
+                if (ow) {
+                    const flags = BO.OWRPGMode.state.worldFlags;
+                    compassBtn.textContent = 'COMPASS · ' + (flags.compassEnabled !== false ? 'ON' : 'OFF');
+                    compassBtn.setAttribute('aria-pressed', String(flags.compassEnabled !== false));
+                    compassBtn.onclick = () => { flags.compassEnabled = flags.compassEnabled === false; this.setPauseOpen(true); };
+                }
+            }
+            let minimapBtn = document.getElementById('btn-pause-ow-minimap');
+            if (!minimapBtn && compassBtn) {
+                minimapBtn = document.createElement('button');
+                minimapBtn.id = 'btn-pause-ow-minimap'; minimapBtn.className = 'btn hidden';
+                minimapBtn.dataset.tip = 'Show or hide the fog-of-war minimap ([N] cycles its range).';
+                compassBtn.after(minimapBtn);
+            }
+            if (minimapBtn) {
+                const ow = BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active;
+                minimapBtn.classList.toggle('hidden', !open || !ow);
+                if (ow) {
+                    const flags = BO.OWRPGMode.state.worldFlags;
+                    minimapBtn.textContent = 'MINIMAP · ' + (flags.minimapEnabled !== false ? 'ON' : 'OFF');
+                    minimapBtn.setAttribute('aria-pressed', String(flags.minimapEnabled !== false));
+                    minimapBtn.onclick = () => { flags.minimapEnabled = flags.minimapEnabled === false; this.setPauseOpen(true); };
+                }
             }
             const btnCls = document.getElementById('btn-pause-change-class');
             if (btnCls) btnCls.classList.toggle('hidden', !open || BO.State.activeMode !== 'mp');
@@ -1821,6 +1857,7 @@
             const body = document.getElementById('legend-body');
             const search = document.getElementById('legend-search-input');
             const buttons = Object.entries(BO.ModeGuide.MODES);
+            if (!BO.ModeGuide.MODES[this.legendTab]) this.legendTab = buttons[0][0];
             if (!keepScroll) {
                 rail.innerHTML = buttons.map(([id, mode]) => `<button class="mode-guide-tab" data-mode="${id}"
                     role="tab" aria-controls="legend-body" id="guide-tab-${id}" aria-selected="${id === this.legendTab}">${mode.name}</button>`).join('');

@@ -81,12 +81,52 @@
         const slopeMesh = part(S.scene, geo, slopeMat, 0, 0, 0);
         slopeMesh.castShadow = false;
 
-        // Alpine Chalets at Start Summit & Finish Stadium Village
+        // Alpine Chalets & Staged 3D Village Structures, Tents, Flags & Banners at Start Summit & Finish Stadium!
         alpineChalet(S.scene, point(-8, -17, 1.5).x, point(-8, -17, 1.5).y, point(-8, -17, 1.5).z, heading(0) + 0.4, 1.25);
         alpineChalet(S.scene, point(-8, 17, 1.5).x, point(-8, 17, 1.5).y, point(-8, 17, 1.5).z, heading(0) - 0.4, 1.15);
         const finL = point(LENGTH + 16, -16, 0.5), finR = point(LENGTH + 16, 16, 0.5);
         alpineChalet(S.scene, finL.x, finL.y, finL.z, heading(LENGTH) + 0.35, 1.35);
         alpineChalet(S.scene, finR.x, finR.y, finR.z, heading(LENGTH) - 0.35, 1.35);
+
+        const Assets = BO.Assets;
+        if (Assets && Assets.placeGLB) {
+            const stL = point(-2, -13.5, 0.8), stR = point(-2, 13.5, 0.8);
+            Assets.placeGLB(S.scene, 'mini_forest_kit/building-structure.glb', { pos: [stL.x, stL.y, stL.z], rot: heading(0) + 0.35, fitSize: [5.4, 4.8, 5.4] });
+            Assets.placeGLB(S.scene, 'mini_forest_kit/tent.glb', { pos: [stR.x, stR.y, stR.z], rot: heading(0) - 0.4, fitSize: [4.2, 3.2, 4.2] });
+            const fnTentL = point(LENGTH + 6, -13.2, 0.2), fnTentR = point(LENGTH + 6, 13.2, 0.2);
+            Assets.placeGLB(S.scene, 'mini_forest_kit/building-structure.glb', { pos: [fnTentL.x, fnTentL.y, fnTentL.z], rot: heading(LENGTH) + 0.3, fitSize: [5.8, 5.0, 5.8] });
+            Assets.placeGLB(S.scene, 'mini_forest_kit/tent.glb', { pos: [fnTentR.x, fnTentR.y, fnTentR.z], rot: heading(LENGTH) - 0.3, fitSize: [4.5, 3.4, 4.5] });
+            const podPt = point(LENGTH + 9, 0, 0.2);
+            Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [podPt.x, podPt.y, podPt.z], rot: heading(LENGTH), fitSize: [2.4, 3.2, 2.4] });
+        }
+        if (Assets && Assets.placeGLBInstanced) {
+            const villageFlags = [], villageBanners = [], chutePines = [], chuteRocks = [];
+            for (const sAt of [-4, 6, 18, LENGTH - 14, LENGTH - 4, LENGTH + 8]) {
+                for (const side of [-1, 1]) {
+                    const fp = point(sAt, side * 11.8, 0.2);
+                    villageFlags.push({ pos: [fp.x, fp.y, fp.z], rot: heading(sAt) + (side < 0 ? 0.3 : -0.3), scale: 2.3 });
+                    const bp = point(sAt + 2, side * 12.6, 1.6);
+                    villageBanners.push({ pos: [bp.x, bp.y, bp.z], rot: heading(sAt), scale: 2.1 });
+                }
+            }
+            const gRnd = mulberry32(9021);
+            for (let i = 0; i < 84; i++) {
+                const s = 18 + (i / 84) * (LENGTH - 30);
+                if (s > 780 && s < 1010) continue; // keep Crystal Cavern roof clean
+                const side = i % 2 ? 1 : -1;
+                const x = side * (12.6 + gRnd() * 8.5);
+                const tp = point(s, x, (Math.abs(x) - HALF) * 0.38);
+                chutePines.push({ pos: [tp.x, tp.y, tp.z], rot: gRnd() * 6.28, scale: 2.4 + gRnd() * 1.5 });
+                if (i % 3 === 0) {
+                    const rp = point(s + 6, -side * (13.4 + gRnd() * 6), 0.2);
+                    chuteRocks.push({ pos: [rp.x, rp.y, rp.z], rot: gRnd() * 6.28, scale: 1.7 + gRnd() * 1.1 });
+                }
+            }
+            Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/flag.glb', villageFlags);
+            Assets.placeGLBInstanced(S.scene, 'castle_kit/flag-banner-long.glb', villageBanners);
+            Assets.placeGLBInstanced(S.scene, 'mini_forest_kit/tree-high.glb', chutePines);
+            Assets.placeGLBInstanced(S.scene, 'castle_kit/rocks-large.glb', chuteRocks);
+        }
 
         // Orange Alpine B-Netting Course Boundary Poles on sharp turns
         const netMat = new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
@@ -161,12 +201,24 @@
             box(start, 0, 0, 0, 2.35, 0.24, 3.9, ice).rotation.x = 0.19;
             r.rails.push({ s, end, x, transfer: false });
 
-            // Every 4th rail has a parallel high-line transfer rail for RAIL TRANSFER x2 combos!
+            // Every 4th rail has a parallel high-line transfer rail for RAIL TRANSFER x2 combos + Golden Coin/Trophy Line!
             if (i % 4 === 2) {
                 const tx = clamp(x + (x > 0 ? -3.4 : 3.4), -6.5, 6.5), ts = end + 4, tend = ts + 20;
                 rod(g, point(ts, tx, 1.35), point(tend, tx, 1.35), 0.14, gold);
                 for (const at of [ts + 1, tend - 1]) rod(g, point(at, tx, 0), point(at, tx, 1.35), 0.09, steel);
                 r.rails.push({ s: ts, end: tend, x: tx, transfer: true });
+                for (let c = 0; c < 4; c++) {
+                    const cs = ts + 3 + c * 4.5, isTrophy = c === 3;
+                    const cp = point(cs, tx, isTrophy ? 2.45 : 2.15);
+                    const cg = group(S.scene); cg.position.copy(cp);
+                    const fb = part(cg, new THREE.OctahedronGeometry(isTrophy ? 0.38 : 0.28), glow, 0, 0, 0);
+                    if (BO.Assets && BO.Assets.placeGLB) {
+                        BO.Assets.placeGLB(cg, isTrophy ? 'mini_arena_kit/trophy.glb' : 'mini_dungeon_kit/coin.glb', {
+                            fitSize: isTrophy ? [0.95, 1.15, 0.95] : [0.75, 0.75, 0.25], hideFallback: fb
+                        });
+                    }
+                    r.coins.push({ s: cs, x: tx, h: isTrophy ? 2.45 : 2.15, mesh: cg, trophy: isTrophy, taken: false });
+                }
             }
 
             // Reachable Slalom Gate
@@ -193,6 +245,20 @@
                 box(kicker, 0, 0, 0, 4.0, 0.78, 4.4, gold).rotation.x = 0.24;
                 for (const side of [-1, 1]) box(kicker, side * 1.92, 0.24, 0, 0.14, 0.12, 4.2, glow).rotation.x = 0.24;
                 r.ramps.push({ s: rampS, x: rx });
+                // Aerial Golden Coin Arc over every 2nd Big-Air Kicker!
+                if (i % 4 === 1) {
+                    for (let c = 0; c < 3; c++) {
+                        const cs = rampS + 5 + c * 4.5, ch = 2.6 + (c === 1 ? 0.85 : 0);
+                        const cg = group(S.scene); cg.position.copy(point(cs, rx, ch));
+                        const fb = part(cg, new THREE.OctahedronGeometry(0.28), glow, 0, 0, 0);
+                        if (BO.Assets && BO.Assets.placeGLB) {
+                            BO.Assets.placeGLB(cg, c === 1 ? 'mini_arena_kit/trophy.glb' : 'mini_dungeon_kit/coin.glb', {
+                                fitSize: c === 1 ? [0.9, 1.05, 0.9] : [0.75, 0.75, 0.25], hideFallback: fb
+                            });
+                        }
+                        r.coins.push({ s: cs, x: rx, h: ch, mesh: cg, trophy: c === 1, taken: false });
+                    }
+                }
             } else {
                 const hazardS = s + 64, hx = Math.sin(i * 2.3) * 5.2;
                 const rocks = group(S.scene); rocks.position.copy(point(hazardS, hx)); rocks.rotation.y = heading(hazardS);
@@ -233,7 +299,7 @@
     function build(S) {
         const r = S.data.rally = {
             s: 0, x: 0, vx: 0, y: 0, vy: 0, speed: 15, focus: 45, boost: 0, rail: null, lastRailEnd: -99, railMeters: 0,
-            rails: [], gates: [], rocks: [], ramps: [], pads: [],
+            rails: [], gates: [], rocks: [], ramps: [], pads: [], coins: [], coinsTaken: 0,
             gateIndex: 0, rockIndex: 0, rampIndex: 0, padIndex: 0,
             clears: 0, rank: 4, combo: 0, stunts: 0, drafting: 0,
             grab: 0, airSpin: 0, airFlip: 0, uber: false, trickName: '',
@@ -249,7 +315,8 @@
         ].map((cfg, i) => ({ fig: rider(S.scene, cfg.col, 0xf8fafc, cfg.col), s: 5 + i * 3.5, x: i * 3 - 3, index: i, finished: false }));
 
         S.scene.background = new THREE.Color(0x8bc2dc);
-        S.scene.fog = new THREE.FogExp2(0xa6cde0, 0.0046);
+        if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
+        S.scene.fog = new THREE.FogExp2(0xa6cde0, 0.0038);
         BO.Player.rideState = { kind: 'minigame', pos: point(0), eye: 2, roll: 0, pitch: 0 };
         BO.Player.yaw = r.heading; BO.Player.pitch = -0.15;
         pose(r.player, 0, 0, 0, 0, 0, 0, 0, false);
@@ -386,7 +453,22 @@
                 if (rail) {
                     const isTransfer = rail.transfer && (r.s - r.lastRailEnd) < 14;
                     r.rail = rail; r.y = rail.transfer ? 1.38 : 0.82; r.vy = 0; SFX.clack();
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactMetal_light_000.ogg', { volume: 0.34, rateJitter: 0.08 });
                     if (isTransfer) BO.Minigames.toast('RAIL TRANSFER x2!', '#fde047');
+                }
+            }
+
+            // High-Risk Golden Transfer Coins & Alpine Trophies!
+            for (const cn of r.coins) {
+                if (cn.taken) continue;
+                cn.mesh.rotation.y += dt * 2.8;
+                if (Math.abs(r.s - cn.s) < 2.3 && Math.abs(r.x - cn.x) < 1.85 && Math.abs((r.y + 1.1) - cn.h) < 1.75) {
+                    cn.taken = true; cn.mesh.visible = false; r.coinsTaken++;
+                    r.focus = Math.min(100, r.focus + (cn.trophy ? 22 : 12));
+                    const pts = cn.trophy ? 550 : 220;
+                    S.award(Math.round(pts * S.comboMult), cn.mesh.position, cn.trophy ? '🏆 ALPINE TROPHY!' : '🪙 TRANSFER GOLD!', '#fde047');
+                    BO.FX.spawnParticles(cn.mesh.position, 10, 0xfde047, 4, 2, 0.35, 0.8);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(cn.trophy ? 'rpg_sfx/handleCoins.ogg' : 'overhaul/env/coin_collect.wav', { volume: 0.42, rateJitter: 0.07 });
                 }
             }
 

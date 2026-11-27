@@ -27,11 +27,18 @@ A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle 
   - **10-slot hotbar** (`1`–`0` or mouse wheel) for weapons, tools and usable items. An empty slot is bare hands. Drag items onto it from the inventory.
   - **Bare hands can gather**: branches, stones, fiber, tier-1 rock and trees, timber and standing trees break by hand at a quarter of a stone tool's speed; tier-2 deposits need the right tool.
   - **Field terminal**: Inventory (`Tab`), Crafting (`J`), Build (`B`), Map & travel (`M`/`T`), Skills (`K`), Journal (`O`), Guide (`L`). Station recipes unlock when you stand within 4 m of a workbench, campfire or kiln.
-- **Minigames** (solo, main menu › **MINIGAMES**). Bronze, Silver, Gold and Platinum stars, personal bests, and a streak multiplier up to x4:
+- **Open World RPG (Operation Meridian)** (main menu › **OPEN WORLD RPG**, three save slots):
+  - A 1280 × 1280 m frontier of 12 regions, 12 dungeons, 70 enemy archetypes and 40 quests. Every operative starts at level 1 on a deliberately steep XP curve; enemies respawn after 10 minutes, when you leave an area and when you reload.
+  - **Mapping:** rotating fog-of-war minimap (`N` cycles 95/150/230 m), hill-shaded world map with per-region charted %, and an Atlas tab with completion and cartographer rank. Compass and minimap can be switched off at character creation, in the pause menu or in Pip-Pad › System.
+  - **Things to find:** 156 hidden sites — treasure caches, lore tomes, wayside shrines (timed blessings), skill shards, survey vistas, hidden stashes and Altars of Trials.
+  - **Champions:** any hostile can spawn with 1–3 of 12 affixes (Vampiric, Shielded, Arcane, Summoner…), plus Champion-led world events (21 events in total).
+  - Track up to 3 quests on the HUD, 7 Mastery skills to 99, 9 perk trees (108 perks), Standing Stones, mounts, factions, bounties and a developer menu (pause menu button or `F8`).
+- **Minigames** (solo, main menu › **MINIGAMES**). Bronze, Silver, Gold and Platinum stars, personal bests, a streak multiplier up to x4, recorded impact sounds matched to each target's material, an announcer, three **Daily Featured** courses with streak bonuses, and an Arcade Rank:
   - **Target Practice**: 10 scripted 60-second courses. Each uses a fixed seed, so it plays the same every time and gets harder as the clock runs: *Range Day* (pop-up bullseyes), *Coaster Chaos* (ride a banking roller coaster), *Boulder Run* (sprint ahead of a rolling boulder), *Skeet Storm* (clay discs), *Bandit Town* (outlaws shoot back; spare the townsfolk), *Drone Swarm* (night rooftop), *Sniper Ridge* (steel out to 200 m), *Heli Gunner* (orbit a city in a door seat), *Balloon Festival* (avoid skull balloons) and *Killhouse Blitz* (on-rails CQB with hostages).
   - **Boss Rush**: fight every boss one after another in the Colosseum. Magazines never run dry and health does not regenerate. You get a 30-second rest between bosses (`N` skips it) and only **three** max heals for the whole rush (`H`, rest periods only). Three modes (Gauntlet / Boss Parade / Titan Siege) and three difficulties.
   - **Whack-a-Mole**: shoot the moles in a carnival tent. *Classic* (3x3), *Frenzy* (4x4 with hard-hat moles) and *Mayhem* (5x4 with bombs).
-  - Code lives in `src/minigames/` (core runtime, art kit, courses, Boss Rush, Whack-a-Mole, hub) and `css/minigames.css`.
+  - Code lives in `src/minigames/` (core runtime, feel layer, daily featured, art kit, courses, Boss Rush, Whack-a-Mole, hub) and `css/minigames.css`.
+- **QA pages** (serve with `python server.py`): `_qa_owrpg.html` (143 open-world checks) and `_qa_runner.html` (boots every mode and all 63 minigames).
 - **Controls**: pause the game and choose **Controls & Keybinds** (also in Settings › Controls) to view every control for the current mode and rebind any key. Conflicts swap automatically.
 - **Create-a-Class & Interactive 3D Gunsmith**:
   - 10 Custom Classes, 70 Weapons (50 Firearms, 10 Melee, 10 Magic/Wonder Weapons), 5 Attachment Slots, 10 Camos, Perks, Special Powers, and Ultimate Powers.

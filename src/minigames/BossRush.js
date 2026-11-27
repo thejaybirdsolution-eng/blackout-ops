@@ -54,29 +54,46 @@
         return wps;
     }
 
+    const BLESSINGS = [
+        { key: 'Digit1', num: '1', id: 'wrath', name: 'WRATH', desc: '+15% Damage', color: '#ef4444', hex: 0xef4444, model: 'mini_dungeon_kit/weapon-sword.glb', x: -4.4 },
+        { key: 'Digit2', num: '2', id: 'ironhide', name: 'IRONHIDE', desc: '+25 Max Armor & Refill', color: '#38bdf8', hex: 0x38bdf8, model: 'mini_dungeon_kit/shield-round.glb', x: 0 },
+        { key: 'Digit3', num: '3', id: 'fleetfoot', name: 'FLEETFOOT', desc: '+10% Move Speed', color: '#facc15', hex: 0xfacc15, model: 'mini_dungeon_kit/potion.glb', x: 4.4 }
+    ];
+
+    function playClip(rel, volume = 0.4, rateJitter = 0.06) {
+        if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip(rel, { volume, rateJitter });
+    }
+
     MG.register({
         id: 'boss_rush', cat: 'boss',
         name: 'Boss Rush', icon: '💀', accent: '#dc2626',
-        tagline: 'Every boss at 5x size. Five unique attacks each. Three heals.',
-        desc: 'Step into the Colosseum and face every boss in the game, one after another, from The Butcher to Malakor, Eclipse Sovereign. Every boss is FIVE times its normal size and brings five signature attacks no other boss has; the stronger the attack, the longer it takes to come back. Your magazines never run dry, but your health does not regenerate. You get 30 seconds to rest between rounds and only THREE max heals for the whole rush. Use one in any rest period. They never come back.',
-        hudSub: 'Health does not regenerate • [H] Max Heal during rest',
+        tagline: 'Grand Citadel Colosseum. Every boss at 5x size. Gladiator Shrines & 3 Max Heals.',
+        desc: 'Step into the Grand Citadel Colosseum and face every boss in the game, one after another, from The Butcher to Malakor, Eclipse Sovereign. Every boss is FIVE times its normal size and brings five signature attacks no other boss has. Your magazines never run dry, but your health does not regenerate. Between rounds you get 30 seconds to rest, claim Gladiator Blessing Shrines ([1] Wrath, [2] Ironhide, [3] Fleetfoot — 1 charge per 3 bosses!), and spend your THREE max heals ([H]) wisely.',
+        hudSub: 'No HP regen • Rest: [H] Max Heal • [1/2/3] Gladiator Blessing Shrine',
         duration: 0, countdown: 3, infiniteMag: true, keepEquipment: true, forgivingMisses: true, customMusic: true,
         matchRules: { noHealthRegen: true },
         stars: [1, 2, 3, 4],
         starLabel: (th, i) => ['25% CLEARED', '50% CLEARED', 'FULL CLEAR', 'CLEAR + HEAL LEFT'][i],
         variants: VARIANTS, difficulties: DIFFS,
         map: {
-            atmosphere: { skyTop: 0x1e1b4b, skyBottom: 0xf97316, fogColor: 0x3b2418, fogDensity: 0.006, sunColor: 0xffb070, sunIntensity: 1.4, sunPos: [-40, 35, 60], hemiSky: 0xfdba74, hemiGround: 0x451a03, hemiIntensity: 0.75 },
+            atmosphere: { skyTop: 0x1e1b4b, skyBottom: 0xf97316, fogColor: 0x2b1810, fogDensity: 0.0045, sunColor: 0xffb070, sunIntensity: 1.5, sunPos: [-40, 38, 60], hemiSky: 0xfdba74, hemiGround: 0x451a03, hemiIntensity: 0.8 },
             boxes: arenaBoxes(),
             spawn: { x: 0, y: 0, z: 20, yaw: 0 },
             waypoints: waypoints()
         },
 
         build(S) {
-            if (BO.MinigameAudio) BO.MinigameAudio.start('siege');
             const opts = S.opts;
             const variant = VARIANTS[opts.variant] ? opts.variant : 'gauntlet';
             const diff = DIFFS[opts.difficulty] ? opts.difficulty : 'veteran';
+            if (BO.MinigameAudio) BO.MinigameAudio.start('siege');
+            if (BO.Assets) {
+                BO.Assets.applySkybox(S.scene, variant === 'titans' ? 'skybox-alien.png' : 'skybox-night.png');
+                BO.Assets.crossfadeMusic(
+                    variant === 'titans' ? 'music_curated/epic-dramatic-adventure-e9ece2c4.m4a' : 'music_curated/fantasy-behind-the-sword-fe2c66a5.m4a',
+                    { volume: 0.22, fadeSec: 0.9 }
+                );
+            }
             S.data.variant = variant;
             S.data.diff = diff;
             S.data.queue = BO.ZombiesData.ORDERED_BOSSES.filter(VARIANTS[variant].filter);
@@ -85,6 +102,14 @@
             S.data.defeated = 0;
             S.data.heals = MAX_HEALS;
             S.data.healsUsed = 0;
+            S.data.blessingCharges = 1;
+            S.data.blessingsTaken = 0;
+            S.data.wrathStacks = 0;
+            S.data.ironhideStacks = 0;
+            S.data.fleetfootStacks = 0;
+            S.data.dmgMult = 1.0;
+            S.data.spdBonus = 0;
+            S.data.origMaxArmor = BO.Player.maxArmor || 150;
             S.data.phase = 'wait';
             S.data.phaseT = 0;
             S.data.zombies = [];
@@ -93,39 +118,45 @@
             S.data.damageDealt = 0;
             S.data.killTimes = [];
             S.data.prevHp = BO.Player.hp;
+            S.data.prevPos = BO.Player.pos.clone();
             S.data.nextId = 1;
 
-            // ---------- arena dressing ----------
-            const sand = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R + 1, 64), new THREE.MeshStandardMaterial({ map: L.canvasTex('arena-sand', 512, 512, (g, w, h) => {
-                g.fillStyle = '#c9a26b'; g.fillRect(0, 0, w, h);
-                const rnd = L.mulberry32(21);
-                for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(${90 + rnd() * 80},${70 + rnd() * 60},${40 + rnd() * 40},${rnd() * 0.25})`; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
-                g.strokeStyle = 'rgba(120,53,15,0.35)'; g.lineWidth = 6;
-                g.beginPath(); g.arc(256, 256, 120, 0, Math.PI * 2); g.stroke();
-                g.beginPath(); g.arc(256, 256, 20, 0, Math.PI * 2); g.stroke();
-            }), roughness: 1 }));
+            // ---------- Grand Citadel Colosseum PBR Floor & Mosaic Seal ----------
+            const sandMat = BO.Assets
+                ? BO.Assets.pbrMat('fantasy_painterly/Sand Desert Coast/sun-baked-ground-001.png', 10, 10, { roughness: 0.94 })
+                : new THREE.MeshStandardMaterial({ color: 0xc9a26b, roughness: 1 });
+            const sand = new THREE.Mesh(new THREE.CircleGeometry(ARENA_R + 1.2, 64), sandMat);
             sand.rotation.x = -Math.PI / 2;
             sand.position.y = 0.01;
             sand.receiveShadow = true;
             S.add(sand);
-            // circular wall (visual + bullet-stopping) with invisible colliders
-            const stoneTex = L.canvasTex('arena-wall', 512, 128, (g, w, h) => {
-                g.fillStyle = '#8b7355'; g.fillRect(0, 0, w, h);
-                const rnd = L.mulberry32(4);
-                for (let y = 0; y < h; y += 32) for (let x = -(y / 32 % 2) * 32; x < w; x += 64) {
-                    const s = 100 + rnd() * 50;
-                    g.fillStyle = `rgb(${s + 30},${s + 12},${s - 18})`;
-                    g.fillRect(x + 2, y + 2, 60, 28);
-                }
-            });
-            stoneTex.wrapS = THREE.RepeatWrapping;
-            stoneTex.repeat.set(10, 1.6);
-            const wall = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 1.5, ARENA_R + 1.5, 6, 64, 1, true), new THREE.MeshStandardMaterial({ map: stoneTex, side: THREE.BackSide, roughness: 0.95 }));
+
+            const sealMat = BO.Assets
+                ? BO.Assets.pbrMat('fantasy_painterly/Decorative Tile Marble/onyx-gold-marble-001.png', 3, 3, { roughness: 0.45, metalness: 0.25 })
+                : std(0x451a03, 0.6, 0.2);
+            const centerSeal = new THREE.Mesh(new THREE.RingGeometry(3.2, 4.6, 48), sealMat);
+            centerSeal.rotation.x = -Math.PI / 2;
+            centerSeal.position.y = 0.022;
+            S.add(centerSeal);
+            const outerSeal = new THREE.Mesh(new THREE.RingGeometry(15.2, 16.0, 64), sealMat);
+            outerSeal.rotation.x = -Math.PI / 2;
+            outerSeal.position.y = 0.02;
+            S.add(outerSeal);
+
+            // Circular Colosseum Retaining Wall + Colliders
+            const wallMat = BO.Assets
+                ? BO.Assets.pbrMat('fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png', 16, 2, { side: THREE.BackSide, roughness: 0.9 })
+                : std(0x8b7355, 0.95, 0, { side: THREE.BackSide });
+            const wall = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 1.5, ARENA_R + 1.5, 6, 64, 1, true), wallMat);
             wall.position.y = 3;
             wall.receiveShadow = true;
             S.add(wall);
             S.solid(wall);
-            const cap = new THREE.Mesh(new THREE.TorusGeometry(ARENA_R + 1.6, 0.45, 6, 64), std(0x6b5a45, 0.9));
+
+            const tierStoneMat = BO.Assets
+                ? BO.Assets.pbrMat('fantasy_painterly/Stone Masonry Ruins/cracked-temple-blocks-001.png', 18, 2, { side: THREE.DoubleSide, roughness: 0.92 })
+                : std(0x6b5a45, 0.95, 0, { side: THREE.DoubleSide });
+            const cap = new THREE.Mesh(new THREE.TorusGeometry(ARENA_R + 1.6, 0.48, 8, 64), std(0x57534e, 0.85));
             cap.rotation.x = Math.PI / 2;
             cap.position.y = 6.1;
             S.add(cap);
@@ -134,9 +165,10 @@
                 const r = ARENA_R + 3.4;
                 S.collider(Math.cos(a) * r - 2.4, 0, Math.sin(a) * r - 2.4, Math.cos(a) * r + 2.4, 8, Math.sin(a) * r + 2.4);
             }
-            // tiered stands + crowd
+
+            // Tiered Stands + Cheering Crowd
             for (let i = 0; i < 6; i++) {
-                const tier = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 3 + i * 1.6, ARENA_R + 3 + i * 1.6, 1.2, 64, 1, true), std(i % 2 ? 0x78716c : 0x6b5a45, 0.95, 0, { side: THREE.DoubleSide }));
+                const tier = new THREE.Mesh(new THREE.CylinderGeometry(ARENA_R + 3 + i * 1.6, ARENA_R + 3 + i * 1.6, 1.2, 64, 1, true), i % 2 ? tierStoneMat : std(0x78716c, 0.95, 0, { side: THREE.DoubleSide }));
                 tier.position.y = 6.2 + i * 1.2;
                 S.add(tier);
                 const step = new THREE.Mesh(new THREE.RingGeometry(ARENA_R + 2 + i * 1.6, ARENA_R + 3.6 + i * 1.6, 64), std(0x57534e, 0.95, 0, { side: THREE.DoubleSide }));
@@ -145,7 +177,8 @@
                 S.add(step);
             }
             S.data.crowd = A.crowd(S, ARENA_R + 3, 640, 6.9, 6, 1.6);
-            // gate (north)
+
+            // North Boss Gatehouse & South Champion Tunnel
             const gate = new THREE.Group();
             const archMat = std(0x57534e, 0.9);
             for (const sx of [-3.2, 3.2]) {
@@ -172,58 +205,153 @@
             }
             port.position.z = 0.4;
             gate.add(port);
-            const gsign = A.sign('ARENA OF CHAMPIONS', 7, 0.9, { bg: '#450a0a', color: '#fde68a', borderColor: '#f59e0b', size: 0.5 });
-            gsign.position.set(0, 8.6, 1.25);
+            const gsign = A.sign('CITADEL OF CHAMPIONS', 7.4, 0.95, { bg: '#450a0a', color: '#fde68a', borderColor: '#f59e0b', size: 0.48 });
+            gsign.position.set(0, 8.7, 1.3);
             gate.add(gsign);
             gate.position.set(0, 0, -ARENA_R - 0.6);
             S.add(gate);
             S.data.port = port;
-            // player's tunnel (south)
+
             const tunnel = gate.clone();
             tunnel.position.set(0, 0, ARENA_R + 0.6);
             tunnel.rotation.y = Math.PI;
             S.add(tunnel);
-            // pillars (cover)
-            const pillarMat = std(0xa8a29e, 0.85);
+
+            // Cover Pillars (solid physics + 3D Citadel Columns)
+            const pillarMat = BO.Assets
+                ? BO.Assets.pbrMat('fantasy_painterly/Stone Masonry Ruins/carved-sandstone-001.png', 2, 4, { roughness: 0.85 })
+                : std(0xa8a29e, 0.85);
             for (const [x, z] of PILLARS) {
-                S.box(x, 2.5, z, 2.2, 5, 2.2, pillarMat, { solid: true });
+                const pBox = S.box(x, 2.5, z, 2.2, 5, 2.2, pillarMat, { solid: true });
                 const capP = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.5, 2.8), std(0x78716c, 0.9));
                 capP.position.set(x, 5.2, z);
                 S.add(capP);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(S.scene, 'mini_arena_kit/column.glb', { pos: [x, 0, z], fitSize: [2.7, 5.5, 2.7], hideFallback: [pBox, capP] });
+                }
             }
-            // braziers + banners
+
+            // Instanced Grand Citadel Towers, Banners, Statues, Siege Engines & Braziers!
             const lights = BO.Settings.getQualityPreset().pointLights;
+            const brazierTransforms = [];
+            const bannerTransforms = [];
+            const keepBannerTransforms = [];
             for (let i = 0; i < 8; i++) {
                 const a = i / 8 * Math.PI * 2 + Math.PI / 8;
-                const t = A.torch(S, V(Math.cos(a) * (ARENA_R - 0.6), 0, Math.sin(a) * (ARENA_R - 0.6)), 0xff8a3c, lights && i % 2 === 0);
+                const bx = Math.cos(a) * (ARENA_R - 0.6), bz = Math.sin(a) * (ARENA_R - 0.6);
+                const t = A.torch(S, V(bx, 0, bz), 0xff8a3c, lights && i % 2 === 0);
                 S.add(t);
-                const banner = new THREE.Mesh(new THREE.PlaneGeometry(2, 4.4), new THREE.MeshStandardMaterial({ map: L.canvasTex('banner' + (i % 4), 64, 128, (g, w, h) => {
-                    const c = ['#991b1b', '#1e3a8a', '#713f12', '#14532d'][i % 4];
-                    g.fillStyle = c; g.fillRect(0, 0, w, h);
-                    g.fillStyle = '#fbbf24'; g.fillRect(0, 0, w, 8); g.fillRect(0, h - 22, w, 6);
-                    g.beginPath(); g.moveTo(32, 30); g.lineTo(48, 60); g.lineTo(32, 90); g.lineTo(16, 60); g.closePath(); g.fill();
-                }), side: THREE.DoubleSide, roughness: 0.9 }));
+                brazierTransforms.push({ pos: [bx, 0, bz], rot: -a, fitSize: [1.3, 1.5, 1.3] });
                 const ab = a + Math.PI / 8;
-                banner.position.set(Math.cos(ab) * (ARENA_R + 1.3), 3.6, Math.sin(ab) * (ARENA_R + 1.3));
-                banner.rotation.y = -ab - Math.PI / 2;
-                S.add(banner);
+                const wx = Math.cos(ab) * (ARENA_R + 1.15), wz = Math.sin(ab) * (ARENA_R + 1.15);
+                bannerTransforms.push({ pos: [wx, 2.2, wz], rot: -ab - Math.PI / 2, scale: 2.2 });
+                keepBannerTransforms.push({ pos: [Math.cos(a) * (ARENA_R + 1.2), 3.0, Math.sin(a) * (ARENA_R + 1.2)], rot: -a - Math.PI / 2, fitSize: [1.8, 3.8, 0.6] });
             }
-            // weapon racks + healing altar near the player's tunnel (flavour)
-            const altar = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.9, 8), std(0x57534e, 0.8));
-            altar.position.set(0, 0.45, ARENA_R - 4);
-            S.add(altar);
+
+            const towerBaseTf = [], towerRoofTf = [], rimStatueTf = [];
+            for (let i = 0; i < 12; i++) {
+                const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
+                const tr = ARENA_R + 13.5;
+                const tx = Math.cos(a) * tr, tz = Math.sin(a) * tr;
+                towerBaseTf.push({ pos: [tx, 6.5, tz], rot: -a, scale: 4.2 });
+                towerRoofTf.push({ pos: [tx, 14.2, tz], rot: -a, scale: 4.2 });
+                if (i % 2 === 0) {
+                    const sr = ARENA_R + 2.4;
+                    rimStatueTf.push({ pos: [Math.cos(a) * sr, 6.2, Math.sin(a) * sr], rot: -a - Math.PI / 2, scale: 2.4 });
+                }
+            }
+
+            if (BO.Assets) {
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', brazierTransforms, { fitSize: [1.2, 1.4, 1.2] });
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/flag-banner-long.glb', bannerTransforms, { fitSize: [1.6, 4.2, 0.6] });
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-giant-keep-banner.glb', keepBannerTransforms, { fitSize: [1.8, 3.8, 0.5] });
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-base.glb', towerBaseTf, { fitSize: [5.5, 8.0, 5.5] });
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/tower-hexagon-roof.glb', towerRoofTf, { fitSize: [5.8, 4.8, 5.8] });
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/statue.glb', rimStatueTf, { fitSize: [1.8, 3.4, 1.8] });
+
+                // Gatehouse Lion Guardians, Siege Engines & Trophies
+                for (const sx of [-5.2, 5.2]) {
+                    BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', { pos: [sx, 0, -ARENA_R + 1.4], rot: 0, fitSize: [2.2, 3.2, 2.6] });
+                    BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', { pos: [sx, 0, ARENA_R - 1.4], rot: Math.PI, fitSize: [2.2, 3.2, 2.6] });
+                    BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [sx * 0.72, 8.1, -ARENA_R - 0.4], fitSize: [1.4, 1.8, 1.4] });
+                }
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-ballista.glb', { pos: [-14, 13.8, -ARENA_R - 6], rot: 0.3, fitSize: [3.6, 2.6, 3.8] });
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-ballista.glb', { pos: [14, 13.8, -ARENA_R - 6], rot: -0.3, fitSize: [3.6, 2.6, 3.8] });
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-trebuchet.glb', { pos: [-22, 13.8, 0], rot: Math.PI / 2, fitSize: [4.5, 5.2, 4.5] });
+                BO.Assets.placeGLB(S.scene, 'castle_kit/siege-trebuchet.glb', { pos: [22, 13.8, 0], rot: -Math.PI / 2, fitSize: [4.5, 5.2, 4.5] });
+            }
+
+            // ---------- South Sanctuary: Max Heal Altar + Armory + 3 Gladiator Blessing Shrines ----------
+            const healZ = ARENA_R - 3.2;
+            const altarFallback = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 0.9, 8), std(0x57534e, 0.8));
+            altarFallback.position.set(0, 0.45, healZ);
+            S.add(altarFallback);
+            if (BO.Assets) {
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/altar-stone.glb', { pos: [0, 0, healZ], fitSize: [2.2, 1.1, 1.4], hideFallback: altarFallback });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/candle-multiple.glb', { pos: [-0.85, 0.95, healZ], fitSize: [0.45, 0.45, 0.45] });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/candle-multiple.glb', { pos: [0.85, 0.95, healZ], fitSize: [0.45, 0.45, 0.45] });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-7.4, 0, ARENA_R - 2.6], rot: 2.6, fitSize: [2.2, 2.2, 1.1] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-weapon-rack.glb', { pos: [7.4, 0, ARENA_R - 2.6], rot: -2.6, fitSize: [2.2, 2.2, 1.1] });
+            }
+            const healSign = A.sign('[H] MAX HEAL ALTAR', 2.8, 0.42, { bg: '#052e16', color: '#86efac', borderColor: '#22c55e', size: 0.36 });
+            healSign.position.set(0, 2.15, healZ);
+            healSign.rotation.y = Math.PI;
+            S.add(healSign);
+
             const orbs = [];
             for (let i = 0; i < MAX_HEALS; i++) {
-                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.2, roughness: 0.2 }));
-                orb.position.set(-0.5 + i * 0.5, 1.15, ARENA_R - 4);
+                const orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 1.3, roughness: 0.2 }));
+                orb.position.set(-0.52 + i * 0.52, 1.35, healZ);
                 S.add(orb);
                 orbs.push(orb);
             }
             S.data.orbs = orbs;
-            S.animate((dt) => {
-                const t = performance.now() * 0.002;
-                orbs.forEach((o, i) => { o.position.y = 1.15 + Math.sin(t + i) * 0.08; });
+
+            // 3 Gladiator Blessing Shrines (Rest-Phase Strategic Buffs: [1] Wrath, [2] Ironhide, [3] Fleetfoot)
+            const shrineZ = ARENA_R - 6.8;
+            const shrineNodes = BLESSINGS.map((b) => {
+                const grp = new THREE.Group();
+                grp.position.set(b.x, 0, shrineZ);
+                const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.82, 0.85, 10), std(0x44403c, 0.8));
+                ped.position.y = 0.42;
+                grp.add(ped);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(grp, 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', { pos: [0, 0, 0], fitSize: [1.45, 0.92, 1.1], hideFallback: ped });
+                }
+                const relicSpin = new THREE.Group();
+                relicSpin.position.y = 1.42;
+                const relicFallback = new THREE.Mesh(new THREE.OctahedronGeometry(0.28, 0), new THREE.MeshStandardMaterial({ color: b.hex, emissive: b.hex, emissiveIntensity: 0.9, roughness: 0.25 }));
+                relicSpin.add(relicFallback);
+                if (BO.Assets) {
+                    BO.Assets.placeGLB(relicSpin, b.model, { pos: [0, -0.25, 0], fitSize: [0.85, 0.85, 0.85], hideFallback: relicFallback });
+                }
+                grp.add(relicSpin);
+                const aura = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 28), new THREE.MeshBasicMaterial({ color: b.hex, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+                aura.rotation.x = -Math.PI / 2;
+                aura.position.y = 0.04;
+                grp.add(aura);
+                const lbl = A.sign(`[${b.num}] ${b.name} • ${b.desc}`, 2.6, 0.40, { bg: '#0f172a', color: b.color, borderColor: b.color, size: 0.32 });
+                lbl.position.y = 2.25;
+                lbl.rotation.y = Math.PI;
+                grp.add(lbl);
+                S.add(grp);
+                return { grp, relicSpin, aura, lbl };
             });
+            S.data.shrineNodes = shrineNodes;
+
+            S.animate(() => {
+                const t = performance.now() * 0.0022;
+                orbs.forEach((o, i) => { o.position.y = 1.35 + Math.sin(t + i) * 0.08; });
+                const activeShrines = S.data.phase === 'rest' && S.data.blessingCharges > 0;
+                shrineNodes.forEach((sn, idx) => {
+                    sn.relicSpin.rotation.y = t * 1.1 + idx;
+                    sn.relicSpin.position.y = 1.42 + Math.sin(t * 1.5 + idx) * 0.09;
+                    sn.aura.material.opacity = activeShrines ? 0.55 + Math.sin(t * 3 + idx) * 0.28 : 0.12;
+                    sn.aura.scale.setScalar(activeShrines ? 1 + Math.sin(t * 3 + idx) * 0.08 : 0.88);
+                    sn.lbl.visible = S.data.phase === 'rest';
+                });
+            });
+
             // Chasing crimson/gold Colosseum rim marquee bulbs + gate framing + spotlight
             const colPts = [];
             for (let i = 0; i < 36; i++) {
@@ -234,7 +362,7 @@
             const colBulbs = A.bulbs(colPts, [0xfacc15, 0xf97316, 0xef4444], 0.14);
             S.add(colBulbs); A.animateBulbs(S, colBulbs, 6, 'chase');
             if (lights) {
-                const spot = new THREE.PointLight(0xffb070, 1.8, 65, 1.2);
+                const spot = new THREE.PointLight(0xffb070, 1.9, 68, 1.2);
                 spot.position.set(0, 18, 0); S.add(spot);
             }
         },
@@ -262,7 +390,7 @@
                 x: 0, y: 0, z: -ARENA_R + 6, splitCount: 0, hasGun: false, sizeMult: BOSS_SCALE
             });
             ent.mgBoss = true;
-            // the constructor clamps radius for normal arenas; giants need their real footprint
+            BO.MinigameFeel?.onBossRound(S.data.bossIndex, S.data.queue.length);
             const sc = (spec.bodySpec && spec.bodySpec.scale) || [1, 1, 1];
             ent.radius = BO.Math.clamp(0.38 * sc[0] * BOSS_SCALE, 1.6, 4.2);
             ent.height *= BOSS_SCALE;
@@ -277,6 +405,8 @@
             S.data.boss = ent;
             S.data.bossSpawnT = S.t;
             S.data.bossLabel = spec.name;
+            playClip('rpg_sfx/metalLatch.ogg', 0.48, 0.04);
+            playClip('rpg_sfx/creak1.ogg', 0.36, 0.05);
             BO.Sound.playBossIntro();
             BO.Events.emit('hud:banner', {
                 title: spec.name,
@@ -313,6 +443,18 @@
             if (BO.MinigameAudio) BO.MinigameAudio.tick(dt, { wardenAwake: D.phase === 'fight', wardenPhase2: !!(D.boss && D.boss.superEnraged) });
             if (!D.zombies) return;
 
+            // Fleetfoot Gladiator Blessing (+10% horizontal movement stride per stack)
+            if (D.spdBonus > 0 && P.alive && state === 'running' && D.prevPos) {
+                const dx = P.pos.x - D.prevPos.x, dz = P.pos.z - D.prevPos.z;
+                const distSq = dx * dx + dz * dz;
+                if (distSq > 1e-6 && distSq < 4) {
+                    P.pos.x += dx * D.spdBonus;
+                    P.pos.z += dz * D.spdBonus;
+                    BO.World.resolveHorizontal(P.pos, 0.4, 1.8, true);
+                }
+            }
+            D.prevPos = P.pos.clone();
+
             // damage taken bookkeeping
             if (P.hp < D.prevHp) D.damageTaken += D.prevHp - P.hp;
             D.prevHp = P.hp;
@@ -322,6 +464,10 @@
 
             // portcullis
             const portUp = D.phase === 'intro' || D.phase === 'fight';
+            if (portUp !== D._wasPortUp && D._wasPortUp !== undefined) {
+                playClip('rpg_sfx/metalLatch.ogg', 0.42, 0.05);
+            }
+            D._wasPortUp = portUp;
             D.portY = (D.portY || 0) + ((portUp ? 6 : 0) - (D.portY || 0)) * Math.min(1, dt * 1.5);
             D.port.position.y = D.portY;
 
@@ -340,7 +486,9 @@
                     D.phase = 'fight';
                 } else if (D.phase === 'fight') {
                     if (D.boss && !D.boss.alive) {
+                        BO.MinigameFeel?.onBossDown();
                         D.defeated++;
+                        if (D.defeated % 3 === 0) D.blessingCharges++;
                         D.killTimes.push(S.t - D.bossSpawnT);
                         D.phase = 'victory';
                         D.phaseT = 3.2;
@@ -348,6 +496,8 @@
                         setTimeout(() => { if (BO.State.timeScale === 0.35) BO.State.timeScale = 1; }, 1300);
                         S.award(1000, D.boss.pos.clone().add(V(0, 3, 0)), 'BOSS DOWN', '#facc15');
                         BO.Events.emit('hud:banner', { title: `${D.boss.spec.name} DEFEATED`, sub: `${D.defeated} / ${D.total} • ${BO.Math.formatTime(S.t - D.bossSpawnT)}`, color: '#22c55e' });
+                        playClip('overhaul/combat/bone_snap.wav', 0.52, 0.05);
+                        playClip('overhaul/stingers/level_complete.wav', 0.36, 0.02);
                         BO.Sound.playRoundEnd();
                         SFX.crowd(0.32);
                         D.crowd.cheer(1.4);
@@ -369,7 +519,8 @@
                         D._restBeep = 99;
                         P.lethalCount = BO.AttachmentsData.LETHALS[P.lethalId]?.count || 2;
                         P.tacticalCount = BO.AttachmentsData.TACTICALS[P.tacticalId]?.count || 2;
-                        MG.toast(D.heals > 0 ? `REST — PRESS [H] FOR A MAX HEAL (${D.heals} LEFT)` : 'REST — NO HEALS REMAINING', D.heals > 0 ? '#4ade80' : '#f87171');
+                        const shrineHint = D.blessingCharges > 0 ? ' • [1/2/3] CLAIM BLESSING!' : '';
+                        MG.toast((D.heals > 0 ? `REST — [H] MAX HEAL (${D.heals} LEFT)` : 'REST — NO HEALS LEFT') + shrineHint, D.blessingCharges > 0 ? '#fde047' : (D.heals > 0 ? '#4ade80' : '#f87171'));
                     }
                 } else if (D.phase === 'rest') {
                     const n = Math.ceil(D.phaseT);
@@ -398,6 +549,7 @@
                     bz.attackSwing = 1;
                     P.takeDamage(Math.round(bz.damage * 0.55), bz.pos, false, bz);
                     BO.FX.spawnExplosion(V(P.pos.x, 0.2, P.pos.z), 2.4, 0xd6d3d1);
+                    playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-a.ogg', 0.42, 0.08);
                     P.cameraShake = Math.max(P.cameraShake, 0.08);
                 }
             }
@@ -405,14 +557,13 @@
             for (let i = D.zombies.length - 1; i >= 0; i--) {
                 const z = D.zombies[i];
                 if (frozen && z.alive) {
-                    // hold position during intro: face the player and stomp
                     z.yaw = Math.atan2(P.pos.x - z.pos.x, P.pos.z - z.pos.z);
                     z.parts.root.rotation.y = z.yaw;
                     z.parts.root.position.copy(z.pos);
                     if (D.phase === 'intro' && state === 'running') { z.pos.z += dt * 2.2; }
                     continue;
                 }
-                if (z.mgScripted && z.alive) continue;          // mid-charge / mid-leap: the attack runner moves it
+                if (z.mgScripted && z.alive) continue;
                 const keep = z.update(dt, D.zombies, callbacks);
                 if (z.alive) {
                     const r = Math.hypot(z.pos.x, z.pos.z), R = ARENA_R - Math.max(1, z.mgBoss ? z.radius + 0.5 : 1);
@@ -448,8 +599,10 @@
         },
 
         onHit(S, ent, info) {
+            const mult = S.data.dmgMult || 1;
+            const scaledDmg = info.dmg * mult;
             if (ent.mgMinion) {
-                const killedM = ent.takeDamage(info.dmg, info.hitbox, info.hitbox === 'head', null, 'bullet');
+                const killedM = ent.takeDamage(scaledDmg, info.hitbox, info.hitbox === 'head', null, 'bullet');
                 S.hits++;
                 return killedM;
             }
@@ -457,7 +610,7 @@
             if (S.data.phase === 'intro') return false;
             const isMelee = info.w && info.w.stats && info.w.stats.kind === 'melee';
             const before = ent.hp;
-            const killed = ent.takeDamage(info.dmg, info.hitbox, info.hitbox === 'head', null, isMelee ? 'melee' : 'bullet');
+            const killed = ent.takeDamage(scaledDmg, info.hitbox, info.hitbox === 'head', null, isMelee ? 'melee' : 'bullet');
             S.data.damageDealt += Math.max(0, before - ent.hp);
             if (info.hitbox === 'head') S.headshots++;
             S.hits++;
@@ -465,13 +618,14 @@
         },
 
         onExplode(S, pos, rad, dmg, isFlash, stunDur, wid) {
+            const mult = S.data.dmgMult || 1;
             for (const z of S.data.zombies || []) {
                 if (!z.alive) continue;
                 const d = z.pos.distanceTo(pos);
                 if (d > rad + z.radius) continue;
                 if (isFlash) { z.stunTimer = Math.max(z.stunTimer, (stunDur || 3) * 0.4); continue; }
                 const before = z.hp;
-                z.takeDamage(dmg * (1 - (d / (rad + z.radius)) * 0.45), 'torso', false, null, 'explosive');
+                z.takeDamage(dmg * mult * (1 - (d / (rad + z.radius)) * 0.45), 'torso', false, null, 'explosive');
                 S.data.damageDealt += Math.max(0, before - z.hp);
             }
         },
@@ -489,9 +643,40 @@
                 P.armor = P.maxArmor || 150;
                 D.prevHp = P.hp;
                 SFX.heal();
+                playClip('overhaul/stingers/chime_positive.wav', 0.44, 0.02);
                 BO.FX.spawnParticles(P.pos.clone().add(V(0, 1.2, 0)), 30, 0x4ade80, 4, -2, 1.0, 1.4);
                 MG.flashScreen('rgba(34,197,94,0.25)');
                 MG.toast(`MAX HEAL USED — ${D.heals} REMAINING`, '#4ade80');
+                return true;
+            }
+            const bl = BLESSINGS.find((b) => b.key === code);
+            if (bl && D.phase === 'rest') {
+                if (D.blessingCharges <= 0) {
+                    const nextAt = Math.ceil((D.defeated + 1) / 3) * 3;
+                    MG.toast(`NO SHRINE CHARGE — NEXT BLESSING UNLOCKS AT ${nextAt} BOSSES`, '#fca5a5');
+                    SFX.buzzer();
+                    return true;
+                }
+                D.blessingCharges--;
+                D.blessingsTaken++;
+                if (bl.id === 'wrath') {
+                    D.wrathStacks++;
+                    D.dmgMult = +(1 + D.wrathStacks * 0.15).toFixed(2);
+                    MG.toast(`⚔ WRATH BLESSING CLAIMED! (+${Math.round(D.wrathStacks * 15)}% DAMAGE)`, bl.color);
+                } else if (bl.id === 'ironhide') {
+                    D.ironhideStacks++;
+                    P.maxArmor = (P.maxArmor || 150) + 25;
+                    P.armor = P.maxArmor;
+                    MG.toast(`🛡 IRONHIDE BLESSING CLAIMED! (${P.maxArmor} MAX ARMOR & PLATES REFILLED)`, bl.color);
+                } else if (bl.id === 'fleetfoot') {
+                    D.fleetfootStacks++;
+                    D.spdBonus = +(D.fleetfootStacks * 0.10).toFixed(2);
+                    MG.toast(`⚡ FLEETFOOT BLESSING CLAIMED! (+${Math.round(D.fleetfootStacks * 10)}% MOVE SPEED)`, bl.color);
+                }
+                playClip('sfx/Digital Audio (Kenney)/Audio/powerUp7.ogg', 0.45, 0.04);
+                playClip('overhaul/stingers/chime_positive.wav', 0.40, 0.02);
+                BO.FX.spawnParticles(P.pos.clone().add(V(0, 1.2, 0)), 32, bl.hex, 4.5, -1.5, 1.0, 1.4);
+                MG.flashScreen('rgba(250,204,21,0.22)');
                 return true;
             }
             if (code === 'KeyN' && D.phase === 'rest') {
@@ -508,7 +693,11 @@
             const D = S.data;
             const P = BO.Player;
             const pips = Array.from({ length: MAX_HEALS }, (_, i) => `<i class="${i < D.heals ? 'on' : ''}"></i>`).join('');
-            let html = `<div class="br-heals"><span>MAX HEALS</span><div class="br-pips">${pips}</div></div>`;
+            const buffs = [];
+            if (D.wrathStacks > 0) buffs.push(`<span style="color:#fca5a5;margin-left:6px">⚔+${D.wrathStacks * 15}%</span>`);
+            if (D.ironhideStacks > 0) buffs.push(`<span style="color:#7dd3fc;margin-left:6px">🛡+${D.ironhideStacks * 25}</span>`);
+            if (D.fleetfootStacks > 0) buffs.push(`<span style="color:#fde047;margin-left:6px">⚡+${D.fleetfootStacks * 10}%</span>`);
+            let html = `<div class="br-heals"><span>MAX HEALS</span><div class="br-pips">${pips}</div>${buffs.join('')}</div>`;
             const z = D.boss;
             if (z && (D.phase === 'fight' || D.phase === 'intro' || D.phase === 'victory')) {
                 const frac = clamp01(z.hp / z.maxHp);
@@ -524,12 +713,16 @@
             if (D.phase === 'rest') {
                 const next = D.queue[D.bossIndex];
                 const hpPct = Math.round(P.hp / P.maxHp * 100);
+                const shrineRow = D.blessingCharges > 0
+                    ? `<div class="br-rest-keys" style="margin-top:4px"><span style="color:#fca5a5"><kbd>1</kbd> WRATH (+15% DMG)</span><span style="color:#7dd3fc"><kbd>2</kbd> IRONHIDE (+25 ARMOR)</span><span style="color:#fde047"><kbd>3</kbd> FLEETFOOT (+10% SPD)</span></div>`
+                    : `<div class="br-rest-hp" style="opacity:0.7">SHRINE RECHARGES EVERY 3 BOSSES (${3 - (D.defeated % 3)} TO GO)</div>`;
                 html += `<div class="br-rest">
-                    <small>REST PERIOD</small>
+                    <small>CITADEL SANCTUARY • REST PERIOD</small>
                     <div class="br-rest-t">${Math.ceil(D.phaseT)}</div>
                     <div class="br-rest-next">NEXT: <b>${esc(next.name)}</b>${next.isSuperBoss ? ' <em>SUPER BOSS</em>' : ''}</div>
-                    <div class="br-rest-hp">HEALTH ${hpPct}% • ARMOR ${Math.round(P.armor)}</div>
+                    <div class="br-rest-hp">HEALTH ${hpPct}% • ARMOR ${Math.round(P.armor)} / ${P.maxArmor || 150}</div>
                     <div class="br-rest-keys"><span class="${D.heals > 0 ? '' : 'dim'}"><kbd>H</kbd> MAX HEAL (${D.heals} LEFT)</span><span><kbd>N</kbd> I'M READY</span></div>
+                    ${shrineRow}
                 </div>`;
             }
             return html;
@@ -555,8 +748,8 @@
                     ['BOSSES DEFEATED', `${D.defeated} / ${D.total}`],
                     ['TOTAL TIME', BO.Math.formatTime(S.t)],
                     ['MAX HEALS USED', `${D.healsUsed} / ${MAX_HEALS}`],
+                    ['SHRINE BLESSINGS', D.blessingsTaken || 0],
                     ['DAMAGE DEALT', Math.round(D.damageDealt).toLocaleString()],
-                    ['DAMAGE TAKEN', Math.round(D.damageTaken).toLocaleString()],
                     ['FASTEST KILL', fastest ? fastest.toFixed(1) + 's' : '—']
                 ],
                 graph: [0, ...D.killTimes.map((_, i) => i + 1)],
@@ -573,7 +766,12 @@
 
         dispose(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips(0.3);
             BO.State.timeScale = 1;
+            if (S.data.origMaxArmor) {
+                BO.Player.maxArmor = S.data.origMaxArmor;
+                BO.Player.armor = Math.min(BO.Player.armor, BO.Player.maxArmor);
+            }
             if (S.data.runner) { S.data.runner.dispose(); S.data.runner = null; }
             for (const z of S.data.zombies || []) z.destroy();
             S.data.zombies = [];

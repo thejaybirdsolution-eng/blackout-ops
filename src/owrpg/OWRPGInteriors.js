@@ -6,6 +6,7 @@
 (function (BO) {
     'use strict';
 
+    const NPC_DETAIL_DIST = 7;    // metres: full rig + idle animation inside, merged proxy outside
     const UP = new THREE.Vector3(0, 1.2, 0);
     const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.7, metalness: 0.3 }, o || {}));
     const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
@@ -67,7 +68,9 @@
                 tag.position.set(0, 2.2, 0);
                 parts.root.add(tag);
                 scene.add(parts.root);
-                this.npcs.push({ def, parts, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
+                // Far LOD: one merged mesh per material instead of ~135 rig parts.
+                const lod = BO.MeshProxy ? BO.MeshProxy.attach(parts.root) : null;
+                this.npcs.push({ def, parts, lod, pos: new THREE.Vector3(def.x, y, def.z), yaw: def.yaw || 0, phase: Math.random() * 6 });
             }
             for (const [id, on] of Object.entries(s.pylons)) if (on) BO.OWRPGWorldArt.setPylonActive(BO.World, id, true);
         },
@@ -96,6 +99,40 @@
                 case 'terminal':
                     add(new THREE.BoxGeometry(0.7, 1.3, 0.4), std(0x1e293b), 0, 0.65, 0);
                     g.userData.glow = add(new THREE.BoxGeometry(0.5, 0.35, 0.02), glow(0x22d3ee), 0, 1.05, 0.21, false);
+                    break;
+                case 'dungeon_gate': {
+                    for (const x of [-1.25, 1.25]) add(new THREE.BoxGeometry(0.5, 3.5, 0.7), std(0x485362), x, 1.75);
+                    add(new THREE.BoxGeometry(3, 0.55, 0.7), std(0x64748b), 0, 3.45);
+                    g.userData.glow = add(new THREE.TorusGeometry(0.9, 0.055, 8, 32), glow(0x67e8f9), 0, 1.8);
+                    const tag = label(def.dngName, '#67e8f9'); tag.position.y = 4; g.add(tag);
+                    break;
+                }
+                case 'standing_stone': {
+                    const stone = BO.OWRPGStatsData.STANDING_STONES[def.stoneId];
+                    add(new THREE.CylinderGeometry(0.3, 0.7, 2.7, 5), std(0x334155), 0, 1.35);
+                    g.userData.glow = add(new THREE.TorusGeometry(0.48, 0.035, 6, 24), glow(stone.color), 0, 1.9, 0.35);
+                    const tag = label(stone.name, stone.color); tag.position.y = 3.2; g.add(tag);
+                    break;
+                }
+                case 'resource_node': {
+                    const ore = def.skill === 'mining', rune = def.skill === 'arcana', wood = def.yieldItem === 'elderwood_log';
+                    const color = ore ? 0x7dd3fc : rune ? 0xc084fc : 0x86efac;
+                    if (wood) {
+                        add(new THREE.CylinderGeometry(0.2, 0.45, 3.2, 7), std(0x594230), 0, 1.6);
+                        for (let i = 0; i < 3; i++) add(new THREE.ConeGeometry(1.6-i*0.3, 2, 7), std(0x2d6542), 0, 2.8+i*0.7);
+                    } else {
+                        for (let i = 0; i < 5; i++) {
+                            const angle = i * Math.PI * 2 / 5;
+                            const node = add(new THREE.IcosahedronGeometry(ore || rune ? 0.42 : 0.22, 0), std(color, { emissive: color, emissiveIntensity: 0.12 }), Math.cos(angle)*0.4, 0.3 + i*0.07, Math.sin(angle)*0.4);
+                            node.scale.y = rune ? 2.4 : 1;
+                        }
+                    }
+                    g.userData.glow = add(new THREE.SphereGeometry(0.09, 8, 6), glow(color), 0, wood ? 1.9 : 1.1);
+                    break;
+                }
+                case 'lore_tome':
+                    add(new THREE.BoxGeometry(0.8, 0.75, 0.6), std(0x475569), 0, 0.375);
+                    g.userData.glow = add(new THREE.BoxGeometry(0.65, 0.1, 0.45), glow(0xe9c46a), 0, 0.82);
                     break;
                 case 'hatch':
                     g.userData.glow = add(new THREE.TorusGeometry(1.1, 0.06, 6, 24), glow(0xf5a623), 0, 0.55, 0);
@@ -166,6 +203,13 @@
                     return `${def.name} — locked (Lockpick, TCH 7 or BRW 8)`;
                 }
                 case 'terminal': return s.worldFlags.junction_rerouted ? 'Junction — main line rerouted' : 'Use ' + def.name;
+                case 'dungeon_gate': return 'Enter ' + def.dngName + ' · Level ' + def.dngLvl;
+                case 'standing_stone': return (s.player.standingStone === def.stoneId ? 'Attuned to ' : 'Attune to ') + def.name;
+                case 'resource_node': {
+                    const left = Math.ceil((s.worldFlags['gather_' + def.id] || 0) - s.playtimeSec);
+                    return left > 0 ? def.name + ' · Regrows in ' + left + 's' : 'Harvest ' + def.name;
+                }
+                case 'lore_tome': return 'Read ' + def.name;
                 case 'hatch': return 'Enter the Culvert Sublevel';
                 case 'exit': return 'Climb to the surface';
                 case 'valve': return s.worldFlags.culvert_valve_pulled ? 'Bypass valve — removed' : 'Pull the bypass valve';
@@ -195,6 +239,7 @@
                 case 'workbench': BO.OWRPGUI.openPipPad('inventory'); return;
                 case 'bounty_board': BO.OWRPGUI.openPipPad('bounties'); return;
                 case 'container': {
+                    if (s.worldFlags['opened_' + def.id]) return;
                     if (def.locked) {
                         const fx = C.perkFx(s);
                         if (!fx.lockpick && C.attr(s, 'TCH') < 7 && C.attr(s, 'BRW') < 8) { toast('Locked. Needs the Lockpick perk, TCH 7 or BRW 8.', '#f97316'); return; }
@@ -212,6 +257,7 @@
                     if (def.grant) loot.items.push({ id: def.grant, n: 1 });
                     if (def.grant2) loot.items.push({ id: def.grant2, n: 1 });
                     M.giveLootReport(loot, def.name);
+                    C.addSkillXp(s, 'delving', def.int ? 65 : 25);
                     if (p.mesh.userData.glow) p.mesh.userData.glow.visible = false;
                     BO.Sound.playUIClick();
                     return;
@@ -230,6 +276,44 @@
                     const fx = C.perkFx(s);
                     if (!I.has(s, 'culvert_keycard') && !fx.lockpick && C.attr(s, 'BRW') < 7) { toast('The hatch is sealed. (Culvert Keycard, Lockpick perk or BRW 7)', '#f97316'); return; }
                     this.enter(def.to, 'culvert');
+                    return;
+                }
+                case 'dungeon_gate': this.enter(def.to, def.dngId); return;
+                case 'standing_stone': {
+                    const stone = BO.OWRPGStatsData.STANDING_STONES[def.stoneId];
+                    if (s.player.standingStone === def.stoneId) { toast(stone.desc, stone.color); return; }
+                    s.player.standingStone = def.stoneId;
+                    M.applyDerived();
+                    toast(stone.name + ' — ' + stone.desc, stone.color);
+                    BO.Sound.playPerkBuy();
+                    M.checkpoint('Standing stone attuned');
+                    return;
+                }
+                case 'resource_node': {
+                    if ((s.worldFlags['gather_' + def.id] || 0) > s.playtimeSec) return;
+                    const fx = C.perkFx(s);
+                    const n = 1 + (Math.random() < Math.min(1, (fx.doubleGather || 0) + (fx.gatherChance || 0)) ? 1 : 0);
+                    I.add(s, def.yieldItem, n);
+                    s.worldFlags['gather_' + def.id] = s.playtimeSec + 600;
+                    C.addSkillXp(s, def.skill, 35);
+                    M.itemEvent(def.yieldItem);
+                    M.giveXp(8, 'Harvest');
+                    toast(I.def(def.yieldItem).name + ' ×' + n, '#86efac');
+                    BO.Sound.playUIClick();
+                    return;
+                }
+                case 'lore_tome': {
+                    const lore = {
+                        l_tome_1: 'Haven fell when its transmitters went silent. Freestead survives by maintaining the old relay routes. The first expedition marked a culvert beneath Pump Three as a passage into the buried network.',
+                        l_tome_2: 'The Grimhollow Pact bound the dead to the moor. Its keepers sealed their names inside the Sunken Crypt. Fire breaks their frost-bound armor, but the Nightlords wait beyond the graveyard.',
+                        l_tome_3: 'The Dragonwilds formed around a fallen star. Runic stone feeds the ash-drakes, while frost disrupts their inner flame. Vaelgor guards the deepest vault, and the last expedition never returned.'
+                    };
+                    if (!s.worldFlags['read_' + def.id]) {
+                        M.setFlag('read_' + def.id, true);
+                        C.addSkillXp(s, 'arcana', 80);
+                        M.giveXp(75, 'Chronicle discovered');
+                    }
+                    BO.OWRPGUI.open('lore', '<span class="ow-kicker">MERIDIAN ARCHIVES</span><h2>' + def.name + '</h2><p class="ow-dim">' + lore[def.id] + '</p><button class="ow-btn" data-act="close">CLOSE</button>');
                     return;
                 }
                 case 'exit': this.exit(def.to); return;
@@ -297,12 +381,14 @@
         enter(to, id) {
             BO.OWRPGMounts?.dismount(true);
             const P = BO.Player;
-            BO.OWRPGMode.checkpoint('Entering interior');
             P.pos.set(to.x, to.y, to.z);
             P.vel.set(0, 0, 0);
             P.yaw = to.yaw || 0;
             this.s.player.interiorId = id;
-            BO.Events.emit('hud:banner', { title: 'CULVERT SUBLEVEL', sub: 'Flooded maintenance tunnels beneath Pump Three', color: '#84cc16' });
+            const dungeon = this.D.DUNGEONS.find(d => d.id === id || (id === 'culvert' && d.id === 'culvert_sublevel'));
+            BO.Events.emit('hud:banner', { title: dungeon ? dungeon.name.toUpperCase() : 'CULVERT SUBLEVEL', sub: dungeon ? 'Recommended level ' + dungeon.lvl : 'Flooded maintenance tunnels', color: '#84cc16' });
+            BO.OWRPGWorldSim.tick1(0);
+            BO.OWRPGMode.checkpoint('Entered ' + (dungeon ? dungeon.name : 'interior'));
         },
 
         exit(to) {
@@ -311,6 +397,7 @@
             P.vel.set(0, 0, 0);
             P.yaw = to.yaw || 0;
             this.s.player.interiorId = null;
+            BO.OWRPGWorldSim.tick1(0);
             BO.OWRPGMode.checkpoint('Left interior');
         },
 
@@ -322,6 +409,8 @@
                 if (!near) continue;
                 p.phase += dt;
                 const u = p.mesh.userData;
+                if (u.glow && p.def.kind === 'resource_node') u.glow.visible = (this.s.worldFlags['gather_' + p.def.id] || 0) <= this.s.playtimeSec;
+                if (u.glow && p.def.kind === 'container') u.glow.visible = !this.s.worldFlags['opened_' + p.def.id];
                 if (u.glow && u.glow.visible) u.glow.scale.setScalar(1 + Math.sin(p.phase * 4) * 0.25);
                 if (u.pulse) u.pulse.scale.set(1 + Math.sin(p.phase * 3) * 0.06, 1.3 + Math.sin(p.phase * 3) * 0.08, 1);
                 if (u.wheel && this.s.worldFlags.culvert_valve_pulled) u.wheel.visible = false;
@@ -335,7 +424,9 @@
                 const want = d < 6 ? Math.atan2(P.pos.x - n.pos.x, P.pos.z - n.pos.z) : n.def.yaw || 0;
                 n.yaw += BO.Math.angleDiff(n.yaw, want) * Math.min(1, dt * 4);
                 n.parts.root.rotation.y = n.yaw;
-                BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
+                const far = d > NPC_DETAIL_DIST;
+                if (n.lod) BO.MeshProxy.set(n.lod, far);
+                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
             }
             for (let i = this.bags.length - 1; i >= 0; i--) {
                 const b = this.bags[i];

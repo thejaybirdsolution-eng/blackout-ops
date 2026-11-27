@@ -329,12 +329,20 @@
                 S.data.jacks.push(jRef);
             }
 
-            // Wooden Display Islands & Plush Toy Shelves along walls
+            // Wooden Display Islands & Plush Toy Shelves along walls + Staged 3D Toyshop Display Props
             const counterM = std(0x5c3419, 0.72), velvetM = std(0x881337, 0.88);
             for (const [ix, iz, w, d] of [[-9.5, -13, 5.5, 2.4], [9.5, -13, 5.5, 2.4], [-9.5, 1, 5.5, 2.4], [9.5, 1, 5.5, 2.4], [0, -20.5, 8.0, 2.0]]) {
                 S.box(ix, 0.50, iz, w, 1.0, d, counterM, { solid: true });
                 const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.16, 0.08, d + 0.16), velvetM);
                 top.position.set(ix, 1.02, iz); S.add(top);
+            }
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-treasure-chest.glb', { pos: [-9.5, 1.06, -13], rot: 0.25, fitSize: [1.2, 0.9, 0.9] });
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/trophy.glb', { pos: [9.5, 1.06, -13], fitSize: [0.95, 1.25, 0.95] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/blaster-b.glb', { pos: [-9.5, 1.15, 1], rot: [0, 0.5, 0], fitSize: [1.4, 0.7, 0.5] });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-medium.glb', { pos: [9.5, 1.06, 1], rot: -0.3, fitSize: [1.1, 0.85, 0.9] });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', { pos: [-3.2, 1.06, -20.5], fitSize: [0.85, 1.05, 0.85] });
+                BO.Assets.placeGLB(S.scene, 'platformer_kit/chest.glb', { pos: [3.2, 1.06, -20.5], rot: -0.2, fitSize: [1.1, 0.95, 0.9] });
             }
             // Wall plush bear shelves for authentic Classic-Whack charm
             const plushCols = [0xf472b6, 0x60a5fa, 0xfacc15, 0xa78bfa, 0x4ade80];
@@ -493,6 +501,7 @@
             }
             if (code === 'KeyQ' && D.bellCd <= 0) {
                 D.bellCd = 12.0;
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactBell_heavy_000.ogg', { volume: 0.42, rateJitter: 0.06 });
                 if (BO.MinigameAudio) BO.MinigameAudio.toyBell();
                 const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
                 const bell = new THREE.Group();
@@ -665,8 +674,10 @@
                 BO.FX.spawnExplosion(ent.root.position.clone().add(V(0, 0.8, 0)), ent.isGolden ? 3.5 : 2.4, ent.isGolden ? 0xfacc15 : 0xec4899);
                 if (ent.isGolden) {
                     BO.Player.hp = Math.min(BO.Player.maxHp, BO.Player.hp + 30);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('rpg_sfx/handleCoins.ogg', { volume: 0.45, rateJitter: 0.05 });
                     S.award(1300 * S.comboMult * partyMult, info.pt, '★ GOLDEN MIMIC BUSTED! +30 HP', '#fde047');
                 } else {
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.34, rateJitter: 0.08 });
                     S.award(650 * S.comboMult * partyMult, info.pt, D.partyMode ? '🕺 DISCO POLTERGEIST BUSTED! (2×)' : 'POLTERGEIST BUSTED!', '#4ade80');
                 }
                 if (!D.partyMode && S.kills >= 5) {
@@ -683,6 +694,7 @@
             S.breakCombo('ANTIQUE BROKEN!');
             ent.kill(info);
             SFX.shatter();
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Impact Sounds (Kenney)/Audio/impactGlass_heavy_000.ogg', { volume: 0.44, rateJitter: 0.08 });
             BO.Player.takeDamage(12, info.pt, false);
             S.award(-150, info.pt, `REAL ${ent.art.label.toUpperCase()}! -12 HP`, '#f87171');
             if (!BO.Player.alive) MG.finish('TOO MANY ANTIQUES SMASHED!', { color: '#f87171' });
@@ -885,6 +897,16 @@
             L.placeGLB(S.scene, 'city_industrial_kit/chimney-large.glb', { pos: [72, 0, -24], scale: 8 });
             L.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-78, 0, 22], scale: 7 });
             L.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [78, 0, 22], scale: 7 });
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'city_suburban_kit/building-type-a.glb', [
+                    { pos: [-84, 0, -52], scale: 7.5 }, { pos: [84, 0, -52], scale: 7.5 },
+                    { pos: [-84, 0, 48], scale: 7.5 }, { pos: [84, 0, 48], scale: 7.5 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/shipping-container-a.glb', [
+                    { pos: [-38, 0, -78], rot: 0.15, scale: 3.6 }, { pos: [-26, 0, -79], rot: -0.1, scale: 3.6 },
+                    { pos: [26, 0, -79], rot: 0.1, scale: 3.6 }, { pos: [38, 0, -78], rot: -0.15, scale: 3.6 }
+                ]);
+            }
             const roadTex = cityRoadTex(); roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping; roadTex.repeat.set(4, 4);
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.86 }));
             ground.rotation.x = -Math.PI / 2; ground.position.y = 0.02; S.add(ground);
@@ -1030,6 +1052,7 @@
                 S.data.destroyedBldgs++; S.kills++; S.bumpCombo();
                 const pos = b.root.position.clone().add(V(0, b.h * 0.5, 0));
                 BO.FX.spawnExplosion(pos, 6.5, 0xf97316); SFX.rumble(0.5);
+                if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('sfx/Gameplay Effects (Desert Shooter)/explosion-c.ogg', { volume: 0.42, rateJitter: 0.08 });
                 S.award(450 * S.comboMult, pos, tag || 'SKYSCRAPER TOPPLED!', '#fde047');
                 // Leave glowing rubble mound
                 const rubble = new THREE.Mesh(new THREE.DodecahedronGeometry(b.w * 0.55, 0), std(0x475569, 0.95));

@@ -32,6 +32,20 @@
 
         /* ================================================== lifecycle */
         /** opts: { slot, newChar?: { name, attrs, difficulty }, camera } */
+        /* ================================================== pluggable world systems
+           Modules such as Cartography, Discoveries and Champions register here and get
+           start/stop/update/tick1/handleKey/nearest/interact hooks without new wiring. */
+        systems: [],
+
+        registerSystem(sys) { if (sys && !this.systems.includes(sys)) this.systems.push(sys); },
+
+        _sys(hook, a, b, c) {
+            for (const sys of this.systems) {
+                if (typeof sys[hook] !== 'function') continue;
+                try { sys[hook](a, b, c); } catch (e) { console.error('[OWRPG] ' + (sys.id || 'system') + '.' + hook, e); }
+            }
+        },
+
         start(opts) {
             this.camera = opts.camera;
             this.slot = opts.slot || 0;
@@ -42,7 +56,7 @@
             this.state = s;
             this.active = true;
             this.acc10 = this.acc1 = 0;
-            this.camoT = 0; this.holstered = false; this.combatT = 0; this.cheatCd = 0;
+            this.camoT = 0; this.holstered = false; this.combatT = 0; this.cheatCd = 0; this.chillT = 0;
             this.lastMag = null;
             if (fresh) {
                 this._starterKit(s);
@@ -58,6 +72,7 @@
             const scene = BO.World.build('meridian');
             BO.OWRPGWorldSim.init(scene);
             BO.OWRPGInteriors.build(scene);
+            this._sys('start', s, scene);
             this._milestoneNotified = new Set();
             // Auto-grant level-based mounts if eligible on load
             if (s.player.level >= 6) BO.OWRPGMounts?.unlock(s, 'hoverbike');
@@ -105,6 +120,7 @@
         stop() {
             if (!this.active) return;
             this.active = false;
+            this._sys('stop');
             BO.OWRPGMounts?.reset();
             BO.OWRPGEvents?.clear();
             BO.OWRPGAI.clear();
@@ -231,7 +247,8 @@
             const enc = BO.OWRPGCharacter.encumbrance(this.state);
             const mountSpd = BO.OWRPGMounts?.mounted ? BO.OWRPGMounts.speedMult() : 1;
             const odMult = BO.OWRPGCombat.overdriveT > 0 ? 1.35 : 1;
-            return enc.speed * (d.gearSpeedMult || 1) * (this.holstered && BO.Player.sprinting ? 1.12 : 1) * (this.stimT > 0 ? 1.25 : 1) * mountSpd * odMult;
+            const chill = this.chillT > 0 ? 0.75 : 1;   // Frozen Champion hits
+            return enc.speed * (d.gearSpeedMult || 1) * (this.holstered && BO.Player.sprinting ? 1.12 : 1) * (this.stimT > 0 ? 1.25 : 1) * mountSpd * odMult * chill;
         },
 
         modifyIncomingDamage(amount, attackerPos, attackerEntity) {
@@ -258,7 +275,7 @@
         giveXp(amount, label, quiet) {
             const s = this.state;
             const levels = BO.OWRPGCharacter.addXp(s, amount);
-            if (!quiet || label) BO.OWRPGUI.xpPop(Math.round(amount), label);
+            if (!quiet || label) BO.OWRPGUI.xpPop(Math.round(amount * (1 + (BO.OWRPGCharacter.perkFx(s).xpMult || 0))), label);
             if (levels > 0) {
                 this.applyDerived();
                 BO.Player.hp = BO.Player.maxHp;
@@ -361,16 +378,23 @@
             const e = I.byUid(s, uid);
             if (!e) return;
             const d = I.def(e.id);
+            if (!d.heal && !d.ammo && !d.stim && !d.xpBoost) return;
             if (d.heal) {
                 const fx = BO.OWRPGCharacter.perkFx(s);
                 BO.OWRPGCombat.heal = { left: d.heal * (1 + (fx.medMult || 0)), rate: d.heal / 1.5 };
-            } else if (d.ammo) {
+            }
+            if (d.ammo) {
                 for (const w of BO.Player.weapons) if (w.stats.kind !== 'melee') w.reserve = w.stats.reserveMax;
                 this.toast('Ammunition restocked', '#fbbf24');
-            } else if (d.stim) {
+            }
+            if (d.stim) {
                 this.stimT = d.stim;
                 this.toast('Stim: +25% speed, damage resistance', '#f472b6');
-            } else return;
+            }
+            if (d.xpBoost) {
+                s.worldFlags.xpBoostUntil = Math.max(s.worldFlags.xpBoostUntil || 0, s.playtimeSec) + d.xpBoost;
+                this.toast('Wisdom draught · +30% XP for 3 minutes', '#c084fc');
+            }
             I.remove(s, e.id, 1);
         },
 
@@ -405,8 +429,10 @@
         /* ================================================== input */
         interact() {
             if (!this.active || !BO.Player.alive || BO.OWRPGUI.deathOpen) return;
-            const t = BO.OWRPGInteriors.nearest();
-            if (t) BO.OWRPGInteriors.interact(t);
+            const t = BO.OWRPGInteriors.nearest() || this._systemPrompt();
+            if (!t) return;
+            if (t.type === 'system') t.sys.interact(t);
+            else BO.OWRPGInteriors.interact(t);
         },
 
         /** Mode keys (rebindable via Settings). Returns true when consumed. */
@@ -434,12 +460,13 @@
                 return true;
             }
             if (code === 'F8') { BO.OWRPGUI.toggleDev(); return true; }
+            for (const sys of this.systems) if (typeof sys.handleKey === 'function' && sys.handleKey(code, kb, e)) return true;
             return false;
         },
 
         /** Shared bindings that do nothing here (grenades, streaks, shops, plates). */
         isSuppressed(code, kb) {
-            const mine = [kb.owAbility1, kb.owAbility2, kb.owGadget, kb.owUltimate, kb.owMount, kb.owRepair, kb.owMed, kb.owHolster, kb.owDodge, kb.owQuestLog, kb.owMap];
+            const mine = [kb.owAbility1, kb.owAbility2, kb.owGadget, kb.owUltimate, kb.owMount, kb.owRepair, kb.owMed, kb.owHolster, kb.owDodge, kb.owQuestLog, kb.owMap, kb.owMinimapZoom];
             if (mine.includes(code)) return false;
             return [kb.lethal, kb.tactical, kb.special, kb.ultimate, 'KeyZ', kb.armory, kb.armor, kb.exfil, 'Digit3', 'Digit5', 'Digit6', 'Digit7'].includes(code);
         },
@@ -455,6 +482,7 @@
             if (this.cheatCd > 0) this.cheatCd -= dt;
             if (this.combatT > 0) this.combatT -= dt;
             if (this.stimT > 0) this.stimT -= dt;
+            if (this.chillT > 0) this.chillT -= dt;
             if (BO.OWRPGAI.anyHostileInCombat()) this.combatT = Math.max(this.combatT, 2);
             const desiredMusic = this.combatT > 0 ? 'owrpg_combat' : 'owrpg';
             if (BO.Sound.musicMode !== desiredMusic) BO.Sound.startMusic(desiredMusic);
@@ -466,6 +494,7 @@
             BO.OWRPGWorldSim.update(dt);
             BO.OWRPGInteriors.update(dt);
             BO.OWRPGWorldArt.animate(BO.World, s.worldClock, dt);
+            this._sys('update', dt);
 
             // Gunfire noise & slight shot wear: unsuppressed shots carry 55 m, suppressed 9 m.
             const w = P.weapons[P.activeSlot];
@@ -484,6 +513,7 @@
             if (this.acc1 >= 1) {
                 this.acc1 -= 1;
                 BO.OWRPGWorldSim.tick1(1);
+                this._sys('tick1');
                 if (this.combatT <= 0 && P.hp < P.maxHp * 0.6) P.hp = Math.min(P.maxHp * 0.6, P.hp + 2.5);
                 if (this.pendingVendor) { const v = this.pendingVendor; this.pendingVendor = null; BO.OWRPGUI.openVendor(v); }
                 if (BO.OWRPGExpansionData?.CODEX_MILESTONES && this._milestoneNotified) {
@@ -496,7 +526,18 @@
                     }
                 }
             }
-            this.prompt = BO.OWRPGInteriors.nearest();
+            this.prompt = BO.OWRPGInteriors.nearest() || this._systemPrompt();
+        },
+
+        /** Closest interactable offered by a registered system ({ type: 'system', sys, obj, text }). */
+        _systemPrompt() {
+            let best = null;
+            for (const sys of this.systems) {
+                if (typeof sys.nearest !== 'function') continue;
+                const t = sys.nearest();
+                if (t && (!best || t.d < best.d)) best = Object.assign(t, { type: 'system', sys });
+            }
+            return best;
         }
     };
 

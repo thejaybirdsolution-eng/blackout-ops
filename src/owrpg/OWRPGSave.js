@@ -7,7 +7,7 @@
 (function (BO) {
     'use strict';
 
-    const SCHEMA_VERSION = 2;
+    const SCHEMA_VERSION = 4;
     const SLOT_COUNT = 3;
 
     const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -34,6 +34,9 @@
                 equipped: { primary: null, secondary: null, helmet: null, rig: null, boots: null, relic: null, tool: null },
                 inventory: [], stash: [], nextUid: 1,
                 mounts: { owned: [], active: null },
+                skills: Object.fromEntries(Object.keys(SD.SKILLS).map(id => [id, { level: 1, xp: 0 }])),
+                standingStone: null,
+                blessing: null,
                 unlockedPowers: ['cryo_dart', 'arc_lash', 'med_injector'],
                 codex: { enemies: {}, elements: {}, unlocksClaimed: [] },
                 bounties: { active: null, completed: 0, progress: 0 }
@@ -41,7 +44,9 @@
             factions: Object.assign({}, BO.OWRPGFactionsData.START_REP),
             poiStates: {},
             quests: {},
-            worldFlags: {},
+            worldFlags: { compassEnabled: opts.compass !== false, compassQuest: true, minimapEnabled: opts.minimap !== false, minimapNorthUp: false, trackedQuests: [] },
+            // Cartography + Discoveries: explored is a base64 bitset over a 64×64 grid; found maps site id → playtime.
+            atlas: { explored: '', found: {}, shrineT: {}, champions: 0, trials: 0 },
             pylons: { py_freestead: true },
             pins: [],
             pityCounter: 0,

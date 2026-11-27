@@ -1,10 +1,8 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · World Art (runtime populate for 'meridian')
-   - Relocates Freestead GLB props cleanly inside Freestead Town (-190, 190)
-     with terrainHeight + building clearance
-   - Filters full road segments & rail lines so trees never spawn on roads
-   - Uses real dt in animate(world, clock, dt)
-   - Adds Freestead campfires/warm lanterns + 1-draw-call region weather motes
+   BLACKOUT OPS — Open World RPG · World Art 2.0 (1280 x 1280 m & 12 Dungeons)
+   - GPU-instanced trees, rocks, castles, crypts, banners & dungeon dressing
+   - Keeps total draw calls well below 180 across the 4x larger world!
+   - Distance-culls detailed settlement/dungeon 3D GLB clusters cleanly.
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -61,56 +59,136 @@
 
     const WEATHER_COLORS = {
         haven_basin: 0xfde68a,
+        whispering_woods: 0x86efac,
         rust_sprawl: 0xd6b08c,
+        barrow_moor: 0xc4b5fd,
         mire_delta: 0x84cc16,
         ash_quarry: 0xf97316,
+        sunscorched_badlands: 0xfbbf24,
+        sunken_coast: 0x67e8f9,
         alpine_array: 0xe2e8f0,
-        meridian_core: 0xc084fc
+        frostfang_peaks: 0xbae6fd,
+        meridian_core: 0xc084fc,
+        obsidian_dragonwilds: 0xef4444
     };
 
     const Art = {
         populate(world, scene) {
             const D = BO.OWRPGWorldData;
             const t = world.terrain;
-            const out = { beacons: [], plumes: [], arcs: [], spinners: [], pylons: {}, waters: [], flames: [], weather: null, weatherRegion: 'haven_basin', townProps: null };
+            const out = { beacons: [], plumes: [], arcs: [], spinners: [], pylons: {}, waters: [], flames: [], weather: null, weatherRegion: 'haven_basin', culledGroups: [] };
             world.owrpg = out;
             strutBatches = new Map();
             if (BO.Assets && BO.Assets.applySkybox) {
                 BO.Assets.applySkybox(scene, 'skybox-morning.png');
             }
-            for (const L of D.LANDMARKS) this['_lm_' + L.id](world, scene, L, t.height(L.x, L.z), out);
+            for (const L of D.LANDMARKS) {
+                const fn = this['_lm_' + L.id] || this._lm_spire;
+                fn.call(this, world, scene, L, t.height(L.x, L.z), out);
+            }
             this._vegetation(world, scene, D);
             this._water(scene, D, out);
-            for (const p of D.PYLONS) out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+            for (const p of D.PYLONS) {
+                out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+                // A 6 m pylon is a couple of pixels beyond ~420 m; stop drawing it there (6 draw calls each).
+                out.culledGroups.push({ group: out.pylons[p.id].group, x: p.x, z: p.z, r: 420 });
+            }
             flushStruts(scene);
             this._townWarmth(scene, D, t, out);
             this._weatherMotes(scene, out);
-
-            // Relocated Freestead Town GLB props (grouped + distance-culled past 70m, no shadow cast)
-            if (BO.Assets && BO.Assets.placeGLB) {
-                const T = D.TOWN;
-                const tp = new THREE.Group();
-                scene.add(tp);
-                out.townProps = tp;
-                const placeTownProp = (path, dx, dz, rot, scale) => {
-                    const px = T.x + dx, pz = T.z + dz;
-                    BO.Assets.placeGLB(tp, path, { pos: [px, t.height(px, pz), pz], rot, scale, castShadow: false, guardScene: scene });
-                };
-                placeTownProp('mini_forest_kit/tent.glb', -22, -6, 0.4, 3.4);
-                placeTownProp('mini_arena_kit/weapon-rack.glb', -5, -6, -0.6, 2.3);
-                placeTownProp('mini_arena_kit/banner.glb', 4, -16, 0.2, 2.8);
-                placeTownProp('mini_arena_kit/statue.glb', 0, 7, 0.8, 2.8);
-                placeTownProp('mini_arena_kit/column-damaged.glb', 22, -18, 0.3, 2.6);
-                placeTownProp('mini_arena_kit/trophy.glb', 7, 4, 0, 2.0);
-                BO.Assets.placeGLB(scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [148, t.height(148, -148), -148], scale: 2.8, castShadow: false, guardScene: scene });
-            }
+            this._dressFrontierAndDungeons(scene, D, t, out);
             return out;
+        },
+
+        _dressFrontierAndDungeons(scene, D, t, out) {
+            if (!BO.Assets || !BO.Assets.placeGLB) return;
+            const addCluster = (cx, cz, radius, buildFn) => {
+                const g = new THREE.Group();
+                scene.add(g);
+                out.culledGroups.push({ group: g, x: cx, z: cz, r: radius });
+                buildFn(g);
+            };
+            const pSurface = (grp, path, x, z, rot, scale) => {
+                BO.Assets.placeGLB(grp, path, { pos: [x, t.height(x, z), z], rot, scale, castShadow: false, guardScene: scene });
+            };
+
+            // 1. Freestead Town
+            const T = D.TOWN;
+            addCluster(T.x, T.z, 95, (g) => {
+                pSurface(g, 'mini_forest_kit/tent.glb', T.x - 22, T.z - 6, 0.4, 3.4);
+                pSurface(g, 'mini_arena_kit/weapon-rack.glb', T.x - 5, T.z - 6, -0.6, 2.3);
+                pSurface(g, 'mini_arena_kit/banner.glb', T.x + 4, T.z - 16, 0.2, 2.8);
+                pSurface(g, 'mini_arena_kit/statue.glb', T.x, T.z + 7, 0.8, 2.8);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', T.x + 18, T.z - 4, -0.5, 2.2);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-timber-wellhead.glb', T.x, T.z, 0, 2.0);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-cargo-handcart.glb', T.x - 18, T.z + 6, 0.7, 2.0);
+            });
+
+            // 2. Whispering Pinewoods (Ranger's Watch Lodge & Root-Barrow)
+            addCluster(-445, 395, 130, (g) => {
+                pSurface(g, 'mini_forest_kit/tent.glb', -432, 368, 0.5, 3.5);
+                pSurface(g, 'mini_forest_kit/target.glb', -406, 368, -0.4, 2.5);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-wooden-weapon-rack.glb', -414, 355, 0, 2.2);
+                pSurface(g, 'castle_kit/gate.glb', -475, 442, 0, 3.2);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-giant-keep-banner.glb', -482, 442, 0, 2.6);
+            });
+
+            // 3. Barrow-Moor Graveyard (Grimhollow Chapel, Marrow Crypt, Crimson Manor)
+            addCluster(-470, 5, 150, (g) => {
+                pSurface(g, 'graveyard_kit/crypt-large.glb', -475, -82, 0, 3.2);
+                pSurface(g, 'graveyard_kit/altar-stone.glb', -425, 22, 0, 2.6);
+                pSurface(g, 'graveyard_kit/coffin.glb', -483, -72, 0.3, 2.4);
+                pSurface(g, 'graveyard_kit/candle-multiple.glb', -422, 18, 0, 2.4);
+                pSurface(g, 'castle_kit/flag-banner-long.glb', -525, 88, 0, 3.2);
+                pSurface(g, 'castle_kit/flag-banner-long.glb', -545, 88, 0, 3.2);
+            });
+
+            // 4. Sunscorched Badlands (Dustwind Oasis & Sunfang Pyramid)
+            addCluster(435, 430, 150, (g) => {
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-canvas-market-stall.glb', 392, 402, 0.4, 2.4);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-wooden-barrel.glb', 380, 403, 0, 2.0);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', 478, 478, 0, 2.8);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-standalone-lion-statue.glb', 492, 478, 0, 2.8);
+            });
+
+            // 5. Frostfang Peaks & Obsidian Dragonwilds
+            addCluster(-455, -445, 140, (g) => {
+                pSurface(g, 'castle_kit/siege-ballista.glb', -442, -432, 0.4, 3.0);
+                pSurface(g, 'castle_kit/flag-banner-long.glb', -448, -438, 0, 3.5);
+                pSurface(g, 'castle_kit/flag-banner-long.glb', -462, -438, 0, 3.5);
+            });
+            addCluster(420, -420, 160, (g) => {
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', 478, -480, 0, 2.8);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', 492, -480, 0, 2.8);
+                pSurface(g, 'pixel_fantasy/pixel-fantasy-carved-weathered-limestone-ritual-altar.glb', 430, -395, 0, 2.6);
+                pSurface(g, 'mini_forest_kit/tent.glb', 345, -340, 0.6, 3.4);
+            });
+
+            // 6. Dress all 12 Sealed Dungeons with distance-culled 3D banners, braziers, altars & columns!
+            for (let i = 1; i < (D.DUNGEONS || []).length; i++) {
+                const dng = D.DUNGEONS[i];
+                addCluster(dng.x, dng.z + 30, 95, (g) => {
+                    const pInt = (path, dx, dz, rot, scale) => {
+                        BO.Assets.placeGLB(g, path, { pos: [dng.x + dx, 0, dng.z + dz], rot, scale, castShadow: false, guardScene: scene });
+                    };
+                    pInt('pixel_fantasy/pixel-fantasy-iron-brazier.glb', -6, 6, 0, 2.2);
+                    pInt('pixel_fantasy/pixel-fantasy-iron-brazier.glb', 6, 6, 0, 2.2);
+                    pInt('pixel_fantasy/pixel-fantasy-iron-brazier.glb', -6, 52, 0, 2.4);
+                    pInt('pixel_fantasy/pixel-fantasy-iron-brazier.glb', 6, 52, 0, 2.4);
+                    pInt('mini_dungeon_kit/banner.glb', -14.5, 22, Math.PI / 2, 2.8);
+                    pInt('mini_dungeon_kit/banner.glb', 14.5, 22, -Math.PI / 2, 2.8);
+                    pInt('mini_dungeon_kit/barrel.glb', 12, 18, 0.3, 2.2);
+                    pInt('graveyard_kit/altar-stone.glb', 0, 60, 0, 2.4);
+                });
+                const dLight = new THREE.PointLight(i === 11 ? 0xf97316 : (i >= 9 ? 0x38bdf8 : 0xfbbf24), 1.6, 55, 1.5);
+                dLight.position.set(dng.x, 4.2, dng.z + 34);
+                scene.add(dLight);
+            }
         },
 
         _townWarmth(scene, D, t, out) {
             const T = D.TOWN;
             const dummy = new THREE.Object3D();
-            // Batched campfire logs + flame + point light (3 draw calls total!)
             const fx = T.x - 4, fz = T.z + 5, fy = t.height(fx, fz);
             const logIm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.1, 0.9, 6), std(0x4a3525, { roughness: 0.9 }), 3);
             for (let i = 0; i < 3; i++) {
@@ -131,7 +209,6 @@
             scene.add(fireLight);
             out.flames.push({ mesh: flame, light: fireLight, baseY: fy + 0.42 });
 
-            // Batched gate & shop lanterns (2 InstancedMeshes for all 4 posts & bulbs)
             const lanterns = [[4, -24], [4, 24], [29, 3], [-12, -8]];
             const postIm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 2.8, 6), std(0x27272a, { metalness: 0.6 }), lanterns.length);
             const bulbIm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 8, 6), glow(0xfbbf24, 0.95), lanterns.length);
@@ -151,12 +228,12 @@
         },
 
         _weatherMotes(scene, out) {
-            const COUNT = 150;
+            const COUNT = 160;
             const pos = new Float32Array(COUNT * 3);
             for (let i = 0; i < COUNT; i++) {
-                pos[i * 3] = (Math.random() - 0.5) * 44;
+                pos[i * 3] = (Math.random() - 0.5) * 48;
                 pos[i * 3 + 1] = Math.random() * 14;
-                pos[i * 3 + 2] = (Math.random() - 0.5) * 44;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * 48;
             }
             const geo = new THREE.BufferGeometry();
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -180,6 +257,13 @@
             scene.add(m);
             out.beacons.push(m);
             return m;
+        },
+
+        _lm_spire(world, scene, L, y, out) {
+            const ob = mesh(scene, world, new THREE.CylinderGeometry(1.4, 3.6, L.h, 7), std(0x3f3f46, { metalness: 0.45, roughness: 0.65 }), L.x, y + L.h / 2, L.z);
+            void ob;
+            addCol(world, L.x, L.z, 3.2, 3.2, y, y + L.h);
+            this._beacon(scene, out, L.x, y + L.h + 1.4, L.z, L.color, 1.1);
         },
 
         _lm_mast_alpha(world, scene, L, y, out) {
@@ -227,14 +311,14 @@
                 const k = i / 12;
                 pts.push(new THREE.Vector2(9 + 6 * Math.pow(Math.abs(k - 0.62) / 0.62, 1.6) * (k < 0.62 ? 1 : 0.55), k * L.h));
             }
-            const geo = new THREE.LatheGeometry(pts, 28);
+            const geo = new THREE.LatheGeometry(pts, 24);
             const m = mesh(scene, world, geo, std(0x8a8f86, { side: THREE.DoubleSide, roughness: 0.95 }), L.x, y - 3, L.z);
             m.rotation.z = 0.06;
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < 6; i++) {
                 const p = new THREE.Mesh(new THREE.SphereGeometry(4 + i * 0.8, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.16, fog: false, depthWrite: false }));
                 p.position.set(L.x, y + L.h + i * 5, L.z);
                 scene.add(p);
-                out.plumes.push({ m: p, base: y + L.h, phase: i / 8 });
+                out.plumes.push({ m: p, base: y + L.h, phase: i / 6 });
             }
             for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; addCol(world, L.x + Math.cos(a) * 14, L.z + Math.sin(a) * 14, 2.4, 2.4, y - 3, y + 12); }
         },
@@ -250,12 +334,6 @@
             wheel.position.set(L.x + 27, y + 27, L.z);
             scene.add(wheel);
             out.spinners.push({ obj: wheel, speed: 0.15, axis: 'z' });
-            for (let i = 0; i < 10; i++) {
-                const b = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 2.4), std(0x52525b));
-                const a = i / 10 * Math.PI * 2;
-                b.position.set(Math.cos(a) * 7, Math.sin(a) * 7, 0);
-                wheel.add(b);
-            }
             this._beacon(scene, out, L.x - 2, y + L.h, L.z, L.color, 0.6);
         },
 
@@ -266,11 +344,10 @@
                 const gy = world.terrain.height(x, z);
                 mesh(scene, world, new THREE.CylinderGeometry(1.2, 2, 16, 10), mat, x, gy + 8, z);
                 addCol(world, x, z, 1.6, 1.6, gy, gy + 16);
-                const dish = new THREE.Mesh(new THREE.SphereGeometry(11, 24, 10, 0, Math.PI * 2, 0, 0.9), mat);
+                const dish = new THREE.Mesh(new THREE.SphereGeometry(11, 20, 10, 0, Math.PI * 2, 0, 0.9), mat);
                 dish.position.set(x, gy + 21, z);
                 dish.rotation.x = -0.9 - i * 0.12;
                 dish.rotation.y = i * 0.5;
-                dish.castShadow = true;
                 scene.add(dish);
                 this._beacon(scene, out, x, gy + L.h, z, 0xff3b30, 0.45);
             }
@@ -293,9 +370,6 @@
                 out.arcs.push({ line, cx: L.x, cy: y + 26, cz: L.z, t: Math.random() });
             }
             this._beacon(scene, out, L.x, y + L.h, L.z, L.color, 1.2);
-            const light = new THREE.PointLight(0xa855f7, 2.2, 90, 1.6);
-            light.position.set(L.x, y + 30, L.z);
-            scene.add(light);
         },
 
         _pylon(world, scene, p, y) {
@@ -333,20 +407,29 @@
             const r = rng(884120);
             const lists = { pine: [], broad: [], dead: [] };
             const t = world.terrain;
-            const nearAnchor = (x, z) => D.POIS.some((p) => !p.interior && Math.hypot(x - p.x, z - p.z) < p.r + 6) ||
-                D.PYLONS.some((p) => Math.hypot(x - p.x, z - p.z) < 6) || D.LANDMARKS.some((l) => Math.hypot(x - l.x, z - l.z) < 16);
-            for (let i = 0; i < 2600 && lists.pine.length + lists.broad.length + lists.dead.length < 1300; i++) {
-                const x = D.BOUNDS.minX + 12 + r() * (D.BOUNDS.maxX - D.BOUNDS.minX - 24);
-                const z = D.BOUNDS.minZ + 12 + r() * (D.BOUNDS.maxZ - D.BOUNDS.minZ - 24);
+            const nearAnchor = (x, z) => D.POIS.some((p) => !p.interior && Math.hypot(x - p.x, z - p.z) < p.r + 7) ||
+                D.PYLONS.some((p) => Math.hypot(x - p.x, z - p.z) < 7) ||
+                D.LANDMARKS.some((l) => Math.hypot(x - l.x, z - l.z) < 16) ||
+                D.INTERACTS.some((it) => !it.int && Math.hypot(x - it.x, z - it.z) < 6);
+            const span = D.BOUNDS.maxX - D.BOUNDS.minX - 32;
+            const densMap = {
+                haven_basin: 0.55, whispering_woods: 0.85, alpine_array: 0.68, frostfang_peaks: 0.55,
+                rust_sprawl: 0.14, barrow_moor: 0.42, mire_delta: 0.38, ash_quarry: 0.15,
+                sunscorched_badlands: 0.08, sunken_coast: 0.22, meridian_core: 0.12, obsidian_dragonwilds: 0.20
+            };
+            for (let i = 0; i < 6500 && lists.pine.length + lists.broad.length + lists.dead.length < 2800; i++) {
+                const x = D.BOUNDS.minX + 16 + r() * span;
+                const z = D.BOUNDS.minZ + 16 + r() * span;
                 const h = t.height(x, z);
                 if (h < D.WATER + 0.4 || t.slope(x, z) > 0.9 || nearAnchor(x, z)) continue;
-                // Filter full road corridors and rail line
                 if (D.roadInfo(x, z) || D.railDist(x, z) < 4.5) continue;
                 const reg = D.regionAt(x, z).id;
-                const dens = { haven_basin: 0.55, alpine_array: 0.7, rust_sprawl: 0.12, mire_delta: 0.35, ash_quarry: 0.15, meridian_core: 0.1 }[reg];
-                if (r() > dens) continue;
-                const kind = reg === 'alpine_array' ? 'pine' : (reg === 'haven_basin' ? (r() < 0.55 ? 'broad' : 'pine') : 'dead');
-                lists[kind].push({ x, z, y: h, s: 0.8 + r() * 0.7 });
+                if (r() > (densMap[reg] || 0.2)) continue;
+                let kind = 'dead';
+                if (reg === 'alpine_array' || reg === 'frostfang_peaks') kind = 'pine';
+                else if (reg === 'whispering_woods' || reg === 'haven_basin') kind = r() < 0.5 ? 'broad' : 'pine';
+                else if (reg === 'sunken_coast') kind = r() < 0.4 ? 'broad' : 'dead';
+                lists[kind].push({ x, z, y: h, s: 0.85 + r() * 0.8 });
             }
             const defs = {
                 pine: { trunk: new THREE.CylinderGeometry(0.16, 0.3, 4.2, 6), crown: new THREE.ConeGeometry(1.8, 5.4, 7), crownY: 4.7, tc: 0x5a4332, cc: 0x2f4a33 },
@@ -370,31 +453,24 @@
                     crown.setMatrixAt(i, dummy.matrix);
                     world.colliders.push({ minX: tr.x - 0.3 * tr.s, maxX: tr.x + 0.3 * tr.s, minY: tr.y, maxY: tr.y + 5 * tr.s, minZ: tr.z - 0.3 * tr.s, maxZ: tr.z + 0.3 * tr.s, active: true, tree: true, navIgnore: true });
                 });
-                trunk.castShadow = crown.castShadow = true;
+                trunk.castShadow = crown.castShadow = false;
                 trunk.frustumCulled = crown.frustumCulled = false;
                 scene.add(trunk, crown);
                 if (BO.Assets && BO.Assets.placeGLBInstanced) {
                     const modelPath = kind === 'dead' ? 'graveyard_kit/trunk.glb' : (kind === 'pine' ? 'mini_forest_kit/tree-high.glb' : 'mini_forest_kit/tree.glb');
                     const hScale = kind === 'pine' ? 8.2 : (kind === 'broad' ? 6.8 : 5.2);
-                    const trs = list.map((tr) => ({
-                        pos: [tr.x, tr.y, tr.z],
-                        rot: (tr.x * 13.1 + tr.z) % 6.28,
-                        scale: tr.s * hScale
-                    }));
+                    const trs = list.map((tr) => ({ pos: [tr.x, tr.y, tr.z], rot: (tr.x * 13.1 + tr.z) % 6.28, scale: tr.s * hScale }));
                     BO.Assets.placeGLBInstanced(scene, modelPath, trs, {
-                        fitSize: [1, 1, 1],
-                        uniform: true,
-                        hideFallback: [trunk, crown],
-                        frustumCulled: false,
-                        guardScene: scene
+                        fitSize: [1, 1, 1], uniform: true, hideFallback: [trunk, crown],
+                        castShadow: false, frustumCulled: false, guardScene: scene
                     });
                 }
             }
             const rocks = [];
-            for (let i = 0; i < 260; i++) {
-                const x = D.BOUNDS.minX + 10 + r() * 620, z = D.BOUNDS.minZ + 10 + r() * 620;
+            for (let i = 0; i < 620; i++) {
+                const x = D.BOUNDS.minX + 16 + r() * span, z = D.BOUNDS.minZ + 16 + r() * span;
                 if (nearAnchor(x, z) || D.roadInfo(x, z)) continue;
-                rocks.push({ x, z, s: 0.5 + r() * 1.6 });
+                rocks.push({ x, z, s: 0.6 + r() * 1.9 });
             }
             const rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x7b7d76, roughness: 0.95, flatShading: true }), rocks.length);
             const rockTrs = [];
@@ -406,17 +482,14 @@
                 dummy.updateMatrix();
                 rm.setMatrixAt(i, dummy.matrix);
                 rockTrs.push({ pos: [rk.x, y, rk.z], rot: rk.z % 3, scale: [rk.s * 2.1, rk.s * 1.2, rk.s * 1.8] });
-                if (rk.s > 1.1) world.colliders.push({ minX: rk.x - rk.s, maxX: rk.x + rk.s, minY: y, maxY: y + rk.s * 0.8, minZ: rk.z - rk.s * 0.8, maxZ: rk.z + rk.s * 0.8, active: true });
+                if (rk.s > 1.2) world.colliders.push({ minX: rk.x - rk.s, maxX: rk.x + rk.s, minY: y, maxY: y + rk.s * 0.8, minZ: rk.z - rk.s * 0.8, maxZ: rk.z + rk.s * 0.8, active: true, navIgnore: true });
             });
-            rm.castShadow = true;
+            rm.castShadow = false;
             rm.frustumCulled = false;
             scene.add(rm);
             if (BO.Assets && BO.Assets.placeGLBInstanced && rockTrs.length) {
                 BO.Assets.placeGLBInstanced(scene, 'mini_forest_kit/rocks-low.glb', rockTrs, {
-                    fitSize: [1, 1, 1],
-                    hideFallback: rm,
-                    frustumCulled: false,
-                    guardScene: scene
+                    fitSize: [1, 1, 1], hideFallback: rm, castShadow: false, frustumCulled: false, guardScene: scene
                 });
             }
         },
@@ -429,7 +502,8 @@
                 scene.add(m);
                 out.waters.push(m);
             };
-            sheet(250, 250, 210, D.WATER, 20, 0x2c4a3a, 0.82);
+            sheet(280, 280, 215, D.WATER, 25, 0x2c4a3a, 0.82);
+            sheet(240, 240, 510, D.WATER, -55, 0x1e4e5f, 0.80);
             sheet(40, 40, -180, -11.6, -60, 0x3d4a52, 0.8);
             sheet(36, 36, 180, -6.4, -190, 0x4c1d95, 0.7);
         },
@@ -464,9 +538,12 @@
                 f.mesh.scale.set(0.9 + Math.sin(clock * 11) * 0.15, 0.9 + Math.cos(clock * 15) * 0.2, 0.9 + Math.sin(clock * 9) * 0.15);
                 f.light.intensity = 1.6 + Math.sin(clock * 13) * 0.35;
             }
-            if (o.townProps && BO.Player && BO.OWRPGWorldData?.TOWN) {
-                const T = BO.OWRPGWorldData.TOWN;
-                o.townProps.visible = BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, T.x, T.z) < 70;
+            if (BO.Player && o.culledGroups) {
+                const px = BO.Player.pos.x, pz = BO.Player.pos.z;
+                for (const cg of o.culledGroups) {
+                    const vis = BO.Math.dist2D(px, pz, cg.x, cg.z) < cg.r;
+                    if (cg.group.visible !== vis) cg.group.visible = vis;
+                }
             }
             if (o.weather && BO.Player) {
                 const P = BO.Player;
@@ -474,7 +551,7 @@
                 if (o.weather.points.visible) {
                     o.weather.points.position.set(P.pos.x, P.pos.y, P.pos.z);
                     const arr = o.weather.geo.attributes.position.array;
-                    const fall = o.weatherRegion === 'alpine_array' ? -1.4 : (o.weatherRegion === 'ash_quarry' || o.weatherRegion === 'meridian_core' ? 0.9 : 0.2);
+                    const fall = (o.weatherRegion === 'alpine_array' || o.weatherRegion === 'frostfang_peaks') ? -1.6 : ((o.weatherRegion === 'ash_quarry' || o.weatherRegion === 'obsidian_dragonwilds') ? 1.1 : 0.25);
                     for (let i = 0; i < o.weather.count; i++) {
                         arr[i * 3 + 1] += fall * step;
                         arr[i * 3] += Math.sin(clock + i) * 0.35 * step;

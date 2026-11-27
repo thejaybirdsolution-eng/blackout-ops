@@ -94,6 +94,7 @@
                         <div class="mgh-total-bar"><i style="width:${allMax ? (allGot / allMax * 100).toFixed(1) : 0}%"></i></div>
                         <b>${allGot} / ${allMax}</b>
                     </div>
+                    ${BO.MinigameDaily ? BO.MinigameDaily.navHtml(allGot, allMax, esc, Object.fromEntries(CATS.map((c) => [c.id, c.icon]))) : ''}
                     <div class="mgh-howto">
                         <b>HOW IT WORKS</b>
                         <ul>
@@ -336,6 +337,16 @@
                     this.render();
                 };
             }
+            body.querySelectorAll('[data-daily]').forEach((b) => {
+                b.onclick = () => {
+                    BO.BeatSongs?.stopPreview?.();
+                    BO.Sound.playUIClick();
+                    MG.hubCat = b.dataset.dcat;
+                    MG.hubSel[b.dataset.dcat] = b.dataset.daily;
+                    this.render({ resetList: true, resetDetail: true });
+                };
+                b.ondblclick = () => this._play(b.dataset.daily);
+            });
             body.querySelectorAll('[data-cat]').forEach((b) => {
                 b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render({ resetList: true, resetDetail: true }); };
             });

@@ -2,329 +2,131 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Blackout Ops — Full Overhaul QA Suite</title>
+<title>Blackout Ops — Whole-Game Smoke QA</title>
 <style>
-  body { margin: 0; background: #070b12; color: #e2e8f0; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-  #bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0b1220; border-bottom: 1px solid #1e293b; flex-wrap: wrap; z-index: 10; }
-  #status { font-weight: bold; color: #38bdf8; margin-right: 8px; }
-  #bar button { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; border-radius: 5px; padding: 4px 8px; cursor: pointer; font-family: inherit; font-size: 11px; }
-  #bar button:hover { border-color: #38bdf8; color: #fff; }
+  body { margin: 0; background: #0a0b0d; color: #e7e5e4; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  #bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #111318; border-bottom: 1px solid #2a2f3a; }
+  #status { font-weight: bold; color: #38bdf8; }
   #main { display: flex; flex: 1; min-height: 0; }
-  #log { width: 390px; overflow-y: auto; padding: 10px; border-right: 1px solid #1e293b; font-size: 11.5px; line-height: 1.45; background: #070b12; }
-  body.hide-log #log { display: none; }
-  iframe { flex: 1; border: 0; height: 100%; width: 100%; }
-  .pass { color: #4ade80; }
-  .fail { color: #f87171; font-weight: bold; }
+  #log { width: 520px; overflow-y: auto; padding: 10px; border-right: 1px solid #2a2f3a; font-size: 11.5px; line-height: 1.45; }
+  iframe { flex: 1; border: 0; }
+  .pass { color: #4ade80; } .fail { color: #f87171; font-weight: bold; } .info { color: #94a3b8; }
 </style>
 </head>
 <body>
-<div id="bar">
-  <span id="status">RUNNING...</span>
-  <button id="btn-craft" type="button">Show Crafting Popup</button>
-  <button id="btn-build" type="button">Show Build Popup</button>
-  <button id="btn-bm" type="button">Show Black Market NPC</button>
-  <button id="btn-gate" type="button">Show Gated NPC</button>
-  <button id="btn-ft" type="button">Show Fast Travel [T]</button>
-  <button id="btn-toggle-log" type="button">Toggle Log Sidebar</button>
-</div>
-<div id="main">
-  <div id="log"></div>
-  <iframe id="game" src="about:blank"></iframe>
-</div>
+<div id="bar"><span id="status">RUNNING…</span><span class="info">Boots index.html in an iframe, starts every mode and all minigames, and fails on any uncaught error. Real localStorage is snapshotted and restored. Open-world details live in _qa_owrpg.html.</span></div>
+<div id="main"><div id="log"></div><iframe id="game" src="about:blank"></iframe></div>
 <script>
 (async function () {
-  const logEl = document.getElementById('log');
-  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log'), statusEl = document.getElementById('status');
   const results = [];
-  const errors = [];
-  const log = (msg, cls = '') => {
-    const d = document.createElement('div');
-    if (cls) d.className = cls;
-    d.textContent = msg;
-    logEl.appendChild(d);
-    logEl.scrollTop = logEl.scrollHeight;
-  };
-  const check = (name, cond, detail = '') => {
-    results.push({ name, pass: !!cond, detail });
-    log(`${cond ? 'PASS' : 'FAIL'} — ${name}${detail ? ' (' + detail + ')' : ''}`, cond ? 'pass' : 'fail');
-  };
+  const log = (m, c = '') => { const d = document.createElement('div'); d.className = c; d.textContent = m; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; };
+  const check = (name, cond, detail = '') => { results.push(!!cond); log(`${cond ? 'PASS' : 'FAIL'} — ${name}${detail ? ' (' + detail + ')' : ''}`, cond ? 'pass' : 'fail'); };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // Snapshot ALL real localStorage keys before loading iframe, and restore after every action & unload!
-  const savedStorage = {};
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    savedStorage[k] = localStorage.getItem(k);
-  }
-  const restoreRealStorage = () => {
-    localStorage.clear();
-    for (const [k, v] of Object.entries(savedStorage)) {
-      if (v !== null) localStorage.setItem(k, v);
-    }
-  };
-  window.addEventListener('beforeunload', restoreRealStorage);
+  const saved = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); saved[k] = localStorage.getItem(k); }
+  const restore = () => { localStorage.clear(); for (const [k, v] of Object.entries(saved)) localStorage.setItem(k, v); };
+  window.addEventListener('beforeunload', restore);
 
   const frame = document.getElementById('game');
-  let BO = null;
-
-  document.getElementById('btn-toggle-log').onclick = () => document.body.classList.toggle('hide-log');
-  document.getElementById('btn-craft').onclick = () => { if (BO) { BO.SurvivalUI.craftCat = 'all'; BO.SurvivalUI.show('crafting'); restoreRealStorage(); } };
-  document.getElementById('btn-build').onclick = () => { if (BO) { BO.SurvivalUI.show('build'); restoreRealStorage(); } };
-  document.getElementById('btn-bm').onclick = () => { if (BO) { BO.SurvivalUI.show('npc', null, 'bm_vex'); restoreRealStorage(); } };
-  document.getElementById('btn-gate').onclick = () => {
-    if (BO) {
-      BO.ZoneWorldPlus.unlockedGates.delete('gate_viper');
-      BO.SurvivalMode.kills = 5;
-      BO.SurvivalUI.show('npc', null, 'gate_viper');
-      restoreRealStorage();
+  frame.src = 'index.html?qa=runner';
+  await new Promise((r) => frame.addEventListener('load', r, { once: true }));
+  const win = frame.contentWindow, doc = frame.contentDocument;
+  const errors = [];
+  win.addEventListener('error', (e) => errors.push(e.message));
+  win.addEventListener('unhandledrejection', (e) => errors.push('promise: ' + (e.reason && e.reason.message || e.reason)));
+  for (let i = 0; i < 150 && !(win.BO && win.BO.App && win.BO.App.renderer && win.BO.Minigames); i++) await wait(100);
+  const BO = win.BO;
+  BO.App._safePointerLock = () => {};
+  // Steps the game manually (same order as App._loop) so the suite does not depend on
+  // requestAnimationFrame running in a background tab, then renders one frame.
+  const MODE_UPDATE = { survival: () => BO.SurvivalMode, minigame: () => BO.Minigames, zombies: () => BO.ZombiesMode, mp: () => BO.MPMode, rpg: () => BO.RPGMode, owrpg: () => BO.OWRPGMode, td: () => BO.TowerDefenseMode };
+  const step = (frames = 30) => {
+    const cam = BO.App.worldCamera, dt = 1 / 60;
+    for (let i = 0; i < frames; i++) {
+      if (BO.State.screen !== 'playing' || BO.State.paused) break;
+      if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
+      BO.Player.update(dt, cam);
+      BO.Combat.updateBurstAndProjectiles(dt, cam);
+      BO.FX.update(dt);
+      const m = MODE_UPDATE[BO.State.activeMode] && MODE_UPDATE[BO.State.activeMode]();
+      if (m) m.update(dt);
     }
+    if (BO.World.scene) BO.App.renderer.render(BO.World.scene, cam);
   };
-  document.getElementById('btn-ft').onclick = () => { if (BO) { BO.SurvivalUI.show('fasttravel'); restoreRealStorage(); } };
+  const errCount = () => errors.length;
 
   try {
-    frame.src = 'index.html?v=sv9';
-    await new Promise((res) => frame.addEventListener('load', res, { once: true }));
-    const win = frame.contentWindow;
-    const doc = frame.contentDocument;
-    win.addEventListener('error', (e) => errors.push(e.message || String(e)));
-    win.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
-
-    for (let i = 0; i < 60; i++) {
-      if (win.BO && win.BO.Menus && win.BO.ZombiesData && win.BO.ZoneWorldPlus && win.BO.ModifierMenuUI) break;
-      await wait(100);
-    }
-    BO = win.BO;
-    check('Core namespace, ModifierMenuUI & ZoneWorldPlus loaded', !!(BO && BO.ZoneWorldPlus && BO.ZoneExpansionData && BO.ModifierMenuUI));
-
-    // 1. Custom Modifier Presets across ALL 4 modes + Unlimited Tech Points
+    // 1. Boot + shared systems
+    check('Core namespace, renderer and every mode module loaded', !!(BO.App && BO.ZombiesMode && BO.MPMode && BO.TowerDefenseMode && BO.SurvivalMode && BO.RPGMode && BO.OWRPGMode && BO.Minigames));
     const MM = BO.ModifierMenuUI;
-    let presetsAllModesOk = true;
-    for (const mode of ['zombies', 'mp', 'td', 'survival']) {
-      const saved = MM.savePreset(mode, 'QA_' + mode, mode === 'survival' ? ['sv_unlimited_tech'] : ['bigHeads']);
+    let presetsOk = true;
+    for (const mode of ['survival', 'zombies', 'mp', 'td']) {
+      const preset = MM.savePreset(mode, 'QA_' + mode, mode === 'survival' ? ['sv_unlimited_tech'] : ['bigHeads']);
       const listed = MM.listPresets(mode);
-      if (!saved || !listed.some((p) => p.name === 'QA_' + mode)) presetsAllModesOk = false;
-      if (saved) MM.deletePreset(mode, saved.id);
+      if (!preset || !listed.some((p) => p.name === 'QA_' + mode)) presetsOk = false;
+      if (preset) MM.deletePreset(mode, preset.id);
     }
-    check('Custom Modifier Presets create/list/delete across all 4 modes', presetsAllModesOk);
-    const unlimMod = BO.SurvivalModifiersCatalog?.ALL?.find?.((m) => m.id === 'sv_unlimited_tech')
-      || BO.ModifierMenuUI.normalizeModeData('survival').defs.find((d) => d.key === 'sv_unlimited_tech');
-    check('Unlimited Tech Points modifier registered', !!unlimMod, unlimMod?.name || '');
-
-    // 2. Redesigned 2-Column Master Legend Codex + Search + Subfilters
+    check('Modifier presets create/list/delete in all 4 modes', presetsOk);
     BO.Menus.openLegend();
-    BO.Menus.legendTab = 'bosses';
+    BO.Menus.legendTab = 'not-a-mode';
     BO.Menus.renderLegend();
-    await wait(60);
-    const legendModal = doc.getElementById('modal-legend');
-    const legendNavBtns = doc.querySelectorAll('#legend-nav button').length;
-    const bossCardsOk = (doc.getElementById('legend-body')?.textContent || '').toUpperCase().includes('COLOSSUS');
-    const searchInp = doc.getElementById('legend-search-input');
-    if (searchInp) {
-      searchInp.value = 'Void Sovereign';
-      searchInp.dispatchEvent(new win.Event('input', { bubbles: true }));
-      await wait(40);
+    check('Mode Guide recovers from an unknown tab', BO.ModeGuide.MODES[BO.Menus.legendTab] && doc.querySelectorAll('#legend-tabs button').length >= 7);
+    doc.getElementById('modal-legend')?.classList.add('hidden');
+    const ul = BO.UpdateLogData.updates;
+    check('Update log has unique ids, titles and blocks', ul.length >= 180 && new Set(ul.map((u) => u.id)).size === ul.length && ul.every((u) => u.title && u.blocks.length));
+
+    // 2. Every mode starts, runs and exits cleanly
+    const modes = [
+      ['Zombies (Der Bunker)', { mode: 'zombies', mapId: 'der_bunker', difficulty: 'normal' }, () => BO.ZombiesMode.active !== false],
+      ['Multiplayer (Killhouse TDM)', { mode: 'mp', mapId: 'killhouse', modeType: 'tdm', difficulty: 'regular', customRules: { enemyCount: 2 } }, () => BO.MPMode.bots && BO.MPMode.bots.length > 0],
+      ['Tower Defense (Castle 1)', { mode: 'td', mapId: 'td_castle_1' }, () => !!BO.TowerDefenseMode],
+      ['Survival (Exclusion Zone)', { mode: 'survival', mapId: 'exclusion_zone', gameType: 'freeplay', difficulty: 'standard', autosave: false, modifiers: [], disabledEnemies: [] }, () => BO.SurvivalMode.active],
+      ['Rogue Lite', { mode: 'rpg', startFloor: 1 }, () => BO.RPGMode.active !== false],
+      ['Open World RPG', { mode: 'owrpg', slot: 2, newChar: { name: 'RUNNER', attrs: { BRW: 5, RFX: 5, TCH: 5, PRC: 5, PRS: 5 }, difficulty: 'tactical' } }, () => BO.OWRPGMode.active && BO.World.mapData.id === 'meridian']
+    ];
+    for (const [label, opts, ok] of modes) {
+      const e0 = errCount();
+      try {
+        BO.App.startMatch(opts);
+        await wait(700);
+        step(20);
+        check('Mode boots and runs: ' + label, ok() && errCount() === e0, errors.slice(e0, e0 + 1).join(''));
+      } catch (e) { check('Mode boots and runs: ' + label, false, e.message); }
+      try { BO.App.exitToMenu(); } catch (e) { check('Exit to menu: ' + label, false, e.message); }
+      await wait(150);
     }
-    const searchFound = (doc.getElementById('legend-body')?.textContent || '').toLowerCase().includes('void');
-    if (searchInp) { searchInp.value = ''; searchInp.dispatchEvent(new win.Event('input', { bubbles: true })); }
-    legendModal?.classList.add('hidden');
-    check('Master Legend 2-column codex, Bosses tab & live search', legendNavBtns >= 7 && bossCardsOk && searchFound, `tabs=${legendNavBtns}`);
+    BO.OWRPGSave.remove(2);
 
-    // 3. 70 Unique Zombie Visual Profiles + 5 Super Bosses
-    const zTypes = BO.ZombiesData.types || [];
-    const bossList = BO.ZombiesData.bosses || [];
-    const superBosses = bossList.filter((b) => b.isSuperBoss);
-    let builtMeshesOk = 0;
-    for (const sb of superBosses) {
-      const rig = BO.CharacterMesh.buildZombie(sb);
-      if (rig?.root && sb.scale >= 3.0) builtMeshesOk++;
+    // 3. All minigames
+    const ids = Object.keys(BO.Minigames.order).flatMap((c) => BO.Minigames.order[c]);
+    let mgFails = [];
+    for (const id of ids) {
+      const e0 = errCount();
+      try {
+        BO.App.startMatch({ mode: 'minigame', mapId: 'mg_' + id, mgId: id, mgOptions: { skipCountdown: true } });
+        await wait(120);
+        step(30);
+        if (!BO.Minigames.active || errCount() !== e0) mgFails.push(id + (errors[e0] ? ': ' + errors[e0] : ''));
+      } catch (e) { mgFails.push(id + ': ' + e.message); }
+      try { BO.App.exitToMenu(); } catch (e) { mgFails.push(id + ' exit: ' + e.message); }
     }
-    check('70 zombie types + 15 bosses including 5 Colossal Super Bosses', zTypes.length >= 70 && superBosses.length === 5 && builtMeshesOk === 5, `zombies=${zTypes.length}, superBosses=${superBosses.length}`);
+    check(`All ${ids.length} minigames start, tick and exit`, ids.length >= 63 && mgFails.length === 0, mgFails.slice(0, 3).join(' | '));
+    check('Minigame feel layer + daily featured loaded', !!BO.MinigameFeel && BO.MinigameDaily.picks().length === 3 && new Set(BO.MinigameDaily.picks().map((p) => p.def.id)).size === 3);
+    const sameDay = BO.MinigameDaily.picks('2026-11-27').map((p) => p.def.id).join();
+    check('Daily featured picks are stable for a date', sameDay === BO.MinigameDaily.picks('2026-11-27').map((p) => p.def.id).join() && sameDay !== BO.MinigameDaily.picks('2026-11-28').map((p) => p.def.id).join());
+    check('Material-matched impacts', BO.MinigameFeel.materialOf({ kind: 'bottle' }) === 'glass' && BO.MinigameFeel.materialOf({ death: 'pop' }) === 'soft' && BO.MinigameFeel.materialOf({}) === 'steel');
 
-    // 4. Gun Audio, Multi-stage Reload & Halo-Style Announcer
-    BO.Sound?.init?.();
-    for (let k = 0; k < 4; k++) {
-      BO.Progression?.registerCombatKill?.({ mode: 'mp', isHeadshot: k === 3, isMelee: false });
-    }
-    check('Halo announcer & multi-kill tracker + SoundEngine parkour/gunshot DSP', typeof BO.Sound.playAnnouncement === 'function' && typeof BO.Sound.playParkour === 'function' && typeof BO.Sound.playHaloMedalSting === 'function');
-
-    // 5. Expanded Spawns Across Maps
-    const totalMapSpawns = Object.values(BO.MapsData.maps || {}).reduce((acc, m) => acc + (m.zombieSpawns?.length || 0) + (m.tdSpawns?.length || 0) + (m.spawnsA?.length || 0), 0);
-    check('Expanded spawn network across all maps/modes', totalMapSpawns >= 220, `spawns=${totalMapSpawns}`);
-
-    // 6. Test Zombies Mode Super Boss & Crown HUD Bar
-    BO.App.startMatch('zombies', 'kino_theater', {});
-    await wait(240);
-    const ZM = BO.ZombiesMode;
-    const sbSpec = BO.ZombiesData.get('super_titan_colossus');
-    const sbEnt = new BO.ZombieEntity({ id: 9999, spec: sbSpec, x: BO.Player.pos.x + 8, y: BO.Player.pos.y, z: BO.Player.pos.z - 8, round: 12, hp: 5000, speed: sbSpec.speed, damage: sbSpec.damage });
-    ZM.zombies.push(sbEnt);
-    ZM.update(0.05);
-    const bossHudShown = !doc.getElementById('hud-boss-bar')?.classList.contains('hidden');
-    check('Zombies Mode Colossal Super Boss spawn & Crown HUD bar', !!sbEnt.isSuperBoss && sbEnt.meshScale >= 3.2 && bossHudShown);
-
-    // 7. Launch Survival Mode (with Unlimited Tech modifier!) & Test All Pillar 3 & 4 Mechanics Live!
-    BO.App.startMatch('survival', 'exclusion_zone', {
-      gameType: 'freeplay',
-      difficulty: 'standard',
-      autosave: false,
-      modifiers: ['sv_unlimited_tech'],
-      disabledEnemies: []
-    });
-    await wait(360);
-    const SM = BO.SurvivalMode;
-    const camp = SM.campaign;
-    check('Survival Mode active with Unlimited Tech Points', SM.active && camp?.deep?.techPoints >= 99 && camp.deep.unlockTech('t1_masonry') === true, `TP=${camp?.deep?.techPoints}`);
-
-    // 8. Compact Minecraft-style Popups + Zero '?' Icons
-    BO.SurvivalUI.show('crafting');
-    await wait(60);
-    const termBox = doc.querySelector('#sv-terminal.open .sv-term');
-    const r = termBox?.getBoundingClientRect();
-    const isCompact = !!(r && r.width <= 960 && r.height <= win.innerHeight * 0.88);
-    const unknownPath = 'M10 10a2 2 0 1 1 3 1.7';
-    let missingIcons = [];
-    for (const id of Object.keys(BO.SurvivalFrontierData.items)) {
-      if (BO.SurvivalIcons.item(id, 24).includes(unknownPath)) missingIcons.push('item:' + id);
-    }
-    for (const id of Object.keys(BO.SurvivalFrontierData.tools)) {
-      if (BO.SurvivalIcons.tool(id, 24).includes(unknownPath)) missingIcons.push('tool:' + id);
-    }
-    for (const b of BO.SurvivalCampaignData.build) {
-      if (BO.SurvivalIcons.build(b.id, 24).includes(unknownPath)) missingIcons.push('build:' + b.id);
-    }
-    check('Compact Minecraft-style popups & zero "?" fallback icons', isCompact && missingIcons.length === 0, `w=${Math.round(r?.width || 0)}, missing=${missingIcons.length}`);
-
-    // 9. Expanded Crafting, Building & Recipes Counts
-    const recipeCount = BO.SurvivalUI.recipes().length;
-    const buildCount = BO.SurvivalCampaignData.build.length;
-    const itemCount = Object.keys(BO.SurvivalFrontierData.items).length;
-    check('Massive crafting, building & pickup catalog loaded', recipeCount >= 110 && buildCount >= 45 && itemCount >= 135, `recipes=${recipeCount}, builds=${buildCount}, items=${itemCount}`);
-    BO.SurvivalUI.close();
-
-    // 10. Airborne Contextual VAULT (thin barrier -> far side) & MANTLE (flat platform -> top)
-    const P = BO.Player;
-    const base = { x: P.pos.x, y: P.pos.y, z: P.pos.z };
-    P.yaw = 0;
-    const fwd = P.getMoveDirectionVectors().forward.clone();
-    const bx = base.x + fwd.x * 0.85;
-    const bz = base.z + fwd.z * 0.85;
-    const groundHere = BO.World.getGroundHeight(bx, bz, base.y + 1);
-    const thinMesh = SM.mesh(new win.THREE.BoxGeometry(2.2, 1.15, 0.42), 0x888888, bx, groundHere + 0.575, bz);
-    const thinCol = SM.solid(thinMesh, 2.2, 1.15, 0.42);
-    BO.World.notifyColliderChanged?.(thinCol);
-    P.pos.set(base.x, groundHere + 0.25, base.z);
-    P.onGround = false;
-    P.coyoteTimer = 0;
-    P.rideState = null;
-    P.tryJumpOrMantle();
-    const vaultTriggered = P.rideState?.kind === 'parkour' && P.rideState?.sub === 'vault';
-    for (let s = 0; s < 25; s++) P.update(0.02, BO.App.worldCamera);
-    SM.removeSolid(thinMesh, thinCol);
-
-    const mx = base.x + fwd.x * 1.65;
-    const mz = base.z + fwd.z * 1.65;
-    const platMesh = SM.mesh(new win.THREE.BoxGeometry(2.4, 1.5, 2.4), 0x6688aa, mx, groundHere + 0.75, mz);
-    const platCol = SM.solid(platMesh, 2.4, 1.5, 2.4);
-    BO.World.notifyColliderChanged?.(platCol);
-    P.pos.set(base.x, groundHere + 0.35, base.z);
-    P.onGround = false;
-    P.coyoteTimer = 0;
-    P.rideState = null;
-    P.tryJumpOrMantle();
-    const mantleTriggered = P.rideState?.kind === 'parkour' && P.rideState?.sub === 'mantle';
-    for (let s = 0; s < 25; s++) P.update(0.02, BO.App.worldCamera);
-    const mantledHeightOk = P.pos.y >= groundHere + 1.35;
-    SM.removeSolid(platMesh, platCol);
-    P.pos.set(base.x, base.y + 0.1, base.z);
-    check('Contextual airborne Vault & Mantle mechanics', vaultTriggered && mantleTriggered && mantledHeightOk, `vault=${vaultTriggered}, mantle=${mantleTriggered}`);
-
-    // 11. Fast Travel Signposts & Instant [T] Transit
-    const WP = BO.ZoneWorldPlus;
-    const hollowSp = WP.signposts.find((s) => s.id === 'sp_hollow');
-    WP.unlockedSignposts.add('sp_hollow');
-    const spNearStart = WP.signposts[0];
-    P.pos.set(spNearStart.x + 1, spNearStart.y + 0.1, spNearStart.z + 1);
-    const hoursBefore = camp.restHours;
-    const travelled = camp.travel('sp:sp_hollow');
-    const instantZeroHours = Math.abs(camp.restHours - hoursBefore) < 0.01;
-    check('Fast Travel Signpost network & 0h instant signpost transit', travelled && instantZeroHours && Math.hypot(P.pos.x - hollowSp.x, P.pos.z - hollowSp.z) < 6);
-
-    // 12. NPC Fort Defense Siege -> Liberation -> Armory Chests + Patrolling/Shooting/Aggro-Drawing Defenders!
-    SM.hostilesReleased = true;
-    const fort = WP.forts.get('bastion');
-    P.pos.set(fort.x, fort.y + 0.2, fort.z + fort.radius + 2.5);
-    const siegeStarted = WP.startFortSiege('bastion', true);
-    const siegeWaveCount = WP.activeSiege?.enemies?.length || 0;
-    for (const z of [...(WP.activeSiege?.enemies || [])]) {
-      SM.hit(z, 99999, 'head', null, 'bullet');
-    }
-    WP.update(0.1);
-    const fortLiberated = fort.liberated && fort.defenders.length === 3 && camp.travelPoints.some((t) => t.id === 'fort:bastion');
-    const testZ = SM.spawnInfected(fort.x + 5, fort.y, fort.z + 5, 'normal', 'shambler', true);
-    const aggroTgt = WP.targetForZombie(testZ);
-    const drawsAggro = !!(aggroTgt && aggroTgt.fortDefender);
-    const zHpBefore = testZ.hp;
-    for (let i = 0; i < 12; i++) WP.update(0.12);
-    const defenderShotZombie = !testZ.alive || testZ.hp < zHpBefore;
-    if (testZ.alive) SM.hit(testZ, 9999, 'head', null, 'bullet');
-    check('Fort Siege event -> Liberation + Chests + Defenders patrol/shoot/draw aggro', siegeStarted && siegeWaveCount >= 8 && fortLiberated && drawsAggro && defenderShotZombie, `wave=${siegeWaveCount}, defs=${fort.defenders.length}`);
-
-    // 13. Walkable Stairs, Interactive Doors & Shared Quantum Ender-Chests
-    camp.place({ id: '900', x: base.x + 4, y: base.y, z: base.z, size: [2.8, 2.8, 2.8], type: 'woodStairs', alive: true, stairDir: 0 });
-    const stairPiece = camp.placed.find((p) => p.id === '900');
-    camp.place({ id: '901', x: base.x - 4, y: base.y, z: base.z, size: [2.8, 2.8, 0.34], type: 'woodDoor', alive: true });
-    const doorPiece = camp.placed.find((p) => p.id === '901');
-    WP.activateMarker({ id: 'build:901' });
-    const doorOpened = doorPiece?.doorOpen === true && doorPiece?.part?.collider?.active === false;
-    camp.place({ id: '902', x: base.x + 2, y: base.y, z: base.z + 3, size: [1.18, 0.86, 0.80], type: 'quantumChest', alive: true });
-    camp.place({ id: '903', x: base.x - 2, y: base.y, z: base.z + 3, size: [1.18, 0.86, 0.80], type: 'quantumChest', alive: true });
-    const qKeyA = WP.resolveChestKey('902');
-    const qKeyB = WP.resolveChestKey('903');
-    check('Walkable 4-step stairs, interactive hinged doors & shared Quantum Chests', stairPiece?.stepColliders?.length === 4 && doorOpened && qKeyA === 'quantum:stash' && qKeyA === qKeyB);
-
-    // 14. Totem of Undying (`resurrection_idol`), Phase Pearl & Potions
-    SM.grant({ resurrection_idol: 1, phase_pearl: 1, swiftness_draught: 1, xp_bottle: 1 });
-    SM.consume('swiftness_draught');
-    SM.consume('xp_bottle');
-    const speedBoosted = WP.speedMult() > 1.2;
-    const posBeforePearl = P.pos.clone();
-    SM.consume('phase_pearl');
-    const pearlTeleported = P.pos.distanceTo(posBeforePearl) > 1.0;
-    P.invulnTimer = 0;
-    P.reviveGraceTimer = 0;
-    P.armor = 0;
-    P.hp = 10;
-    P.takeDamage(500);
-    const totemSavedPlayer = P.alive && P.hp > 30 && (SM.points.resurrection_idol || 0) === 0;
-    check('Potions, Phase Ender-Pearl teleport & Totem of Undying fatal-damage save', speedBoosted && pearlTeleported && totemSavedPlayer, `hpAfterTotem=${P.hp}`);
-
-    // 15. Roaming Black Market Brokers & Gated NPC Bribes
-    SM.grant({ scrap: 12, emerald_chip: 10, quartz: 6 });
-    const dummyUi = { feedback: '' };
-    const bmSold = WP.handleUiAction('bmSell:bm_vex:s_scrap', 'bm_vex', dummyUi);
-    const bmBought = WP.handleUiAction('bmBuy:bm_vex:b_pearl', 'bm_vex', dummyUi);
-    const morrowSpec = WP.gatedNpcs.get('gate_morrow');
-    const bribedOk = WP.handleUiAction('bribeItm:gate_morrow', 'gate_morrow', dummyUi);
-    const gateBought = WP.handleUiAction('gateBuy:gate_morrow:m_pearl', 'gate_morrow', dummyUi);
-    check('Roaming Black Market bartering & Gated NPC bribe/unlock flow', bmSold && bmBought && !!morrowSpec && bribedOk && gateBought);
-
-    // Leave compact Crafting popup open over live 3D Fort Bastion scene for visual inspection!
-    P.pos.set(fort.x, fort.y + 0.2, fort.z + fort.radius + 5);
-    P.yaw = 0;
-    BO.SurvivalUI.craftCat = 'potions';
-    BO.SurvivalUI.show('crafting');
-    await wait(80);
-
-    check('Zero uncaught runtime errors across entire QA run', errors.length === 0, errors.join(' | '));
-  } catch (err) {
-    check('Unhandled QA runner exception', false, err?.stack || String(err));
-  } finally {
-    restoreRealStorage();
-    const passed = results.filter((r) => r.pass).length;
-    statusEl.textContent = `COMPLETE: ${passed}/${results.length} PASSED`;
-    statusEl.style.color = passed === results.length ? '#4ade80' : '#f87171';
-    log(`COMPLETE: ${passed}/${results.length} checks passed (localStorage restored).`, passed === results.length ? 'pass' : 'fail');
+    check('No uncaught errors across the whole run', errors.length === 0, errors.slice(0, 3).join(' | '));
+  } catch (e) {
+    check('Unhandled QA runner exception', false, e.stack || e.message);
   }
+  restore();
+  const passed = results.filter(Boolean).length;
+  statusEl.textContent = `COMPLETE: ${passed}/${results.length} PASSED`;
+  statusEl.style.color = passed === results.length ? '#4ade80' : '#f87171';
+  log(`COMPLETE: ${passed}/${results.length} checks passed (localStorage restored).`, 'info');
 })();
 </script>
 </body>

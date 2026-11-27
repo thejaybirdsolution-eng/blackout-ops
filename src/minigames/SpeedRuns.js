@@ -104,6 +104,7 @@
         done(S, label) {
             const sr = S.data.sr; if (sr.done || sr.why) return;
             sr.done = true; sr.time = S.t; sr.progress = 1; SFX.fanfare();
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/level_complete.wav', { volume: 0.48, rateJitter: 0.03 });
             MG.finish(label || 'FINISHED!', { color: '#67e8f9', delay: 2.2 });
         },
         fail(S, why) {
@@ -115,6 +116,7 @@
             const sr = S && S.data && S.data.sr;
             if (pos) BO.FX.spawnParticles(pos, 22, color, 6.2, 4.0, 0.55, 1.25);
             SFX.ding(1.22);
+            if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.4, rateJitter: 0.05 });
             if (!sr) return 0;
             const idx = Math.max(0, splitIdx | 0);
             sr.splits[idx] = S.t;
@@ -227,10 +229,26 @@
             }
         },
         hitZ(S, z, info, onDeath) {
+            if (z && z.alive && z.isChronoCrystal) {
+                const shave = z.shaveSec || 1.5;
+                S.t = Math.max(0.05, S.t - shave);
+                S.hits++; S.kills++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/stingers/chime_positive.wav', { volume: 0.45, rateJitter: 0.06 });
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.05 });
+                }
+                BO.FX.spawnParticles(info.pt, 18, 0x22d3ee, 5.5, 3, 0.45, 1.1);
+                MG.popup(info.pt, `-${shave.toFixed(1)}s CHRONO SHAVE!`, '#67e8f9', true);
+                z.kill(info);
+                return true;
+            }
             if (!z || !z.alive || !z.takeDamage) return false;
             if (z.srHold) z.srHold = false;
             const killed = z.takeDamage(info.dmg, info.hitbox, info.hitbox === 'head', null, 'bullet');
             S.hits++;
+            if (BO.Assets && BO.Assets.playClip) {
+                BO.Assets.playClip(info.hitbox === 'head' ? 'overhaul/combat/mw2_ping.mp3' : 'overhaul/combat/MW2Hitmarker.mp3', { volume: 0.3, rateJitter: 0.06 });
+            }
             if (info.hitbox === 'head') S.headshots++;
             if (killed) { S.kills++; S.bumpCombo(); if (onDeath) onDeath(z); }
             return killed;
@@ -269,6 +287,7 @@
             spawn: { x: 0, y: 0, z: 2, yaw: 0 }
         },
         build(S) {
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
             const stone = A.pbrMat('cyberpunk/Commercial Neon/led-strip-wall-cladding-001.png', 24, 1.2, { roughness: 0.52, metalness: 0.35 });
             SR.wall(S, -12.5, 6, -12, -160, 4.8, stone);
             SR.wall(S, 12, 6, 12.5, -160, 4.8, stone);
@@ -277,10 +296,33 @@
             const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(24, 166), A.pbrMat('cyberpunk/Wet Urban Surfaces/rain-slick-concrete-001.png', 6, 38, { roughness: 0.32, metalness: 0.38 }));
             floorGlow.rotation.x = -Math.PI / 2; floorGlow.position.set(0, 0.02, -77); S.add(floorGlow);
 
+            // Cyber-Industrial Skyline & Start-Bay Weapon Racks flanking the killhouse
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const outerInd = [], outerChim = [], wallTanks = [];
+                for (let i = 0; i < 10; i++) {
+                    const oz = -8 - i * 16;
+                    outerInd.push({ pos: [-22, 0, oz], rot: Math.PI / 2, scale: 4.4 }, { pos: [22, 0, oz], rot: -Math.PI / 2, scale: 4.4 });
+                    if (i % 2 === 0) outerChim.push({ pos: [-25, 0, oz - 4], scale: 3.6 }, { pos: [25, 0, oz - 4], scale: 3.6 });
+                    wallTanks.push({ pos: [i % 2 ? -10.8 : 10.8, 0, oz - 3], rot: i, scale: 1.5 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/building-c.glb', outerInd);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/chimney-large.glb', outerChim);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/detail-tank-large.glb', wallTanks);
+                BO.Assets.placeGLB(S.scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-9.8, 0, 3.8], rot: 0.4, scale: 1.6 });
+                BO.Assets.placeGLB(S.scene, 'blaster_kit/crate-wide.glb', { pos: [9.8, 0, 3.8], rot: -0.35, scale: 1.7 });
+            }
+
             // Solid Shipping Container cover without overlapping primitive box
             for (const [x, z, w, d] of [[-5, -14, 3.2, 1.4], [5, -34, 3.2, 1.4], [0, -56, 5.2, 1.4], [-6, -80, 1.4, 4.2], [6, -80, 1.4, 4.2], [0, -104, 6.2, 1.4], [-5, -128, 2.2, 2.2], [5, -132, 2.2, 2.2]]) {
                 S.box(x, 0.95, z, w, 1.9, d, L.HIDDEN_MAT, { solid: true, shadow: false });
                 L.placeGLB(S.scene, 'staged_assets/3d_models/city_industrial_kit/shipping-container-b.glb', { pos: [x, 0, z], fitSize: [w, 1.9, d] });
+            }
+
+            // Shootable Overhead Zone Chrono-Crystals (-1.5s time shave each!)
+            if (BO.CourseScenery && BO.CourseScenery.spawnChronoCrystal) {
+                for (let ci = 0; ci < GAUNTLET.length; ci++) {
+                    BO.CourseScenery.spawnChronoCrystal(S, V((ci % 2 ? 1 : -1) * 6.5, 3.8, GAUNTLET[ci].z + 8), 1.5, 1.0, 0x22d3ee);
+                }
             }
 
             // Animated chevron speed pad texture
@@ -618,8 +660,20 @@
             }
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tree-high.glb', forestTreeTr);
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/rocks-high.glb', forestRockTr);
-            // GLB Tents ONLY (removed duplicate green primitive box!) + solid collider
+            // GLB Tents + Fortified 3D Palisades, Ballistas, Water Tower & Armory Racks
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-morning.png');
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tent.glb', OUTPOSTS.map((o) => ({ pos: [o.x - 3.6, 0, o.z - 3.0], scale: 2.0 })));
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                BO.Assets.placeGLBInstanced(S.scene, 'castle_kit/siege-ballista.glb', OUTPOSTS.map((o) => ({ pos: [o.x + 3.6, 0, o.z - 2.8], rot: Math.atan2(-o.x, -o.z), scale: 1.7 })));
+                BO.Assets.placeGLBInstanced(S.scene, 'mini_arena_kit/weapon-rack.glb', OUTPOSTS.map((o) => ({ pos: [o.x + 2.4, 0, o.z + 2.2], rot: 0.5, scale: 1.45 })));
+                BO.Assets.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-8.5, 0, 29], scale: 2.6 });
+                BO.Assets.placeGLB(S.scene, 'pixel_fantasy/pixel-fantasy-palisade-wall.glb', { pos: [8.5, 0, 31], rot: -0.4, scale: 1.8 });
+            }
+            if (BO.CourseScenery && BO.CourseScenery.spawnChronoCrystal) {
+                for (const [cx, cz] of [[0, -32], [32, 26], [-32, 26], [0, 4]]) {
+                    BO.CourseScenery.spawnChronoCrystal(S, V(cx, 2.4, cz), 2.0, 1.1, 0x4ade80);
+                }
+            }
             for (const o of OUTPOSTS) {
                 S.box(o.x - 3.6, 0.95, o.z - 3.0, 2.8, 1.9, 3.2, L.HIDDEN_MAT, { solid: true, shadow: false });
             }
@@ -857,7 +911,24 @@
                 S.add(tank, base, lid, orb); vats.push({ orb, phase: i * 0.9 });
             }
 
-            // Overcharge Plasma Crates!
+            // Overcharge Plasma Crates + Alien Skybox + 3D Industrial Bio-Tanks & Chrono-Crystals!
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-alien.png');
+            if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                const labCols = [], labTanks = [];
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * TAU + Math.PI / 8;
+                    labCols.push({ pos: [Math.cos(a) * (R - 0.8), 0, Math.sin(a) * (R - 0.8)], rot: -a, scale: 2.2 });
+                    if (i % 2 === 0) labTanks.push({ pos: [Math.cos(a) * (R - 3.2), 0, Math.sin(a) * (R - 3.2)], rot: a, scale: 1.5 });
+                }
+                BO.Assets.placeGLBInstanced(S.scene, 'building_kit/column.glb', labCols);
+                BO.Assets.placeGLBInstanced(S.scene, 'city_industrial_kit/detail-tank-large.glb', labTanks);
+            }
+            if (BO.CourseScenery && BO.CourseScenery.spawnChronoCrystal) {
+                for (let i = 0; i < 4; i++) {
+                    const a = (i / 4) * TAU;
+                    BO.CourseScenery.spawnChronoCrystal(S, V(Math.cos(a) * 11.5, 3.2, Math.sin(a) * 11.5), 1.5, 0.95, 0x2dd4bf);
+                }
+            }
             S.data.plasmaCrates = [];
             for (let i = 0; i < 4; i++) {
                 const a = (i / 4) * TAU + Math.PI / 4;
@@ -867,7 +938,11 @@
                 box.position.y = 0.48;
                 const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), basic(0x22d3ee));
                 core.position.y = 1.45;
-                g.add(box, core); g.position.set(px, 0, pz); S.add(g);
+                g.add(box, core);
+                if (BO.Assets && BO.Assets.placeGLB) {
+                    BO.Assets.placeGLB(g, 'blaster_kit/crate-medium.glb', { fitSize: [1.15, 0.95, 1.15], hideFallback: box });
+                }
+                g.position.set(px, 0, pz); S.add(g);
                 S.data.plasmaCrates.push({ g, core, x: px, z: pz, cd: 0 });
             }
 
@@ -1089,6 +1164,27 @@
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/gravestone-decorative.glb', decoGraves);
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/crypt-a.glb', cryptTr);
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/pine-crooked.glb', treeTr);
+            if (BO.Assets && BO.Assets.applySkybox) BO.Assets.applySkybox(S.scene, 'skybox-night.png');
+            if (BO.Assets && BO.Assets.placeGLB) {
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/altar-stone.glb', { pos: [-4.2, 0, 0], rot: Math.PI / 2, scale: 1.7 });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/altar-stone.glb', { pos: [4.2, 0, 0], rot: -Math.PI / 2, scale: 1.7 });
+                BO.Assets.placeGLBInstanced(S.scene, 'graveyard_kit/candle-multiple.glb', [
+                    { pos: [-4.2, 1.05, 0], scale: 1.5 }, { pos: [4.2, 1.05, 0], scale: 1.5 },
+                    { pos: [-2.4, 0, -16.2], scale: 1.6 }, { pos: [2.4, 0, 16.2], scale: 1.6 }
+                ]);
+                BO.Assets.placeGLBInstanced(S.scene, 'pixel_fantasy/pixel-fantasy-iron-brazier.glb', [
+                    { pos: [-11, 0, -11], scale: 1.5 }, { pos: [11, 0, -11], scale: 1.5 },
+                    { pos: [-11, 0, 11], scale: 1.5 }, { pos: [11, 0, 11], scale: 1.5 }
+                ]);
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/character-skeleton.glb', { pos: [0, 3.6, -18.5], scale: 1.8 });
+                BO.Assets.placeGLB(S.scene, 'graveyard_kit/character-vampire.glb', { pos: [0, 3.6, 18.5], rot: Math.PI, scale: 1.8 });
+            }
+            if (BO.CourseScenery && BO.CourseScenery.spawnChronoCrystal) {
+                for (const [cx, cz] of [[-12, 0], [12, 0], [0, -11], [0, 11]]) {
+                    const ctg = BO.CourseScenery.spawnChronoCrystal(S, V(cx, 2.5, cz), 1.5, 0.9, 0xf87171);
+                    ctg.bonusRound = 1;
+                }
+            }
 
             // Swirling Ground Fog + Moonbeam Shafts
             const fogTex = L.canvasTex('gy-fog', 128, 128, (g, w, h) => {
@@ -1177,6 +1273,11 @@
             SR.updateZ(S, dt, null, state !== 'running');
         },
         onHit(S, ent, info) {
+            if (ent && ent.alive && ent.isChronoCrystal) {
+                S.data._hitThisShot = true;
+                if (ent.bonusRound && BO.Player.activeWeapon) BO.Player.activeWeapon.reserve += ent.bonusRound;
+                return SR.hitZ(S, ent, info);
+            }
             if (!ent || !ent.alive || !ent.takeDamage) return false;
             const D = S.data;
             S.hits++; D._hitThisShot = true;
@@ -1187,10 +1288,14 @@
             const killHead = (z, pt, isCollat) => {
                 z.takeDamage(1e7, 'head', true, null, 'bullet');
                 S.headshots++; S.kills++; D.killed++; D.hsStreak++; S.bumpCombo();
+                if (BO.Assets && BO.Assets.playClip) {
+                    BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.38, rateJitter: 0.06 });
+                }
                 if (isCollat) {
                     D.collaterals++;
                     MG.popup(pt, 'COLLATERAL PIERCE!', '#fde047', true);
                     SFX.star(2);
+                    if (BO.Assets && BO.Assets.playClip) BO.Assets.playClip('overhaul/combat/LevelUpMW2.mp3', { volume: 0.38, rateJitter: 0.03 });
                 }
                 if (D.killed % 10 === 0 && D.killed < 50) {
                     SR.stageBurst(S, pt, `${D.killed} / 50`, Math.floor(D.killed / 10) - 1, 5, 0xb91c1c);

@@ -42,3 +42,20 @@ Decisions that look odd out of context. Read before refactoring.
 ## ADR-010 — Distance culling for NPCs and props
 **Decision:** Named NPCs hide beyond 110 m and props beyond 100 m; landmark struts are one `InstancedMesh`.
 **Consequence:** ~160 draw calls in the open, ~180 in town (target 180).
+
+## ADR-011 — Far LOD by merging rigs, not by simpler models
+**Context:** Soldier rigs are ~135 meshes; a town of 13 NPCs cost ~1,760 draw calls.
+**Decision:** `MeshProxy` bakes a rig into one mesh per material (cached by key) and swaps it in beyond 7 m (NPCs) / 28 m (agents). Detail meshes stay in the scene, hidden, so hit detection is untouched.
+**Consequence:** No new art needed; any Group-based rig or static GLB prop can use it (Discoveries bakes its GLBs permanently).
+
+## ADR-012 — Fog-aware culling instead of a far plane
+**Decision:** Terrain chunks, merged box batches, loose static meshes and pylons beyond the distance where exp² fog leaves < 1% visible (`2.15 / density`) are hidden; recomputed every second or immediately after a > 24 m move.
+**Consequence:** The horizon looks identical (it was already fog); the cull list is snapshotted at world build so FX meshes are never captured.
+
+## ADR-013 — Hidden sites are generated, not authored
+**Decision:** `OWRPGDiscoveries.generate(seed)` places 156 sites from terrain rules (region, slope, water, clearance) with a seeded RNG and a relaxed second pass. Only `atlas.found` is saved.
+**Consequence:** Every save sees the same world; the validator re-runs generation and fails if a counter quest asks for more sites than exist.
+
+## ADR-014 — Minigame upgrades go through shared layers
+**Decision:** Cross-cutting improvements (sampled impacts, announcer, daily featured, GPU release) live in `MinigameFeel` / `MinigameDaily` / `MinigameCore` hooks rather than in 63 course files.
+**Consequence:** One change upgrades every course; courses opt out or override with `def.feel`.

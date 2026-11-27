@@ -22,7 +22,7 @@
             this._world(err, warn);
             this._expansion(err, warn);
             this._ttk(err, warn);
-            if (BO.World && BO.World.mapData && BO.World.mapData.id === 'meridian') this._spatial(err, warn);
+            if (BO.World && BO.World.mapData && BO.World.mapData.id === 'meridian') { this._spatial(err, warn); this._discoveries(err, warn); }
             const report = `OWRPG validator: ${errors.length} error(s), ${warnings.length} warning(s)\n` +
                 errors.map((e) => '  ERROR ' + e).join('\n') + (errors.length ? '\n' : '') + warnings.map((w) => '  warn  ' + w).join('\n');
             if (logToConsole) (errors.length ? console.error : console.log)(report);
@@ -49,8 +49,31 @@
                     }
                     if (n.choices && n.choices.every((c) => c.req && !c.req.quest && !c.req.flag && !c.req.stage && !c.req.notFlag)) warn(`${npc}.${id}: every choice is gated — player can get stuck`);
                 }
-                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id)) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
+                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id) && !(t.entry && t.entry.toString().includes(id))) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
             }
+        },
+
+        /** Hidden sites: every type placed, every counter quest reachable, every reference valid. */
+        _discoveries(err, warn) {
+            const Disc = BO.OWRPGDiscoveries, DD = BO.OWRPGDiscoveryData;
+            if (!Disc || !DD) return;
+            const sites = Disc.generate(884120);
+            const per = {};
+            for (const site of sites) {
+                per[site.type] = (per[site.type] || 0) + 1;
+                if (site.type === 'tome' && !DD.LORE.some((l) => l.id === site.lore)) err(`site ${site.id}: unknown lore '${site.lore}'`);
+                if (site.type === 'shrine' && !DD.BLESSINGS.some((b) => b.id === site.blessing)) err(`site ${site.id}: unknown blessing '${site.blessing}'`);
+                if (site.type === 'shard' && !BO.OWRPGStatsData.SKILLS[site.skill]) err(`site ${site.id}: unknown skill '${site.skill}'`);
+            }
+            const expected = BO.OWRPGWorldData.REGIONS.length;
+            for (const [type, n] of Object.entries(DD.PER_REGION)) if ((per[type] || 0) < n * expected * 0.9) warn(`discoveries: only ${per[type] || 0} ${type} sites placed (want ${n * expected})`);
+            for (const [id, q] of Object.entries(BO.OWRPGQuestsData.QUESTS)) {
+                for (const st of Object.values(q.stages)) for (const k of Object.keys(st.on || {})) {
+                    const m = k.match(/^count:found_([a-z]+):(\d+)$/);
+                    if (m && Number(m[2]) > (per[m[1]] || 0)) err(`${id}: needs ${m[2]} ${m[1]} sites but only ${per[m[1]] || 0} exist`);
+                }
+            }
+            for (const b of DD.BLESSINGS) for (const k of Object.keys(b.fx)) if (typeof b.fx[k] !== 'number') err(`blessing ${b.id}: fx '${k}' is not numeric`);
         },
 
         _quests(err) {
@@ -137,7 +160,7 @@
                 if (interior) return;
                 const h = W.terrainHeight(x, z);
                 if (h < D.WATER - 0.2) warn(`${label} is under water (h=${h.toFixed(1)})`);
-                if (Math.abs(x) > 318 || Math.abs(z) > 318) err(`${label} is outside the map`);
+                if (x < D.BOUNDS.minX || x > D.BOUNDS.maxX || z < D.BOUNDS.minZ || z > D.BOUNDS.maxZ) err(`${label} is outside the map`);
             };
             for (const p of D.POIS) check('POI ' + p.id, p.x, p.z, p.interior);
             for (const n of D.NPCS) check('NPC ' + n.id, n.x, n.z, false);

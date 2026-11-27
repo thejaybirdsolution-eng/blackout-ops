@@ -1,10 +1,11 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Flagship Expansion Data
+   BLACKOUT OPS — Open World RPG · Flagship Expansion Data (2.0)
    1) BO.OWRPGGunStats: RPG-only stats covering EVERY weapon in WeaponsData.ORDER
       (never mutating BO.WeaponsData!).
-   2) 24+ new unlockable guns, 18+ multi-slot armor pieces (4 Armor Sets with
-      2-pc & 3-pc bonuses), 10 durability-tracked field pickups/tools,
-      12+ unlockable Powers (incl. Ultimate slot), 4 Mounts, Bounties & Codex.
+   2) 30+ unlockable guns, 24+ multi-slot armor pieces (6 Armor Sets including
+      Dragonwild Slayer & Barrow Lichplate), 10 durability-tracked field tools,
+      12+ unlockable Powers (incl. Ultimate slot), 4 Mounts, 16 Witcher-style
+      Bounties & 12 Codex Milestones across the 1280 x 1280 m Meridian Expanse.
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -57,23 +58,23 @@
         ump45: { rpgDmgMult: 1.16, critChance: 0.12, critMultBonus: 0.16, armorPen: 12, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 150, tier: 2, unlockReq: 'Dottie Store', passiveTrait: 'executioner' },
         mp7_navy: { rpgDmgMult: 1.20, critChance: 0.16, critMultBonus: 0.22, armorPen: 18, element: 'void', elemDmg: 10, statusChance: 16, maxDurability: 155, tier: 3, unlockReq: 'Ghost Codex Milestone', passiveTrait: 'executioner' },
         m40a3_cod4: { rpgDmgMult: 1.28, critChance: 0.20, critMultBonus: 0.35, armorPen: 26, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 145, tier: 2, unlockReq: 'Militia Trusted', passiveTrait: 'headhunter' },
-        intervention: { rpgDmgMult: 1.38, critChance: 0.24, critMultBonus: 0.45, armorPen: 34, element: 'shock', elemDmg: 20, statusChance: 28, maxDurability: 160, tier: 4, unlockReq: 'Alpine Dish Cache', passiveTrait: 'headhunter' },
-        barrett_50cal: { rpgDmgMult: 1.45, critChance: 0.22, critMultBonus: 0.50, armorPen: 45, element: 'burn', elemDmg: 26, statusChance: 30, maxDurability: 175, tier: 4, unlockReq: 'Codex: 3 Bosses', passiveTrait: 'kinetic_slam' },
+        intervention: { rpgDmgMult: 1.42, critChance: 0.24, critMultBonus: 0.45, armorPen: 36, element: 'shock', elemDmg: 22, statusChance: 28, maxDurability: 165, tier: 4, unlockReq: 'Alpine Dish / Frostspire', passiveTrait: 'headhunter' },
+        barrett_50cal: { rpgDmgMult: 1.52, critChance: 0.22, critMultBonus: 0.52, armorPen: 46, element: 'burn', elemDmg: 28, statusChance: 32, maxDurability: 185, tier: 4, unlockReq: 'Codex: 3 Bosses', passiveTrait: 'kinetic_slam' },
         deagle: { rpgDmgMult: 1.22, critChance: 0.15, critMultBonus: 0.25, armorPen: 18, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 140, tier: 2, unlockReq: 'Syndicate Fence', passiveTrait: 'executioner' },
-        gold_deagle_cod4: { rpgDmgMult: 1.38, critChance: 0.22, critMultBonus: 0.40, armorPen: 26, element: 'burn', elemDmg: 16, statusChance: 24, maxDurability: 180, tier: 4, unlockReq: 'Codex: 100 Kills', passiveTrait: 'scavenger' },
+        gold_deagle_cod4: { rpgDmgMult: 1.42, critChance: 0.22, critMultBonus: 0.40, armorPen: 28, element: 'burn', elemDmg: 18, statusChance: 24, maxDurability: 185, tier: 4, unlockReq: 'Codex: 100 Kills', passiveTrait: 'scavenger' },
         python_magnum: { rpgDmgMult: 1.26, critChance: 0.18, critMultBonus: 0.30, armorPen: 20, element: 'venom', elemDmg: 14, statusChance: 22, maxDurability: 150, tier: 3, unlockReq: 'Mire Cache', passiveTrait: 'venom_fang' },
         m249: { rpgDmgMult: 1.22, critChance: 0.08, critMultBonus: 0.12, armorPen: 22, element: 'shock', elemDmg: 12, statusChance: 16, maxDurability: 200, tier: 3, unlockReq: 'Aegis Quartermaster', passiveTrait: 'overcharge' },
-        mg42_buzzsaw: { rpgDmgMult: 1.28, critChance: 0.08, critMultBonus: 0.14, armorPen: 22, element: 'burn', elemDmg: 12, statusChance: 18, maxDurability: 210, tier: 4, unlockReq: 'Quarry Colossus Drop', passiveTrait: 'heat_sink' },
-        minigun_death: { rpgDmgMult: 1.36, critChance: 0.10, critMultBonus: 0.16, armorPen: 28, element: 'shock', elemDmg: 16, statusChance: 22, maxDurability: 240, tier: 4, unlockReq: 'Rogue Mecha X-9', passiveTrait: 'overcharge' },
-        rpg7_warhead: { rpgDmgMult: 1.40, critChance: 0.05, critMultBonus: 0.10, armorPen: 40, element: 'burn', elemDmg: 35, statusChance: 45, maxDurability: 125, tier: 4, unlockReq: 'Syndicate Sworn', passiveTrait: 'kinetic_slam' },
-        model_1887_mw2: { rpgDmgMult: 1.26, critChance: 0.12, critMultBonus: 0.20, armorPen: 16, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 165, tier: 3, unlockReq: 'Rust Sprawl Bounty', passiveTrait: 'bloodlust' },
+        mg42_buzzsaw: { rpgDmgMult: 1.32, critChance: 0.08, critMultBonus: 0.14, armorPen: 24, element: 'burn', elemDmg: 14, statusChance: 18, maxDurability: 215, tier: 4, unlockReq: 'Quarry Colossus / Foundry', passiveTrait: 'heat_sink' },
+        minigun_death: { rpgDmgMult: 1.44, critChance: 0.10, critMultBonus: 0.18, armorPen: 32, element: 'shock', elemDmg: 18, statusChance: 22, maxDurability: 250, tier: 4, unlockReq: 'Rogue Mecha X-9', passiveTrait: 'overcharge' },
+        rpg7_warhead: { rpgDmgMult: 1.45, critChance: 0.05, critMultBonus: 0.10, armorPen: 42, element: 'burn', elemDmg: 38, statusChance: 45, maxDurability: 130, tier: 4, unlockReq: 'Syndicate Sworn', passiveTrait: 'kinetic_slam' },
+        model_1887_mw2: { rpgDmgMult: 1.26, critChance: 0.12, critMultBonus: 0.20, armorPen: 16, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 165, tier: 3, unlockReq: 'Gutter King Bounty', passiveTrait: 'bloodlust' },
         ksg_slug: { rpgDmgMult: 1.30, critChance: 0.16, critMultBonus: 0.30, armorPen: 28, element: 'kinetic', elemDmg: 0, statusChance: 0, maxDurability: 165, tier: 3, unlockReq: 'Quarry Titans Quest', passiveTrait: 'kinetic_slam' },
-        stg44: { rpgDmgMult: 1.20, critChance: 0.12, critMultBonus: 0.20, armorPen: 16, element: 'burn', elemDmg: 12, statusChance: 18, maxDurability: 170, tier: 3, unlockReq: 'Old-World Cache', passiveTrait: 'scavenger' },
-        f2000: { rpgDmgMult: 1.24, critChance: 0.14, critMultBonus: 0.20, armorPen: 18, element: 'void', elemDmg: 14, statusChance: 22, maxDurability: 160, tier: 3, unlockReq: 'Helix Exchange', passiveTrait: 'void_siphon' },
-        raygun: { rpgDmgMult: 1.42, critChance: 0.16, critMultBonus: 0.25, armorPen: 32, element: 'venom', elemDmg: 30, statusChance: 40, maxDurability: 180, tier: 4, unlockReq: 'Meridian Containment Event', passiveTrait: 'venom_fang' },
-        tesla_wunder: { rpgDmgMult: 1.48, critChance: 0.14, critMultBonus: 0.20, armorPen: 35, element: 'shock', elemDmg: 34, statusChance: 45, maxDurability: 180, tier: 4, unlockReq: 'Aegis Sworn / Codex', passiveTrait: 'chain_arc' },
-        void_singularity: { rpgDmgMult: 1.50, critChance: 0.16, critMultBonus: 0.25, armorPen: 36, element: 'void', elemDmg: 36, statusChance: 45, maxDurability: 185, tier: 4, unlockReq: 'Helix Cipher Quest', passiveTrait: 'void_siphon' },
-        inferno_drake: { rpgDmgMult: 1.45, critChance: 0.12, critMultBonus: 0.20, armorPen: 28, element: 'burn', elemDmg: 32, statusChance: 45, maxDurability: 185, tier: 4, unlockReq: 'Quarry Boss Milestone', passiveTrait: 'heat_sink' }
+        stg44: { rpgDmgMult: 1.22, critChance: 0.12, critMultBonus: 0.20, armorPen: 16, element: 'burn', elemDmg: 12, statusChance: 18, maxDurability: 170, tier: 3, unlockReq: 'Old-World Cache', passiveTrait: 'scavenger' },
+        f2000: { rpgDmgMult: 1.28, critChance: 0.14, critMultBonus: 0.20, armorPen: 18, element: 'void', elemDmg: 16, statusChance: 22, maxDurability: 165, tier: 3, unlockReq: 'Helix Exchange', passiveTrait: 'void_siphon' },
+        raygun: { rpgDmgMult: 1.52, critChance: 0.16, critMultBonus: 0.28, armorPen: 36, element: 'venom', elemDmg: 34, statusChance: 40, maxDurability: 190, tier: 4, unlockReq: 'Meridian Sovereign Quest', passiveTrait: 'venom_fang' },
+        tesla_wunder: { rpgDmgMult: 1.58, critChance: 0.14, critMultBonus: 0.22, armorPen: 38, element: 'shock', elemDmg: 38, statusChance: 45, maxDurability: 190, tier: 4, unlockReq: 'Grid Restorer Codex', passiveTrait: 'chain_arc' },
+        void_singularity: { rpgDmgMult: 1.62, critChance: 0.16, critMultBonus: 0.28, armorPen: 40, element: 'void', elemDmg: 42, statusChance: 45, maxDurability: 195, tier: 4, unlockReq: 'Helix Cipher / Lich Crypt', passiveTrait: 'void_siphon' },
+        inferno_drake: { rpgDmgMult: 1.68, critChance: 0.16, critMultBonus: 0.30, armorPen: 44, element: 'burn', elemDmg: 48, statusChance: 48, maxDurability: 210, tier: 4, unlockReq: 'Dragonwild Vault Boss', passiveTrait: 'heat_sink' }
     };
 
     const ELEM_BY_MAGIC = {
@@ -95,7 +96,7 @@
         const elem = w.magicType ? (ELEM_BY_MAGIC[w.magicType] || 'void') : base.element;
         const ov = CURATED_GUN_OVERRIDES[id] || {};
         const passiveTrait = ov.passiveTrait || base.passiveTrait;
-        const entry = {
+        OWRPGGunStats[id] = {
             rpgDmgMult: Number((ov.rpgDmgMult || (base.rpgDmgMult * lvlScale)).toFixed(2)),
             critChance: ov.critChance !== undefined ? ov.critChance : base.critChance,
             critMultBonus: ov.critMultBonus !== undefined ? ov.critMultBonus : base.critMultBonus,
@@ -109,7 +110,6 @@
             passiveTrait,
             passiveDesc: PASSIVE_TRAITS[passiveTrait]?.desc || ''
         };
-        OWRPGGunStats[id] = entry;
     }
 
     function getGunStats(weaponId) {
@@ -121,7 +121,7 @@
         };
     }
 
-    /* --------------------------------------------------------- 4 Armor Sets */
+    /* --------------------------------------------------------- 6 Armor Sets (2-pc & 3-pc bonuses) */
     const ARMOR_SETS = {
         warden_vanguard: {
             id: 'warden_vanguard', name: 'Warden Vanguard', color: '#f5a623',
@@ -142,10 +142,20 @@
             id: 'meridian_arctech', name: 'Meridian Arc-Tech', color: '#38bdf8',
             bonus2: { label: '2-Piece: -15% Cooldowns, +20% Status Potency', cdr: 0.15, statusPotency: 0.20 },
             bonus3: { label: '3-Piece: +12% All Elem Resist & Reactions Chain +1', allElemRes: 0.12, chain: 1 }
+        },
+        barrow_lichplate: {
+            id: 'barrow_lichplate', name: 'Barrow-Wight Lichplate', color: '#a855f7',
+            bonus2: { label: '2-Piece: +30 Max HP, +18% Void/Chill Resist', maxHp: 30, armor: 14 },
+            bonus3: { label: '3-Piece: +16 HP on Kill & +35% Status Potency', killHeal: 16, statusPotency: 0.35 }
+        },
+        dragonwild_slayer: {
+            id: 'dragonwild_slayer', name: 'Dragonwild Obsidian Plate', color: '#fbbf24',
+            bonus2: { label: '2-Piece: +35 Armor, +20% All Elemental Resist', armor: 35, allElemRes: 0.20 },
+            bonus3: { label: '3-Piece: +35% Boss/Beast Damage & +40% Reaction Damage', bossDmg: 0.35, reactMult: 0.40 }
         }
     };
 
-    /* --------------------------------------------------------- 24+ New Guns */
+    /* --------------------------------------------------------- 30+ Unlockable Guns */
     const NEW_GUNS = {
         w_m4a1_warden: { name: "Warden's SOPMOD M4", type: 'weapon', base: 'm4a1', weight: 3.3, value: 380, rarity: 'rare', req: ['RFX', 5] },
         w_ak47_rust: { name: 'Rail-Forged AK-47', type: 'weapon', base: 'ak47', weight: 3.9, value: 410, rarity: 'rare', req: ['BRW', 6], fixedAffix: 'thermal' },
@@ -155,28 +165,28 @@
         w_ump45_enforcer: { name: 'Ironclad UMP45', type: 'weapon', base: 'ump45', weight: 2.8, value: 340, rarity: 'rare', req: ['RFX', 5] },
         w_mp7_ghost: { name: 'Phantom MP7A1', type: 'weapon', base: 'mp7_navy', weight: 2.2, value: 640, rarity: 'epic', req: ['RFX', 7], suppressed: true, fixedAffix: 'voidtouched' },
         w_m40a3_ranger: { name: 'Basin Watch M40A3', type: 'weapon', base: 'm40a3_cod4', weight: 4.5, value: 440, rarity: 'rare', req: ['PRC', 6] },
-        w_intervention_apex: { name: 'Apex Intervention .408', type: 'weapon', base: 'intervention', weight: 6.2, value: 1150, rarity: 'legendary', req: ['PRC', 8], fixedAffix: 'keen' },
-        w_barrett_anti: { name: 'Crater-Buster .50 Cal', type: 'weapon', base: 'barrett_50cal', weight: 8.8, value: 1350, rarity: 'legendary', req: ['BRW', 8], fixedAffix: 'piercing' },
+        w_intervention_apex: { name: 'Frostspire Intervention .408', type: 'weapon', base: 'intervention', weight: 6.2, value: 1250, rarity: 'legendary', req: ['PRC', 8], fixedAffix: 'keen' },
+        w_barrett_anti: { name: 'Crater-Buster .50 Cal', type: 'weapon', base: 'barrett_50cal', weight: 8.8, value: 1450, rarity: 'legendary', req: ['BRW', 8], fixedAffix: 'piercing' },
         w_deagle_judge: { name: 'Rail Marshal Deagle', type: 'weapon', base: 'deagle', weight: 1.9, value: 420, rarity: 'rare', req: ['BRW', 5], fixedAffix: 'piercing' },
         w_gold_deagle_king: { name: '24K Sovereign Eagle', type: 'weapon', base: 'gold_deagle_cod4', weight: 1.9, value: 1200, rarity: 'legendary', req: ['PRS', 7], fixedAffix: 'keen' },
         w_python_frontier: { name: 'Mirefang .357 Python', type: 'weapon', base: 'python_magnum', weight: 1.7, value: 540, rarity: 'epic', req: ['PRC', 6], fixedAffix: 'venomous' },
         w_m249_bastion: { name: 'Aegis Bastion SAW', type: 'weapon', base: 'm249', weight: 7.4, value: 760, rarity: 'epic', req: ['BRW', 7], fixedAffix: 'arcing' },
         w_mg42_scrap: { name: 'Quarry Buzzsaw MG42', type: 'weapon', base: 'mg42_buzzsaw', weight: 9.2, value: 1100, rarity: 'legendary', req: ['BRW', 8], fixedAffix: 'thermal' },
-        w_minigun_titan: { name: 'Unit X-9 Rotary Minigun', type: 'weapon', base: 'minigun_death', weight: 12.5, value: 1550, rarity: 'legendary', req: ['BRW', 9], fixedAffix: 'arcing' },
+        w_minigun_titan: { name: 'Unit X-9 Rotary Minigun', type: 'weapon', base: 'minigun_death', weight: 12.5, value: 1650, rarity: 'legendary', req: ['BRW', 9], fixedAffix: 'arcing' },
         w_rpg7_demolisher: { name: 'Syndicate Siege RPG-7', type: 'weapon', base: 'rpg7_warhead', weight: 6.8, value: 980, rarity: 'epic', req: ['BRW', 7], fixedAffix: 'thermal' },
         w_model1887_twin: { name: 'Nomad Lever 1887', type: 'weapon', base: 'model_1887_mw2', weight: 3.6, value: 620, rarity: 'epic', req: ['RFX', 6] },
         w_ksg_breach: { name: 'Quarry Breacher KSG', type: 'weapon', base: 'ksg_slug', weight: 3.9, value: 680, rarity: 'epic', req: ['BRW', 6], fixedAffix: 'piercing' },
-        w_galil_veteran: { name: 'Freestead Veteran Galil', type: 'weapon', base: 'galil_ar', weight: 3.7, value: 580, rarity: 'epic', req: ['PRC', 5], fixedAffix: 'venomous' },
+        w_galil_veteran: { name: 'Whispering Pine Galil', type: 'weapon', base: 'galil_ar', weight: 3.7, value: 580, rarity: 'epic', req: ['PRC', 5], fixedAffix: 'venomous' },
         w_an94_cryo: { name: 'Boreal AN-94', type: 'weapon', base: 'an94_abakan', weight: 3.6, value: 740, rarity: 'epic', req: ['TCH', 6], fixedAffix: 'cryo' },
         w_stg44_relic: { name: 'Relic StG 44', type: 'weapon', base: 'stg44', weight: 4.1, value: 520, rarity: 'rare', req: ['BRW', 5], fixedAffix: 'thermal' },
         w_f2000_helix: { name: 'Helix Pulse F2000', type: 'weapon', base: 'f2000', weight: 3.5, value: 820, rarity: 'epic', req: ['TCH', 7], fixedAffix: 'voidtouched' },
-        w_raygun_proto: { name: 'Meridian Proto Ray Gun', type: 'weapon', base: 'raygun', weight: 2.1, value: 1600, rarity: 'legendary', req: ['TCH', 7], fixedAffix: 'venomous' },
-        w_tesla_coil: { name: 'Wunderwaffe Arc-Carbine', type: 'weapon', base: 'tesla_wunder', weight: 4.4, value: 1750, rarity: 'legendary', req: ['TCH', 8], fixedAffix: 'arcing' },
-        w_void_staff: { name: 'Meridian Void Staff', type: 'weapon', base: 'void_singularity', weight: 3.8, value: 1850, rarity: 'legendary', req: ['TCH', 8], fixedAffix: 'voidtouched' },
-        w_fire_staff: { name: 'Colossus Magma Staff', type: 'weapon', base: 'inferno_drake', weight: 3.8, value: 1700, rarity: 'legendary', req: ['TCH', 7], fixedAffix: 'thermal' }
+        w_raygun_proto: { name: 'Meridian Proto Ray Gun', type: 'weapon', base: 'raygun', weight: 2.1, value: 1700, rarity: 'legendary', req: ['TCH', 7], fixedAffix: 'venomous' },
+        w_tesla_coil: { name: 'Wunderwaffe Arc-Carbine', type: 'weapon', base: 'tesla_wunder', weight: 4.4, value: 1850, rarity: 'legendary', req: ['TCH', 8], fixedAffix: 'arcing' },
+        w_void_staff: { name: 'Barrow-Lich Void Staff', type: 'weapon', base: 'void_singularity', weight: 3.8, value: 1950, rarity: 'legendary', req: ['TCH', 8], fixedAffix: 'voidtouched' },
+        w_fire_staff: { name: "Vaelgor's Dragonwild Staff", type: 'weapon', base: 'inferno_drake', weight: 3.8, value: 2400, rarity: 'legendary', req: ['TCH', 8], fixedAffix: 'thermal' }
     };
 
-    /* --------------------------------------------------------- 18+ New Armor Pieces */
+    /* --------------------------------------------------------- 26+ Multi-Slot Armor Pieces */
     const NEW_ARMOR = {
         // Helmets
         helm_scav: { name: 'Scrapper Respirator', type: 'helmet', armor: 6, weight: 1.2, value: 85, rarity: 'common', maxDur: 100, elemRes: { venom: 0.1 } },
@@ -184,27 +194,35 @@
         helm_juggernaut: { name: 'Ironclad Blast Helm', type: 'helmet', armor: 18, weight: 2.6, value: 520, rarity: 'epic', setId: 'ironclad_juggernaut', req: ['BRW', 6], maxDur: 165, elemRes: { burn: 0.15, shock: 0.1 } },
         helm_ghost: { name: 'Ghost Recon Hood', type: 'helmet', armor: 9, weight: 0.9, value: 480, rarity: 'epic', setId: 'ghost_stalker', req: ['RFX', 6], maxDur: 125, stats: { critAdd: 0.12 } },
         helm_arctech: { name: 'Arc-Tech Neural Cowl', type: 'helmet', armor: 14, weight: 1.3, value: 740, rarity: 'legendary', setId: 'meridian_arctech', req: ['TCH', 7], maxDur: 150, elemRes: { shock: 0.2, void: 0.18 }, stats: { statusPotency: 0.12 } },
+        helm_lichplate: { name: 'Crown of Grimhollow', type: 'helmet', armor: 16, weight: 1.6, value: 860, rarity: 'epic', setId: 'barrow_lichplate', req: ['TCH', 6], maxDur: 155, elemRes: { void: 0.22, chill: 0.18 }, stats: { statusPotency: 0.15 } },
+        helm_dragonwild: { name: 'Dragonbone Greathelm', type: 'helmet', armor: 24, weight: 2.4, value: 1600, rarity: 'legendary', setId: 'dragonwild_slayer', req: ['BRW', 8], maxDur: 200, elemRes: { burn: 0.28, void: 0.18 }, stats: { critAdd: 0.18 } },
         // Rigs
         rig_warden: { name: 'Warden Vanguard Plate', type: 'rig', armor: 24, weight: 6.5, value: 450, rarity: 'rare', setId: 'warden_vanguard', req: ['BRW', 5], maxDur: 140, elemRes: { burn: 0.15 }, stats: { maxHp: 15 } },
         rig_juggernaut: { name: 'Ironclad Siege Rig', type: 'rig', armor: 38, weight: 11.0, value: 820, rarity: 'epic', setId: 'ironclad_juggernaut', req: ['BRW', 7], maxDur: 190, elemRes: { burn: 0.2, venom: 0.15 }, stats: { carry: 10 } },
         rig_ghost: { name: 'Ghost Stealth Harness', type: 'rig', armor: 18, weight: 3.5, value: 680, rarity: 'epic', setId: 'ghost_stalker', req: ['RFX', 6], maxDur: 130, elemRes: { chill: 0.15 }, stats: { noise: -0.15 } },
         rig_arctech: { name: 'Arc-Tech Exo-Vest', type: 'rig', armor: 30, weight: 5.5, value: 1100, rarity: 'legendary', setId: 'meridian_arctech', req: ['TCH', 7], maxDur: 170, elemRes: { shock: 0.25, void: 0.2 }, stats: { cdr: 0.1 } },
+        rig_lichplate: { name: 'Barrow-Wight Cuirass', type: 'rig', armor: 34, weight: 7.5, value: 1050, rarity: 'epic', setId: 'barrow_lichplate', req: ['BRW', 6], maxDur: 175, elemRes: { void: 0.25, venom: 0.2 }, stats: { maxHp: 25 } },
+        rig_dragonwild: { name: 'Obsidian Dragonscale Cuirass', type: 'rig', armor: 48, weight: 9.5, value: 2100, rarity: 'legendary', setId: 'dragonwild_slayer', req: ['BRW', 8], maxDur: 220, elemRes: { burn: 0.35, shock: 0.2 }, stats: { maxHp: 40 } },
         // Boots
         boots_scav: { name: 'Patched Work Boots', type: 'boots', armor: 4, weight: 1.0, value: 70, rarity: 'common', maxDur: 100 },
         boots_warden: { name: 'Warden Trail Boots', type: 'boots', armor: 9, weight: 1.4, value: 280, rarity: 'rare', setId: 'warden_vanguard', maxDur: 130, elemRes: { venom: 0.12 }, stats: { speedMult: 0.05 } },
         boots_juggernaut: { name: 'Ironclad Mag-Greaves', type: 'boots', armor: 15, weight: 2.8, value: 490, rarity: 'epic', setId: 'ironclad_juggernaut', req: ['BRW', 6], maxDur: 165, elemRes: { shock: 0.18 }, stats: { carry: 8 } },
         boots_ghost: { name: 'Ghost Softstep Treads', type: 'boots', armor: 7, weight: 0.8, value: 510, rarity: 'epic', setId: 'ghost_stalker', req: ['RFX', 6], maxDur: 125, stats: { speedMult: 0.08, noise: -0.18 } },
         boots_arctech: { name: 'Arc-Tech Thruster Greaves', type: 'boots', armor: 11, weight: 1.2, value: 690, rarity: 'legendary', setId: 'meridian_arctech', req: ['TCH', 6], maxDur: 150, elemRes: { chill: 0.2, void: 0.12 }, stats: { speedMult: 0.09 } },
+        boots_lichplate: { name: 'Grimhollow Sabatons', type: 'boots', armor: 13, weight: 1.8, value: 720, rarity: 'epic', setId: 'barrow_lichplate', maxDur: 155, elemRes: { chill: 0.22 }, stats: { speedMult: 0.06 } },
+        boots_dragonwild: { name: 'Dragonclaw Striders', type: 'boots', armor: 19, weight: 2.0, value: 1450, rarity: 'legendary', setId: 'dragonwild_slayer', req: ['RFX', 7], maxDur: 195, elemRes: { burn: 0.25 }, stats: { speedMult: 0.11 } },
         // Relics
         relic_warden: { name: "Kessler's Ranger Star", type: 'relic', armor: 5, weight: 0.3, value: 420, rarity: 'rare', setId: 'warden_vanguard', maxDur: 140, stats: { maxHp: 20, detHeal: 8 } },
         relic_juggernaut: { name: 'Rail Baron Piston Core', type: 'relic', armor: 10, weight: 0.8, value: 640, rarity: 'epic', setId: 'ironclad_juggernaut', maxDur: 160, stats: { meleeMult: 0.2, armor: 8 } },
         relic_ghost: { name: 'Viper Optical Prism', type: 'relic', armor: 4, weight: 0.2, value: 620, rarity: 'epic', setId: 'ghost_stalker', maxDur: 135, stats: { critAdd: 0.15, stealthMult: 0.35 } },
         relic_arctech: { name: 'Meridian Harmonic Coil', type: 'relic', armor: 6, weight: 0.4, value: 950, rarity: 'legendary', setId: 'meridian_arctech', maxDur: 170, elemRes: { void: 0.25, shock: 0.2 }, stats: { statusPotency: 0.18, cdr: 0.08 } },
+        relic_lich_phylactery: { name: "Malgath's Soul Phylactery", type: 'relic', armor: 8, weight: 0.4, value: 1150, rarity: 'legendary', setId: 'barrow_lichplate', maxDur: 175, elemRes: { void: 0.30 }, stats: { killHeal: 12, cdr: 0.10 } },
+        relic_dragon_heart: { name: 'Heart of Vaelgor', type: 'relic', armor: 14, weight: 0.6, value: 2200, rarity: 'legendary', setId: 'dragonwild_slayer', maxDur: 210, elemRes: { burn: 0.35, void: 0.25 }, stats: { maxHp: 45, reactMult: 0.25 } },
         relic_crater_shard: { name: 'Vitrified Crater Shard', type: 'relic', armor: 8, weight: 0.5, value: 880, rarity: 'legendary', maxDur: 160, elemRes: { burn: 0.22, void: 0.22 }, stats: { reactMult: 0.2 } },
         relic_brood_heart: { name: 'Matriarch Venom Heart', type: 'relic', armor: 6, weight: 0.6, value: 780, rarity: 'epic', maxDur: 150, elemRes: { venom: 0.35 }, stats: { maxHp: 22 } }
     };
 
-    /* --------------------------------------------------------- 10+ Durability-Tracked Field Pickups / Tools */
+    /* --------------------------------------------------------- 10 Durability-Tracked Field Pickups / Tools */
     const NEW_TOOLS = {
         tool_scrap_flamer: { name: 'Scrap Flamer', type: 'tool', toolKind: 'flamer', weight: 3.0, value: 320, rarity: 'rare', maxDur: 60, wearPerUse: 6, dmg: 65, element: 'burn', range: 9, desc: 'Sprays a 9m cone of burning promethium. Degrades per burst.' },
         tool_breach_hammer: { name: 'Breaching Hammer', type: 'tool', toolKind: 'hammer', weight: 4.2, value: 340, rarity: 'rare', maxDur: 80, wearPerUse: 8, dmg: 110, element: 'expose', range: 4.5, desc: 'Shockwave maul that shatters armor and Exposes nearby enemies.' },
@@ -226,6 +244,10 @@
         aegis_blackbox: { name: 'Aegis Flight Blackbox', type: 'quest', weight: 0.8, value: 0, desc: 'Encrypted telemetry from Bunker Delta.' },
         vasko_crest: { name: "Vasko's Scrap Crest", type: 'quest', weight: 0.3, value: 0, desc: 'Proof of Gutter King Vasko defeat.' },
         sovereign_core: { name: 'Sovereign Void Core', type: 'quest', weight: 0.6, value: 0, desc: 'Pulsing core recovered from the Meridian Sovereign.' },
+        barrow_seal: { name: 'Seal of Grimhollow', type: 'quest', weight: 0.2, value: 0, desc: 'Ancient signet recovered from the Sunken Crypt of Marrow.' },
+        sunfang_idol: { name: 'Golden Sunfang Idol', type: 'quest', weight: 0.5, value: 0, desc: 'Relic recovered from Pharaoh Kharim in the Sunfang Tomb.' },
+        frostspire_crown: { name: 'Crown of Valdris', type: 'quest', weight: 0.6, value: 0, desc: 'Rime-forged crown of the Frost-King.' },
+        vaelgor_fang: { name: 'Fang of Vaelgor', type: 'quest', weight: 0.8, value: 0, desc: 'Smoldering dragon fang torn from the Obsidian Dragonwild Vault.' },
         schematic_scout_bike: { name: 'Key: Scrap Scout Bike', type: 'quest', weight: 0, value: 0, desc: 'Unlocks the Scrap Scout Bike in your Mount Garage [T].' },
         schematic_hoverbike: { name: 'Key: Nomad Hoverbike', type: 'quest', weight: 0, value: 0, desc: 'Unlocks the Nomad Hoverbike in your Mount Garage [T].' },
         schematic_aegis_atv: { name: 'Key: Meridian Armored ATV', type: 'quest', weight: 0, value: 0, desc: 'Unlocks the Meridian Armored ATV in your Mount Garage [T].' },
@@ -276,57 +298,70 @@
         nanite_field: { label: 'Militia Trusted or Level 7', check: (s) => s.player.level >= 7 || BO.OWRPGFactions.rep(s, 'militia') >= 250 },
         emp_pulse: { label: 'TCH 6 or Relay Lit', check: (s) => BO.OWRPGCharacter.attr(s, 'TCH') >= 6 || !!s.worldFlags.relay_lit },
         orbital_barrage: { label: 'Level 3 or Blackbox Quest', check: (s) => s.player.level >= 3 || s.quests.q_alpine_blackbox?.state === 'completed' },
-        singularity_nova: { label: 'Slay Sovereign or Level 14', check: (s) => s.player.level >= 14 || !!s.worldFlags.killed_boss_meridian_sovereign },
+        singularity_nova: { label: 'Slay Sovereign or Level 16', check: (s) => s.player.level >= 16 || !!s.worldFlags.killed_boss_meridian_sovereign },
         overdrive_protocol: { label: 'Level 5 or Slay Vasko', check: (s) => s.player.level >= 5 || !!s.worldFlags.killed_raider_boss },
-        plague_tempest: { label: 'Slay Mire Hydra or Level 10', check: (s) => s.player.level >= 10 || !!s.worldFlags.killed_boss_mire_hydra }
+        plague_tempest: { label: 'Slay Mire Hydra or Level 11', check: (s) => s.player.level >= 11 || !!s.worldFlags.killed_boss_mire_hydra }
     };
 
     /* --------------------------------------------------------- 4 Summonable Mounts */
     const MOUNTS = {
         scout_bike: {
-            id: 'scout_bike', name: 'Scrap Scout Bike', speed: 14.5, boostSpeed: 20.5,
+            id: 'scout_bike', name: 'Scrap Scout Bike', speed: 15.5, boostSpeed: 22.0,
             dr: 0.1, jump: 7.5, color: 0xf59e0b, accent: 0x334155, hover: false,
             unlockLabel: 'Quest: Wheels for the Road (Freestead) or Buy from Torin',
-            desc: 'Nimble frontier dirtbike built from Freestead salvage. Fast acceleration and tight turning.'
+            desc: 'Nimble frontier dirtbike built from Freestead salvage. Fast acceleration across the 1280m Expanse.'
         },
         hoverbike: {
-            id: 'hoverbike', name: 'Nomad Hoverbike', speed: 17.5, boostSpeed: 24.5,
+            id: 'hoverbike', name: 'Nomad Hoverbike', speed: 18.5, boostSpeed: 26.0,
             dr: 0.15, jump: 9.0, color: 0x38bdf8, accent: 0x1e293b, hover: true,
-            unlockLabel: 'Quest: Rail Yard Smugglers or Level 6',
-            desc: 'Mag-lev thruster bike that glides smoothly over Mire Delta marshes and rough scree.'
+            unlockLabel: 'Quest: Rail Yard Smugglers or Level 8',
+            desc: 'Mag-lev thruster bike that glides smoothly over Mire marshes, Sunken Coast shoals, and desert dunes.'
         },
         aegis_atv: {
-            id: 'aegis_atv', name: 'Meridian Armored ATV', speed: 16.0, boostSpeed: 22.0,
+            id: 'aegis_atv', name: 'Meridian Armored ATV', speed: 17.0, boostSpeed: 23.5,
             dr: 0.28, jump: 8.0, color: 0x64748b, accent: 0x0ea5e9, hover: false,
             unlockLabel: 'Quest: Iron on the Ridge (Alpine Array) or Aegis Trusted',
             desc: 'Heavy 4x4 tactical quad with plated rollcage granting +28% mounted damage reduction.'
         },
         war_strider: {
-            id: 'war_strider', name: 'Aegis War Strider', speed: 14.0, boostSpeed: 19.5,
+            id: 'war_strider', name: 'Aegis War Strider', speed: 15.0, boostSpeed: 21.0,
             dr: 0.42, jump: 10.5, color: 0xc084fc, accent: 0x1e1b4b, hover: false, strider: true,
-            unlockLabel: 'Quest: Crown of the Crater (Meridian Core) or Level 15',
+            unlockLabel: 'Quest: Crown of the Crater (Meridian Core) or Level 22',
             desc: 'Articulated bipedal exo-walker with +42% mounted armor and seismic stomp landings.'
         }
     };
 
-    /* --------------------------------------------------------- Bounties & Codex */
+    /* --------------------------------------------------------- 16 Repeatable Witcher-Style Monster & Faction Bounties */
     const BOUNTIES = [
-        { id: 'b_raiders', title: 'Clear Basin Raiders', target: 'raider', count: 5, region: 'haven_basin', xp: 180, credits: 140, rep: { militia: 60 }, desc: 'Eliminate 5 Basin Raiders menacing Haven roads.' },
-        { id: 'b_crawlers', title: 'Exterminate Brood Crawlers', target: 'crawler', count: 6, region: 'haven_basin', xp: 160, credits: 120, rep: { militia: 50 }, desc: 'Cull 6 Brood Crawlers from the Basin ridges.' },
-        { id: 'b_enforcers', title: 'Raid Syndicate Enforcers', target: 'enforcer', count: 4, region: 'rust_sprawl', xp: 240, credits: 210, rep: { militia: 80 }, desc: 'Take out 4 Syndicate Enforcers in Rust Sprawl.' },
-        { id: 'b_mire', title: 'Mire Blight Sweep', target: 'brood_blight_hound', count: 4, region: 'mire_delta', xp: 290, credits: 240, rep: { aegis: 70 }, desc: 'Hunt 4 Blight Hounds across Mire Delta.' },
-        { id: 'b_quarry', title: 'Quarry Ash Purging', target: 'brood_pyro_fiend', count: 3, region: 'ash_quarry', xp: 340, credits: 280, rep: { militia: 90 }, desc: 'Slay 3 Quarry Ash Fiends in Ash Quarry.' },
-        { id: 'b_alpine', title: 'Rogue Aegis Patrol', target: 'aegis', count: 4, region: 'alpine_array', xp: 380, credits: 320, rep: { helix: 80 }, desc: 'Neutralize 4 Aegis Troopers in Alpine Array.' },
-        { id: 'b_helix', title: 'Crater Void Purge', target: 'helix_voidweaver', count: 3, region: 'meridian_core', xp: 460, credits: 400, rep: { aegis: 110 }, desc: 'Defeat 3 Helix Voidweavers near Meridian Core.' }
+        { id: 'b_puglins', title: 'Cull Basin Puglins', target: 'puglin_scamp', count: 6, region: 'haven_basin', xp: 140, credits: 110, rep: { militia: 45 }, desc: 'Eliminate 6 Puglin Scavengers raiding Haven farms.' },
+        { id: 'b_raiders', title: 'Clear Basin Raiders', target: 'raider', count: 6, region: 'haven_basin', xp: 165, credits: 140, rep: { militia: 60 }, desc: 'Eliminate 6 Basin Raiders menacing Haven roads.' },
+        { id: 'b_wolves', title: 'Whispering Wolf Contract', target: 'timber_wolf', count: 6, region: 'whispering_woods', xp: 210, credits: 175, rep: { militia: 70 }, desc: 'Hunt 6 Dire Timber Wolves in Whispering Pinewoods.' },
+        { id: 'b_orcs', title: 'Root-Barrow Orc Hunt', target: 'orc_reaver', count: 5, region: 'whispering_woods', xp: 260, credits: 210, rep: { militia: 85 }, desc: 'Slay 5 Root-Barrow Orcs in the western woods.' },
+        { id: 'b_enforcers', title: 'Raid Syndicate Enforcers', target: 'enforcer', count: 5, region: 'rust_sprawl', xp: 240, credits: 210, rep: { militia: 80 }, desc: 'Take out 5 Syndicate Enforcers in Rust Sprawl.' },
+        { id: 'b_skeletons', title: 'Purge Barrow Skeletons', target: 'skeleton_warrior', count: 6, region: 'barrow_moor', xp: 340, credits: 260, rep: { militia: 90 }, desc: 'Shatter 6 Barrow Skeletons across Barrow-Moor Graveyard.' },
+        { id: 'b_vampires', title: 'Witcher Contract: Nightlords', target: 'blood_vampire', count: 4, region: 'barrow_moor', xp: 480, credits: 360, rep: { aegis: 100 }, desc: 'Slay 4 Crimson Nightlords stalking Grimhollow.' },
+        { id: 'b_mire', title: 'Mire Blight Sweep', target: 'brood_blight_hound', count: 5, region: 'mire_delta', xp: 310, credits: 250, rep: { aegis: 75 }, desc: 'Hunt 5 Blight Hounds across Mire Delta.' },
+        { id: 'b_quarry', title: 'Quarry Ash Purging', target: 'brood_pyro_fiend', count: 4, region: 'ash_quarry', xp: 360, credits: 290, rep: { militia: 90 }, desc: 'Slay 4 Quarry Ash Fiends in Ash Quarry.' },
+        { id: 'b_outlaws', title: 'Badlands Outlaw Warrant', target: 'badlands_outlaw', count: 6, region: 'sunscorched_badlands', xp: 520, credits: 420, rep: { syndicate: 110 }, desc: 'Eliminate 6 Redrock Desperados in Sunscorched Badlands.' },
+        { id: 'b_scorpions', title: 'Witcher Contract: Stingers', target: 'dune_scorpion', count: 5, region: 'sunscorched_badlands', xp: 560, credits: 440, rep: { militia: 100 }, desc: 'Exterminate 5 Sunscorched Stingers in Scorpion Canyon.' },
+        { id: 'b_drowned', title: 'Sunken Coast Salvage', target: 'drowned_corsair', count: 5, region: 'sunken_coast', xp: 680, credits: 520, rep: { aegis: 120 }, desc: 'Put down 5 Drowned Corsairs along Sunken Ruin Coast.' },
+        { id: 'b_alpine', title: 'Rogue Aegis Patrol', target: 'aegis', count: 5, region: 'alpine_array', xp: 450, credits: 350, rep: { helix: 90 }, desc: 'Neutralize 5 Aegis Troopers in Alpine Array.' },
+        { id: 'b_trolls', title: 'Witcher Contract: Ice-Trolls', target: 'glacier_troll', count: 4, region: 'frostfang_peaks', xp: 920, credits: 680, rep: { aegis: 150 }, desc: 'Slay 4 Frostfang Ice-Trolls in Frostfang Peaks.' },
+        { id: 'b_helix', title: 'Crater Void Purge', target: 'helix_voidweaver', count: 4, region: 'meridian_core', xp: 640, credits: 480, rep: { aegis: 120 }, desc: 'Defeat 4 Helix Voidweavers near Meridian Core.' },
+        { id: 'b_drakes', title: 'Dragonwild Drake Hunt', target: 'ashen_drake', count: 4, region: 'obsidian_dragonwilds', xp: 1450, credits: 980, rep: { militia: 180, aegis: 180 }, desc: 'Slay 4 Obsidian Ash-Drakes in the Dragonwilds.' }
     ];
 
     const CODEX_MILESTONES = [
         { id: 'cx_kills_25', title: 'Basin Hunter', desc: 'Defeat 25 enemies in the Meridian Expanse.', check: (s) => s.stats.kills >= 25, reward: { credits: 250, items: ['w_m4a1_warden'] } },
-        { id: 'cx_kills_100', title: 'Expanse Legend', desc: 'Defeat 100 enemies.', check: (s) => s.stats.kills >= 100, reward: { credits: 600, items: ['w_gold_deagle_king'] } },
+        { id: 'cx_kills_100', title: 'Expanse Legend', desc: 'Defeat 100 enemies.', check: (s) => s.stats.kills >= 100, reward: { credits: 650, items: ['w_gold_deagle_king'] } },
+        { id: 'cx_kills_300', title: 'Grandmaster Grinder', desc: 'Defeat 300 enemies across the frontier.', check: (s) => s.stats.kills >= 300, reward: { credits: 1600, items: ['helm_dragonwild', 'elixir_wisdom'] } },
         { id: 'cx_react_20', title: 'Elemental Chemist', desc: 'Trigger 20 Elemental Reactions.', check: (s) => s.stats.reactions >= 20, reward: { credits: 300, items: ['w_p90_arc', 'tool_overcharge_cell'] } },
-        { id: 'cx_disc_10', title: 'Cartographer', desc: 'Discover 10 Points of Interest.', check: (s) => s.stats.discovered >= 10, reward: { credits: 350, items: ['boots_ghost'] } },
-        { id: 'cx_boss_3', title: 'Apex Slayer', desc: 'Defeat 3 Regional World Bosses.', check: (s) => ['killed_raider_boss', 'killed_matriarch', 'killed_boss_mire_hydra', 'killed_boss_quarry_colossus', 'killed_boss_alpine_warden', 'killed_boss_meridian_sovereign'].filter((k) => s.worldFlags[k]).length >= 3, reward: { credits: 800, items: ['w_barrett_anti', 'relic_crater_shard'] } },
-        { id: 'cx_pylons_6', title: 'Grid Restorer', desc: 'Bring all 6 Transit Pylons online.', check: (s) => Object.values(s.pylons || {}).filter(Boolean).length >= 6, reward: { credits: 500, items: ['w_tesla_coil'] } }
+        { id: 'cx_disc_10', title: 'Basin Scout', desc: 'Discover 10 Points of Interest.', check: (s) => s.stats.discovered >= 10, reward: { credits: 350, items: ['boots_ghost'] } },
+        { id: 'cx_disc_30', title: 'Master Cartographer', desc: 'Discover 30 Points of Interest across the 1280m world.', check: (s) => s.stats.discovered >= 30, reward: { credits: 1200, items: ['w_intervention_apex', 'boots_dragonwild'] } },
+        { id: 'cx_boss_3', title: 'Apex Slayer', desc: 'Defeat 3 distinct World or Dungeon Bosses.', check: (s) => Object.keys(s.worldFlags || {}).filter((k) => k.startsWith('killed_') && BO.OWRPGStatsData.ENEMIES[k.slice(7)]?.boss).length >= 3, reward: { credits: 850, items: ['w_barrett_anti', 'relic_crater_shard'] } },
+        { id: 'cx_boss_8', title: 'Dungeon Conqueror', desc: 'Defeat 8 distinct World or Dungeon Bosses.', check: (s) => Object.keys(s.worldFlags || {}).filter((k) => k.startsWith('killed_') && BO.OWRPGStatsData.ENEMIES[k.slice(7)]?.boss).length >= 8, reward: { credits: 2200, items: ['rig_dragonwild', 'relic_dragon_heart'] } },
+        { id: 'cx_pylons_6', title: 'Grid Restorer', desc: 'Bring 6 Transit Pylons online.', check: (s) => Object.values(s.pylons || {}).filter(Boolean).length >= 6, reward: { credits: 500, items: ['w_tesla_coil'] } },
+        { id: 'cx_pylons_12', title: 'Continental Network', desc: 'Bring all 12 Transit Pylons online.', check: (s) => Object.values(s.pylons || {}).filter(Boolean).length >= 12, reward: { credits: 1800, items: ['w_fire_staff'] } }
     ];
 
     // Merge Expansion items, abilities, and loot tables into BO.OWRPGStatsData cleanly
@@ -336,16 +371,17 @@
         for (const slot of ['primer', 'detonator', 'gadget', 'ultimate']) {
             SD.ABILITIES[slot] = Object.assign(SD.ABILITIES[slot] || {}, EXPANSION_ABILITIES[slot] || {});
         }
-        // Enrich loot tables with new armor, tools, and weapons
         SD.LOOT.raider.push(['helm_scav', 4, 1, 1], ['boots_scav', 4, 1, 1], ['tool_field_repair', 5, 1, 1]);
         SD.LOOT.syndicate.push(['w_ak47_rust', 3, 1, 1], ['w_ump45_enforcer', 4, 1, 1], ['helm_juggernaut', 2, 1, 1], ['tool_thermal_cutter', 3, 1, 1]);
         SD.LOOT.militia.push(['helm_warden', 3, 1, 1], ['boots_warden', 3, 1, 1], ['w_m4a1_warden', 3, 1, 1]);
         SD.LOOT.aegis.push(['helm_arctech', 2, 1, 1], ['boots_arctech', 2, 1, 1], ['w_acr_specops', 2, 1, 1], ['tool_kinetic_shield', 2, 1, 1]);
         SD.LOOT.helix.push(['w_f2000_helix', 2, 1, 1], ['rig_arctech', 1, 1, 1], ['tool_nano_patch', 3, 1, 1]);
         SD.LOOT.brood.push(['tool_field_repair', 4, 1, 1], ['relic_brood_heart', 1, 1, 1]);
-        SD.LOOT.boss.push(['tool_nano_patch', 65, 1, 1], ['rig_juggernaut', 25, 1, 1], ['helm_arctech', 25, 1, 1], ['w_mg42_scrap', 20, 1, 1]);
+        SD.LOOT.undead.push(['helm_lichplate', 2, 1, 1], ['boots_lichplate', 2, 1, 1], ['rig_lichplate', 1, 1, 1], ['relic_lich_phylactery', 1, 1, 1]);
+        SD.LOOT.dragon.push(['helm_dragonwild', 2, 1, 1], ['boots_dragonwild', 2, 1, 1], ['rig_dragonwild', 1, 1, 1], ['w_fire_staff', 1, 1, 1]);
+        SD.LOOT.boss.push(['tool_nano_patch', 65, 1, 1], ['rig_juggernaut', 20, 1, 1], ['helm_arctech', 20, 1, 1], ['w_mg42_scrap', 18, 1, 1], ['rig_lichplate', 16, 1, 1], ['helm_dragonwild', 10, 1, 1]);
         SD.LOOT.cache.push(['tool_field_repair', 12, 1, 1], ['tool_riot_plate', 8, 1, 1], ['boots_scav', 6, 1, 1], ['helm_scav', 6, 1, 1]);
-        SD.LOOT.locked.push(['tool_nano_patch', 18, 1, 1], ['w_deagle_judge', 8, 1, 1], ['rig_warden', 8, 1, 1], ['boots_ghost', 6, 1, 1]);
+        SD.LOOT.locked.push(['tool_nano_patch', 18, 1, 1], ['w_deagle_judge', 8, 1, 1], ['rig_warden', 8, 1, 1], ['boots_ghost', 6, 1, 1], ['helm_lichplate', 5, 1, 1]);
     }
 
     BO.OWRPGGunStats = OWRPGGunStats;

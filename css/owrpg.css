@@ -211,3 +211,72 @@
 .ow-mount-card small, .ow-bounty-card small, .ow-codex-card small { display: block; font-size: 11.5px; color: var(--ow-dim); margin-top: 2px; }
 .ow-mount-card em { display: block; font-size: 11px; color: #fca5a5; font-style: normal; margin-top: 3px; }
 .ow-mount-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font: 700 11px var(--font-mono, monospace); color: #bae6fd; }
+
+/* Frontier navigation and persistent mastery */
+.ow-mastery-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+.ow-mastery { padding:18px; border:1px solid #334155; border-top:2px solid var(--c); border-radius:10px; background:#111b25; }
+.ow-mastery > div { display:flex; justify-content:space-between; gap:12px; color:var(--c); }
+.ow-mastery p { color:#cbd5e1; line-height:1.5; min-height:4.5em; font-size:13px; }
+.ow-mastery progress { width:100%; height:8px; accent-color:var(--c); }
+.ow-mastery small { display:block; text-align:right; margin-top:7px; color:#94a3b8; }
+.ow-compass { width:min(420px,45vw); height:34px; }
+.ow-compass .ow-bearing { position:absolute; top:-14px; transform:translateX(-50%); font-size:11px; color:#e2e8f0; text-shadow:0 1px 4px #000; }
+.ow-compass-needle { position:absolute; left:50%; top:-24px; transform:translateX(-50%); color:#fbbf24; }
+#ow-map { width:100%; height:auto; border:1px solid #475569; border-radius:8px; cursor:crosshair; }
+
+/* ============================================================================
+   Cartography · Quest tracker · Discoveries · Champions (flagship-2)
+============================================================================ */
+/* Minimap — top-left, circular, rotating with fog-of-war. */
+.ow-minimap { position: absolute; top: 18px; left: 18px; width: 200px; height: 200px; border-radius: 50%; animation: owMmIn 0.45s var(--ow-ease); filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.55)); }
+.ow-minimap canvas { width: 100%; height: 100%; border-radius: 50%; display: block; }
+.ow-mm-rim { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid rgba(245, 166, 35, 0.55); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.65), inset 0 0 26px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.6); pointer-events: none; background: radial-gradient(circle, transparent 62%, rgba(0, 0, 0, 0.18) 100%); }
+.ow-mm-cardinals i { position: absolute; transform: translate(-50%, -50%); font: 900 11px var(--font-mono, monospace); font-style: normal; color: #e7e5e4; text-shadow: 0 0 3px #000, 0 1px 2px #000; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background: rgba(10, 10, 8, 0.72); }
+.ow-mm-cardinals i.ow-mm-n { color: #fbbf24; box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.6); }
+.ow-mm-info { position: absolute; left: 50%; top: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; text-align: center; padding: 3px 10px; border-radius: 999px; background: rgba(10, 10, 8, 0.7); border: 1px solid var(--ow-line); }
+.ow-mm-info b { display: block; font: 800 11px 'Segoe UI', sans-serif; letter-spacing: 1px; color: #fde68a; text-transform: uppercase; }
+.ow-mm-info span { display: block; font: 600 10px var(--font-mono, monospace); color: var(--ow-dim); }
+@keyframes owMmIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+
+/* Multi-quest tracker. */
+.ow-quest { display: flex; flex-direction: column; gap: 6px; background: transparent; border-left: 0; padding: 0; }
+.ow-qt { padding: 7px 12px 8px; border-left: 3px solid var(--k, var(--ow-amber)); background: linear-gradient(90deg, rgba(10, 10, 8, 0.72), rgba(10, 10, 8, 0.38)); border-radius: 0 6px 6px 0; animation: owQtIn 0.35s var(--ow-ease); }
+.ow-qt b { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; letter-spacing: 0.6px; color: var(--k, var(--ow-amber)); text-transform: uppercase; }
+.ow-qt b em { font: 700 11px var(--font-mono, monospace); font-style: normal; color: #e7e5e4; opacity: 0.85; }
+.ow-qt span { display: block; font-size: 12.5px; line-height: 1.38; color: #e7e5e4; margin-top: 2px; }
+.ow-qt-sub { opacity: 0.86; } .ow-qt-sub span { font-size: 11.5px; }
+@keyframes owQtIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+.ow-blessing { position: absolute; left: 18px; bottom: 214px; display: flex; gap: 8px; align-items: baseline; padding: 4px 10px; border-radius: 999px; background: rgba(10, 10, 8, 0.66); border: 1px solid rgba(94, 234, 212, 0.35); font-size: 11.5px; animation: owQtIn 0.35s var(--ow-ease); }
+.ow-blessing span { font: 700 10.5px var(--font-mono, monospace); color: var(--ow-dim); }
+.ow-pops { bottom: 244px; }
+/* World events stack above the ability bar so a three-quest tracker never covers them. */
+.ow-event { top: auto; bottom: 208px; }
+
+/* Character creator navigation toggles. */
+.ow-nav-opts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* Atlas tab. */
+.ow-atlas-head { display: grid; grid-template-columns: 132px 1fr; gap: 18px; align-items: center; margin-bottom: 6px; }
+.ow-atlas-head h3 { margin: 2px 0 4px; font-size: 22px; letter-spacing: 1px; color: #fde68a; }
+.ow-atlas-head p { margin: 2px 0; }
+.ow-atlas-ring { --p: 0; width: 124px; height: 124px; border-radius: 50%; display: grid; place-content: center; text-align: center; background: radial-gradient(closest-side, #12130f 78%, transparent 79% 100%), conic-gradient(#fbbf24 calc(var(--p) * 1%), rgba(255, 255, 255, 0.08) 0); box-shadow: 0 0 24px rgba(251, 191, 36, 0.18); }
+.ow-atlas-ring b { font: 900 26px var(--font-mono, monospace); color: #fde68a; } .ow-atlas-ring small { font-size: 9.5px; letter-spacing: 2px; color: var(--ow-dim); }
+.ow-atlas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 900px) { .ow-atlas { grid-template-columns: 1fr; } .ow-atlas-head { grid-template-columns: 1fr; } }
+.ow-atlas-row { display: grid; grid-template-columns: 150px 1fr; gap: 10px; padding: 9px 11px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); border-left: 4px solid var(--c); }
+.ow-atlas-row b { display: block; font-size: 13.5px; } .ow-atlas-row small { color: var(--ow-dim); font-size: 11px; }
+.ow-atlas-bars { display: grid; gap: 4px; }
+.ow-atlas-bars label { display: grid; grid-template-columns: 62px 1fr 44px; gap: 6px; align-items: center; font-size: 10.5px; color: var(--ow-dim); }
+.ow-atlas-bars i { position: relative; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ow-atlas-bars i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: linear-gradient(90deg, var(--c), #fde68a); border-radius: 3px; transition: width 0.5s var(--ow-ease); }
+.ow-atlas-bars em { font: 700 10.5px var(--font-mono, monospace); font-style: normal; color: #e7e5e4; text-align: right; }
+.ow-stat[style*="--c"] { border-left: 3px solid var(--c); }
+
+/* Lore tome reader. */
+.ow-lore { width: min(680px, 92vw); }
+.ow-tome { padding: 6px 4px; }
+.ow-tome h2 { margin: 6px 0 12px; font: 700 26px Georgia, 'Times New Roman', serif; color: #fde68a; letter-spacing: 0.5px; }
+.ow-tome p { font: 400 16px/1.7 Georgia, 'Times New Roman', serif; color: #e7e5e4; padding: 14px 18px; border-radius: 8px; background: linear-gradient(160deg, rgba(233, 196, 106, 0.09), rgba(233, 196, 106, 0.03)); border: 1px solid rgba(233, 196, 106, 0.22); }
+.ow-tome .ow-row { margin-top: 12px; justify-content: flex-end; }
+#ow-map { max-width: 768px; }
+@media (prefers-reduced-motion: reduce) { .ow-minimap, .ow-qt, .ow-blessing { animation: none; } }

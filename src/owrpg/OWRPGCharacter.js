@@ -24,7 +24,46 @@
                 if (!e) continue;
                 for (const [k, v] of Object.entries(e.perk.fx)) out[k] = (out[k] || 0) + v;
             }
+            const stone = SD().STANDING_STONES[s.player.standingStone];
+            if (stone) for (const [k, v] of Object.entries(stone.fx)) out[k] = (out[k] || 0) + v;
+            const rank = id => Math.max(0, this.skill(s, id).level - 1);
+            const add = (key, value) => { out[key] = (out[key] || 0) + value; };
+            if ((s.worldFlags.xpBoostUntil || 0) > s.playtimeSec) add('xpMult', 0.3);
+            add('allDmgMult', rank('combat') * 0.005);
+            add('monsterDmg', rank('slayer') * 0.006);
+            add('creditFind', rank('delving') * 0.008);
+            add('medMult', rank('foraging') * 0.006);
+            add('gatherChance', rank('foraging') * 0.006);
+            add('salvage', rank('mining') * 0.007);
+            add('durSave', rank('mining') * 0.007);
+            add('arcanaDmg', rank('arcana') * 0.006);
+            add('speedMult', rank('exploration') * 0.002);
+            add('discoveryXp', rank('exploration') * 0.01);
+            // Timed shrine blessing (Discoveries): fx bundle that expires on playtime.
+            const bl = s.player.blessing;
+            if (bl && bl.until > s.playtimeSec && bl.fx) for (const [k, v] of Object.entries(bl.fx)) add(k, v);
             return out;
+        },
+
+        skill(s, id) {
+            const skills = s.player.skills || (s.player.skills = {});
+            return skills[id] || (skills[id] = { level: 1, xp: 0 });
+        },
+
+        addSkillXp(s, id, amount) {
+            if (!SD().SKILLS[id] || !Number.isFinite(amount) || amount <= 0) return 0;
+            const sk = this.skill(s, id);
+            if (sk.level >= SD().SKILL_CAP) return 0;
+            sk.xp += Math.round(amount * (1 + (this.perkFx(s).skillXpMult || 0)));
+            let levels = 0;
+            while (sk.level < SD().SKILL_CAP && sk.xp >= SD().skillXpToNext(sk.level)) {
+                sk.xp -= SD().skillXpToNext(sk.level);
+                sk.level++;
+                levels++;
+            }
+            if (sk.level >= SD().SKILL_CAP) sk.xp = 0;
+            if (levels) BO.Events.emit('hud:toast', { text: SD().SKILLS[id].name + ' advanced to ' + sk.level, color: SD().SKILLS[id].color });
+            return levels;
         },
 
         /** Compute active 2-piece & 3-piece Set Bonuses and summed armor stats. */
@@ -90,6 +129,7 @@
             for (const k of ['detHeal', 'reactMult', 'heavyPen', 'heavyDmg', 'chain']) {
                 if (gb[k]) mergedFx[k] = (mergedFx[k] || 0) + gb[k];
             }
+            for (const el of Object.keys(gs.elemRes)) gs.elemRes[el] = Math.min(0.75, gs.elemRes[el] + (fx.allElemRes || 0));
             return {
                 maxHp: Math.round(60 + 8 * a('BRW') + (fx.maxHp || 0) + (gb.maxHp || 0)),
                 maxWeight,
@@ -99,7 +139,7 @@
                 spreadMult: Math.max(0.6, 1 - 0.03 * (a('RFX') - 5)),
                 dodgeWindow: 0.25 + 0.025 * a('RFX'),
                 cdMult: Math.max(0.35, (1 - 0.04 * (a('TCH') - 5)) * (1 - (fx.cdr || 0)) * (1 - (gb.cdr || 0))),
-                statusPotency: 1 + 0.07 * (a('TCH') - 5) + (gb.statusPotency || 0),
+                statusPotency: 1 + 0.07 * (a('TCH') - 5) + (gb.statusPotency || 0) + (fx.statusPotency || 0),
                 statusDur: 1 + (fx.statusDur || 0) + 0.07 * (a('TCH') - 5),
                 critMult: 1 + 0.5 + 0.045 * a('PRC') + (fx.critAdd || 0) + (gb.critAdd || 0),
                 noiseMult: Math.max(0.25, (1 - 0.04 * (a('PRC') - 5)) * (1 + (fx.noise || 0) + (gb.noise || 0))),
@@ -109,7 +149,7 @@
                 repMult: 1 + 0.08 * (a('PRS') - 5),
                 stealthMult: 2.25 + (fx.stealthMult || 0) + (gb.stealthMult || 0),
                 detectSlow: fx.detectSlow || 0,
-                gearSpeedMult: 1 + (gb.speedMult || 0),
+                gearSpeedMult: 1 + (gb.speedMult || 0) + (fx.speedMult || 0),
                 elemRes: gs.elemRes,
                 activeSets: gs.activeSets,
                 fx: mergedFx
@@ -122,7 +162,7 @@
             const p = s.player;
             const cap = SD().LEVEL_CAP;
             if (p.level >= cap) return 0;
-            p.xp += Math.max(0, Math.round(amount));
+            p.xp += Number.isFinite(amount) ? Math.max(0, Math.round(amount * (1 + (this.perkFx(s).xpMult || 0)))) : 0;
             let gained = 0;
             while (p.level < cap && p.xp >= SD().xpToNext(p.level)) {
                 p.xp -= SD().xpToNext(p.level);

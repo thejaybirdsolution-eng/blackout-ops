@@ -44,6 +44,8 @@
             if (!s) return amount;
             const d = BO.OWRPGCharacter.derived(s);
             let a = amount * this.diff().inc * (100 / (100 + d.armor));
+            if (attackerEntity?.owAgent?.boss) a *= 1 - Math.min(0.8, d.fx.bossDR || 0);
+            if (attackerEntity?.owAgent && BO.OWRPGChampions) a *= BO.OWRPGChampions.dealtMult(attackerEntity.owAgent);
             if (d.fx.crouchDR && BO.Player.crouching) a *= 1 - d.fx.crouchDR;
             if (BO.OWRPGMounts && BO.OWRPGMounts.mounted) a *= BO.OWRPGMounts.drMult();
             const attElem = attackerEntity && attackerEntity.owAgent && attackerEntity.owAgent.def && attackerEntity.owAgent.def.elem;
@@ -64,6 +66,7 @@
                     if (eq) BO.OWRPGDurability.degrade(s, eq, 0.22);
                 }
             }
+            if (attackerEntity?.owAgent?.champ) BO.OWRPGChampions.afterHitPlayer(attackerEntity.owAgent, a);
             BO.OWRPGMode.onPlayerHurt();
             return a;
         },
@@ -95,6 +98,13 @@
             const unaware = agent.state !== 'combat';
 
             let m = 1;
+            if (ctx.source === 'gun' || ctx.source === 'melee') m *= 1 + (d.fx.allDmgMult || 0);
+            if (agent.kind === 'beast') m *= 1 + (d.fx.beastDmg || 0);
+            if (agent.kind === 'beast' || agent.boss) m *= 1 + (d.fx.monsterDmg || 0);
+            if (agent.boss) m *= 1 + (d.fx.bossDmg || 0);
+            if (agent.champ) m *= BO.OWRPGChampions.takenMult(agent);
+            if (ctx.source === 'gun' && ctx.dist > 22) m *= 1 + (d.fx.rangeDmg22 || 0);
+            if (ctx.source === 'ability' || ctx.source === 'reaction') m *= 1 + (d.fx.arcanaDmg || 0);
             if (ctx.source === 'gun') m *= ws.dmgMult;
             if (ctx.source === 'melee') m *= d.meleeMult * (ws.dmgMult || 1);
             if (this.overdriveT > 0) m *= 1.25;
@@ -108,7 +118,7 @@
             if (ctx.isHead && (ctx.source === 'gun' || ctx.source === 'melee')) {
                 m *= d.critMult + (ws.critAdd || 0) + (this.overdriveT > 0 ? 0.3 : 0);
                 crit = true;
-            } else if ((ctx.source === 'gun' || ctx.source === 'melee') && Math.random() < (ws.critChance || 0) + (this.overdriveT > 0 ? 0.25 : 0)) {
+            } else if ((ctx.source === 'gun' || ctx.source === 'melee') && Math.random() < (ws.critChance || 0) + (d.fx.bonusCritChance || 0) + (this.overdriveT > 0 ? 0.25 : 0)) {
                 m *= (1.45 + (ws.critAdd || 0) * 0.5);
                 crit = true;
             }
@@ -120,7 +130,7 @@
             let sneak = false;
             if (unaware && (ctx.source === 'melee' || ctx.suppressed)) { m *= d.stealthMult; sneak = true; }
             if (agent.st.expose) m *= SD().STATUSES.expose.mult;
-            if (d.fx.execute && agent.ent.hp < agent.ent.maxHp * 0.25) m *= 1 + d.fx.execute;
+            if (d.fx.execute && agent.ent.hp < agent.ent.maxHp * 0.35) m *= 1 + d.fx.execute;
 
             // Weapon Passive Traits (damage modifiers)
             const trait = (ctx.source === 'gun' || ctx.source === 'melee') ? ws.passiveTrait : null;
@@ -129,7 +139,7 @@
             if (trait === 'frostbite' && agent.st.chill) m *= 1.20;
             if (trait === 'headhunter' && ctx.isHead) m *= 1.30;
 
-            let pen = ws.pen || 0;
+            let pen = (ws.pen || 0) + ((ctx.source === 'gun' || ctx.source === 'melee') ? (d.fx.bonusPen || 0) : 0);
             if (trait === 'kinetic_slam' && crit) { pen += 18; agent.ent.stunTimer = Math.max(agent.ent.stunTimer || 0, 0.35); }
             if (d.fx.heavyPen && ctx.entry && /Shotgun|LMG/.test(BO.WeaponsData.get(SD().ITEMS[ctx.entry.id].base).category)) pen += d.fx.heavyPen;
 
@@ -143,9 +153,11 @@
             dmg = Math.max(1, dmg);
 
             const ent = agent.ent;
+            const hpBefore = ent.hp;
             const killed = agent.kind === 'bot'
                 ? ent.takeDamage(dmg, 'player')
                 : ent.takeDamage(dmg, ctx.isHead ? 'head' : 'torso', crit, null, ctx.source === 'melee' ? 'melee' : 'bullet');
+            if (agent.champ && ctx.source !== 'dot') BO.OWRPGChampions.afterDamaged(agent, Math.min(dmg, Math.max(0, hpBefore)));
 
             // Only play hitmarker here for ability/reaction (CombatSystem already plays it for gun/melee!)
             if (ctx.source === 'ability' || ctx.source === 'reaction') {
@@ -204,7 +216,9 @@
             if (roll(ws.voidChance)) this.applyStatus(agent, 'void');
 
             this.hitCount++;
-            if (fx.nthBurn && this.hitCount % fx.nthBurn === 0) this.applyStatus(agent, 'burn');
+            if (ctx.source === 'gun') for (const [key, status] of [['nthBurn', 'burn'], ['nthChill', 'chill'], ['nthShock', 'shock'], ['nthVenom', 'venom'], ['nthVoid', 'void']]) {
+                if (fx[key] && this.hitCount % fx[key] === 0) this.applyStatus(agent, status);
+            }
             if (ws.passiveTrait === 'heat_sink' && this.hitCount % 4 === 0) {
                 this.applyStatus(agent, 'burn');
                 this.damage(agent, 18, { source: 'dot', element: 'burn' });
@@ -326,6 +340,7 @@
                 }
                 if (fx.refund) this.cd.primer = Math.max(0, this.cd.primer * (1 - fx.refund));
                 s.stats.reactions++;
+            BO.OWRPGCharacter.addSkillXp(s, 'arcana', 18);
                 if (!agent.alive) break;
             }
             if (!fired) this.damage(agent, detDmg, { source: 'ability' });
