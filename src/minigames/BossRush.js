@@ -390,6 +390,7 @@
                 x: 0, y: 0, z: -ARENA_R + 6, splitCount: 0, hasGun: false, sizeMult: BOSS_SCALE
             });
             ent.mgBoss = true;
+            BO.MinigameFeel?.onBossRound(S.data.bossIndex, S.data.queue.length);
             const sc = (spec.bodySpec && spec.bodySpec.scale) || [1, 1, 1];
             ent.radius = BO.Math.clamp(0.38 * sc[0] * BOSS_SCALE, 1.6, 4.2);
             ent.height *= BOSS_SCALE;
@@ -485,6 +486,7 @@
                     D.phase = 'fight';
                 } else if (D.phase === 'fight') {
                     if (D.boss && !D.boss.alive) {
+                        BO.MinigameFeel?.onBossDown();
                         D.defeated++;
                         if (D.defeated % 3 === 0) D.blessingCharges++;
                         D.killTimes.push(S.t - D.bossSpawnT);

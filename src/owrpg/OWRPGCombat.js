@@ -153,10 +153,11 @@
             dmg = Math.max(1, dmg);
 
             const ent = agent.ent;
+            const hpBefore = ent.hp;
             const killed = agent.kind === 'bot'
                 ? ent.takeDamage(dmg, 'player')
                 : ent.takeDamage(dmg, ctx.isHead ? 'head' : 'torso', crit, null, ctx.source === 'melee' ? 'melee' : 'bullet');
-            if (agent.champ && ctx.source !== 'dot') BO.OWRPGChampions.afterDamaged(agent, dmg);
+            if (agent.champ && ctx.source !== 'dot') BO.OWRPGChampions.afterDamaged(agent, Math.min(dmg, Math.max(0, hpBefore)));
 
             // Only play hitmarker here for ability/reaction (CombatSystem already plays it for gun/melee!)
             if (ctx.source === 'ability' || ctx.source === 'reaction') {

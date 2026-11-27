@@ -3464,6 +3464,226 @@
                                 "text": "Heavily redesigned the Three-Headed Dragon encounter with distinct sculpted Ignis (Fire), Glacius (Frost), and Voltaris (Lightning) dragon heads atop articulated snaking necks, armored obsidian torso & beating bat-wings, elemental breath beams, destructible weakpoint crests, and an atmospheric volcanic citadel speed-run arena."
                         }
                 ]
+        },
+
+        {
+                "id": 174,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:18 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Operation Meridian Doubles in Size: 12 Regions, 12 Dungeons & a Real Grind",
+                "major": true,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I finished and shipped the Open World RPG expansion that was left half-done: the Meridian Expanse is now 1280 × 1280 m (twice as wide), split into twelve regions from Haven Basin and the Whispering Pinewoods out to the Frostfang Peaks and the Obsidian Dragonwilds, with twelve dungeons, 70 enemy archetypes and 31 authored quests."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Every new operative starts at level 1 and the XP curve is deliberately steep (600 XP for level 2, almost 40,000 for level 11, 800,000 for the last level), so you grind the way you would in RuneScape or WoW. Enemies now respawn ten minutes after they die, the moment you leave an area, and whenever you quit and reload, bosses included."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Six level-by-doing Mastery skills (Arms, Slayer, Dungeoneering, Foraging, Artisan Mining, Runecraft) up to level 99",
+                                        "Eight Skyrim-style Standing Stones and ore, herb, timber and rune nodes that regrow every ten minutes",
+                                        "18 regional world events with hold, wave and hunt objectives",
+                                        "Compass toggle and a Dev Tools button in the pause menu, plus a v3 save migration that keeps old characters"
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 175,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:31 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Cartography: Fog-of-War Minimap, Hill-Shaded World Map & the Atlas",
+                "major": true,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I added a full mapping system. A rotating minimap now sits in the top-left corner and shows hill-shaded terrain, roads, settlements, hostile sites, dungeons, transit pylons, your tracked quest markers (with an arrow on the rim when they are out of range), world events, pins, enemies that are hunting you and nearby friendly NPCs. Press N to cycle its range between 95, 150 and 230 m, or switch it to north-up."
+                        },
+                        {
+                                "type": "p",
+                                "text": "The land starts under fog of war and clears as you walk it. The world map draws a new contoured, hill-shaded base layer under that fog with the charted percentage of every region, and the new Atlas tab tracks overall completion, your cartographer rank and per-region progress. Every 10% of the map you chart pays out XP, and a new Pathfinding mastery skill grows with every cell. I also fixed the map's player arrow, which had been pointing backwards."
+                        }
+                ]
+        },
+        {
+                "id": 176,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:44 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "156 Hidden Sites: Caches, Lore Tomes, Shrines, Skill Shards, Vistas, Stashes & Altars",
+                "major": true,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "There is now something to find around every hill. 156 hidden sites are scattered across the twelve regions, built with props from the asset library and each with its own sound: 48 treasure caches, 24 lore tomes, 12 wayside shrines, 24 skill shards, 12 survey vistas, 24 hidden stashes and 12 Altars of Trials."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Lore tomes open a reader with 24 new entries about what broke the Meridian. Shrines grant one of eight five-minute blessings and can be used again every ten minutes. Skill shards pour Mastery XP into a craft, vistas chart a huge area of the map at once, and stashes have good odds of rare gear. Altars summon a Champion of the region with two of its retinue; win the trial to claim its reward."
+                        }
+                ]
+        },
+        {
+                "id": 177,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "2:52 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Champions: 12 Affixes, Auras and Champion-Led World Events",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Any hostile spawn can now roll as a Champion: bigger, tougher, wrapped in a coloured aura and carrying one to three affixes. With 70 base enemies that turns the roster into hundreds of distinct fights. Champions show their affixes on their health bar, drop Champion's Sigils and better loot, and count toward a new questline."
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Affixes: Vampiric, Molten, Frozen, Shielded, Swift, Berserker, Thorned, Juggernaut, Arcane, Summoner, Regenerating and Warlord",
+                                        "Molten and Frozen Champions erupt when they die; Frozen hits slow you; Summoners call reinforcements at 60% and 30% health",
+                                        "Three new world events (21 total): Champion Incursion, Relic Storm and the two-wave Champion Warband"
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 178,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:00 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Quest Tracker, Nine Exploration Quests and Two New Perk Trees",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "You can now track up to three quests at once. They stack on the HUD with live distances, appear as bearings on the compass and as markers on the minimap, and the quest log is grouped into Main Story, Faction, Side, Contracts, Dungeon Delves and Exploration."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Nine new self-starting exploration quests (40 in total) begin the first time you chart land, open a cache, read a tome, pray at a shrine, sync a vista, absorb a shard, search a stash, win a trial or kill a Champion. Two new perk trees bring the total to nine trees and 108 perks: Pathfinder (reveal radius, discovery XP, shrine duration, treasure luck) and Huntsman (Champion damage and resistance, bonus Champion loot, execute and elemental rounds)."
+                        }
+                ]
+        },
+        {
+                "id": 179,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:04 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Navigation Options When You Create a Character, More Dev Tools",
+                "major": false,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The character creator now lets you start with the compass and the minimap switched on or off, and you can change either one later from the pause menu or from the Pip-Pad's System tab. The developer menu (pause menu button or F8) gained buttons to reveal the whole map, teleport to the nearest hidden site, spawn a three-affix Champion, add five levels to every Mastery skill, grant a shrine blessing and fully heal."
+                        },
+                        {
+                                "type": "p",
+                                "text": "The HUD vitals line in the Open World RPG no longer shows armour plates and tactical charges, which that mode never used; it now shows your med-injectors and your armour rating."
+                        }
+                ]
+        },
+        {
+                "id": 180,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:08 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Performance: Merged-Mesh LOD, Fog-Aware Culling and Lighter Assets",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Freestead was drawing about 1,760 objects per frame because every soldier model is built from roughly 135 parts. NPCs and enemies now swap to a single merged mesh per material when they are more than a few metres away, which brings the town down to under 400 draw calls. Terrain chunks and static buildings that sit completely inside the fog are no longer drawn, and the culling updates immediately after fast travel."
+                        },
+                        {
+                                "type": "p",
+                                "text": "I also committed the 180 staged assets the code was already asking for (the live site was getting 404s for some of them), compressed the large textures from 64 MB to 19 MB without lowering their resolution, added the missing kit colour maps, and repaired the Mode Guide and QA runner. The Open World RPG QA suite now runs 143 checks and passes all of them."
+                        }
+                ]
+        },
+        {
+                "id": 181,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:12 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Minigames: Asset Pass Shipped, Plus Sampled Impacts and an Announcer for All 63 Games",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "I shipped the minigame asset overhaul that was waiting in the working copy: 3D props, skyboxes, PBR textures, music and sound effects from the asset library across the Fun & Specials modes, the Target & Action courses, the Speed Runs, the Arcade Hall, Whack-a-Mole and Boss Rush, including the Grand Citadel Colosseum and its Gladiator Blessing Shrines."
+                        },
+                        {
+                                "type": "p",
+                                "text": "On top of that, a new shared feel layer upgrades every one of the 63 minigames at once. Targets now make a recorded impact that matches what they are made of: steel plates ring, glass shatters, wood thunks, clay and balloons pop, and bullseyes toll a bell. An announcer calls out 10, 25 and 50-hit combos, a combo breaker, \"hurry up\" in the last ten seconds of a timed course and \"time over\" at the buzzer, announces every Boss Rush round and the final round, and calls a flawless victory on a perfect-accuracy platinum run."
+                        }
+                ]
+        },
+        {
+                "id": 182,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "3:15 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Daily Featured Challenges, Streaks and Arcade Rank",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The minigame hub now features three courses every day, one from Target & Action, one from Speed Runs or the Arcade Hall and a platinum challenge, each with a star goal and bonus XP. Every player gets the same three on the same day. Clear all three to start a streak that adds 10% bonus XP per day, up to double. Your total stars across all 63 games also give you an Arcade Rank, from Rookie to Arcade Legend, shown under your star total with how many stars the next rank needs."
+                        }
+                ]
         }
 ]
     };

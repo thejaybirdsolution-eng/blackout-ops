@@ -88,7 +88,11 @@
             }
             this._vegetation(world, scene, D);
             this._water(scene, D, out);
-            for (const p of D.PYLONS) out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+            for (const p of D.PYLONS) {
+                out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
+                // A 6 m pylon is a couple of pixels beyond ~420 m; stop drawing it there (6 draw calls each).
+                out.culledGroups.push({ group: out.pylons[p.id].group, x: p.x, z: p.z, r: 420 });
+            }
             flushStruts(scene);
             this._townWarmth(scene, D, t, out);
             this._weatherMotes(scene, out);

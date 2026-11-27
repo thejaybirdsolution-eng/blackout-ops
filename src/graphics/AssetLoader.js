@@ -457,6 +457,16 @@
         playAmbient,
         stopAmbient,
         isSharedGeo: (g) => sharedGeos.has(g),
+        /**
+         * Frees the GPU copies of every cached texture and GLB geometry while keeping the decoded
+         * images and parsed scenes in memory. three.js re-uploads them the next time they are drawn,
+         * so switching between minigames no longer piles hundreds of textures onto the GPU.
+         */
+        releaseGpu() {
+            for (const t of texCache.values()) if (t && t.isTexture) t.dispose();
+            for (const g of sharedGeos) if (g && g.dispose) g.dispose();
+            for (const m of sharedMats) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) if (m && m[k] && m[k].isTexture) m[k].dispose();
+        },
         isSharedMat: (m) => sharedMats.has(m) || matCache.has(m),
         isCachedTex: (t) => texCache.has(t),
         hasSharedMatValue: (m) => {

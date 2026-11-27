@@ -150,7 +150,8 @@
         afterDamaged(agent, dmg) {
             if (!agent.champ || dmg <= 0) return;
             const P = BO.Player;
-            if (this.has(agent, 'thorned') && P.alive) P.takeDamage(Math.max(1, dmg * 0.1), agent.ent.pos, false, null);
+            // Thorns reflect 10% of the damage actually dealt (overkill excluded), capped at 6% of max HP per hit.
+            if (this.has(agent, 'thorned') && P.alive) P.takeDamage(Math.max(1, Math.min(dmg * 0.1, P.maxHp * 0.06)), agent.ent.pos, false, null);
             if (this.has(agent, 'summoner') && agent.alive) {
                 const frac = agent.ent.hp / agent.ent.maxHp;
                 const want = frac < 0.3 ? 2 : frac < 0.6 ? 1 : 0;
