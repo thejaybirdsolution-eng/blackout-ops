@@ -38,26 +38,34 @@
 
     function beatTarget(color, radius) {
         const grp = new THREE.Group();
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.08, 36), new THREE.MeshStandardMaterial({ color: 0x0b1020, emissive: color, emissiveIntensity: 0.85, roughness: 0.35 }));
+        const disc = new THREE.Mesh(
+            new THREE.CylinderGeometry(radius, radius, 0.08, 40),
+            new THREE.MeshStandardMaterial({ color: 0x070b18, emissive: color, emissiveIntensity: 0.72, roughness: 0.26, metalness: 0.35 })
+        );
         disc.rotation.x = Math.PI / 2;
-        const core = new THREE.Mesh(new THREE.CircleGeometry(radius * 0.38, 28), basic(0xffffff));
-        core.position.z = 0.05;
+        const core = new THREE.Mesh(new THREE.CircleGeometry(radius * 0.30, 28), basic(0xffffff));
+        core.position.z = 0.052;
         core.userData.noHit = true;
-        const rim = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.045, 8, 44), basic(color));
+        const halo = new THREE.Mesh(new THREE.RingGeometry(radius * 0.62, radius * 0.70, 36), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false }));
+        halo.position.z = 0.048;
+        halo.userData.noHit = true;
+        const rimMat = new THREE.MeshBasicMaterial({ color });
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.048, 8, 48), rimMat);
         rim.userData.noHit = true;
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.04, 6, 52), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false }));
+        const ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92, depthWrite: false });
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.044, 8, 56), ringMat);
         ring.userData.noHit = true;
-        grp.add(disc, core, rim, ring);
-        return { mesh: grp, hitMeshes: [disc], ring, disc };
+        grp.add(disc, core, halo, rim, ring);
+        return { mesh: grp, hitMeshes: [disc], ring, disc, rim, baseColor: color };
     }
 
     MG.register({
         id: 'beat_drop', cat: 'target', order: 11,
         name: 'Beat Drop', icon: '🎵', accent: '#22d3ee',
         tagline: 'Shoot on the beat. Build the song.',
-        desc: 'A neon stage and a live-synthesised track. Targets pop in time with the music, and a ring closes on each one. Fire as the ring meets the disc. Your gun plays notes instead of gunshots. Stay on time to build Groove, which brings in the bass, the chords, the lead and finally the full mix. Pick from 11 songs (difficulty 1 to 10) and four modes. One bullet breaks exactly one disc, even when discs are stacked.',
+        desc: 'A neon stage and a live-synthesised track. Targets pop in time with the music, and a ring closes on each one. Fire as the ring meets the disc. Your gun plays notes instead of gunshots. Stay on time to build Groove, which brings in the bass, the chords, the lead and finally the full mix. Pick from 12 songs (difficulty 1 to 10) and four modes. One bullet breaks exactly one disc, even when discs are stacked.',
         hudSub: 'Fire when the ring meets the disc • on-time hits build the song',
-        heroLabel: 'TARGET PRACTICE • RHYTHM • 11 SONGS • 4 MODES',
+        heroLabel: 'TARGET PRACTICE • RHYTHM • 12 SONGS • 4 MODES',
         duration: 61, stars: [15000, 35000, 60000, 85000], standardWeapon: 'p90', customMusic: true, forgivingMisses: true, infiniteMag: true,
         oneTargetPerShot: true, hasExample: true,
         blockFire: (S) => !!(S && S.opts && S.opts.exampleMode),
@@ -84,91 +92,171 @@
             S.data.level = 0;
             S.data.judge = { PERFECT: 0, GREAT: 0, GOOD: 0, OFF: 0, MISS: 0 };
             S.data.grooveTime = [0, 0, 0, 0, 0];
-            // stage floor with a glowing grid
+            // stage floor with a glowing grid + perspective runway rails
             const grid = L.canvasTex('beat-grid', 256, 256, (g, w, h) => {
-                g.fillStyle = '#07030f'; g.fillRect(0, 0, w, h);
-                g.strokeStyle = '#7c3aed'; g.lineWidth = 3;
+                g.fillStyle = '#06020d'; g.fillRect(0, 0, w, h);
+                g.strokeStyle = '#6d28d9'; g.lineWidth = 2.5;
                 g.strokeRect(0, 0, w, h);
-                g.strokeStyle = 'rgba(34,211,238,0.35)'; g.lineWidth = 1;
+                g.strokeStyle = 'rgba(34,211,238,0.28)'; g.lineWidth = 1;
                 g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
             });
             grid.wrapS = grid.wrapT = THREE.RepeatWrapping;
             grid.repeat.set(20, 20);
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: grid, emissive: 0xffffff, emissiveMap: grid, emissiveIntensity: 0.6, roughness: 0.3, metalness: 0.4 }));
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: grid, emissive: 0xffffff, emissiveMap: grid, emissiveIntensity: 0.52, roughness: 0.32, metalness: 0.45 }));
             floor.rotation.x = -Math.PI / 2;
             floor.position.set(0, 0.003, -10);
             S.add(floor);
             S.solid(floor);
-            // DJ riser around the player
-            S.box(0, 0.5, -1.0, 3.6, 1.0, 0.6, std(0x111827, 0.4, 0.5));
-            const deckTop = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.04, 0.6), new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x22d3ee, emissiveIntensity: 0.3 }));
-            deckTop.position.set(0, 1.02, -1.0);
+            const runwayStrips = [];
+            for (const rx of [-2.45, 2.45]) {
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.03, 13.8), new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.42 }));
+                rail.position.set(rx, 0.02, -8.4);
+                S.add(rail);
+                runwayStrips.push(rail);
+            }
+            // DJ riser & mixer deck around the player
+            S.box(0, 0.5, -1.0, 3.8, 1.0, 0.65, std(0x0b1120, 0.35, 0.6));
+            const deckTop = new THREE.Mesh(new THREE.BoxGeometry(3.84, 0.05, 0.68), new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x22d3ee, emissiveIntensity: 0.32 }));
+            deckTop.position.set(0, 1.025, -1.0);
             S.add(deckTop);
-            for (const sx of [-0.9, 0.9]) {
-                const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.03, 24), std(0x1f2937, 0.3, 0.6));
-                platter.position.set(sx, 1.05, -1.0);
+            const frontBar = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.06, 0.04), new THREE.MeshBasicMaterial({ color: 0xf472b6 }));
+            frontBar.position.set(0, 0.88, -1.33);
+            S.add(frontBar);
+            for (const sx of [-1.05, 1.05]) {
+                const platter = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.03, 28), std(0x1e293b, 0.25, 0.75));
+                platter.position.set(sx, 1.06, -1.0);
                 S.add(platter);
-                S.animate((dt) => { platter.rotation.y += dt * 3.5; });
+                const spindle = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.012, 6, 28), basic(0x22d3ee));
+                spindle.rotation.x = Math.PI / 2;
+                spindle.position.set(sx, 1.08, -1.0);
+                S.add(spindle);
+                S.animate((dt) => { platter.rotation.y += dt * 3.8; spindle.rotation.z -= dt * 2.2; });
+            }
+            for (let f = -2; f <= 2; f++) {
+                const fader = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.22), basic(f === 0 ? 0xfacc15 : 0x67e8f9));
+                fader.position.set(f * 0.16, 1.06, -1.0);
+                S.add(fader);
             }
             S.collider(-2.2, 0, -1.4, -1.8, 3, 2.5);
             S.collider(1.8, 0, -1.4, 2.2, 3, 2.5);
             S.collider(-2.2, 0, 2.1, 2.2, 3, 2.5);
-            // back wall of LED panels
-            const wall = new THREE.Mesh(new THREE.BoxGeometry(30, 12, 0.4), std(0x0a0614, 0.6, 0.3));
-            wall.position.set(0, 6, -18);
+
+            // Recessed matte-obsidian target backdrop + glowing proscenium frame (high contrast for targets!)
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(34, 13, 0.4), std(0x06040d, 0.85, 0.15));
+            wall.position.set(0, 6.4, -18.0);
             S.add(wall);
             S.solid(wall);
+            const stageBackTex = L.canvasTex('beat-stage-back', 256, 128, (g, w, h) => {
+                g.fillStyle = '#05020b'; g.fillRect(0, 0, w, h);
+                g.strokeStyle = 'rgba(139,92,246,0.16)'; g.lineWidth = 1;
+                for (let x = 0; x <= w; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+                for (let y = 0; y <= h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+            });
+            const playZone = new THREE.Mesh(new THREE.PlaneGeometry(17.2, 6.7), new THREE.MeshBasicMaterial({ map: stageBackTex }));
+            playZone.position.set(0, 3.7, -17.65);
+            S.add(playZone);
+            const prosceniumRails = [];
+            for (const [px, py, pw, ph, col] of [
+                [0, 7.08, 17.4, 0.08, 0x22d3ee],
+                [0, 0.36, 17.4, 0.08, 0xa78bfa],
+                [-8.7, 3.72, 0.08, 6.8, 0x22d3ee],
+                [8.7, 3.72, 0.08, 6.8, 0x22d3ee]
+            ]) {
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.12), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.78 }));
+                rail.position.set(px, py, -17.55);
+                S.add(rail);
+                prosceniumRails.push(rail);
+            }
+            // LED panels strictly in the upper header & outer wing flanks (never behind targets)
             const panels = [];
-            for (let x = -6; x <= 6; x++) {
-                for (let y = 0; y < 5; y++) {
-                    const p = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.9), new THREE.MeshBasicMaterial({ color: NEON[(x + y + 20) % NEON.length], transparent: true, opacity: 0.12 }));
-                    p.position.set(x * 2.1, 1.6 + y * 2.1, -17.75);
+            for (let x = -4; x <= 4; x++) {
+                for (let y = 0; y < 2; y++) {
+                    const p = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.05), new THREE.MeshBasicMaterial({ color: NEON[(x + y + 20) % NEON.length], transparent: true, opacity: 0.12 }));
+                    p.position.set(x * 1.9, 8.0 + y * 1.25, -17.7);
                     S.add(p);
                     panels.push({ p, x, y });
                 }
             }
-            // equaliser bars along the stage lip
-            const eq = [];
-            for (let i = 0; i < 28; i++) {
-                const bar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1, 0.5), new THREE.MeshBasicMaterial({ color: NEON[i % NEON.length] }));
-                bar.position.set(-13.5 + i, 0.5, -16.6);
-                S.add(bar);
-                eq.push(bar);
+            for (const side of [-1, 1]) {
+                for (let y = 0; y < 4; y++) {
+                    const p = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), new THREE.MeshBasicMaterial({ color: NEON[(y + (side > 0 ? 1 : 3)) % NEON.length], transparent: true, opacity: 0.10 }));
+                    p.position.set(side * 14.8, 1.8 + y * 2.1, -17.7);
+                    S.add(p);
+                    panels.push({ p, x: side * 7, y });
+                }
             }
-            // speaker stacks
-            for (const sx of [-12, 12]) {
+
+            // Symmetrical Left & Right Spectrum Equalizer Wings flanking the playfield
+            const eq = [];
+            const EQ_COLORS = [0xf472b6, 0xa78bfa, 0x818cf8, 0x38bdf8, 0x22d3ee, 0x2dd4bf, 0x4ade80, 0xa3e635, 0xfacc15, 0xfb923c, 0xf43f5e, 0xe879f9];
+            const rnd = L.mulberry32(5);
+            for (const side of [-1, 1]) {
+                const wing = new THREE.Group();
+                wing.position.set(side * 11.4, 0, -15.2);
+                wing.rotation.y = side * -0.28;
+                const plinth = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.34, 0.78), std(0x090d1a, 0.4, 0.65));
+                plinth.position.set(0, 0.17, 0);
+                wing.add(plinth);
+                const plinthTrim = new THREE.Mesh(new THREE.BoxGeometry(5.22, 0.05, 0.80), basic(0x22d3ee));
+                plinthTrim.position.set(0, 0.35, 0);
+                wing.add(plinthTrim);
+                for (let i = 0; i < 12; i++) {
+                    // Mirror bass on the inside (near stage center) to treble on the outer edge
+                    const bx = side * (-2.2 + i * 0.40);
+                    const col = EQ_COLORS[i % EQ_COLORS.length];
+                    const barMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.88 });
+                    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1, 0.28), barMat);
+                    bar.position.set(bx, 0.85, 0);
+                    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.09, 0.30), new THREE.MeshBasicMaterial({ color: 0xf8fafc, transparent: true, opacity: 0.92 }));
+                    cap.position.set(bx, 1.4, 0);
+                    wing.add(bar, cap);
+                    eq.push({ bar, cap, band: i, side, seed: rnd(), peak: 0.6 });
+                }
+                S.add(wing);
+            }
+
+            // Angled dual speaker towers outside the EQ wings
+            for (const sx of [-15.2, 15.2]) {
+                const tower = new THREE.Group();
+                tower.position.set(sx, 0, -12.2);
+                tower.rotation.y = sx < 0 ? 0.34 : -0.34;
                 for (let j = 0; j < 3; j++) {
-                    const spk = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 1.6), std(0x111111, 0.7));
-                    spk.position.set(sx, 0.9 + j * 1.85, -12);
-                    S.add(spk);
-                    const cone = new THREE.Mesh(new THREE.CircleGeometry(0.6, 20), std(0x27272a, 0.5));
-                    cone.position.set(sx, 0.9 + j * 1.85, -11.19);
-                    S.add(cone);
+                    const spk = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.85, 1.6), std(0x0b0f1c, 0.6, 0.3));
+                    spk.position.set(0, 0.95 + j * 1.9, 0);
+                    tower.add(spk);
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.04, 8, 28), basic(j === 1 ? 0xf472b6 : 0x22d3ee));
+                    ring.position.set(0, 0.95 + j * 1.9, 0.82);
+                    tower.add(ring);
+                    const cone = new THREE.Mesh(new THREE.CircleGeometry(0.58, 24), std(0x1e293b, 0.45, 0.4));
+                    cone.position.set(0, 0.95 + j * 1.9, 0.81);
+                    tower.add(cone);
                     S.data.cones = S.data.cones || [];
                     S.data.cones.push(cone);
                 }
+                S.add(tower);
             }
-            // sweeping light beams
+
+            // Sweeping light beams framed along outer/upper flanks so they never wash out targets
             const beams = [];
-            for (let i = 0; i < 6; i++) {
-                const cone = new THREE.Mesh(new THREE.ConeGeometry(1.6, 16, 18, 1, true), new THREE.MeshBasicMaterial({ color: NEON[i % NEON.length], transparent: true, opacity: 0.09, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+            const beamXs = [-14.2, -11.0, -8.2, 8.2, 11.0, 14.2];
+            for (let i = 0; i < beamXs.length; i++) {
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(1.35, 16, 18, 1, true), new THREE.MeshBasicMaterial({ color: NEON[i % NEON.length], transparent: true, opacity: 0.075, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
                 cone.geometry.translate(0, -8, 0);
                 const holder = new THREE.Group();
-                holder.position.set(-12.5 + i * 5, 11, -15);
+                holder.position.set(beamXs[i], 11.1, -14.8);
                 holder.add(cone);
                 S.add(holder);
                 beams.push({ holder, ph: i * 1.1 });
             }
-            const truss = new THREE.Mesh(new THREE.BoxGeometry(28, 0.4, 0.4), std(0x9ca3af, 0.4, 0.8));
-            truss.position.set(0, 11.2, -15);
+            const truss = new THREE.Mesh(new THREE.BoxGeometry(31, 0.38, 0.38), std(0x9ca3af, 0.35, 0.85));
+            truss.position.set(0, 11.3, -15);
             S.add(truss);
-            const title = A.sign('BEAT DROP', 6, 1.2, { bg: '#0b0216', color: '#f0abfc', borderColor: '#22d3ee', glow: '#f0abfc', size: 0.6 });
-            title.position.set(0, 12.4, -17.7);
+            const title = A.sign('BEAT DROP', 6.4, 1.25, { bg: '#0b0216', color: '#f0abfc', borderColor: '#22d3ee', glow: '#f0abfc', size: 0.62 });
+            title.position.set(0, 12.45, -17.65);
             S.add(title);
-            // stage animation driven by the song clock
-            const rnd = L.mulberry32(5);
-            const eqH = eq.map(() => rnd());
-            S.animate(() => {
+
+            // Stage animation driven by the song clock
+            S.animate((dt) => {
                 const st = S.data.songT;
                 const BEAT = S.data.song.beat;
                 const ph = (st % BEAT) / BEAT;
@@ -176,22 +264,34 @@
                 const lvl = S.data.level;
                 const bar = Math.floor(st / (BEAT * 4));
                 for (let i = 0; i < eq.length; i++) {
-                    const k = Math.abs(Math.sin(st * (2 + eqH[i] * 5) + i * 0.7));
-                    const h = 0.3 + k * (1.2 + lvl * 0.8) + pulse * (1 + lvl * 0.6);
-                    eq[i].scale.y = h;
-                    eq[i].position.y = h / 2;
+                    const e = eq[i];
+                    const bassBoost = Math.max(0, 1 - e.band / 6) * pulse * (1.2 + lvl * 0.45);
+                    const wave = Math.abs(Math.sin(st * (2.6 + e.band * 0.55 + e.seed * 3.0) + e.band * 0.65));
+                    const targetH = Math.max(0.35, 0.35 + wave * (1.4 + lvl * 0.72) + bassBoost);
+                    e.bar.scale.y = targetH;
+                    e.bar.position.y = 0.36 + targetH * 0.5;
+                    const topY = 0.36 + targetH;
+                    e.peak = Math.max(topY + 0.08, e.peak - dt * 2.4);
+                    e.cap.position.y = e.peak;
+                    e.bar.material.opacity = 0.52 + lvl * 0.11 + pulse * 0.12;
                 }
                 for (const pp of panels) {
                     const wave = Math.sin(st * 3 + pp.x * 0.6 + pp.y * 0.9 + bar);
-                    pp.p.material.opacity = 0.08 + Math.max(0, wave) * 0.12 * (1 + lvl) * 0.5 + pulse * 0.1 * lvl;
+                    pp.p.material.opacity = 0.08 + Math.max(0, wave) * 0.12 * (1 + lvl) * 0.5 + pulse * 0.09 * lvl;
+                }
+                for (const r of prosceniumRails) {
+                    r.material.opacity = 0.45 + lvl * 0.10 + pulse * 0.25;
+                }
+                for (const rs of runwayStrips) {
+                    rs.material.opacity = 0.25 + pulse * 0.35 + lvl * 0.06;
                 }
                 for (const b of beams) {
-                    b.holder.rotation.z = Math.sin(st * 0.9 + b.ph) * 0.7;
-                    b.holder.rotation.x = Math.cos(st * 0.7 + b.ph) * 0.35 + 0.25;
-                    b.holder.children[0].material.opacity = 0.04 + lvl * 0.025 + pulse * 0.04;
+                    b.holder.rotation.z = Math.sin(st * 0.9 + b.ph) * 0.55;
+                    b.holder.rotation.x = Math.cos(st * 0.7 + b.ph) * 0.28 + 0.22;
+                    b.holder.children[0].material.opacity = 0.035 + lvl * 0.02 + pulse * 0.035;
                 }
-                if (S.data.cones) for (const c of S.data.cones) c.scale.setScalar(1 + pulse * 0.12);
-                deckTop.material.emissiveIntensity = 0.2 + pulse * 0.6;
+                if (S.data.cones) for (const c of S.data.cones) c.scale.setScalar(1 + pulse * 0.14);
+                deckTop.material.emissiveIntensity = 0.22 + pulse * 0.58;
             });
         },
         schedule(S) {
@@ -220,9 +320,12 @@
                         onTick: (t) => {
                             const left = t.hitT - S2.data.songT;
                             const k = clamp01(left / approach);
+                            const inSweet = Math.abs(left) <= 0.07 * (S2.data.win || 1);
                             bt.ring.scale.setScalar(1 + k * 2.4);
-                            bt.ring.material.opacity = 0.35 + (1 - k) * 0.6;
-                            bt.disc.material.emissiveIntensity = 0.5 + (1 - k) * 0.9;
+                            bt.ring.material.opacity = inSweet ? 1.0 : 0.35 + (1 - k) * 0.6;
+                            bt.ring.material.color.setHex(inSweet ? 0xffffff : bt.baseColor);
+                            bt.rim.material.color.setHex(inSweet ? 0xffffff : bt.baseColor);
+                            bt.disc.material.emissiveIntensity = inSweet ? 1.55 : 0.48 + (1 - k) * 0.85;
                         },
                         onExpire: () => {
                             S2.data.judge.MISS++;
@@ -318,14 +421,23 @@
             const bus = S && S.data.bus;
             if (!bus) { SFX.tone(880, 880, 0.12, 'triangle', 0.1); return true; }
             const song = S.data.song, BEAT = song.beat;
-            const bar = Math.floor(S.data.songT / (BEAT * 4));
+            const totalEighth = Math.max(0, Math.round(S.data.songT / (BEAT * 0.5)));
+            const bar = Math.floor(totalEighth / 8);
             const ch = song.chordsF[((bar % song.chordsF.length) + song.chordsF.length) % song.chordsF.length];
-            const i = (S.shots * 7 + Math.floor(S.data.songT / BEAT)) % 3;
-            const f = ch.tones[i] * 2;
+            const hookIdx = song.hook[((bar % 4) * 8 + (totalEighth % 8)) % 32];
+            const chordFreq = ch.tones[Math.floor(totalEighth / 2) % ch.tones.length] * 2;
+            const f = hookIdx >= 0 ? song.scaleF[hookIdx] : chordFreq;
             const t = bus.ctx.currentTime;
-            bOsc(bus, 'fx', t, f, f, 0.32, 'triangle', 0.13);
-            bOsc(bus, 'fx', t, f * 2, f * 2, 0.18, 'sine', 0.05);
-            bNoise(bus, 'fx', t, 0.03, 7000, 'highpass', 0.08);
+            if (song.rock) {
+                bOsc(bus, 'fx', t, f * 0.5, f * 0.5, 0.24, 'sawtooth', 0.085, 2800);
+                bOsc(bus, 'fx', t, f * 0.75, f * 0.75, 0.22, 'sawtooth', 0.065, 2800);
+                bOsc(bus, 'fx', t, f, f, 0.26, 'triangle', 0.11);
+                bNoise(bus, 'fx', t, 0.04, 4800, 'bandpass', 0.11);
+            } else {
+                bOsc(bus, 'fx', t, f, f, 0.30, 'triangle', 0.13);
+                bOsc(bus, 'fx', t, f * 2, f * 2, 0.18, 'sine', 0.055);
+                bNoise(bus, 'fx', t, 0.03, 7000, 'highpass', 0.08);
+            }
             return true;
         },
         onShot(S) {
@@ -366,14 +478,33 @@
                 bOsc(S.data.bus, 'fx', t + 0.02, 1760, 1760, 0.25, 'sine', 0.05);
                 bOsc(S.data.bus, 'fx', t + 0.07, 2637, 2637, 0.2, 'sine', 0.03);
             }
+            const shockCol = j === 'PERFECT' ? 0x67e8f9 : j === 'GREAT' ? 0xa3e635 : j === 'GOOD' ? 0xfacc15 : 0xf472b6;
+            const shockMat = new THREE.MeshBasicMaterial({ color: shockCol, transparent: true, opacity: 0.9, depthWrite: false });
+            const shock = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.045, 6, 36), shockMat);
+            shock.position.copy(ent.root.position);
+            S.add(shock);
+            let stAge = 0;
+            S.animate((dt) => {
+                stAge += dt;
+                const p = clamp01(stAge / 0.26);
+                shock.scale.setScalar(1 + p * 1.85);
+                shockMat.opacity = (1 - p) * 0.85;
+                if (p >= 1) { shock.parent?.remove(shock); shock.geometry.dispose(); shockMat.dispose(); return false; }
+            });
+            BO.FX.spawnParticles(ent.root.position, j === 'PERFECT' ? 12 : 6, shockCol, 4.5, 0, 0.28, 0.7);
             ent.kill(info);
             return true;
         },
         hud(S) {
             const g = S.data.groove;
+            const song = S.data.song;
+            const bar = Math.floor(S.data.songT / (song.beat * 4));
+            const sec = BS.section(song, bar).toUpperCase();
             const fresh = performance.now() - (S.data.lastJudgeT || 0) < 450;
             const demoBadge = S.opts.exampleMode ? '<div class="mgx-chip mgx-hot">🎬 EXAMPLE PLAYBACK • 0 PTS (PRACTICE) • [ESC] PAUSE / TAKE CONTROL</div>' : '';
-            return `${demoBadge}<div class="mgx-groove"><small>GROOVE</small><div class="mgx-groove-bar"><i style="width:${g.toFixed(0)}%"></i>${LAYERS.map((ly) => `<em style="left:${ly.at}%"></em>`).join('')}</div>
+            return `${demoBadge}<div class="mgx-groove">
+                <div class="mgx-groove-head"><small>${song.name.toUpperCase()} • ${song.bpm} BPM</small><span>${sec} • ${g.toFixed(0)}%</span></div>
+                <div class="mgx-groove-bar"><i style="width:${g.toFixed(0)}%"></i>${LAYERS.map((ly) => `<em style="left:${ly.at}%"></em>`).join('')}</div>
                 <div class="mgx-layers"><span class="on">DRUMS</span>${LAYERS.map((ly, i) => `<span class="${i < S.data.level ? 'on' : ''}">${ly.id.toUpperCase()}</span>`).join('')}</div></div>
                 ${fresh ? `<div class="mgx-judge mgx-j-${S.data.lastJudge}">${S.data.lastJudge}</div>` : ''}`;
         },

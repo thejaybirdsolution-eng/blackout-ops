@@ -703,6 +703,7 @@
                 if (el) el.classList.toggle('hidden', k !== name);
             });
             BO.HUD.setVisible(name === 'playing');
+            if (name !== 'minigames' && BO.BeatSongs?.stopPreview) BO.BeatSongs.stopPreview(false);
             this.updateCheatMenuVisibility();
             if (BO.RPGUI && BO.RPGUI.haven) BO.RPGUI.onScreenChanged(name);
 

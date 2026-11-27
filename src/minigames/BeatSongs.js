@@ -102,6 +102,12 @@
             chords: ['Am', 'G', 'F', 'E'], key: 'A', minor: true, lead: 'square', bass: 'sawtooth',
             hook: [4, 3, 4, 5, 4, 3, 2, 0, 2, 3, 2, 0, 1, 0, -1, 0, 4, 3, 4, 5, 6, 5, 4, 3, 2, 3, 4, 2, 0, -1, 0, -1],
             desc: 'The final boss track. 174 BPM, no mercy.'
+        },
+        {
+            id: 'king_for_a_day', name: 'King for a Day', artist: 'Pierce The Veil ft. Kellin Quinn', diff: 9, bpm: 162, drums: 'posthardcore',
+            chords: ['Dm', 'Bb', 'F', 'C'], key: 'D', minor: true, lead: 'sawtooth', bass: 'sawtooth', rock: true,
+            hook: [5, -1, 5, 4, 3, -1, 2, 3, 4, -1, 4, 3, 2, -1, 0, 2, 5, -1, 6, 5, 4, -1, 3, 4, 5, 4, 3, 2, 1, 2, 0, -1],
+            desc: 'Post-hardcore anthem at 162 BPM with double-kick bursts, soaring hooks, and a heavy breakdown.'
         }
     ];
     for (const s of SONGS) {
@@ -289,6 +295,7 @@
             case 'trap': return [s === 0 || s === 7 || s === 11 ? 1 : 0, s === 8 ? 1 : 0, bar % 2 && s >= 12 ? 1.2 : (s % 2 === 0 ? 0.8 : 0)];
             case 'march': return [s === 0 || s === 8 ? 1 : 0, s === 4 || s === 12 ? 1 : (s >= 13 ? 0.45 : 0), s % 2 === 0 ? 0.6 : 0];
             case 'dnb': return [s === 0 || s === 10 ? 1 : 0, s === 4 || s === 12 ? 1 : (s === 7 || s === 9 ? 0.28 : 0), 0.75];
+            case 'posthardcore': return [s === 0 || s === 2 || s === 6 || s === 8 || s === 10 || s === 14 ? 1 : 0, s === 4 || s === 12 ? 1 : (bar % 4 === 3 && s === 15 ? 0.85 : 0), s % 2 === 0 ? 0.9 : 0.35];
             default: return [s % 4 === 0 ? 1 : 0, s === 4 || s === 12 ? 1 : 0, s % 4 === 2 ? 1 : 0];
         }
     }
@@ -330,9 +337,15 @@
                 bOsc(bus, 'bass', t, f, f, song.step * 1.7, song.bass, song.bass === 'sine' ? 0.3 : 0.15, 700);
             }
         }
-        // chord pad once per bar (+ off-beat stabs in the chorus/finale)
+        // chord pad once per bar (+ off-beat stabs or rock power-chord chugs in chorus/finale)
         if (s === 0) for (const f of ch.tones) { bOsc(bus, 'chords', t, f, f, song.beat * 3.9, 'triangle', 0.045); bOsc(bus, 'chords', t, f * 1.004, f * 1.004, song.beat * 3.9, 'sawtooth', 0.012, 1600); }
-        if ((sec === 'chorus' || sec === 'finale') && s % 4 === 2) for (const f of ch.tones) bOsc(bus, 'chords', t, f * 2, f * 2, 0.12, 'square', 0.014, 2600);
+        if (song.rock && (sec === 'chorus' || sec === 'finale') && s % 2 === 0) {
+            const gVol = s % 4 === 0 ? 0.042 : 0.028;
+            bOsc(bus, 'chords', t, ch.root * 2, ch.root * 2, song.step * 1.6, 'sawtooth', gVol, 2100);
+            bOsc(bus, 'chords', t, ch.root * 3, ch.root * 3, song.step * 1.6, 'sawtooth', gVol * 0.78, 2200);
+        } else if ((sec === 'chorus' || sec === 'finale') && s % 4 === 2) {
+            for (const f of ch.tones) bOsc(bus, 'chords', t, f * 2, f * 2, 0.12, 'square', 0.014, 2600);
+        }
         // lead hook (8ths)
         if ((sec === 'verse' || sec === 'chorus' || sec === 'finale') && s % 2 === 0) {
             const n = song.hook[(bar % 4) * 8 + s / 2];
@@ -341,6 +354,9 @@
                 const vol = song.lead === 'sine' ? 0.09 : song.lead === 'triangle' ? 0.08 : 0.05;
                 bOsc(bus, 'lead', t, f, f, Math.min(0.26, song.beat * 0.45), song.lead, vol, 3200);
                 bOsc(bus, 'lead', t, f * 2, f * 2, 0.14, 'sine', 0.02);
+                if (song.rock && (sec === 'chorus' || sec === 'finale')) {
+                    bOsc(bus, 'lead', t, f * 2, f * 2, Math.min(0.24, song.beat * 0.42), 'sawtooth', 0.026, 3600);
+                }
             }
         }
         // sparkle arpeggio (16ths)
@@ -367,9 +383,81 @@
         return { ctx, out, layers, noise: S.noiseBuffer };
     }
 
+    let previewState = null;
+
+    function stopPreview(resumeMenu = true) {
+        if (!previewState) return;
+        const st = previewState;
+        previewState = null;
+        clearInterval(st.timer);
+        if (st.bus) {
+            try {
+                const now = st.bus.ctx.currentTime;
+                st.bus.out.gain.cancelScheduledValues(now);
+                st.bus.out.gain.setTargetAtTime(0.0001, now, 0.05);
+                setTimeout(() => { try { st.bus.out.disconnect(); } catch (e) {} }, 240);
+            } catch (e) {}
+        }
+        if (resumeMenu && BO.State?.screen !== 'playing' && BO.Sound?.startMusic) {
+            BO.Sound.startMusic('menu');
+        }
+        if (st.onStateChange) st.onStateChange(null);
+    }
+
+    /** Previews the best part (full-mix chorus) of the selected song in the menu. */
+    function preview(songId, onStateChange) {
+        const song = SONGS.find((s) => s.id === songId) || SONGS[0];
+        stopPreview(false);
+        BO.Sound?.stopMusic?.();
+        const bus = makeBus();
+        if (!bus) {
+            if (onStateChange) onStateChange(null);
+            return;
+        }
+        const now = bus.ctx.currentTime;
+        for (const k of ['drums', 'bass', 'chords', 'lead', 'spark']) {
+            bus.layers[k].gain.setValueAtTime(1, now);
+        }
+        bus.out.gain.setValueAtTime(0.001, now);
+        bus.out.gain.linearRampToValueAtTime(0.85, now + 0.09);
+
+        // Start right on the chorus (the signature full-energy hook of each track).
+        const startBar = Math.min(song.bars - 4, song.secEnds[1]);
+        const startStep = Math.max(0, startBar * 16);
+        const totalSteps = Math.min(128, Math.max(64, (song.bars - startBar) * 16));
+        const anchor = now + 0.04;
+        const st = {
+            songId: song.id,
+            bus,
+            nextStep: 0,
+            totalSteps,
+            onStateChange,
+            timer: null
+        };
+        previewState = st;
+        const stepDur = song.step;
+        const pump = () => {
+            if (previewState !== st) return;
+            const elapsed = bus.ctx.currentTime - anchor;
+            while (st.nextStep < st.totalSteps && st.nextStep * stepDur < elapsed + 0.14) {
+                const when = Math.max(bus.ctx.currentTime, anchor + st.nextStep * stepDur);
+                playStep(bus, song, startStep + st.nextStep, when);
+                st.nextStep++;
+            }
+            if (st.nextStep >= st.totalSteps && elapsed >= st.totalSteps * stepDur + 0.25) {
+                stopPreview(true);
+            }
+        };
+        st.timer = setInterval(pump, 40);
+        pump();
+        if (onStateChange) onStateChange(song.id);
+    }
+
     BO.BeatSongs = {
         SONGS, MODES,
         get(id) { return SONGS.find((s) => s.id === id) || SONGS[0]; },
-        section, chart, stars, playStep, makeBus, bOsc, bNoise
+        section, chart, stars, playStep, makeBus, bOsc, bNoise,
+        preview, stopPreview,
+        previewingId() { return previewState ? previewState.songId : null; }
     };
 })(window);

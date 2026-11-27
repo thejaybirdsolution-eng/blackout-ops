@@ -187,8 +187,19 @@
             const stars = MG.starsOf(def, opts);
             let options = (def.hubOptions || []).map((opt) => {
                 const cur = opt.choices.find((c) => c.val === opts[opt.key]) || opt.choices[0];
+                let previewHtml = '';
+                if (def.id === 'beat_drop' && opt.key === 'song' && BO.BeatSongs) {
+                    const song = BO.BeatSongs.get(cur.val);
+                    const isPrev = BO.BeatSongs.previewingId && BO.BeatSongs.previewingId() === song.id;
+                    previewHtml = `
+                        <div class="mgh-preview ${isPrev ? 'playing' : ''}">
+                            <button type="button" class="mgh-preview-btn" data-preview-song="${esc(song.id)}">${isPrev ? '■ STOP PREVIEW' : '▶ PREVIEW CHORUS'}</button>
+                            <div class="mgh-preview-meta"><b>${esc(song.name)}</b><small>${esc(song.artist)} • ${song.bpm} BPM • DIFF ${song.diff}/10</small></div>
+                            <div class="mgh-preview-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+                        </div>`;
+                }
                 return `<div class="mgh-opt"><label>${esc(opt.label)}</label><div class="mgh-seg ${opt.choices.length > 4 ? 'mgh-seg-wrap' : ''}">${opt.choices.map((c) => `<button data-opt="${opt.key}" data-val="${esc(c.val)}" class="${cur.val === c.val ? 'on' : ''}" title="${esc(c.desc || '')}">${esc(c.label)}</button>`).join('')}</div>
-                    ${cur.desc ? `<small>${esc(cur.desc)}</small>` : ''}</div>`;
+                    ${cur.desc ? `<small>${esc(cur.desc)}</small>` : ''}${previewHtml}</div>`;
             }).join('');
             if (def.cat === 'boss') {
                 options += `
@@ -240,14 +251,33 @@
 
         _bind(body) {
             body.querySelectorAll('[data-cat]').forEach((b) => {
-                b.onclick = () => { BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render(); };
+                b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render(); };
             });
             body.querySelectorAll('[data-id]').forEach((b) => {
-                b.onclick = () => { BO.Sound.playUIClick(); MG.hubSel[MG.hubCat] = b.dataset.id; this.render(); };
+                b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubSel[MG.hubCat] = b.dataset.id; this.render(); };
                 b.ondblclick = () => this._play(b.dataset.id);
             });
             body.querySelectorAll('[data-opt]').forEach((b) => {
-                b.onclick = () => { BO.Sound.playUIClick(); MG.hubOpts[b.dataset.opt] = b.dataset.val; this.render(); };
+                b.onclick = () => {
+                    BO.Sound.playUIClick();
+                    MG.hubOpts[b.dataset.opt] = b.dataset.val;
+                    if (b.dataset.opt === 'song' && BO.BeatSongs?.previewingId?.()) {
+                        BO.BeatSongs.preview(b.dataset.val, () => { if (BO.State?.screen === 'minigames') this.render(); });
+                    }
+                    this.render();
+                };
+            });
+            body.querySelectorAll('[data-preview-song]').forEach((b) => {
+                b.onclick = () => {
+                    BO.Sound.playUIClick();
+                    const sid = b.dataset.previewSong;
+                    if (BO.BeatSongs?.previewingId?.() === sid) {
+                        BO.BeatSongs.stopPreview(true);
+                    } else {
+                        BO.BeatSongs?.preview?.(sid, () => { if (BO.State?.screen === 'minigames') this.render(); });
+                    }
+                    this.render();
+                };
             });
             body.querySelectorAll('[data-play]').forEach((b) => {
                 b.onclick = () => this._play(b.dataset.play);
@@ -258,12 +288,13 @@
             body.querySelectorAll('[data-guide]').forEach((b) => {
                 b.onclick = () => { BO.Sound.playUIClick(); const d = MG.get(b.dataset.guide); if (d) this._openGuideModal(d); };
             });
-            body.querySelectorAll('.mgh-card, .mgh-cat, .mgh-play, .mgh-example').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
+            body.querySelectorAll('.mgh-card, .mgh-cat, .mgh-play, .mgh-example, .mgh-preview-btn').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
         },
 
         _play(id, extraOpts) {
             const def = MG.get(id);
             if (!def) return;
+            BO.BeatSongs?.stopPreview?.(false);
             BO.Sound.playUIClick();
             const o = MG.hubOpts;
             const mgOptions = def.cat === 'boss'

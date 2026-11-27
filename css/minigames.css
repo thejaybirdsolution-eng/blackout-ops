@@ -343,15 +343,17 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .mgx-raid, .mgx-duel, .mgx-brawl, .mgx-aim, .mgx-contract-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
 
 /* Beat Drop */
-.mgx-groove { width: min(460px, 70vw); background: rgba(8, 4, 20, 0.78); border: 1px solid rgba(34, 211, 238, 0.35); border-radius: 10px; padding: 8px 12px; }
-.mgx-groove small { font: 800 10px var(--font-ui); letter-spacing: 2px; color: #67e8f9; }
-.mgx-groove-bar { position: relative; height: 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); margin: 5px 0 6px; overflow: hidden; }
-.mgx-groove-bar i { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #22d3ee, #f472b6, #facc15); transition: width 0.15s; }
+.mgx-groove { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); width: min(460px, 78vw); background: rgba(7, 4, 18, 0.82); border: 1px solid rgba(34, 211, 238, 0.42); border-radius: 12px; padding: 8px 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 22px rgba(34, 211, 238, 0.14); }
+.mgx-groove-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.mgx-groove-head small { font: 800 10px var(--font-ui); letter-spacing: 2px; color: #67e8f9; }
+.mgx-groove-head span { font: 800 10px var(--font-mono); letter-spacing: 1.5px; color: #f0abfc; }
+.mgx-groove-bar { position: relative; height: 9px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); margin: 6px 0 7px; overflow: hidden; }
+.mgx-groove-bar i { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #22d3ee, #f472b6, #facc15); transition: width 0.14s ease-out; box-shadow: 0 0 10px rgba(34, 211, 238, 0.6); }
 .mgx-groove-bar em { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(255, 255, 255, 0.55); }
 .mgx-layers { display: flex; gap: 6px; justify-content: space-between; }
-.mgx-layers span { font: 800 10px var(--font-ui); letter-spacing: 1.5px; color: rgba(226, 232, 240, 0.3); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(226, 232, 240, 0.12); }
-.mgx-layers span.on { color: #0b0216; background: #67e8f9; border-color: #67e8f9; box-shadow: 0 0 10px #22d3ee; }
-.mgx-judge { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); font: 900 34px var(--font-ui); letter-spacing: 3px; text-shadow: 0 0 18px currentColor, 0 2px 4px #000; animation: mgxPop 0.45s ease-out; }
+.mgx-layers span { flex: 1; text-align: center; font: 800 10px var(--font-ui); letter-spacing: 1.4px; color: rgba(226, 232, 240, 0.34); padding: 3px 6px; border-radius: 5px; border: 1px solid rgba(226, 232, 240, 0.12); transition: all 0.2s ease; }
+.mgx-layers span.on { color: #070312; background: linear-gradient(90deg, #67e8f9, #a5f3fc); border-color: #67e8f9; box-shadow: 0 0 12px rgba(34, 211, 238, 0.65); }
+.mgx-judge { position: fixed; left: 50%; top: 63%; transform: translateX(-50%); font: 900 32px var(--font-ui); letter-spacing: 3px; text-shadow: 0 0 18px currentColor, 0 2px 4px #000; animation: mgxPop 0.45s ease-out; pointer-events: none; }
 .mgx-j-PERFECT { color: #67e8f9; }
 .mgx-j-GREAT { color: #a3e635; }
 .mgx-j-GOOD { color: #fde68a; }
@@ -566,5 +568,23 @@ body.mg-playing #hud-compass, body.mg-playing #hud-ks-dock, body.mg-playing #hud
 .rally-console strong { color: #bae6fd; }
 .flight-console { border-bottom-color: #f59e0b; background: linear-gradient(180deg, rgba(30, 22, 14, 0.93), rgba(16, 13, 10, 0.9)); }
 .flight-console strong { color: #fde68a; }
+
+/* Beat Drop start-menu chorus preview */
+.mgh-preview { display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 8px 10px; border-radius: 9px; background: rgba(8, 12, 24, 0.85); border: 1px solid rgba(34, 211, 238, 0.28); }
+.mgh-preview.playing { border-color: #22d3ee; box-shadow: 0 0 18px rgba(34, 211, 238, 0.24); background: linear-gradient(90deg, rgba(8, 22, 38, 0.92), rgba(28, 10, 44, 0.86)); }
+.mgh-preview-btn { flex-shrink: 0; border: 1px solid #22d3ee; background: rgba(14, 116, 144, 0.35); color: #67e8f9; border-radius: 7px; padding: 7px 11px; font: 900 11px var(--font-ui); letter-spacing: 1.2px; cursor: pointer; transition: transform .14s ease, background .14s ease; }
+.mgh-preview-btn:hover { transform: translateY(-1px); background: rgba(14, 116, 144, 0.72); color: #fff; }
+.mgh-preview.playing .mgh-preview-btn { background: #ec4899; border-color: #f9a8d4; color: #fff; }
+.mgh-preview-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mgh-preview-meta b { font: 800 12px var(--font-ui); color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mgh-preview-meta small { font: 700 10px var(--font-mono); color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mgh-preview-eq { display: flex; align-items: flex-end; gap: 3px; height: 18px; }
+.mgh-preview-eq i { width: 3px; height: 4px; border-radius: 2px; background: rgba(103, 232, 249, 0.35); }
+.mgh-preview.playing .mgh-preview-eq i { background: linear-gradient(180deg, #f472b6, #22d3ee); animation: mghEqBounce 0.55s ease-in-out infinite alternate; }
+.mgh-preview.playing .mgh-preview-eq i:nth-child(2) { animation-delay: 0.12s; }
+.mgh-preview.playing .mgh-preview-eq i:nth-child(3) { animation-delay: 0.24s; }
+.mgh-preview.playing .mgh-preview-eq i:nth-child(4) { animation-delay: 0.08s; }
+.mgh-preview.playing .mgh-preview-eq i:nth-child(5) { animation-delay: 0.19s; }
+@keyframes mghEqBounce { from { height: 4px; } to { height: 18px; } }
 .foundry-console { border-bottom-color: #72e8dc; background: linear-gradient(180deg, rgba(15, 31, 37, 0.94), rgba(9, 19, 24, 0.9)); }
 .foundry-console strong { color: #ffcf98; }
