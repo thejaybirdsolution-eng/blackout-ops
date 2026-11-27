@@ -26,6 +26,7 @@
             targetLen: 1.04,
             rot: [0, Math.PI * 0.5, 0],
             hidePatterns: [],
+            paintMode: 'intervention_mw2',
             offset: [0, -0.010, -0.14],
             muzzleOffset: [0, 0.022, -0.66],
             sightY: 0.095,
@@ -527,7 +528,7 @@
                     });
                 }
 
-                // Apply camo or Pack-a-Punch finish on cloned materials (never mutate shared cache)
+                // Apply camo, Pack-a-Punch, or custom PBR paint on cloned materials (never mutate shared cache)
                 const applyCamo = isPaP || (camoId && camoId !== 'default');
                 const camoMat = applyCamo && BO.Textures?.getCamoMaterial
                     ? BO.Textures.getCamoMaterial(camoId, spec.modelSpec?.primaryColor || 0x262c36, isPaP)
@@ -538,11 +539,34 @@
                     o.castShadow = true;
                     o.receiveShadow = true;
                     if (o.isSkinnedMesh) o.frustumCulled = false;
+
+                    // Ensure box-projected UVs exist so PBR textures and camos map cleanly onto untextured GLBs
+                    if (o.geometry && o.geometry.attributes && o.geometry.attributes.position && !o.geometry.attributes.uv) {
+                        const posAttr = o.geometry.attributes.position;
+                        const normAttr = o.geometry.attributes.normal;
+                        const uvs = new Float32Array(posAttr.count * 2);
+                        for (let i = 0; i < posAttr.count; i++) {
+                            const x = posAttr.getX(i), y = posAttr.getY(i), z = posAttr.getZ(i);
+                            const nx = normAttr ? Math.abs(normAttr.getX(i)) : 0;
+                            const ny = normAttr ? Math.abs(normAttr.getY(i)) : 0;
+                            const nz = normAttr ? Math.abs(normAttr.getZ(i)) : 1;
+                            if (nx >= ny && nx >= nz) {
+                                uvs[i * 2] = z * 4.0; uvs[i * 2 + 1] = y * 4.0;
+                            } else if (ny >= nx && ny >= nz) {
+                                uvs[i * 2] = x * 4.0; uvs[i * 2 + 1] = z * 4.0;
+                            } else {
+                                uvs[i * 2] = x * 4.0; uvs[i * 2 + 1] = y * 4.0;
+                            }
+                        }
+                        o.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+                    }
+
                     if (camoMat && o.material) {
                         const mats = Array.isArray(o.material) ? o.material : [o.material];
                         const nextMats = mats.map((m) => {
                             if (!m || typeof m.clone !== 'function') return m;
                             const cm = m.clone();
+                            cm.vertexColors = false;
                             if (isPaP) {
                                 cm.emissive = new THREE.Color(0x9333ea);
                                 cm.emissiveIntensity = 0.42;
@@ -560,6 +584,45 @@
                             return cm;
                         });
                         o.material = Array.isArray(o.material) ? nextMats : nextMats[0];
+                    } else if (cfg.paintMode === 'intervention_mw2' && o.geometry && o.geometry.attributes && o.geometry.attributes.position) {
+                        // Two-tone MW2 CheyTac M200 finish: tactical FDE/tan-slate chassis with matte black scope, barrel, bipod, mag & grip
+                        const posAttr = o.geometry.attributes.position;
+                        if (!o.geometry.attributes.color) {
+                            const colors = new Float32Array(posAttr.count * 3);
+                            const isGripMesh = (o.name || '').includes('001');
+                            for (let i = 0; i < posAttr.count; i++) {
+                                const x = posAttr.getX(i), y = posAttr.getY(i);
+                                let r = 0.46, g = 0.43, b = 0.36; // Classic MW2 tactical tan-slate chassis
+                                if (isGripMesh) {
+                                    r = 0.14; g = 0.16; b = 0.19; // Matte black polymer grip
+                                } else if (y > 0.068 && x > -0.32 && x < 0.12) {
+                                    r = 0.12; g = 0.14; b = 0.17; // Anodized black sniper scope
+                                } else if (x > 0.08 && y < 0.006) {
+                                    r = 0.14; g = 0.16; b = 0.19; // Black steel bipod
+                                } else if (x > 0.21) {
+                                    r = 0.20; g = 0.23; b = 0.27; // Dark blued fluted barrel & muzzle brake
+                                } else if (x < -0.49) {
+                                    r = 0.12; g = 0.13; b = 0.15; // Rubberized buttpad
+                                } else if (x > -0.27 && x < -0.10 && y < -0.025) {
+                                    r = 0.16; g = 0.18; b = 0.21; // Dark steel magazine
+                                }
+                                colors[i * 3] = r; colors[i * 3 + 1] = g; colors[i * 3 + 2] = b;
+                            }
+                            o.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                        }
+                        const T = BO.Textures;
+                        const map = T?.createCerakoteTexture ? T.createCerakoteTexture(0xe2e2e2) : null;
+                        const bumpMap = T?.createBumpTexture ? T.createBumpTexture('metal') : null;
+                        o.material = new THREE.MeshStandardMaterial({
+                            color: 0xffffff,
+                            vertexColors: true,
+                            map,
+                            bumpMap,
+                            bumpScale: 0.008,
+                            roughness: 0.46,
+                            metalness: 0.45,
+                            side: THREE.DoubleSide
+                        });
                     }
                 });
 

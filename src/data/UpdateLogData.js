@@ -3035,6 +3035,27 @@
                                 "text": "Removed the camera screenshake impulse triggered after kills and headshot kills in Juice.js for steadier target tracking and cleaner follow-up shots across all combat modes, while keeping hitmarkers and kill-confirm spark bursts intact."
                         }
                 ]
+        },
+        {
+                "id": 152,
+                "hash": "v2.7",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "11:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Intervention MW2 Two-Tone Paint, UV Camo Support & Beretta M9 ADS Fix",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Restored color and PBR material detail to the 3D CheyTac M200 Intervention with a two-tone MW2 tactical tan-slate chassis, matte black scope, barrel, bipod, grip, and magazine, plus automatic box-projected UVs so every Create-a-Class camo and Pack-a-Punch texture wraps cleanly. Also aligned the Beretta M9 ADS sight height and eye relief so you aim straight through the rear iron-sight notch."
+                        }
+                ]
         }
 ]
     };
