@@ -56,7 +56,7 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .05); transition: transform .14s, box-shadow .14s, border-color .14s; animation: zt-deal .32s cubic-bezier(.2, .9, .3, 1.2) backwards; }
 .zt-card:nth-child(2) { animation-delay: .06s; } .zt-card:nth-child(3) { animation-delay: .12s; }
 @keyframes zt-deal { from { opacity: 0; transform: translateY(26px) rotate(-2deg); } }
-.zt-card:hover, .zt-card:focus-visible { transform: translateY(-6px); border-color: var(--rc); box-shadow: 0 16px 40px rgba(0, 0, 0, .6), 0 0 26px color-mix(in srgb, var(--rc) 35%, transparent); outline: none; }
+.zt-card:hover, .zt-card:focus-visible { transform: translateY(-6px); border-color: var(--rc); box-shadow: 0 16px 40px rgba(0, 0, 0, .6), 0 0 26px color-mix(in srgb, var(--rc) 35%, transparent); }
 .zt-card.rar-e { background: linear-gradient(170deg, rgba(255, 180, 58, .22), #120f08 62%); }
 .zt-card .zt-key { position: absolute; top: 10px; right: 12px; font: 700 12px var(--font-mono, monospace); font-style: normal; color: #0c120f; background: var(--rc); border-radius: 5px; padding: 1px 7px; }
 .zt-card .zt-ico { display: block; font-size: 38px; font-style: normal; line-height: 1; margin-bottom: 12px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .5)); }

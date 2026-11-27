@@ -156,14 +156,14 @@
 
 /* --- Full Update Log Modal --- */
 .ul-modal-box {
-    width: min(1060px, 95vw) !important;
+    width: min(1060px, 95vw);
     height: min(820px, calc(100vh - 32px));
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 20px 24px !important;
-    border-color: rgba(245, 166, 35, 0.52) !important;
-    background: linear-gradient(170deg, rgba(10, 15, 25, 0.98), rgba(6, 9, 15, 0.98)) !important;
+    gap: var(--sp-3, 12px);
+    padding: var(--sp-5, 20px) var(--sp-6, 24px);
+    border-color: var(--aaa-line-strong, rgba(232, 236, 241, 0.22));
+    background: var(--aaa-panel-base, linear-gradient(160deg, rgba(22, 27, 34, 0.96), rgba(11, 15, 20, 0.98)));
 }
 
 .ul-head {

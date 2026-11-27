@@ -47,7 +47,8 @@ dialog.sv-shell * { box-sizing: border-box; }
 dialog.sv-shell[open] { animation: sv-in 0.12s ease-out; }
 @keyframes sv-in { from { opacity: 0; transform: scale(0.992); } to { opacity: 1; transform: none; } }
 .sv-root { height: 100%; }
-.sv-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(159, 224, 201, 0.25) transparent; }
+.sv-scroll { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--aaa-line-strong, rgba(232, 236, 241, 0.22)) transparent; }
+.sv-dragging [data-hb-slot] > *, .sv-dragging [data-drop-clear] > * { pointer-events: none; }
 .sv-scroll::-webkit-scrollbar { width: 8px; }
 .sv-scroll::-webkit-scrollbar-thumb { background: rgba(159, 224, 201, 0.22); border-radius: 8px; }
 .sv-kicker { display: block; font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: var(--sv-accent); font-weight: 700; }
@@ -786,7 +787,7 @@ dialog.sv-shell #bo-tooltip .bo-tip-sub { color: var(--sv-amber); }
 .sv-ending { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 20px 16px; border-radius: 10px;
   background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.25)); border: 1px solid color-mix(in srgb, var(--end) 45%, transparent);
   color: #dfe9e6; cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; font: inherit; }
-.sv-ending:hover, .sv-ending:focus-visible { transform: translateY(-3px); border-color: var(--end); box-shadow: 0 0 24px color-mix(in srgb, var(--end) 30%, transparent); outline: none; }
+.sv-ending:hover, .sv-ending:focus-visible { transform: translateY(-3px); border-color: var(--end); box-shadow: 0 0 24px color-mix(in srgb, var(--end) 30%, transparent); }
 .sv-ending b { font-size: 18px; letter-spacing: .06em; text-transform: uppercase; color: var(--end); }
 .sv-ending p { margin: 0; font-size: 13px; line-height: 1.5; color: #c4d2ce; }
 .sv-ending small { font-size: 11px; color: #8fa39e; }
