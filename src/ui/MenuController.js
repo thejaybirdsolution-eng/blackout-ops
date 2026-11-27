@@ -2696,11 +2696,30 @@
             const cycleDeps = td.getCycleDeployables ? td.getCycleDeployables() : [];
             const items = td.getShopItems();
 
+            const depIcon = (id) => ({
+                sniper_nest: 'staged_assets/ui/military_icons/Firearms/bolt-action-sniper-rifle-001.png',
+                attack_drone: 'staged_assets/ui/military_icons/Drones Robots/autonomous-sentry-robot-001.png',
+                combat_mech: 'staged_assets/ui/scifi_icons/Drones Robots/alien-artifact-handler-001.png',
+                tesla_coil: 'staged_assets/ui/scifi_icons/Turrets Defenses/antimissile-coil-turret-001.png',
+                flame_turret: 'staged_assets/ui/dieselpunk_icons/Turrets Defenses/armored-flak-cupola-001.png',
+                cryo_projector: 'staged_assets/ui/scifi_icons/Power Cores/antimatter-quench-rod-001.png',
+                mortar_battery: 'staged_assets/ui/dieselpunk_icons/Weapons/boiler-spike-mortar-001.png',
+                laser_beacon: 'staged_assets/ui/scifi_icons/Ui Symbols/air-supply-symbol-001.png',
+                shield_gen: 'staged_assets/ui/scifi_icons/Turrets Defenses/anti-drone-dome-001.png',
+                healing_fountain: 'staged_assets/ui/military_icons/Medical/autoinjector-case-001.png',
+                ammo_fabricator: 'staged_assets/ui/military_icons/Resources/ammunition-crate-001.png',
+                gravity_well: 'staged_assets/ui/scifi_icons/Gadgets/adaptive-signal-buoy-001.png',
+                gold_miner: 'staged_assets/ui/dieselpunk_icons/Machinery/ammo-drum-coupler-001.png',
+                airstrike_beacon: 'staged_assets/ui/military_icons/Ui Symbols/air-support-symbol-001.png',
+                barrier: 'staged_assets/ui/military_icons/Emplacements Defenses/anti-vehicle-hedgehog-001.png'
+            }[id] || 'staged_assets/ui/military_icons/Emplacements Defenses/anti-air-gun-mount-001.png');
+
             body.innerHTML = `
                 <div class="td-shop-section" style="color:#fde047;">★ 5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${weapons.map((o) => `
                         <button class="select-card td-shop-card js-td-buy-w" data-slot="${o.slotIndex}" ${o.sold ? 'disabled' : ''} style="border-color:${o.sold ? '#334155' : o.color};">
+                            <img src="staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.9;border-radius:4px">
                             <div style="font-size:10px;font-weight:900;letter-spacing:0.6px;color:${o.color};">${o.badge}</div>
                             <div class="card-head" style="margin-top:3px;">${o.spec.name}</div>
                             <div class="card-sub">${o.spec.category} • ${o.spec.damage}${o.spec.pellets > 1 ? 'x' + o.spec.pellets : ''} DMG • ${o.spec.rpm} RPM</div>
@@ -2714,6 +2733,7 @@
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${cycleDeps.map((d) => `
                         <button class="select-card td-shop-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
+                            <img src="${depIcon(d.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
                             <div class="card-head" style="color:${d.color || '#c084fc'};">${d.name}</div>
                             <div class="card-sub">${d.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= d.cost ? '#fde047' : '#ef4444'};">${d.cost} GOLD</div>
@@ -2724,6 +2744,7 @@
                 <div class="card-grid">
                     ${items.map((it) => `
                         <button class="select-card td-shop-card js-td-buy-it" data-itid="${it.id}" style="border-color:${td.gold >= it.cost ? 'rgba(56,189,248,0.55)' : '#334155'};">
+                            <img src="${depIcon(it.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
                             <div class="card-head" style="color:#38bdf8;">${it.name}</div>
                             <div class="card-sub">${it.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= it.cost ? '#fde047' : '#ef4444'};">${it.cost} GOLD</div>

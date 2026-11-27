@@ -402,8 +402,18 @@
         }
 
         _buildCastleStructures(scene, map) {
+            if (BO.Assets) {
+                BO.Assets.applySkybox(scene, map.nightMode ? 'skybox-night.png' : 'skybox-morning.png');
+            }
             // 1. Multi-Tier Aether Castle Heart Monument (Octagonal Obsidian/Gold Altar, Containment Prongs, Dual Gyro-Rings & Orbiting Shards)
             const ch = map.castleHeart || { x: 0, y: 5.4, z: 16 };
+            if (BO.Assets && BO.Assets.placeGLB) {
+                for (const s of [-1, 1]) {
+                    BO.Assets.placeGLB(scene, 'castle_kit/tower-square-base-color.glb', { pos: [ch.x + s * 13.5, 0, ch.z - 2], scale: [4.2, 5.5, 4.2], guardScene: scene });
+                    BO.Assets.placeGLB(scene, 'castle_kit/tower-square-roof.glb', { pos: [ch.x + s * 13.5, 5.5, ch.z - 2], scale: [4.2, 4.2, 4.2], guardScene: scene });
+                    BO.Assets.placeGLB(scene, 'castle_kit/flag-banner-long.glb', { pos: [ch.x + s * 3.1, ch.y, ch.z], scale: 2.2, guardScene: scene });
+                }
+            }
             const hg = new THREE.Group();
             hg.position.set(ch.x, ch.y, ch.z);
             const obsidianMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.72, roughness: 0.28 });
@@ -887,6 +897,22 @@
             }
             g.add(chute);
             g.position.set(dx, 24, dz);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                const blasterByDep = {
+                    sniper_nest: { p: 'blaster_kit/blaster-d.glb', y: 1.08, s: 1.35 },
+                    attack_drone: { p: 'blaster_kit/blaster-b.glb', y: -0.18, s: 0.9 },
+                    combat_mech: { p: 'blaster_kit/blaster-m.glb', y: 2.15, s: 1.4 },
+                    flame_turret: { p: 'blaster_kit/blaster-f.glb', y: 1.25, s: 1.25 },
+                    cryo_projector: { p: 'blaster_kit/blaster-i.glb', y: 1.48, s: 1.2 },
+                    laser_beacon: { p: 'blaster_kit/blaster-k.glb', y: 1.35, s: 1.1 },
+                    tesla_coil: { p: 'blaster_kit/blaster-p.glb', y: 2.65, s: 1.0 },
+                    emp_tower: { p: 'blaster_kit/blaster-e.glb', y: 2.05, s: 1.0 }
+                }[depId];
+                if (blasterByDep) {
+                    BO.Assets.placeGLB(g, blasterByDep.p, { pos: [0, blasterByDep.y, 0.1], scale: blasterByDep.s, align: 'center', guardScene: BO.World.scene });
+                }
+            }
+
             BO.World.scene.add(g);
             this.supplyDrops.push({ mesh: g, chute, x: dx, y: 24, targetY: 5.95, z: dz, life: 45 });
             BO.Events.emit('hud:toast', { text: '📦 GOLDEN SUPPLY CRATE DROPPING ON CASTLE KEEP!', color: '#fde047' });
@@ -1244,6 +1270,22 @@
                 }
                 g.add(base, mast, core, halo);
                 g.userData.spinPart = halo; g.userData.spinPart2 = core;
+            }
+
+            if (BO.Assets && BO.Assets.placeGLB) {
+                const blasterByDep = {
+                    sniper_nest: { p: 'blaster_kit/blaster-d.glb', y: 1.08, s: 1.35 },
+                    attack_drone: { p: 'blaster_kit/blaster-b.glb', y: -0.18, s: 0.9 },
+                    combat_mech: { p: 'blaster_kit/blaster-m.glb', y: 2.15, s: 1.4 },
+                    flame_turret: { p: 'blaster_kit/blaster-f.glb', y: 1.25, s: 1.25 },
+                    cryo_projector: { p: 'blaster_kit/blaster-i.glb', y: 1.48, s: 1.2 },
+                    laser_beacon: { p: 'blaster_kit/blaster-k.glb', y: 1.35, s: 1.1 },
+                    tesla_coil: { p: 'blaster_kit/blaster-p.glb', y: 2.65, s: 1.0 },
+                    emp_tower: { p: 'blaster_kit/blaster-e.glb', y: 2.05, s: 1.0 }
+                }[depId];
+                if (blasterByDep) {
+                    BO.Assets.placeGLB(g, blasterByDep.p, { pos: [0, blasterByDep.y, 0.1], scale: blasterByDep.s, align: 'center', guardScene: BO.World.scene });
+                }
             }
 
             BO.World.scene.add(g);

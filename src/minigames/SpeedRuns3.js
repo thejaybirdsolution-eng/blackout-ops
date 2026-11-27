@@ -363,11 +363,18 @@
         standardWeapon: 'scarh', weaponLabel: 'SCAR-H + HEAVY BARREL', weaponNote: 'Aim for glowing jaws & horns!',
         keys: [['WASD', 'Dodge on Caldera Peak'], ['LMB', 'Shoot Dragon Heads'], ['SHIFT', 'Sprint'], ['SPACE', 'Jump Shockwaves']],
         map: {
+            skybox: 'skybox-alien.png',
             atmosphere: { skyTop: 0x1e1b4b, skyBottom: 0xea580c, fogColor: 0x431407, fogDensity: 0.0028, sunColor: 0xfdba74, sunIntensity: 1.95, sunPos: [24, 70, 40], hemiSky: 0xfb923c, hemiGround: 0x7c2d12, hemiIntensity: 1.35 },
             boxes: [B(0, -0.5, 0, 180, 1, 180, 'concrete')],
             spawn: { x: 0, y: 0, z: 14, yaw: 0 }
         },
         build(S) {
+            if (BO.MinigameAudio && BO.MinigameAudio.playStagedMusic) {
+                BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Epic Dramatic/epic-dramatic-strength-of-the-titans-661803f4.m4a', 0.28);
+            }
+            A.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [-21, 0, -4], scale: 3.2 });
+            A.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [21, 0, -4], scale: 3.2 });
+            A.placeGLB(S.scene, 'mini_dungeon_kit/rocks.glb', { pos: [0, 0, -21], scale: 4.5 });
             const rockM = std(0x57534e, 0.88), obsM = std(0x27272a, 0.35, 0.6), goldM = std(0xf59e0b, 0.25, 0.85), hornM = std(0xfef3c7, 0.45);
             // Volcanic Caldera Arena + Molten Magma Ocean below + Ruined Temple Columns & Glowing Lava Fissures
             const lava = new THREE.Mesh(new THREE.RingGeometry(23.5, 150, 36), basic(0xf97316));

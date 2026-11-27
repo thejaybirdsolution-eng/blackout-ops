@@ -70,10 +70,18 @@
             this.filter.frequency.setTargetAtTime(Math.max(180, hz), ctx.currentTime, ramp);
         }
 
+        playStagedMusic(relPath, volume = 0.26) {
+            if (BO.Assets && BO.Assets.playClip) {
+                return BO.Assets.playClip(relPath, { music: true, loop: true, volume });
+            }
+            return Promise.resolve(null);
+        }
+
         stop() {
             this.mode = null;
             this.step = 0;
             this.stopBoardLoops();
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips();
             const ctx = BO.Sound && BO.Sound.ctx;
             if (ctx && this.filter) {
                 try { this.filter.frequency.setTargetAtTime(18000, ctx.currentTime, 0.04); } catch (e) {}

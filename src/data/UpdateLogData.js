@@ -2492,6 +2492,312 @@
                                 "text": "Four expansion perk machines occupy fixed, map-specific locations on each of nine Zombies maps. Explore different rooms, routes, and floors to find them."
                         }
                 ]
+        },
+        {
+                "id": 124,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Shared global 3D asset & audio pipeline",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added a shared asset loader (BO.Assets) supporting cached GLB models, GPU-instanced placement, seamless 1024px PBR textures, panoramic skyboxes, and streamed Web Audio clips across every game mode."
+                        }
+                ]
+        },
+        {
+                "id": 125,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Minigame announcer voiceovers",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Wired spoken announcer voice lines into minigame 3-2-1 countdowns, GO starts, new high scores, mission completions, and game over screens."
+                        }
+                ]
+        },
+        {
+                "id": 126,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Genre-matched minigame music tracks",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added genre-matched looping music tracks for Pistol Quickdraw (banjo Western), Paint Wars (electronic backbeat), and boss encounters in Three-Headed Dragon and Kaiju vs. Mecha Metropolis."
+                        }
+                ]
+        },
+        {
+                "id": 127,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Starfall Shield 3D city valley overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Upgraded Starfall Shield with a space skybox panorama and replaced the valley city blocks with 3D industrial buildings, water towers, and storage tanks."
+                        }
+                ]
+        },
+        {
+                "id": 128,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Paint Wars & Safe Cracker visual props",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added daytime and night skybox panoramas plus shipping containers in Paint Wars and treasure chests, gold coins, and vault machinery in Safe Cracker."
+                        }
+                ]
+        },
+        {
+                "id": 129,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Quickdraw, Dragon & Kaiju 3D scenery upgrades",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Updated Pistol Quickdraw with a high-noon morning skybox and boardwalk props, Three-Headed Dragon with an alien skybox and caldera bastion towers, and Kaiju Metropolis with harbor smokestacks and water towers."
+                        }
+                ]
+        },
+        {
+                "id": 130,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Operation Meridian 3D forests, boulders & skybox",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Replaced Open World RPG cone/icosahedron vegetation with GPU-instanced 3D pine trees, broadleaf trees, dead trunks, and rock outcrops alongside field tents, industrial tanks, and a morning skybox."
+                        }
+                ]
+        },
+        {
+                "id": 131,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Open World RPG Pip-Pad hardware icons",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Equipped all eight Pip-Pad wrist terminal navigation tabs with military, sci-fi, and dieselpunk hardware icons."
+                        }
+                ]
+        },
+        {
+                "id": 132,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Tower Defense 3D castle fortifications & skyboxes",
+                "major": false,
+                "tags": [
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fortified Tower Defense keep structures with panoramic skyboxes, 3D stone corner towers, spires, and bastion banners framing the Castle Heart."
+                        }
+                ]
+        },
+        {
+                "id": 133,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Tower Defense 3D blaster turret assemblies",
+                "major": false,
+                "tags": [
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Mounted detailed 3D blaster assemblies onto Sniper Nests, Attack Drones, Combat Mechs, Flame Turrets, Cryo Projectors, Tesla Coils, Laser Beacons, and EMP Towers."
+                        }
+                ]
+        },
+        {
+                "id": 134,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Tower Defense shop card icons",
+                "major": false,
+                "tags": [
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added military, sci-fi, and dieselpunk equipment icons to rolled weapons, rotating deployables, and castle defense cards in the Tower Defense intermission shop."
+                        }
+                ]
+        },
+        {
+                "id": 135,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Survival base building PBR textures & 3D doors",
+                "major": false,
+                "tags": [
+                        "survival"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Upgraded player-built floors, walls, slate roofs, stone masonry, and diamond-plate doors with seamless 1024px PBR materials and 3D castle door meshes."
+                        }
+                ]
+        },
+        {
+                "id": 136,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Survival Field Terminal status & brand icons",
+                "major": false,
+                "tags": [
+                        "survival"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Updated the Survival Field Terminal header and weapon condition, campus keycard, and fracture status chips with military UI icons."
+                        }
+                ]
+        },
+        {
+                "id": 137,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Rogue Lite 3D dungeon columns, barrels & banners",
+                "major": false,
+                "tags": [
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Furnished procedural Rogue Lite rooms with GPU-instanced stone columns, corner barrels, and wall banners with safe shared-geometry floor teardown."
+                        }
+                ]
+        },
+        {
+                "id": 138,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Rogue Lite Haven hub fantasy icons",
+                "major": false,
+                "tags": [
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added fantasy RPG equipment, skill, forge, and crest icons across Haven navigation tabs and the Gold/Scrap wallet header."
+                        }
+                ]
+        },
+        {
+                "id": 139,
+                "hash": "pending",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "9:18 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Zombies graveyard scenery, MP skylines & Gunsmith icons",
+                "major": false,
+                "tags": [
+                        "zombies",
+                        "mp",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added night skyboxes with outer graveyard crypts, fences, and headstones in Zombies, panoramic day/night skyboxes with industrial skylines in Multiplayer, and military icons to Gunsmith attachment tabs."
+                        }
+                ]
         }
 ]
     };

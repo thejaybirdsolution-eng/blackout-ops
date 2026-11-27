@@ -129,13 +129,21 @@
         formatBest: (b) => (b.extra ? b.extra.rounds + ' rounds • best ' + (b.extra.best < 9999 ? b.extra.best + 'ms' : '—') : Number(b.score).toLocaleString()),
         keys: [['WAIT', 'Hands off until the buzzer'], ['LMB', 'Draw & fire']],
         map: {
+            skybox: 'skybox-morning.png',
             atmosphere: { skyTop: 0x60a5fa, skyBottom: 0xfde68a, fogColor: 0xe8c48e, fogDensity: 0.01, sunColor: 0xfff0c2, sunIntensity: 2.0, sunPos: [10, 80, 5], hemiSky: 0xfef3c7, hemiGround: 0x8b5a2b, hemiIntensity: 0.9 },
             boxes: [B(0, -0.5, -10, 80, 1, 80, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         countdown: 2,
         build(S) {
-            if (BO.MinigameAudio) BO.MinigameAudio.start('western');
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('western');
+                if (BO.MinigameAudio.playStagedMusic) BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Country/country-lukewarm-banjo-cf90c87c.m4a', 0.24);
+            }
+            A.placeGLB(S.scene, 'mini_dungeon_kit/barrel.glb', { pos: [-4.2, 0, -4.5], scale: 1.6 });
+            A.placeGLB(S.scene, 'mini_dungeon_kit/barrel.glb', { pos: [4.2, 0, -7.5], rot: 0.8, scale: 1.6 });
+            A.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [-5.8, 0, -11], rot: 1.57, scale: 2.2 });
+            A.placeGLB(S.scene, 'mini_forest_kit/fence.glb', { pos: [5.8, 0, -11], rot: 1.57, scale: 2.2 });
             Object.assign(S.data, { round: 0, wins: 0, lives: 3, times: [], best: 9999, phase: 'intro', reactMs: 0 });
             lockPlayer(S, 0, 0);
             const woods = [0x8b5a2b, 0x7c4a1e, 0xa16207, 0x6b3f17, 0x92400e];

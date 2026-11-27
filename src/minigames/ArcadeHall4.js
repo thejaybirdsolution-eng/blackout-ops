@@ -29,7 +29,7 @@
         heroLabel: 'ARCADE HALL • DEFENCE • 60 SECONDS', duration: 60, stars: [3000, 7000, 12000, 17000],
         standardWeapon: 'g36c_tac', weaponLabel: 'G36C', weaponNote: 'Bottomless magazine',
         keys: [['LMB', 'Shoot meteors'], ['R', 'Retry from results']],
-        map: AK.map({ skyTop: 0x020617, skyBottom: 0x7c2d12, fogColor: 0x431407, fogDensity: 0.004, sunColor: 0xfdba74, sunIntensity: 0.7 }),
+        map: AK.map({ skybox: 'skybox-space.png', skyTop: 0x020617, skyBottom: 0x7c2d12, fogColor: 0x431407, fogDensity: 0.004, sunColor: 0xfdba74, sunIntensity: 0.7 }),
         build(S) {
             AK.hall(S, { title: 'STARFALL SHIELD', accent: '#f97316', ground: 0x292524, music: 'tactical' });
             const city = [];
@@ -38,8 +38,15 @@
                 const b = A.building(3.2, h, 3.2, [0x334155, 0x475569, 0x1e293b][i % 3], i + 5, 0.55, true);
                 b.position.set(-22 + i * 3.4, h / 2 - 6, -38 - (i % 3) * 2);
                 S.add(b);
+                A.placeGLB(S.scene, i % 2 === 0 ? 'city_industrial_kit/building-a.glb' : 'city_industrial_kit/building-d.glb', {
+                    pos: [-22 + i * 3.4, -6, -38 - (i % 3) * 2],
+                    fitSize: [3.4, h + 1.2, 3.4],
+                    hideFallback: b
+                });
                 city.push(b);
             }
+            A.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-26, -6, -34], scale: 2.5 });
+            A.placeGLB(S.scene, 'city_industrial_kit/detail-tank.glb', { pos: [26, -6, -34], scale: 2.5 });
             const valley = new THREE.Mesh(new THREE.PlaneGeometry(80, 30), std(0x1c1917, 1));
             valley.rotation.x = -Math.PI / 2; valley.position.set(0, -6, -40); S.add(valley);
             // Shimmering Planetary Energy Shield Dome & Twin Anti-Meteor Laser Dishes!
@@ -564,9 +571,14 @@
         standardWeapon: 'p90', weaponLabel: 'P90 PAINT GUN', weaponNote: 'Bottomless paint', fireInterval: 0.09, tracerColor: 0x38bdf8,
         formatBest: (b) => (b.extra ? b.extra.pct + '% • ' : '') + Number(b.score).toLocaleString(),
         keys: [['LMB', 'Paint / stun drones'], ['R', 'Retry from results']],
-        map: AK.map({ skyTop: 0x1e3a8a, skyBottom: 0xfae8ff, fogColor: 0xf5d0fe, fogDensity: 0.004, sunIntensity: 1.5 }),
+        map: AK.map({ skybox: 'skybox-day.png', skyTop: 0x1e3a8a, skyBottom: 0xfae8ff, fogColor: 0xf5d0fe, fogDensity: 0.004, sunIntensity: 1.5 }),
         build(S) {
             AK.hall(S, { title: 'PAINT WARS', accent: '#38bdf8', ground: 0x334155, music: 'pinball' });
+            if (BO.MinigameAudio && BO.MinigameAudio.playStagedMusic) {
+                BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Electronic/electronic-backbeat-ac7c5c7b.m4a', 0.22);
+            }
+            A.placeGLB(S.scene, 'city_industrial_kit/shipping-container-a.glb', { pos: [-11.5, 0, -10.5], rot: 0.22, scale: 2.0 });
+            A.placeGLB(S.scene, 'city_industrial_kit/shipping-container-b.glb', { pos: [11.5, 0, -10.5], rot: -0.22, scale: 2.0 });
             const cv = document.createElement('canvas');
             cv.width = PW.cols * 16; cv.height = PW.rows * 16;
             const g = cv.getContext('2d');
@@ -668,9 +680,12 @@
         heroLabel: 'ARCADE HALL • PRECISION TIMING • 75 SECONDS', duration: 75, stars: [1500, 3500, 6500, 10000],
         standardWeapon: 'python_magnum', weaponLabel: 'PYTHON .357', weaponNote: 'One shot every 0.35 s', fireInterval: 0.35,
         keys: [['LMB', 'Set the number (shoot the dial)'], ['R', 'Retry from results']],
-        map: AK.map({ skyTop: 0x0c0a09, skyBottom: 0x292524, fogColor: 0x1c1917, fogDensity: 0.02, sunIntensity: 0.6 }),
+        map: AK.map({ skybox: 'skybox-night.png', skyTop: 0x0c0a09, skyBottom: 0x292524, fogColor: 0x1c1917, fogDensity: 0.02, sunIntensity: 0.6 }),
         build(S) {
             AK.hall(S, { title: 'SAFE CRACKER', accent: '#a3a3a3', ground: 0x1c1917, music: 'contracts' });
+            A.placeGLB(S.scene, 'mini_dungeon_kit/chest.glb', { pos: [-4.4, 0, -7.2], rot: 0.35, scale: 2.0 });
+            A.placeGLB(S.scene, 'mini_dungeon_kit/coin.glb', { pos: [-4.4, 1.35, -7.2], scale: 1.8 });
+            A.placeGLB(S.scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [5.4, 0, -8.5], scale: 2.2 });
             const safe = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 2), std(0x3f3f46, 0.35, 0.8));
             safe.position.set(0, 2.5, -8);
             S.add(safe); S.solid(safe);

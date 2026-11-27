@@ -19,11 +19,11 @@
     };
 
     const ATT_CATS = [
-        { id: 'optic', label: 'Optic', tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
-        { id: 'muzzle', label: 'Muzzle', tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
-        { id: 'underbarrel', label: 'Underbarrel', tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
-        { id: 'magazine', label: 'Magazine', tip: 'Bigger magazines or faster reloads.' },
-        { id: 'stock', label: 'Stock', tip: 'Faster movement and aiming, or steadier recoil.' }
+        { id: 'optic', label: 'Optic', icon: 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png', tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
+        { id: 'muzzle', label: 'Muzzle', icon: 'staged_assets/ui/military_icons/Attachments/suppressor-heat-cover-001.png', tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
+        { id: 'underbarrel', label: 'Underbarrel', icon: 'staged_assets/ui/military_icons/Attachments/hand-stop-grip-001.png', tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
+        { id: 'magazine', label: 'Magazine', icon: 'staged_assets/ui/military_icons/Attachments/drum-magazine-001.png', tip: 'Bigger magazines or faster reloads.' },
+        { id: 'stock', label: 'Stock', icon: 'staged_assets/ui/military_icons/Attachments/adjustable-rifle-stock-001.png', tip: 'Faster movement and aiming, or steadier recoil.' }
     ];
 
     const SHORT_CLASS_LABELS = {
@@ -346,10 +346,16 @@
                         <div class="picker-title">${escAttr(spec.name)}</div>
                     </div>
                     <div class="picker-tabs">
-                        ${views.map((v) => `
-                            <button class="picker-tab ${this.weaponView === v.id ? 'active' : ''} ${v.changed ? 'changed' : ''}" data-view="${v.id}" ${v.id !== 'weapon' && v.id !== 'camo' ? `data-tip-title="${v.label}" data-tip="${escAttr((ATT_CATS.find((c) => c.id === v.id) || {}).tip || '')}"` : ''}>
-                                <span>${v.label}</span><small>${escAttr(v.cur)}</small>
-                            </button>`).join('')}
+                        ${views.map((v) => {
+                            const cat = ATT_CATS.find((c) => c.id === v.id);
+                            const ico = v.id === 'weapon'
+                                ? 'staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png'
+                                : (v.id === 'camo' ? 'staged_assets/ui/military_icons/Consumables/camouflage-face-paint-tin-001.png' : (cat ? cat.icon : ''));
+                            return `
+                            <button class="picker-tab ${this.weaponView === v.id ? 'active' : ''} ${v.changed ? 'changed' : ''}" data-view="${v.id}" ${v.id !== 'weapon' && v.id !== 'camo' ? `data-tip-title="${v.label}" data-tip="${escAttr((cat || {}).tip || '')}"` : ''}>
+                                ${ico ? `<img src="${ico}" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:-2px;margin-right:4px">` : ''}<span>${v.label}</span><small>${escAttr(v.cur)}</small>
+                            </button>`;
+                        }).join('')}
                     </div>
                     <div class="picker-body" id="gs-option-list"></div>`;
                 el.querySelectorAll('[data-view]').forEach((b) => {

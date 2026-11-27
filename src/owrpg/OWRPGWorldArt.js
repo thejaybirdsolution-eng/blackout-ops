@@ -64,11 +64,19 @@
             const out = { beacons: [], plumes: [], arcs: [], spinners: [], pylons: {}, waters: [] };
             world.owrpg = out;
             strutBatches = new Map();
+            if (BO.Assets && BO.Assets.applySkybox) {
+                BO.Assets.applySkybox(scene, 'skybox-morning.png');
+            }
             for (const L of D.LANDMARKS) this['_lm_' + L.id](world, scene, L, t.height(L.x, L.z), out);
             this._vegetation(world, scene, D);
             this._water(scene, D, out);
             for (const p of D.PYLONS) out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
             flushStruts(scene);
+            if (BO.Assets && BO.Assets.placeGLB) {
+                const fY = t.height(-20, 12);
+                BO.Assets.placeGLB(scene, 'mini_forest_kit/tent.glb', { pos: [-22, fY, 14], rot: 0.4, scale: 3.4, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [148, t.height(148, -148), -148], scale: 2.8, guardScene: scene });
+            }
             return out;
         },
 
@@ -272,6 +280,22 @@
                 trunk.castShadow = crown.castShadow = true;
                 trunk.frustumCulled = crown.frustumCulled = false;
                 scene.add(trunk, crown);
+                if (BO.Assets && BO.Assets.placeGLBInstanced) {
+                    const modelPath = kind === 'dead' ? 'graveyard_kit/trunk.glb' : (kind === 'pine' ? 'mini_forest_kit/tree-high.glb' : 'mini_forest_kit/tree.glb');
+                    const hScale = kind === 'pine' ? 8.2 : (kind === 'broad' ? 6.8 : 5.2);
+                    const trs = list.map((tr) => ({
+                        pos: [tr.x, tr.y, tr.z],
+                        rot: (tr.x * 13.1 + tr.z) % 6.28,
+                        scale: tr.s * hScale
+                    }));
+                    BO.Assets.placeGLBInstanced(scene, modelPath, trs, {
+                        fitSize: [1, 1, 1],
+                        uniform: true,
+                        hideFallback: [trunk, crown],
+                        frustumCulled: false,
+                        guardScene: scene
+                    });
+                }
             }
             // Boulders.
             const rocks = [];
@@ -281,6 +305,7 @@
                 rocks.push({ x, z, s: 0.5 + r() * 1.6 });
             }
             const rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x7b7d76, roughness: 0.95, flatShading: true }), rocks.length);
+            const rockTrs = [];
             rocks.forEach((rk, i) => {
                 const y = t.height(rk.x, rk.z);
                 dummy.position.set(rk.x, y + rk.s * 0.3, rk.z);
@@ -288,11 +313,20 @@
                 dummy.scale.set(rk.s * 1.3, rk.s * 0.7, rk.s);
                 dummy.updateMatrix();
                 rm.setMatrixAt(i, dummy.matrix);
+                rockTrs.push({ pos: [rk.x, y, rk.z], rot: rk.z % 3, scale: [rk.s * 2.1, rk.s * 1.2, rk.s * 1.8] });
                 if (rk.s > 1.1) world.colliders.push({ minX: rk.x - rk.s, maxX: rk.x + rk.s, minY: y, maxY: y + rk.s * 0.8, minZ: rk.z - rk.s * 0.8, maxZ: rk.z + rk.s * 0.8, active: true });
             });
             rm.castShadow = true;
             rm.frustumCulled = false;
             scene.add(rm);
+            if (BO.Assets && BO.Assets.placeGLBInstanced && rockTrs.length) {
+                BO.Assets.placeGLBInstanced(scene, 'mini_forest_kit/rocks-low.glb', rockTrs, {
+                    fitSize: [1, 1, 1],
+                    hideFallback: rm,
+                    frustumCulled: false,
+                    guardScene: scene
+                });
+            }
         },
 
         _water(scene, D, out) {

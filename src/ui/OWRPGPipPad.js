@@ -8,7 +8,16 @@
     'use strict';
 
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-    const TABS = [['character', 'Character'], ['perks', 'Perks'], ['inventory', 'Inventory'], ['abilities', 'Abilities'], ['quests', 'Quests'], ['map', 'Map'], ['factions', 'Factions'], ['system', 'System']];
+    const TABS = [
+        ['character', 'Character', 'staged_assets/ui/military_icons/Field Gear/ballistic-document-clipboard-001.png'],
+        ['perks', 'Perks', 'staged_assets/ui/scifi_icons/Power Cores/amber-overdrive-cell-001.png'],
+        ['inventory', 'Inventory', 'staged_assets/ui/military_icons/Field Gear/assault-day-pack-001.png'],
+        ['abilities', 'Abilities', 'staged_assets/ui/scifi_icons/Gadgets/acoustic-hull-probe-001.png'],
+        ['quests', 'Quests', 'staged_assets/ui/military_icons/Maps Data/fire-support-target-card-001.png'],
+        ['map', 'Map', 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png'],
+        ['factions', 'Factions', 'staged_assets/ui/military_icons/Communications/antenna-relay-puck-001.png'],
+        ['system', 'System', 'staged_assets/ui/dieselpunk_icons/Tools/antenna-splice-kit-001.png']
+    ];
     const ATTR_COL = { BRW: '#f97316', RFX: '#a3e635', TCH: '#38bdf8', PRC: '#facc15', PRS: '#f472b6' };
     // Ability unlocks: [requirement label, test(s)].
     const UNLOCK = {
@@ -34,7 +43,7 @@
         },
 
         render() {
-            const nav = TABS.map(([id, n]) => `<button class="ow-tab ${this.tab === id ? 'on' : ''}" data-act="padTab" data-v="${id}">${n}</button>`).join('');
+            const nav = TABS.map(([id, n, ico]) => `<button class="ow-tab ${this.tab === id ? 'on' : ''}" data-act="padTab" data-v="${id}"><img src="${ico}" alt="" style="width:15px;height:15px;object-fit:contain;vertical-align:-2px;margin-right:5px;border-radius:3px">${n}</button>`).join('');
             const body = this['_' + this.tab] ? this['_' + this.tab]() : '';
             const p = this.s.player;
             this.UI.open('pippad', `

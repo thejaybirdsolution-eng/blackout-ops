@@ -449,13 +449,38 @@
         afterPlace(piece, fresh = false) {
             const part = piece.part;
             if (!part?.collider) return;
-            // Real surfaces instead of flat colours: planks, fortified timber, masonry, steel doors.
+            // Real surfaces instead of flat colours: staged 1024 PBR wood/slate/stone/steel + fallback procedural textures.
+            const stagedTex = {
+                floor: 'fantasy_painterly/Wood Bark Boards/charred-wood-boards-001.png',
+                wall: 'fantasy_painterly/Wood Bark Boards/light-pine-boards-001.png',
+                roof: 'fantasy_painterly/Roofing Thatch/blue-slate-roof-001.png',
+                platform: 'cyberpunk/Industrial Maintenance/dirty-tool-bench-steel-001.png',
+                stoneFloor: 'fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png',
+                stoneWall: 'fantasy_painterly/Stone Masonry Ruins/cellar-stone-001.png',
+                door: 'cyberpunk/Industrial Maintenance/diamond-plate-walkway-001.png'
+            }[piece.type];
             const key = { floor: 'wood_plank', wall: 'wood_fort', roof: 'dark_slate_roof', platform: 'wood_crate', stoneFloor: 'castle_stone', stoneWall: 'brick', door: 'diamond_plate' }[piece.type];
-            if (key && piece.mesh && !piece.mesh.userData.textured) {
+            if ((stagedTex || key) && piece.mesh && !piece.mesh.userData.textured) {
                 const [w, h, d] = piece.size;
-                const mat = BO.Textures.getWorldMaterial(key, Math.max(w, d), h).clone();
-                piece.mesh.material.dispose();
-                piece.mesh.material = mat;
+                let mat = null;
+                if (stagedTex && BO.Assets) {
+                    const rx = Math.max(1, Math.round(Math.max(w, d) / 2.2));
+                    const ry = Math.max(1, Math.round(h / 2.2));
+                    mat = BO.Assets.pbrMat(stagedTex, rx, ry, { roughness: piece.type === 'door' ? 0.42 : 0.84, metalness: piece.type === 'door' ? 0.65 : 0.08 }).clone();
+                } else if (key) {
+                    mat = BO.Textures.getWorldMaterial(key, Math.max(w, d), h).clone();
+                }
+                if (mat) {
+                    piece.mesh.material.dispose();
+                    piece.mesh.material = mat;
+                }
+                if (piece.type === 'door' && BO.Assets) {
+                    BO.Assets.placeGLB(piece.mesh, 'castle_kit/door.glb', {
+                        fitSize: [Math.max(1.0, w * 0.96), Math.max(1.8, h * 0.96), Math.max(0.24, d * 1.1)],
+                        align: 'center',
+                        hideFallback: null
+                    });
+                }
                 piece.mesh.userData.textured = true;
                 piece.mesh.castShadow = piece.mesh.receiveShadow = true;
             }

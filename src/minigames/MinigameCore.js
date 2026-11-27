@@ -150,236 +150,17 @@
 
     /* ------------------------------------------------------------ textures & 3D assets */
     const texCache = new Map();
-    const glbCache = new Map();
-    const glbPromises = new Map();
-    const glbSharedGeos = new Set();
-    const glbSharedMats = new Set();
-
-    function resolveAssetPath(relPath, defaultDir) {
-        const clean = String(relPath || '').replace(/^\/+/, '');
-        if (clean.startsWith('staged_assets/')) return clean;
-        return 'staged_assets/' + defaultDir + clean;
-    }
-
-    function loadTex(relPath, repeatX = 1, repeatY = 1) {
-        const full = resolveAssetPath(relPath, 'textures/');
-        const key = 'ftex:' + full + ':' + repeatX + ':' + repeatY;
-        if (texCache.has(key)) return texCache.get(key);
-        const tex = new THREE.TextureLoader().load(full);
-        tex.wrapS = THREE.RepeatWrapping;
-        tex.wrapT = THREE.RepeatWrapping;
-        tex.repeat.set(repeatX, repeatY);
-        if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-        tex.anisotropy = 4;
-        texCache.set(key, tex);
-        return tex;
-    }
-
-    function pbrMat(relPath, repeatX = 1, repeatY = 1, extra = {}) {
-        const key = 'pbr:' + relPath + ':' + repeatX + ':' + repeatY + ':' + JSON.stringify(extra);
-        return mat(key, () => new THREE.MeshStandardMaterial(Object.assign({
-            map: loadTex(relPath, repeatX, repeatY),
-            roughness: 0.78,
-            metalness: 0.10
-        }, extra)));
-    }
-
-    function loadSkyboxTex(relPath) {
-        const clean = String(relPath || '').replace(/^\/+/, '');
-        const full = clean.startsWith('staged_assets/')
-            ? clean
-            : (clean.includes('/') ? 'staged_assets/3d_models/skyboxes/' + clean : 'staged_assets/3d_models/skyboxes/Skyboxes/' + clean);
-        const key = 'sky:' + full;
-        if (texCache.has(key)) return texCache.get(key);
-        const tex = new THREE.TextureLoader().load(full);
-        tex.mapping = THREE.EquirectangularReflectionMapping;
-        if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-        texCache.set(key, tex);
-        return tex;
-    }
-
-    function applySkybox(scene, relPath) {
-        if (!scene || !relPath) return null;
-        const tex = loadSkyboxTex(relPath);
-        scene.traverse((o) => {
-            if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
-                o.visible = false;
-            }
-        });
-        scene.background = tex;
-        return tex;
-    }
-
-    function loadGLB(relPath) {
-        const path = resolveAssetPath(relPath, '3d_models/');
-        if (glbCache.has(path)) return Promise.resolve(glbCache.get(path).clone(true));
-        if (glbPromises.has(path)) return glbPromises.get(path).then((sc) => sc.clone(true));
-        if (typeof THREE.GLTFLoader !== 'function') {
-            return Promise.reject(new Error('THREE.GLTFLoader is not loaded'));
-        }
-        const p = new Promise((resolve, reject) => {
-            const loader = new THREE.GLTFLoader();
-            loader.load(path, (gltf) => {
-                const sc = gltf.scene || gltf.scenes[0];
-                sc.traverse((o) => {
-                    if (!o.isMesh) return;
-                    o.castShadow = true;
-                    o.receiveShadow = true;
-                    if (o.geometry) glbSharedGeos.add(o.geometry);
-                    const mats = Array.isArray(o.material) ? o.material : [o.material];
-                    for (const m of mats) {
-                        if (!m) continue;
-                        glbSharedMats.add(m);
-                        if (m.map && THREE.sRGBEncoding) m.map.encoding = THREE.sRGBEncoding;
-                    }
-                });
-                glbCache.set(path, sc);
-                glbPromises.delete(path);
-                resolve(sc);
-            }, undefined, (err) => {
-                glbPromises.delete(path);
-                console.warn('[Minigames] Failed to load GLB:', path, err);
-                reject(err);
-            });
-        });
-        glbPromises.set(path, p);
-        return p.then((sc) => sc.clone(true));
-    }
-
-    function _normalizeGLBScene(sc, opts = {}) {
-        const wrap = new THREE.Group();
-        wrap.add(sc);
-        wrap.updateMatrixWorld(true);
-        const box = new THREE.Box3().setFromObject(sc);
-        if (!box.isEmpty()) {
-            const sz = new THREE.Vector3();
-            box.getSize(sz);
-            if (opts.fitSize) {
-                const [tw, th, td] = opts.fitSize;
-                const sx = tw > 0 && sz.x > 1e-4 ? tw / sz.x : 1;
-                const sy = th > 0 && sz.y > 1e-4 ? th / sz.y : 1;
-                const szScale = td > 0 && sz.z > 1e-4 ? td / sz.z : 1;
-                if (opts.uniform) {
-                    const u = Math.min(sx, sy, szScale);
-                    sc.scale.multiplyScalar(u);
-                } else {
-                    sc.scale.multiply(new THREE.Vector3(sx, sy, szScale));
-                }
-                sc.updateMatrixWorld(true);
-                box.setFromObject(sc);
-            }
-            const ctr = new THREE.Vector3();
-            box.getCenter(ctr);
-            if (opts.centerXZ !== false) {
-                sc.position.x -= ctr.x;
-                sc.position.z -= ctr.z;
-            }
-            if (opts.align === 'center') sc.position.y -= ctr.y;
-            else if (opts.align !== 'raw') sc.position.y -= box.min.y;
-        }
-        wrap.updateMatrixWorld(true);
-        return wrap;
-    }
-
-    function _applyTransform(obj, opts) {
-        if (opts.pos) {
-            if (Array.isArray(opts.pos)) obj.position.set(opts.pos[0], opts.pos[1], opts.pos[2]);
-            else obj.position.copy(opts.pos);
-        }
-        if (opts.rot !== undefined) {
-            if (Array.isArray(opts.rot)) obj.rotation.set(opts.rot[0], opts.rot[1], opts.rot[2]);
-            else obj.rotation.y = opts.rot;
-        }
-        if (opts.scale !== undefined) {
-            if (Array.isArray(opts.scale)) obj.scale.set(opts.scale[0], opts.scale[1], opts.scale[2]);
-            else obj.scale.setScalar(opts.scale);
-        }
-    }
-
-    function _hideFallbacks(fb) {
-        if (!fb) return;
-        const list = Array.isArray(fb) ? fb : [fb];
-        for (const item of list) {
-            if (item) item.visible = false;
-        }
-    }
-
-    /**
-     * Synchronously returns a Group placeholder; asynchronously attaches cloned GLB
-     * sharing cached geometry/materials and optionally hiding procedural fallbacks.
-     */
-    function placeGLB(parent, path, opts = {}) {
-        const holder = new THREE.Group();
-        _applyTransform(holder, opts);
-        if (parent) parent.add(holder);
-        const ownerSession = BO.Minigames && BO.Minigames.session;
-        loadGLB(path).then((sc) => {
-            if (ownerSession && BO.Minigames.session !== ownerSession) return;
-            if (opts.noHit !== false) sc.traverse((o) => { o.userData.noHit = true; });
-            if (opts.castShadow === false || opts.receiveShadow === false) {
-                sc.traverse((o) => {
-                    if (!o.isMesh) return;
-                    if (opts.castShadow === false) o.castShadow = false;
-                    if (opts.receiveShadow === false) o.receiveShadow = false;
-                });
-            }
-            const wrap = _normalizeGLBScene(sc, opts);
-            holder.add(wrap);
-            holder.updateMatrixWorld(true);
-            _hideFallbacks(opts.hideFallback);
-            if (opts.solidSession) opts.solidSession.solid(holder);
-            if (opts.onLoad) opts.onLoad(holder, sc);
-        }).catch(() => {});
-        return holder;
-    }
-
-    /**
-     * Instanced GLB placement for repeated props (trees, crates, gravestones, walls).
-     * Each entry in `transforms` can be a THREE.Matrix4 or { pos, rot, scale }.
-     */
-    function placeGLBInstanced(parent, path, transforms, opts = {}) {
-        const holder = new THREE.Group();
-        if (!transforms || !transforms.length) return holder;
-        if (parent) parent.add(holder);
-        const ownerSession = BO.Minigames && BO.Minigames.session;
-        loadGLB(path).then((sc) => {
-            if (ownerSession && BO.Minigames.session !== ownerSession) return;
-            const wrap = _normalizeGLBScene(sc, opts);
-            const dummy = new THREE.Object3D();
-            const instMat4 = new THREE.Matrix4();
-            const finalMat4 = new THREE.Matrix4();
-            const meshes = [];
-            wrap.traverse((o) => { if (o.isMesh && o.geometry) meshes.push(o); });
-            for (const srcMesh of meshes) {
-                const im = new THREE.InstancedMesh(srcMesh.geometry, srcMesh.material, transforms.length);
-                im.castShadow = opts.castShadow !== false;
-                im.receiveShadow = opts.receiveShadow !== false;
-                if (opts.noHit !== false) im.userData.noHit = true;
-                for (let i = 0; i < transforms.length; i++) {
-                    const tr = transforms[i];
-                    if (tr && tr.isMatrix4) {
-                        instMat4.copy(tr);
-                    } else {
-                        dummy.position.set(0, 0, 0);
-                        dummy.rotation.set(0, 0, 0);
-                        dummy.scale.set(1, 1, 1);
-                        _applyTransform(dummy, tr || {});
-                        dummy.updateMatrix();
-                        instMat4.copy(dummy.matrix);
-                    }
-                    finalMat4.multiplyMatrices(instMat4, srcMesh.matrixWorld);
-                    im.setMatrixAt(i, finalMat4);
-                }
-                im.instanceMatrix.needsUpdate = true;
-                if (typeof im.computeBoundingSphere === 'function') im.computeBoundingSphere();
-                holder.add(im);
-            }
-            _hideFallbacks(opts.hideFallback);
-            if (opts.solidSession) opts.solidSession.solid(holder);
-            if (opts.onLoad) opts.onLoad(holder);
-        }).catch(() => {});
-        return holder;
-    }
+    const _mgSessionGuard = () => {
+        const owner = BO.Minigames && BO.Minigames.session;
+        return () => !owner || (BO.Minigames && BO.Minigames.session === owner);
+    };
+    const loadTex = (relPath, repeatX = 1, repeatY = 1) => BO.Assets.loadTex(relPath, repeatX, repeatY);
+    const pbrMat = (relPath, repeatX = 1, repeatY = 1, extra = {}) => BO.Assets.pbrMat(relPath, repeatX, repeatY, extra);
+    const loadSkyboxTex = (relPath) => BO.Assets.loadSkyboxTex(relPath);
+    const applySkybox = (scene, relPath) => BO.Assets.applySkybox(scene, relPath);
+    const loadGLB = (relPath) => BO.Assets.loadGLB(relPath);
+    const placeGLB = (parent, path, opts = {}) => BO.Assets.placeGLB(parent, path, Object.assign({ isAlive: _mgSessionGuard() }, opts));
+    const placeGLBInstanced = (parent, path, transforms, opts = {}) => BO.Assets.placeGLBInstanced(parent, path, transforms, Object.assign({ isAlive: _mgSessionGuard() }, opts));
 
     function canvasTex(key, w, h, draw) {
         if (texCache.has(key)) return texCache.get(key);
@@ -925,6 +706,7 @@
 
         stop() {
             if (!this.active && !this.session) return;
+            if (BO.Assets && BO.Assets.stopMusicClips) BO.Assets.stopMusicClips();
             if (this.session) {
                 if (this.def && this.def.dispose) { try { this.def.dispose(this.session, this.lib); } catch (e) { console.error(e); } }
                 this.session.clearTargets();
@@ -954,13 +736,13 @@
             scene.traverse((o) => {
                 if (!o.isMesh && !o.isInstancedMesh) return;
                 if (o.isInstancedMesh && typeof o.dispose === 'function') o.dispose();
-                if (o.geometry && o.geometry.dispose && !glbSharedGeos.has(o.geometry)) o.geometry.dispose();
+                if (o.geometry && o.geometry.dispose && !(BO.Assets && BO.Assets.isSharedGeo(o.geometry))) o.geometry.dispose();
                 const mats = Array.isArray(o.material) ? o.material : [o.material];
                 for (const m of mats) {
-                    if (!m || cachedMats.has(m) || glbSharedMats.has(m) || m === HIDDEN_MAT) continue;
+                    if (!m || cachedMats.has(m) || (BO.Assets && BO.Assets.hasSharedMatValue(m)) || m === HIDDEN_MAT) continue;
                     for (const tk of ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap']) {
                         const tx = m[tk];
-                        if (tx && !cachedTex.has(tx) && tx.userData && tx.userData.mgOwned) tx.dispose();
+                        if (tx && !cachedTex.has(tx) && !(BO.Assets && BO.Assets.hasCachedTexValue(tx)) && tx.userData && tx.userData.mgOwned) tx.dispose();
                     }
                     m.dispose();
                 }
@@ -1136,8 +918,15 @@
                 const n = Math.ceil(this.countdown);
                 if (n !== this._lastBeep && n >= 0) {
                     this._lastBeep = n;
-                    if (n > 0) { SFX.beep(false); this._showCountdown(String(n)); }
-                    else { SFX.beep(true); this._showCountdown('GO!'); }
+                    if (n > 0) {
+                        SFX.beep(false);
+                        this._showCountdown(String(n));
+                        if (n >= 1 && n <= 3 && BO.Assets) BO.Assets.playClip(`audio/voice/Voiceover Pack (Kenney)/Male/${n}.ogg`, { volume: 0.78 });
+                    } else {
+                        SFX.beep(true);
+                        this._showCountdown('GO!');
+                        if (BO.Assets) BO.Assets.playClip('audio/voice/Voiceover Pack (Kenney)/Male/go.ogg', { volume: 0.84 });
+                    }
                 }
                 if (this.countdown <= 0) {
                     this.state = 'running';
@@ -1439,6 +1228,10 @@
                 else if (prev && res.stars > prev.stars) prev.stars = res.stars;
                 if (res.xp) BO.Progression.grantPlayerXP(res.xp, 'minigame');
                 BO.Progression.flushSave ? BO.Progression.flushSave() : BO.Save.save();
+                if (BO.Assets) {
+                    const clip = (better && prev) ? 'new_highscore.ogg' : (res.stars >= 1 ? 'mission_completed.ogg' : 'game_over.ogg');
+                    BO.Assets.playClip('audio/voice/Voiceover Pack (Kenney)/Male/' + clip, { volume: 0.80 });
+                }
             }
 
             this.blockingUI = true;

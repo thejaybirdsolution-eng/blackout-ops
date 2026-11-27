@@ -1360,6 +1360,30 @@
         }
 
         _buildZombiesProps(scene) {
+            if (BO.Assets) {
+                BO.Assets.applySkybox(scene, 'skybox-night.png');
+                const boxes = this.mapData.boxes || [];
+                let minX = -32, maxX = 32, minZ = -32, maxZ = 32;
+                for (const b of boxes) {
+                    minX = Math.min(minX, b.x - (b.w || 0) * 0.5);
+                    maxX = Math.max(maxX, b.x + (b.w || 0) * 0.5);
+                    minZ = Math.min(minZ, b.z - (b.d || 0) * 0.5);
+                    maxZ = Math.max(maxZ, b.z + (b.d || 0) * 0.5);
+                }
+                const graveTrs = [];
+                const fenceTrs = [];
+                for (let i = 0; i < 16; i++) {
+                    const ang = (i / 16) * Math.PI * 2;
+                    const rx = Math.cos(ang) * ((maxX - minX) * 0.55 + 14);
+                    const rz = Math.sin(ang) * ((maxZ - minZ) * 0.55 + 14);
+                    graveTrs.push({ pos: [rx, 0, rz], rot: ang + 1.57, scale: 2.4 });
+                    fenceTrs.push({ pos: [rx * 0.94, 0, rz * 0.94], rot: -ang, scale: 2.6 });
+                }
+                BO.Assets.placeGLBInstanced(scene, 'graveyard_kit/gravestone-cross.glb', graveTrs, { frustumCulled: false, guardScene: scene });
+                BO.Assets.placeGLBInstanced(scene, 'graveyard_kit/fence.glb', fenceTrs, { frustumCulled: false, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'graveyard_kit/crypt-large.glb', { pos: [0, 0, minZ - 16], scale: 4.5, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'graveyard_kit/crypt-a.glb', { pos: [maxX + 16, 0, 0], rot: -Math.PI * 0.5, scale: 4.2, guardScene: scene });
+            }
             // 1. Purchaseable Doors / Debris Gates (multi-floor Y aware!)
             for (const d of this.mapData.doors) {
                 let mesh;
@@ -2761,6 +2785,26 @@
         }
 
         _buildMPProps(scene) {
+            if (BO.Assets) {
+                const atm = this.mapData.atmosphere || {};
+                const night = (atm.sunIntensity !== undefined && atm.sunIntensity < 0.75) || atm.moon;
+                BO.Assets.applySkybox(scene, night ? 'skybox-night.png' : 'skybox-day.png');
+                const boxes = this.mapData.boxes || [];
+                let spanX = 48, spanZ = 48;
+                for (const b of boxes) {
+                    spanX = Math.max(spanX, Math.abs(b.x) + (b.w || 0) * 0.5);
+                    spanZ = Math.max(spanZ, Math.abs(b.z) + (b.d || 0) * 0.5);
+                }
+                const skylineTrs = [];
+                for (let i = 0; i < 12; i++) {
+                    const a = (i / 12) * Math.PI * 2 + 0.18;
+                    const dist = Math.max(spanX, spanZ) + 22 + (i % 3) * 10;
+                    skylineTrs.push({ pos: [Math.cos(a) * dist, 0, Math.sin(a) * dist], rot: -a, scale: 5.5 + (i % 3) * 1.8 });
+                }
+                BO.Assets.placeGLBInstanced(scene, 'city_industrial_kit/building-a.glb', skylineTrs.filter((_, i) => i % 2 === 0), { frustumCulled: false, guardScene: scene });
+                BO.Assets.placeGLBInstanced(scene, 'city_industrial_kit/building-h.glb', skylineTrs.filter((_, i) => i % 2 === 1), { frustumCulled: false, guardScene: scene });
+                BO.Assets.placeGLB(scene, 'city_industrial_kit/water-tower.glb', { pos: [spanX + 18, 0, -spanZ - 14], scale: 4.5, guardScene: scene });
+            }
             if (this.mapData.domFlags) {
                 for (const f of this.mapData.domFlags) {
                     const g = new THREE.Group();

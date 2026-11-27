@@ -180,8 +180,19 @@
                 gate.group.removeFromParent();
                 gate.mat.map?.dispose();
                 gate.group.traverse((obj) => {
-                    if (obj.isMesh) { obj.geometry.dispose(); obj.material.dispose(); }
+                    if (!obj.isMesh) return;
+                    if (obj.geometry && !(BO.Assets && BO.Assets.isSharedGeo(obj.geometry))) obj.geometry.dispose();
+                    if (obj.material && !(BO.Assets && BO.Assets.hasSharedMatValue(obj.material))) obj.material.dispose();
                 });
+            }
+            if (this.vaultGlbGroup) {
+                this.vaultGlbGroup.removeFromParent();
+                this.vaultGlbGroup.traverse((obj) => {
+                    if (obj.isInstancedMesh && typeof obj.dispose === 'function') obj.dispose();
+                    if (obj.geometry && !(BO.Assets && BO.Assets.isSharedGeo(obj.geometry))) obj.geometry.dispose();
+                    if (obj.material && !(BO.Assets && BO.Assets.hasSharedMatValue(obj.material))) obj.material.dispose();
+                });
+                this.vaultGlbGroup = null;
             }
             this.roomEvent?.dispose();
             this.roomEvent = null;
@@ -224,6 +235,28 @@
             this.layout = gen.layout;
             BO.World.build(gen.mapId);
             this.vaultArt = BO.RPGVaultArt.build(this.layout, r.seed);
+            if (BO.Assets && BO.Assets.placeGLBInstanced && BO.World.scene) {
+                const vg = new THREE.Group();
+                BO.World.scene.add(vg);
+                this.vaultGlbGroup = vg;
+                const { hw, hl, wallH } = this.layout;
+                const cols = [];
+                for (let z = -hl + 4; z <= hl - 4; z += 7.5) {
+                    cols.push({ pos: [-hw + 0.9, 0, z], scale: [1.6, Math.min(wallH * 0.85, 6.2), 1.6] });
+                    cols.push({ pos: [hw - 0.9, 0, z], scale: [1.6, Math.min(wallH * 0.85, 6.2), 1.6] });
+                }
+                BO.Assets.placeGLBInstanced(vg, 'mini_dungeon_kit/column.glb', cols, { fitSize: [1, 1, 1], guardScene: BO.World.scene });
+                BO.Assets.placeGLBInstanced(vg, 'mini_dungeon_kit/barrel.glb', [
+                    { pos: [-hw + 1.8, 0, hl - 2.2], rot: 0.4, scale: 1.5 },
+                    { pos: [hw - 1.8, 0, hl - 2.2], rot: 1.9, scale: 1.5 },
+                    { pos: [-hw + 1.9, 0, -hl + 2.4], rot: 0.9, scale: 1.45 },
+                    { pos: [hw - 1.9, 0, -hl + 2.4], rot: 2.3, scale: 1.45 }
+                ], { scale: 1, guardScene: BO.World.scene });
+                BO.Assets.placeGLBInstanced(vg, 'mini_dungeon_kit/banner.glb', [
+                    { pos: [-hw + 0.3, 3.2, 0], rot: Math.PI * 0.5, scale: 2.2 },
+                    { pos: [hw - 0.3, 3.2, 0], rot: -Math.PI * 0.5, scale: 2.2 }
+                ], { guardScene: BO.World.scene });
+            }
             const sp = gen.layout.spawn;
 
             this.stats = this.Profile.computeStats(r);

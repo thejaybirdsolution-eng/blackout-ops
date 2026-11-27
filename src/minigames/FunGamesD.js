@@ -719,12 +719,20 @@
         },
         blockKeys: ['Space'],
         map: {
+            skybox: 'skybox-night.png',
             atmosphere: { skyTop: 0x090d1e, skyBottom: 0xc2410c, fogColor: 0x31102f, fogDensity: 0.0038, sunColor: 0xfdba74, sunIntensity: 1.55, sunPos: [-60, 45, -80], hemiSky: 0xf472b6, hemiGround: 0x1e293b, hemiIntensity: 1.0 },
             boxes: [B(0, -0.5, 0, 220, 1, 220, 'concrete')],
             spawn: { x: 0, y: 14, z: 58, yaw: 0 }
         },
         build(S) {
-            if (BO.MinigameAudio) BO.MinigameAudio.start('kaiju');
+            if (BO.MinigameAudio) {
+                BO.MinigameAudio.start('kaiju');
+                if (BO.MinigameAudio.playStagedMusic) BO.MinigameAudio.playStagedMusic('audio/music/FreePD CC0 Music Tracks/Epic Dramatic/epic-dramatic-strength-of-the-titans-661803f4.m4a', 0.25);
+            }
+            A.placeGLB(S.scene, 'city_industrial_kit/chimney-large.glb', { pos: [-72, 0, -24], scale: 8 });
+            A.placeGLB(S.scene, 'city_industrial_kit/chimney-large.glb', { pos: [72, 0, -24], scale: 8 });
+            A.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-78, 0, 22], scale: 7 });
+            A.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [78, 0, 22], scale: 7 });
             const roadTex = cityRoadTex(); roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping; roadTex.repeat.set(4, 4);
             const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.86 }));
             ground.rotation.x = -Math.PI / 2; ground.position.y = 0.02; S.add(ground);
