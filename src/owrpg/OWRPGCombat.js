@@ -87,6 +87,10 @@
             const ent = agent.ent;
             const killed = agent.kind === 'bot' ? ent.takeDamage(dmg, 'player') : ent.takeDamage(dmg, ctx.isHead ? 'head' : 'torso', crit, null, ctx.source === 'melee' ? 'melee' : 'bullet');
             if (ctx.source === 'gun' || ctx.source === 'melee') BO.Sound.playHitmarker(crit, killed);
+            if (crit || killed) {
+                BO.Juice?.shake?.(crit ? 0.095 : 0.05);
+                if (ctx.source === 'melee' || crit) BO.Sound?.playGoreImpact?.(crit);
+            }
             if (ctx.source !== 'dot') BO.OWRPGAI.onDamaged(agent, ctx);
             if (killed) BO.OWRPGAI.onKilled(agent, Object.assign({ sneak, crit }, ctx));
             BO.OWRPGUI && BO.OWRPGUI.floatDamage(agent, dmg, crit, ctx.element || (sneak ? 'sneak' : null));

@@ -334,6 +334,11 @@
             this.synthTone(660, 310, 0.052, 'triangle', 0.13, { attack: 0.0015 });
             this.synthTone(1320, 880, 0.028, 'sine', 0.055, { attack: 0.001 });
             this.synthNoise(0.022, 2600, 'bandpass', 2.4, 0.085, { attack: 0.001, endFrequency: 1200 });
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/ui/click_001.ogg' : 'overhaul/ui/click_002.ogg', {
+                    volume: 0.22, rateJitter: 0.08, volJitter: 0.08
+                });
+            }
         }
 
         _getSaturationCurve() {
@@ -423,14 +428,18 @@
 
         playHitmarker(isHeadshot = false, isKill = false) {
             const options = { attack: 0.0018 };
-            this.synthNoise(0.036, isHeadshot ? 4020 : 2860, 'bandpass', 2.3, isHeadshot ? 0.37 : 0.27, options);
-            this.synthTone(isHeadshot ? 2290 : 1470, isHeadshot ? 1630 : 1170, 0.041, 'triangle', isHeadshot ? 0.28 : 0.20, options);
+            const jit = 0.96 + Math.random() * 0.08;
+            this.synthNoise(0.036, (isHeadshot ? 4020 : 2860) * jit, 'bandpass', 2.3, isHeadshot ? 0.37 : 0.27, options);
+            this.synthTone((isHeadshot ? 2290 : 1470) * jit, (isHeadshot ? 1630 : 1170) * jit, 0.041, 'triangle', isHeadshot ? 0.28 : 0.20, options);
             if (isKill) {
                 this.synthTone(246, 85, 0.077, 'sine', 0.26, { ...options, delay: 0.023 });
                 this.synthTone(659, 524, 0.12, 'triangle', 0.15, { ...options, delay: 0.052 });
             }
             if (isHeadshot && isKill) {
                 this.synthNoise(0.096, 1730, 'bandpass', 1.1, 0.33, { ...options, delay: 0.010, endFrequency: 500 });
+            }
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: isHeadshot ? 0.32 : 0.22, rate: isHeadshot ? 1.08 : 1.0, rateJitter: 0.06 });
             }
         }
 
@@ -500,6 +509,11 @@
             this.synthNoise(duration * 0.86, texture * variation * mix.clarity, 'bandpass', 1.18, 0.25 * v,
                 { pan, endFrequency: texture * 0.44 * mix.clarity });
             this.synthNoise(duration * 0.5, texture * 1.15 * mix.clarity, 'bandpass', 1.6, 0.115 * v, { pan, delay: 0.034 });
+            if (BO.Assets?.playClip && mix.gain >= 0.12) {
+                BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/env/step_concrete_1.wav' : 'overhaul/env/step_concrete_2.wav', {
+                    volume: 0.12 * v, rateJitter: 0.14, volJitter: 0.10, pan
+                });
+            }
         }
 
         playSlide() {
@@ -596,6 +610,10 @@
         playZombieGroan(profile = 'groan_mid', source = 1, range = 36) {
             const { gain, pan, clarity } = this._worldEffect(source, range, 'vocal');
             if (gain <= 0.035) return;
+            if (BO.Assets?.playClip && gain >= 0.16 && Math.random() < 0.38) {
+                const clip = ['zombie1.wav', 'zombie2.wav', 'zombie3.wav'][Math.floor(Math.random() * 3)];
+                BO.Assets.playClip('overhaul/zombies/' + clip, { volume: 0.24 * gain, rateJitter: 0.10, volJitter: 0.08, pan });
+            }
 
             const pitch = 0.90 + Math.random() * 0.20;
             const rasp = (from, to, duration, formant, level, delay = 0) => {
@@ -667,6 +685,9 @@
         }
 
         playBossIntro() {
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip('overhaul/zombies/zombie_scream.mp3', { volume: 0.34, rateJitter: 0.06 });
+            }
             this.synthNoise(0.95, 340, 'lowpass', 0.85, 0.26, { attack: 0.08, endFrequency: 110, saturated: true });
             [110, 103.8, 98, 73.4].forEach((f, i) => {
                 const delay = i * 0.24;
@@ -700,6 +721,9 @@
         }
 
         playRoundStart(roundNum, isDogRound = false) {
+            if (BO.Assets?.playClip && (isDogRound || roundNum % 5 === 0)) {
+                BO.Assets.playClip('overhaul/zombies/zombie_laugh.mp3', { volume: 0.30, rateJitter: 0.05 });
+            }
             if (isDogRound) {
                 this.synthNoise(1.05, 420, 'lowpass', 0.85, 0.26, { attack: 0.12, endFrequency: 110, saturated: true });
                 this.synthTone(144, 46, 0.82, 'sawtooth', 0.25,
@@ -1073,9 +1097,52 @@
         }
 
         playShopBuy() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/buy.wav', { volume: 0.34, rateJitter: 0.05 });
             this._metalImpact(1.52, 0.36);
             this.synthTone(587.33, 880, 0.12, 'triangle', 0.19, { pan: -0.14 });
             this.synthTone(880, 1174.66, 0.20, 'sine', 0.18, { delay: 0.075, pan: 0.14 });
+        }
+
+        playUIHover() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/click_002.ogg', { volume: 0.09, rate: 1.25, rateJitter: 0.08 });
+        }
+        playUIBack() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/back_001.ogg', { volume: 0.25, rateJitter: 0.05 });
+            else this.playUIClick();
+        }
+        playCardDraw() {
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/cards/card_draw_1.wav' : 'overhaul/cards/card_draw_2.wav', { volume: 0.36, rateJitter: 0.08 });
+            }
+        }
+        playCardFan() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/cards/card_fan.wav', { volume: 0.38, rateJitter: 0.05 });
+        }
+        playQuestFanfare() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/combat/LevelUpMW2.mp3', { volume: 0.38 });
+        }
+        playLootChime() {
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.30, rateJitter: 0.08 });
+                BO.Assets.playClip('overhaul/ui/ching.wav', { volume: 0.22, rateJitter: 0.06 });
+            }
+        }
+        playPing() {
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.32, rateJitter: 0.05 });
+        }
+        playTurretPlace() {
+            this._metalImpact(1.2, 0.45);
+            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/confirmation_001.ogg', { volume: 0.32, rateJitter: 0.06 });
+        }
+        playGoreImpact(heavy = false) {
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip(heavy ? 'overhaul/combat/bone_snap.wav' : 'overhaul/combat/crunch_splat.wav', { volume: heavy ? 0.34 : 0.24, rateJitter: 0.10 });
+            }
+        }
+        playMatchStinger(victory = true) {
+            if (BO.Assets?.playClip) {
+                BO.Assets.playClip(victory ? 'overhaul/stingers/level_complete.wav' : 'overhaul/ui/error_001.ogg', { volume: 0.36 });
+            }
         }
 
         playMonkeyChime(source = 1) {
@@ -1112,11 +1179,27 @@
 
         startMusic(mode) {
             if (this.musicMode === mode) return;
-            this.stopMusic();
+            this.stopMusic(false);
             this.musicMode = mode;
             this.menuBar = 0;
 
-            // Subtle moody dark ambient pulse that stays atmospheric
+            const stagedTracks = {
+                menu: ['overhaul/music/after_the_end.m4a', 0.20],
+                mp: ['overhaul/music/action_strike.m4a', 0.18],
+                zombies: ['overhaul/music/abstract_anxiety.m4a', 0.20],
+                td: ['overhaul/music/behind_enemy_lines.m4a', 0.18],
+                owrpg: ['overhaul/music/cold_journey.m4a', 0.20],
+                owrpg_combat: ['overhaul/music/beginning_of_conflict.m4a', 0.22],
+                rpg: ['overhaul/music/behind_the_sword.m4a', 0.19],
+                boss: ['overhaul/music/action_strike.m4a', 0.24]
+            };
+            const tr = stagedTracks[mode];
+            if (tr && BO.Assets?.crossfadeMusic) {
+                BO.Assets.crossfadeMusic(tr[0], { volume: tr[1], fadeSec: 0.85 });
+                return;
+            }
+
+            // Procedural fallback when Web Audio clip streaming is unavailable.
             const playPulse = () => {
                 if (!this.musicMode) return;
                 const s = BO.Settings.all;
@@ -1125,12 +1208,11 @@
 
                 if (this.musicMode === 'menu') {
                     this._playMenuBar();
-                } else if (this.musicMode === 'rpg') {
-                    // Low modal drone with a hopeful fifth: tension without dread.
+                } else if (this.musicMode === 'rpg' || this.musicMode === 'owrpg') {
                     this.playTone(65.4, 65.4, 2.6, 'triangle', 0.13, 0, 'music');
                     this.playTone(98, 97, 2.0, 'sine', 0.09, 0.6, 'music');
                     this.playTone(155.6, 155.6, 1.2, 'sine', 0.05, 1.6, 'music');
-                } else if (this.musicMode === 'zombies') {
+                } else if (this.musicMode === 'zombies' || this.musicMode === 'boss') {
                     this.playTone(49, 48, 2.4, 'sawtooth', 0.09, 0, 'music');
                     this.playTone(146.8, 138.6, 1.8, 'sine', 0.10, 0.8, 'music');
                 }
@@ -1140,12 +1222,14 @@
             this.musicTimer = setInterval(playPulse, mode === 'menu' ? 3000 : 3200);
         }
 
-        stopMusic() {
+        stopMusic(stopClips = true) {
             this.musicMode = null;
             if (this.musicTimer) {
                 clearInterval(this.musicTimer);
                 this.musicTimer = null;
             }
+            if (stopClips && BO.Assets?.stopMusicClips) BO.Assets.stopMusicClips(0.45);
+            if (stopClips && BO.Assets?.stopAmbient) BO.Assets.stopAmbient(0.45);
         }
     }
 

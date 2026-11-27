@@ -114,10 +114,10 @@
         handlers: {
             close() { this.close(); },
             choose(v) { this._chooseDialogue(Number(v)); },
-            buy(v) { const err = BO.OWRPGInventory.buy(this.s, this.vendorId, v); if (err) this.M.toast(err, '#f97316'); this.openVendor(this.vendorId); },
-            sell(v) { const cr = BO.OWRPGInventory.sell(this.s, v); if (cr) this.M.toast(`Sold for ${cr} cr`, '#fbbf24'); this.M.refreshLoadout(); this.openVendor(this.vendorId); },
-            stashIn(v) { const e = BO.OWRPGInventory.removeUid(this.s, v); if (e) { this.s.player.stash.push(e); this.M.refreshLoadout(); } this.openStash(); },
-            stashOut(v) { const st = this.s.player.stash; const i = st.findIndex((x) => x.uid === v); if (i >= 0) this.s.player.inventory.push(st.splice(i, 1)[0]); this.openStash(); },
+            buy(v) { const err = BO.OWRPGInventory.buy(this.s, this.vendorId, v); if (err) this.M.toast(err, '#f97316'); else BO.Sound.playShopBuy?.(); this.openVendor(this.vendorId); },
+            sell(v) { const cr = BO.OWRPGInventory.sell(this.s, v); if (cr) { this.M.toast(`Sold for ${cr} cr`, '#fbbf24'); BO.Sound.playLootChime?.(); } this.M.refreshLoadout(); this.openVendor(this.vendorId); },
+            stashIn(v) { const e = BO.OWRPGInventory.removeUid(this.s, v); if (e) { this.s.player.stash.push(e); this.M.refreshLoadout(); BO.Sound.playLootChime?.(); } this.openStash(); },
+            stashOut(v) { const st = this.s.player.stash; const i = st.findIndex((x) => x.uid === v); if (i >= 0) { this.s.player.inventory.push(st.splice(i, 1)[0]); BO.Sound.playLootChime?.(); } this.openStash(); },
             travel(v) { const err = this.M.travelTo(v); if (err) this.M.toast(err, '#f97316'); else this.close(); },
             deathLoad() { this.deathOpen = false; this.close(true); this.M.quickLoad(); },
             deathRespawn() {
@@ -205,6 +205,7 @@
             if (!node) return;
             this.dlg = { npc: npcId, node };
             this.M.setFlag('met_' + npcId, true);
+            BO.Assets?.playClip?.('audio/overhaul/env/book_open.wav', { volume: 0.38, rateJitter: 0.06 });
             this._renderDialogue();
         },
 

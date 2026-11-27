@@ -33,7 +33,26 @@
             if (BO.PostFX) BO.PostFX.impact(e.isKill ? (e.isHeadshot ? 0.85 : 0.6) : 0.16);
             if (!e.isKill) return;
             this.burst(!!e.isHeadshot);
+            this.shake(e.isHeadshot ? 0.095 : 0.045);
             this.hitStop(e.isHeadshot ? 0.085 : 0.055);
+        }
+
+        shake(amount = 0.08) {
+            if (this._reduced() || !BO.Player) return;
+            const scale = BO.Settings ? (BO.Settings.get('screenShake') ?? 1.0) : 1.0;
+            if (scale <= 0.01) return;
+            BO.Player.cameraShake = Math.min(0.45, (BO.Player.cameraShake || 0) + amount);
+        }
+
+        screenFlash(color = '#ef4444', alpha = 0.22, ms = 320) {
+            if (this._reduced()) return;
+            const hud = document.getElementById('hud-layer') || document.body;
+            if (!hud) return;
+            const el = document.createElement('div');
+            el.style.cssText = `position:fixed;inset:0;pointer-events:none;z-index:9990;background:${color};opacity:${alpha};transition:opacity ${ms}ms ease-out;`;
+            hud.appendChild(el);
+            requestAnimationFrame(() => { el.style.opacity = '0'; });
+            setTimeout(() => el.remove(), ms + 40);
         }
 
         hitStop(seconds) {

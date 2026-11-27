@@ -234,6 +234,7 @@
             const gen = BO.RPGArena.generate({ floor: r.floor, roomType: r.roomType, seed: r.seed, gateCount });
             this.layout = gen.layout;
             BO.World.build(gen.mapId);
+            if (r.roomType !== 'boss') BO.Sound.startMusic('rpg');
             this.vaultArt = BO.RPGVaultArt.build(this.layout, r.seed);
             if (BO.Assets && BO.Assets.placeGLBInstanced && BO.World.scene) {
                 const vg = new THREE.Group();
@@ -774,7 +775,10 @@
             ent.yaw = 0;
             this.enemies.push(ent);
             this.boss = ent;
+            BO.Sound.startMusic('boss');
             BO.Sound.playBossIntro();
+            BO.Juice?.shake?.(0.22);
+            BO.Juice?.screenFlash?.('#dc2626', 0.24, 440);
         }
 
         _bossPhaseCheck(z) {

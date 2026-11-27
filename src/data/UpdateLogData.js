@@ -2495,7 +2495,7 @@
         },
         {
                 "id": 124,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2514,7 +2514,7 @@
         },
         {
                 "id": 125,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2533,7 +2533,7 @@
         },
         {
                 "id": 126,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2552,7 +2552,7 @@
         },
         {
                 "id": 127,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2571,7 +2571,7 @@
         },
         {
                 "id": 128,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2590,7 +2590,7 @@
         },
         {
                 "id": 129,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2609,7 +2609,7 @@
         },
         {
                 "id": 130,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2628,7 +2628,7 @@
         },
         {
                 "id": 131,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2647,7 +2647,7 @@
         },
         {
                 "id": 132,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2666,7 +2666,7 @@
         },
         {
                 "id": 133,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2685,7 +2685,7 @@
         },
         {
                 "id": 134,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2704,7 +2704,7 @@
         },
         {
                 "id": 135,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2723,7 +2723,7 @@
         },
         {
                 "id": 136,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2742,7 +2742,7 @@
         },
         {
                 "id": 137,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2761,7 +2761,7 @@
         },
         {
                 "id": 138,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2780,7 +2780,7 @@
         },
         {
                 "id": 139,
-                "hash": "pending",
+                "hash": "8bdadf5",
                 "date": "Nov 26, 2026",
                 "fullDate": "November 26, 2026",
                 "time": "9:18 PM ET",
@@ -2796,6 +2796,158 @@
                         {
                                 "type": "p",
                                 "text": "Added night skyboxes with outer graveyard crypts, fences, and headstones in Zombies, panoramic day/night skyboxes with industrial skylines in Multiplayer, and military icons to Gunsmith attachment tabs."
+                        }
+                ]
+        },
+        {
+                "id": 140,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Crossfading music & randomized SFX engine",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Upgraded BO.Assets and SoundEngine with smooth music track crossfading, environmental ambient loops, pitch and volume randomization on footsteps, clicks, and hitmarkers, plus dedicated stinger and impact cue helpers."
+                        }
+                ]
+        },
+        {
+                "id": 141,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Spring UI transitions & screen-flash juice",
+                "major": false,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added spring-eased modal entrances, tactile hover and press animations, staggered card deal kinetics, countdown pop curves, and a screen-shake/flash Juice controller (respecting Reduced Motion)."
+                        }
+                ]
+        },
+        {
+                "id": 142,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Multiplayer tactical score, ping & match stingers",
+                "major": false,
+                "tags": [
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Wired high-energy tactical background music during matches, tactical ping chimes and scaled kill camera shake on eliminations, and victory/defeat stingers on match completion."
+                        }
+                ]
+        },
+        {
+                "id": 143,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Zombies horror stingers, gore impacts & boss flashes",
+                "major": false,
+                "tags": [
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added crimson flashes and heavy screen shake on Boss rounds, horror laugh stingers on every fifth round, and randomized gore impact SFX with kinetic shake on headshots, melee kills, and boss kills."
+                        }
+                ]
+        },
+        {
+                "id": 144,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Tower Defense deployable range rings, bounce & siege music",
+                "major": false,
+                "tags": [
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added sweeping orchestral siege music, wave-start horns with camera shake, glowing tactical range rings and elastic spawn-bounce animations on deployables, plus placement and income chimes."
+                        }
+                ]
+        },
+        {
+                "id": 145,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Open World RPG dynamic combat music, wind & dialogue polish",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added ambient wind across the Meridian Expanse with smooth music crossfading between calm exploration and active combat, staggered dialogue choice animations with book-open cues, level-up/quest fanfares, and vendor/stash trade audio."
+                        }
+                ]
+        },
+        {
+                "id": 146,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Minigames victory stingers, hit shake & hover SFX",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added pop-eased countdown animations, bullseye and headshot micro-shake, victory stingers on multi-star finishes, and tactile hover chimes across results menus."
+                        }
+                ]
+        },
+        {
+                "id": 147,
+                "hash": "v2.5",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:08 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Rogue Lite card deal fanfare, boss score & screen flash",
+                "major": false,
+                "tags": [
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added staggered card-deal animations and card fan/draw SFX on Boon selection, smooth crossfading into high-intensity Boss floor music, and dramatic boss intro screams with crimson flashes and camera shake."
                         }
                 ]
         }

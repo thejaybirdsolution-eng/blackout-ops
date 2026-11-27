@@ -18,6 +18,9 @@
     const audioPromises = new Map();
     const activeMusicSources = new Set();
     let musicEpoch = 0;
+    let currentMusicPath = null;
+    let activeAmbient = null;
+    let ambientEpoch = 0;
 
     function resolvePath(relPath, defaultDir) {
         const clean = String(relPath || '').replace(/^\/+/, '');
@@ -288,8 +291,9 @@
         const ctx = _getAudioCtx();
         if (!ctx) return;
         const isMusic = !!opts.music;
-        if (isMusic) stopMusicClips();
+        if (isMusic && !opts.keepExisting) stopMusicClips();
         const epoch = musicEpoch;
+        const resolved = resolvePath(relPath, 'audio/');
         loadAudioBuffer(relPath).then((buffer) => {
             if (!buffer) return;
             if (isMusic && epoch !== musicEpoch) return;
@@ -298,26 +302,110 @@
             const src = liveCtx.createBufferSource();
             src.buffer = buffer;
             src.loop = !!opts.loop;
-            if (opts.rate) src.playbackRate.value = opts.rate;
+            const baseRate = opts.rate || 1;
+            const rJit = opts.rateJitter ? (1 + (Math.random() - 0.5) * 2 * opts.rateJitter) : 1;
+            src.playbackRate.value = Math.max(0.25, baseRate * rJit);
             const g = liveCtx.createGain();
-            g.gain.value = opts.volume ?? (isMusic ? 0.25 : 0.45);
-            src.connect(g);
+            const baseVol = opts.volume ?? (isMusic ? 0.24 : 0.45);
+            const vJit = opts.volJitter ? (1 + (Math.random() - 0.5) * 2 * opts.volJitter) : 1;
+            const targetVol = Math.max(0, baseVol * vJit);
+            if (opts.fadeIn && opts.fadeIn > 0) {
+                g.gain.setValueAtTime(0.0001, liveCtx.currentTime);
+                g.gain.linearRampToValueAtTime(targetVol, liveCtx.currentTime + opts.fadeIn);
+            } else {
+                g.gain.value = targetVol;
+            }
             const dest = isMusic ? (BO.Sound && BO.Sound.musicGain) : (BO.Sound && BO.Sound.sfxGain);
-            g.connect(dest || liveCtx.destination);
+            if (opts.pan && Math.abs(opts.pan) > 0.01 && typeof liveCtx.createStereoPanner === 'function') {
+                const panner = liveCtx.createStereoPanner();
+                panner.pan.value = Math.max(-1, Math.min(1, opts.pan));
+                src.connect(g);
+                g.connect(panner);
+                panner.connect(dest || liveCtx.destination);
+            } else {
+                src.connect(g);
+                g.connect(dest || liveCtx.destination);
+            }
             src.start();
             if (isMusic) {
-                activeMusicSources.add(src);
-                src.onended = () => activeMusicSources.delete(src);
+                const entry = { src, gain: g, path: resolved };
+                activeMusicSources.add(entry);
+                currentMusicPath = resolved;
+                src.onended = () => { activeMusicSources.delete(entry); };
             }
         }).catch(() => {});
     }
 
-    function stopMusicClips() {
+    function stopMusicClips(fadeSec = 0) {
         musicEpoch++;
-        for (const src of activeMusicSources) {
-            try { src.stop(); } catch (e) {}
+        currentMusicPath = null;
+        const liveCtx = _getAudioCtx();
+        for (const entry of activeMusicSources) {
+            const src = entry.src || entry;
+            try {
+                if (fadeSec > 0 && entry.gain && liveCtx) {
+                    const now = liveCtx.currentTime;
+                    entry.gain.gain.setValueAtTime(entry.gain.gain.value, now);
+                    entry.gain.gain.linearRampToValueAtTime(0.0001, now + fadeSec);
+                    src.stop(now + fadeSec + 0.03);
+                } else {
+                    src.stop();
+                }
+            } catch (e) {}
         }
         activeMusicSources.clear();
+    }
+
+    function crossfadeMusic(relPath, opts = {}) {
+        const resolved = resolvePath(relPath, 'audio/');
+        if (currentMusicPath === resolved && activeMusicSources.size > 0) return;
+        const fadeSec = opts.fadeSec ?? 0.75;
+        stopMusicClips(fadeSec);
+        playClip(relPath, Object.assign({ music: true, loop: true, fadeIn: fadeSec, keepExisting: true }, opts));
+    }
+
+    function playAmbient(relPath, opts = {}) {
+        const ctx = _getAudioCtx();
+        if (!ctx) return;
+        const resolved = resolvePath(relPath, 'audio/');
+        if (activeAmbient && activeAmbient.path === resolved) return;
+        stopAmbient(0.35);
+        const epoch = ++ambientEpoch;
+        loadAudioBuffer(relPath).then((buffer) => {
+            if (!buffer || epoch !== ambientEpoch) return;
+            const liveCtx = _getAudioCtx();
+            if (!liveCtx) return;
+            const src = liveCtx.createBufferSource();
+            src.buffer = buffer;
+            src.loop = true;
+            const g = liveCtx.createGain();
+            const vol = opts.volume ?? 0.14;
+            g.gain.setValueAtTime(0.0001, liveCtx.currentTime);
+            g.gain.linearRampToValueAtTime(vol, liveCtx.currentTime + (opts.fadeIn ?? 1.0));
+            src.connect(g);
+            g.connect((BO.Sound && BO.Sound.sfxGain) || liveCtx.destination);
+            src.start();
+            activeAmbient = { src, gain: g, path: resolved };
+            src.onended = () => { if (activeAmbient && activeAmbient.src === src) activeAmbient = null; };
+        }).catch(() => {});
+    }
+
+    function stopAmbient(fadeSec = 0.5) {
+        ambientEpoch++;
+        if (!activeAmbient) return;
+        const cur = activeAmbient;
+        activeAmbient = null;
+        const liveCtx = _getAudioCtx();
+        try {
+            if (fadeSec > 0 && cur.gain && liveCtx) {
+                const now = liveCtx.currentTime;
+                cur.gain.gain.setValueAtTime(cur.gain.gain.value, now);
+                cur.gain.gain.linearRampToValueAtTime(0.0001, now + fadeSec);
+                cur.src.stop(now + fadeSec + 0.03);
+            } else {
+                cur.src.stop();
+            }
+        } catch (e) {}
     }
 
     BO.Assets = {
@@ -331,6 +419,9 @@
         loadAudioBuffer,
         playClip,
         stopMusicClips,
+        crossfadeMusic,
+        playAmbient,
+        stopAmbient,
         isSharedGeo: (g) => sharedGeos.has(g),
         isSharedMat: (m) => sharedMats.has(m) || matCache.has(m),
         isCachedTex: (t) => texCache.has(t),

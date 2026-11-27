@@ -949,6 +949,7 @@
 
         openBoonPick(title, boons, onPick) {
             this._modalKind = 'boon';
+            BO.Sound.playCardFan?.();
             this.openModal({
                 kicker: 'BOON — LASTS UNTIL THE DELVE ENDS', title: esc(title), closable: false, accent: '#c084fc',
                 html: `<div class="rpg-boon-row">${boons.map((b) => `
@@ -958,6 +959,7 @@
                 handlers: {
                     pick: (btn) => {
                         const b = boons.find((x) => x.id === btn.dataset.id);
+                        BO.Sound.playCardDraw?.();
                         this.modalClosable = true;
                         this.closeModal();
                         if (b) onPick(b);

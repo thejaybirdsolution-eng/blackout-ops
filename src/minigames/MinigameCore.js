@@ -532,6 +532,7 @@
                     col = '#facc15';
                     this.bullseyes++;
                     SFX.ding(1.25);
+                    BO.Juice?.shake?.(0.075);
                 } else {
                     label = String(ring);
                 }
@@ -540,6 +541,7 @@
                 label = 'HEADSHOT';
                 col = '#fb923c';
                 this.headshots++;
+                BO.Juice?.shake?.(0.065);
             }
             this.bumpCombo();
             this.kills++;
@@ -1274,6 +1276,7 @@
                 </div>`;
             el.classList.remove('hidden');
             el.querySelectorAll('[data-act]').forEach((b) => {
+                b.onmouseenter = () => BO.Sound.playUIHover?.();
                 b.onclick = () => { BO.Sound.playUIClick(); this._resultAction(b.dataset.act); };
             });
             this._lastRes = res;
@@ -1301,6 +1304,9 @@
                 }
             }
             if (res.stars >= 3) setTimeout(() => SFX.fanfare(), 650 + res.stars * 330);
+            if (res.stars >= 2 && BO.Assets?.playClip) {
+                setTimeout(() => BO.Assets.playClip(res.stars >= 3 ? 'overhaul/stingers/level_complete.wav' : 'overhaul/stingers/chime_positive.wav', { volume: 0.34 }), 650 + res.stars * 300);
+            }
             // Score-over-time sparkline.
             const cv = el.querySelector('#mg-res-canvas');
             const S = this.session;

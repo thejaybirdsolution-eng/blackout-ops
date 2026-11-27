@@ -124,7 +124,7 @@
 
         start(opts) {
             this.active = true;
-            BO.Sound.stopMusic();
+            BO.Sound.startMusic('mp');
             this.variant = opts.modeType || 'tdm';
             this.modeType = this.variant === 'hardcore_tdm' ? 'tdm'
                 : this.variant === 'hardcore_ffa' ? 'ffa' : this.variant;
@@ -509,6 +509,8 @@
             }
             this.currentStreak++;
             this.playerScore += (isHead ? 125 : 100) + ((mfx.bonusMatchScore || 0) * 50);
+            BO.Sound.playPing?.();
+            BO.Juice?.shake?.(isHead ? 0.095 : 0.045);
 
             if (!this.killcamPendingEnd) {
                 this.lastKillMeta = {
@@ -1460,6 +1462,8 @@
             if (this.ended) return;
             this.ended = true;
             this.killcamActive = false;
+            BO.Sound.stopMusic();
+            BO.Sound.playMatchStinger?.(!!victory);
             if (victory) {
                 BO.Progression.recordStat('mpWins', 1);
                 BO.Progression.grantPlayerXP(600);

@@ -330,6 +330,7 @@
                 mapSize: this.config.mapSize || 1.0,
                 bloodMoon: !!this.modifiers.bloodMoon
             });
+            BO.Sound.startMusic('td');
             if (this.modifiers.nightmareDarkness && scene) {
                 scene.fog = new THREE.FogExp2(0x020308, 0.032);
                 scene.background = new THREE.Color(0x020308);
@@ -686,6 +687,8 @@
             this.remainingToSpawn = this.waveTotal;
             this.spawnCooldown = 0.55;
             this.state = 'spawning';
+            BO.Sound.playRoundStart(this.wave, false);
+            BO.Juice?.shake?.(0.11);
 
             // Random Loadout modifier: swap weapon every wave for chaos!
             if (this.modifiers.randomLoadoutWave && this.wave > 1) {
@@ -897,22 +900,6 @@
             }
             g.add(chute);
             g.position.set(dx, 24, dz);
-            if (BO.Assets && BO.Assets.placeGLB) {
-                const blasterByDep = {
-                    sniper_nest: { p: 'blaster_kit/blaster-d.glb', y: 1.08, s: 1.35 },
-                    attack_drone: { p: 'blaster_kit/blaster-b.glb', y: -0.18, s: 0.9 },
-                    combat_mech: { p: 'blaster_kit/blaster-m.glb', y: 2.15, s: 1.4 },
-                    flame_turret: { p: 'blaster_kit/blaster-f.glb', y: 1.25, s: 1.25 },
-                    cryo_projector: { p: 'blaster_kit/blaster-i.glb', y: 1.48, s: 1.2 },
-                    laser_beacon: { p: 'blaster_kit/blaster-k.glb', y: 1.35, s: 1.1 },
-                    tesla_coil: { p: 'blaster_kit/blaster-p.glb', y: 2.65, s: 1.0 },
-                    emp_tower: { p: 'blaster_kit/blaster-e.glb', y: 2.05, s: 1.0 }
-                }[depId];
-                if (blasterByDep) {
-                    BO.Assets.placeGLB(g, blasterByDep.p, { pos: [0, blasterByDep.y, 0.1], scale: blasterByDep.s, align: 'center', guardScene: BO.World.scene });
-                }
-            }
-
             BO.World.scene.add(g);
             this.supplyDrops.push({ mesh: g, chute, x: dx, y: 24, targetY: 5.95, z: dz, life: 45 });
             BO.Events.emit('hud:toast', { text: '📦 GOLDEN SUPPLY CRATE DROPPING ON CASTLE KEEP!', color: '#fde047' });
@@ -1287,6 +1274,19 @@
                     BO.Assets.placeGLB(g, blasterByDep.p, { pos: [0, blasterByDep.y, 0.1], scale: blasterByDep.s, align: 'center', guardScene: BO.World.scene });
                 }
             }
+
+            const rangeRing = new THREE.Mesh(
+                new THREE.RingGeometry(5.6, 5.95, 28),
+                new THREE.MeshBasicMaterial({ color: colHex, transparent: true, opacity: 0.28, side: THREE.DoubleSide })
+            );
+            rangeRing.rotation.x = -Math.PI * 0.5;
+            rangeRing.position.y = 0.04;
+            rangeRing.userData.noHit = true;
+            g.add(rangeRing);
+            g.scale.setScalar(0.01);
+            g.userData.spawnT = 0;
+            BO.Sound.playTurretPlace?.();
+            BO.FX.spawnParticles(new THREE.Vector3(px, py + 0.5, pz), 14, colHex, 4.5, 2, 0.45, 0.9);
 
             BO.World.scene.add(g);
             this.deployables.push({
@@ -1920,6 +1920,12 @@
                     continue;
                 }
                 if (dep.mesh && dep.mesh.userData) {
+                    if (dep.mesh.userData.spawnT != null && dep.mesh.userData.spawnT < 1) {
+                        dep.mesh.userData.spawnT = Math.min(1, dep.mesh.userData.spawnT + dt * 3.6);
+                        const p = dep.mesh.userData.spawnT;
+                        const s = p < 1 ? (p + Math.sin(p * Math.PI) * 0.16) : 1;
+                        dep.mesh.scale.setScalar(Math.max(0.01, s));
+                    }
                     if (dep.mesh.userData.spinPart) {
                         dep.mesh.userData.spinPart.rotation.y += dt * (dep.id === 'sawblade_spinner' ? 14 : dep.id === 'gold_miner' ? 7 : 2.8);
                     }
@@ -1956,6 +1962,7 @@
                     if (this.state !== 'intermission' && dep.timer <= 0) {
                         dep.timer = 11.0;
                         this._addGold(160);
+                        BO.Sound.playLootChime?.();
                         BO.FX.spawnParticles(new THREE.Vector3(dep.x, dep.y + 1.8, dep.z), 8, 0xfacc15, 3, 2, 0.5, 1.0);
                     }
                 } else if (dep.id === 'landmine_field') {

@@ -72,7 +72,8 @@
                 for (const a of BO.OWRPGAI.agentsNear(pos, radius, false)) BO.OWRPGCombat.damage(a, damage * 0.6, { source: 'ability' });
             };
             BO.Combat.onActivateKillstreak = null;
-            BO.Sound.startMusic('rpg');
+            BO.Sound.startMusic('owrpg');
+            BO.Assets?.playAmbient?.('overhaul/env/ambient_wind.wav', { volume: 0.11, fadeIn: 1.2 });
             BO.OWRPGUI.showHud();
             if (fresh) {
                 BO.Events.emit('hud:banner', { title: 'OPERATION MERIDIAN', sub: 'Freestead Town, Haven Basin — find Warden Kessler in the brick HQ', color: '#f5a623' });
@@ -248,6 +249,8 @@
                 this.applyDerived();
                 BO.Player.hp = BO.Player.maxHp;
                 BO.Sound.playPerkBuy();
+                BO.Sound.playQuestFanfare?.();
+                BO.Juice?.screenFlash?.('#fbbf24', 0.16, 360);
                 BO.Events.emit('hud:banner', { title: `LEVEL ${s.player.level}`, sub: `${s.player.perkPoints ? s.player.perkPoints + ' perk point(s) · ' : ''}${s.player.attrPoints ? s.player.attrPoints + ' attribute point(s) · ' : ''}Open the Pip-Pad [Tab]`, color: '#fbbf24' });
             }
         },
@@ -274,6 +277,8 @@
             for (const it of r.items || []) BO.OWRPGInventory.add(s, it, 1);
             for (const [f, v] of Object.entries(r.rep || {})) this.changeRep(f, v);
             if (r.pylon) { s.pylons[r.pylon] = true; BO.OWRPGWorldArt.setPylonActive(BO.World, r.pylon, true); }
+            BO.Sound.playQuestFanfare?.();
+            BO.Juice?.screenFlash?.('#a3e635', 0.14, 320);
             BO.Events.emit('hud:banner', { title: 'QUEST COMPLETE', sub: `${label}${r.label ? ' — ' + r.label : ''}${r.credits ? ' · +' + r.credits + ' cr' : ''}`, color: '#a3e635' });
             this.checkpoint('Quest complete');
         },
@@ -413,6 +418,8 @@
             if (this.combatT > 0) this.combatT -= dt;
             if (this.stimT > 0) this.stimT -= dt;
             if (BO.OWRPGAI.anyHostileInCombat()) this.combatT = Math.max(this.combatT, 2);
+            const desiredMusic = this.combatT > 0 ? 'owrpg_combat' : 'owrpg';
+            if (BO.Sound.musicMode !== desiredMusic) BO.Sound.startMusic(desiredMusic);
 
             BO.OWRPGCombat.update(dt);
             BO.OWRPGAI.update(dt);

@@ -372,6 +372,8 @@
                         sub: `${bossSpec.title.toUpperCase()} — ${bossSpec.weaknessText}`,
                         color: '#ef4444'
                     });
+                    BO.Juice?.screenFlash?.('#ef4444', 0.24, 420);
+                    BO.Juice?.shake?.(0.16);
                 }
                 this._spawnBoss(bossSpec);
             } else {
@@ -384,6 +386,7 @@
                     color: '#dc2626'
                 });
                 BO.Sound.playRoundStart(r, false);
+                if (r % 5 === 0) BO.Juice?.screenFlash?.('#dc2626', 0.16, 360);
             }
 
             if (r >= 10) this.exfilAvailable = true;
@@ -833,6 +836,10 @@
             const topHatBonus = (isHead && BO.Save.data.unlockables?.topHatEquipped) ? 1.15 : 1.0;
             const pts = Math.round((isMelee ? basePts + 70 : (isHead ? basePts + 40 : basePts)) * topHatBonus);
             this.addPoints(pts, z.isBoss ? 'BOSS SLAIN' : (isHead ? 'HEADSHOT' : 'KILL'));
+            if (isHead || isMelee || z.isBoss) {
+                BO.Sound.playGoreImpact?.(isHead || z.isBoss);
+                BO.Juice?.shake?.(z.isBoss ? 0.16 : 0.08);
+            }
 
             if (sodas.has('hush_money') && weaponInst?.stats?.suppressed) this.addPoints(30, 'HUSH MONEY');
             if (sodas.has('audit') && this.kills % 10 === 0) this.addPoints(200, 'COMMISSION');

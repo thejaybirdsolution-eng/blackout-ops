@@ -115,12 +115,55 @@ dialog.elab::backdrop { background: rgba(3, 6, 12, 0.72); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes boCardDeal {
+    0% { opacity: 0; transform: translateY(18px) scale(0.92) rotateX(8deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+}
+
+@keyframes boChoiceIn {
+    0% { opacity: 0; transform: translateX(-10px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes boCountPop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(1.45); }
+    45% { opacity: 1; transform: translate(-50%, -50%) scale(0.96); }
+    100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
 .ui-modal:not(.hidden) .modal-box,
-dialog.elab[open] .elab-box {
+dialog.elab[open] .elab-box,
+.ow-panel,
+.rpg-modal:not(.hidden) .rpg-modal-card,
+.mg-results:not(.hidden) .mg-res-card {
     animation: boModalIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.btn, .mode-card, .pick-card, .mode-tab, .mmx-tile {
+.rpg-boon-row .rpg-boon {
+    animation: boCardDeal 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.rpg-boon-row .rpg-boon:nth-child(1) { animation-delay: 0.04s; }
+.rpg-boon-row .rpg-boon:nth-child(2) { animation-delay: 0.11s; }
+.rpg-boon-row .rpg-boon:nth-child(3) { animation-delay: 0.18s; }
+.rpg-boon-row .rpg-boon:nth-child(4) { animation-delay: 0.25s; }
+.rpg-boon-row .rpg-boon:hover:not(:disabled) {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 28px rgba(192, 132, 252, 0.28);
+}
+
+.ow-choices .ow-choice {
+    animation: boChoiceIn 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition: transform 0.14s ease, border-color 0.16s ease, background-color 0.16s ease;
+}
+.ow-choices .ow-choice:nth-child(2) { animation-delay: 0.04s; }
+.ow-choices .ow-choice:nth-child(3) { animation-delay: 0.08s; }
+.ow-choices .ow-choice:nth-child(4) { animation-delay: 0.12s; }
+.ow-choices .ow-choice:hover:not(:disabled) { transform: translateX(4px); }
+
+.mg-count:not(.hidden) { animation: boCountPop 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.btn, .mode-card, .pick-card, .mode-tab, .mmx-tile, .select-card, .td-shop-card, .rpg-nav-btn, .ow-tab {
     transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1),
                 box-shadow 0.18s ease,
                 border-color 0.18s ease,
@@ -130,23 +173,39 @@ dialog.elab[open] .elab-box {
 .btn:not(:disabled):not([aria-disabled="true"]):hover,
 .mode-card:not(:disabled):not([aria-disabled="true"]):hover,
 .pick-card:not(:disabled):not([aria-disabled="true"]):hover,
-.mmx-tile:not(:disabled):not([aria-disabled="true"]):hover {
+.mmx-tile:not(:disabled):not([aria-disabled="true"]):hover,
+.select-card:not(:disabled):hover,
+.td-shop-card:not(:disabled):hover,
+.rpg-nav-btn:not(:disabled):hover {
     transform: translateY(-2px);
 }
 
 .btn:not(:disabled):not([aria-disabled="true"]):active,
 .mode-card:not(:disabled):not([aria-disabled="true"]):active,
 .pick-card:not(:disabled):not([aria-disabled="true"]):active,
-.mmx-tile:not(:disabled):not([aria-disabled="true"]):active {
+.mmx-tile:not(:disabled):not([aria-disabled="true"]):active,
+.select-card:not(:disabled):active,
+.td-shop-card:not(:disabled):active,
+.rpg-nav-btn:not(:disabled):active {
     transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
     .ui-modal:not(.hidden) .modal-box,
-    dialog.elab[open] .elab-box { animation: none; }
-    .btn, .mode-card, .pick-card, .mode-tab, .mmx-tile { transition: none; }
+    dialog.elab[open] .elab-box,
+    .ow-panel,
+    .rpg-modal:not(.hidden) .rpg-modal-card,
+    .mg-results:not(.hidden) .mg-res-card,
+    .rpg-boon-row .rpg-boon,
+    .ow-choices .ow-choice,
+    .mg-count:not(.hidden) { animation: none; }
+    .btn, .mode-card, .pick-card, .mode-tab, .mmx-tile, .select-card, .td-shop-card, .rpg-nav-btn, .ow-tab { transition: none; }
     .btn:hover, .btn:active,
     .mode-card:hover, .mode-card:active,
     .pick-card:hover, .pick-card:active,
-    .mmx-tile:hover, .mmx-tile:active { transform: none; }
+    .mmx-tile:hover, .mmx-tile:active,
+    .select-card:hover, .select-card:active,
+    .td-shop-card:hover, .td-shop-card:active,
+    .rpg-nav-btn:hover, .rpg-nav-btn:active,
+    .ow-choices .ow-choice:hover { transform: none; }
 }
