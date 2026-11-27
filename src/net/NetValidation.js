@@ -20,7 +20,9 @@
         // Tower Defense
         'td_snapshot', 'td_buy', 'td_skip', 'td_hit_enemy',
         // Multiplayer
-        'mp_snapshot', 'mp_hit_player', 'mp_player_killed', 'mp_hit_bot', 'mp_bot_killed_by_peer'
+        'mp_snapshot', 'mp_hit_player', 'mp_player_killed', 'mp_hit_bot', 'mp_bot_killed_by_peer',
+        // Rogue Lite Co-op & Minigames Versus (1.0)
+        'rpg_snapshot', 'rpg_door_vote', 'rpg_hit_enemy', 'mg_score_update', 'mg_finish'
     ]);
 
     function isFiniteNum(v, min = -1e5, max = 1e5) {
@@ -62,7 +64,7 @@
                 return { ok: false, reason: 'invalid_chat' };
             }
         }
-        if ((msg.type === 'mp_hit_player' || msg.type === 'mp_hit_bot' || msg.type === 'z_hit' || msg.type === 'td_hit_enemy')
+        if ((msg.type === 'mp_hit_player' || msg.type === 'mp_hit_bot' || msg.type === 'z_hit' || msg.type === 'td_hit_enemy' || msg.type === 'rpg_hit_enemy')
             && msg.dmg !== undefined && !isFiniteNum(msg.dmg, 0, 25000)) {
             return { ok: false, reason: 'invalid_damage' };
         }
