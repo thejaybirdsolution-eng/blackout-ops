@@ -39606,6 +39606,8 @@
                     ${(() => {
                         const co = CATS.find((c) => c.id === cat);
                         const skipCd = !!(BO.Save && BO.Save.data && BO.Save.data.minigames && BO.Save.data.minigames.skipCountdown);
+                        const daily = BO.ModeDepth10?.getDailyMinigame?.();
+                        const dBest = daily && daily.best ? (daily.def?.formatBest ? daily.def.formatBest(daily.best) : Number(daily.best.score).toLocaleString()) : null;
                         return `<div class="mgh-list-head">
                             <span>${co.icon}</span>
                             <div><b>${co.name.toUpperCase()}</b>${co.blurb ? `<small>${esc(co.blurb)}</small>` : ''}</div>
@@ -39613,7 +39615,11 @@
                                 <span class="mgh-cd-dot"></span>
                                 <span><b>${skipCd ? '⚡ 3-2-1 COUNTDOWN: OFF' : '⏱️ 3-2-1 COUNTDOWN: ON'}</b><small>${skipCd ? 'Instant Start Enabled' : 'Standard 3s Countdown'}</small></span>
                             </button>
-                        </div>`;
+                        </div>
+                        ${daily && daily.def ? `<div id="mgh-daily-banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin:0 0 10px;border:1px solid rgba(255,178,63,.35);background:rgba(255,178,63,.08);border-radius:6px;font-size:12px;">
+                            <div><b style="color:#ffb23f">📅 DAILY SEED (${esc(daily.date)})</b> · <span>${esc(daily.def.name)}</span> <small style="color:#94a3b8">${dBest ? '· Daily Best: ' + esc(dBest) : '· +50% Bonus XP & Ghost Tracking'}</small></div>
+                            <button type="button" class="btn btn-sm btn-primary" id="btn-mg-daily-go" data-daily-id="${esc(daily.def.id)}">PLAY DAILY →</button>
+                        </div>` : ''}`;
                     })()}
                     <div class="mgh-grid mgh-grid-${cat}">
                         ${list.map((d, i) => this._card(d, i, d.id === (sel && sel.id))).join('')}
@@ -39831,6 +39837,13 @@
                     BO.Save.data.minigames.skipCountdown = !BO.Save.data.minigames.skipCountdown;
                     BO.Save.save();
                     this.render();
+                };
+            }
+            const dailyBtn = body.querySelector('#btn-mg-daily-go');
+            if (dailyBtn) {
+                dailyBtn.onclick = () => {
+                    const id = dailyBtn.dataset.dailyId;
+                    if (id) this._play(id, { daily: true, variantLabel: 'DAILY SEED' });
                 };
             }
             body.querySelectorAll('[data-cat]').forEach((b) => {

@@ -3520,6 +3520,42 @@
                                 ]
                         }
                 ]
+        },
+        {
+                "id": 176,
+                "hash": "v1.0.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "06:15 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "1.0 Complete Release: Operation Blackout, OWRPG Acts II–VI, Unified Profile & Co-op Expansion",
+                "major": true,
+                "tags": [
+                        "merge",
+                        "owrpg",
+                        "rogue",
+                        "survival",
+                        "zombies",
+                        "td",
+                        "mp",
+                        "minigames",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Completed the full 1.0 release pass uniting all seven modes under one shared Operative Profile, completing remaining campaign content, deepening every mode, and expanding online co-op:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Open World RPG Acts II–VI, Companions & New Game+: Authored 10 multi-path main & side quests across Rust Sprawl, Mire Delta, Ash Quarry, Alpine Array, Meridian Core, and Dragonwilds (combat, tech/stealth, and social paths with deterministic checks and territory shifts), plus 3 recruitable squad Companions (Vanguard Soren, Ghost Kael, Tinker Torque), NPC day/night routines, and New Game+.",
+                                        "Mode Depth 1.0: Added Zombies power-on clarity, per-map leaderboards, and co-op roles; Tower Defense active turret/defender synergies and wave previews; Multiplayer post-match 3-map voting and rule presets; Survival dawn/dusk phase alerts; Rogue Lite Floor-5 synergy banners and instructive run-end debriefs; and Minigames Daily Seeded Challenge plus Personal-Best Ghost deltas.",
+                                        "Unified Profile & 70-Weapon Armory: Migrated saves cleanly to v3 with shared Account Levels (1–100), Calling Cards, Emblems, Titles, Offline Seeded Daily (3) & Weekly (5) Challenges, Unified 70-Weapon Armory modal, Main Menu Continue Banner, per-mode progress tags, and first-launch Range Day warmup.",
+                                        "Online Co-op & Operation Blackout Capstone: Documented ADR-017 and added Rogue Lite 2–4p delve sync + Minigames Same-Room Versus leaderboards alongside Operation Blackout, a 10-mission story campaign spanning all 7 game modes."
+                                ]
+                        }
+                ]
         }
 ]
     };

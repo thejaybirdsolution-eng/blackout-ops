@@ -1,39 +1,30 @@
-# BLACKOUT OPS — Online Co-op & Offline COD-Style FPS, Zombies & Tower Defense
+# BLACKOUT OPS — 1.0 Complete Edition
 
-A 3D Call of Duty–style First-Person Shooter, Round-Based Zombies, and Castle Tower Defense game powered by Three.js r149, procedural PBR `CanvasTexture` shaders, procedural Web Audio API DSP, and PeerJS WebRTC P2P Online Multiplayer.
+A zero-build, offline- and online-capable 3D First-Person Shooter suite powered by **Three.js r149**, procedural PBR canvas textures, procedural Web Audio synthesis, and WebRTC PeerJS / `BroadcastChannel` co-op across **seven connected modes** and **70 weapons**.
 
-## 🌐 Play Online With Friends (GitHub Pages)
-- **Live Online Game**: **[https://thejaybirdsolution-eng.github.io/blackout-ops/](https://thejaybirdsolution-eng.github.io/blackout-ops/)**
-- **How to Invite Friends into Your Lobby**:
-  1. Click **🌐 ONLINE SQUAD LOBBY (INVITE FRIENDS)** on the Main Menu (or click **🔗 CREATE ONLINE LOBBY & GET FRIEND LINK** inside the Deployment Lobby).
-  2. Click **📋 COPY LINK** and send the URL (e.g. `https://thejaybirdsolution-eng.github.io/blackout-ops/?room=XXXXXX`) to your friends!
-  3. When your friends open that link, they automatically join your exact lobby!
-  4. Choose **COD Zombies**, **Tower Defense**, or **Multiplayer** (Co-op vs Bots or PvP Friends vs Friends + Bots) and click **DEPLOY SQUAD INTO COMBAT** to launch everyone into the match together.
+- **Play Online**: [https://thejaybirdsolution-eng.github.io/blackout-ops/](https://thejaybirdsolution-eng.github.io/blackout-ops/)
+- **Architecture**: Strict IIFE modules on `window.BO`, `<script defer>` (no bundler required at runtime, works via `file://`, `play.bat`, `python server.py`, or GitHub Pages — see `DECISIONS.md`).
 
-## Launching Offline / Locally
-- **Option 1 (Recommended)**: Double-click **`play.bat`** (or run `python server.py`) to launch the local HTTP server and open the game automatically.
-- **Option 2 (Direct File)**: Double-click **`index.html`** directly in your browser.
+---
 
-## Features
-- **Online Co-op & Solo COD Zombies** (9 Maps including 1:1 WaW / BO1 / BO2 Classics):
-  - Shared Doors, Main Power Switch, Power-Ups, Co-op Teammate Revives (`[E]`), 20 Unique Zombies, 5 Boss Rounds (`5, 10, 20, 25, 50`), 6 Perk-a-Colas, Mystery Box, and 3-Tier Pack-a-Punch.
-- **Online Co-op & Solo Tower Defense (Castle Siege)** (3 Castle Setups):
-  - Defend 3 see-through/shoot-through Defense Wall Layers (`250 HP` each) and the `100 HP` Castle Heart with your squad, Sentry Turrets, Armored Guard Dogs, Allied Marines, and the 30s Intermission Shopkeeper.
-- **Online PvP / Co-op & Bot Multiplayer** (`Nuketown`, `Shipment`, `Terminal`, `Rust`, `Killhouse`, `Crash Site`):
-  - **Team Deathmatch**, **Free-For-All**, **Domination**, **Hardpoint**, and **Gun Game** + full Custom Game Rules and 15-second MW2 Winner Killcam.
-- **Solo Survival (Exclusion Zone)**:
-  - Guided 8-step deployment screen (quick-start presets, operation, difficulty, world & time, survival rules, modifiers, enemy roster, career) with a live summary and threat forecast. Hover any option for an explanation.
-  - **Escalating days**: day 1 lets only the 4 weakest infected roam (about 3 at once). Each new day unlocks stronger infected and raises the roaming limit; nights add ~35% more. PMC scavengers arrive on day 2, Commander Sable on day 3, Blood Moons every third night.
-  - **10-slot hotbar** (`1`–`0` or mouse wheel) for weapons, tools and usable items. An empty slot is bare hands. Drag items onto it from the inventory.
-  - **Bare hands can gather**: branches, stones, fiber, tier-1 rock and trees, timber and standing trees break by hand at a quarter of a stone tool's speed; tier-2 deposits need the right tool.
-  - **Field terminal**: Inventory (`Tab`), Crafting (`J`), Build (`B`), Map & travel (`M`/`T`), Skills (`K`), Journal (`O`), Guide (`L`). Station recipes unlock when you stand within 4 m of a workbench, campfire or kiln.
-- **Minigames** (solo, main menu › **MINIGAMES**). Bronze, Silver, Gold and Platinum stars, personal bests, and a streak multiplier up to x4:
-  - **Target Practice**: 10 scripted 60-second courses. Each uses a fixed seed, so it plays the same every time and gets harder as the clock runs: *Range Day* (pop-up bullseyes), *Coaster Chaos* (ride a banking roller coaster), *Boulder Run* (sprint ahead of a rolling boulder), *Skeet Storm* (clay discs), *Bandit Town* (outlaws shoot back; spare the townsfolk), *Drone Swarm* (night rooftop), *Sniper Ridge* (steel out to 200 m), *Heli Gunner* (orbit a city in a door seat), *Balloon Festival* (avoid skull balloons) and *Killhouse Blitz* (on-rails CQB with hostages).
-  - **Boss Rush**: fight every boss one after another in the Colosseum. Magazines never run dry and health does not regenerate. You get a 30-second rest between bosses (`N` skips it) and only **three** max heals for the whole rush (`H`, rest periods only). Three modes (Gauntlet / Boss Parade / Titan Siege) and three difficulties.
-  - **Whack-a-Mole**: shoot the moles in a carnival tent. *Classic* (3x3), *Frenzy* (4x4 with hard-hat moles) and *Mayhem* (5x4 with bombs).
-  - Code lives in `src/minigames/` (core runtime, art kit, courses, Boss Rush, Whack-a-Mole, hub) and `css/minigames.css`.
-- **Controls**: pause the game and choose **Controls & Keybinds** (also in Settings › Controls) to view every control for the current mode and rebind any key. Conflicts swap automatically. Supports W3C **Gamepads** cleanly out of the box (optional ADS aim assist under Settings › Controls).
-- **Performance, Bundling & Atomic Saves**: Settings › Video includes `Low` / `Medium` / `High` / `Ultra` quality presets with auto-detection plus an optional FPS / frame-time p95 / draw-call overlay. Settings › Save supports atomic v2 saves (3 rotating backups + auto-recovery) and `.json` file export/import. Run `python tools/bundle.py` (dev-only) to generate `dist/bundles/` and `index.bundled.html` (loads initial core in 2 requests and lazy-loads mode bundles on demand).
-- **Automated QA Suites**: Open `_qa_runner.html` (`24/24` checks covering modes, cleanup, dt-invariance, seeded minigame determinism, hitboxes, atomic saves, and simulated 2-peer netcode) and `_qa_owrpg.html` (`120/120` checks + `OWRPGValidator`).
-- **Create-a-Class & Interactive 3D Gunsmith**:
-  - 10 Custom Classes, 70 Weapons (50 Firearms, 10 Melee, 10 Magic/Wonder Weapons), 5 Attachment Slots, 10 Camos, Perks, Special Powers, and Ultimate Powers.
+## Operation Blackout (10-Mission Capstone Campaign)
+Select **OPERATION BLACKOUT** at the top of the Main Menu to play a connected 10-mission story arc led by **Director Reyes** and **Vanguard Soren** across all 7 game modes—from *Live-Fire Qualification* and *Killhouse Breach* through *Der Bunker*, *Castle Hold*, *Exclusion Zone Sweep*, *Deep Vault Delve*, *Rust Sprawl*, *Station Omega*, *Terminal Intercept*, and *Operation Blackout Zero* inside Meridian Core.
+
+## Unified Player Profile & Armory (`v3` Save)
+- **Account Progression (Lv 1–100)**: Shared XP earned across all 7 modes with 12 Calling Cards, 12 Emblems, 12 Titles, and cross-mode cosmetic unlocks.
+- **Daily & Weekly Challenges**: 3 Daily + 5 Weekly offline deterministically seeded objectives claimable directly from the Main Menu.
+- **Unified 70-Weapon Armory & Create-a-Class**: Filterable overview of all 50 Firearms, 10 Melee, and 10 Wonder/Magic weapons alongside 10 custom classes and interactive 3D Gunsmith.
+- **Continue Banner & Mode Progress Badges**: One-click **CONTINUE →** from the Main Menu tracking your active operation and per-mode records.
+
+## All 7 Game Modes
+1. **Zombies (Solo & 2–8p Co-op)**: 9 maps, 70 unique zombies, 15 bosses/Super Bosses, clear Power-On objectives, Perk-a-Colas, Mystery Box, 3-Tier Pack-a-Punch, per-map round records, and Helicopter Exfil.
+2. **Multiplayer (Bots, Co-op & PvP)**: 11 formats across 6 arenas (`Killhouse`, `Crash Site`, `Nuketown`, `Shipment`, `Terminal`, `Rust`), custom presets, 15s MW2 Winner Killcam, and post-match **3-Map Vote**.
+3. **Exclusion Zone Survival**: 500×450 m open-world survival with shelter construction, farming, livestock, stations, Field Catalogue, Boss hunts, dawn/dusk phase alerts, and 3 Lantern endings.
+4. **Rogue Lite — Blackout Vaults (Solo & 2–4p Co-op)**: 15 operatives (12 unlockable), 288 Haven Collection cosmetics, 14 Mystery encounters, Deep Vaults (Floors 26–50+), Floor-5 synergy banners, and instructive run-end debriefs.
+5. **Open World RPG — Operation Meridian**: 1280×1280 m frontier across 12 biomes & 12 dungeons, multi-path **Act I–VI Questlines**, 3 recruitable combat **Companions** (`Vanguard Soren`, `Ghost Kael`, `Tinker Torque`), 4 rideable mounts, 5-element combo combat, dynamic NPC schedules, faction territory shifts, and **New Game+**.
+6. **Tower Defense — Castle Siege (Solo & 2–8p Co-op)**: 3 Castle keeps, 3 shoot-through wall tiers, 20 rotating deployables, active **Synergy** combos, and next-wave archetype previews.
+7. **Minigames Hub (Solo & Same-Room Versus)**: 63 courses across Fun & Specials (22), Target & Action (16), Speed Runs (9), Arcade Hall (15), and Boss Rush, plus **Daily Seeded Courses** and **Personal-Best Ghost deltas**.
+
+## Quick Start & Automated QA
+- **Local Play**: Double-click `play.bat` or run `python server.py` (dev fast bundle build: `python tools/bundle.py` -> `index.bundled.html`).
+- **QA Suites**: Open `_qa_runner.html` (`30/30` target checks across core, modes, saves, netcode, profile & Operation Blackout) and `_qa_owrpg.html` (`120/120` checks & `BO.OWRPGValidator.runAll()`).

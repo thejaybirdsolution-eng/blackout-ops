@@ -70,3 +70,11 @@ Decisions that look odd out of context. Read before refactoring.
 ## ADR-017 — Online Co-op Scope for 1.0 (`CoopExtensions.js`)
 **Decision:** Support WebRTC P2P + `BroadcastChannel` co-op/multiplayer in 1.0 for **Zombies** (up to 8p), **Tower Defense** (up to 8p), **Multiplayer** (co-op vs bots & PvP), **Rogue Lite** (2–4p host-synced delves, floor/seed replication, gate voting & peer hit relay), and **Minigames** (Same-Room Versus live HUD leaderboard & room-seeded finish boards). Explicitly defer **Survival** and **Open World RPG** co-op post-1.0.
 **Consequence:** All arcade & delve modes share instant room invites over `PeerJS`/`BroadcastChannel` cleanly within the zero-server budget, while large persistent chunk/NPC/quest-graph world sync in Survival & OWRPG stays out of 1.0 scope without destabilizing single-player saves.
+
+## ADR-018 — Unified v3 Player Profile & Cross-Mode Event Bus (`ProfileSystem.js`)
+**Decision:** Consolidate cross-mode identity (Account Level 1–100, Calling Cards, Emblems, Titles, Offline Seeded 3 Daily / 5 Weekly Challenges, Unified 70-Weapon Armory, and Last-Played Continue Banner) in a dedicated `BO.Save.data.profile` slice (`CURRENT_VERSION = 3`) guarded via `assertSliceOwner('profile', 'ProfileSystem')` and fed purely by event-bus listeners (`game:modeStart`, `match:ended`, `owrpg:quest`, `game:survivalEnding`, `game:minigameDaily`).
+**Consequence:** Every mode advances account rank and cosmetic identity cleanly without writing directly into any other mode's private save slice.
+
+## ADR-019 — Operation Blackout Capstone Architecture (`CampaignData.js` / `CampaignManager.js`)
+**Decision:** Implement **Operation Blackout** as a 10-mission sequential cross-mode campaign driving the 7 existing game modes rather than building a bespoke single-use campaign engine, persisting campaign progress inside `BO.Save.data.profile.campaign`.
+**Consequence:** New and returning players experience a structured 10-mission progression arc across Minigames, Multiplayer, Zombies, Tower Defense, Survival, Rogue Lite, and Open World RPG while reusing ~95% of tested gameplay systems.
