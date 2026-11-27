@@ -8,6 +8,43 @@
 
     const BO = global.BO;
 
+    // External 3D GLB weapon models (staged_assets/3d_models/weapons/)
+    const GLB_WEAPONS = {
+        barrett_50cal: {
+            path: 'weapons/barrett-m82_optimized.glb',
+            targetLen: 1.12,
+            rot: [0, 0, 0],
+            hidePatterns: ['Cartridge', 'NATO Bullet'],
+            offset: [0, -0.015, -0.14],
+            muzzleOffset: [0, 0.022, -0.70],
+            sightY: 0.095,
+            sightZ: -0.02,
+            sightEyeRelief: 0.18
+        },
+        intervention: {
+            path: 'weapons/cheytac_m200_intervention.glb',
+            targetLen: 1.04,
+            rot: [0, Math.PI * 0.5, 0],
+            hidePatterns: [],
+            offset: [0, -0.010, -0.14],
+            muzzleOffset: [0, 0.022, -0.66],
+            sightY: 0.095,
+            sightZ: -0.02,
+            sightEyeRelief: 0.18
+        },
+        m9: {
+            path: 'weapons/low-poly_beretta_m9.glb',
+            targetLen: 0.25,
+            rot: [0, 0, 0],
+            hidePatterns: [],
+            offset: [0, 0.022, -0.03],
+            muzzleOffset: [0, 0.048, -0.16],
+            sightY: 0.068,
+            sightZ: 0.04,
+            sightEyeRelief: 0.23
+        }
+    };
+
     class WeaponMeshBuilder {
         _darkMat(hex = 0x16191f, rough = 0.48, metal = 0.76) {
             const T = BO.Textures;
@@ -434,7 +471,148 @@
                 root.add(leftGun);
             }
 
-            return { root, gun, magGroup, boltGroup, muzzleAnchor, laserBeam, ...sight };
+            const built = { root, gun, magGroup, boltGroup, muzzleAnchor, laserBeam, ...sight };
+            if (GLB_WEAPONS[spec.id] && BO.Assets && typeof BO.Assets.loadGLB === 'function') {
+                built.readyPromise = this._attachGLBWeapon(built, spec, GLB_WEAPONS[spec.id], effectiveCamo, isPaP);
+            }
+            return built;
+        }
+
+        _computeVisibleBounds(container) {
+            container.updateMatrixWorld(true);
+            const box = new THREE.Box3();
+            const v = new THREE.Vector3();
+            const partBox = new THREE.Box3();
+            container.traverse((o) => {
+                if (!o.visible || !o.isMesh || !o.geometry) return;
+                // Skip if any ancestor inside container is hidden
+                let cur = o.parent;
+                while (cur && cur !== container) {
+                    if (!cur.visible) return;
+                    cur = cur.parent;
+                }
+                const pos = o.geometry.attributes && o.geometry.attributes.position;
+                if (o.isSkinnedMesh && typeof o.boneTransform === 'function' && pos) {
+                    if (o.skeleton) o.skeleton.update();
+                    const step = Math.max(1, Math.floor(pos.count / 1000));
+                    for (let i = 0; i < pos.count; i += step) {
+                        v.fromBufferAttribute(pos, i);
+                        o.boneTransform(i, v);
+                        v.applyMatrix4(o.matrixWorld);
+                        box.expandByPoint(v);
+                    }
+                } else {
+                    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+                    if (o.geometry.boundingBox) {
+                        partBox.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+                        box.union(partBox);
+                    }
+                }
+            });
+            return box;
+        }
+
+        _attachGLBWeapon(built, spec, cfg, camoId, isPaP) {
+            return BO.Assets.loadGLB(cfg.path).then((sc) => {
+                // Hide unwanted showcase extras (e.g. loose cartridges beside the Barrett M82)
+                if (cfg.hidePatterns && cfg.hidePatterns.length) {
+                    sc.traverse((o) => {
+                        const nm = o.name || '';
+                        for (const pat of cfg.hidePatterns) {
+                            if (nm.includes(pat)) {
+                                o.visible = false;
+                                break;
+                            }
+                        }
+                    });
+                }
+
+                // Apply camo or Pack-a-Punch finish on cloned materials (never mutate shared cache)
+                const applyCamo = isPaP || (camoId && camoId !== 'default');
+                const camoMat = applyCamo && BO.Textures?.getCamoMaterial
+                    ? BO.Textures.getCamoMaterial(camoId, spec.modelSpec?.primaryColor || 0x262c36, isPaP)
+                    : null;
+
+                sc.traverse((o) => {
+                    if (!o.isMesh) return;
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+                    if (o.isSkinnedMesh) o.frustumCulled = false;
+                    if (camoMat && o.material) {
+                        const mats = Array.isArray(o.material) ? o.material : [o.material];
+                        const nextMats = mats.map((m) => {
+                            if (!m || typeof m.clone !== 'function') return m;
+                            const cm = m.clone();
+                            if (isPaP) {
+                                cm.emissive = new THREE.Color(0x9333ea);
+                                cm.emissiveIntensity = 0.42;
+                                if (camoMat.map) {
+                                    cm.map = camoMat.map;
+                                    cm.color = new THREE.Color(0xffffff);
+                                }
+                            } else if (camoMat.map) {
+                                cm.map = camoMat.map;
+                                cm.color = new THREE.Color(0xffffff);
+                            } else if (camoMat.color) {
+                                cm.color = camoMat.color.clone();
+                            }
+                            cm.needsUpdate = true;
+                            return cm;
+                        });
+                        o.material = Array.isArray(o.material) ? nextMats : nextMats[0];
+                    }
+                });
+
+                const wrap = new THREE.Group();
+                wrap.name = 'glb_weapon_' + spec.id;
+                if (cfg.rot) sc.rotation.set(cfg.rot[0], cfg.rot[1], cfg.rot[2]);
+                wrap.add(sc);
+
+                // Normalize scale & center using true (including skinned) bounds
+                let box = this._computeVisibleBounds(wrap);
+                if (!box.isEmpty()) {
+                    const sz = new THREE.Vector3();
+                    box.getSize(sz);
+                    const curLen = Math.max(sz.z, 1e-4);
+                    const scale = cfg.targetLen / curLen;
+                    sc.scale.multiplyScalar(scale);
+                    box = this._computeVisibleBounds(wrap);
+                    const ctr = new THREE.Vector3();
+                    box.getCenter(ctr);
+                    sc.position.x -= ctr.x;
+                    sc.position.y -= ctr.y;
+                    sc.position.z -= ctr.z;
+                    box = this._computeVisibleBounds(wrap);
+                }
+
+                if (cfg.offset) {
+                    wrap.position.set(cfg.offset[0], cfg.offset[1], cfg.offset[2]);
+                }
+
+                // Hide procedural fallback geometry while keeping anchors & laser beam
+                for (const child of built.gun.children) {
+                    if (child === built.muzzleAnchor || child === built.laserBeam) continue;
+                    child.visible = false;
+                }
+                built.gun.add(wrap);
+                built.glbWrap = wrap;
+
+                // Place muzzle anchor at the barrel tip
+                if (cfg.muzzleOffset) {
+                    built.muzzleAnchor.position.set(cfg.muzzleOffset[0], cfg.muzzleOffset[1], cfg.muzzleOffset[2]);
+                } else if (!box.isEmpty()) {
+                    built.muzzleAnchor.position.set(0, (cfg.offset ? cfg.offset[1] : 0) + 0.02, box.min.z + (cfg.offset ? cfg.offset[2] : 0));
+                }
+
+                if (cfg.sightY !== undefined) built.sightY = cfg.sightY;
+                if (cfg.sightZ !== undefined) built.sightZ = cfg.sightZ;
+                if (cfg.sightEyeRelief !== undefined) built.sightEyeRelief = cfg.sightEyeRelief;
+
+                return built;
+            }).catch((err) => {
+                console.warn('[BO.WeaponMesh] Falling back to procedural mesh for', spec.id, err);
+                return built;
+            });
         }
 
         _buildMagazineGroup(spec, profile, attachments, darkMat, accentMat, steelMat, recH, recL) {

@@ -15,7 +15,7 @@
         ['mini_uzi', 'Mini-Uzi', 'smg', 'auto', 32, 900, 25],
         ['w1200', 'W1200', 'shotgun', 'pump', 7, 92, 31],
         ['m21', 'M21', 'sniper', 'semi', 10, 235, 91],
-        ['m9', 'M9', 'pistol', 'semi', 15, 465, 36],
+        ['m9', 'Beretta M9', 'pistol', 'semi', 15, 465, 36],
         ['usp45', 'USP .45', 'pistol', 'semi', 12, 410, 41],
         ['makarov', 'Makarov', 'pistol', 'semi', 8, 450, 37],
         ['tt33', 'Tokarev TT-33', 'pistol', 'semi', 8, 395, 43],

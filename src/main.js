@@ -193,17 +193,43 @@
                 this.showcasePivot.add(hat);
             }
             this.showcaseWeapon = built.root;
+            if (built.laserBeam) built.laserBeam.visible = false;
+            this._computeShowcaseBounds(built.root);
+            if (built.readyPromise) {
+                const expectedRoot = built.root;
+                built.readyPromise.then(() => {
+                    if (this.showcaseWeapon === expectedRoot) {
+                        this._computeShowcaseBounds(expectedRoot);
+                    }
+                });
+            }
+        }
+
+        _computeShowcaseBounds(weaponRoot) {
             const bounds = new THREE.Box3();
             const partBox = new THREE.Box3();
-            if (built.laserBeam) built.laserBeam.visible = false;
-            this.showcasePivot.updateWorldMatrix(true, true);
+            const v = new THREE.Vector3();
+            this.showcasePivot.updateMatrixWorld(true);
             const toPivot = this.showcasePivot.matrixWorld.clone().invert();
             const transform = new THREE.Matrix4();
-            built.root.traverseVisible((part) => {
+            weaponRoot.traverseVisible((part) => {
                 if (!part.isMesh || !part.geometry) return;
-                if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
-                transform.multiplyMatrices(toPivot, part.matrixWorld);
-                bounds.union(partBox.copy(part.geometry.boundingBox).applyMatrix4(transform));
+                const pos = part.geometry.attributes && part.geometry.attributes.position;
+                if (part.isSkinnedMesh && typeof part.boneTransform === 'function' && pos) {
+                    if (part.skeleton) part.skeleton.update();
+                    transform.multiplyMatrices(toPivot, part.matrixWorld);
+                    const step = Math.max(1, Math.floor(pos.count / 1000));
+                    for (let i = 0; i < pos.count; i += step) {
+                        v.fromBufferAttribute(pos, i);
+                        part.boneTransform(i, v);
+                        v.applyMatrix4(transform);
+                        bounds.expandByPoint(v);
+                    }
+                } else {
+                    if (!part.geometry.boundingBox) part.geometry.computeBoundingBox();
+                    transform.multiplyMatrices(toPivot, part.matrixWorld);
+                    bounds.union(partBox.copy(part.geometry.boundingBox).applyMatrix4(transform));
+                }
             });
             bounds.getCenter(this.showcaseCenter);
             this.showcaseCorners = [];

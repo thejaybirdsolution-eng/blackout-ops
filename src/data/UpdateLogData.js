@@ -2971,6 +2971,70 @@
                                 "text": "Added cleaned single-shot gunshot SFX for all 134 Create-a-Class and Classic firearms, short punchy sci-fi and explosive audio for all 22 Wonder Weapons and launchers, and dedicated melee/ballistic weapon SFX routed through the combat compressor."
                         }
                 ]
+        },
+        {
+                "id": 149,
+                "hash": "v2.7",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:45 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Barrett M82 .50 Cal 3D Model & Skinned GLB Pipeline",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "zombies",
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Replaced the procedural Barrett .50cal with a detailed PBR 3D Barrett M82 GLB model complete with NightForce optic, bipod, and heavy muzzle brake. Upgraded AssetLoader with SkinnedMesh-safe skeleton rebinding and accurate skinned bounding-box framing so rigged weapon models render cleanly in Create a Class, the Main Menu showcase, and in-game first-person viewmodels."
+                        }
+                ]
+        },
+        {
+                "id": 150,
+                "hash": "v2.7",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:50 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "CheyTac M200 Intervention & Beretta M9 3D Weapon Models",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "zombies",
+                        "mp"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added custom 3D GLB weapon models for the CheyTac M200 Intervention (MW2) sniper rifle and the Beretta M9 sidearm, fully normalized for first-person combat, Create-a-Class inspection, and camo / Pack-a-Punch finishes. Updated the M9 display name to Beretta M9 so it is easier to find when searching in Create a Class."
+                        }
+                ]
+        },
+        {
+                "id": 151,
+                "hash": "v2.7",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "10:58 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Removed Post-Kill Camera Screenshake",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Removed the camera screenshake impulse triggered after kills and headshot kills in Juice.js for steadier target tracking and cleaner follow-up shots across all combat modes, while keeping hitmarkers and kill-confirm spark bursts intact."
+                        }
+                ]
         }
 ]
     };

@@ -33,7 +33,6 @@
             if (BO.PostFX) BO.PostFX.impact(e.isKill ? (e.isHeadshot ? 0.85 : 0.6) : 0.16);
             if (!e.isKill) return;
             this.burst(!!e.isHeadshot);
-            this.shake(e.isHeadshot ? 0.095 : 0.045);
             this.hitStop(e.isHeadshot ? 0.085 : 0.055);
         }
 

@@ -81,10 +81,36 @@
         return tex;
     }
 
+    function _cloneGLBScene(source) {
+        let hasSkinned = false;
+        source.traverse((o) => { if (o.isSkinnedMesh) hasSkinned = true; });
+        const clone = source.clone(true);
+        if (!hasSkinned) return clone;
+
+        const sourceToClone = new Map();
+        const walk = (srcNode, dstNode) => {
+            sourceToClone.set(srcNode, dstNode);
+            const len = Math.min(srcNode.children.length, dstNode.children.length);
+            for (let i = 0; i < len; i++) walk(srcNode.children[i], dstNode.children[i]);
+        };
+        walk(source, clone);
+
+        source.traverse((srcObj) => {
+            if (!srcObj.isSkinnedMesh || !srcObj.skeleton) return;
+            const dstObj = sourceToClone.get(srcObj);
+            if (!dstObj || !dstObj.isSkinnedMesh) return;
+            const clonedBones = srcObj.skeleton.bones.map((b) => sourceToClone.get(b) || b);
+            const boneInverses = srcObj.skeleton.boneInverses.map((inv) => inv.clone());
+            dstObj.bind(new THREE.Skeleton(clonedBones, boneInverses), srcObj.bindMatrix.clone());
+            dstObj.frustumCulled = false;
+        });
+        return clone;
+    }
+
     function loadGLB(relPath) {
         const path = resolvePath(relPath, '3d_models/');
-        if (glbCache.has(path)) return Promise.resolve(glbCache.get(path).clone(true));
-        if (glbPromises.has(path)) return glbPromises.get(path).then((sc) => sc.clone(true));
+        if (glbCache.has(path)) return Promise.resolve(_cloneGLBScene(glbCache.get(path)));
+        if (glbPromises.has(path)) return glbPromises.get(path).then((sc) => _cloneGLBScene(sc));
         if (typeof THREE.GLTFLoader !== 'function') {
             return Promise.reject(new Error('THREE.GLTFLoader is not loaded'));
         }
@@ -96,12 +122,14 @@
                     if (!o.isMesh) return;
                     o.castShadow = true;
                     o.receiveShadow = true;
+                    if (o.isSkinnedMesh) o.frustumCulled = false;
                     if (o.geometry) sharedGeos.add(o.geometry);
                     const mats = Array.isArray(o.material) ? o.material : [o.material];
                     for (const m of mats) {
                         if (!m) continue;
                         sharedMats.add(m);
                         if (m.map && THREE.sRGBEncoding) m.map.encoding = THREE.sRGBEncoding;
+                        if (m.emissiveMap && THREE.sRGBEncoding) m.emissiveMap.encoding = THREE.sRGBEncoding;
                     }
                 });
                 glbCache.set(path, sc);
@@ -114,7 +142,7 @@
             });
         });
         glbPromises.set(path, p);
-        return p.then((sc) => sc.clone(true));
+        return p.then((sc) => _cloneGLBScene(sc));
     }
 
     function _normalizeGLBScene(sc, opts = {}) {
