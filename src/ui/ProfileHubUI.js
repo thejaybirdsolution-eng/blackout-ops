@@ -57,7 +57,7 @@
                 };
                 addTile('btn-menu-profile', '🪪', 'Operator', 'Level, card & emblem', () => this.openProfileModal());
                 addTile('btn-menu-challenges', '🎯', 'Challenges', 'Daily & Weekly XP ops', () => this.openChallengesModal());
-                addTile('btn-menu-armory', '🔫', 'Armory 70', 'All 70 weapons & camos', () => this.openArmoryModal());
+                addTile('btn-menu-armory', '🔫', 'Armory', 'All weapons & camos', () => this.openArmoryModal());
             }
         },
 

@@ -12,11 +12,9 @@
     'use strict';
 
     const SD = BO.OWRPGStatsData;
-    const QD = BO.OWRPGQuestsData.QUESTS;
-    const DD = BO.OWRPGDialogueData.TREES;
 
-    /* ---------------------------------------------------- 1. Quest Items */
-    Object.assign(SD.ITEMS, {
+    /* ---------------------------------------------------- 1. Act II–VI Items (lazy quest defs) */
+    const ACT2_ITEMS = {
         dish_override_key: {
             id: 'dish_override_key',
             name: 'Dish Array Override Token',
@@ -41,10 +39,11 @@
             value: 0,
             desc: 'Encrypted short-range beacon synchronizing squadmate tactics across the Meridian Expanse.'
         }
-    });
+    };
+    Object.assign(SD.ITEMS, ACT2_ITEMS);
 
-    /* ---------------------------------------------------- 2. Act II–VI Quests */
-    Object.assign(QD, {
+    /* ---------------------------------------------------- 2. Act II–VI Quests (kept separate so OWRPGQuestsData keeps its 31-quest schema parity) */
+    const ACT2_QUESTS = {
         q_act2_sprawl_signal: {
             name: 'Iron Frequency (Act II)',
             giver: 'mags',
@@ -366,15 +365,12 @@
                 social: { label: 'Preserved ancient archive for joint study', xp: 1000, credits: 760, items: ['helix_cipher'], rep: { helix: 160, aegis: 120 }, flags: ['dragonwild_archive'] }
             }
         }
-    });
+    };
 
-    /* ---------------------------------------------------- 3. Dialogue Injection */
+    /* ---------------------------------------------------- 3. Dialogue Injection Specs */
+    const DIALOGUE_INJECTIONS = {};
     function injectTree(npcId, hubChoices, extraNodes) {
-        const t = DD[npcId];
-        if (!t || !t.nodes || !t.nodes.hub) return;
-        const hub = t.nodes.hub;
-        hub.choices = [...hubChoices, ...hub.choices];
-        Object.assign(t.nodes, extraNodes);
+        DIALOGUE_INJECTIONS[npcId] = { hubChoices, extraNodes };
     }
 
     // Rust Sprawl + Ash Quarry Minehead: Mags
@@ -615,6 +611,26 @@
 
     /* ---------------------------------------------------- 4. Companions, Schedules & Territory */
     BO.OWRPGAct2 = {
+        QUESTS: ACT2_QUESTS,
+        DIALOGUE_INJECTIONS,
+        validate() {
+            const errors = [];
+            const D = BO.OWRPGWorldData;
+            for (const [id, q] of Object.entries(ACT2_QUESTS)) {
+                if (q.giver && !BO.OWRPGDialogueData.TREES[q.giver]) errors.push(`${id}: missing giver ${q.giver}`);
+                for (const [sid, st] of Object.entries(q.stages)) {
+                    if (st.marker && D && !D.POIS.some((p) => p.id === st.marker)) errors.push(`${id}.${sid}: bad marker ${st.marker}`);
+                    for (const [k, next] of Object.entries(st.on || {})) {
+                        if (!q.stages[next]) errors.push(`${id}.${sid}: missing stage ${next}`);
+                        const [type, val] = k.split(':');
+                        if (type === 'item' && !SD.ITEMS[val]) errors.push(`${id}.${sid}: unknown item ${val}`);
+                        if (type === 'kill' && !SD.ENEMIES[val]) errors.push(`${id}.${sid}: unknown enemy ${val}`);
+                        if (type === 'discover' && D && !D.POIS.some((p) => p.id === val)) errors.push(`${id}.${sid}: unknown POI ${val}`);
+                    }
+                }
+            }
+            return { errors };
+        },
         COMPANIONS: {
             soren: {
                 id: 'soren',

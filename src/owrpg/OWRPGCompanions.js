@@ -29,6 +29,41 @@
         initHooks() {
             if (this._hooked) return;
             this._hooked = true;
+
+            // Route Act II-VI quests through OWRPGQuests & OWRPGDialogue without mutating base OWRPGQuestsData key count
+            if (BO.OWRPGQuests && BO.OWRPGAct2?.QUESTS) {
+                const Q = BO.OWRPGQuests;
+                const A2Q = BO.OWRPGAct2.QUESTS;
+                const origDef = Q.def.bind(Q);
+                const origOnEvent = Q.onEvent.bind(Q);
+                Q.def = (id) => origDef(id) || A2Q[id];
+                Q.onEvent = (s, type, key) => {
+                    origOnEvent(s, type, key);
+                    const tag = type + ':' + key;
+                    for (const [id, d] of Object.entries(A2Q)) {
+                        const q = Q.get(s, id);
+                        if (q.state === 'inactive' && d.autoStart === tag) { Q.start(s, id); continue; }
+                        if (q.state !== 'active') continue;
+                        const on = d.stages[q.stage]?.on;
+                        if (on && on[tag]) { Q.setStage(s, id, on[tag]); }
+                    }
+                };
+            }
+            if (BO.OWRPGDialogue && BO.OWRPGAct2?.DIALOGUE_INJECTIONS) {
+                const DLG = BO.OWRPGDialogue;
+                const INJ = BO.OWRPGAct2.DIALOGUE_INJECTIONS;
+                const origTree = DLG.tree.bind(DLG);
+                DLG.tree = (npcId) => {
+                    const base = origTree(npcId);
+                    const ext = INJ[npcId];
+                    if (!base || !ext || base._act2Patched) return base;
+                    base._act2Patched = true;
+                    if (base.nodes?.hub) base.nodes.hub.choices = [...ext.hubChoices, ...base.nodes.hub.choices];
+                    Object.assign(base.nodes, ext.extraNodes);
+                    return base;
+                };
+            }
+
             const M = BO.OWRPGMode;
             const origStart = M.start.bind(M);
             const origStop = M.stop.bind(M);

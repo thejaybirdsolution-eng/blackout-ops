@@ -420,15 +420,15 @@
     // Corrupt primary key and verify automatic recovery from backup
     localStorage.setItem(qaKey, '{CORRUPT_JSON!!!');
     const recovered = sv.load(qaKey);
-    const recOk = sv.recoveredFromBackup && recovered.callsign === 'QA-V1' && recovered.version === 2;
+    const recOk = sv.recoveredFromBackup && recovered.callsign === 'QA-V1' && recovered.version === 3;
     localStorage.removeItem(qaKey);
     localStorage.removeItem(qaKey + '_tmp');
     localStorage.removeItem(qaKey + '_bak0');
     localStorage.removeItem(qaKey + '_bak1');
     localStorage.removeItem(qaKey + '_bak2');
     sv.data = JSON.parse(origSaveData);
-    check('SaveSystem v1->v2 migration, atomic backup rotation & corruption recovery',
-      migratedV2.version === 2 && migratedV2.stats.mpKills === 42 && recOk, `recovered=${recovered.callsign}`);
+    check('SaveSystem v1->v3 migration, atomic backup rotation & corruption recovery',
+      migratedV2.version === 3 && migratedV2.stats.mpKills === 42 && recOk, `recovered=${recovered.callsign}`);
 
     // 21. 2-Peer MockNetChannel (150ms latency, 2% loss, validation & JitterBuffer convergence)
     const ch = new BO.NetValidation.MockNetChannel({ latencyMs: 150, jitterMs: 20, lossRate: 0.02, seed: 777 });
@@ -457,6 +457,69 @@
     const netOk = ch.stats.rejected === 2 && peerBStates.length >= 65 && sampledNet && Math.abs(sampledNet.x - 14.8) < 1.5 && deltaTest.b === 9 && deltaTest.c === 3;
     check('2-Peer MockNetChannel (150ms+2% loss), packet validation, JitterBuffer & DeltaCodec',
       netOk, `deliv=${ch.stats.delivered}, rej=${ch.stats.rejected}, x=${sampledNet?.x?.toFixed(2)}`);
+
+    // 22. OWRPG Act II-VI Quests, Companions & 0-Error Validator
+    const owV = BO.OWRPGValidator ? BO.OWRPGValidator.runAll() : { errors: ['missing'], warnings: [] };
+    const a2V = BO.OWRPGAct2?.validate ? BO.OWRPGAct2.validate() : { errors: ['missing'] };
+    const hasActs = !!(BO.OWRPGAct2?.QUESTS?.q_act2_sprawl_signal && BO.OWRPGAct2?.QUESTS?.q_act5_alpine_uplink && BO.OWRPGAct2?.QUESTS?.q_act6_meridian_finale);
+    const compCount = Object.keys(BO.OWRPGAct2?.COMPANIONS || {}).length;
+    check('OWRPG Act II-VI quests, 3 Companions & Validator (0 errs/warns)',
+      hasActs && compCount === 3 && owV.errors.length === 0 && owV.warnings.length === 0 && a2V.errors.length === 0,
+      `acts=${hasActs}, comps=${compCount}, errs=${owV.errors.length}, a2Errs=${a2V.errors.length}`);
+
+    // 23. SaveSystem v2->v3, ProfileSystem Challenges (3D/5W) & 70-Weapon Armory
+    const v2Mock = BO.Save.migrateSaveData({ version: 2, callsign: 'QA-V2', player: { name: 'QA', xp: 0 }, stats: {} });
+    const ps = BO.ProfileSystem;
+    const chSet = ps.getChallenges();
+    const armory = ps.getArmoryCatalog();
+    check('SaveSystem v2->v3, ProfileSystem Challenges & 70-Weapon Armory',
+      v2Mock.version === 3 && chSet.daily.length === 3 && chSet.weekly.length === 5 && armory.length >= 70,
+      `v=${v2Mock.version}, d=${chSet.daily.length}, w=${chSet.weekly.length}, armory=${armory.length}`);
+
+    // 24. ModeDepth10 (MP 3-Map Vote, TD Wave Preview, Minigames Daily Seed)
+    const md10 = BO.ModeDepth10;
+    const mpVotes = md10 ? md10.getMpVoteOptions('killhouse') : [];
+    const tdPrev = md10 ? md10.getTdNextWavePreview(4) : '';
+    const mgDaily = md10 ? md10.getDailyMinigame() : null;
+    check('ModeDepth10 (MP Map Vote, TD Preview & Minigame Daily Seed)',
+      mpVotes.length === 3 && !mpVotes.some((m) => m.id === 'killhouse') && /BOSS/i.test(tdPrev) && !!(mgDaily && mgDaily.def),
+      `votes=${mpVotes.length}, prev=${tdPrev}, daily=${mgDaily?.def?.id}`);
+
+    // 25. CoopExtensions 2-Peer MockNetChannel (RPG + Minigame Versus)
+    const coop = BO.CoopExtensions;
+    const coopCh = new BO.NetValidation.MockNetChannel({ latencyMs: 20, jitterMs: 0, lossRate: 0, seed: 42 });
+    coop.clearRoomState();
+    coopCh.registerPeer('h', () => {});
+    coopCh.registerPeer('g', (pkt, from) => coop.handlePacket(pkt, from));
+    coopCh.send('h', 'g', { type: 'rpg_snapshot', floor: 5, roomType: 'boss', seed: 123, enemiesAlive: 1, bossHp: 420 });
+    coopCh.send('h', 'g', { type: 'rpg_door_vote', gateIndex: 2, senderId: 'g' });
+    coopCh.send('h', 'g', { type: 'mg_score_update', courseId: 'range_day', callsign: 'GUEST', score: 2500, elapsed: 15 });
+    coopCh.step(40);
+    const snapFloor = coop.lastRpgSnap?.floor;
+    const coopOk = snapFloor === 5 && coop.doorVotes.get('h') === 2 && coop.versusScores.get('h')?.score === 2500;
+    coop.clearRoomState();
+    check('CoopExtensions 2-Peer MockNetChannel (RPG Snapshot, Vote & MG Versus)', coopOk, `floor=${snapFloor}`);
+
+    // 26. Operation Blackout 10-Mission Capstone Unlock Chain
+    const cm = BO.CampaignManager;
+    const m01 = BO.CampaignData?.MISSIONS?.[0];
+    const m02 = BO.CampaignData?.MISSIONS?.[1];
+    const m02LockedBefore = m02 && !cm.isUnlocked(m02);
+    cm.completeMission('m01_range_qual', 'precision');
+    const m02UnlockedAfter = m02 && cm.isUnlocked(m02) && cm.isCompleted('m01_range_qual');
+    sv.data = JSON.parse(origSaveData);
+    check('Operation Blackout 10-Mission sequential unlock & reward flow',
+      BO.CampaignData?.MISSIONS?.length === 10 && m02LockedBefore && m02UnlockedAfter,
+      `missions=${BO.CampaignData?.MISSIONS?.length}`);
+
+    // 27. 1.0 Main Menu UI (Operation Blackout Card, Continue Banner, Clean Badges, Suppressed Onboarding)
+    const badgeTexts = Array.from(doc.querySelectorAll('.mode-card-badge')).map((e) => e.textContent.toLowerCase());
+    const staleBadges = badgeTexts.filter((t) => t.includes('alpha demo') || t.includes('tech demo') || t.includes('early access'));
+    const has10Widgets = !!(doc.getElementById('btn-menu-campaign') && doc.getElementById('menu-continue-banner') && doc.getElementById('btn-menu-profile'));
+    const noOnboardingPopup = !doc.getElementById('btn-ob-range');
+    check('Main Menu 1.0 (Capstone card, Continue banner, clean badges, no QA modal block)',
+      staleBadges.length === 0 && has10Widgets && noOnboardingPopup,
+      `stale=${staleBadges.length}, widgets=${has10Widgets}, quiet=${noOnboardingPopup}`);
 
     check('Zero uncaught runtime errors across entire QA run', errors.length === 0, errors.join(' | '));
   } catch (err) {
