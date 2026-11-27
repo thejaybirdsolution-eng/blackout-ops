@@ -207,17 +207,46 @@
             this.ctx = null;
             this.masterGain = null;
             this.sfxGain = null;
+            this.uiGain = null;
             this.musicGain = null;
             this.combatGain = null;
             this.worldVoiceTimes = { shot: [], vocal: [], impact: [], step: [] };
             this.resumePending = false;
             this.effectVoices = new Map();
+            this._recentSfx = new Map();
             this.noiseBuffer = null;
             this.unlocked = false;
             this.musicTimer = null;
             this.musicMode = null;
 
             BO.Events.on('settings:changed', () => this.applyVolumes());
+            if (typeof document !== 'undefined') {
+                document.addEventListener('visibilitychange', () => this.applyVolumes(false));
+            }
+        }
+
+        _canPlay(key, minGapMs = 25) {
+            const now = performance.now();
+            const prev = this._recentSfx.get(key) || 0;
+            if (now - prev < minGapMs) return false;
+            this._recentSfx.set(key, now);
+            return true;
+        }
+
+        _hasClip(clip) {
+            return !!(clip && BO.Assets?.playClip && (!BO.Assets.hasAudioBuffer || BO.Assets.hasAudioBuffer(clip)));
+        }
+
+        _tryClip(clip, opts, synthFallback) {
+            if (clip && BO.Assets?.playClip) {
+                if (!BO.Assets.hasAudioBuffer || BO.Assets.hasAudioBuffer(clip)) {
+                    BO.Assets.playClip(clip, opts);
+                    return true;
+                }
+                BO.Assets.loadAudioBuffer?.(clip);
+            }
+            if (synthFallback) synthFallback();
+            return false;
         }
 
         ensureContext() {
@@ -227,6 +256,7 @@
                 this.ctx = new AudioCtx();
                 this.masterGain = this.ctx.createGain();
                 this.sfxGain = this.ctx.createGain();
+                this.uiGain = this.ctx.createGain();
                 this.musicGain = this.ctx.createGain();
                 this.combatGain = this.ctx.createGain();
                 const combatDynamics = this._compressor(-19, 4, 0.003, 0.105);
@@ -237,6 +267,7 @@
                 lowCut.Q.value = 0.707;
                 this.combatGain.connect(combatDynamics).connect(this.sfxGain);
                 this.sfxGain.connect(lowCut).connect(effectsDynamics).connect(this.masterGain);
+                this.uiGain.connect(this.masterGain);
                 this.musicGain.connect(this.masterGain);
                 // Pad the shaper input so it can soften peaks above full scale without hard clipping.
                 const outputPad = this.ctx.createGain();
@@ -273,12 +304,14 @@
 
         applyVolumes(immediate = false) {
             const s = BO.Settings.all;
-            if (s.sfxMuted) global.speechSynthesis?.cancel();
+            const hiddenMute = (typeof document !== 'undefined' && document.hidden && s.muteWhenHidden !== false) ? 0 : 1;
+            if (s.sfxMuted || hiddenMute === 0) global.speechSynthesis?.cancel();
             if (!this.ctx) return;
             const t = this.ctx.currentTime;
             const targets = [
-                [this.masterGain.gain, s.masterVolume ?? 0.8, 0.02],
+                [this.masterGain.gain, (s.masterVolume ?? 0.8) * hiddenMute, 0.02],
                 [this.sfxGain.gain, s.sfxMuted ? 0 : (s.sfxVolume ?? 0.85), 0.02],
+                [this.uiGain ? this.uiGain.gain : this.sfxGain.gain, s.sfxMuted ? 0 : (s.uiVolume ?? 0.8), 0.02],
                 [this.musicGain.gain, s.musicMuted ? 0 : (s.musicVolume ?? 0.55) * 0.45, 0.03]
             ];
             for (const [gain, value, ramp] of targets) {
@@ -320,7 +353,9 @@
 
         _connectVoice(source, nodes, pan, dest, envelope, startTime) {
             const target = typeof dest === 'object' ? dest :
-                dest === 'music' ? this.musicGain : dest === 'combat' ? this.combatGain : this.sfxGain;
+                dest === 'music' ? this.musicGain :
+                dest === 'combat' ? this.combatGain :
+                dest === 'ui' ? (this.uiGain || this.sfxGain) : this.sfxGain;
             if (Math.abs(pan) > 0.02 && typeof this.ctx.createStereoPanner === 'function') {
                 const panner = this.ctx.createStereoPanner();
                 panner.pan.value = Math.min(1, Math.max(-1, pan));
@@ -488,20 +523,15 @@
             this.synthNoise(duration, frequency, type, q, volume, { delay });
         }
 
-        playUIHover() {
-            this.synthTone(980, 1180, 0.032, 'triangle', 0.065, { attack: 0.002 });
-            this.synthNoise(0.014, 4200, 'bandpass', 3.2, 0.045, { attack: 0.001, endFrequency: 5600 });
-        }
-
         playUIClick() {
-            this.synthTone(660, 310, 0.052, 'triangle', 0.13, { attack: 0.0015 });
-            this.synthTone(1320, 880, 0.028, 'sine', 0.055, { attack: 0.001 });
-            this.synthNoise(0.022, 2600, 'bandpass', 2.4, 0.085, { attack: 0.001, endFrequency: 1200 });
-            if (BO.Assets?.playClip) {
-                BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/ui/click_001.ogg' : 'overhaul/ui/click_002.ogg', {
-                    volume: 0.22, rateJitter: 0.08, volJitter: 0.08
-                });
-            }
+            if (!this._canPlay('ui_click', 25)) return;
+            const clip = Math.random() < 0.5 ? 'overhaul/ui/click_001.ogg' : 'overhaul/ui/click_002.ogg';
+            const uiVol = BO.Settings?.get('uiVolume') ?? 0.8;
+            this._tryClip(clip, { volume: 0.22 * uiVol, rateJitter: 0.08, volJitter: 0.08 }, () => {
+                this.synthTone(660, 310, 0.052, 'triangle', 0.13, { attack: 0.0015, dest: 'ui' });
+                this.synthTone(1320, 880, 0.028, 'sine', 0.055, { attack: 0.001, dest: 'ui' });
+                this.synthNoise(0.022, 2600, 'bandpass', 2.4, 0.085, { attack: 0.001, endFrequency: 1200, dest: 'ui' });
+            });
         }
 
         _getSaturationCurve() {
@@ -626,19 +656,24 @@
         }
 
         playHitmarker(isHeadshot = false, isKill = false) {
+            if (!this._canPlay(isKill ? 'hm_kill' : 'hm_hit', 25)) return;
+            const hmVol = Math.max(0, Math.min(1.5, Number(BO.Settings?.get('hitmarkerVolume') ?? 1.0)));
+            if (hmVol <= 0.01) return;
             const options = { attack: 0.0018 };
             const jit = 0.96 + Math.random() * 0.08;
-            this.synthNoise(0.036, (isHeadshot ? 4020 : 2860) * jit, 'bandpass', 2.3, isHeadshot ? 0.37 : 0.27, options);
-            this.synthTone((isHeadshot ? 2290 : 1470) * jit, (isHeadshot ? 1630 : 1170) * jit, 0.041, 'triangle', isHeadshot ? 0.28 : 0.20, options);
+            this.synthNoise(0.036, (isHeadshot ? 4020 : 2860) * jit, 'bandpass', 2.3, (isHeadshot ? 0.37 : 0.27) * hmVol, options);
+            this.synthTone((isHeadshot ? 2290 : 1470) * jit, (isHeadshot ? 1630 : 1170) * jit, 0.041, 'triangle', (isHeadshot ? 0.28 : 0.20) * hmVol, options);
             if (isKill) {
-                this.synthTone(246, 85, 0.077, 'sine', 0.26, { ...options, delay: 0.023 });
-                this.synthTone(659, 524, 0.12, 'triangle', 0.15, { ...options, delay: 0.052 });
+                this.synthTone(246, 85, 0.077, 'sine', 0.26 * hmVol, { ...options, delay: 0.023 });
+                this.synthTone(659, 524, 0.12, 'triangle', 0.15 * hmVol, { ...options, delay: 0.052 });
             }
             if (isHeadshot && isKill) {
-                this.synthNoise(0.096, 1730, 'bandpass', 1.1, 0.33, { ...options, delay: 0.010, endFrequency: 500 });
+                this.synthNoise(0.096, 1730, 'bandpass', 1.1, 0.33 * hmVol, { ...options, delay: 0.010, endFrequency: 500 });
             }
-            if (BO.Assets?.playClip) {
-                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: isHeadshot ? 0.32 : 0.22, rate: isHeadshot ? 1.08 : 1.0, rateJitter: 0.06 });
+            if (this._hasClip('overhaul/combat/MW2Hitmarker.mp3')) {
+                BO.Assets.playClip('overhaul/combat/MW2Hitmarker.mp3', { volume: (isHeadshot ? 0.32 : 0.22) * hmVol, rate: isHeadshot ? 1.08 : 1.0, rateJitter: 0.06 });
+            } else {
+                BO.Assets?.loadAudioBuffer?.('overhaul/combat/MW2Hitmarker.mp3');
             }
         }
 
@@ -696,21 +731,23 @@
             return hit?.terrain ? 'earth' : surfaceFamily(hit?.object?.userData.surfaceMaterial);
         }
 
-        playFootstep(sprinting = false, source = null) {
+        playFootstep(sprinting = false, source = null, surfaceOverride = null, crouching = false) {
             const mix = source ? this._worldEffect(source, 15, 'step') : { gain: 1, pan: 0, clarity: 1 };
             if (mix.gain < 0.045) return;
-            const family = this._floorMaterial(source || BO.Player?.pos);
-            const [texture, duration, heel] = FOOTING[family];
+            const family = surfaceOverride ? surfaceFamily(surfaceOverride) : this._floorMaterial(source || BO.Player?.pos);
+            const [texture, duration, heel] = FOOTING[family] || FOOTING.masonry;
             const variation = 0.88 + Math.random() * 0.24;
             const pan = source ? mix.pan : (this.stepSide = this.stepSide === 0.13 ? -0.13 : 0.13);
-            const v = mix.gain * (sprinting ? 1 : 0.64) * (source ? 0.76 : 1);
-            this.synthTone(heel * variation, heel * 0.54, duration, 'triangle', 0.13 * v, { pan, attack: 0.002 });
-            this.synthNoise(duration * 0.86, texture * variation * mix.clarity, 'bandpass', 1.18, 0.25 * v,
+            const crouchMult = crouching ? 0.45 : 1.0;
+            const v = mix.gain * (sprinting ? 1 : 0.64) * crouchMult * (source ? 0.76 : 1);
+            const pitchBias = crouching ? 0.85 : 1.0;
+            this.synthTone(heel * variation * pitchBias, heel * 0.54 * pitchBias, duration, 'triangle', 0.13 * v, { pan, attack: 0.002 });
+            this.synthNoise(duration * 0.86, texture * variation * mix.clarity * pitchBias, 'bandpass', 1.18, 0.25 * v,
                 { pan, endFrequency: texture * 0.44 * mix.clarity });
             this.synthNoise(duration * 0.5, texture * 1.15 * mix.clarity, 'bandpass', 1.6, 0.115 * v, { pan, delay: 0.034 });
-            if (BO.Assets?.playClip && mix.gain >= 0.12) {
+            if ((family === 'masonry' || family === 'stone' || family === 'earth') && mix.gain >= 0.12 && this._hasClip('overhaul/env/step_concrete_1.wav')) {
                 BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/env/step_concrete_1.wav' : 'overhaul/env/step_concrete_2.wav', {
-                    volume: 0.12 * v, rateJitter: 0.14, volJitter: 0.10, pan
+                    volume: 0.11 * v, rateJitter: 0.14, volJitter: 0.10, pan
                 });
             }
         }
@@ -815,7 +852,10 @@
         }
 
         playZombieGroan(profile = 'groan_mid', source = 1, range = 36) {
-            const { gain, pan, clarity } = this._worldEffect(source, range, 'vocal');
+            const zVol = Math.max(0, Math.min(1.5, Number(BO.Settings?.get('zombieVolume') ?? 1.0)));
+            if (zVol <= 0.01) return;
+            const { gain: rawGain, pan, clarity } = this._worldEffect(source, range, 'vocal');
+            const gain = rawGain * zVol;
             if (gain <= 0.035) return;
             if (BO.Assets?.playClip && gain >= 0.16 && Math.random() < 0.38) {
                 const clip = ['zombie1.wav', 'zombie2.wav', 'zombie3.wav'][Math.floor(Math.random() * 3)];
@@ -1304,52 +1344,131 @@
         }
 
         playShopBuy() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/buy.wav', { volume: 0.34, rateJitter: 0.05 });
-            this._metalImpact(1.52, 0.36);
-            this.synthTone(587.33, 880, 0.12, 'triangle', 0.19, { pan: -0.14 });
-            this.synthTone(880, 1174.66, 0.20, 'sine', 0.18, { delay: 0.075, pan: 0.14 });
+            const uiVol = BO.Settings?.get('uiVolume') ?? 0.8;
+            this._tryClip('overhaul/ui/buy.wav', { volume: 0.34 * uiVol, rateJitter: 0.05 }, () => {
+                this.synthTone(587.33, 880, 0.12, 'triangle', 0.19, { pan: -0.14, dest: 'ui' });
+                this.synthTone(880, 1174.66, 0.20, 'sine', 0.18, { delay: 0.075, pan: 0.14, dest: 'ui' });
+            });
+            this._metalImpact(1.52, 0.32 * uiVol);
         }
 
         playUIHover() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/click_002.ogg', { volume: 0.09, rate: 1.25, rateJitter: 0.08 });
+            if (!this._canPlay('ui_hover', 45)) return;
+            const uiVol = BO.Settings?.get('uiVolume') ?? 0.8;
+            this._tryClip('overhaul/ui/click_002.ogg', { volume: 0.09 * uiVol, rate: 1.25, rateJitter: 0.08 }, () => {
+                this.synthTone(980, 1180, 0.032, 'triangle', 0.065, { attack: 0.002, dest: 'ui' });
+                this.synthNoise(0.014, 4200, 'bandpass', 3.2, 0.045, { attack: 0.001, endFrequency: 5600, dest: 'ui' });
+            });
         }
         playUIBack() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/back_001.ogg', { volume: 0.25, rateJitter: 0.05 });
-            else this.playUIClick();
+            if (!this._canPlay('ui_back', 40)) return;
+            const uiVol = BO.Settings?.get('uiVolume') ?? 0.8;
+            this._tryClip('overhaul/ui/back_001.ogg', { volume: 0.25 * uiVol, rateJitter: 0.05 }, () => {
+                this.synthTone(440, 210, 0.068, 'triangle', 0.12, { attack: 0.002, dest: 'ui' });
+                this.synthNoise(0.025, 1600, 'bandpass', 1.8, 0.06, { attack: 0.001, endFrequency: 700, dest: 'ui' });
+            });
+        }
+        playUITab() {
+            if (!this._canPlay('ui_tab', 35)) return;
+            this.synthTone(740, 920, 0.042, 'triangle', 0.09, { attack: 0.0015, dest: 'ui' });
+            this.synthNoise(0.016, 3200, 'bandpass', 2.6, 0.045, { attack: 0.001, dest: 'ui' });
+        }
+        playUIToggle(checked = true) {
+            if (!this._canPlay('ui_toggle', 35)) return;
+            const f0 = checked ? 520 : 680;
+            const f1 = checked ? 860 : 410;
+            this.synthTone(f0, f1, 0.055, 'triangle', 0.11, { attack: 0.0015, dest: 'ui' });
+        }
+        playUISliderTick() {
+            if (!this._canPlay('ui_slider', 55)) return;
+            this.synthTone(1120, 960, 0.018, 'sine', 0.05, { attack: 0.001, dest: 'ui' });
+        }
+        playUIDisabled() {
+            if (!this._canPlay('ui_disabled', 90)) return;
+            this.synthTone(165, 118, 0.075, 'sawtooth', 0.11, { attack: 0.002, filter: ['lowpass', 620, 1.0], dest: 'ui' });
+        }
+        playUIDragStart() {
+            if (!this._canPlay('ui_drag', 40)) return;
+            this.synthTone(380, 620, 0.045, 'triangle', 0.09, { attack: 0.002, dest: 'ui' });
+        }
+        playUIDrop() {
+            if (!this._canPlay('ui_drop', 40)) return;
+            this.synthTone(640, 420, 0.05, 'triangle', 0.11, { attack: 0.0015, dest: 'ui' });
+            this.synthTone(840, 1080, 0.04, 'sine', 0.06, { delay: 0.025, dest: 'ui' });
+        }
+        playShieldRicochet(source = 1) {
+            if (!this._canPlay('shield_ricochet', 35)) return;
+            const { gain, pan } = this._worldEffect(source, 32, 'impact');
+            if (gain <= 0.035) return;
+            this._metalImpact(1.75 + Math.random() * 0.25, 0.55 * gain, pan);
+            this.synthTone(1860, 980, 0.09, 'sine', 0.16 * gain, { pan, delay: 0.012 });
+        }
+        playWeaponEquip() {
+            if (!this._canPlay('wpn_equip', 80)) return;
+            this.synthNoise(0.055, 1950, 'bandpass', 1.4, 0.12, { endFrequency: 920 });
+            this.synthTone(410, 220, 0.045, 'triangle', 0.10, { delay: 0.028, attack: 0.0015 });
+        }
+        playDryFire() {
+            if (!this._canPlay('dry_fire', 45)) return;
+            this.playEmptyClick();
         }
         playCardDraw() {
-            if (BO.Assets?.playClip) {
-                BO.Assets.playClip(Math.random() < 0.5 ? 'overhaul/cards/card_draw_1.wav' : 'overhaul/cards/card_draw_2.wav', { volume: 0.36, rateJitter: 0.08 });
-            }
+            const clip = Math.random() < 0.5 ? 'overhaul/cards/card_draw_1.wav' : 'overhaul/cards/card_draw_2.wav';
+            this._tryClip(clip, { volume: 0.36, rateJitter: 0.08 }, () => {
+                this.synthNoise(0.055, 2900, 'bandpass', 1.5, 0.12, { endFrequency: 1400, dest: 'ui' });
+            });
         }
         playCardFan() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/cards/card_fan.wav', { volume: 0.38, rateJitter: 0.05 });
+            this._tryClip('overhaul/cards/card_fan.wav', { volume: 0.38, rateJitter: 0.05 }, () => {
+                for (let i = 0; i < 4; i++) {
+                    this.synthNoise(0.035, 2500 + i * 350, 'bandpass', 1.8, 0.08, { delay: i * 0.04, dest: 'ui' });
+                }
+            });
         }
         playQuestFanfare() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/combat/LevelUpMW2.mp3', { volume: 0.38 });
+            this._tryClip('overhaul/combat/LevelUpMW2.mp3', { volume: 0.38 }, () => {
+                [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+                    this.synthTone(f, f * 1.005, 0.34, 'triangle', 0.15, { delay: i * 0.09, dest: 'ui' });
+                });
+            });
         }
         playLootChime() {
-            if (BO.Assets?.playClip) {
+            const hasCoin = this._hasClip('overhaul/env/coin_collect.wav');
+            if (hasCoin) {
                 BO.Assets.playClip('overhaul/env/coin_collect.wav', { volume: 0.30, rateJitter: 0.08 });
-                BO.Assets.playClip('overhaul/ui/ching.wav', { volume: 0.22, rateJitter: 0.06 });
+                this._tryClip('overhaul/ui/ching.wav', { volume: 0.22, rateJitter: 0.06 });
+            } else {
+                BO.Assets?.loadAudioBuffer?.('overhaul/env/coin_collect.wav');
+                this.synthTone(987.77, 1318.5, 0.14, 'sine', 0.14, { dest: 'ui' });
+                this.synthTone(1318.5, 1760, 0.18, 'triangle', 0.11, { delay: 0.06, dest: 'ui' });
             }
         }
         playPing() {
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/combat/mw2_ping.mp3', { volume: 0.32, rateJitter: 0.05 });
+            if (!this._canPlay('ping', 60)) return;
+            this._tryClip('overhaul/combat/mw2_ping.mp3', { volume: 0.32, rateJitter: 0.05 }, () => {
+                this.synthTone(1480, 1480, 0.16, 'sine', 0.13, { attack: 0.002, dest: 'ui' });
+            });
         }
         playTurretPlace() {
             this._metalImpact(1.2, 0.45);
-            if (BO.Assets?.playClip) BO.Assets.playClip('overhaul/ui/confirmation_001.ogg', { volume: 0.32, rateJitter: 0.06 });
+            this._tryClip('overhaul/ui/confirmation_001.ogg', { volume: 0.32, rateJitter: 0.06 }, () => {
+                this.synthTone(220, 440, 0.09, 'triangle', 0.14, { delay: 0.04 });
+            });
         }
         playGoreImpact(heavy = false) {
-            if (BO.Assets?.playClip) {
-                BO.Assets.playClip(heavy ? 'overhaul/combat/bone_snap.wav' : 'overhaul/combat/crunch_splat.wav', { volume: heavy ? 0.34 : 0.24, rateJitter: 0.10 });
-            }
+            if (!this._canPlay('gore', 35)) return;
+            const clip = heavy ? 'overhaul/combat/bone_snap.wav' : 'overhaul/combat/crunch_splat.wav';
+            this._tryClip(clip, { volume: heavy ? 0.34 : 0.24, rateJitter: 0.10 }, () => {
+                this.synthNoise(heavy ? 0.12 : 0.075, heavy ? 880 : 1250, 'bandpass', 0.9, heavy ? 0.26 : 0.18, { endFrequency: 240 });
+                if (heavy) this.synthTone(165, 68, 0.07, 'triangle', 0.19, { attack: 0.002 });
+            });
         }
         playMatchStinger(victory = true) {
-            if (BO.Assets?.playClip) {
-                BO.Assets.playClip(victory ? 'overhaul/stingers/level_complete.wav' : 'overhaul/ui/error_001.ogg', { volume: 0.36 });
-            }
+            const clip = victory ? 'overhaul/stingers/level_complete.wav' : 'overhaul/ui/error_001.ogg';
+            this._tryClip(clip, { volume: 0.36 }, () => {
+                const notes = victory ? [392, 493.88, 587.33, 783.99] : [293.66, 261.63, 220, 174.61];
+                notes.forEach((f, i) => this.synthTone(f, f, 0.36, 'triangle', 0.16, { delay: i * 0.11, dest: 'ui' }));
+            });
         }
 
         playMonkeyChime(source = 1) {
