@@ -177,6 +177,7 @@
         keys: [['WASD', 'Circle the Sand'], ['E', 'Taunt & Shield Bash (8s)'], ['1 / 2', 'Swap Shotgun / Magnum'], ['SPACE', 'Leap Chariots & Spikes']],
         map: {
             atmosphere: { skyTop: 0x0284c7, skyBottom: 0xfde68a, fogColor: 0xfed7aa, fogDensity: 0.0045, sunColor: 0xfffbeb, sunIntensity: 1.9, sunPos: [-35, 55, 40], hemiSky: 0xfef3c7, hemiGround: 0x92400e, hemiIntensity: 0.9 },
+            skybox: 'skybox-day.png',
             boxes: [B(0, -0.5, 0, 80, 1, 80, 'desert_sand')],
             spawn: { x: 0, y: 0.1, z: 14, yaw: 0 }
         },
@@ -201,12 +202,24 @@
                 g.strokeStyle = 'rgba(153,27,27,0.32)'; g.lineWidth = 8;
                 g.beginPath(); g.arc(w / 2, h / 2, 190, 0, TAU); g.stroke();
             });
-            const sand = new THREE.Mesh(new THREE.CircleGeometry(R + 0.8, 56), new THREE.MeshStandardMaterial({ map: sandTex, roughness: 0.95 }));
+            const sand = new THREE.Mesh(new THREE.CircleGeometry(R + 0.8, 56), A.pbrMat('fantasy_painterly/Transitions/sand-to-grass-001.png', 10, 10, { color: 0xe7c99b, roughness: 0.92 }));
             sand.rotation.x = -Math.PI / 2; sand.position.y = 0.02; sand.receiveShadow = true; S.add(sand);
 
-            const wallMat = std(0xa8a29e, 0.88), archDark = std(0x57534e, 0.92), crimson = std(0x991b1b, 0.75), gold = std(0xfacc15, 0.25, 0.88);
-            const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 1.2, R + 1.2, 5.8, 56, 1, true), new THREE.MeshStandardMaterial({ color: 0xa8a29e, roughness: 0.9, side: THREE.BackSide }));
+            const wallMat = A.pbrMat('fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png', 16, 2, { color: 0xd6cfc2, roughness: 0.88 });
+            const archDark = std(0x57534e, 0.92), crimson = std(0x991b1b, 0.75), gold = std(0xfacc15, 0.25, 0.88);
+            const wall = new THREE.Mesh(new THREE.CylinderGeometry(R + 1.2, R + 1.2, 5.8, 56, 1, true), A.pbrMat('fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png', 18, 2, { roughness: 0.9, side: THREE.BackSide }));
             wall.position.y = 2.9; S.add(wall); S.solid(wall);
+            // Instanced castle kit arches, pillars, walls & imperial banners ringing the Colosseum bowl
+            const colWallTr = [], colBannerTr = [];
+            for (let i = 0; i < 24; i++) {
+                const a = (i / 24) * TAU;
+                const angY = -a + Math.PI / 2;
+                colWallTr.push({ pos: [Math.cos(a) * (R + 1.4), 0, Math.sin(a) * (R + 1.4)], rot: angY });
+                if (i % 2 === 0) colBannerTr.push({ pos: [Math.cos(a) * (R + 0.6), 4.2, Math.sin(a) * (R + 0.6)], rot: angY });
+            }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/wall.glb', colWallTr, { fitSize: [6.8, 5.8, 1.4] });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/flag-banner-long.glb', colBannerTr, { fitSize: [1.5, 3.6, 0.5] });
+            L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/gate.glb', { pos: [0, 0, -(R + 0.8)], fitSize: [7.6, 6.2, 2.2] });
             for (let i = 0; i < 48; i++) {
                 const a = (i / 48) * TAU, cr = R + 2.6;
                 S.collider(Math.cos(a) * cr - 2.2, 0, Math.sin(a) * cr - 2.2, Math.cos(a) * cr + 2.2, 7, Math.sin(a) * cr + 2.2);

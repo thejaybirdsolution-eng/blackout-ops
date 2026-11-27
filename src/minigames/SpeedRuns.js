@@ -149,15 +149,20 @@
             spawn: { x: 0, y: 0, z: 2, yaw: 0 }
         },
         build(S) {
-            const stone = std(0x334155, 0.85, 0.25);
+            const stone = A.pbrMat('cyberpunk/Commercial Neon/led-strip-wall-cladding-001.png', 24, 1.2, { roughness: 0.55, metalness: 0.3 });
             SR.wall(S, -12.5, 6, -12, -160, 4.5, stone);
             SR.wall(S, 12, 6, 12.5, -160, 4.5, stone);
             SR.wall(S, -12, -160, 12, -160.5, 4.5, stone);
             SR.wall(S, -12, 6, 12, 6.5, 4.5, stone);
-            const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(24, 166), std(0x1e293b, 0.8));
+            const floorGlow = new THREE.Mesh(new THREE.PlaneGeometry(24, 166), A.pbrMat('cyberpunk/Wet Urban Surfaces/rain-slick-concrete-001.png', 6, 38, { roughness: 0.35, metalness: 0.35 }));
             floorGlow.rotation.x = -Math.PI / 2; floorGlow.position.set(0, 0.02, -77); S.add(floorGlow);
-            const crate = std(0x92400e, 0.8);
-            for (const [x, z, w, d] of [[-5, -14, 3, 1.2], [5, -34, 3, 1.2], [0, -56, 5, 1], [-6, -80, 1.2, 4], [6, -80, 1.2, 4], [0, -104, 6, 1], [-5, -128, 2, 2], [5, -132, 2, 2]]) S.box(x, 0.6, z, w, 1.2, d, crate, { solid: true });
+            const crate = A.pbrMat('cyberpunk/Hazard Markings Abstract/worn-safety-stripes-001.png', 2, 1, { roughness: 0.65, metalness: 0.2 });
+            const coverTr = [];
+            for (const [x, z, w, d] of [[-5, -14, 3, 1.2], [5, -34, 3, 1.2], [0, -56, 5, 1], [-6, -80, 1.2, 4], [6, -80, 1.2, 4], [0, -104, 6, 1], [-5, -128, 2, 2], [5, -132, 2, 2]]) {
+                S.box(x, 0.6, z, w, 1.2, d, crate, { solid: true });
+                coverTr.push({ pos: [x, 0, z], scale: [w * 0.45, 0.6, d * 0.45] });
+            }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/shipping-container-b.glb', coverTr);
             S.data.boostPads = [];
             for (let i = 0; i < GAUNTLET.length; i++) {
                 const g = GAUNTLET[i];
@@ -238,6 +243,7 @@
         keys: [['WASD', 'Move'], ['LMB', 'Shoot'], ['SHIFT', 'Sprint']],
         map: {
             atmosphere: { skyTop: 0x0c4a6e, skyBottom: 0xbbf7d0, fogColor: 0xa7c4a0, fogDensity: 0.005, sunColor: 0xfff7d6, sunIntensity: 1.5, sunPos: [-40, 60, 20], hemiSky: 0xd9f99d, hemiGround: 0x365314, hemiIntensity: 0.85 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -0.5, 0, 200, 1, 200, 'grass')],
             spawn: { x: 0, y: 0, z: 25, yaw: 0 }
         },
@@ -268,21 +274,21 @@
             addTruck(-28, 33, 0.4, 0x3f6212);
 
             const rnd = L.mulberry32(99);
+            const forestTreeTr = [], forestRockTr = [];
             for (let i = 0; i < 48; i++) {
                 const a = (i / 48) * TAU, r = 74 + rnd() * 20;
-                const tr = A.tree(1.7 + rnd() * 0.9, i % 2 ? 0x166534 : 0x14532d);
-                tr.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); S.add(tr);
-                if (i % 2 === 0) {
-                    const bld = new THREE.Mesh(new THREE.DodecahedronGeometry(2.2 + rnd() * 2.5, 0), rockM);
-                    bld.position.set(Math.cos(a + 0.05) * (r - 6), 1.4, Math.sin(a + 0.05) * (r - 6)); S.add(bld);
-                }
+                const ts = (1.7 + rnd() * 0.9) * 1.9;
+                forestTreeTr.push({ pos: [Math.cos(a) * r, 0, Math.sin(a) * r], rot: rnd() * 6, scale: ts });
+                if (i % 2 === 0) forestRockTr.push({ pos: [Math.cos(a + 0.05) * (r - 6), 0, Math.sin(a + 0.05) * (r - 6)], rot: rnd() * 6, scale: 2.2 + rnd() * 2.0 });
             }
             for (let i = 0; i < 20; i++) {
-                const bld = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + rnd() * 1.4, 0), rockM);
                 const x = (rnd() - 0.5) * 90, z = (rnd() - 0.5) * 80;
                 if (Math.hypot(x, z - 25) < 10 || OUTPOSTS.some((o) => Math.hypot(x - o.x, z - o.z) < 11)) continue;
-                bld.position.set(x, 0.6, z); S.add(bld);
+                forestRockTr.push({ pos: [x, 0, z], rot: rnd() * 6, scale: 1.4 + rnd() * 1.2 });
             }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tree-high.glb', forestTreeTr);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/rocks-high.glb', forestRockTr);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tent.glb', OUTPOSTS.map((o) => ({ pos: [o.x - 3.2, 0, o.z - 2.5], scale: 2.0 })));
 
             // Direction Signposts at central crossroads
             const dirSg = A.sign('← CHARLIE | ↑ ALPHA | BRAVO →', 6.4, 0.8, { bg: '#1e293b', color: '#fde047', borderColor: '#22c55e', size: 0.40 });

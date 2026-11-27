@@ -436,11 +436,14 @@
                     { k: 'bomb', n: 'Fire Bomb (220 DMG)', p: 120 },
                     { k: 'elixir', n: 'Elixir (Full Party Heal)', p: 320 }
                 ];
-                el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><b>CRYSTALIA WEAPONS & ITEM SHOP</b><b style="color:#facc15">GIL: ${D.gil}</b></div>
+                el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><b>CRYSTALIA WEAPONS & ITEM SHOP</b><b style="color:#facc15"><img class="ff-ico" src="staged_assets/ui/fantasy_rpg_icons/Ui/ancient-coin-currency-001.png" alt="">GIL: ${D.gil}</b></div>
                     <div class="ff-cmds" style="margin-bottom:8px;">
-                        ${items.map((it) => `<button class="ff-btn" data-buyi="${it.k}" data-p="${it.p}">${it.n} (${it.p}G) [${D.bag[it.k] || 0}]</button>`).join('')}
-                        ${FF_EQUIP.weapons.map((w, wi) => !w.price ? '' : `<button class="ff-btn ${D.ownedWeps.includes(wi) ? 'on' : ''}" data-buyw="${wi}">${w.name} +${w.atk}ATK (${D.ownedWeps.includes(wi) ? 'OWNED' : w.price + 'G'})</button>`).join('')}
-                        ${FF_EQUIP.armors.map((a, ai) => !a.price ? '' : `<button class="ff-btn ${D.ownedArms.includes(ai) ? 'on' : ''}" data-buya="${ai}">${a.name} +${a.def}DEF (${D.ownedArms.includes(ai) ? 'OWNED' : a.price + 'G'})</button>`).join('')}
+                        ${items.map((it) => {
+                            const icoMap = { potion: 'Items/health-potion-001.png', hipotion: 'Items/greater-health-potion-001.png', ether: 'Resources/aether-oil-001.png', phoenix: 'Resources/phoenix-down-001.png', bomb: 'Weapons/fire-bomb-001.png', elixir: 'Items/phoenix-elixir-001.png' };
+                            return `<button class="ff-btn" data-buyi="${it.k}" data-p="${it.p}"><img class="ff-ico" src="staged_assets/ui/fantasy_rpg_icons/${icoMap[it.k]}" alt="">${it.n} (${it.p}G) [${D.bag[it.k] || 0}]</button>`;
+                        }).join('')}
+                        ${FF_EQUIP.weapons.map((w, wi) => !w.price ? '' : `<button class="ff-btn ${D.ownedWeps.includes(wi) ? 'on' : ''}" data-buyw="${wi}"><img class="ff-ico" src="staged_assets/ui/fantasy_rpg_icons/Weapons/blackened-iron-sword-001.png" alt="">${w.name} +${w.atk}ATK (${D.ownedWeps.includes(wi) ? 'OWNED' : w.price + 'G'})</button>`).join('')}
+                        ${FF_EQUIP.armors.map((a, ai) => !a.price ? '' : `<button class="ff-btn ${D.ownedArms.includes(ai) ? 'on' : ''}" data-buya="${ai}"><img class="ff-ico" src="staged_assets/ui/fantasy_rpg_icons/Armor/buckler-shield-001.png" alt="">${a.name} +${a.def}DEF (${D.ownedArms.includes(ai) ? 'OWNED' : a.price + 'G'})</button>`).join('')}
                     </div>
                     <button class="ff-btn" id="ff-shop-exit">LEAVE SHOP</button>`;
                 el.querySelectorAll('[data-buyi]').forEach((b) => { b.onclick = () => { const p = +b.dataset.p; if (D.gil >= p) { D.gil -= p; D.bag[b.dataset.buyi] = (D.bag[b.dataset.buyi] || 0) + 1; SFX.ding(1.2); renderShop(); this._updateQuestHUD(S); } }; });
@@ -489,25 +492,28 @@
             const enPct = Math.max(0, Math.round(en.hp / en.maxHp * 100));
             const actReady = u.hp > 0 && u.atb >= 100 && !D.busy;
             let cmds = '';
+            const ffIco = (rel) => `<img class="ff-ico" src="staged_assets/ui/fantasy_rpg_icons/${rel}" alt="">`;
             if (D.subMenu === 'main') {
                 const lim = u.limit >= 100;
-                cmds = `<button class="ff-btn ${lim ? 'ff-btn-limit' : ''}" data-act="${lim ? 'limit' : 'atk'}" ${actReady ? '' : 'disabled'}>${lim ? '🌟 LIMIT: ' + esc(u.limName) : '⚔ ATTACK'}</button>
-                    <button class="ff-btn" data-act="sp" ${actReady ? '' : 'disabled'}>✨ ${esc(u.spName)} (${u.spCost}MP)</button>
-                    <button class="ff-btn" data-act="magic" ${actReady ? '' : 'disabled'}>🔮 MAGIC</button>
-                    <button class="ff-btn" data-act="summon" ${actReady ? '' : 'disabled'}>🐉 SUMMON</button>
-                    <button class="ff-btn" data-act="bag" ${actReady ? '' : 'disabled'}>🎒 BAG</button>
-                    <button class="ff-btn" data-act="equip" ${actReady ? '' : 'disabled'}>🛡 EQUIP</button>
-                    <button class="ff-btn" data-act="def" ${actReady ? '' : 'disabled'}>🛡 GUARD</button>
-                    ${!en.isBoss ? `<button class="ff-btn" data-act="flee" ${actReady ? '' : 'disabled'}>🏃 FLEE</button>` : ''}`;
+                cmds = `<button class="ff-btn ${lim ? 'ff-btn-limit' : ''}" data-act="${lim ? 'limit' : 'atk'}" ${actReady ? '' : 'disabled'}>${ffIco(lim ? 'Spells/air-blade-001.png' : 'Ui/attack-action-001.png')}${lim ? 'LIMIT: ' + esc(u.limName) : 'ATTACK'}</button>
+                    <button class="ff-btn" data-act="sp" ${actReady ? '' : 'disabled'}>${ffIco('Skills/sword-mastery-001.png')}${esc(u.spName)} (${u.spCost}MP)</button>
+                    <button class="ff-btn" data-act="magic" ${actReady ? '' : 'disabled'}>${ffIco('Spells/blizzard-001.png')}MAGIC</button>
+                    <button class="ff-btn" data-act="summon" ${actReady ? '' : 'disabled'}>${ffIco('Armor/dragon-scale-armor-001.png')}SUMMON</button>
+                    <button class="ff-btn" data-act="bag" ${actReady ? '' : 'disabled'}>${ffIco('Items/adventurer-backpack-001.png')}BAG</button>
+                    <button class="ff-btn" data-act="equip" ${actReady ? '' : 'disabled'}>${ffIco('Weapons/blackened-iron-sword-001.png')}EQUIP</button>
+                    <button class="ff-btn" data-act="def" ${actReady ? '' : 'disabled'}>${ffIco('Armor/buckler-shield-001.png')}GUARD</button>
+                    ${!en.isBoss ? `<button class="ff-btn" data-act="flee" ${actReady ? '' : 'disabled'}>${ffIco('Skills/escape-artist-001.png')}FLEE</button>` : ''}`;
             } else if (D.subMenu === 'magic') {
-                cmds = FF_SPELLS.map((sp) => `<button class="ff-btn" data-spell="${sp.id}" title="${sp.desc}">${sp.name} (${sp.mp}MP)</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
+                const spIcons = { fira: 'Armor/fire-shield-armor-001.png', blizzara: 'Spells/blizzard-001.png', thundara: 'Spells/thunder-clap-001.png', cura: 'Items/healing-scroll-001.png', haste: 'Status Effects/spell-haste-001.png', protect: 'Items/protection-scroll-001.png', libra: 'Spells/abyssal-eye-001.png' };
+                cmds = FF_SPELLS.map((sp) => `<button class="ff-btn" data-spell="${sp.id}" title="${sp.desc}">${ffIco(spIcons[sp.id] || 'Spells/air-blade-001.png')}${sp.name} (${sp.mp}MP)</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
             } else if (D.subMenu === 'summon') {
-                cmds = FF_SUMMONS.map((sm) => `<button class="ff-btn" data-sum="${sm.id}">🐉 ${sm.name} (${sm.mp}MP)</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
+                cmds = FF_SUMMONS.map((sm) => `<button class="ff-btn" data-sum="${sm.id}">${ffIco('Monsters/thunder-lizard-001.png')}${sm.name} (${sm.mp}MP)</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
             } else if (D.subMenu === 'bag') {
-                cmds = ['potion', 'hipotion', 'ether', 'phoenix', 'bomb', 'elixir'].map((k) => `<button class="ff-btn" data-bag="${k}">${k.toUpperCase()} (${D.bag[k] || 0})</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
+                const bagIcons = { potion: 'Items/health-potion-001.png', hipotion: 'Items/greater-health-potion-001.png', ether: 'Resources/aether-oil-001.png', phoenix: 'Resources/phoenix-down-001.png', bomb: 'Weapons/fire-bomb-001.png', elixir: 'Items/phoenix-elixir-001.png' };
+                cmds = ['potion', 'hipotion', 'ether', 'phoenix', 'bomb', 'elixir'].map((k) => `<button class="ff-btn" data-bag="${k}">${ffIco(bagIcons[k])}${k.toUpperCase()} (${D.bag[k] || 0})</button>`).join('') + '<button class="ff-btn" data-act="back">↩ BACK</button>';
             } else {
-                cmds = D.ownedWeps.map((wi) => { const w = FF_EQUIP.weapons[wi]; return `<button class="ff-btn ${u.wep.id === w.id ? 'on' : ''}" data-wep="${wi}">🗡 ${w.name}</button>`; }).join('') +
-                    D.ownedArms.map((ai) => { const a = FF_EQUIP.armors[ai]; return `<button class="ff-btn ${u.arm.id === a.id ? 'on' : ''}" data-arm="${ai}">🛡 ${a.name}</button>`; }).join('') +
+                cmds = D.ownedWeps.map((wi) => { const w = FF_EQUIP.weapons[wi]; return `<button class="ff-btn ${u.wep.id === w.id ? 'on' : ''}" data-wep="${wi}">${ffIco('Weapons/blackened-iron-sword-001.png')}${w.name}</button>`; }).join('') +
+                    D.ownedArms.map((ai) => { const a = FF_EQUIP.armors[ai]; return `<button class="ff-btn ${u.arm.id === a.id ? 'on' : ''}" data-arm="${ai}">${ffIco('Armor/buckler-shield-001.png')}${a.name}</button>`; }).join('') +
                     '<button class="ff-btn" data-act="back">↩ DONE</button>';
             }
             const weakStr = en.scanned ? `<span class="ff-st">WEAK: ${en.weak.toUpperCase()}</span>` : '';
@@ -891,7 +897,7 @@
             const activeSigns = VISUAL_SIGNS.slice(0, D.dc.signs);
             const cats = ['ALL', 'FACE', 'SKIN', 'WOUNDS', 'BEHAVIOR', 'BADGE'];
             const list = D.manualCat === 'ALL' ? activeSigns : activeSigns.filter((s) => s.cat === D.manualCat);
-            el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><h3>📋 FIELD MANUAL (${D.dc.signs} SIGNS)</h3><button class="ff-btn" id="insp-close" style="padding:3px 8px;">✕ [F]</button></div>
+            el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;"><h3><img class="insp-ico" src="staged_assets/ui/scifi_icons/Gadgets/biometric-quarantine-seal-001.png" alt="">FIELD MANUAL (${D.dc.signs} SIGNS)</h3><button class="ff-btn" id="insp-close" style="padding:3px 8px;">✕ [F]</button></div>
                 <div class="insp-tabs">${cats.map((c) => `<button class="${D.manualCat === c ? 'on' : ''}" data-mc="${c}">${c}</button>`).join('')}</div>
                 <div class="insp-list">${list.map((s) => `<div><b>#${s.id} [${s.cat}]</b> ${esc(s.label)}</div>`).join('')}</div>`;
             el.querySelectorAll('[data-mc]').forEach((b) => { b.onclick = () => { D.manualCat = b.dataset.mc; this._renderManual(S); }; });
@@ -1111,8 +1117,11 @@
         hud(S) {
             const D = S.data, w = BO.Player.activeWeapon, ammo = w ? w.mag + w.reserve : 0;
             const healthy = D.survivors.filter((s) => !s.infected).length, inf = D.survivors.filter((s) => s.infected).length;
-            const tempChip = D.entrant && D.entrant.tempScanned ? `<div class="mgx-chip ${parseFloat(D.entrant.tempC) >= 38.5 ? 'mgx-bad' : 'mgx-hot'}">TEMP <b>${D.entrant.tempC}°C</b></div>` : `<div class="mgx-chip">TEMP <b>[T] SCAN</b></div>`;
-            return `<div class="fun-panel"><div class="mgx-chip">SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">OUTBREAKS <b>${inf}</b></div><div class="mgx-chip">AMMO <b>${ammo}</b></div>${tempChip}<div class="mgx-chip">${D.uvOn ? '🔦 UV ON' : '💡 STD LIGHT'}</div><div class="mgx-chip"><b>[F]</b> MANUAL • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
+            const bioIco = '<img class="insp-ico" src="staged_assets/ui/scifi_icons/Gadgets/bio-signature-sampler-001.png" alt="">';
+            const lockIco = '<img class="insp-ico" src="staged_assets/ui/scifi_icons/Effects Status/docking-locked-icon-001.png" alt="">';
+            const gaugeIco = '<img class="insp-ico" src="staged_assets/ui/dieselpunk_icons/Ui Symbols/engine-boost-gauge-symbol-001.png" alt="">';
+            const tempChip = D.entrant && D.entrant.tempScanned ? `<div class="mgx-chip ${parseFloat(D.entrant.tempC) >= 38.5 ? 'mgx-bad' : 'mgx-hot'}">${gaugeIco}TEMP <b>${D.entrant.tempC}°C</b></div>` : `<div class="mgx-chip">${gaugeIco}TEMP <b>[T] SCAN</b></div>`;
+            return `<div class="fun-panel"><div class="mgx-chip">${bioIco}SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">${lockIco}OUTBREAKS <b>${inf}</b></div><div class="mgx-chip">AMMO <b>${ammo}</b></div>${tempChip}<div class="mgx-chip">${bioIco}${D.uvOn ? 'UV ON' : 'STD LIGHT'}</div><div class="mgx-chip"><b>[F]</b> MANUAL • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
             ${D.entrant ? `<div class="fun-panel" style="margin-top:4px;font-size:11.5px;color:#fde68a;"><b>${D.entrant.vName}:</b> ${esc(D.dialogTxt)}</div>` : ''}`;
         }
     });

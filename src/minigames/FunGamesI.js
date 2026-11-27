@@ -134,6 +134,7 @@
         keys: [['A / D', 'Steer Hoverbike'], ['SPACE', 'Jump Laser Gates'], ['E', 'Thermal Katana (3.5s)'], ['Q', 'Nitro Overdrive (12s)']],
         map: {
             atmosphere: { skyTop: 0x050214, skyBottom: 0x4c0519, fogColor: 0x1a062b, fogDensity: 0.0085, sunColor: 0xf472b6, sunIntensity: 1.4, sunPos: [0, 22, -120], hemiSky: 0x38bdf8, hemiGround: 0x311042, hemiIntensity: 0.95 },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, 0, 24, 1, 140, 'asphalt')],
             spawn: { x: 0, y: 0.2, z: 12, yaw: 0 }
         },
@@ -149,10 +150,9 @@
             });
 
             // Scrolling Neon Highway Deck + Synthwave Sun on Horizon + Streaming Hologram Skyscrapers!
-            const rTex = neonRoadTex();
-            rTex.wrapS = rTex.wrapT = THREE.RepeatWrapping; rTex.repeat.set(1, 14);
+            const rTex = A.loadTex('cyberpunk/Wet Urban Surfaces/reflective-neon-pavement-001.png', 2, 16);
             D.roadTex = rTex;
-            const road = new THREE.Mesh(new THREE.PlaneGeometry(18, 160), new THREE.MeshStandardMaterial({ map: rTex, roughness: 0.24, metalness: 0.55 }));
+            const road = new THREE.Mesh(new THREE.PlaneGeometry(18, 160), new THREE.MeshStandardMaterial({ map: rTex, roughness: 0.22, metalness: 0.55 }));
             road.rotation.x = -Math.PI / 2; road.position.set(0, 0.03, -45); S.add(road);
 
             for (const sx of [-9.3, 9.3]) {
@@ -185,7 +185,7 @@
                     }
                 }
             });
-            const towerMat = new THREE.MeshStandardMaterial({ map: bWinTex, emissiveMap: bWinTex, emissive: 0xffffff, emissiveIntensity: 0.75, roughness: 0.4 });
+            const towerMat = A.pbrMat('cyberpunk/Commercial Neon/led-strip-wall-cladding-001.png', 2, 4, { emissiveMap: bWinTex, emissive: 0xffffff, emissiveIntensity: 0.65, roughness: 0.38 });
             for (let i = 0; i < 26; i++) {
                 const side = i % 2 ? 1 : -1;
                 const bh = 22 + (i % 5) * 9;
@@ -460,6 +460,7 @@
         keys: [['WASD', 'Run Playfield'], ['E', 'Table NudgeSlam (7s)'], ['SPACE', 'Jump Rolling Chrome Balls'], ['LMB', 'Shatter Pinballs & Targets']],
         map: {
             atmosphere: { skyTop: 0x090418, skyBottom: 0x3b0764, fogColor: 0x1e0936, fogDensity: 0.006, sunColor: 0xfef08a, sunIntensity: 1.5, sunPos: [0, 55, 20], hemiSky: 0xf472b6, hemiGround: 0x1e1b4b, hemiIntensity: 1.0 },
+            skybox: 'skybox-space.png',
             boxes: [
                 B(0, -0.5, 0, 38, 1, 56, 'wood'),
                 B(-19, 4, 0, 1.2, 8, 56, 'metal'), B(19, 4, 0, 1.2, 8, 56, 'metal'),
@@ -481,6 +482,9 @@
             // Illuminated Glossy Playfield + Tempered Overhead Glass Rails + Towering Arcade Backglass Scoreboard!
             const pf = new THREE.Mesh(new THREE.PlaneGeometry(37, 55), new THREE.MeshStandardMaterial({ map: pinballPlayfieldTex(), roughness: 0.16, metalness: 0.3 }));
             pf.rotation.x = -Math.PI / 2; pf.position.y = 0.03; S.add(pf);
+            const wallDeckL = new THREE.Mesh(new THREE.PlaneGeometry(55, 7.6), A.pbrMat('cyberpunk/Commercial Neon/led-strip-wall-cladding-001.png', 10, 2, { roughness: 0.35 }));
+            wallDeckL.position.set(-18.35, 3.8, 0); wallDeckL.rotation.y = Math.PI / 2; S.add(wallDeckL);
+            const wallDeckR = wallDeckL.clone(); wallDeckR.position.x = 18.35; wallDeckR.rotation.y = -Math.PI / 2; S.add(wallDeckR);
 
             // Chasing Carnival Marquee Bulbs around the entire giant cabinet rim!
             const rimPts = [];

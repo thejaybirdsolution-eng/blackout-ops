@@ -913,6 +913,7 @@
         keys: [['WASD', 'Patrol Ramparts'], ['E', 'Fire Ballista / Tip Oil'], ['1 / 2', 'Swap Marksman / Bolt'], ['LMB', 'Snipe Siege Horde']],
         map: {
             atmosphere: { skyTop: 0x1e1b4b, skyBottom: 0x9a3412, fogColor: 0x431407, fogDensity: 0.006, sunColor: 0xfdba74, sunIntensity: 1.55, sunPos: [0, 28, -55], hemiSky: 0xfed7aa, hemiGround: 0x292524, hemiIntensity: 0.85 },
+            skybox: 'skybox-morning.png',
             boxes: [
                 // Battlefield ground + Castle Curtain Wall & Walkable Rampart Deck (y = 6.0m)!
                 B(0, -0.5, -14, 70, 1, 76, 'grass'),
@@ -941,15 +942,42 @@
                 spawnCd: 1.0, engineCd: 6.5, killsCount: 0, bossSpawned: false, bossSlain: false
             });
 
-            // Moat Water Trench + Timber Drawbridge Causeway leading to the Ironkeep Oak Portcullis!
+            // Battlefield courtyard stone/grass surface + Moat Water Trench + Timber Drawbridge Causeway
+            const bfFloor = new THREE.Mesh(new THREE.PlaneGeometry(70, 76), A.pbrMat('fantasy_painterly/Transitions/grass-to-cobbles-001.png', 12, 12, { roughness: 0.9 }));
+            bfFloor.rotation.x = -Math.PI / 2; bfFloor.position.set(0, 0.01, -14); bfFloor.receiveShadow = true; S.add(bfFloor);
             const moat = new THREE.Mesh(new THREE.PlaneGeometry(68, 7.5), new THREE.MeshStandardMaterial({ color: 0x0c4a6e, roughness: 0.2, metalness: 0.5 }));
             moat.rotation.x = -Math.PI / 2; moat.position.set(0, 0.05, 3.2); S.add(moat);
-            const bridge = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.28, 8.2), std(0x451a03, 0.85));
+            const bridge = new THREE.Mesh(new THREE.BoxGeometry(8.5, 0.28, 8.2), A.pbrMat('fantasy_painterly/Wood Bark Boards/charred-wood-boards-001.png', 3, 3));
             bridge.position.set(0, 0.14, 3.2); S.add(bridge);
+            L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/bridge-draw.glb', {
+                pos: [0, 0, 3.2], fitSize: [8.4, 1.2, 8.2], hideFallback: bridge
+            });
 
-            // Oak & Iron Portcullis Gate embedded in front of Curtain Wall at (0, 2.6, 8.65)!
+            // Authentic 3D Castle Kit: Oak Portcullis Gate, Stone Curtain Walls, Crenellations, Flanking Bastion Towers & Banners
             const gateDoor = new THREE.Mesh(new THREE.BoxGeometry(5.6, 5.2, 0.35), std(0x3b180c, 0.8));
             gateDoor.position.set(0, 2.6, 8.65); S.add(gateDoor);
+            L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/gate.glb', {
+                pos: [0, 0, 8.65], fitSize: [6.4, 6.2, 2.4], hideFallback: gateDoor
+            });
+            L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/metal-gate.glb', {
+                pos: [0, 0, 8.42], fitSize: [4.8, 5.0, 0.6]
+            });
+            // Flanking Stone Bastion Towers (Base -> Mid -> Roof stacked seamlessly)
+            for (const tx of [-21, 21]) {
+                L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/tower-square-base.glb', { pos: [tx, 0, 12], fitSize: [7.2, 4.4, 8.6] });
+                L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/tower-square-mid.glb', { pos: [tx, 4.2, 12], fitSize: [7.0, 4.4, 8.4] });
+                L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/tower-square-top-roof.glb', { pos: [tx, 8.5, 12], fitSize: [7.4, 4.2, 8.8] });
+            }
+            // Instanced Curtain Wall Battlements & Crenellated Merlons along rampart front
+            const wallTr = [], halfWallTr = [], bannerTr = [];
+            for (const wx of [-16, -11, -6, 6, 11, 16]) {
+                wallTr.push({ pos: [wx, 0, 9.0], rot: 0 });
+                halfWallTr.push({ pos: [wx, 6.0, 8.95], rot: 0 });
+            }
+            for (const sx of [-18, -9, 9, 18]) bannerTr.push({ pos: [sx, 3.8, 8.5], rot: 0 });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/wall.glb', wallTr, { fitSize: [5.0, 6.0, 1.4] });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/wall-half.glb', halfWallTr, { fitSize: [3.2, 1.35, 0.8] });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/flag-banner-long.glb', bannerTr, { fitSize: [1.6, 3.8, 0.6] });
             for (const x of [-2, -1, 0, 1, 2]) {
                 const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 5.2, 8), std(0x1e293b, 0.4, 0.85));
                 bar.position.set(x * 1.1, 2.6, 8.42); S.add(bar);
@@ -972,6 +1000,9 @@
                 const bowArms = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 0.22), brass); bowArms.position.set(0, 1.15, -1.1);
                 const lbl = labelSprite('🏹 BALLISTA [E]', '#fde047', 2.1); lbl.position.set(0, 2.05, 0);
                 bg.add(ped, stock, bowArms, lbl); S.add(bg);
+                L.placeGLB(bg, 'staged_assets/3d_models/castle_kit/siege-ballista.glb', {
+                    rot: Math.PI, fitSize: [2.6, 1.7, 2.5], hideFallback: [ped, stock, bowArms]
+                });
                 D.ballistae.push({ grp: bg, pos: V(bx, 6.0, 10.2), cd: 0 });
             }
 

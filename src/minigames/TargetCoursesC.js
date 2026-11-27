@@ -78,6 +78,7 @@
         starsFor(o) { return BS.stars(songOf(o), modeOf(o)); },
         map: {
             atmosphere: { skyTop: 0x05010f, skyBottom: 0x1e0b3a, fogColor: 0x0d0420, fogDensity: 0.02, sunColor: 0xc4b5fd, sunIntensity: 0.4, sunPos: [0, 40, 20], hemiSky: 0x7c3aed, hemiGround: 0x0b0216, hemiIntensity: 0.7 },
+            skybox: 'skybox-space.png',
             boxes: [B(0, -0.5, -10, 80, 1, 80, 'concrete')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
@@ -102,7 +103,8 @@
             });
             grid.wrapS = grid.wrapT = THREE.RepeatWrapping;
             grid.repeat.set(20, 20);
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ map: grid, emissive: 0xffffff, emissiveMap: grid, emissiveIntensity: 0.52, roughness: 0.32, metalness: 0.45 }));
+            const floorMat = A.pbrMat('cyberpunk/Wet Urban Surfaces/reflective-neon-pavement-001.png', 14, 14, { emissive: 0x1e0b3a, emissiveMap: grid, emissiveIntensity: 0.45, roughness: 0.28, metalness: 0.45 });
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
             floor.rotation.x = -Math.PI / 2;
             floor.position.set(0, 0.003, -10);
             S.add(floor);
@@ -572,6 +574,7 @@
         formatBest: (b) => (b.extra && b.extra.hits !== undefined ? b.extra.hits + '/30 • ' : '') + Number(b.score).toLocaleString(),
         map: {
             atmosphere: { skyTop: 0x1e293b, skyBottom: 0xfb923c, fogColor: 0x9a6b4b, fogDensity: 0.008, sunColor: 0xffb070, sunIntensity: 1.5, sunPos: [-50, 14, -60], hemiSky: 0xfed7aa, hemiGround: 0x3b2f2a, hemiIntensity: 0.7 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -0.5, -25, 140, 1, 140, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
@@ -585,6 +588,14 @@
             // Tactical 30-round magazine prop on counter + steel range gantry arch at z=-12
             const magBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.14), std(0x1f2937, 0.4, 0.8));
             magBody.position.set(-1.1, 1.18, -0.76); magBody.rotation.set(0.15, 0.3, Math.PI / 2); S.add(magBody);
+            L.placeGLB(S.scene, 'staged_assets/3d_models/blaster_kit/clip-large.glb', { pos: [-1.1, 1.1, -0.76], rot: [0.15, 0.3, Math.PI / 2], scale: 0.7, hideFallback: magBody });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
+                { pos: [-11, 0, -14], rot: 0.1, scale: 1.8 }, { pos: [9, 0, -18], rot: -0.2, scale: 1.8 },
+                { pos: [-13, 0, -34], rot: 0.15, scale: 2.0 }, { pos: [12, 0, -32], rot: -0.1, scale: 2.0 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/target-small.glb', [
+                { pos: [-14, 0, -10], scale: 1.6 }, { pos: [14, 0, -20], scale: 1.6 }
+            ]);
             const gM = std(0x334155, 0.5, 0.7);
             for (const gx of [-8.5, 8.5]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.26, 5.8, 0.26), gM); p.position.set(gx, 2.9, -12); S.add(p); }
             const gTop = new THREE.Mesh(new THREE.BoxGeometry(17.6, 0.32, 0.32), gM); gTop.position.set(0, 5.7, -12); S.add(gTop);

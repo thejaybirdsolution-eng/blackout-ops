@@ -56,6 +56,7 @@
         },
         map: {
             atmosphere: { skyTop: 0x070b14, skyBottom: 0x261447, fogColor: 0x161430, fogDensity: 0.0085, sunColor: 0xc084fc, sunIntensity: 1.1, sunPos: [20, 48, 22], hemiSky: 0x7e22ce, hemiGround: 0x1c1917, hemiIntensity: 0.95 },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, -10, 110, 1, 110, 'asphalt')],
             spawn: { x: 0, y: 0, z: 18, yaw: 0 }
         },
@@ -95,6 +96,21 @@
             for (const [cx, cz] of [[-18, -10], [18, -10], [-18, -37], [18, -37]]) {
                 addOpaque(cx, 2.7, cz, 3.4, 5.4, 3.4, darkWallM);
             }
+            // Graveyard & gothic perimeter atmosphere around the quarantine siege compound
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/gravestone-cross.glb', [
+                { pos: [-26, 0, 14], rot: 0.1 }, { pos: [-24, 0, 8], rot: -0.15 }, { pos: [26, 0, 12], rot: 0.2 },
+                { pos: [24, 0, 6], rot: -0.1 }, { pos: [-25, 0, -2], rot: 0.05 }, { pos: [25, 0, -4], rot: -0.1 }
+            ], { scale: 2.0 });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/pine-crooked.glb', [
+                { pos: [-30, 0, 10], scale: 2.8 }, { pos: [30, 0, 8], rot: 1.1, scale: 2.6 },
+                { pos: [-28, 0, -24], rot: 0.5, scale: 3.1 }, { pos: [29, 0, -22], rot: 2.1, scale: 2.9 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/iron-fence.glb', [
+                { pos: [-22, 0, 22], scale: 2.2 }, { pos: [-17, 0, 22], scale: 2.2 },
+                { pos: [17, 0, 22], scale: 2.2 }, { pos: [22, 0, 22], scale: 2.2 }
+            ]);
+            L.placeGLB(S.scene, 'staged_assets/3d_models/graveyard_kit/crypt-large.glb', { pos: [-28, 0, -14], rot: Math.PI / 2, scale: 2.4 });
+            L.placeGLB(S.scene, 'staged_assets/3d_models/graveyard_kit/crypt-a.glb', { pos: [28, 0, -14], rot: -Math.PI / 2, scale: 2.4 });
             const sign = A.sign('BASTION OMEGA — QUARANTINE CITADEL', 9.2, 1.15, { bg: '#0f172a', color: '#fde047', borderColor: '#ef4444', size: 0.40 });
             sign.position.set(0, 5.4, -9.7); S.add(sign);
 

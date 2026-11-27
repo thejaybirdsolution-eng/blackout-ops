@@ -47,12 +47,13 @@
         },
         map: {
             atmosphere: { skyTop: 0x020617, skyBottom: 0x1e1b4b, fogColor: 0x0f172a, fogDensity: 0.0075, sunColor: 0xc7d2fe, sunIntensity: 0.58, sunPos: [-40, 60, -60], hemiSky: 0x818cf8, hemiGround: 0x111827, hemiIntensity: 0.92, moon: true },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, -90, 170, 1, 240, 'grass')],
             spawn: { x: 0, y: 0, z: 16, yaw: 0 }
         },
         build(S) {
             K.groundPlane(S, 240, 0x14261c, 0.002);
-            const wallM = std(0x27272a, 0.88), shojiM = std(0xf1f5f9, 0.72), woodM = std(0x451a03, 0.85), redM = std(0xb91c1c, 0.55), bambooM = std(0x16a34a, 0.7);
+            const wallM = A.pbrMat('fantasy_painterly/Stone Masonry Ruins/basalt-cliff-wall-001.png', 16, 1.5, { roughness: 0.88 }), shojiM = std(0xf1f5f9, 0.72), woodM = A.pbrMat('fantasy_painterly/Wood Bark Boards/charred-wood-boards-001.png', 4, 2, { roughness: 0.85 }), redM = std(0xb91c1c, 0.55), bambooM = std(0x16a34a, 0.7);
             const losMeshes = [];
             const addSol = (x, y, z, w, h, d, m) => { const bx = S.box(x, y, z, w, h, d, m, { solid: true }); losMeshes.push(bx); return bx; };
 
@@ -107,10 +108,15 @@
                 return { pos: V(jx, 0, jz), cd: 0 };
             });
 
+            const ninjaTrees = [];
             for (let i = 0; i < 32; i++) {
-                const tr = A.tree(1.5 + (i % 3) * 0.3, i % 2 ? 0xf472b6 : 0x14532d);
-                tr.position.set((i % 2 ? -1 : 1) * (58 + (i % 4) * 2.5), 0, 12 - i * 6.4); S.add(tr);
+                ninjaTrees.push({ pos: [(i % 2 ? -1 : 1) * (58 + (i % 4) * 2.5), 0, 12 - i * 6.4], rot: i * 0.7, scale: (1.5 + (i % 3) * 0.3) * 2.0 });
             }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tree-high.glb', ninjaTrees);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_dungeon_kit/barrel.glb', [
+                { pos: [-8, 0, -4], scale: 1.5 }, { pos: [8, 0, -4], scale: 1.5 },
+                { pos: [-14, 0, -44], scale: 1.5 }, { pos: [14, 0, -44], scale: 1.5 }
+            ]);
             for (const [lx, lz] of [[-8, 6], [8, 6], [-22, -52], [22, -52], [-12, -132], [12, -132], [-6, -184], [6, -184]]) S.add(A.torch(S, V(lx, 0, lz), 0xf97316, false));
 
             // 3 Golden Secret Scrolls!

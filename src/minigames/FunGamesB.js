@@ -386,6 +386,7 @@
         keys: [['SPACE', 'Jump / Stomp Goombas'], ['E / C', 'Enter Green Warp Pipe / Grab Guns'], ['LMB', 'Fireball (Fire Flower) / Shoot Bowser'], ['V', 'Mid-Air Double Jump Boost'], ['WASD', 'Run & Platform']],
         map: {
             atmosphere: { skyTop: 0x5c94fc, skyBottom: 0x93c5fd, fogColor: 0x93c5fd, fogDensity: 0.0036, sunColor: 0xfffbeb, sunIntensity: 1.75, sunPos: [20, 60, 20], hemiSky: 0xe0f2fe, hemiGround: 0x15803d, hemiIntensity: 0.95 },
+            skybox: 'skybox-day.png',
             boxes: [],
             spawn: { x: 0, y: 0.1, z: 0, yaw: 0 }
         },
@@ -444,6 +445,10 @@
             const lip = new THREE.Mesh(new THREE.TorusGeometry(1.16, 0.055, 8, 22), darkM); lip.rotation.x = Math.PI / 2; lip.position.y = h - 0.14;
             const hole = new THREE.Mesh(new THREE.CircleGeometry(0.88, 18), basic(0x050505)); hole.rotation.x = -Math.PI / 2; hole.position.y = h + 0.39;
             g.add(body, hiBody, rim, hiRim, lip, hole);
+            L.placeGLB(g, 'staged_assets/3d_models/platformer_kit/pipe.glb', {
+                fitSize: [2.32, h + 0.38, 2.32],
+                hideFallback: [body, hiBody, rim, hiRim, lip, hole]
+            });
             g.position.set(x, y0, z); this._addObj(S, g);
             S.collider(x - 1.05, y0, z - 1.05, x + 1.05, y0 + h + 0.36, z + 1.05);
             if (hasPiranha) {
@@ -472,8 +477,14 @@
             if (warpFn) S.data.pipes.push({ x, z, y: y0 + h + 0.38, warpFn });
         },
         _addCoin(S, x, y, z) {
-            const c = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 12), basic(0xfacc15));
-            c.rotation.x = Math.PI / 2; c.position.set(x, y, z); this._addObj(S, c);
+            const c = new THREE.Group();
+            const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 12), basic(0xfacc15));
+            disc.rotation.x = Math.PI / 2;
+            c.add(disc);
+            L.placeGLB(c, 'staged_assets/3d_models/platformer_kit/coin-gold.glb', {
+                fitSize: [0.68, 0.68, 0.22], align: 'center', hideFallback: disc
+            });
+            c.position.set(x, y, z); this._addObj(S, c);
             S.data.coinMeshes.push({ mesh: c, hit: false });
         },
         _addGoomba(S, x, z, koopa = false) {
@@ -520,7 +531,8 @@
             const P = BO.Player;
             P.pos.set(0, 0.15, 0); P.vel.set(0, 0, 0); P.yaw = 0; P.pitch = 0;
             if (S.scene.fog) S.scene.fog.color.setHex(W.sky);
-            S.scene.background = new THREE.Color(W.sky);
+            if (W.id === '1-1' || W.id === '1-3') L.applySkybox(S.scene, 'skybox-day.png');
+            else S.scene.background = new THREE.Color(W.sky);
 
             const grTex = marioTex(W.gkind);
             const grMat = new THREE.MeshStandardMaterial({ map: grTex, roughness: 0.85 });
@@ -530,6 +542,9 @@
             const startSg = A.sign(W.name, 8.6, 1.15, { bg: '#111827', color: '#fde047', borderColor: '#ef4444', size: 0.36 });
             startSg.position.set(0, 5.4, -9); this._addObj(S, startSg);
 
+            const brickGlbList = [];
+            const pushBrickGLB = (x, y, z, w, h, d) => brickGlbList.push({ pos: [x, y - h * 0.5, z], scale: [w / 1.25, h / 1.25, d / 1.25] });
+
             // Segmented Ground + Iconic Pit Gaps!
             const addSegGround = (zA, zB, width = 14) => {
                 const len = Math.abs(zB - zA), zMid = (zA + zB) * 0.5;
@@ -537,7 +552,10 @@
             };
             const addQ = (x, y, z, gift) => {
                 const qb = this._addBox(S, x, y, z, 1.25, 1.25, 1.25, qMat, true);
-                S.data.qBlocks.push({ mesh: qb, x, y, z, baseY: y, used: false, gift, bumpT: 0 });
+                const glbHolder = L.placeGLB(qb, 'staged_assets/3d_models/platformer_kit/crate-item.glb', {
+                    fitSize: [1.3, 1.3, 1.3], align: 'center'
+                });
+                S.data.qBlocks.push({ mesh: qb, glbHolder, x, y, z, baseY: y, used: false, gift, bumpT: 0 });
             };
 
             if (W.id === '1-1') {
@@ -600,9 +618,9 @@
                 });
 
                 addQ(-1.5, 2.8, -12, 'coin');
-                this._addBox(S, -1.5, 2.8, -18, 1.25, 1.25, 1.25, brickM);
+                this._addBox(S, -1.5, 2.8, -18, 1.25, 1.25, 1.25, brickM); pushBrickGLB(-1.5, 2.8, -18, 1.25, 1.25, 1.25);
                 addQ(0, 2.8, -18, 'mushroom');
-                this._addBox(S, 1.5, 2.8, -18, 1.25, 1.25, 1.25, brickM);
+                this._addBox(S, 1.5, 2.8, -18, 1.25, 1.25, 1.25, brickM); pushBrickGLB(1.5, 2.8, -18, 1.25, 1.25, 1.25);
                 addQ(0, 5.4, -18, 'fire');
                 // Secret Pipes in 1-1: Sky Cloud Pipe + Piranha + Secret Coin Room!
                 this._addPipe(S, -3.5, 0, -25, 1.6, false, () => {
@@ -621,8 +639,11 @@
                 for (let cz = -53; cz >= -64; cz -= 2.2) for (const cx of [-2.4, 0, 2.4]) this._addCoin(S, cx, -18.5, cz);
                 this._addPipe(S, 0, -20, -66, 1.6, false, () => { mPipeSfx(); S.data.inBonus = false; P.pos.set(0, 0.2, -92); MG.toast('WARPED TO END OF 1-1!', '#4ade80'); });
 
-                this._addBox(S, 0, 2.8, -66, 4.5, 1.2, 1.4, brickM); addQ(0, 2.8, -68, 'star');
-                for (let step = 0; step < 6; step++) this._addBox(S, -2.5, 0.5 + step * 0.45, -110 - step * 1.4, 4.5, 1 + step * 0.9, 1.35, brickM);
+                this._addBox(S, 0, 2.8, -66, 4.5, 1.2, 1.4, brickM); pushBrickGLB(-1.5, 2.8, -66, 1.25, 1.25, 1.25); pushBrickGLB(0, 2.8, -66, 1.25, 1.25, 1.25); pushBrickGLB(1.5, 2.8, -66, 1.25, 1.25, 1.25); addQ(0, 2.8, -68, 'star');
+                for (let step = 0; step < 6; step++) {
+                    this._addBox(S, -2.5, 0.5 + step * 0.45, -110 - step * 1.4, 4.5, 1 + step * 0.9, 1.35, brickM);
+                    pushBrickGLB(-2.5, 0.5 + step * 0.45, -110 - step * 1.4, 4.5, 1 + step * 0.9, 1.35);
+                }
                 for (const gz of [-15, -36, -64, -88, -102]) this._addGoomba(S, 1.5, gz, gz === -88 || gz === -36);
             } else if (W.id === '1-2') {
                 this._addBox(S, -8, 3.5, -W.len * 0.5, 1, 8, W.len + 16, brickM);
@@ -728,11 +749,26 @@
                 }
                 castle.position.set(0, 0, -W.len - 6.8);
                 this._addObj(S, poleBase); this._addObj(S, pole); this._addObj(S, finial); this._addObj(S, flag); this._addObj(S, castle);
+                // Overlay authentic 3D castle kit towers & wall archway on end castle
+                const castleGlb = L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/gate.glb', {
+                    pos: [0, 0, -W.len - 4.5], fitSize: [7.2, 6.2, 4.4]
+                });
+                S.data.stageObjs.push(castleGlb);
                 S.data.goalZ = -W.len;
             } else {
                 const door = this._addBox(S, 0, 2.5, -W.len, 4.4, 5.0, 0.7, std(0x451a03, 0.8), true);
                 const arch = A.sign('BOWSER BOSS DOOR ->', 4.6, 0.8, { bg: '#7f1d1d', color: '#fef08a', borderColor: '#facc15', size: 0.42 });
                 arch.position.set(0, 5.4, -W.len + 0.4); this._addObj(S, arch);
+                // Modular stone castle blocks & battlements framing World 1-4 Bowser Castle
+                const castleWalls = [];
+                for (let cz = -12; cz >= -W.len; cz -= 12) {
+                    castleWalls.push({ pos: [-7.9, 0, cz], rot: Math.PI / 2, scale: 2.2 });
+                    castleWalls.push({ pos: [7.9, 0, cz], rot: -Math.PI / 2, scale: 2.2 });
+                }
+                const cwInst = L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/castle_kit/wall-half.glb', castleWalls);
+                S.data.stageObjs.push(cwInst);
+                const bossGate = L.placeGLB(S.scene, 'staged_assets/3d_models/castle_kit/gate.glb', { pos: [0, 0, -W.len], fitSize: [6.4, 5.8, 1.8] });
+                S.data.stageObjs.push(bossGate);
                 const sg = A.sign('You are going to need this.', 4.6, 0.9, { bg: '#1e1b4b', color: '#fde68a', borderColor: '#f59e0b', size: 0.44 });
                 sg.position.set(-4.6, 2.4, -W.len + 7.5); sg.rotation.y = 0.4; this._addObj(S, sg);
                 const ped = this._addBox(S, -4.6, 0.5, -W.len + 5.5, 2.8, 1.0, 1.5, std(0x334155, 0.4, 0.8), true);
@@ -761,6 +797,12 @@
                 const ring = new THREE.Mesh(ringGeo, ringMat); ring.position.set(rx, ry, rz);
                 const shard = new THREE.Mesh(new THREE.OctahedronGeometry(0.24), basic(0xffca76));
                 ring.add(shard); this._addObj(S, ring); D.rings.push(ring);
+            }
+            if (brickGlbList.length) {
+                const bInst = L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/brick_kit/bevel-hq-brick-2x2.glb', brickGlbList, {
+                    fitSize: [1.26, 1.26, 1.26]
+                });
+                S.data.stageObjs.push(bInst);
             }
             MG.toast(W.name, '#fde047');
         },
@@ -1488,6 +1530,7 @@
             if (q.used) return;
             const D = S.data, P = BO.Player;
             q.used = true; q.bumpT = 0.24;
+            if (q.glbHolder) q.glbHolder.visible = false;
             q.mesh.material = new THREE.MeshStandardMaterial({ map: marioTex('used'), roughness: 0.8 });
             // Authentic 3D Super Mario Power-Up Pop! (Mushroom / Fire Flower / Super Star / Gold Coin)
             const popMesh = new THREE.Group();
@@ -1614,7 +1657,7 @@
             for (const pr of D.piranhas || []) pr.mesh.position.y = pr.baseY + Math.max(0, Math.sin(S.t * 2.2 + pr.ph)) * 1.1;
             for (const cm of D.coinMeshes || []) {
                 if (cm.hit) continue;
-                cm.mesh.rotation.z += dt * 4;
+                cm.mesh.rotation.y += dt * 4;
                 if (cm.mesh.position.distanceTo(P.pos.clone().add(V(0, 1.0, 0))) < 1.35) {
                     cm.hit = true; cm.mesh.visible = false; D.coins++; S.award(200, cm.mesh.position, 'COIN!'); mCoinSfx();
                 }

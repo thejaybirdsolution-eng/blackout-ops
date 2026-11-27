@@ -409,6 +409,7 @@
         duration: 180, stars: [3000, 5500, 8000, 10500], standardWeapon: 'mp5', forgivingMisses: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x020617, skyBottom: 0x1e293b, fogColor: 0x111827, fogDensity: 0.012, sunColor: 0xc7d2fe, sunIntensity: 0.25, sunPos: [20, 60, 30], hemiSky: 0xfff1d6, hemiGround: 0x3b2f2a, hemiIntensity: 1.05, moon: true },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, -18, 90, 1, 90, 'concrete')],
             spawn: { x: 0, y: 0, z: 6, yaw: 0 }
         },
@@ -418,7 +419,7 @@
             Object.assign(S.data, { hp: 100, timesHit: 0, crimsLeft: 0, crimsTotal: 0, hostagesTotal: 0, hostagesHit: 0, saved: 0, roomsCleared: 0 });
             K.groundPlane(S, 90, 0x1f3d1f, 0.002);
             const wm = new THREE.MeshStandardMaterial({ map: wallpaper(), roughness: 0.85 });
-            const outer = std(0xd6cfc0, 0.9);
+            const outer = A.pbrMat('fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png', 4, 2, { color: 0xded7c8, roughness: 0.88 });
             // floors
             for (const room of ROOMS) {
                 const tex = floorTex(room.floor).clone();
@@ -442,7 +443,7 @@
             ceil.position.set(0, WALL_H, -20);
             S.add(ceil);
             S.solid(ceil);
-            const roof = new THREE.Mesh(new THREE.ConeGeometry(27, 7, 4, 1), std(0x3f3f46, 0.8));
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(27, 7, 4, 1), A.pbrMat('fantasy_painterly/Roofing Thatch/blue-slate-roof-001.png', 6, 4, { roughness: 0.78 }));
             roof.rotation.y = Math.PI / 4;
             roof.position.set(0, WALL_H + 3.5, -20);
             roof.scale.set(1, 1, 1);

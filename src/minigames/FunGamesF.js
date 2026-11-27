@@ -236,16 +236,19 @@
             });
 
             // Giant Bedroom Hardwood Planks + Vibrant Kids' City-Road Playmat Rug in the center!
-            const woodPlank = L.canvasTex('giant-oak-floor', 256, 256, (g, w, h) => {
-                g.fillStyle = '#92400e'; g.fillRect(0, 0, w, h);
-                for (let i = 0; i < 4; i++) {
-                    g.fillStyle = i % 2 ? '#b45309' : '#78350f';
-                    g.fillRect(0, i * 64 + 2, w, 60);
-                }
-            });
-            woodPlank.wrapS = woodPlank.wrapT = THREE.RepeatWrapping; woodPlank.repeat.set(8, 8);
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(57, 57), new THREE.MeshStandardMaterial({ map: woodPlank, roughness: 0.65 }));
+            const woodPlank = A.loadTex('fantasy_painterly/Wood Bark Boards/charred-wood-boards-001.png', 10, 10);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(57, 57), new THREE.MeshStandardMaterial({ map: woodPlank, color: 0xd99b66, roughness: 0.65 }));
             floor.rotation.x = -Math.PI / 2; floor.position.y = 0.01; floor.receiveShadow = true; S.add(floor);
+
+            // Authentic 3D Blaster Kit props (target boards, blaster crates & foam darts) across the bedroom arena
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
+                { pos: [-16, 0, -14], rot: 0.25, scale: 2.2 }, { pos: [16, 0, -14], rot: -0.25, scale: 2.2 },
+                { pos: [-18, 0, 15], rot: 0.4, scale: 2.0 }, { pos: [18, 0, 15], rot: -0.4, scale: 2.0 }
+            ]);
+            L.placeGLB(S.scene, 'staged_assets/3d_models/blaster_kit/blaster-a.glb', { pos: [4, 14.0, -21], rot: [0, 0.4, 0], scale: 3.4 });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/target-large.glb', [
+                { pos: [-12, 0, -18], rot: 0.3, scale: 2.0 }, { pos: [12, 0, -18], rot: -0.3, scale: 2.0 }
+            ]);
 
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(34, 34), new THREE.MeshStandardMaterial({ map: bedroomRugTex(), roughness: 0.88 }));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.03, 0); rug.receiveShadow = true; S.add(rug);
@@ -1049,6 +1052,7 @@
         keys: [['WASD', 'Patrol Ballroom'], ['HOLD LMB', 'Proton Stream Lash'], ['E / G', 'Toss Ghost Trap'], ['R', 'Vent Pack Heat']],
         map: {
             atmosphere: { skyTop: 0x030712, skyBottom: 0x1e1b4b, fogColor: 0x0b0f1d, fogDensity: 0.015, sunColor: 0x86efac, sunIntensity: 0.55, sunPos: [10, 30, 10], hemiSky: 0x818cf8, hemiGround: 0x1e1b4b, hemiIntensity: 0.85 },
+            skybox: 'skybox-night.png',
             boxes: [
                 B(0, -0.5, 0, 38, 1, 42, 'wood'),
                 B(-19, 5, 0, 1, 10, 42, 'brick'), B(19, 5, 0, 1, 10, 42, 'brick'),
@@ -1066,16 +1070,21 @@
             });
 
             // Haunted Victorian Ballroom Parquet + Crimson Grand Rug + Grand Pipe Organ at North End (z = -19.2)!
-            const floorTex = L.canvasTex('haunted-parquet', 256, 256, (g, w, h) => {
-                g.fillStyle = '#291709'; g.fillRect(0, 0, w, h);
-                for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
-                    g.fillStyle = (x + y) % 2 ? '#3b2110' : '#231207';
-                    g.fillRect(x * 32 + 1, y * 32 + 1, 30, 30);
-                }
-            });
-            floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(6, 6);
-            const floor = new THREE.Mesh(new THREE.PlaneGeometry(37, 41), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.45 }));
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(37, 41), A.pbrMat('fantasy_painterly/Decorative Tile Marble/castle-tile-001.png', 10, 10, { color: 0x8f7a68, roughness: 0.45 }));
             floor.rotation.x = -Math.PI / 2; floor.position.y = 0.02; S.add(floor);
+
+            // Haunted Graveyard Kit accents: Gothic Gravestones, Iron Gates & Candelabra around the ballroom perimeter
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/gravestone-cross.glb', [
+                { pos: [-16, 0, -16], rot: 0.3 }, { pos: [16, 0, -16], rot: -0.3 },
+                { pos: [-16, 0, 12], rot: 0.2 }, { pos: [16, 0, 12], rot: -0.2 }
+            ], { scale: 1.8 });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/lantern-candle.glb', [
+                { pos: [-6, 0, -15] }, { pos: [6, 0, -15] }, { pos: [-6, 0, 0] }, { pos: [6, 0, 0] }, { pos: [-6, 0, 10] }, { pos: [6, 0, 10] }
+            ], { scale: 2.0 });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/iron-fence.glb', [
+                { pos: [-17.5, 0, -8], rot: Math.PI / 2, scale: 2.0 }, { pos: [17.5, 0, -8], rot: -Math.PI / 2, scale: 2.0 },
+                { pos: [-17.5, 0, 2], rot: Math.PI / 2, scale: 2.0 }, { pos: [17.5, 0, 2], rot: -Math.PI / 2, scale: 2.0 }
+            ]);
 
             const rug = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 32), std(0x4c0519, 0.9));
             rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.03, -1); S.add(rug);

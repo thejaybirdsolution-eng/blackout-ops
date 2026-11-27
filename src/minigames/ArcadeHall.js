@@ -19,6 +19,25 @@
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
     const lerp = (a, b, t) => a + (b - a) * t;
 
+    const arcadeImgCache = new Map();
+    function loadArcadeImg(relPath) {
+        const key = 'staged_assets/sprites_arcade/' + relPath;
+        if (arcadeImgCache.has(key)) return arcadeImgCache.get(key);
+        const img = new Image();
+        img.src = key;
+        arcadeImgCache.set(key, img);
+        return img;
+    }
+    function drawArcadeSprite(g, relPath, x, y, w, h) {
+        const img = loadArcadeImg(relPath);
+        if (!img || !img.complete || !img.naturalWidth) return false;
+        const prevSmooth = g.imageSmoothingEnabled;
+        g.imageSmoothingEnabled = false;
+        g.drawImage(img, Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+        g.imageSmoothingEnabled = prevSmooth;
+        return true;
+    }
+
     function lockPlayer(S, x, z, eye = 1.6) {
         BO.Player.rideState = { kind: 'minigame', pos: V(x, 0, z), roll: 0, pitch: 0, eye };
     }
@@ -697,10 +716,22 @@
         xs.forEach((x, i) => { const sw = Math.sin(t * speed + i * 1.7) * s * 0.08; rect(g, x * s + sw, top, w, len); });
     };
 
+    const HUNT_SPRITES = {
+        deer: ['desert_shooter/PNG/Enemies/Tiles/tile_0000.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0001.png'],
+        rabbit: ['desert_shooter/PNG/Enemies/Tiles/tile_0002.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0003.png'],
+        duck: ['desert_shooter/PNG/Enemies/Tiles/tile_0004.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0005.png'],
+        boar: ['desert_shooter/PNG/Enemies/Tiles/tile_0006.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0007.png'],
+        bear: ['desert_shooter/PNG/Enemies/Tiles/tile_0008.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0009.png'],
+        pheasant: ['desert_shooter/PNG/Enemies/Tiles/tile_0012.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0013.png'],
+        hiker: ['desert_shooter/PNG/Players/Tiles/tile_0000.png', 'desert_shooter/PNG/Players/Tiles/tile_0001.png'],
+        cow: ['desert_shooter/PNG/Enemies/Tiles/tile_0014.png', 'desert_shooter/PNG/Enemies/Tiles/tile_0015.png']
+    };
     const HUNT_TYPES = {
         deer: {
             size: 34, points: 100, hit: (o, s) => ({ w: s * 1.1, h: s * 0.9, cy: -s * 0.55 }),
             draw(g, s, o, t) {
+                const fr = HUNT_SPRITES.deer[Math.floor(o.t * 8) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.55, -s * 1.05, s * 1.1, s * 1.1)) return;
                 legs(g, s, o.t, [-0.35, -0.22, 0.2, 0.33], -s * 0.42, s * 0.42, s * 0.07, '#5b3a1e');
                 C(g, '#a0662d'); ell(g, 0, -s * 0.55, s * 0.5, s * 0.2);
                 C(g, '#e8c9a0'); ell(g, 0.05 * s, -s * 0.46, s * 0.32, s * 0.08);
@@ -714,7 +745,9 @@
         rabbit: {
             size: 16, points: 180, hit: (o, s) => ({ w: s * 1.2, h: s * 1.2, cy: -s * 0.55 }),
             move(o, dt) { o.x += o.vx * dt; o.hop = Math.abs(Math.sin(o.t * 6)) * 14 * (0.4 + o.z); o.y = groundY(o.z) - o.hop; },
-            draw(g, s) {
+            draw(g, s, o) {
+                const fr = HUNT_SPRITES.rabbit[Math.floor((o?.t || 0) * 10) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.6, -s * 1.15, s * 1.2, s * 1.2)) return;
                 C(g, '#9ca3af'); ell(g, 0, -s * 0.45, s * 0.5, s * 0.35);
                 ell(g, -s * 0.45, -s * 0.75, s * 0.25, s * 0.22);
                 rect(g, -s * 0.5, -s * 1.35, s * 0.1, s * 0.5); rect(g, -s * 0.36, -s * 1.3, s * 0.1, s * 0.45);
@@ -726,6 +759,8 @@
             size: 20, points: 220, hit: (o, s) => ({ w: s * 1.3, h: s * 0.9, cy: -s * 0.1 }),
             move(o, dt) { o.x += o.vx * dt; o.y += o.vy * dt; o.vy += Math.sin(o.t * 3 + o.id) * 40 * dt; },
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.duck[Math.sin(o.t * 18) > 0 ? 0 : 1];
+                if (drawArcadeSprite(g, fr, -s * 0.65, -s * 0.65, s * 1.3, s * 1.3)) return;
                 const flap = Math.sin(o.t * 18) > 0;
                 C(g, '#78350f'); ell(g, 0, 0, s * 0.55, s * 0.28);
                 C(g, '#15803d'); ell(g, -s * 0.55, -s * 0.22, s * 0.22, s * 0.2);
@@ -739,6 +774,8 @@
         boar: {
             size: 30, points: 260, hp: 2, hit: (o, s) => ({ w: s * 1.1, h: s * 0.7, cy: -s * 0.35 }),
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.boar[Math.floor(o.t * 10) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.55, -s * 0.95, s * 1.1, s * 1.0)) return;
                 legs(g, s, o.t, [-0.3, -0.15, 0.15, 0.3], -s * 0.2, s * 0.2, s * 0.08, '#292524', 20);
                 C(g, '#44403c'); ell(g, 0, -s * 0.38, s * 0.5, s * 0.25);
                 C(g, '#57534e'); ell(g, -s * 0.48, -s * 0.36, s * 0.22, s * 0.18);
@@ -752,6 +789,8 @@
             move(o, dt) { o.x += Math.sin(o.t * 0.8) * 8 * dt; },
             onDamage(o) { o.approach *= 0.85; },
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.bear[Math.floor(o.t * 6) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.55, -s * 1.1, s * 1.1, s * 1.1)) return;
                 legs(g, s, o.t, [-0.32, -0.12, 0.12, 0.32], -s * 0.3, s * 0.3, s * 0.13, '#2b1a0c', 6);
                 C(g, '#4a2c12'); ell(g, 0, -s * 0.55, s * 0.48, s * 0.36);
                 C(g, '#5b3a1e'); ell(g, 0, -s * 0.92, s * 0.25, s * 0.22);
@@ -765,6 +804,8 @@
             size: 22, points: 1200, bonus: true, hit: (o, s) => ({ w: s * 1.4, h: s * 0.9, cy: -s * 0.1 }),
             move(o, dt) { o.x += o.vx * dt; o.y += o.vy * dt; o.vy -= 10 * dt; },
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.pheasant[Math.sin(o.t * 22) > 0 ? 0 : 1];
+                if (drawArcadeSprite(g, fr, -s * 0.65, -s * 0.6, s * 1.3, s * 1.2)) return;
                 const flap = Math.sin(o.t * 22) > 0;
                 C(g, '#d97706'); ell(g, 0, 0, s * 0.5, s * 0.25);
                 C(g, '#b45309'); g.fillRect(s * 0.3, -s * 0.06, s * 0.8, s * 0.1);
@@ -776,6 +817,8 @@
         hiker: {
             size: 30, penalty: 400, penaltyText: 'HIKER!', hit: (o, s) => ({ w: s * 0.5, h: s * 1.1, cy: -s * 0.55 }),
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.hiker[Math.floor(o.t * 7) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.48, -s * 1.12, s * 0.96, s * 1.12)) return;
                 legs(g, s, o.t, [-0.08, 0.08], -s * 0.45, s * 0.45, s * 0.1, '#1e3a8a', 8);
                 C(g, '#16a34a'); rect(g, -s * 0.16, -s * 0.9, s * 0.32, s * 0.48);
                 C(g, '#78350f'); rect(g, s * 0.1, -s * 0.9, s * 0.16, s * 0.38);
@@ -786,6 +829,8 @@
         cow: {
             size: 36, penalty: 300, penaltyText: 'NOT A DEER!', hit: (o, s) => ({ w: s * 1.1, h: s * 0.8, cy: -s * 0.5 }),
             draw(g, s, o) {
+                const fr = HUNT_SPRITES.cow[Math.floor(o.t * 4) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.55, -s * 1.05, s * 1.1, s * 1.05)) return;
                 legs(g, s, o.t, [-0.35, -0.2, 0.2, 0.35], -s * 0.35, s * 0.35, s * 0.08, '#f5f5f4', 4);
                 C(g, '#f5f5f4'); ell(g, 0, -s * 0.55, s * 0.5, s * 0.24);
                 C(g, '#111'); ell(g, -s * 0.15, -s * 0.6, s * 0.12, s * 0.09); ell(g, s * 0.22, -s * 0.5, s * 0.1, s * 0.08);
@@ -809,9 +854,12 @@
         g.lineTo(SW, HORIZON); g.fill();
         g.fillStyle = '#e2e8f0';
         for (let x = 20; x < SW; x += 60) { g.beginPath(); g.moveTo(x - 8, HORIZON - 48); g.lineTo(x, HORIZON - 60 + Math.sin(x) * 4); g.lineTo(x + 8, HORIZON - 48); g.fill(); }
-        // far pines
-        g.fillStyle = '#14532d';
-        for (let x = 0; x < SW; x += 9) { const h = 12 + (x * 7) % 9; g.beginPath(); g.moveTo(x, HORIZON + 2); g.lineTo(x + 4, HORIZON - h); g.lineTo(x + 8, HORIZON + 2); g.fill(); }
+        // far pines & desert_shooter horizon tiles
+        for (let x = 0; x < SW; x += 24) {
+            if (!drawArcadeSprite(g, x % 48 === 0 ? 'desert_shooter/PNG/Tiles/Tiles/tile_0080.png' : 'desert_shooter/PNG/Tiles/Tiles/tile_0075.png', x, HORIZON - 20, 24, 24)) {
+                g.fillStyle = '#14532d'; g.beginPath(); g.moveTo(x, HORIZON + 2); g.lineTo(x + 8, HORIZON - 16); g.lineTo(x + 16, HORIZON + 2); g.fill();
+            }
+        }
         const field = g.createLinearGradient(0, HORIZON, 0, SH);
         field.addColorStop(0, '#4d7c0f'); field.addColorStop(1, '#365314');
         g.fillStyle = field; g.fillRect(0, HORIZON + 2, SW, SH - HORIZON);
@@ -859,11 +907,20 @@
     });
 
     /* ----------------------------------------------- NIGHT TERRORS sprites */
+    const TERROR_SPRITES = {
+        zombie: ['tiny_dungeon/Tiles/tile_0084.png', 'tiny_dungeon/Tiles/tile_0085.png'],
+        bat: ['tiny_dungeon/Tiles/tile_0098.png', 'tiny_dungeon/Tiles/tile_0099.png'],
+        ghost: ['tiny_dungeon/Tiles/tile_0122.png', 'tiny_dungeon/Tiles/tile_0111.png'],
+        werewolf: ['tiny_dungeon/Tiles/tile_0087.png', 'tiny_dungeon/Tiles/tile_0092.png'],
+        survivor: ['tiny_dungeon/Tiles/tile_0097.png', 'tiny_dungeon/Tiles/tile_0100.png']
+    };
     const TERROR_TYPES = {
         zombie: {
             size: 40, points: 150, hp: 2, reachText: 'BITTEN!', hit: (o, s) => ({ w: s * 0.5, h: s * 1.1, cy: -s * 0.55 }),
             move(o, dt) { o.x += Math.sin(o.t * 1.5 + o.id) * 10 * dt; },
             draw(g, s, o) {
+                const fr = TERROR_SPRITES.zombie[Math.floor(o.t * 6) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.45, -s * 1.05, s * 0.9, s * 1.05)) return;
                 const lurch = Math.sin(o.t * 4) * s * 0.04;
                 legs(g, s, o.t, [-0.08, 0.08], -s * 0.45, s * 0.45, s * 0.1, '#334155', 5);
                 C(g, '#7c2d12'); rect(g, -s * 0.18 + lurch, -s * 0.92, s * 0.36, s * 0.5);
@@ -878,6 +935,8 @@
             size: 18, points: 220, hit: (o, s) => ({ w: s * 1.4, h: s * 0.8, cy: 0 }),
             move(o, dt) { o.x += o.vx * dt; o.y += Math.sin(o.t * 7 + o.id) * 90 * dt; },
             draw(g, s, o) {
+                const fr = TERROR_SPRITES.bat[Math.sin(o.t * 24) > 0 ? 0 : 1];
+                if (drawArcadeSprite(g, fr, -s * 0.65, -s * 0.65, s * 1.3, s * 1.3)) return;
                 const flap = Math.sin(o.t * 24) > 0;
                 C(g, '#1c1917'); ell(g, 0, 0, s * 0.2, s * 0.24);
                 g.beginPath(); g.moveTo(0, 0); g.lineTo(-s * 0.8, flap ? -s * 0.5 : s * 0.3); g.lineTo(-s * 0.4, s * 0.1); g.lineTo(0, s * 0.1); g.fill();
@@ -903,6 +962,8 @@
             draw(g, s, o) {
                 const vis = 0.25 + Math.max(0, Math.sin(o.t * 1.8)) * 0.75;
                 g.globalAlpha *= vis;
+                const fr = TERROR_SPRITES.ghost[Math.floor(o.t * 5) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.45, -s * 0.95, s * 0.9, s * 0.95)) return;
                 C(g, '#f8fafc');
                 g.beginPath(); g.arc(0, -s * 0.6, s * 0.32, Math.PI, 0);
                 for (let i = 0; i <= 4; i++) g.lineTo(s * 0.32 - i * s * 0.16, -s * 0.1 + (i % 2 ? -s * 0.1 : 0) + Math.sin(o.t * 6 + i) * 2);
@@ -914,6 +975,8 @@
             size: 44, points: 500, hp: 3, reachText: 'MAULED!', hit: (o, s) => ({ w: s * 0.7, h: s * 1.0, cy: -s * 0.5 }),
             move(o, dt) { o.x += Math.sin(o.t * 3 + o.id) * 40 * dt; },
             draw(g, s, o) {
+                const fr = TERROR_SPRITES.werewolf[Math.floor(o.t * 9) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.5, -s * 1.05, s * 1.0, s * 1.05)) return;
                 legs(g, s, o.t, [-0.15, 0.15], -s * 0.4, s * 0.4, s * 0.12, '#3f3f46', 14);
                 C(g, '#52525b'); ell(g, 0, -s * 0.65, s * 0.3, s * 0.3);
                 C(g, '#71717a'); ell(g, 0, -s * 1.0, s * 0.18, s * 0.16);
@@ -927,6 +990,11 @@
         survivor: {
             size: 32, penalty: 400, penaltyText: 'SURVIVOR!', hit: (o, s) => ({ w: s * 0.45, h: s * 1.1, cy: -s * 0.55 }),
             draw(g, s, o) {
+                const fr = TERROR_SPRITES.survivor[Math.floor(o.t * 8) % 2];
+                if (drawArcadeSprite(g, fr, -s * 0.4, -s * 1.0, s * 0.8, s * 1.0)) {
+                    C(g, '#fde047'); g.font = 'bold 7px monospace'; g.fillText('HELP', -s * 0.3, -s * 1.1);
+                    return;
+                }
                 legs(g, s, o.t, [-0.08, 0.08], -s * 0.45, s * 0.45, s * 0.1, '#1e3a8a', 10);
                 C(g, '#f8fafc'); rect(g, -s * 0.16, -s * 0.9, s * 0.32, s * 0.48);
                 C(g, '#f1c27d'); ell(g, 0, -s * 1.02, s * 0.12, s * 0.12);
@@ -968,7 +1036,10 @@
         g.fillStyle = '#3b0764'; ell(g, 78, 38, 18, 18);
         g.fillStyle = '#fff';
         for (let i = 0; i < 30; i++) rect(g, (i * 53) % SW, (i * 29) % (HORIZON - 20), 1, 1);
-        // dead trees + church silhouette
+        // gothic skyline from pico8_city tiles + church silhouette
+        for (let bx = 0; bx < SW; bx += 20) {
+            drawArcadeSprite(g, bx % 40 === 0 ? 'pico8_city/Tiles/tile_0350.png' : 'pico8_city/Tiles/tile_0347.png', bx, HORIZON - 18, 20, 20);
+        }
         g.fillStyle = '#0b0614';
         g.fillRect(220, HORIZON - 50, 26, 52);
         g.beginPath(); g.moveTo(216, HORIZON - 50); g.lineTo(233, HORIZON - 76); g.lineTo(250, HORIZON - 50); g.fill();

@@ -25,6 +25,7 @@
         duration: 60, stars: [4000, 8500, 14000, 20000], standardWeapon: 'g36c_tac', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x020617, skyBottom: 0x1e1b4b, fogColor: 0x0b1026, fogDensity: 0.006, sunColor: 0x93c5fd, sunIntensity: 0.55, sunPos: [-20, 50, 30], hemiSky: 0x6366f1, hemiGround: 0x0f172a, hemiIntensity: 0.65, moon: true },
+            skybox: 'skybox-night.png',
             boxes: [B(0, -0.5, 0, 26, 1, 26, 'concrete')],
             spawn: { x: 0, y: 0, z: 4, yaw: 0 }
         },
@@ -60,11 +61,17 @@
             if (BO.Settings.getQualityPreset().pointLights) {
                 const pl = new THREE.PointLight(0x38bdf8, 1.8, 28, 1.4); pl.position.set(0, 5, 2); S.add(pl);
             }
-            // rooftop clutter (cover + flavour)
+            // rooftop clutter (cover + industrial kit props)
             const ac = std(0x9ca3af, 0.5, 0.6);
-            S.box(-9, 0.8, 8, 2.4, 1.6, 2.4, ac);
-            S.box(9, 0.8, -8, 2.4, 1.6, 3.2, ac);
-            S.box(9.5, 1.6, 9, 3, 3.2, 3, std(0x52525b, 0.8));
+            const ac1 = S.box(-9, 0.8, 8, 2.4, 1.6, 2.4, ac);
+            const ac2 = S.box(9, 0.8, -8, 2.4, 1.6, 3.2, ac);
+            const wtBox = S.box(9.5, 1.6, 9, 3, 3.2, 3, std(0x52525b, 0.8));
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank-large.glb', [
+                { pos: [-9, 0, 8] }, { pos: [9, 0, -8] }
+            ], { fitSize: [2.4, 1.8, 2.4], hideFallback: [ac1, ac2] });
+            L.placeGLB(S.scene, 'staged_assets/3d_models/city_industrial_kit/water-tower.glb', {
+                pos: [9.5, 0, 9], fitSize: [3.2, 4.2, 3.2], hideFallback: wtBox
+            });
             const rSign = A.sign('ROOFTOP DEFENSE • WATCH SIX', 2.8, 0.55, { bg: '#090d26', color: '#67e8f9', borderColor: '#22d3ee', size: 0.45 });
             rSign.position.set(9.5, 3.55, 7.45); S.add(rSign);
             const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 10, 6), std(0xd4d4d8, 0.4, 0.8));
@@ -178,6 +185,7 @@
         duration: 60, stars: [3000, 6500, 10500, 14000], standardWeapon: 'dragunov_svd', ringScoring: true, customMusic: true,
         map: {
             atmosphere: { skyTop: 0x0c4a6e, skyBottom: 0xe0f2fe, fogColor: 0xc5dcea, fogDensity: 0.0022, sunColor: 0xfff1d6, sunIntensity: 1.9, sunPos: [80, 60, -40], hemiSky: 0xe0f2fe, hemiGround: 0x3f6212, hemiIntensity: 0.85 },
+            skybox: 'skybox-day.png',
             boxes: [B(0, -0.5, 1, 12, 1, 10, 'wood_plank')],
             spawn: { x: 0, y: 0, z: 1.5, yaw: 0 }
         },
@@ -245,11 +253,15 @@
                 cap.position.set(mtn.position.x, mtn.position.y + (90 + (i % 4) * 30) / 2 - 10, mtn.position.z);
                 S.add(cap);
             }
+            const valleyTreeTr = [];
+            const valleyRockTr = [];
             for (let i = 0; i < 70; i++) {
-                const t = A.tree(2 + rnd() * 1.5, rnd() < 0.5 ? 0x14532d : 0x166534);
-                t.position.set((rnd() - 0.5) * 420, -23, -40 - rnd() * 260);
-                S.add(t);
+                const vx = (rnd() - 0.5) * 420, vz = -40 - rnd() * 260, vs = 2 + rnd() * 1.5;
+                valleyTreeTr.push({ pos: [vx, -23, vz], rot: rnd() * Math.PI * 2, scale: vs * 1.8 });
+                if (i % 3 === 0) valleyRockTr.push({ pos: [vx + 4, -23, vz - 3], rot: rnd() * 6, scale: vs * 1.4 });
             }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/tree-high.glb', valleyTreeTr);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_forest_kit/rocks-high.glb', valleyRockTr);
             // wind flags
             for (const [x, z] of [[-30, -80], [25, -140], [-10, -190]]) {
                 const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 6, 6), std(0xe5e7eb, 0.5));
@@ -654,11 +666,13 @@
                 g.strokeStyle = 'rgba(60,40,20,0.8)'; g.lineWidth = 3; g.strokeRect(1, 1, w - 2, h - 2);
             });
             ply.wrapS = ply.wrapT = THREE.RepeatWrapping;
-            const wallMat = new THREE.MeshStandardMaterial({ map: ply, roughness: 0.9 });
+            const wallMat = A.pbrMat('cyberpunk/Brutalist Concrete/bare-megablock-concrete-001.png', 1, 1, { color: 0xd6cfc2, roughness: 0.85 });
             const seg = 2.4;
             const n = Math.floor(R.len / seg);
             const doors = [];
             const strobePts = [];
+            const khCrateTr = [];
+            const khTankTr = [];
             const wallGeo = new THREE.BoxGeometry(0.2, 3.2, seg + 0.02);
             for (let i = 0; i < n; i++) {
                 const u = (i + 0.5) / n;
@@ -699,14 +713,19 @@
                     if (i % 6 === 0) strobePts.push(V(p.x, 3.1, p.z));
                 }
                 if (i % 9 === 4) {
-                    const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.1), std(0x78552b, 0.9));
                     const cs = i % 2 ? 1 : -1;
-                    crate.position.set(p.x + side.x * cs * 1.6, 0.5, p.z + side.z * cs * 1.6);
+                    const cx = p.x + side.x * cs * 1.6, cz = p.z + side.z * cs * 1.6;
+                    const crate = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.1), std(0x78552b, 0.9));
+                    crate.position.set(cx, 0.5, cz);
                     crate.rotation.y = yaw + 0.2;
                     S.add(crate);
                     S.solid(crate);
+                    khCrateTr.push({ pos: [cx, 0, cz], rot: yaw + 0.2, scale: 1.35 });
+                    if (i % 18 === 4) khTankTr.push({ pos: [p.x - side.x * cs * 1.8, 0, p.z - side.z * cs * 1.8], rot: yaw, scale: 1.1 });
                 }
             }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', khCrateTr, { solidSession: S });
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank.glb', khTankTr);
             S.data.doors = doors;
             if (BO.Settings.getQualityPreset().pointLights) {
                 const lamp = new THREE.PointLight(0xfff7d6, 1.8, 18, 1.6);

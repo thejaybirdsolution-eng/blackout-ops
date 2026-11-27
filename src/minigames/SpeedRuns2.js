@@ -53,6 +53,7 @@
         blockKeys: ['KeyW', 'KeyA', 'KeyS', 'KeyD'],
         map: {
             atmosphere: { skyTop: 0x1e40af, skyBottom: 0xfde68a, fogColor: 0xe9d5a1, fogDensity: 0.0022, sunColor: 0xfff1c1, sunIntensity: 1.6, sunPos: [60, 80, -300], hemiSky: 0xfef3c7, hemiGround: 0x78350f, hemiIntensity: 0.88 },
+            skybox: 'skybox-day.png',
             boxes: [B(0, -0.5, -840, 260, 1, 1900, 'grass')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
@@ -73,13 +74,21 @@
 
             // ACT 1: Busy City Buildings & Streetlights (u = 0.02..0.34)
             const rnd = L.mulberry32(33);
+            const subBldA = [], subBldB = [], indBld = [];
             for (let i = 0; i < 36; i++) {
                 const u = 0.02 + (i / 36) * 0.32, p = R.curve.getPointAt(u), t = R.curve.getTangentAt(u), n = V(-t.z, 0, t.x);
+                const yaw = Math.atan2(t.x, t.z);
                 for (const s of [-1, 1]) {
-                    const h = 14 + rnd() * 22, b = A.building(11, h, 11, [0x475569, 0x64748b, 0x334155, 0x7c2d12][(i + (s > 0 ? 1 : 0)) % 4], i, 0.45, false);
-                    b.position.copy(p).addScaledVector(n, s * 16).add(V(0, h * 0.5, 0)); S.add(b);
+                    const h = 14 + rnd() * 22;
+                    const bp = p.clone().addScaledVector(n, s * 16);
+                    if (i % 3 === 0) indBld.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? Math.PI : 0), scale: [5.5, h * 0.45, 5.5] });
+                    else if (i % 2 === 0) subBldA.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? -Math.PI / 2 : Math.PI / 2), scale: [5.2, h * 0.4, 5.2] });
+                    else subBldB.push({ pos: [bp.x, 0, bp.z], rot: yaw + (s > 0 ? -Math.PI / 2 : Math.PI / 2), scale: [5.2, h * 0.4, 5.2] });
                 }
             }
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-a.glb', subBldA);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_suburban_kit/building-type-c.glb', subBldB);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/building-a.glb', indBld);
             // ACT 2: Highway Concrete Barriers, Green Gantries & Nitro Strips (u = 0.35..0.69)
             S.data.boosts = [];
             for (let i = 0; i < 7; i++) {

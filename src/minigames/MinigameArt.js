@@ -18,6 +18,15 @@
     }
 
     const A = {
+        /* --------------------------------------------- staged PBR textures */
+        loadTex(relPath, repeatX = 1, repeatY = 1) {
+            return L.loadTex ? L.loadTex(relPath, repeatX, repeatY) : null;
+        },
+
+        pbrMat(relPath, repeatX = 1, repeatY = 1, opts = {}) {
+            return L.pbrMat ? L.pbrMat(relPath, repeatX, repeatY, opts) : std(0x64748b, 0.8);
+        },
+
         /* ------------------------------------------------------ bullseye */
         bullseyeTex(style = 'classic') {
             return canvasTex('bull:' + style, 512, 512, (g, w) => {

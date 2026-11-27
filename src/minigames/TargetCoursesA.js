@@ -622,25 +622,13 @@
             S.data.rail = R;
             S.data.dist = 4;
             S.data.speed = 0;
-            const stone = L.canvasTex('templestone', 256, 256, (g, w, h) => {
-                g.fillStyle = '#6b5a45'; g.fillRect(0, 0, w, h);
-                const rnd = L.mulberry32(5);
-                for (let y = 0; y < h; y += 32) {
-                    for (let x = -((y / 32) % 2) * 32; x < w; x += 64) {
-                        const s = 80 + rnd() * 40;
-                        g.fillStyle = `rgb(${s + 20},${s + 5},${s - 20})`;
-                        g.fillRect(x + 2, y + 2, 60, 28);
-                    }
-                }
-                for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(0,0,0,${rnd() * 0.15})`; g.fillRect(rnd() * w, rnd() * h, 3, 3); }
-            });
-            stone.wrapS = stone.wrapT = THREE.RepeatWrapping;
-            const wallMat = new THREE.MeshStandardMaterial({ map: stone, roughness: 0.95 });
+            const wallMat = A.pbrMat('fantasy_painterly/Stone Masonry Ruins/ancient-courtyard-001.png', 1.5, 2, { roughness: 0.92 });
             const pillarMat = std(0x8a7558, 0.9);
             const gold = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.25, emissive: 0x7c4a03, emissiveIntensity: 0.3 });
             const segLen = 4;
             const n = Math.floor(R.len / segLen);
             const wallGeo = new THREE.BoxGeometry(1, 7, segLen + 0.05);
+            const colTr = [], stoneTr = [];
             S.data.pillars = [];
             for (let i = 0; i < n; i++) {
                 const u = (i + 0.5) / n;
@@ -667,11 +655,15 @@
                         col.position.y = 3.1;
                         col.castShadow = true;
                         pil.add(col);
+                        L.placeGLB(pil, 'staged_assets/3d_models/mini_dungeon_kit/column.glb', {
+                            fitSize: [1.15, 6.2, 1.15], hideFallback: col
+                        });
                         pil.position.set(p.x + side.x * s * 3.3, 0, p.z + side.z * s * 3.3);
                         S.add(pil);
                         S.data.pillars.push({ g: pil, s: u * R.len, fall: 0, dir: -s, yaw });
                     }
                 }
+                if (i % 6 === 3) stoneTr.push({ pos: [p.x + side.x * (i % 2 ? 1 : -1) * 3.2, 0, p.z + side.z * (i % 2 ? 1 : -1) * 3.2], rot: yaw, scale: 1.4 });
                 if (i % 4 === 1) {
                     for (const s of [-1, 1]) {
                         const fl = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.45, 6), new THREE.MeshBasicMaterial({ color: 0xff9a3c }));
@@ -688,6 +680,8 @@
                     S.add(glyph);
                 }
             }
+            if (stoneTr.length) L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_dungeon_kit/stones.glb', stoneTr);
+            void colTr;
             // ceiling
             const ceil = new THREE.Mesh(new THREE.PlaneGeometry(40, R.len + 40), std(0x2a1d10, 1));
             ceil.rotation.x = Math.PI / 2;
@@ -974,18 +968,22 @@
         duration: 60, stars: [2500, 5000, 8000, 11000], standardWeapon: 'python_magnum', customMusic: true,
         map: {
             atmosphere: { skyTop: 0x9a3412, skyBottom: 0xfcd34d, fogColor: 0xe7b97a, fogDensity: 0.008, sunColor: 0xffd59e, sunIntensity: 1.8, sunPos: [-30, 30, -50], hemiSky: 0xfde68a, hemiGround: 0x7c4a1e, hemiIntensity: 0.85 },
+            skybox: 'skybox-morning.png',
             boxes: [B(0, -0.5, -30, 200, 1, 200, 'desert_sand')],
             spawn: { x: 0, y: 0, z: 0, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('western');
             K.booth(S, { awning: '#78350f', wood: 0x8b5a2b });
+            const mainStreet = new THREE.Mesh(new THREE.PlaneGeometry(14, 66), A.pbrMat('fantasy_painterly/Transitions/mud-to-cobbles-001.png', 2, 12, { roughness: 0.92 }));
+            mainStreet.rotation.x = -Math.PI / 2; mainStreet.position.set(0, 0.012, -30); mainStreet.receiveShadow = true; S.add(mainStreet);
             const slots = [];
             const lanternPts = [];
             const woodCols = [0x8b5a2b, 0xa16207, 0x7c2d12, 0x9a3412, 0x854d0e, 0x6b4423];
+            const timberMap = A.loadTex('fantasy_painterly/Wood Bark Boards/charred-wood-boards-001.png', 2, 2);
             const sideBuilding = (x, z, w, h, col, name, sideSign) => {
                 const g = new THREE.Group();
-                const body = new THREE.Mesh(new THREE.BoxGeometry(6, h, w), std(col, 0.9));
+                const body = new THREE.Mesh(new THREE.BoxGeometry(6, h, w), new THREE.MeshStandardMaterial({ map: timberMap, color: col, roughness: 0.88 }));
                 body.position.y = h / 2;
                 body.castShadow = body.receiveShadow = true;
                 g.add(body);
@@ -1074,6 +1072,12 @@
                 slots.push({ kind: 'barrel', pos: V(x, 0, z - 0.5), yawSide: 0, scale: 0.85 });
             };
             barrel(-4, -16); barrel(3.5, -24); barrel(-2.5, -33); barrel(4.5, -42);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/mini_dungeon_kit/barrel.glb', [
+                { pos: [-4.8, 0, -16.8], scale: 1.4 }, { pos: [4.3, 0, -24.8], scale: 1.4 }, { pos: [-3.3, 0, -33.8], scale: 1.4 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
+                { pos: [4.5, 0, -14], rot: 0.2, scale: 1.4 }, { pos: [-5.0, 0, -39], rot: -0.3, scale: 1.4 }
+            ]);
             const wagon = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 1.8), std(0x854d0e, 0.9));
             wagon.position.set(-1, 1.1, -28);
             S.add(wagon);

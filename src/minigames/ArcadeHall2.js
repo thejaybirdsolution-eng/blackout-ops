@@ -672,30 +672,37 @@
             Object.assign(S.data, { drill, flicks: [], shots: [], timeouts: 0, flickN: 0, trackOn: 0, trackTotal: 0, trackLag: 0, trackLagN: 0, flipOn: 0, flipTotal: 0, lastFlip: -9 });
             if (drill) { S.duration = 45; MG.opts.variantLabel = 'DRILL • ' + DRILLS[drill].label.toUpperCase(); }
             lockPlayer(0, 0, 0, 1.6);
-            const grid = L.canvasTex('aimlab-grid', 128, 128, (g, w, h) => {
-                g.fillStyle = '#f8fafc'; g.fillRect(0, 0, w, h);
-                g.strokeStyle = '#cbd5e1'; g.lineWidth = 2; g.strokeRect(0, 0, w, h);
-                g.strokeStyle = '#e2e8f0'; g.lineWidth = 1;
-                g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
-            });
-            grid.wrapS = grid.wrapT = THREE.RepeatWrapping;
-            const mk = (w, h, rep) => { const t = grid.clone(); t.needsUpdate = true; t.repeat.set(rep[0], rep[1]); t.userData.mgOwned = true; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); };
+            const floorMat = A.pbrMat('cyberpunk/Brutalist Concrete/bare-megablock-concrete-001.png', 10, 10, { color: 0xf1f5f9, roughness: 0.65 });
+            const wallMat = A.pbrMat('cyberpunk/Power Floor/blue-orange-cable-trench-floor-001.png', 10, 3, { color: 0xe2e8f0, roughness: 0.62 });
             const room = [
-                [0, 0.001, -12, 40, 40, -Math.PI / 2, 0, [20, 20]],
-                [0, 9, -12, 40, 40, Math.PI / 2, 0, [20, 20]],
-                [0, 4.5, -26, 40, 9, 0, 0, [20, 4.5]],
-                [-20, 4.5, -12, 40, 9, 0, Math.PI / 2, [20, 4.5]],
-                [20, 4.5, -12, 40, 9, 0, -Math.PI / 2, [20, 4.5]],
-                [0, 4.5, 4, 40, 9, 0, Math.PI, [20, 4.5]]
+                [0, 0.001, -12, 40, 40, -Math.PI / 2, 0, floorMat],
+                [0, 9, -12, 40, 40, Math.PI / 2, 0, floorMat],
+                [0, 4.5, -26, 40, 9, 0, 0, wallMat],
+                [-20, 4.5, -12, 40, 9, 0, Math.PI / 2, wallMat],
+                [20, 4.5, -12, 40, 9, 0, -Math.PI / 2, wallMat],
+                [0, 4.5, 4, 40, 9, 0, Math.PI, wallMat]
             ];
-            for (const [x, y, z, w, h, rx, ry, rep] of room) {
-                const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mk(w, h, rep));
+            for (const [x, y, z, w, h, rx, ry, rmat] of room) {
+                const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), rmat);
                 m.position.set(x, y, z);
                 m.rotation.set(rx, ry, 0);
                 m.receiveShadow = true;
                 S.add(m);
                 S.solid(m);
             }
+            // Perimeter industrial framing (keeps center target firing cones unobstructed)
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/shipping-container-a.glb', [
+                { pos: [-16.8, 0, -21], rot: Math.PI / 2, scale: 2.2 },
+                { pos: [16.8, 0, -21], rot: -Math.PI / 2, scale: 2.2 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank.glb', [
+                { pos: [-16.5, 0, -5], rot: 0, scale: 2.4 },
+                { pos: [16.5, 0, -5], rot: 0, scale: 2.4 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/blaster_kit/crate-wide.glb', [
+                { pos: [-14, 0, 1.5], rot: 0.2, scale: 1.8 },
+                { pos: [14, 0, 1.5], rot: -0.2, scale: 1.8 }
+            ]);
             const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.05, 32), basic(0x22d3ee));
             pad.position.set(0, 0.03, 0);
             S.add(pad);
