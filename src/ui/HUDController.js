@@ -595,7 +595,10 @@
                 this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
                 this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
                 const gearDock = this.elLethalInfo?.closest('.gear-dock');
-                if (gearDock) gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                if (gearDock) {
+                    gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                    gearDock.style.display = (mode === 'rpg' || mode === 'owrpg') ? 'none' : '';
+                }
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0

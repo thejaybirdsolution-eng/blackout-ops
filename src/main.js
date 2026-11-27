@@ -35,6 +35,7 @@
                 powerPreference: 'high-performance'
             });
             this.renderer.autoClear = false;
+            this.renderer.info.autoReset = false;
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
@@ -881,7 +882,6 @@
             const dt = Math.min(0.05, Math.max(0.001, rawDt)) * (BO.State.timeScale || 1);
             this.lastTime = now;
             this.elapsed += dt;
-            BO.PerfOverlay?.tick?.(rawDt, this.renderer);
 
             // Update live animated camos (Dark Matter / Pack-a-Punch)
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
@@ -945,6 +945,7 @@
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
                 if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 if (BO.World.scene) {
@@ -953,11 +954,14 @@
                 if (BO.PostFX) BO.PostFX.viewmodelPass(this.renderer); else this.renderer.clearDepth();
                 this.renderer.render(BO.Player.vmScene, BO.Player.vmCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.worldCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             } else {
                 // Render Main Menu / Gunsmith Showcase 3D Scene
                 if (this.showcasePivot) {
                     if (BO.State.screen === 'gunsmith') {
+                        this.renderer.info.reset();
                         this._renderWeaponStudio();
+                        BO.PerfOverlay?.tick?.(rawDt, this.renderer);
                         return;
                     }
                     // Hero framing: weapon sits in the right third, slow turntable with a gentle bob.
@@ -968,10 +972,12 @@
                     this.showcaseCamera.position.set(-0.05, 0.16, 1.5);
                 }
                 if (BO.PostFX) BO.PostFX.setGrade('menu');
+                this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
                 this.renderer.render(this.showcaseScene, this.showcaseCamera);
                 if (post) BO.PostFX.end(this.renderer, dt, this.showcaseCamera);
+                BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             }
         }
     }
