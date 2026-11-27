@@ -1292,7 +1292,6 @@
                 </div>`;
             el.classList.remove('hidden');
             el.querySelectorAll('[data-act]').forEach((b) => {
-                b.onmouseenter = () => BO.Sound.playUIHover?.();
                 b.onclick = () => { BO.Sound.playUIClick(); this._resultAction(b.dataset.act); };
             });
             this._lastRes = res;

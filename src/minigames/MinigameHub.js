@@ -322,7 +322,6 @@
             root.querySelectorAll('[data-guide]').forEach((b) => {
                 b.onclick = () => { BO.Sound.playUIClick(); const d = MG.get(b.dataset.guide); if (d) this._openGuideModal(d); };
             });
-            root.querySelectorAll('.mgh-play, .mgh-example, .mgh-preview-btn').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
         },
 
         _bind(body) {
@@ -351,7 +350,6 @@
             });
             const detailEl = body.querySelector('.mgh-detail');
             if (detailEl) this._bindDetail(detailEl);
-            body.querySelectorAll('.mgh-card, .mgh-cat').forEach((b) => b.addEventListener('mouseenter', () => BO.Sound.playUIHover && BO.Sound.playUIHover()));
         },
 
         _play(id, extraOpts) {
