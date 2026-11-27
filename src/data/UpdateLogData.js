@@ -3056,6 +3056,27 @@
                                 "text": "Restored color and PBR material detail to the 3D CheyTac M200 Intervention with a two-tone MW2 tactical tan-slate chassis, matte black scope, barrel, bipod, grip, and magazine, plus automatic box-projected UVs so every Create-a-Class camo and Pack-a-Punch texture wraps cleanly. Also aligned the Beretta M9 ADS sight height and eye relief so you aim straight through the rear iron-sight notch."
                         }
                 ]
+        },
+        {
+                "id": 153,
+                "hash": "v2.7",
+                "date": "Nov 26, 2026",
+                "fullDate": "November 26, 2026",
+                "time": "11:15 PM ET",
+                "dayKey": "2026-11-26",
+                "title": "Intervention World-Space Tan/Black Paint & Beretta M9 Grip/Tritium Sights",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed the CheyTac M200 Intervention vertex painting and UV projection to use world-space coordinates instead of raw Blender mesh coordinates, delivering crisp MW2 Desert Tan / FDE and matte black two-tone colors with zero grid artifacts. Seated the Beretta M9 properly into the operator's hands right below the slide/beavertail and added glowing 3-dot green tritium iron sights aligned for clean ADS."
+                        }
+                ]
         }
 ]
     };

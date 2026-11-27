@@ -38,11 +38,12 @@
             targetLen: 0.25,
             rot: [0, 0, 0],
             hidePatterns: [],
-            offset: [0, 0.022, -0.03],
-            muzzleOffset: [0, 0.088, -0.16],
-            sightY: 0.098,
-            sightZ: 0.045,
-            sightEyeRelief: 0.34
+            offset: [0, -0.056, 0.02],
+            muzzleOffset: [0, 0.010, -0.11],
+            sightY: 0.015,
+            sightZ: 0.095,
+            sightEyeRelief: 0.24,
+            pistolTritium: true
         }
     };
 
@@ -528,6 +529,13 @@
                     });
                 }
 
+                // Update world matrices on the unrotated GLB so world-space vertex positions are accurate for UVs & part painting
+                sc.updateMatrixWorld(true);
+                const tmpV = new THREE.Vector3();
+                const tmpN = new THREE.Vector3();
+                const normMat = new THREE.Matrix3();
+                const tmpCol = new THREE.Color();
+
                 // Apply camo, Pack-a-Punch, or custom PBR paint on cloned materials (never mutate shared cache)
                 const applyCamo = isPaP || (camoId && camoId !== 'default');
                 const camoMat = applyCamo && BO.Textures?.getCamoMaterial
@@ -540,22 +548,23 @@
                     o.receiveShadow = true;
                     if (o.isSkinnedMesh) o.frustumCulled = false;
 
-                    // Ensure box-projected UVs exist so PBR textures and camos map cleanly onto untextured GLBs
+                    // Ensure box-projected UVs in world meters so PBR textures and camos wrap cleanly without tiling artifacts
                     if (o.geometry && o.geometry.attributes && o.geometry.attributes.position && !o.geometry.attributes.uv) {
                         const posAttr = o.geometry.attributes.position;
                         const normAttr = o.geometry.attributes.normal;
                         const uvs = new Float32Array(posAttr.count * 2);
+                        normMat.getNormalMatrix(o.matrixWorld);
                         for (let i = 0; i < posAttr.count; i++) {
-                            const x = posAttr.getX(i), y = posAttr.getY(i), z = posAttr.getZ(i);
-                            const nx = normAttr ? Math.abs(normAttr.getX(i)) : 0;
-                            const ny = normAttr ? Math.abs(normAttr.getY(i)) : 0;
-                            const nz = normAttr ? Math.abs(normAttr.getZ(i)) : 1;
-                            if (nx >= ny && nx >= nz) {
-                                uvs[i * 2] = z * 4.0; uvs[i * 2 + 1] = y * 4.0;
-                            } else if (ny >= nx && ny >= nz) {
-                                uvs[i * 2] = x * 4.0; uvs[i * 2 + 1] = z * 4.0;
+                            tmpV.fromBufferAttribute(posAttr, i).applyMatrix4(o.matrixWorld);
+                            if (normAttr) tmpN.fromBufferAttribute(normAttr, i).applyMatrix3(normMat).normalize();
+                            else tmpN.set(0, 0, 1);
+                            const ax = Math.abs(tmpN.x), ay = Math.abs(tmpN.y), az = Math.abs(tmpN.z);
+                            if (ax >= ay && ax >= az) {
+                                uvs[i * 2] = tmpV.z * 2.5; uvs[i * 2 + 1] = tmpV.y * 2.5;
+                            } else if (ay >= ax && ay >= az) {
+                                uvs[i * 2] = tmpV.x * 2.5; uvs[i * 2 + 1] = tmpV.z * 2.5;
                             } else {
-                                uvs[i * 2] = x * 4.0; uvs[i * 2 + 1] = y * 4.0;
+                                uvs[i * 2] = tmpV.x * 2.5; uvs[i * 2 + 1] = tmpV.y * 2.5;
                             }
                         }
                         o.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
@@ -585,42 +594,39 @@
                         });
                         o.material = Array.isArray(o.material) ? nextMats : nextMats[0];
                     } else if (cfg.paintMode === 'intervention_mw2' && o.geometry && o.geometry.attributes && o.geometry.attributes.position) {
-                        // Two-tone MW2 CheyTac M200 finish: tactical FDE/tan-slate chassis with matte black scope, barrel, bipod, mag & grip
+                        // Two-tone MW2 CheyTac M200 finish using true world-space coordinates (X = -0.54..+0.54, Y = -0.12..+0.174)
                         const posAttr = o.geometry.attributes.position;
-                        if (!o.geometry.attributes.color) {
-                            const colors = new Float32Array(posAttr.count * 3);
-                            const isGripMesh = (o.name || '').includes('001');
-                            for (let i = 0; i < posAttr.count; i++) {
-                                const x = posAttr.getX(i), y = posAttr.getY(i);
-                                let r = 0.46, g = 0.43, b = 0.36; // Classic MW2 tactical tan-slate chassis
-                                if (isGripMesh) {
-                                    r = 0.14; g = 0.16; b = 0.19; // Matte black polymer grip
-                                } else if (y > 0.068 && x > -0.32 && x < 0.12) {
-                                    r = 0.12; g = 0.14; b = 0.17; // Anodized black sniper scope
-                                } else if (x > 0.08 && y < 0.006) {
-                                    r = 0.14; g = 0.16; b = 0.19; // Black steel bipod
-                                } else if (x > 0.21) {
-                                    r = 0.20; g = 0.23; b = 0.27; // Dark blued fluted barrel & muzzle brake
-                                } else if (x < -0.49) {
-                                    r = 0.12; g = 0.13; b = 0.15; // Rubberized buttpad
-                                } else if (x > -0.27 && x < -0.10 && y < -0.025) {
-                                    r = 0.16; g = 0.18; b = 0.21; // Dark steel magazine
-                                }
-                                colors[i * 3] = r; colors[i * 3 + 1] = g; colors[i * 3 + 2] = b;
+                        const colors = new Float32Array(posAttr.count * 3);
+                        const isGripMesh = (o.name || '').includes('001');
+                        for (let i = 0; i < posAttr.count; i++) {
+                            tmpV.fromBufferAttribute(posAttr, i).applyMatrix4(o.matrixWorld);
+                            const wx = tmpV.x, wy = tmpV.y;
+                            let hex = 0x9c8864; // Iconic MW2 Desert Tan / FDE chassis, handguard & skeleton stock
+                            if (isGripMesh) {
+                                hex = 0x1c2026; // Matte black polymer pistol grip
+                            } else if (wy > 0.066 && wx > -0.34 && wx < 0.14) {
+                                hex = 0x1a1e24; // Anodized matte black sniper scope & rings
+                            } else if (wx > 0.08 && wy < 0.010) {
+                                hex = 0x1d222a; // Black steel deployed bipod
+                            } else if (wx > 0.215) {
+                                hex = 0x2b313b; // Dark blued fluted barrel & muzzle brake
+                            } else if (wx < -0.495) {
+                                hex = 0x181b20; // Rubberized buttpad
+                            } else if (wx > -0.265 && wx < -0.095 && wy < -0.015) {
+                                hex = 0x222730; // Dark charcoal 5-round box magazine
                             }
-                            o.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                            tmpCol.setHex(hex);
+                            if (typeof tmpCol.convertSRGBToLinear === 'function') tmpCol.convertSRGBToLinear();
+                            colors[i * 3] = tmpCol.r;
+                            colors[i * 3 + 1] = tmpCol.g;
+                            colors[i * 3 + 2] = tmpCol.b;
                         }
-                        const T = BO.Textures;
-                        const map = T?.createCerakoteTexture ? T.createCerakoteTexture(0xe2e2e2) : null;
-                        const bumpMap = T?.createBumpTexture ? T.createBumpTexture('metal') : null;
+                        o.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                         o.material = new THREE.MeshStandardMaterial({
                             color: 0xffffff,
                             vertexColors: true,
-                            map,
-                            bumpMap,
-                            bumpScale: 0.008,
-                            roughness: 0.46,
-                            metalness: 0.45,
+                            roughness: 0.44,
+                            metalness: 0.42,
                             side: THREE.DoubleSide
                         });
                     }
@@ -665,6 +671,25 @@
                     built.muzzleAnchor.position.set(cfg.muzzleOffset[0], cfg.muzzleOffset[1], cfg.muzzleOffset[2]);
                 } else if (!box.isEmpty()) {
                     built.muzzleAnchor.position.set(0, (cfg.offset ? cfg.offset[1] : 0) + 0.02, box.min.z + (cfg.offset ? cfg.offset[2] : 0));
+                }
+
+                if (cfg.pistolTritium) {
+                    const tritMat = new THREE.MeshBasicMaterial({ color: 0x22ff66, toneMapped: false });
+                    const dotGeo = new THREE.SphereGeometry(0.0014, 8, 8);
+                    const rearL = new THREE.Mesh(dotGeo, tritMat);
+                    rearL.position.set(-0.0046, 0.0205, cfg.sightZ + 0.003);
+                    const rearR = rearL.clone();
+                    rearR.position.x = 0.0046;
+                    const frontDot = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), tritMat);
+                    frontDot.position.set(0, 0.0212, -0.098);
+                    built.gun.add(rearL, rearR, frontDot);
+
+                    // Seat first-person hands cleanly around the upper pistol grip below the beavertail
+                    const arms = built.root?.userData?.arms;
+                    if (arms) {
+                        if (arms.rArm) arms.rArm.position.set(0.0, -0.004, -0.006);
+                        if (arms.lArm) arms.lArm.position.set(0.0, -0.008, 0.016);
+                    }
                 }
 
                 if (cfg.sightY !== undefined) built.sightY = cfg.sightY;
