@@ -3464,6 +3464,34 @@
                                 "text": "Heavily redesigned the Three-Headed Dragon encounter with distinct sculpted Ignis (Fire), Glacius (Frost), and Voltaris (Lightning) dragon heads atop articulated snaking necks, armored obsidian torso & beating bat-wings, elemental breath beams, destructible weakpoint crests, and an atmospheric volcanic citadel speed-run arena."
                         }
                 ]
+        },
+        {
+                "id": 174,
+                "hash": "v3.1",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "04:45 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Cosmetic Polish Pass: Unified AAA Theme, 3D Hitboxes, Animations & Audio",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Completed a full cosmetic, animation, hitbox, sound, and accessibility polish pass across all front-end screens, modes, and the minigames hub:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Visual Consistency & AAA Tokens: Consolidated all palette, typography, spacing, radius, and z-index tokens into a single :root, removed redundant CSS overrides, restored the Main Menu PLAY WITH FRIENDS Invite label & full tag text, unblocked invisible Minigames titles, fixed 720p Lobby Deploy button overlap, and enabled --ui-scale corner HUD scaling.",
+                                        "Hitboxes & Wireframe Debugger: Added ?debug=hitboxes and a Dev Panel wireframe toggle (head/torso/limb/shield color coding), tagged outer Soldier helmets and Riot Shield viewports, stopped bullet penetration through shields and dead entities, added full-slot hotbar drag-and-drop snap-back, and removed noisy hover prompt side effects.",
+                                        "Animations & Feel: Added UIPolish modal focus traps, sliding tab highlights, smooth tooltip hover delays, keyed killfeed transitions, stacked HUD toasts, distinct headshot/kill hitmarkers, points tickers, smoothstep viewmodel ADS/swap blends, empty-mag bolt lock, zone-specific enemy hit reactions, and surface-colored bullet impacts.",
+                                        "Audio & Accessibility: Added a dedicated uiGain mixer bus, wired UI/Hitmarker/Zombie volume sliders and tab-hidden muting, added Web Audio procedural synth fallbacks across every SFX cue, tuned crouch and floor-surface footsteps, added delegated throttled UI hover/click/back/toggle/slider audio, and enabled full arrow-key tablist navigation with Reduced Motion support."
+                                ]
+                        }
+                ]
         }
 ]
     };
