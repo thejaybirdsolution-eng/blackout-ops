@@ -52,19 +52,20 @@
             ['Bowling, defense and mini-bosses', 'Use Aim and Power in the bowling room. You have two rolls to clear the pins and must clear them on the first for a strike. For defense, activate the altar and stay inside the circle for two uninterrupted minutes. A mini-boss can call reinforcements at half health.'],
             ['Extract, suspend or die', 'A Rest room or defeated guardian can have an Extraction Beacon. Extraction banks loot, gold, scrap and completed contract rewards. Death keeps XP and equipped gear but loses the unbanked haul unless insurance pays some gold back. Suspending saves your floor-start state.'],
             ['Loot, Boons and gear sets', 'Pick up gear and use the pack to compare it. A Boon lasts only for the current delve. Equip two or three pieces of the same legendary set to gain bonuses. Upgrade gear at the Haven Forge and buy more stash space with Vault Racks.'],
-            ['Contracts and the Collection', 'Pick a contract before you leave and extract after finishing its objective to receive the payout. Use Collection to see progress and equip crests, frames, gate auras and footstep trails. A curio can also be equipped as a crest.'],
+            ['Contracts, Secrets and Deep Vaults', 'Pick a contract before you leave and extract after finishing its objective to receive the payout. All 12 unlockable operatives, 288 Haven Collection cosmetics, 14 Mystery encounters, and Deep Vaults (Floors 26–50+) are tracked live. A curio can also be equipped as a crest.'],
             ['Guardians and checkpoints', 'A guardian appears every fifth floor. Defeat it to open a later starting checkpoint. Checkpoints let you skip early floors, but you begin a fresh delve without previous Boons or unbanked loot.']
         ] },
-        owrpg: { name: 'Open World RPG', intro: 'Operation Meridian: build a character, ride mounts, master 5 elements and conquer the Crater.', sections: [
+        owrpg: { name: 'Open World RPG', intro: 'Operation Meridian: Acts I–VI across 1280 m of frontier, 3 squad Companions, New Game+, and 5 elemental combos.', sections: [
             ['Create an operative', 'Pick a callsign, spend 8 points across five attributes (Brawn, Reflex, Tech, Perception, Presence), choose a starting Primer and a difficulty. You have three save slots.'],
-            ['Navigate by landmarks, Mounts & World Events', 'Six skyline landmarks (35–58 m) mark the regions: Mast Alpha, the Goliath Crane, the Cooling Stack, the Excavator, the Dish Array and the Meridian Dome. Unlock and summon 4 rideable Mounts [T] (Scout Bike, Hoverbike, Armored ATV, War Strider) to cross the 640m Expanse fast. Watch for timed Dynamic World Events & Bounty Board contracts in the Pip-Pad.'],
+            ['Navigate by landmarks, Mounts & World Events', 'Six skyline landmarks (35–58 m) mark the regions: Mast Alpha, the Goliath Crane, the Cooling Stack, the Excavator, the Dish Array and the Meridian Dome. Unlock and summon 4 rideable Mounts [T] (Scout Bike, Hoverbike, Armored ATV, War Strider) to cross the Expanse fast. Watch for timed Dynamic World Events & Bounty Board contracts in the Pip-Pad.'],
+            ['Act I–VI Campaign, Companions & New Game+', 'Follow the multi-path main storyline from Haven Basin through Rust Sprawl (Act II), Mire Delta (Act III), Ash Quarry (Act IV), Alpine Array (Act V), and the Meridian Containment Dome (Act VI Finale). Recruit Vanguard Soren, Ghost Kael, and Tinker Torque as active field Companions in your Pip-Pad, shift faction territory, and unlock New Game+ after completing Act VI.'],
             ['RPG Gun Stats, Armor Sets & Durability', 'Every weapon carries Meridian-only RPG stats (Crit %, Armor Pen, Passive Trait, Elemental Damage) visible in your Pip-Pad Inventory without altering arcade modes. Equip multi-slot Helmets, Rigs, Boots & Relics to activate 2-piece and 3-piece Armor Set bonuses. Weapons & armor gradually wear down during fights; repair them with Field Repair Kits [G] or the Pip-Pad Workbench.'],
             ['Talk, and pass checks', 'Dialogue options marked with an attribute, reputation or item need that value. Checks are fixed thresholds, not dice rolls, so reloading never changes them. Locked options show what they need.'],
             ['Every quest has three ways through', 'Main and faction quests can be solved by force, by tech or stealth, or by talking to the right person. Quests also react if you solve them before you are asked.'],
             ['Stealth and noise', 'The eye at the top of the screen shows how aware enemies are. Crouch to slow detection and quiet your steps; sprinting and unsuppressed gunfire carry far. Attacks with melee or suppressed weapons on unaware targets deal sneak-attack damage.'],
             ['5-Element Primers, Detonators & Ultimates', 'Q fires your Primer (Burn, Chill, Shock, Venom, Void, or Expose). F fires your Detonator to trigger chain reactions. X uses your Gadget, U unleashes unlockable Ultimates, and H injects Meds. Health regenerates to 60% only out of combat.'],
             ['Factions & Codex', 'Militia, Syndicate, Aegis and Helix track reputation from Hated to Sworn. Helping one costs you half as much with its rival. Complete Codex milestones in the Pip-Pad to claim exclusive weapons and relics.'],
-            ['Levels and perks', 'Quests and discoveries pay most of the XP. Every even level gives a perk point and every odd level from 3 gives an attribute point. Each perk tier is a choice between two perks; Medic Ines can retrain you for credits.'],
+            ['Levels, perks and schedules', 'Quests and discoveries pay most of the XP. Every even level gives a perk point and every odd level from 3 gives an attribute point. Settlements follow dawn, day, and night patrol routines.'],
             ['Weight and travel', 'Carrying more than your limit slows your sprint and makes you louder; over 130% you cannot dodge. Wake Transit Pylons by touching them, then jump between them for one Relay Cell each.'],
             ['Saving', 'F5 quick-saves when you are out of combat and on the ground, F9 reloads. The game also saves when you discover places, finish quests, use pylons and enter or leave interiors.']
         ] },
@@ -109,6 +110,18 @@
                 topic.title, [topic.text, ...topic.facts.map(([label, value]) => label + ' — ' + value),
                     ...topic.lists.flatMap((list) => list.items.map((item) => list.h + ': ' + item))]
             ]);
+        }
+        if (mode === 'owrpg' && BO.OWRPGAct2) {
+            return [
+                ['Squad Companions', Object.values(BO.OWRPGAct2.COMPANIONS).map((c) => `${c.name} (${c.role}) — ${c.auraLabel}. ${c.blurb}`)],
+                ['Act II–VI Main Story', [
+                    'Act II: Iron Frequency (Rust Sprawl — Goliath Crane & Mags Orrin)',
+                    'Act III: Spore Tide (Mire Delta — Cooling Stack Nest & Dr. Lyra)',
+                    'Act IV: Ash & Iron (Ash Quarry — Excavator Pit & Lt. Vance)',
+                    'Act V: Skyline Silent (Alpine Array — Dish Ridge & Lt. Vance)',
+                    'Act VI: Crown of Meridian (Meridian Core — Containment Dome & Sister Calla)'
+                ]]
+            ];
         }
         if (mode === 'zombies') return [['Enemy roster', (BO.ZombiesData.ORDERED_PROGRESSION || []).map((id) => {
             const entry = typeof id === 'string' ? BO.ZombiesData.get(id) : id;
