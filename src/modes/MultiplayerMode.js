@@ -28,6 +28,12 @@
         raygun: ['raygun']
     };
 
+    const NEW_MODE_LIMITS = {
+        infection: [1, 300], search_destroy: [4, 120],
+        four_teams: [50, 480], bounty: [0, 300]
+    };
+    const SOLO_MODES = new Set(['ffa', 'gun_game', 'bounty']);
+
     const DEFAULT_CUSTOM_RULES = {
         enemyCount: 6,
         teamSizeLimit: 6,
@@ -118,10 +124,18 @@
 
         start(opts) {
             this.active = true;
-            this.modeType = opts.modeType || 'tdm';
+            BO.Sound.stopMusic();
+            this.variant = opts.modeType || 'tdm';
+            this.modeType = this.variant === 'hardcore_tdm' ? 'tdm'
+                : this.variant === 'hardcore_ffa' ? 'ffa' : this.variant;
+            this.isSolo = SOLO_MODES.has(this.modeType);
             this.mapId = opts.mapId || 'killhouse';
             this.difficulty = opts.difficulty || 'regular';
             this.customRules = Object.assign({}, DEFAULT_CUSTOM_RULES, opts.customRules || {});
+            if (this.variant.startsWith('hardcore_')) {
+                Object.assign(this.customRules, { playerHp: 30, enemyHp: 30, noHealthRegen: true, alwaysRadar: false });
+            }
+            if (this.modeType === 'search_destroy') this.customRules.killstreaksEnabled = false;
             this.armoryCredits = 350;
             this.camera = opts.camera || null;
 
@@ -130,8 +144,17 @@
             const loadout = BO.Loadout.getActiveClass();
 
             this.bots = [];
-            this.teamScores = [0, 0];
+            this.teamScores = this.modeType === 'four_teams' ? [0, 0, 0, 0] : [0, 0];
+            this.playerTeam = BO.Net?.active ? BO.Net.myTeam : 0;
+            this.bountyHolder = null;
+            this.bountySeconds = new Map();
+            this.searchBomb = null;
+            this.searchRound = 1;
+            this.sentry = null;
+            this.counterUavTimer = 0;
+            this.searchProgress = 0;
             this.elapsed = 0;
+            this.playerCapturedHardpoint = false;
             this.playerKills = 0;
             this.playerDeaths = 0;
             this.playerHeadshots = 0;
@@ -167,6 +190,8 @@
             else if (this.modeType === 'hardpoint') { this.scoreLimit = 150; this.timeRemaining = 540; }
             else if (this.modeType === 'gun_game') { this.scoreLimit = GUN_GAME_LADDER.length; this.timeRemaining = 480; }
 
+            if (NEW_MODE_LIMITS[this.modeType]) [this.scoreLimit, this.timeRemaining] = NEW_MODE_LIMITS[this.modeType];
+
             if (this.customRules.scoreLimit > 0 && this.modeType !== 'gun_game') {
                 this.scoreLimit = Math.max(1, Math.min(500, Math.round(this.customRules.scoreLimit)));
             }
@@ -188,6 +213,9 @@
 
             this._spawnBots(map);
             this._setupObjectives(map);
+            if (this.modeType === 'search_destroy') this._placeSearchMarker();
+            this.searchRoundSeconds = this.timeRemaining;
+            if (this.modeType === 'bounty') this._setBounty(BO.Math.pick([BO.Player, ...this.bots]));
 
             BO.Progression.recordStat('mpMatches', 1);
             BO.Events.emit('mp:started', { modeType: this.modeType, mapName: map.name });
@@ -203,6 +231,11 @@
             const php = Math.max(1, Math.min(1000, Number(r.playerHp) || 100));
             BO.Player.maxHp = php;
             BO.Player.hp = php;
+            if (r.runnerArmor) BO.Player.armor = Math.min(BO.Player.maxArmor, 15);
+            if (r.singlePrimary) {
+                BO.Player.weapons.splice(1);
+                BO.Player.activeSlot = 0;
+            }
 
             if (this.modeType === 'gun_game') {
                 BO.Player.weapons = [BO.Player._createWeaponInstance({ id: GUN_GAME_LADDER[this.playerGunTier], camo: 'default', attachments: {} }, false)];
@@ -233,6 +266,13 @@
 
         stop() {
             this.active = false;
+            this._removeSentry();
+            if (this.searchMarker) {
+                this.searchMarker.parent?.remove(this.searchMarker);
+                this.searchMarker.geometry.dispose();
+                this.searchMarker.material.dispose();
+                this.searchMarker = null;
+            }
             this.killcamPendingEnd = null;
             this.killcamActive = false;
             this.killcamData = null;
@@ -248,12 +288,12 @@
         _spawnBots(map) {
             const r = this.customRules;
             const mfx = BO.Mods ? BO.Mods.fx(r.mods || {}, 'mp') : {};
-            const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
+            const isFFA = this.isSolo;
             const requested = Number.parseInt(r.enemyCount, 10);
             const baseCount = Number.isFinite(requested) ? requested : (isFFA ? 7 : 6);
-            const enemyCount = BO.Math.clamp(Math.round(baseCount * (mfx.botCountMult || 1)) + (mfx.extraBots || 0), 0, 100);
+            const enemyCount = this.modeType === 'four_teams' ? 12 : this.modeType === 'infection' ? BO.Math.clamp(baseCount, 1, 100) : BO.Math.clamp(Math.round(baseCount * (mfx.botCountMult || 1)) + (mfx.extraBots || 0), 0, 100);
             const teamCap = BO.Math.clamp(parseInt(r.teamSizeLimit, 10) || 6, 1, 100);
-            const allyCount = isFFA || r.noAllies ? 0 : Math.min(teamCap - 1, enemyCount, 100 - enemyCount);
+            const allyCount = this.modeType === 'four_teams' ? 3 : isFFA || r.noAllies ? 0 : Math.min(teamCap - 1, enemyCount, 100 - enemyCount);
             const healthScale = (r.fragileBots ? 0.5 : 1) * (r.toughBots ? 2 : 1) * (mfx.botHpMult || 1);
             const botSpeed = (r.speedScale || 1) * (r.slowBots ? 0.5 : 1) * (r.quickBots ? 1.5 : 1) * (mfx.botSpeedMult || 1);
             const ePool = WEAPON_POOLS[r.enemyWeaponMode] || WEAPON_POOLS.all;
@@ -282,15 +322,17 @@
             }
 
             for (let e = 0; e < enemyCount; e++) {
-                const team = isFFA ? (e + 2) : 1;
-                const sp = this._pickBestSpawn(1);
+                const team = this.modeType === 'four_teams' ? 1 + Math.floor(e / 4)
+                    : this.modeType === 'infection' ? Number(e === 0) : isFFA ? e + 2 : 1;
+                const sp = this._pickBestSpawn(team);
+                const infected = this.modeType === 'infection' && team === 1;
                 const wId = (isFFA && this.modeType === 'gun_game') ? GUN_GAME_LADDER[0] : ePool[e % ePool.length];
                 const bot = new BO.BotAI({
                     id: botId++,
                     team,
                     difficulty: this.difficulty,
-                    weaponId: wId,
-                    unarmed: enemyUnarmed || !!r.passiveBots,
+                    weaponId: infected ? 'combat_knife' : wId,
+                    unarmed: !infected && enemyUnarmed || !!r.passiveBots,
                     maxHp: Math.max(1, Math.round(eHp * healthScale)),
                     speedScale: botSpeed,
                     bigHeads: !!r.bigHeads || !!mfx.botBigHead,
@@ -317,8 +359,8 @@
 
         _pickBestSpawn(team) {
             const map = BO.World.mapData;
-            const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
-            const baseList = isFFA
+            const isFFA = this.isSolo;
+            const baseList = isFFA || team > 1
                 ? map.team0Spawns.concat(map.team1Spawns)
                 : (team === 0 ? map.team0Spawns : map.team1Spawns);
             const fallbackList = map.team0Spawns.concat(map.team1Spawns);
@@ -341,7 +383,7 @@
                 if (BO.Player.alive) {
                     const dp = BO.Math.dist3D(sp.x, sp.y || 0, sp.z, BO.Player.pos.x, BO.Player.pos.y, BO.Player.pos.z);
                     minAnyDist = Math.min(minAnyDist, dp);
-                    if (isFFA || team !== 0) {
+                    if (isFFA || team !== this.playerTeam) {
                         minEnemyDist = Math.min(minEnemyDist, dp);
                         if (dp < 22 && BO.World.hasLineOfSight(sp.x, (sp.y || 0) + 1.4, sp.z, BO.Player.pos.x, BO.Player.pos.y + 1.4, BO.Player.pos.z)) {
                             losExposed = true;
@@ -380,11 +422,14 @@
         _onPlayerHitBot(bot, dmg, hitbox, weaponInst, hitPt) {
             if (!bot || !bot.alive || bot.powerAlly) return false;
             const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
-            const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
+            const isFFA = this.isSolo;
             const isHead = hitbox === 'head';
             if (this.customRules.headshotsOnly && !isHead) return false;
 
             let finalDmg = this.customRules.oneShotKills ? 9999 : dmg;
+            if (this.customRules.shotgunRange && weaponInst?.stats.kind === 'gun' && BO.Player.pos.distanceTo(bot.pos) > 18) {
+                finalDmg *= 0.5;
+            }
             if (BO.Mods && this.customRules.mods) {
                 finalDmg = BO.Mods.outgoingDamage(this.customRules.mods, finalDmg, { hitbox, weaponInst, target: null });
                 if (finalDmg <= 0) return false;
@@ -411,7 +456,7 @@
                 return false;
             }
 
-            if (!isFFA && bot.team === myTeam) return false;
+            if (!isFFA && bot.team === this.playerTeam) return false;
 
             if (BO.Net && BO.Net.active && !BO.Net.isHost) {
                 BO.Net.sendToHost({
@@ -425,7 +470,7 @@
                 });
             }
 
-            const killed = bot.takeDamage(finalDmg, 'player');
+            const killed = bot.takeDamage(finalDmg, 'player', weaponInst?.stats?.damage ?? dmg);
             if (!killed) {
                 BO.Player.addUltimateCharge(3);
                 return false;
@@ -450,7 +495,14 @@
                 }, 1100);
             }
             this.playerKills++;
+            BO.Save.data.stats.mpBestKills = Math.max(BO.Save.data.stats.mpBestKills, this.playerKills);
             this.armoryCredits += 100;
+            const weapon = BO.Player.activeWeapon;
+            if (this.customRules.cleanMagazine && weapon?.stats.kind === 'gun') {
+                const amount = Math.min(weapon.stats.magSize - weapon.mag, Math.ceil(weapon.stats.magSize / 2), weapon.reserve);
+                weapon.mag += amount;
+                weapon.reserve -= amount;
+            }
             if (this.customRules.regenOnElim && BO.Player.alive) BO.Player.hp = BO.Player.maxHp;
             if (BO.Player.mpPerks.includes('hot_plate') && BO.Player.pos.distanceTo(bot.pos) < 6) {
                 BO.Player.armor = Math.min(BO.Player.maxArmor, BO.Player.armor + 15);
@@ -535,7 +587,8 @@
                 }
             }
 
-            if (this.modeType === 'tdm') this.teamScores[0] += this.customRules.headshotScore && isHead ? 2 : 1;
+            if (this.modeType === 'tdm' || this.modeType === 'four_teams') this.teamScores[this.playerTeam] += this.customRules.headshotScore && isHead ? 2 : 1;
+            this._handleVariantKill(BO.Player, bot);
             if (this.modeType === 'gun_game') {
                 this.playerGunTier++;
                 if (this.playerGunTier < GUN_GAME_LADDER.length) {
@@ -559,23 +612,27 @@
         }
 
         _onExplode(pos, rad, dmg, isFlash, stunDur, wid) {
-            const isFFA = this.modeType === 'ffa' || this.modeType === 'gun_game';
+            const isFFA = this.isSolo;
             let hits = 0;
+            let killedAny = false;
             for (const b of this.bots) {
                 if (!b.alive) continue;
-                if (!isFFA && b.team === 0) continue;
+                if (b.powerAlly || (!isFFA && b.team === this.playerTeam)) continue;
                 const d = b.pos.distanceTo(pos);
                 if (d <= rad) {
                     if (isFlash || wid === 'cryo_nova') {
                         b.stunTimer = Math.max(b.stunTimer, stunDur || 5.0);
                     } else {
                         const killed = b.takeDamage(dmg * (1 - (d / rad) * 0.5), 'player');
-                        if (killed) this._awardPlayerKill(b, false, 'EXPLOSIVE', null);
+                        if (killed) {
+                            killedAny = true;
+                            this._awardPlayerKill(b, false, 'EXPLOSIVE', null);
+                        }
                     }
                     hits++;
                 }
             }
-            if (hits > 0) BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: true });
+            if (hits > 0) BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: killedAny });
         }
 
         activateStreak(slotIdxOrId) {
@@ -590,7 +647,42 @@
             BO.Sound.playKillstreakReady();
             BO.Events.emit('hud:banner', { title: ks.name.toUpperCase() + ' DEPLOYED', sub: 'TACTICAL SUPPORT INBOUND', color: '#38bdf8' });
 
-            if (ksId === 'uav') {
+            if (ksId === 'blackbird') {
+                this.uavTimer = Math.max(this.uavTimer, 45);
+            } else if (ksId === 'counter_uav') {
+                this.counterUavTimer = 12;
+            } else if (ksId === 'pave_low') {
+                BO.FX.spawnChopper(BO.Player.pos.x, BO.Player.pos.z, 52);
+            } else if (ksId === 'emergency_airdrop') {
+                BO.Player.refillAllAmmo();
+                this.uavTimer = Math.max(this.uavTimer, 20);
+                BO.FX.spawnChopper(BO.Player.pos.x, BO.Player.pos.z, 16);
+                BO.Events.emit('hud:toast', { text: 'RESUPPLIED • RECON AND AIR COVER ACTIVE', color: '#fbbf24' });
+            } else if (ksId === 'emp') {
+                this.uavTimer = 0;
+                for (const bot of this.bots) {
+                    if (this.isSolo || bot.team !== this.playerTeam) bot.stunTimer = Math.max(bot.stunTimer, 4.5);
+                }
+            } else if (ksId === 'sentry_gun') {
+                this._removeSentry();
+                const pos = BO.Player.pos.clone().add(new THREE.Vector3(-Math.sin(BO.Player.yaw), 0.95, -Math.cos(BO.Player.yaw)));
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.2, 0.55),
+                    new THREE.MeshStandardMaterial({ color: 0x263543, metalness: 0.43, roughness: 0.53 }));
+                mesh.position.copy(pos);
+                BO.World.scene.add(mesh);
+                this.sentry = { pos, mesh, time: 18, cooldown: 0 };
+            } else if (ksId === 'napalm_strike' || ksId === 'artillery') {
+                const yaw = BO.Player.yaw;
+                const center = BO.Player.pos.clone().add(new THREE.Vector3(-Math.sin(yaw) * 18, 0, -Math.cos(yaw) * 18));
+                for (const offset of [-6, 0, 6]) {
+                    const point = center.clone().add(new THREE.Vector3(Math.cos(yaw) * offset, 0, -Math.sin(yaw) * offset));
+                    point.y = BO.World.getGroundHeight(point.x, point.z, center.y) + 0.15;
+                    if (ksId === 'napalm_strike') BO.Combat._spawnNapalmPool(point, 4.5, 7);
+                    else BO.FX.spawnExplosion(point, 5, 0xf97316);
+                    this._onExplode(point, 5, ksId === 'artillery' ? 225 : 110, false, 0, ksId);
+                }
+                BO.Sound.playExplosion(0.8);
+            } else if (ksId === 'uav') {
                 this.uavTimer = 25;
             } else if (ksId === 'care_package') {
                 BO.Player.refillAllAmmo();
@@ -617,6 +709,15 @@
                 BO.Events.emit('hud:banner', { title: 'TACTICAL NUKE INBOUND', sub: 'IMPACT IN 8 SECONDS', color: '#ef4444' });
             }
             return true;
+        }
+
+        _removeSentry() {
+            if (!this.sentry) return;
+            const { mesh } = this.sentry;
+            mesh.parent?.remove(mesh);
+            mesh.geometry.dispose();
+            mesh.material.dispose();
+            this.sentry = null;
         }
 
         recordKillcamFx(fx) {
@@ -850,7 +951,7 @@
             this.elapsed += dt;
             if (!this.customRules.endlessTime) this.timeRemaining = Math.max(0, this.timeRemaining - dt);
 
-            if (this.customRules.unlimitedAmmo && BO.Player.activeWeapon) {
+            if ((this.customRules.unlimitedAmmo || (this.modeType === 'bounty' && this.bountyHolder === BO.Player)) && BO.Player.activeWeapon) {
                 const aw = BO.Player.activeWeapon;
                 if (aw.stats.kind === 'gun') aw.mag = aw.stats.magSize;
             }
@@ -863,6 +964,25 @@
                 if (this.multikillTimer <= 0) this.multikillCount = 0;
             }
             if (this.uavTimer > 0) this.uavTimer = Math.max(0, this.uavTimer - dt);
+            this.counterUavTimer = Math.max(0, this.counterUavTimer - dt);
+            if (this.sentry) {
+                const sentry = this.sentry;
+                sentry.time -= dt;
+                sentry.cooldown -= dt;
+                if (sentry.time <= 0) this._removeSentry();
+                else if (sentry.cooldown <= 0) {
+                    sentry.cooldown = 0.66;
+                    const target = this.bots.find((bot) => bot.alive && !bot.powerAlly &&
+                        (this.isSolo || bot.team !== this.playerTeam) && bot.pos.distanceToSquared(sentry.pos) < 400 &&
+                        BO.World.hasLineOfSight(sentry.pos.x, sentry.pos.y, sentry.pos.z, bot.pos.x, bot.pos.y + 1.2, bot.pos.z));
+                    if (target) {
+                        sentry.mesh.lookAt(target.pos.x, target.pos.y + 1.0, target.pos.z);
+                        BO.Sound.playTurretFire();
+                        BO.FX.spawnTracer(sentry.pos, target.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xfacc15, 0.035, 0.08);
+                        if (target.takeDamage(36, 'player')) this._awardPlayerKill(target, false, 'SENTRY GUN', null);
+                    }
+                }
+            }
             const mfx = BO.Mods ? BO.Mods.fx(this.customRules.mods || {}, 'mp') : {};
             if (mfx.permUav) this.uavTimer = Math.max(this.uavTimer, 1.0);
             if (BO.Mods) {
@@ -886,7 +1006,7 @@
                 this.chopperFireCooldown -= dt;
                 if (this.chopperFireCooldown <= 0) {
                     this.chopperFireCooldown = 1.6;
-                    const enemies = this.bots.filter((b) => b.alive && (this.modeType === 'ffa' || b.team !== 0));
+                    const enemies = this.bots.filter((b) => b.alive && (this.isSolo || b.team !== this.playerTeam));
                     if (enemies.length > 0) {
                         const t = BO.Math.pick(enemies);
                         BO.FX.spawnTracer(BO.FX.chopper.group.position.clone(), t.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0xf59e0b, 0.06, 0.16);
@@ -903,12 +1023,15 @@
                     if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
                     this.playerDeaths++;
                     this.currentStreak = 0;
+                    this.multikillCount = 0;
+                    this.multikillTimer = 0;
                     BO.Progression.recordStat('mpDeaths', 1);
-                    this.respawnTimer = this.customRules.respawnDelay ?? 2.4;
+                    this.respawnTimer = Math.max(0.1, this.customRules.respawnDelay ?? 2.4);
+                    if (this.modeType === 'bounty' && this.bountyHolder === BO.Player) this._setBounty(null);
                 } else {
-                    this.respawnTimer -= dt;
-                    if (this.respawnTimer <= 0) {
-                        const sp = this._pickBestSpawn(0);
+                    if (this.modeType !== 'search_destroy') this.respawnTimer -= dt;
+                    if (this.respawnTimer <= 0 && this.modeType !== 'search_destroy') {
+                        const sp = this._pickBestSpawn(this.playerTeam);
                         if (this.pendingClassIndex !== null) {
                             const newLoadout = BO.Loadout.getClass(this.pendingClassIndex);
                             this.pendingClassIndex = null;
@@ -922,7 +1045,9 @@
                             BO.Player.hp = BO.Player.maxHp;
                             BO.Player.alive = true;
                             BO.Player.refillAllAmmo();
+                            if (this.customRules.runnerArmor) BO.Player.armor = Math.min(BO.Player.maxArmor, 15);
                         }
+                        if (this.modeType === 'infection' && this.playerTeam === 1) this._armInfectedPlayer();
                     }
                 }
             }
@@ -930,12 +1055,14 @@
             let objPos = null;
             if (this.modeType === 'dom') objPos = this._updateDomination(dt);
             else if (this.modeType === 'hardpoint') objPos = this._updateHardpoint(dt);
+            else if (this.modeType === 'search_destroy') objPos = this._searchSite();
 
             const hitMeshes = [];
             const context = {
                 playerAlive: BO.Player.alive,
+                playerConcealed: this.counterUavTimer > 0,
                 playerPos: BO.Player.pos,
-                playerTeam: 0,
+                playerTeam: this.playerTeam,
                 bots: this.bots,
                 modeType: this.modeType,
                 objectivePos: objPos,
@@ -946,7 +1073,8 @@
                     if (!BO.Player.alive) {
                         bot.kills++;
                         bot.score += 100;
-                        if (this.modeType === 'tdm') this.teamScores[1]++;
+                        if (this.modeType === 'tdm' || this.modeType === 'four_teams') this.teamScores[bot.team]++;
+                        this._handleVariantKill(bot, BO.Player);
                         const wShort = BO.WeaponsData.get(bot.weaponId).shortName;
                         if (!this.killcamPendingEnd) {
                             this.lastKillMeta = {
@@ -970,10 +1098,8 @@
                 onBotKillBot: (killer, victim) => {
                     killer.kills++;
                     killer.score += 100;
-                    if (this.modeType === 'tdm') {
-                        if (killer.team === 0 || killer.powerAlly) this.teamScores[0]++;
-                        else this.teamScores[1]++;
-                    }
+                    if (this.modeType === 'tdm' || this.modeType === 'four_teams') this.teamScores[killer.powerAlly ? 0 : killer.team]++;
+                    this._handleVariantKill(killer, victim);
                     const wShort = BO.WeaponsData.get(killer.weaponId).shortName;
                     if (!this.killcamPendingEnd) {
                         this.lastKillMeta = {
@@ -995,19 +1121,20 @@
                 }
             };
 
-            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
+            const myTeam = this.playerTeam;
             for (const b of this.bots) {
                 if (!b.alive) {
-                    if (this.customRules.attrition) continue;
+                    b.updateCorpse(dt);
+                    if ((BO.Net?.active && !BO.Net.isHost) || this.modeType === 'search_destroy' || this.customRules.attrition) continue;
                     if (b.respawnTimer <= 0) {
-                        b.spawnAt(this._pickBestSpawn(b.team === 0 ? 0 : 1));
+                        b.spawnAt(this._pickBestSpawn(b.team));
                     } else {
                         b.respawnTimer -= dt;
                     }
                     continue;
                 }
                 b.update(dt, context);
-                if (!b.powerAlly && (this.modeType === 'ffa' || this.modeType === 'gun_game' || b.team !== myTeam)) {
+                if (!b.powerAlly && (this.isSolo || b.team !== myTeam)) {
                     const ms = b.getHitboxMeshes();
                     for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
                 }
@@ -1029,9 +1156,10 @@
                 return;
             }
 
-            if (!this.customRules.noScoreLimit && ['tdm', 'dom', 'hardpoint'].includes(this.modeType)) {
-                if (this.teamScores[0] >= this.scoreLimit) this._queueWinnerKillcam(true);
-                else if (this.teamScores[1] >= this.scoreLimit) this._queueWinnerKillcam(false);
+            if (this._updateVariant(dt)) return;
+            if (!this.customRules.noScoreLimit && ['tdm', 'dom', 'hardpoint', 'four_teams'].includes(this.modeType)) {
+                if (this.teamScores[this.playerTeam] >= this.scoreLimit) this._queueWinnerKillcam(true);
+                else if (this.teamScores.some((score, side) => side !== this.playerTeam && score >= this.scoreLimit)) this._queueWinnerKillcam(false);
             } else if (this.modeType === 'ffa' && !this.customRules.noScoreLimit) {
                 if (this.playerKills >= this.scoreLimit) this._queueWinnerKillcam(true);
                 else if (this.bots.some((b) => b.kills >= this.scoreLimit)) this._queueWinnerKillcam(false);
@@ -1040,16 +1168,161 @@
             if (!this.customRules.endlessTime && this.timeRemaining <= 0 && !this.ended && !this.killcamActive && !this.killcamPendingEnd) {
                 const win = this.modeType === 'ffa'
                     ? this.playerKills >= Math.max(0, ...this.bots.map((b) => b.kills))
-                    : this.teamScores[0] >= this.teamScores[1];
+                    : this.teamScores[this.playerTeam] >= Math.max(...this.teamScores.filter((_, i) => i !== this.playerTeam));
                 this._startWinnerKillcamOrEnd(win, win ? 'TIME LIMIT VICTORY' : 'TIME LIMIT DEFEAT');
             }
+        }
+
+        _armInfectedPlayer() {
+            const p = BO.Player;
+            p.weapons = [p._createWeaponInstance({ id: 'combat_knife', camo: 'default', attachments: {} }, false)];
+            p.activeSlot = 0;
+            p.lethalCount = 0;
+            p.tacticalCount = 0;
+            p.armor = 0;
+            p.mpPerks = [];
+            p.rebuildViewmodel();
+        }
+
+        _handleVariantKill(killer, victim) {
+            if (this.modeType === 'bounty' && victim === this.bountyHolder) this._setBounty(killer);
+            if (this.modeType !== 'infection' || (killer === BO.Player ? this.playerTeam : killer.team) !== 1) return;
+            if (victim === BO.Player) this.playerTeam = 1;
+            else {
+                victim.team = 1;
+                victim.weaponId = 'combat_knife';
+                victim.unarmed = false;
+            }
+        }
+
+        _setBounty(holder) {
+            const old = this.bountyHolder;
+            if (old === holder) return;
+            if (old) {
+                old.maxHp /= 2;
+                old.hp = Math.min(old.hp, old.maxHp);
+            }
+            this.bountyHolder = holder;
+            if (!holder) return;
+            holder.maxHp *= 2;
+            holder.hp *= 2;
+            if (holder === BO.Player) holder.reloading = false;
+            else holder.reloadTimer = 0;
+            const name = holder === BO.Player ? 'YOU' : holder.name;
+            BO.Events.emit('hud:toast', { text: 'BOUNTY HOLDER • ' + name, color: '#fde047' });
+        }
+
+        _searchSite() {
+            const map = BO.World.mapData;
+            const sites = map.hardpoints?.length ? map.hardpoints : map.domFlags;
+            return sites?.length ? sites[(this.searchRound - 1) % sites.length] : map.waypoints?.[0];
+        }
+
+        _placeSearchMarker() {
+            const site = this._searchSite();
+            if (!site) return;
+            if (!this.searchMarker) {
+                this.searchMarker = new THREE.Mesh(new THREE.RingGeometry(1.92, 2.02, 40),
+                    new THREE.MeshBasicMaterial({ color: 0xfbbf24, side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+                this.searchMarker.rotation.x = -Math.PI / 2;
+                BO.World.scene.add(this.searchMarker);
+            }
+            this.searchMarker.position.set(site.x, (site.y || 0) + 0.06, site.z);
+        }
+
+        tryInteract() {
+            if (!this.active || this.modeType !== 'search_destroy' || this.ended || this.killcamActive || this.killcamPendingEnd || !BO.Player.alive) return;
+            const site = this._searchSite();
+            if (!site || BO.Math.dist3D(BO.Player.pos.x, BO.Player.pos.y, BO.Player.pos.z, site.x, site.y || 0, site.z) > 3.5) return;
+            const attackTeam = (this.searchRound - 1) % 2;
+            if (!this.searchBomb && this.playerTeam === attackTeam) {
+                this.searchBomb = 35;
+                this.searchProgress = 0;
+                BO.Progression.recordStat('mpObjectives', 1);
+                BO.Events.emit('hud:toast', { text: 'CHARGE PLANTED • 35 SECONDS', color: '#fbbf24' });
+            } else if (this.searchBomb && this.playerTeam !== attackTeam) {
+                BO.Progression.recordStat('mpObjectives', 1);
+                this._finishSearchRound(this.playerTeam, 'CHARGE DEFUSED');
+            }
+        }
+
+        _finishSearchRound(winningTeam, reason) {
+            if (++this.teamScores[winningTeam] >= this.scoreLimit) {
+                this._queueWinnerKillcam(winningTeam === this.playerTeam, reason);
+                return;
+            }
+            this.searchRound++;
+            this._placeSearchMarker();
+            this.searchProgress = 0;
+            this.searchBomb = null;
+            this.timeRemaining = this.searchRoundSeconds;
+            const cls = this.pendingClassIndex === null ? BO.Loadout.getActiveClass() : BO.Loadout.getClass(this.pendingClassIndex);
+            this.pendingClassIndex = null;
+            BO.Player.initForMatch('mp', this._pickBestSpawn(this.playerTeam), cls, false);
+            this._applyPlayerCustomRules();
+            this._applyModsAndProtocol();
+            this.respawnTimer = 0;
+            for (const bot of this.bots) bot.spawnAt(this._pickBestSpawn(bot.team));
+            BO.Events.emit('hud:banner', { title: reason, sub: 'ROUND ' + this.searchRound, color: '#38bdf8' });
+        }
+
+        _updateVariant(dt) {
+            const player = BO.Player;
+            if (this.modeType === 'bounty') {
+                if (!this.bountyHolder?.alive) this._setBounty(BO.Math.pick([player, ...this.bots].filter((p) => p.alive)));
+                const holder = this.bountyHolder;
+                if (holder) this.bountySeconds.set(holder, (this.bountySeconds.get(holder) || 0) + dt);
+                if (this.timeRemaining <= 0 && !this.customRules.endlessTime) {
+                    const playerSeconds = this.bountySeconds.get(player) || 0;
+                    const win = this.bots.every((bot) => playerSeconds >= (this.bountySeconds.get(bot) || 0));
+                    this._startWinnerKillcamOrEnd(win, win ? 'BOUNTY VICTORY' : 'BOUNTY DEFEAT');
+                }
+                return true;
+            }
+            if (this.modeType === 'infection') {
+                const survivors = Number(this.playerTeam === 0 && player.alive) + this.bots.filter((bot) => bot.team === 0 && bot.alive).length;
+                this.teamScores[0] = survivors;
+                this.teamScores[1] = this.bots.length + 1 - survivors;
+                const expired = this.timeRemaining <= 0 && !this.customRules.endlessTime;
+                if (!survivors || expired) {
+                    this._queueWinnerKillcam(this.playerTeam === (survivors ? 0 : 1), survivors ? 'SURVIVORS HOLD' : 'INFECTION COMPLETE');
+                }
+                return true;
+            }
+            if (this.modeType !== 'search_destroy') return false;
+            const attackers = (this.searchRound - 1) % 2;
+            const defenders = 1 - attackers;
+            const alive = [0, 0];
+            if (player.alive) alive[this.playerTeam]++;
+            for (const bot of this.bots) if (bot.alive) alive[bot.team]++;
+            if (!alive[defenders]) this._finishSearchRound(attackers, 'DEFENDERS ELIMINATED');
+            else if (!this.searchBomb && (!alive[attackers] || (!this.customRules.endlessTime && this.timeRemaining <= 0))) {
+                this._finishSearchRound(defenders, 'SITE SECURED');
+            } else {
+                const site = this._searchSite();
+                const team = this.searchBomb ? defenders : attackers;
+                const atSite = site && this.bots.some((bot) => bot.team === team && bot.alive &&
+                    BO.Math.dist3D(bot.pos.x, bot.pos.y, bot.pos.z, site.x, site.y || 0, site.z) < 3.5);
+                this.searchProgress = atSite ? this.searchProgress + dt : 0;
+                if (this.searchBomb) {
+                    this.searchBomb -= dt;
+                    if (this.searchBomb <= 0) this._finishSearchRound(attackers, 'CHARGE DETONATED');
+                    else if (this.searchProgress >= 5) this._finishSearchRound(defenders, 'CHARGE DEFUSED');
+                } else if (this.searchProgress >= 4) {
+                    this.searchBomb = 35;
+                    this.searchProgress = 0;
+                    BO.Events.emit('hud:toast', { text: 'CHARGE PLANTED • 35 SECONDS', color: '#fbbf24' });
+                }
+            }
+            return true;
         }
 
         _updateDomination(dt) {
             let targetFlag = this.domStates[1] || this.domStates[0];
             for (let i = 0; i < this.domStates.length; i++) {
                 const f = this.domStates[i];
-                let allyCap = BO.Player.alive && BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, f.x, f.z) < 3.4 ? 1 : 0;
+                const playerCapturing = BO.Player.alive && BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, f.x, f.z) < 3.4;
+                let allyCap = Number(playerCapturing);
                 let enemyCap = 0;
                 for (const b of this.bots) {
                     if (!b.alive) continue;
@@ -1063,6 +1336,7 @@
                     if (f.progress >= 1) {
                         f.owner = 0; f.progress = 0;
                         this.playerScore += 150;
+                        if (playerCapturing) BO.Progression.recordStat('mpObjectives', 1);
                         BO.Events.emit('hud:toast', { text: `CAPTURED FLAG ${f.id}`, color: '#38bdf8' });
                     }
                 } else if (enemyCap > allyCap && f.owner !== 1) {
@@ -1099,12 +1373,14 @@
             if (this.hpTimer <= 0) {
                 this.hpIndex = (this.hpIndex + 1) % hps.length;
                 this.hpTimer = 45;
+                this.playerCapturedHardpoint = false;
                 const nextHp = hps[this.hpIndex];
                 if (BO.World.hardpointRing) BO.World.hardpointRing.position.set(nextHp.x, nextHp.y + 0.08, nextHp.z);
                 BO.Events.emit('hud:toast', { text: 'HARDPOINT MOVED: ' + nextHp.label, color: '#f5a623' });
             }
             const cur = hps[this.hpIndex];
-            let allies = BO.Player.alive && BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, cur.x, cur.z) <= cur.r ? 1 : 0;
+            const playerOnPoint = BO.Player.alive && BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, cur.x, cur.z) <= cur.r;
+            let allies = Number(playerOnPoint);
             let enemies = 0;
             for (const b of this.bots) {
                 if (b.alive && BO.Math.dist2D(b.pos.x, b.pos.z, cur.x, cur.z) <= cur.r) {
@@ -1114,6 +1390,12 @@
             this.hpOwner = allies > 0 && enemies === 0 ? 0 : (enemies > 0 && allies === 0 ? 1 : -1);
             if (BO.World.hardpointRing) {
                 BO.World.hardpointRing.material.color.setHex(this.hpOwner === 0 ? 0x38bdf8 : (this.hpOwner === 1 ? 0xef4444 : 0xf59e0b));
+            }
+            if (this.hpOwner === 0 && playerOnPoint) {
+                if (!this.playerCapturedHardpoint) {
+                    BO.Progression.recordStat('mpObjectives', 1);
+                    this.playerCapturedHardpoint = true;
+                }
             }
             this.hpTickTimer += dt;
             if (this.hpTickTimer >= 1.0) {
@@ -1125,14 +1407,14 @@
         }
 
         getScoreboard() {
-            const myTeam = (BO.Net && BO.Net.active) ? BO.Net.myTeam : 0;
+            const myTeam = this.playerTeam;
             const rows = [{
                 name: (BO.Save.data.callsign || 'YOU') + ' (YOU)',
                 team: myTeam,
                 isPlayer: true,
                 kills: this.playerKills,
                 deaths: this.playerDeaths,
-                score: this.playerScore
+                score: this.modeType === 'bounty' ? Math.floor(this.bountySeconds.get(BO.Player) || 0) : this.playerScore
             }];
             if (BO.Net && BO.Net.active) {
                 for (const [pid, prof] of BO.Net.players.entries()) {
@@ -1154,7 +1436,7 @@
                     isPlayer: false,
                     kills: b.kills,
                     deaths: b.deaths,
-                    score: b.score
+                    score: this.modeType === 'bounty' ? Math.floor(this.bountySeconds.get(b) || 0) : b.score
                 });
             }
             rows.sort((a, b) => b.score - a.score || b.kills - a.kills);

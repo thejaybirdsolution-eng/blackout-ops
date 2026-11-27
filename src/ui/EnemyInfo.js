@@ -76,10 +76,11 @@
             pivot.rotation.set(0, -0.55, 0);
             pivot.updateMatrixWorld(true);
             const box = new THREE.Box3().setFromObject(root);
-            const size = box.getSize(new THREE.Vector3());
-            const center = box.getCenter(new THREE.Vector3());
-            const dist = Math.max(size.y * 1.65, size.x * 1.9, 1.6);
-            camera.position.set(center.x + dist * 0.12, center.y + size.y * 0.08, center.z + dist);
+            const { center, radius } = box.getBoundingSphere(new THREE.Sphere());
+            const dist = Math.max(1.6, 1.12 * radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)));
+            camera.position.set(center.x + dist * 0.12, center.y + dist * 0.08, center.z + dist);
+            camera.far = Math.max(50, dist + 3 * radius);
+            camera.updateProjectionMatrix();
             camera.lookAt(center.x, center.y, center.z);
             renderer.setClearColor(0x000000, 0);
             renderer.render(scene, camera);

@@ -70,7 +70,10 @@
             this.roamGoal = null;
             this.lastAttacker = null;
 
-            this.parts = BO.CharacterMesh.buildSoldier(this.team === 0 ? 0 : 1, this);
+            this.parts = BO.CharacterMesh.buildSoldier(BO.MPMode?.modeType === 'four_teams' && BO.State.activeMode === 'mp' ? this.team : Number(this.team !== 0), this);
+            this.animPose = { aim: 0, recoil: 0, flinch: 0 };
+            this.corpse = null;
+            if (BO.State.activeMode === 'mp') this._addSquadMark();
             if (this.unarmed && this.parts.gunBody) {
                 this.parts.gunBody.visible = false;
             }
@@ -82,6 +85,20 @@
                 this.parts.bodyPivot.userData.baseY = this.parts.bodyPivot.position.y;
             }
             BO.World.scene.add(this.parts.root);
+        }
+
+        _addSquadMark() {
+            const gear = this.parts.bodyPivot;
+            const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75 });
+            this.squadMark = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.065, 0.025), material);
+            this.squadMark.position.set(0.11, 0.46, 0.17);
+            gear.add(this.squadMark);
+            this._syncSquadMark();
+        }
+
+        _syncSquadMark() {
+            const colors = [0x38bdf8, 0xef4444, 0xfbbf24, 0xc084fc];
+            this.squadMark?.material.color.setHex(colors[this.team % colors.length]);
         }
 
         _rollSightDelay() {
@@ -110,25 +127,86 @@
             this.parts.root.visible = true;
             if (this.parts.gunBody) this.parts.gunBody.visible = !this.unarmed;
             if (this.parts.headGroup) this.parts.headGroup.scale.setScalar(this.bigHeads ? 3.0 : 1.0);
-            this.parts.root.rotation.x = 0;
+            this.corpse = null;
+            this.parts.root.rotation.set(0, this.yaw, 0);
+            this._syncSquadMark();
             this.parts.root.position.copy(this.pos);
             this.path = [];
         }
 
-        takeDamage(dmg, attacker = null) {
+        takeDamage(dmg, attacker = null, impulse = null) {
             if (!this.alive) return false;
             this.hp -= dmg;
+            this.animPose.flinch = 1;
             this.lastAttacker = attacker;
             if (this.hp <= 0) {
                 this.hp = 0;
                 this.alive = false;
                 this.deaths++;
                 this.respawnTimer = this.respawnDelay;
-                this.parts.root.visible = false;
+                if (BO.State.activeMode === 'mp') this._startCorpse(attacker, impulse ?? dmg);
+                else this.parts.root.visible = false;
                 BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 12, 0x991b1b, 4.2, 11, 0.45, 1.2);
                 return true;
             }
             return false;
+        }
+
+        _startCorpse(attacker, force, snapshot = null) {
+            const source = attacker === 'player' ? BO.Player.pos : attacker?.pos;
+            const velocity = source ? this.pos.clone().sub(source) : new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+            if (velocity.lengthSq() < 0.01) velocity.set(Math.sin(this.yaw), 0, Math.cos(this.yaw));
+            const launched = snapshot ? !!snapshot[3] : Math.random() < 0.01;
+            const strength = BO.Math.clamp(force / 35, 1.2, 9);
+            velocity.setY(0).normalize().multiplyScalar(launched ? 11 : strength);
+            velocity.y = launched ? 24 : 1.25 + strength * 0.33;
+            if (snapshot) velocity.set(snapshot[0], snapshot[1], snapshot[2]);
+            const parts = this.parts;
+            this.corpse = {
+                velocity, launched, age: 0, bounce: 0, whistleAt: 0,
+                impulse: [velocity.x, velocity.y, velocity.z, Number(launched)],
+                limbs: [parts.armL, parts.armR, parts.legL, parts.legR, parts.headGroup].filter(Boolean).map((part) => ({
+                    part, pitch: BO.Math.randRange(-8, 8), roll: BO.Math.randRange(-5, 5)
+                }))
+            };
+            if (launched) this.respawnTimer = Math.max(2.6, this.respawnTimer);
+        }
+
+        updateCorpse(dt) {
+            const body = this.corpse;
+            if (!body) return;
+            body.age += dt;
+            if (body.age >= 5) {
+                this.parts.root.visible = false;
+                this.corpse = null;
+                return;
+            }
+            const root = this.parts.root;
+            const force = body.velocity;
+            const prevY = root.position.y;
+            force.y -= 17 * dt;
+            root.position.addScaledVector(force, dt);
+            BO.World.resolveHorizontal(root.position, this.radius, 0.45, false);
+            const ground = BO.World.getGroundHeight(root.position.x, root.position.z, prevY);
+            if (root.position.y < ground && force.y < 0) {
+                root.position.y = ground;
+                force.y = body.bounce++ < 2 ? -force.y * 0.23 : 0;
+                force.x *= 0.72;
+                force.z *= 0.72;
+            }
+            const momentum = 1 / (1 + body.age * 4 + body.bounce * 0.6);
+            root.rotation.x += (body.launched ? 8 * momentum : (1.47 - root.rotation.x) * 6) * dt;
+            root.rotation.z += momentum * 2.5 * dt;
+            for (const limb of body.limbs) {
+                limb.part.rotation.x += limb.pitch * momentum * dt;
+                limb.part.rotation.z += limb.roll * momentum * dt;
+            }
+            if (body.launched && body.age < 1.55 && body.age >= body.whistleAt) {
+                body.whistleAt += 0.16;
+                const { pan, gain } = BO.Sound._spatialMetrics(root.position, 65);
+                const pitch = 1750 - body.age * 680;
+                if (gain > 0.01) BO.Sound.playSpatialTone(pitch, pitch - 112, 0.2, 'sine', gain * 0.17, pan);
+            }
         }
 
         update(dt, context) {
@@ -178,7 +256,7 @@
             }
             const target = this.cachedTarget;
             if (target?.kind === 'player') {
-                if (!context.playerAlive || BO.Player.aetherActive || this.powerAlly) this.cachedTarget = null;
+                if (context.playerConcealed || !context.playerAlive || BO.Player.aetherActive || this.powerAlly || this.team === context.playerTeam) this.cachedTarget = null;
                 else Object.assign(target, { x: context.playerPos.x, y: context.playerPos.y + 1.25, z: context.playerPos.z });
             } else if (target?.bot) {
                 if (!target.bot.alive || !this.isHostile(target.bot, context.modeType)) this.cachedTarget = null;
@@ -188,7 +266,7 @@
             let moveSpeed = 0;
             if (target && this.cachedTarget) {
                 const moveScale = this.powerMoveScale || 1;
-                const tKey = target.kind === 'player' ? 'player' : ('bot_' + target.bot.id);
+                const tKey = target.kind === 'player' ? 'player' : (target.peerId || 'bot_' + target.bot?.id);
                 if (tKey !== this.spottedTargetKey || this.sightLostTimer > 0.55) {
                     this.spottedTargetKey = tKey;
                     this.reactionTimer = this._rollSightDelay();
@@ -212,9 +290,11 @@
                 const rz = -Math.sin(this.yaw) * this.strafeDir;
                 this.pos.x += rx * strafeSpeed * dt;
                 this.pos.z += rz * strafeSpeed * dt;
-                if (dist > 14) {
-                    this.pos.x += (dx / dist) * 2.6 * this.speedScale * moveScale * dt;
-                    this.pos.z += (dz / dist) * 2.6 * this.speedScale * moveScale * dt;
+                const melee = BO.WeaponsData.get(this.weaponId).kind === 'melee';
+                if (dist > (melee ? 1.55 : 14)) {
+                    const advance = (melee ? 5.5 : 2.6) * this.speedScale * moveScale * dt;
+                    this.pos.x += dx / dist * advance;
+                    this.pos.z += dz / dist * advance;
                 }
                 moveSpeed = strafeSpeed;
 
@@ -272,11 +352,26 @@
             this.animPhase += dt * (moveSpeed * 2.2 + 1.0);
             this.parts.root.position.copy(this.pos);
             this.parts.root.rotation.y = this.yaw;
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, 0, 0);
+            const pose = this.animPose;
+            pose.aim += ((this.cachedTarget ? 1 : 0) - pose.aim) * Math.min(1, 9 * dt);
+            pose.recoil = Math.max(0, pose.recoil - dt * 7);
+            pose.flinch = Math.max(0, pose.flinch - dt * 5);
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, pose.recoil * 0.34, pose.flinch * 0.48);
+            if (BO.State.activeMode === 'mp') {
+                const { bodyPivot, armL, armR, headGroup } = this.parts;
+                const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;
+                bodyPivot.rotation.z += (this.cachedTarget ? this.strafeDir : 0) * pose.aim * 0.085;
+                bodyPivot.position.y -= reloadPose * 0.035;
+                bodyPivot.rotation.x += Math.min(0.12, moveSpeed * 0.019) - pose.aim * 0.03;
+                headGroup.rotation.y = Math.sin(this.animPhase * 0.45) * (1 - pose.aim) * 0.14;
+                armL.rotation.x += pose.aim * -0.14 + reloadPose * 0.46;
+                armR.rotation.x += pose.aim * -0.21 + reloadPose * 0.4 - pose.recoil * 0.17;
+                armR.rotation.z = reloadPose * 0.34;
+            }
         }
 
         isHostile(other, modeType) {
-            const isFFA = modeType === 'ffa' || modeType === 'gun_game';
+            const isFFA = modeType === 'ffa' || modeType === 'gun_game' || modeType === 'bounty';
             const ownTeam = this.powerAlly ? 0 : this.team;
             const otherTeam = other.powerAlly ? 0 : other.team;
             return isFFA ? !(ownTeam === 0 && otherTeam === 0) : ownTeam !== otherTeam;
@@ -284,10 +379,11 @@
 
         canKeepTarget(target, context) {
             const playerTarget = target.kind === 'player';
-            if (playerTarget && (!context.playerAlive || BO.Player.aetherActive || this.powerAlly)) return false;
+            if (playerTarget && (context.playerConcealed || !context.playerAlive || BO.Player.aetherActive || this.powerAlly || this.team === context.playerTeam)) return false;
             if (!playerTarget && (!target.bot?.alive || !this.isHostile(target.bot, context.modeType))) return false;
             const pos = playerTarget ? context.playerPos : target.bot.pos;
             const range = playerTarget && BO.Player.mpPerks.includes('ghost') ? 26 : 42;
+            if (BO.Combat.smokeBlocks(this.pos.x, this.pos.y + 1.5, this.pos.z, pos.x, pos.y + 1.35, pos.z)) return false;
             return this.pos.distanceTo(pos) < range &&
                 BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.5, this.pos.z, pos.x, pos.y + 1.35, pos.z);
         }
@@ -297,16 +393,17 @@
             let bestDist = 42;
             const myEyeY = this.pos.y + 1.5;
 
-            const isFFA = context.modeType === 'ffa' || context.modeType === 'gun_game';
+            const isFFA = context.modeType === 'ffa' || context.modeType === 'gun_game' || context.modeType === 'bounty';
 
             // Check player
             if (context.playerAlive && !BO.Player.aetherActive) {
-                const hostileToPlayer = !this.powerAlly && (isFFA || this.team !== context.playerTeam);
+                const hostileToPlayer = !context.playerConcealed && !this.powerAlly && (isFFA || this.team !== context.playerTeam);
                 if (hostileToPlayer) {
                     const p = context.playerPos;
                     const d = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, p.x, p.y, p.z);
                     const stealthRange = BO.Player.mpPerks.includes('ghost') ? 26 : 42;
                     if (d < Math.min(bestDist, stealthRange) &&
+                        !BO.Combat.smokeBlocks(this.pos.x, myEyeY, this.pos.z, p.x, p.y + 1.35, p.z) &&
                         BO.World.hasLineOfSight(this.pos.x, myEyeY, this.pos.z, p.x, p.y + 1.35, p.z)) {
                         bestDist = d;
                         best = { kind: 'player', x: p.x, y: p.y + 1.25, z: p.z };
@@ -335,7 +432,8 @@
                 const hostile = this.isHostile(o, context.modeType);
                 if (!hostile) continue;
                 const d = BO.Math.dist3D(this.pos.x, this.pos.y, this.pos.z, o.pos.x, o.pos.y, o.pos.z);
-                if (d < bestDist && BO.World.hasLineOfSight(this.pos.x, myEyeY, this.pos.z, o.pos.x, o.pos.y + 1.35, o.pos.z)) {
+                if (d < bestDist && !BO.Combat.smokeBlocks(this.pos.x, myEyeY, this.pos.z, o.pos.x, o.pos.y + 1.35, o.pos.z) &&
+                    BO.World.hasLineOfSight(this.pos.x, myEyeY, this.pos.z, o.pos.x, o.pos.y + 1.35, o.pos.z)) {
                     bestDist = d;
                     best = { kind: 'bot', bot: o, x: o.pos.x, y: o.pos.y + 1.25, z: o.pos.z };
                 }
@@ -348,6 +446,7 @@
             if (this.unarmed) return;
             const spec = BO.WeaponsData.get(this.weaponId);
             if (spec.kind === 'melee') {
+                this.animPose.recoil = 1;
                 if (dist > 2.4) return;
                 this.fireTimer = 0.65;
                 BO.Sound.playMelee();
@@ -356,11 +455,13 @@
                 else if (target.bot && target.bot.alive && target.bot.takeDamage(dmg, this) && context.onBotKillBot) context.onBotKillBot(this, target.bot);
                 return;
             }
-            if (this.mag <= 0) {
+            if (this.mag <= 0 && !(BO.State.activeMode === 'mp' && BO.MPMode.bountyHolder === this)) {
                 this.reloadTimer = 1.6;
                 return;
             }
-            this.mag--;
+            const holdsBounty = BO.State.activeMode === 'mp' && BO.MPMode.bountyHolder === this;
+            if (!holdsBounty) this.mag--;
+            this.animPose.recoil = 1;
             this.fireTimer = Math.max(0.11, (60 / Math.max(40, spec.rpm)) * (1.45 - this.difficulty.speedMult * 0.25));
 
             const start = new THREE.Vector3(this.pos.x, this.pos.y + 1.45, this.pos.z);
@@ -402,6 +503,8 @@
         }
 
         destroy() {
+            this.squadMark?.material.dispose();
+            this.squadMark?.geometry.dispose();
             if (this.parts && this.parts.root && BO.World.scene) {
                 BO.World.scene.remove(this.parts.root);
             }

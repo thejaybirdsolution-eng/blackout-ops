@@ -296,7 +296,7 @@
         const o = ctx.createOscillator(), g = ctx.createGain();
         o.type = wave; o.frequency.setValueAtTime(freq, t0);
         g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        o.connect(g); g.connect(ctx.destination);
+        o.connect(g); g.connect(BO.Sound.sfxGain || ctx.destination);
         o.start(t0); o.stop(t0 + dur + 0.02);
     };
     const mCoinSfx = () => { if (BO.MinigameAudio) BO.MinigameAudio.marioCoin(); else { mTone(988, 0.08, 'square', 0.1, 0); mTone(1319, 0.28, 'square', 0.1, 0.07); } };

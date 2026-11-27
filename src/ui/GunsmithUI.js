@@ -63,6 +63,7 @@
             this.editingSlot = 'primary';
             this.weaponView = 'weapon'; // 'weapon' | optic | muzzle | underbarrel | magazine | stock | 'camo'
             this.activeWeaponClass = 'ALL';
+            this.activeSourceGame = 'all';
             this.searchQuery = '';
             this.streakIndex = 0;
             this.hoverPreviewCfg = null;
@@ -407,6 +408,14 @@
             tools.className = 'picker-tools';
             tools.innerHTML = `
                 <input type="text" class="gs-search-input" placeholder="Search weapons…" value="${escAttr(this.searchQuery)}">
+                <label>Game
+                    <select class="side-select" data-weapon-game>
+                        <option value="all">All games</option>
+                        <option value="group" ${this.activeSourceGame === 'group' ? 'selected' : ''}>Group by game</option>
+                        ${Object.entries(BO.ClassicWeapons.titles).map(([id, title]) =>
+                            `<option value="${id}" ${this.activeSourceGame === id ? 'selected' : ''}>${title}</option>`).join('')}
+                    </select>
+                </label>
                 <div class="gs-class-pills">${availCats.map((cat) => `<button class="gs-class-pill ${this.activeWeaponClass === cat ? 'active' : ''}" data-wcat="${cat}">${SHORT_CLASS_LABELS[cat] || cat}</button>`).join('')}</div>`;
             host.appendChild(tools);
             const list = document.createElement('div');
@@ -417,9 +426,17 @@
                 list.innerHTML = '';
                 const q = this.searchQuery.trim().toLowerCase();
                 const filtered = eligible.filter((w) =>
+                    (['all', 'group'].includes(this.activeSourceGame) || w.sourceGames.includes(this.activeSourceGame)) &&
                     (this.activeWeaponClass === 'ALL' || w.category === this.activeWeaponClass) &&
                     (!q || w.name.toLowerCase().includes(q) || w.category.toLowerCase().includes(q)));
-                const groups = BO.WeaponsData.listByClass(filtered);
+                const groups = this.activeSourceGame === 'group'
+                    ? [
+                        ...Object.entries(BO.ClassicWeapons.titles).map(([game, category]) => ({
+                            category, weapons: filtered.filter((w) => w.sourceGames.includes(game))
+                        })),
+                        { category: 'Other weapons', weapons: filtered.filter((w) => !w.sourceGames.length) }
+                    ].filter((g) => g.weapons.length)
+                    : BO.WeaponsData.listByClass(filtered);
                 for (const grp of groups) {
                     const hdr = document.createElement('div');
                     hdr.className = 'gs-group-header';
@@ -428,10 +445,11 @@
                     for (const w of grp.weapons) {
                         const unlocked = BO.Progression.isItemUnlocked(w.unlockLevel, w.id);
                         const rec = BO.Save.getWeaponRecord(w.id);
+                        const source = w.sourceGames.map((id) => BO.ClassicWeapons.titles[id]).join(' / ');
                         const tierCol = w.tier === 'magic' ? '#c084fc' : (w.tier === 'uncommon' ? '#38bdf8' : '#94a3b8');
                         list.appendChild(this._optionCard({
                             name: w.name,
-                            desc: w.description,
+                            desc: source ? `${w.description} • ${source}` : w.description,
                             sub: `${w.damage}${w.pellets > 1 ? '×' + w.pellets : ''} dmg • ${w.rpm} rpm • ${w.kind === 'melee' ? (w.cleave || 1) + '-hit cleave' : w.magSize + ' mag'} • LV ${rec.level}`,
                             badge: `<span class="opt-tier" style="--tier-col:${tierCol};">${(w.tier || 'common').toUpperCase()}</span>`,
                             active: cfg.id === w.id,
@@ -455,6 +473,7 @@
                 }
                 if (!groups.length) list.innerHTML = '<div class="opt-empty">No weapons match.</div>';
             };
+            tools.querySelector('[data-weapon-game]').onchange = (e) => { this.activeSourceGame = e.target.value; populate(); };
             tools.querySelector('input').oninput = (e) => { this.searchQuery = e.target.value; populate(); };
             tools.querySelectorAll('[data-wcat]').forEach((pb) => {
                 pb.onclick = () => {
@@ -478,6 +497,7 @@
             list.className = 'opt-list';
             host.appendChild(list);
             for (const att of (BO.AttachmentsData.ATTACHMENTS[cat] || [])) {
+                if (att.mods?.weaponCategory && att.mods.weaponCategory !== baseSpec.category) continue;
                 const unlocked = BO.Progression.isAttachmentUnlocked(cfg.id, att.unlockWeaponLevel);
                 list.appendChild(this._optionCard({
                     name: att.name,

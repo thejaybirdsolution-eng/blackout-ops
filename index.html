@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="css/expansion.css?v=sv9">
     <link rel="stylesheet" href="css/survival.css?v=sv9">
     <link rel="stylesheet" href="css/survival-ui.css?v=sv9">
-    <link rel="stylesheet" href="css/modifier-board.css?v=sv9g2">
+    <link rel="stylesheet" href="css/modifier-board.css?v=field-update-1">
     <link rel="stylesheet" href="css/zone-thrill.css?v=vaults1">
     <link rel="stylesheet" href="css/gm.css?v=g17">
     <link rel="stylesheet" href="css/ui-polish.css?v=anim1">
@@ -17,7 +17,7 @@
     <link rel="stylesheet" href="css/vault-visuals.css?v=vaults1">
     <link rel="stylesheet" href="css/owrpg.css?v=ow1">
     <link rel="stylesheet" href="css/update-log.css?v=ul1">
-    <link rel="stylesheet" href="css/aaa-theme.css?v=aaa4">
+    <link rel="stylesheet" href="css/aaa-theme.css?v=field-update-1">
 
     <!-- Locally Vendored Three.js r149 & PeerJS WebRTC P2P -->
     <script defer src="vendor/three.min.js"></script>
@@ -25,19 +25,22 @@
 
     <!-- Core -->
     <script defer src="src/core/Namespace.js?v=20261124a"></script>
-    <script defer src="src/core/SaveSystem.js?v=20261124a"></script>
-    <script defer src="src/core/Settings.js?v=aaa2"></script>
+    <script defer src="src/core/SaveSystem.js?v=field-update-1"></script>
+    <script defer src="src/core/Settings.js?v=field-update-1"></script>
     <script defer src="src/graphics/Bevel.js?v=aaa4"></script>
-    <script defer src="src/net/NetworkManager.js?v=20261124a"></script>
+    <script defer src="src/net/NetworkManager.js?v=field-update-1"></script>
 
     <!-- Game Data -->
-    <script defer src="src/data/WeaponsData.js?v=20261124a"></script>
-    <script defer src="src/data/AttachmentsData.js?v=20261124a"></script>
+    <script defer src="src/data/ClassicWeapons.js?v=1"></script>
+    <script defer src="src/data/WeaponsData.js?v=field-update-1"></script>
+    <script defer src="src/data/AttachmentsData.js?v=field-update-1"></script>
     <script defer src="src/data/ExpansionData.js"></script>
     <script defer src="src/data/ProgressionData.js?v=sv9"></script>
     <script defer src="src/data/ZombiesData.js?v=sv9"></script>
-    <script defer src="src/systems/ZombieCustomizer.js?v=zc1"></script>
+    <script defer src="src/data/ZombieBehaviors.js?v=1"></script>
+    <script defer src="src/systems/ZombieCustomizer.js?v=field-update-1"></script>
     <script defer src="src/data/MapsData.js?v=zm1"></script></script>
+    <script defer src="src/data/ReactiveModifiers.js?v=1"></script>
     <script defer src="src/data/ModeModifiersCatalog.js?v=sv9"></script>
     <script defer src="src/data/SurvivalData.js?v=20x1"></script>
     <script defer src="src/data/SurvivalCampaignData.js?v=sv9"></script>
@@ -59,12 +62,12 @@
     <script defer src="src/data/UpdateLogData.js?v=ul5"></script>
 
     <!-- Audio & 3D Graphics -->
-    <script defer src="src/audio/SoundEngine.js?v=rpg1"></script>
+    <script defer src="src/audio/SoundEngine.js?v=field-update-1"></script>
     <script defer src="src/graphics/TextureFactory.js?v=zm1"></script>
     <script defer src="src/graphics/ArsenalDetails.js?v=sv9"></script>
     <script defer src="src/graphics/WeaponMeshBuilder.js?v=anim1"></script>
     <script defer src="src/graphics/CharacterMeshBuilder.js?v=td1"></script>
-    <script defer src="src/graphics/SoldierModel.js?v=aaa3"></script>
+    <script defer src="src/graphics/SoldierModel.js?v=field-update-1"></script>
     <script defer src="src/graphics/ZombieModel.js?v=anim1"></script>
     <script defer src="src/graphics/CharacterShading.js?v=aaa3"></script>
     <script defer src="src/graphics/FXSystem.js?v=20261124a"></script>
@@ -74,21 +77,21 @@
     <script defer src="src/graphics/PostFX.js?v=aaa3"></script>
 
     <!-- Progression & Loadouts -->
-    <script defer src="src/systems/ProgressionSystem.js?v=sv9"></script>
-    <script defer src="src/systems/LoadoutSystem.js?v=expansion1"></script>
-    <script defer src="src/systems/ModifierSystem.js?v=sv9"></script>
+    <script defer src="src/systems/ProgressionSystem.js?v=field-update-1"></script>
+    <script defer src="src/systems/LoadoutSystem.js?v=field-update-1"></script>
+    <script defer src="src/systems/ModifierSystem.js?v=field-update-1"></script>
 
     <!-- Engine & Entities -->
     <script defer src="src/graphics/MapDetailBuilder.js?v=aaa4"></script>
     <script defer src="src/engine/WorldBuilder.js?v=zm1"></script>
-    <script defer src="src/engine/PlayerController.js?v=anim1"></script>
-    <script defer src="src/engine/CombatSystem.js?v=sv9mg7"></script>
-    <script defer src="src/entities/ZombieEntity.js?v=sv9"></script>
-    <script defer src="src/entities/BotAI.js?v=z3"></script>
+    <script defer src="src/engine/PlayerController.js?v=field-update-1"></script>
+    <script defer src="src/engine/CombatSystem.js?v=field-update-1"></script>
+    <script defer src="src/entities/ZombieEntity.js?v=field-update-1"></script>
+    <script defer src="src/entities/BotAI.js?v=field-update-1"></script>
 
     <!-- Modes -->
-    <script defer src="src/modes/ZombiesMode.js?v=zm1"></script>
-    <script defer src="src/modes/MultiplayerMode.js?v=sv9"></script>
+    <script defer src="src/modes/ZombiesMode.js?v=field-update-1"></script>
+    <script defer src="src/modes/MultiplayerMode.js?v=field-update-1"></script>
     <script defer src="src/modes/TowerDefenseMode.js?v=td1"></script>
     <script defer src="src/rpg/RPGUnlocks.js?v=vaults1"></script>
     <script defer src="src/rpg/RPGProfile.js?v=vaults1"></script>
@@ -98,7 +101,7 @@
     <script defer src="src/rpg/RPGRoomEvent.js?v=vaults1"></script>
     <script defer src="src/rpg/RPGDoors.js?v=doors1"></script>
     <script defer src="src/modes/RPGMode.js?v=doors1"></script>
-    <script defer src="src/systems/SurvivalCareer.js?v=au1"></script>
+    <script defer src="src/systems/SurvivalCareer.js?v=field-update-1"></script>
     <script defer src="src/systems/NodeBatch.js?v=g1"></script>
     <script defer src="src/systems/SurvivalPack.js?v=g5"></script>
     <script defer src="src/systems/SurvivalObjectives.js?v=au10"></script>
@@ -114,7 +117,7 @@
     <script defer src="src/systems/ZoneFinale.js?v=au7"></script>
     <script defer src="src/systems/ZoneArchive.js?v=z5"></script>
     <script defer src="src/systems/ZoneEvents.js?v=g6"></script>
-    <script defer src="src/systems/ZoneThrill.js?v=g1"></script>
+    <script defer src="src/systems/ZoneThrill.js?v=field-update-1"></script>
     <script defer src="src/systems/ZoneInfest.js?v=g2"></script>
     <script defer src="src/systems/ZoneContracts.js?v=g1"></script>
     <script defer src="src/data/ZoneWildData.js?v=g1"></script>
@@ -152,7 +155,7 @@
     <script defer src="src/gm/GMHud.js?v=gm1"></script>
     <script defer src="src/gm/GMGuide.js?v=vaults1"></script>
     <script defer src="src/gm/GMUI.js?v=g1"></script>
-    <script defer src="src/modes/SurvivalMode.js?v=zc1"></script>
+    <script defer src="src/modes/SurvivalMode.js?v=field-update-1"></script>
     <script defer src="src/owrpg/OWRPGSave.js?v=ow1"></script>
     <script defer src="src/owrpg/OWRPGCharacter.js?v=ow1"></script>
     <script defer src="src/owrpg/OWRPGFactions.js?v=ow1"></script>
@@ -168,18 +171,18 @@
     <script defer src="src/modes/OWRPGMode.js?v=ow1"></script>
 
     <!-- UI & Bootstrap -->
-    <script defer src="src/ui/EnemyInfo.js?v=polish2"></script>
+    <script defer src="src/ui/EnemyInfo.js?v=field-update-1"></script>
     <script defer src="src/ui/TooltipSystem.js?v=polish3"></script>
-    <script defer src="src/ui/HUDController.js?v=zm1"></script>
-    <script defer src="src/ui/GunsmithUI.js?v=20261124a"></script>
-    <script defer src="src/ui/ModifierMenuUI.js?v=sv9g3"></script>
+    <script defer src="src/ui/HUDController.js?v=field-update-1"></script>
+    <script defer src="src/ui/GunsmithUI.js?v=field-update-1"></script>
+    <script defer src="src/ui/ModifierMenuUI.js?v=field-update-1"></script>
     <script defer src="src/ui/UpdateLogUI.js?v=ul3"></script>
-    <script defer src="src/ui/MenuController.js?v=td1"></script>
+    <script defer src="src/ui/MenuController.js?v=field-update-1"></script>
     <script defer src="src/systems/SuperpowerSystem.js"></script>
-    <script defer src="src/ui/ExpansionShop.js?v=sv9"></script>
+    <script defer src="src/ui/ExpansionShop.js?v=field-update-1"></script>
     <script defer src="src/ui/SurvivalIcons.js?v=sv9g1"></script>
     <script defer src="src/ui/SurvivalUI.js?v=vaults1"></script>
-    <script defer src="src/ui/ModeGuide.js?v=86d"></script>
+    <script defer src="src/ui/ModeGuide.js?v=field-update-1"></script>
     <script defer src="src/ui/ControlsPanel.js?v=ow1"></script>
     <!-- Minigames (Target Practice, Arcade Hall, Boss Rush, Speed Runs, Fun & Specials) -->
     <script defer src="src/minigames/MinigameCore.js?v=up4"></script>
@@ -211,20 +214,20 @@
     <script defer src="src/minigames/FlightCircuit.js?v=86c"></script>
     <script defer src="src/minigames/PrismFoundry.js?v=86c"></script>
     <script defer src="src/minigames/FunGamesA.js?v=tour86c"></script>
-    <script defer src="src/minigames/FunGamesB.js?v=tour86f"></script>
+    <script defer src="src/minigames/FunGamesB.js?v=field-update-1"></script>
     <script defer src="src/minigames/FunGamesC.js?v=86e"></script>
-    <script defer src="src/minigames/FunGamesD.js?v=86e"></script>
-    <script defer src="src/minigames/FunGamesE.js?v=86f"></script>
-    <script defer src="src/minigames/FunGamesF.js?v=86f"></script>
-    <script defer src="src/minigames/FunGamesG.js?v=86g"></script>
-    <script defer src="src/minigames/FunGamesH.js?v=86g"></script>
-    <script defer src="src/minigames/FunGamesI.js?v=86g"></script>
+    <script defer src="src/minigames/FunGamesD.js?v=field-update-1"></script>
+    <script defer src="src/minigames/FunGamesE.js?v=field-update-1"></script>
+    <script defer src="src/minigames/FunGamesF.js?v=field-update-1"></script>
+    <script defer src="src/minigames/FunGamesG.js?v=field-update-1"></script>
+    <script defer src="src/minigames/FunGamesH.js?v=field-update-1"></script>
+    <script defer src="src/minigames/FunGamesI.js?v=field-update-1"></script>
     <script defer src="src/minigames/MinigameThumbs.js?v=art3"></script>
     <script defer src="src/minigames/MinigameHub.js?v=art2"></script>
     <script defer src="src/ui/RPGUI.js?v=doors1"></script>
     <script defer src="src/ui/OWRPGUI.js?v=ow1"></script>
     <script defer src="src/ui/OWRPGPipPad.js?v=ow1"></script>
-    <script defer src="src/main.js?v=aaa3"></script>
+    <script defer src="src/main.js?v=field-update-1"></script>
 </head>
 <body>
     <canvas id="game-canvas"></canvas>
@@ -238,6 +241,8 @@
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
                 <div class="rank-pill js-rank-pill" data-tip-title="Your Military Rank" data-tip="Earn XP by getting kills, surviving rounds, and completing challenges. Level up from 1 to 55 to unlock new guns, perks, and Prestige!" data-tip-sub="Higher Prestige gives a permanent +10% XP bonus per tier."></div>
+                <button type="button" class="btn menu-audio" id="btn-menu-music" aria-label="Mute music" aria-pressed="false" title="Mute music">&#9835;</button>
+                <button type="button" class="btn menu-audio" id="btn-menu-sfx" aria-label="Mute sound effects" aria-pressed="false" title="Mute sound effects">&#128266;</button>
                 <button class="btn btn-sm" id="btn-edit-callsign" data-tip-title="Change Name" data-tip="Pick your own soldier nickname shown on the scoreboard and killfeed.">CALLSIGN</button>
             </div>
         </header>
@@ -253,11 +258,11 @@
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>
-                    <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Arena matches against AI bots or friends: Team Deathmatch, Free-for-All, Domination, Hardpoint and Gun Game, with custom modifier presets.">
+                    <button class="mode-card mode-card-mp" id="btn-menu-mp" data-tip-title="Multiplayer" data-tip="Play 11 arena formats, including Infection, Search and Destroy, Hardcore and King of the Hill Bounty.">
                         <span class="mode-card-ico">🎯</span>
                         <span class="mode-card-text">
                             <b>MULTIPLAYER <span class="mode-card-badge">alpha demo</span></b>
-                            <small>5 modes • 6 arenas • contextual vaulting • custom presets &amp; killcam</small>
+                            <small>11 formats • 6 arenas • custom rules &amp; killcam</small>
                         </span>
                         <span class="mode-card-go">PLAY →</span>
                     </button>

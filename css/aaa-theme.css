@@ -677,3 +677,49 @@
     #hud-layer .aaa-spark, #hud-layer .aaa-ring { animation: none !important; display: none; }
     #screen-main-menu::before, .ui-modal:not(.hidden) .modal-box, #hud-layer .ammo-mag.aaa-kick, #screen-main-menu .mode-card:hover .mode-card-text::after { animation: none !important; }
 }
+
+/* Keep mode selection together at the top of the menu. */
+#screen-main-menu .menu-body { grid-template-columns: minmax(0, 660px) minmax(0, 1fr) !important; gap: clamp(14px, 3vw, 48px) !important; }
+#screen-main-menu .mode-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px !important; }
+#screen-main-menu .mode-card,
+#screen-main-menu .mode-card:first-child {
+    grid-template-columns: 23px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    min-height: clamp(42px, 8vh, 64px) !important;
+    padding: 7px 9px !important;
+    border: 1px solid var(--aaa-line) !important;
+    background: linear-gradient(115deg, #161c24, #0b0e14) !important;
+}
+#screen-main-menu .mode-card:hover, #screen-main-menu .mode-card:focus-visible { border-color: var(--mc) !important; }
+#screen-main-menu .mode-card::before,
+#screen-main-menu .mode-card .mode-card-badge,
+#screen-main-menu .mode-card .mg-new-badge,
+#screen-main-menu .mode-card .mode-card-go,
+#screen-main-menu .mode-card-text small { display: none !important; }
+#screen-main-menu .mode-card-ico {
+    display: grid !important; width: 23px; height: 24px; border: 0;
+    place-items: center; background: none; font-size: 17px; color: var(--mc);
+}
+#screen-main-menu .mode-card-text b {
+    font-size: clamp(11px, 1.55vw, 19px) !important;
+    letter-spacing: .045em !important;
+    line-height: 1.05;
+}
+#screen-main-menu .menu-audio { min-width: 34px; padding: 4px; font-size: 18px !important; line-height: 1; }
+#screen-main-menu .menu-audio[aria-pressed="true"] { opacity: .55; text-decoration: line-through 2px; }
+@media (max-width: 800px) {
+    #screen-main-menu .menu-body { grid-template-columns: minmax(0, 1fr) !important; }
+    #screen-main-menu .menu-col { padding-right: 4px; }
+    #screen-main-menu .top-bar { flex-wrap: wrap; gap: 6px; }
+}
+@media (max-height: 520px) and (min-width: 620px) {
+    #screen-main-menu .mode-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    #screen-main-menu .menu-body { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@keyframes selection-change {
+    from { opacity: .68; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: no-preference) {
+    #screen-lobby .selection-changed { animation: selection-change 210ms ease-out; }
+}

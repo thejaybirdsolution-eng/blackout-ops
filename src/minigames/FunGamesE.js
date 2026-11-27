@@ -35,7 +35,7 @@
         g.gain.setValueAtTime(0.0001, t0);
         g.gain.linearRampToValueAtTime(vol, t0 + 0.012);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        o.connect(g); g.connect(ctx.destination);
+        o.connect(g); g.connect(BO.Sound.sfxGain || ctx.destination);
         o.start(t0); o.stop(t0 + dur + 0.02);
     }
 

@@ -500,9 +500,12 @@
         })
     ];
 
+    GUN_LIST.push(...BO.ClassicWeapons.build(makeGun));
+
     const WEAPONS = Object.create(null);
     const ORDER = [];
     for (const w of GUN_LIST.concat(MELEE_LIST, MAGIC_LIST)) {
+        w.sourceGames = BO.ClassicWeapons.gamesByWeapon[w.id] || [];
         WEAPONS[w.id] = w;
         ORDER.push(w.id);
     }

@@ -126,6 +126,8 @@
                 adsTime *= (snappyMap[opticId] || 0.85);
             }
             let recoilMult = 1.0;
+            let attachmentRPM = 1.0;
+            let attachmentPenetration = 0;
             let hipSpread = base.hipSpread;
             let adsSpread = base.adsSpread;
             let magMult = 1.0;
@@ -144,6 +146,9 @@
                 const att = BO.AttachmentsData.getAttachment(slot, resolvedAtts[slot]);
                 if (!att || !att.mods) continue;
                 const m = att.mods;
+                if (m.weaponCategory && m.weaponCategory !== base.category) continue;
+                if (m.rpm) attachmentRPM *= m.rpm;
+                if (m.penetration) attachmentPenetration += m.penetration;
                 if (m.damage) damage *= m.damage;
                 if (m.range) range *= m.range;
                 if (m.adsTime) adsTime *= m.adsTime;
@@ -166,10 +171,12 @@
                 }
             }
 
+            if (perks.includes('stopping_power') && base.kind === 'gun') damage *= 1.15;
             if (perks.includes('steady_aim')) hipSpread *= 0.70;
             if (perks.includes('sleight_of_hand')) reloadMult *= 0.72;
             const weaponPerks = perks.map((id) => BO.AttachmentsData.PERKS[id]?.weaponMods).filter(Boolean);
             for (const mod of weaponPerks) {
+                damage *= mod.damage || 1;
                 range *= mod.range || 1;
                 recoilMult *= mod.recoil || 1;
                 adsSpread *= mod.adsSpread || 1;
@@ -178,9 +185,9 @@
             }
 
             let fireMode = base.fireMode;
-            let rpm = base.rpm;
+            let rpm = base.rpm * attachmentRPM;
             let explosiveRadius = base.explosiveRadius || 0;
-            let penetration = base.penetration || 0;
+            let penetration = (base.penetration || 0) + attachmentPenetration;
             let magSize = Math.round(base.magSize * magMult);
             let reserveMax = Math.round(base.reserveMax * magMult);
 
@@ -221,6 +228,9 @@
             const dispShort = isPaP ? (base.papName + tierRoman) : (dual ? ('AKIMBO ' + base.shortName) : base.shortName);
 
             const fireModes = [fireMode];
+            if (base.category === 'Assault Rifle' && ['masterkey', 'underbarrel_launcher', 'underbarrel_flame'].includes(atts.underbarrel)) {
+                fireModes.push(atts.underbarrel);
+            }
             if (base.altFireMode && !fireModes.includes(base.altFireMode)) fireModes.push(base.altFireMode);
             if (base.kind !== 'melee' && (fireMode === 'auto' || base.altFireMode === 'auto') && !fireModes.includes('semi')) {
                 const autoIdx = fireModes.indexOf('auto');
@@ -272,6 +282,7 @@
                 moveMult,
                 penetration,
                 explosiveRadius,
+                meleeReach: atts.underbarrel === 'bayonet' ? 0.75 : 0,
                 isConeBlast: !!base.isConeBlast,
                 coneHalfAngle: base.coneHalfAngle || 0.4,
                 suppressed,

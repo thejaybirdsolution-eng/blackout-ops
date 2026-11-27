@@ -21,7 +21,9 @@
     const BO = global.BO;
     const TEAM = {
         0: { carrier: 0x3d5168, fatigue: 0x39463a, accent: 0x5ec8ff, helmet: 0x435668 },
-        1: { carrier: 0x6a3a33, fatigue: 0x4a3f35, accent: 0xff5a4a, helmet: 0x5d3a34 }
+        1: { carrier: 0x6a3a33, fatigue: 0x4a3f35, accent: 0xff5a4a, helmet: 0x5d3a34 },
+        2: { carrier: 0x6c5427, fatigue: 0x555044, accent: 0xfbbf24, helmet: 0x67532d },
+        3: { carrier: 0x574363, fatigue: 0x454254, accent: 0xc084fc, helmet: 0x554661 }
     };
 
     // ---------------------------------------------------------------- textures
@@ -178,7 +180,7 @@
         _m(key, fn) { return this.mats[key] || (this.mats[key] = fn()); }
 
         _materials(team) {
-            const T = TEAM[team === 0 ? 0 : 1];
+            const T = TEAM[team] || TEAM[1];
             const bump = stippleBump();
             return {
                 carrier: this._m('carrier' + team, () => new THREE.MeshStandardMaterial({
@@ -336,6 +338,16 @@
             const goggle = this._mesh(g('goggle', () => new THREE.BoxGeometry(0.17, 0.045, 0.03)), M.glass, 0, 0.018, 0.098);
             const strapG = this._mesh(g('gstrap', () => lathe([[0.112, 0.0], [0.112, 0.02]], 22, 1.05)), M.rubber, 0, 0.008, 0);
             headGroup.add(goggle, strapG);
+            const category = entity?.weaponId ? BO.WeaponsData.get(entity.weaponId).category : '';
+            if (category === 'Sniper Rifle') {
+                const hood = this._mesh(g('recon_hood', () => new THREE.SphereGeometry(0.14, 13, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.fatigue, 0, 0.055, -0.03);
+                hood.scale.set(1.07, 1.22, 1.2);
+                const neckWrap = this._mesh(g('neck_wrap', () => new THREE.CylinderGeometry(0.108, 0.13, 0.105, 12)), M.fatigue, 0, -0.055, -0.015);
+                headGroup.add(hood, neckWrap);
+            } else if (category === 'LMG' || category === 'Launcher') {
+                const shield = this._mesh(g('breacher_mask', () => new THREE.BoxGeometry(0.179, 0.086, 0.055)), M.carrier, 0, -0.037, 0.089);
+                headGroup.add(shield);
+            }
             bodyPivot.add(headGroup);
             return headGroup;
         }
@@ -456,6 +468,24 @@
             armR.rotation.set(-0.95, 0.15, 0);
 
             const gunBody = this._buildCarbine(M);
+            const weapon = entity?.weaponId ? BO.WeaponsData.get(entity.weaponId) : null;
+            const category = weapon?.category;
+            if (category === 'SMG' || category === 'Pistol') gunBody.scale.set(0.83, 0.84, category === 'Pistol' ? 0.45 : 0.73);
+            else if (category === 'LMG' || category === 'Launcher') {
+                gunBody.scale.set(1.25, 1.18, 1.12);
+                const rear = this._mesh(this._g('heavy_pack', () => new THREE.BoxGeometry(0.24, 0.3, 0.13)), M.carrier, -0.02, 0.33, -0.25);
+                bodyPivot.add(rear);
+                for (const side of [-1, 1]) {
+                    const plate = this._mesh(this._g('heavy_shoulder', () => new THREE.BoxGeometry(0.13, 0.09, 0.15)), M.carrier, 0, 0.018, -0.02);
+                    (side < 0 ? armL : armR).add(plate);
+                }
+            } else if (category === 'Sniper Rifle') gunBody.scale.z = 1.35;
+            if (weapon?.kind === 'melee') {
+                gunBody.clear();
+                const blade = this._mesh(this._g('combat_blade', () => new THREE.BoxGeometry(0.026, 0.045, 0.24)), M.steel, 0, 0, -0.1);
+                const grip = this._mesh(this._g('blade_grip', () => new THREE.BoxGeometry(0.042, 0.049, 0.12)), M.polymer, 0, 0, 0.058);
+                gunBody.add(blade, grip);
+            }
             gunBody.position.set(-0.08, -0.4, 0.2);
             gunBody.rotation.x = 0.95;
             armR.add(gunBody);
@@ -476,7 +506,7 @@
     if (BO.CharacterMesh) {
         BO.CharacterMesh._legacyBuildSoldier = BO.CharacterMesh.buildSoldier;
         BO.CharacterMesh.buildSoldier = function (team, entity) {
-            return model.build(team === 0 ? 0 : 1, entity);
+            return model.build(TEAM[team] ? team : 1, entity);
         };
     }
 })(window);

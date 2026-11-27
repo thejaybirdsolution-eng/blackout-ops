@@ -101,7 +101,11 @@
             ['slowFire', 'Half-rate player weapons'],
             ['fastFire', 'Double-rate player weapons'],
             ['slowReload', 'Double player reload time'],
-            ['noExplosiveDamage', 'Disable player explosive damage']
+            ['noExplosiveDamage', 'Disable player explosive damage'],
+            ['singlePrimary', 'Spawn with the primary slot only'],
+            ['shotgunRange', 'Player bullets deal half damage beyond 18 m'],
+            ['cleanMagazine', 'Replace half of the active magazine on elimination'],
+            ['runnerArmor', 'Restore 15 armor when respawning']
         ]],
         ['Movement and health', [
             ['noSprint', 'Disable sprint'],

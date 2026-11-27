@@ -237,6 +237,7 @@
                 });
             }
 
+            BO.ReactiveModifiers.reset();
             BO.Menus.showScreen('playing');
             this._safePointerLock();
         }
@@ -575,6 +576,7 @@
                     else if (BO.State.activeMode === 'owrpg') BO.OWRPGMode.interact();
                     else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.tryInteract();
                     else if (BO.State.activeMode === 'td') BO.TowerDefenseMode.tryInteract();
+                    else if (BO.State.activeMode === 'mp') BO.MPMode.tryInteract();
                     else if (BO.State.activeMode === 'survival') BO.SurvivalMode.interact();
                 } else if (code === kb.exfil && firstDown && !survival) {
                     if (BO.State.activeMode === 'zombies') BO.ZombiesMode.startExfil();

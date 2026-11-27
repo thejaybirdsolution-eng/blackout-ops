@@ -597,9 +597,8 @@
             this.multi = this.multiT > 0 ? this.multi + 1 : 1;
             this.multiT = 2.6;
             if (this.multi >= 2) {
-                const names = { 2: 'DOUBLE KILL', 3: 'TRIPLE KILL', 4: 'QUAD KILL' };
+                const names = { 2: 'QUICK SUCCESSION', 3: 'CHAIN REACTION', 4: 'AREA CLEARED' };
                 this.popup(names[this.multi] || 'MASSACRE ×' + this.multi, Math.min(25, 5 * this.multi));
-                if (this.multi <= 5) BO.Sound?.playMultikillVoice?.(Math.min(5, this.multi));
             }
             if ([5, 10, 15, 25, 40, 60].includes(this.streak)) {
                 const names = { 5: 'KILLING SPREE', 10: 'RAMPAGE', 15: 'UNSTOPPABLE', 25: 'ZONE REAPER', 40: 'LANTERN\'S WRATH', 60: 'EXTINCTION EVENT' };

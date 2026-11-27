@@ -38,19 +38,22 @@
                 this.applyVolumes();
             }
             if (this.ctx && this.ctx.state === 'suspended') {
-                this.ctx.resume().catch(() => {});
+                this.ctx.resume().then(() => {
+                    if (this.musicMode === 'menu' && this.menuBar === 0) this._playMenuBar();
+                }).catch(() => {});
             }
             this.unlocked = true;
             return this.ctx;
         }
 
         applyVolumes() {
-            if (!this.ctx) return;
             const s = BO.Settings.all;
+            if (s.sfxMuted) global.speechSynthesis?.cancel();
+            if (!this.ctx) return;
             const t = this.ctx.currentTime;
             this.masterGain.gain.setTargetAtTime(s.masterVolume ?? 0.8, t, 0.02);
-            this.sfxGain.gain.setTargetAtTime(s.sfxVolume ?? 0.85, t, 0.02);
-            this.musicGain.gain.setTargetAtTime((s.musicVolume ?? 0.55) * 0.45, t, 0.03);
+            this.sfxGain.gain.setTargetAtTime(s.sfxMuted ? 0 : (s.sfxVolume ?? 0.85), t, 0.02);
+            this.musicGain.gain.setTargetAtTime(s.musicMuted ? 0 : (s.musicVolume ?? 0.55) * 0.45, t, 0.03);
         }
 
         _buildNoiseBuffer() {
@@ -761,7 +764,7 @@
 
             this.playHaloMedalSting(spec.tier);
 
-            if (BO.Settings && BO.Settings.get('announcerEnabled') === false) return;
+            if (BO.Settings.get('sfxMuted') || BO.Settings.get('announcerEnabled') === false) return;
             const masterVol = BO.Settings ? (BO.Settings.get('masterVolume') ?? 0.8) : 0.8;
             const sfxVol = BO.Settings ? (BO.Settings.get('sfxVolume') ?? 0.85) : 0.85;
             if (masterVol * sfxVol <= 0.03) return;
@@ -795,6 +798,7 @@
         }
 
         playMultikillVoice(count) {
+            if (BO.State.activeMode !== 'mp') return;
             const map = {
                 2: 'double_kill',
                 3: 'triple_kill',
@@ -840,10 +844,35 @@
             this.playTone(880, 1174.66, 0.18, 'sine', 0.18, 0.08);
         }
 
+        _playMenuBar() {
+            const harmony = [
+                [38, 45, 50, 53], [34, 41, 46, 50], [41, 48, 53, 57], [36, 43, 48, 51],
+                [38, 45, 50, 53], [31, 38, 46, 50], [34, 41, 46, 53], [33, 40, 46, 49]
+            ];
+            const melody = [
+                [62, null, 65, 64], [62, null, 58, null], [60, 65, null, 69], [67, null, 63, null],
+                [65, null, 64, 62], [58, 62, null, 65], [70, null, 65, 62], [61, null, 58, 57]
+            ];
+            const bar = this.menuBar++ % harmony.length;
+            const hz = (note) => 440 * Math.pow(2, (note - 69) / 12);
+            harmony[bar].forEach((note, i) => {
+                this.playTone(hz(note), hz(note), 2.65, i === 0 ? 'sine' : 'triangle', i === 0 ? 0.19 : 0.055, i * 0.045, 'music');
+            });
+            melody[bar].forEach((note, i) => {
+                if (note === null) return;
+                this.playTone(hz(note), hz(note), 0.86, 'triangle', 0.077, 0.24 + i * 0.68, 'music');
+                this.playTone(hz(note), hz(note), 0.65, 'sine', 0.022, 0.55 + i * 0.68, 'music');
+            });
+            for (const beat of [0, 1.5, 2.25]) {
+                this.playTone(72, 31, 0.29, 'sine', 0.19, beat, 'music');
+            }
+        }
+
         startMusic(mode) {
             if (this.musicMode === mode) return;
             this.stopMusic();
             this.musicMode = mode;
+            this.menuBar = 0;
 
             // Subtle moody dark ambient pulse that stays atmospheric
             const playPulse = () => {
@@ -853,9 +882,7 @@
                 if (!this.ctx || this.ctx.state !== 'running') return;
 
                 if (this.musicMode === 'menu') {
-                    this.playTone(55, 55, 2.2, 'sine', 0.24, 0, 'music');
-                    this.playTone(110, 108, 1.8, 'triangle', 0.12, 0.4, 'music');
-                    this.playTone(164.8, 164.8, 1.4, 'sine', 0.08, 1.1, 'music');
+                    this._playMenuBar();
                 } else if (this.musicMode === 'rpg') {
                     // Low modal drone with a hopeful fifth: tension without dread.
                     this.playTone(65.4, 65.4, 2.6, 'triangle', 0.13, 0, 'music');
@@ -868,7 +895,7 @@
             };
 
             playPulse();
-            this.musicTimer = setInterval(playPulse, 3200);
+            this.musicTimer = setInterval(playPulse, mode === 'menu' ? 3000 : 3200);
         }
 
         stopMusic() {

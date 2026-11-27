@@ -21,6 +21,10 @@
             ['Domination', 'Stand near a flag to capture it. Holding flags earns points over time. Keep two of the three flags to win steadily. The default score target is 150.'],
             ['Hardpoint', 'Stand in the active area to score. The area moves during the match. Get to the next location early and use teammates to cover entrances. The default score target is 150.'],
             ['Gun Game', 'Each weapon elimination advances you to the next weapon in the ladder. Finish the ladder to win. Your normal custom class is replaced by the current ladder weapon.'],
+            ['Infection', 'One knife-wielding infected bot starts the outbreak. If an infected kills you, respawn with a knife on the infected side. Survivors win by reaching the time limit.'],
+            ['Search and Destroy', 'One life per round. Follow the site marker and interact to plant or defuse. The teams switch roles each round.'],
+            ['Four Teams and Hardcore', 'Four Teams is a 4v4v4v4 kill race. Both Hardcore variants start you with 30 health and remove normal health regeneration.'],
+            ['King of the Hill Bounty', 'Eliminate the current holder to take the bounty. While you hold it, your health max doubles and your weapon never needs reloading. The longest total time as holder wins.'],
             ['Classes, movement and rules', 'Create a Class sets weapons, attachments, perks, equipment and powers. Sprint, slide, mantle and vault to move between cover. Custom rules change bots, score, time, weapons and modifiers.'],
             ['Online troubleshooting', 'Host and guests should use the same site version. If a peer cannot connect, remake the lobby and share a fresh link. Bot play works without an online lobby.']
         ] },

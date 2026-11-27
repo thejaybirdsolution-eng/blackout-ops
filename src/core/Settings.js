@@ -103,7 +103,7 @@
         ] },
         { group: 'interact', label: 'Interaction', actions: [
             { action: 'interact', label: 'Interact / gather', tip: 'Use doors, buy items, talk to contacts, open containers and gather resources.', ctx: ALL_MODES },
-            { action: 'armory', label: 'Armory / soda catalog', tip: 'Open the armory or the soda catalog beside a Zombies perk machine.', ctx: ['zombies', 'mp', 'td'] },
+            { action: 'armory', label: 'Superpower armory', tip: 'Open the Superpower Armory. In Zombies, stand beside a perk machine.', ctx: ['zombies', 'mp', 'td'] },
             { action: 'exfil', label: 'Call exfil', tip: 'Call an extraction chopper in Zombies (round 10 and later).', ctx: ['zombies'] }
         ] },
         { group: 'rpg', label: 'Rogue Lite abilities', actions: [

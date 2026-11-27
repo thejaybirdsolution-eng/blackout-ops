@@ -455,6 +455,7 @@
                 if (!entity.survivalType) this.dropBotLoot(entity);
                 deep?.onKill?.(entity, damageKind);
                 BO.ZoneThrill?.onKill(entity, hitbox, damageKind);
+                BO.Mods.triggerReaction('kill');
                 BO.ZoneWorldPlus?.onEnemyKilled?.(entity, hitbox, damageKind);
                 BO.GM?.call('onKill', entity, hitbox, damageKind);
                 BO.Progression?.registerCombatKill?.({

@@ -95,7 +95,9 @@
 
     function getState(mode) {
         if (!uiStateByMode[mode]) {
-            uiStateByMode[mode] = { cat: 'all', q: '', onlyActive: false, tier: 'all' };
+            let hidden = [];
+            try { hidden = JSON.parse(localStorage.getItem('boHiddenModifiers/' + mode)) || []; } catch (_) {}
+            uiStateByMode[mode] = { cat: 'all', q: '', onlyActive: false, tier: 'all', hidden: new Set(hidden), showHidden: false };
         }
         return uiStateByMode[mode];
     }
@@ -125,10 +127,15 @@
         }));
     }
 
-    function normalizeModeData(mode) {
+    function normalizeModeData(mode, activeSet = []) {
+        const custom = BO.ReactiveModifiers.custom(activeSet);
+        const reactionCat = { id: 'reactions', name: 'Triggered effects', ico: '↯', color: '#a78bfa' };
+        const reactionDef = (def) => ({
+            key: def.k, label: def.lbl, cat: def.cat, tier: def.tier, ico: def.ico, desc: def.desc
+        });
         if (mode === 'survival') {
             const rules = BO.SurvivalRules || {};
-            const cats = normalizeCategoryList(rules.categories);
+            const cats = [...normalizeCategoryList(rules.categories), reactionCat];
             const catMap = Object.create(null);
             for (const c of cats) catMap[c.id] = c;
             const defs = Object.entries(rules.modifiers || {}).map(([id, m]) => ({
@@ -142,6 +149,7 @@
                 fx: m.fx || {}
             }));
             const bundles = normalizeBundleList(rules.bundles);
+            defs.push(...BO.ReactiveModifiers.definitions.map(reactionDef), ...custom.map(reactionDef));
             return { defs, cats, catMap, bundles };
         }
 
@@ -163,6 +171,7 @@
             fx: d.fx || {}
         }));
         const bundles = normalizeBundleList(typeof modSys.bundlesForMode === 'function' ? modSys.bundlesForMode(mode) : []);
+        defs.push(...custom.map(reactionDef));
         return { defs, cats, catMap, bundles };
     }
 
@@ -213,6 +222,7 @@
         const q = (st.q || '').trim().toLowerCase();
         const terms = q ? q.split(/\s+/).filter(Boolean) : [];
         return defs.filter((d) => {
+            if (!st.showHidden && st.hidden.has(d.key)) return false;
             if (st.cat !== 'all' && d.cat !== st.cat) return false;
             if (st.onlyActive && !activeSet.has(d.key)) return false;
             if (st.tier !== 'all' && d.tier !== st.tier) return false;
@@ -327,8 +337,10 @@
             const on = activeSet.has(d.key);
             const tm = TIER_META[d.tier] || TIER_META.tactical;
             const sub = tm.label + ' · ' + catName(d.cat) + (d.exclusive ? ' · mode exclusive' : '') + ' · click to turn ' + (on ? 'off' : 'on');
-            return `<button type="button" class="mmx-tile t-${d.tier}${on ? ' on' : ''}${d.exclusive ? ' special' : ''}" data-mm-key="${esc(d.key)}" aria-pressed="${on ? 'true' : 'false'}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc || 'No description.')}" data-tip-sub="${esc(sub)}">
-                <span class="mmx-tile-ico">${esc(d.ico)}</span><span class="mmx-tile-name">${esc(d.label)}</span>${d.exclusive ? '<span class="mmx-star">★</span>' : ''}<span class="mmx-check"></span></button>`;
+            return `<div class="mmx-tile-entry"><button type="button" class="mmx-tile t-${d.tier}${on ? ' on' : ''}${d.exclusive ? ' special' : ''}" data-mm-key="${esc(d.key)}" aria-pressed="${on ? 'true' : 'false'}" data-tip-title="${esc(d.label)}" data-tip="${esc(d.desc || 'No description.')}" data-tip-sub="${esc(sub)}">
+                <span class="mmx-tile-ico">${esc(d.ico)}</span><span class="mmx-tile-name">${esc(d.label)}</span>${d.exclusive ? '<span class="mmx-star">★</span>' : ''}<span class="mmx-check"></span></button>
+                <button type="button" class="mmx-visibility" aria-label="${st.hidden.has(d.key) ? 'Unhide' : 'Hide'} ${esc(d.label)}"
+                    data-mm-hide="${esc(d.key)}">${st.hidden.has(d.key) ? 'Unhide' : 'Hide'}</button></div>`;
         };
         const groupsHtml = catOrder.map((c) => {
             if (st.cat !== 'all' && st.cat !== c.id) return '';
@@ -351,15 +363,26 @@
 
     function renderHtml(opts = {}) {
         const mode = opts.mode || 'zombies';
-        const data = normalizeModeData(mode);
         const st = getState(mode);
         const activeSet = toActiveSet(opts.active);
+        const data = normalizeModeData(mode, activeSet);
         const parts = renderDeckParts(mode, data, st, activeSet);
         return `
             <div class="mm-shell mmx mm-mode-${esc(mode)}" data-mm-mode="${esc(mode)}">
                 <div class="mm-sync-wrap" style="display:none">${parts.hiddenSyncHtml}</div>
                 <header class="mmx-head mm-balance-slot">${parts.meterHtml}</header>
                 <div class="mmx-loadout"><span class="mmx-label">Active</span><div class="mm-tray-slot mmx-tray">${parts.trayHtml}</div></div>
+                <details class="mmx-custom">
+                    <summary>Create a modifier</summary>
+                    <form class="mmx-custom-form">
+                        <label>Name <input name="modifierName" required maxlength="42"></label>
+                        <label>Trigger <select name="trigger">${Object.entries(BO.ReactiveModifiers.triggers).map(([key, info]) => `<option value="${key}">${info[0]}</option>`).join('')}</select></label>
+                        <label>Effect <select name="effect">${Object.entries(BO.ReactiveModifiers.effects).map(([key, info]) => `<option value="${key}">${info[0]}</option>`).join('')}</select></label>
+                        <label>Amount <input type="number" name="amount" required step="0.01" value="16" min="1" max="60"></label>
+                        <button class="mmx-btn primary">Create and enable</button>
+                        <span class="mmx-custom-status" role="status"></span>
+                    </form>
+                </details>
                 <div class="mmx-main">
                     <div class="mmx-side">
                         <nav class="mm-tabs-slot mmx-rail" aria-label="Modifier categories">${parts.tabsHtml}</nav>
@@ -371,6 +394,7 @@
                                 <span>⌕</span><input type="search" data-mm-search placeholder="Search ${data.defs.length} modifiers…" value="${esc(st.q)}" autocomplete="off" spellcheck="false" title="Filter modifiers by name or description">
                             </label>
                             <div class="mm-tier-slot mmx-segs">${parts.tierTabsHtml}</div>
+                            <button type="button" class="mmx-btn" data-mm-show-hidden aria-pressed="${st.showHidden}">${st.showHidden ? 'Hide hidden' : 'Show hidden'} (${st.hidden.size})</button>
                             <button type="button" class="mmx-only${st.onlyActive ? ' active' : ''}" data-mm-only-active data-tip-title="Only active" data-tip="Show only the modifiers you have switched on."><i></i>Only active</button>
                         </div>
                         <div class="mm-body-slot mmx-body">${parts.groupsHtml}</div>
@@ -381,7 +405,7 @@
 
     function refreshShellInPlace(shell, mode, activeSet, resetBodyScroll = false) {
         if (!shell) return;
-        const data = normalizeModeData(mode);
+        const data = normalizeModeData(mode, activeSet);
         const st = getState(mode);
         const parts = renderDeckParts(mode, data, st, activeSet);
 
@@ -403,6 +427,9 @@
         setHtml('.mm-body-slot', parts.groupsHtml);
         if (railEl) railEl.scrollTop = prevRailScroll;
         if (bodyEl) bodyEl.scrollTop = resetBodyScroll ? 0 : prevBodyScroll;
+        const hiddenBtn = shell.querySelector('[data-mm-show-hidden]');
+        hiddenBtn.setAttribute('aria-pressed', String(st.showHidden));
+        hiddenBtn.textContent = (st.showHidden ? 'Hide hidden' : 'Show hidden') + ' (' + st.hidden.size + ')';
         const onlyBtn = shell.querySelector('[data-mm-only-active]');
         if (onlyBtn) onlyBtn.classList.toggle('active', !!st.onlyActive);
         if (BO.Tooltips && BO.Tooltips.hide) BO.Tooltips.hide();
@@ -425,8 +452,8 @@
             searchEl.addEventListener('input', () => {
                 const st = getState(mode);
                 st.q = searchEl.value || '';
-                const data = normalizeModeData(mode);
                 const activeSet = getActive();
+                const data = normalizeModeData(mode, activeSet);
                 const parts = renderDeckParts(mode, data, st, activeSet);
                 const bodyEl = shell.querySelector('.mm-body-slot');
                 if (bodyEl) {
@@ -455,7 +482,44 @@
             }
         });
 
+        const form = shell.querySelector('.mmx-custom-form');
+        const { modifierName, trigger, effect, amount } = form.elements;
+        effect.onchange = () => {
+            const [, , value, min, max] = BO.ReactiveModifiers.effects[effect.value];
+            amount.min = min;
+            amount.max = max;
+            amount.value = value;
+        };
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            const def = BO.ReactiveModifiers.create(mode, modifierName.value, trigger.value, effect.value, amount.value);
+            const status = form.querySelector('.mmx-custom-status');
+            if (!def) {
+                status.textContent = 'Enter a name and an amount within the displayed range.';
+                return;
+            }
+            const set = getActive();
+            set.add(def.k);
+            commitActive(set);
+            modifierName.value = '';
+            status.textContent = 'Enabled ' + def.lbl + '.';
+        };
+
         shell.addEventListener('click', (e) => {
+            const hiddenToggle = e.target.closest('[data-mm-show-hidden]');
+            const hideButton = e.target.closest('[data-mm-hide]');
+            if (hiddenToggle || hideButton) {
+                const state = getState(mode);
+                if (hiddenToggle) state.showHidden = !state.showHidden;
+                else {
+                    const key = hideButton.dataset.mmHide;
+                    if (state.hidden.has(key)) state.hidden.delete(key);
+                    else state.hidden.add(key);
+                    try { localStorage.setItem('boHiddenModifiers/' + mode, JSON.stringify([...state.hidden])); } catch (_) {}
+                }
+                refreshShellInPlace(shell, mode, getActive(), false);
+                return;
+            }
             const cardBtn = e.target.closest('[data-mm-key]');
             if (cardBtn) {
                 const k = cardBtn.dataset.mmKey;
@@ -501,7 +565,7 @@
             const clearCatBtn = e.target.closest('[data-mm-clear-cat]');
             if (clearCatBtn) {
                 const catId = clearCatBtn.dataset.mmClearCat;
-                const data = normalizeModeData(mode);
+                const data = normalizeModeData(mode, getActive());
                 const set = getActive();
                 for (const d of data.defs) {
                     if (d.cat === catId) set.delete(d.key);
@@ -513,7 +577,7 @@
             const bundleBtn = e.target.closest('[data-mm-bundle]');
             if (bundleBtn) {
                 const bid = bundleBtn.dataset.mmBundle;
-                const data = normalizeModeData(mode);
+                const data = normalizeModeData(mode, getActive());
                 const bundle = data.bundles.find((b) => b.id === bid);
                 if (!bundle) return;
                 const set = getActive();
@@ -531,7 +595,7 @@
                 const pid = loadPresetBtn.dataset.mmLoadPreset;
                 const preset = listPresets(mode).find((p) => p.id === pid);
                 if (!preset) return;
-                const data = normalizeModeData(mode);
+                const data = normalizeModeData(mode, getActive());
                 const valid = (preset.mods || []).filter((k) => data.defs.some((d) => d.key === k));
                 const cur = getActive();
                 const isSame = valid.length === cur.size && valid.every((k) => cur.has(k));
@@ -566,7 +630,7 @@
             const actBtn = e.target.closest('[data-mm-act]');
             if (actBtn) {
                 const act = actBtn.dataset.mmAct;
-                const data = normalizeModeData(mode);
+                const data = normalizeModeData(mode, getActive());
                 const st = getState(mode);
                 if (act === 'savepreset') {
                     const cur = getActive();
@@ -600,7 +664,7 @@
                 }
                 if (act === 'rand3' || act === 'rand5') {
                     const count = act === 'rand5' ? 5 : 3;
-                    const pool = st.cat !== 'all' ? data.defs.filter((d) => d.cat === st.cat) : data.defs.slice();
+                    const pool = data.defs.filter((d) => !st.hidden.has(d.key) && (st.cat === 'all' || d.cat === st.cat));
                     const shuffled = pool.slice().sort(() => Math.random() - 0.5);
                     const set = new Set();
                     for (const d of shuffled.slice(0, count)) set.add(d.key);

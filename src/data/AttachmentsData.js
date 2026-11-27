@@ -657,6 +657,68 @@
         }
     };
 
+    const classicAttachments = {
+        optic: [
+            ['aperture', 'Aperture Sight', 'A compact sight with modest zoom and clearer aim.', { adsFovOffset: -5, adsSpread: 0.85 }],
+            ['low_power_scope', 'Low-Power Scope', 'A period scope with lighter zoom than the precision optic.', { adsFovOffset: -12, useScopeOverlay: true, adsTime: 1.12 }]
+        ],
+        muzzle: [
+            ['flash_hider', 'Flash Suppressor', 'Reduces muzzle signature with a small trade-off in effective range.', { suppressed: true, range: 0.94 }]
+        ],
+        underbarrel: [
+            ['bayonet', 'Fixed Bayonet', 'Adds 0.75 m to quick melee reach.', { meleeReach: 0.75 }],
+            ['masterkey', 'Underbarrel Shotgun', 'Adds a close-range shotgun mode fed from the primary magazine.', { weaponCategory: 'Assault Rifle' }],
+            ['underbarrel_launcher', 'Underbarrel Grenade Launcher', 'Adds a slow explosive mode fed from the primary magazine.', { weaponCategory: 'Assault Rifle' }],
+            ['underbarrel_flame', 'Underbarrel Flamethrower', 'Adds a short-range flame mode fed from the primary magazine.', { weaponCategory: 'Assault Rifle' }]
+        ],
+        magazine: [
+            ['dual_mag', 'Dual Magazines', 'A paired magazine setup with quicker reloads and extra reserve capacity.', { magMult: 1.15, reloadMult: 0.82 }],
+            ['rapid_fire', 'Rapid Fire', 'Increase SMG firing rate by 18% and recoil by 20%.', { weaponCategory: 'SMG', rpm: 1.18, recoil: 1.2 }],
+            ['fmj', 'Full Metal Jacket', 'Penetrates one extra target or surface.', { penetration: 1 }]
+        ],
+        stock: [
+            ['sawn_stock', 'Sawn Stock', 'A lighter setup with faster handling and stronger recoil.', { adsTime: 0.78, recoil: 1.28, moveMult: 1.06 }]
+        ]
+    };
+    for (const [slot, entries] of Object.entries(classicAttachments)) {
+        for (const [id, name, desc, mods] of entries) ATTACHMENTS[slot].push({ id, name, desc, mods, unlockWeaponLevel: 4 });
+    }
+
+    const classicPerks = [
+        ['lightweight', 'Lightweight', 1, 'Move 8% faster on foot.'],
+        ['marathon', 'Marathon', 1, 'Tactical sprint drains stamina at half the normal rate.'],
+        ['stopping_power', 'Stopping Power', 2, 'Deal 15% more direct firearm damage.'],
+        ['deep_impact', 'Deep Impact / FMJ', 2, 'Fire through one additional target or surface.', { penetration: 1 }],
+        ['recon_spotter', 'SitRep', 3, 'Reduce damage from proximity mines by 60%.'],
+        ['tactical_mask', 'Tactical Mask', 3, 'Recover from your own flash and concussion grenades 65% faster.']
+    ];
+    for (const [id, name, tier, desc, weaponMods] of classicPerks) {
+        PERKS[id] = { id, name, tier, desc, weaponMods, unlockLevel: 8, color: ['','#38bdf8','#f43f5e','#eab308'][tier] };
+    }
+
+    Object.assign(LETHALS, {
+        stick_grenade: { id: 'stick_grenade', name: 'Stick Grenade', unlockLevel: 3, count: 2, fuseTime: 2.8, damage: 205, radius: 6.4, desc: 'A long-fuse fragmentation grenade with a wider blast.' },
+        tomahawk: { id: 'tomahawk', name: 'Throwing Tomahawk', unlockLevel: 6, count: 2, fuseTime: 0.85, damage: 260, radius: 0.95, desc: 'A thrown axe for pinpoint hits.' },
+        claymore: { id: 'claymore', name: 'Claymore', unlockLevel: 10, count: 1, fuseTime: 25, damage: 210, radius: 3.2, proximity: 2.4, desc: 'A placed mine that triggers when a hostile approaches.' },
+        bouncing_betty: { id: 'bouncing_betty', name: 'Bouncing Betty', unlockLevel: 13, count: 1, fuseTime: 25, damage: 175, radius: 4.2, proximity: 3.2, desc: 'A wide-area proximity mine with lighter damage.' }
+    });
+    Object.assign(TACTICALS, {
+        concussion: { id: 'concussion', name: 'Concussion Grenade', unlockLevel: 4, count: 2, radius: 5, fuseTime: 0.85, damage: 0, stunDuration: 4.5, desc: 'A fast tactical throw that briefly stuns enemies.' },
+        smoke: { id: 'smoke', name: 'Smoke Grenade', unlockLevel: 5, count: 2, radius: 5, fuseTime: 1.15, damage: 0, desc: 'Blocks bot sight through the smoke for 7 seconds.' },
+        decoy: { id: 'decoy', name: 'Decoy Grenade', unlockLevel: 9, count: 2, radius: 10, fuseTime: 1.1, damage: 0, desc: 'Draws nearby bots toward a burst of simulated gunfire.' }
+    });
+    const classicStreaks = [
+        ['counter_uav', 'Counter-UAV', 4, 'Conceals your squad from the enemy radar and disrupts hostile bot targeting for 12 seconds.'],
+        ['sentry_gun', 'Sentry Gun', 5, 'Place a stationary defense that tracks nearby enemies for 18 seconds.'],
+        ['napalm_strike', 'Napalm Strike', 5, 'Ignites three adjacent areas beyond your crosshair.'],
+        ['artillery', 'Artillery', 6, 'Saturates the area beyond your crosshair with three spaced impacts.'],
+        ['emergency_airdrop', 'Emergency Airdrop', 8, 'Resupplies the class and immediately calls a short recon sweep and helicopter pass.'],
+        ['blackbird', 'Blackbird', 8, 'Tracks hostile positions for 45 seconds.'],
+        ['pave_low', 'Heavy Helicopter', 9, 'Calls longer-duration helicopter cover.'],
+        ['emp', 'EMP', 12, 'Clears existing enemy sensors and stuns hostile bots across the arena.']
+    ];
+    for (const [id, name, kills, desc] of classicStreaks) KILLSTREAKS[id] = { id, name, kills, desc, unlockLevel: kills + 3 };
+
     BO.AttachmentsData = {
         ATTACHMENTS,
         CAMOS,

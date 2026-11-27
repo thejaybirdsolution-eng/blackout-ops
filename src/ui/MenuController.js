@@ -148,7 +148,7 @@
             this.zStartProtocol = 'custom';
             this.lobbySection = { zombies: 'map', mp: 'mode', td: 'castle' };
             this.modFilter = { cat: 'all', q: '', onlyActive: false };
-            this.barracksTab = 'bestiary';
+            this.barracksTab = 'record';
             this.settingsTab = 'controls';
             this.legendTab = 'zombies';
             this.boxPickerTab = 'all';
@@ -259,6 +259,34 @@
             if (tdBtn) tdBtn.onclick = () => { BO.Sound.playUIClick(); this.lobbyMode = 'td'; this.showScreen('play_lobby'); };
             const mgBtn = document.getElementById('btn-menu-minigames');
             if (mgBtn) mgBtn.onclick = () => { BO.Sound.playUIClick(); this.showScreen('minigames'); };
+            const audioButtons = [
+                ['btn-menu-music', 'musicMuted', 'music'],
+                ['btn-menu-sfx', 'sfxMuted', 'sound effects']
+            ];
+            const updateAudioButtons = () => {
+                for (const [id, setting, label] of audioButtons) {
+                    const btn = document.getElementById(id);
+                    const muted = !!BO.Settings.get(setting);
+                    const action = (muted ? 'Unmute ' : 'Mute ') + label;
+                    btn.setAttribute('aria-label', action);
+                    btn.setAttribute('aria-pressed', String(muted));
+                    btn.title = action;
+                }
+            };
+            for (const [id, setting] of audioButtons) {
+                document.getElementById(id).onclick = () => {
+                    BO.Sound.ensureContext();
+                    BO.Settings.set(setting, !BO.Settings.get(setting));
+                };
+            }
+            updateAudioButtons();
+            BO.Events.on('settings:changed', updateAudioButtons);
+            document.getElementById('screen-lobby').addEventListener('change', (event) => {
+                if (event.target.matches('select, input[type="checkbox"], input[type="number"], input[type="range"]')) {
+                    event.target.classList.remove('selection-changed');
+                    requestAnimationFrame(() => event.target.classList.add('selection-changed'));
+                }
+            });
             document.getElementById('btn-menu-gunsmith').onclick = () => { BO.Sound.playUIClick(); this.showScreen('gunsmith'); };
             document.getElementById('btn-menu-barracks').onclick = () => { BO.Sound.playUIClick(); this.showScreen('barracks'); };
             document.getElementById('btn-menu-legend').onclick = () => { BO.Sound.playUIClick(); this.openLegend(); };
@@ -1027,15 +1055,21 @@
                     { id: 'ffa', name: 'Free-for-All', sub: 'Everyone for themselves (30 kills).' },
                     { id: 'dom', name: 'Domination', sub: 'Capture and hold flags A, B and C to 150 points.' },
                     { id: 'hardpoint', name: 'Hardpoint', sub: 'Hold the rotating zone to 150 points.' },
-                    { id: 'gun_game', name: 'Gun Game', sub: 'Every kill upgrades your weapon. 16 steps to win.' }
+                    { id: 'gun_game', name: 'Gun Game', sub: 'Every kill upgrades your weapon. 16 steps to win.' },
+                    { id: 'infection', name: 'Infection', sub: 'Survive the clock. Eliminated survivors join the infected.', offline: true },
+                    { id: 'search_destroy', name: 'Search and Destroy', sub: 'Alternate planting and defending. One life per round.', offline: true },
+                    { id: 'four_teams', name: 'Four Teams', sub: 'Four squads of four race to the kill limit.', offline: true },
+                    { id: 'hardcore_tdm', name: 'Hardcore Team Deathmatch', sub: '30 health and no health regeneration.' },
+                    { id: 'hardcore_ffa', name: 'Hardcore Free-for-All', sub: 'Free-for-all with 30 health and no health regeneration.' },
+                    { id: 'bounty', name: 'King of the Hill Bounty', sub: 'Eliminate the holder to claim double health and bottomless magazines. Most time holding it wins.', offline: true }
                 ];
                 const maps = BO.MapsData.listByMode('mp');
                 body.innerHTML = this._section('Game mode', '', `
                     <div class="pick-grid pick-grid-sm">
                         ${mpModes.map((mm) => `
-                            <button class="pick-card ${this.selectedMpMode === mm.id ? 'active' : ''}" data-mpmode="${mm.id}" style="--pick-col:#38bdf8;">
+                            <button class="pick-card ${this.selectedMpMode === mm.id ? 'active' : ''}" data-mpmode="${mm.id}" aria-pressed="${this.selectedMpMode === mm.id}" ${mm.offline && BO.Net?.active ? 'disabled' : ''} style="--pick-col:#38bdf8;">
                                 <span class="pick-name">${mm.name}</span>
-                                <span class="pick-desc">${mm.sub}</span>
+                                <span class="pick-desc">${mm.sub}${mm.offline ? ' Offline bot matches.' : ''}</span>
                             </button>`).join('')}
                     </div>`) + this._section('Map', `${maps.length} arenas.`, `
                     <div class="pick-grid">
@@ -1047,8 +1081,20 @@
                                 <span class="pick-desc">${escAttr(m.description || '')}</span>
                             </button>`).join('')}
                     </div>`);
-                body.querySelectorAll('[data-mpmode]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMode = b.dataset.mpmode; this.renderLobby(); }; });
-                body.querySelectorAll('[data-mpmap]').forEach((b) => { b.onclick = () => { BO.Sound.playUIClick(); this.selectedMpMap = b.dataset.mpmap; this.renderLobby(); }; });
+                for (const [attr, field] of [['mpmode', 'selectedMpMode'], ['mpmap', 'selectedMpMap']]) {
+                    body.querySelectorAll(`[data-${attr}]`).forEach((button) => {
+                        button.onclick = () => {
+                            const value = button.dataset[attr];
+                            if (this[field] === value) return;
+                            BO.Sound.playUIClick();
+                            this[field] = value;
+                            this.renderLobby();
+                            const selected = body.querySelector(`[data-${attr}="${value}"]`);
+                            selected?.classList.add('selection-changed');
+                            selected?.focus({ preventScroll: true });
+                        };
+                    });
+                }
             } else if (sec === 'bots') {
                 const diffs = [
                     { id: 'recruit', tip: 'Waits 2–5 s after spotting you before shooting. Relaxed.' },
@@ -1376,6 +1422,11 @@
                         disabledEnemies: (this.tdConfig.disabledEnemies || []).slice()
                     });
                 } else if (isMp) {
+                    if (BO.Net?.active && ['infection', 'search_destroy', 'four_teams', 'bounty'].includes(this.selectedMpMode)) {
+                        this.selectedMpMode = 'tdm';
+                        this.renderLobby();
+                        return;
+                    }
                     this.onStartMatch({
                         mode: 'mp',
                         modeType: this.selectedMpMode,
@@ -1669,7 +1720,8 @@
                     <div class="card-grid">
                         <div class="select-card" data-tip-title="Military Rank" data-tip="Play matches to level up from 1 to 55 and unlock weapons and perks."><div class="card-head">RANK ${info.level} / 55</div><div class="card-sub">${info.rankName} • ${info.xpNeededForNext} XP to Next</div></div>
                         <div class="select-card" data-tip-title="Prestige Tier" data-tip="At Level 55 you can reset your rank for a shiny new emblem and +10% permanent XP boost!"><div class="card-head" style="color:${info.prestigeInfo.color}">${info.prestigeInfo.title}</div><div class="card-sub">+${info.prestige * 10}% Permanent XP Bonus • Tokens: ${BO.Save.data.player.tokens}</div></div>
-                        <div class="select-card" data-tip-title="Multiplayer Stats" data-tip="Your lifetime Kill-to-Death ratio, wins, and bullet accuracy across offline bot matches."><div class="card-head">MP K/D: ${kd}</div><div class="card-sub">${stats.mpKills} Kills / ${stats.mpDeaths} Deaths • Wins: ${stats.mpWins} • Acc: ${acc}</div></div>
+                        <div class="select-card" data-tip-title="Multiplayer Stats" data-tip="Your lifetime stats across recorded Multiplayer matches."><div class="card-head">MP K/D: ${kd}</div><div class="card-sub">${stats.mpKills} Kills / ${stats.mpDeaths} Deaths • Headshots: ${stats.mpHeadshots} • Wins: ${stats.mpWins} • Acc: ${acc}</div></div>
+                        <div class="select-card"><div class="card-head">MP MATCH RECORD</div><div class="card-sub">Objectives completed: ${stats.mpObjectives} • Matches played: ${stats.mpMatches} • Most kills in a match: ${stats.mpBestKills}</div></div>
                         <div class="select-card" data-tip-title="Zombies Survival Stats" data-tip="Total zombies eliminated and your highest wave reached on each Zombies map."><div class="card-head">ZOMBIES KILLS: ${stats.zombiesKills}</div><div class="card-sub">Headshots: ${stats.zombiesHeadshots} • Der Bunker Best: ${stats.highestRoundByMap.der_bunker || 0} • Station Omega: ${stats.highestRoundByMap.station_omega || 0}</div></div>
                     </div>
                     <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
@@ -3014,21 +3066,27 @@
                 while (this._epPivot.children.length > 0) this._epPivot.remove(this._epPivot.children[0]);
                 try {
                     const built = BO.CharacterMesh.buildZombieFromSpec(spec, null);
-                    const sc = spec.bodySpec?.scale || [1, 1, 1];
-                    const maxDim = Math.max(sc[0] || 1, sc[1] || 1, sc[2] || 1);
-                    const norm = Math.min(1.25, 1.35 / Math.max(0.7, maxDim));
-                    built.root.scale.setScalar(norm);
+                    const sphere = new THREE.Box3().setFromObject(built.root).getBoundingSphere(new THREE.Sphere());
+                    built.root.position.sub(sphere.center);
                     this._epPivot.add(built.root);
+                    const radius = Math.max(0.5, sphere.radius);
+                    const dist = 1.14 * radius / Math.sin(THREE.MathUtils.degToRad(this._epCam.fov / 2));
+                    this._epCam.position.set(0, dist * 0.10, dist);
+                    this._epCam.far = dist + 3 * radius;
+                    this._epCam.updateProjectionMatrix();
+                    this._epCam.lookAt(0, 0, 0);
                 } catch (e) {}
             }
             const info = document.getElementById('enemy-preview-info');
             if (info) {
                 const rarCol = spec.isSuperBoss ? '#fde047' : (spec.isBoss ? '#ef4444' : (spec.rarity === 'hard' ? '#f59e0b' : (spec.rarity === 'normal' ? '#38bdf8' : '#4ade80')));
                 const catLabel = spec.isSuperBoss ? 'SUPER BOSS' : (spec.isBoss ? 'BOSS' : `${(spec.rarity || 'easy').toUpperCase()} TIER`);
+                const attacks = [spec.attackType || 'melee', ...(spec.bonusAttacks || [])].map((id) => id.replace(/_/g, ' ')).join(', ');
                 info.innerHTML = `
                     <div style="font-size:14px;font-weight:800;color:${rarCol};letter-spacing:0.6px;">${escAttr(spec.name)}</div>
                     <div style="font-size:10.5px;color:#94a3b8;margin-bottom:4px;">${catLabel}</div>
                     <div style="font-size:11px;color:#cbd5e1;line-height:1.35;">${escAttr(spec.simpleDesc || spec.weaknessText || 'Unique undead combatant.')}</div>
+                    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Attacks &middot; ${escAttr(attacks)}</div>
                 `;
             }
             this._renderEnemyEditor(spec);
@@ -3108,6 +3166,13 @@
                         <span>Attack Type</span>
                         <select id="ed-attackType">${ZC.ATTACK_TYPES.map((a) => `<option value="${a}" ${spec.attackType === a ? 'selected' : ''}>${a.replace(/_/g, ' ')}</option>`).join('')}</select>
                     </label>
+                    ${[0, 1].map((slot) => `<label class="ep-ed-field ${isMod('bonusAttacks') ? 'modified' : ''}">
+                        <span>Extra attack ${slot + 1}</span>
+                        <select data-extra-attack="${slot}">
+                            <option value="">None</option>
+                            ${Object.keys(BO.ZombieBehaviors.attacks).map((id) => `<option value="${id}" ${spec.bonusAttacks?.[slot] === id ? 'selected' : ''}>${id.replace(/_/g, ' ')}</option>`).join('')}
+                        </select>
+                    </label>`).join('')}
                     <label class="ep-ed-field ${isMod('splitCount') ? 'modified' : ''}">
                         <span>Splits on Death (0-6)</span>
                         <input type="number" id="ed-splitCount" min="0" max="6" step="1" value="${spec.splitCount || 0}">
@@ -3165,6 +3230,10 @@
             if (mh) mh.onchange = () => commit({ movementHabit: mh.value });
             const at = document.getElementById('ed-attackType');
             if (at) at.onchange = () => commit({ attackType: at.value });
+            const extras = [...form.querySelectorAll('[data-extra-attack]')];
+            for (const select of extras) {
+                select.onchange = () => commit({ bonusAttacks: extras.map((el) => el.value).filter(Boolean) });
+            }
             const mag = document.getElementById('ed-isMagical');
             if (mag) mag.onchange = () => commit({ isMagical: !!mag.checked });
 

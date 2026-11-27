@@ -31,6 +31,10 @@
             this.resistances = this.spec.resistances || { bullet: 1, explosive: 1, fire: 1, headshot: 1, melee: 1 };
             this.movementHabit = this.spec.movementHabit || 'lumber';
             this.attackType = this.spec.attackType || 'melee';
+            this.bonusAttacks = this.spec.bonusAttacks || [];
+            this.bonusCooldowns = new Map(this.bonusAttacks.map((id, i) => [id, 1.6 + i * 1.5]));
+            this.pendingAttack = null;
+            this.gaitClock = this.id * 0.31;
             this.soundProfile = this.spec.soundProfile || 'groan_mid';
 
             this.alive = true;
@@ -260,6 +264,8 @@
             if (this.rangedCooldown > 0) this.rangedCooldown -= dt;
             if (this.attackSwing > 0) this.attackSwing = Math.max(0, this.attackSwing - dt * 2.5);
             this.habitPhase += dt * 4.5;
+            this.gaitClock += dt;
+            for (const [id, time] of this.bonusCooldowns) this.bonusCooldowns.set(id, time - dt);
 
             if (this._superBolts && this._superBolts.length > 0) this._tickSuperBolts(dt);
 
@@ -400,8 +406,9 @@
                     ? customTarget.attackRange
                     : (this.isSuperBoss ? 3.4 : (this.isBoss ? 2.45 : (this.attackType === 'shockwave_slam' ? 2.2 : 1.58)));
 
+                const bonusBusy = this._updateBonusAttack(dt, callbacks, closestP, distToTarget, !chasingMonkey && !customTarget);
                 // Bespoke Multi-Phase Colossal Super Boss Mechanics
-                if (this.isSuperBoss && this.superMechanic && !chasingMonkey && closestP.alive) {
+                if (!bonusBusy && this.attackSwing <= 0 && this.isSuperBoss && this.superMechanic && !chasingMonkey && closestP.alive) {
                     this.superTimer -= dt;
                     if (this.superTimer <= 0 && distToTarget < 30) {
                         this.superTimer = (this.superEnraged ? 4.3 : 5.8) + Math.random() * 1.4;
@@ -414,7 +421,7 @@
                 const allowProj = !(callbacks && callbacks.allowProjectiles === false);
                 const maxRangeDist = this.isSuperBoss ? 32 : 22;
                 const eyeY = this.isSuperBoss ? 3.1 : 1.3;
-                if (allowProj && !chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < maxRangeDist && this.rangedCooldown <= 0) {
+                if (!bonusBusy && this.attackSwing <= 0 && allowProj && !chasingMonkey && !customTarget && closestP.alive && isRanged && distToTarget > 3.5 && distToTarget < maxRangeDist && this.rangedCooldown <= 0) {
                     if (BO.World.hasLineOfSight(this.pos.x, this.pos.y + eyeY, this.pos.z, tx, ty + 1.2, tz)) {
                         this.rangedCooldown = this.isSuperBoss ? 2.1 : (this.isBoss ? 2.4 : 3.8);
                         this.attackSwing = 1.0;
@@ -452,9 +459,11 @@
                     }
                 }
 
-                if (!chasingMonkey && distToTarget <= attackRange && (customTarget || closestP.alive)) {
+                if (bonusBusy) {
                     this.yaw = Math.atan2(tx - this.pos.x, tz - this.pos.z);
-                    if (this.attackCooldown <= 0) {
+                } else if (!chasingMonkey && distToTarget <= attackRange && (customTarget || closestP.alive)) {
+                    this.yaw = Math.atan2(tx - this.pos.x, tz - this.pos.z);
+                    if (this.attackSwing <= 0 && this.attackCooldown <= 0) {
                         this.attackCooldown = this.attackType === 'double_claw' ? 0.65 : (this.isBoss ? 1.25 : 1.15);
                         this.attackSwing = 1.0;
                         if (this.attackType === 'suicide_blast' && !customTarget) {
@@ -525,7 +534,19 @@
 
                     const chargeBoost = (this.movementHabit === 'charge_bull' && directLOS && distToTarget < 12) ? 1.35 : 1.0;
                     const slowMult = (this.slowTimer > 0 ? 0.45 : 1) * (this.powerMoveScale || 1);
-                    const curSpeed = this.speed * chargeBoost * slowMult * (this.flinchTimer > 0 ? 0.58 : 1.0);
+                    let pace = 1;
+                    const gait = BO.ZombieBehaviors.movement[this.movementHabit];
+                    if (gait && directLOS && !forceDirect) {
+                        const dx = (tx - this.pos.x) / Math.max(0.1, distToTarget);
+                        const dz = (tz - this.pos.z) / Math.max(0.1, distToTarget);
+                        const neighbors = this.movementHabit === 'crowd_edge'
+                            ? allZombies.filter((z) => z !== this && z.alive && z.pos.distanceToSquared(this.pos) < 16).length : 0;
+                        const [forward, side, speed] = gait(this.gaitClock, distToTarget, this.id % 2 ? 1 : -1, neighbors, this.flinchTimer > 0);
+                        goalX += dx * forward - dz * side;
+                        goalZ += dz * forward + dx * side;
+                        pace = speed;
+                    }
+                    const curSpeed = this.speed * chargeBoost * slowMult * pace * (this.flinchTimer > 0 ? 0.58 : 1.0);
                     this._steerToward(goalX, goalZ, curSpeed, dt, allZombies);
                     // Snap onto rising stairs/ramps BEFORE horizontal wall resolution so zombies climb cleanly!
                     const stepFloor = BO.World.getGroundHeight(this.pos.x, this.pos.z, this.pos.y);
@@ -574,6 +595,31 @@
             this.parts.root.rotation.y = this.yaw;
             BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, this.flinchTimer > 0 ? 1 : 0);
 
+            return true;
+        }
+
+        _updateBonusAttack(dt, callbacks, target, dist, canAttack) {
+            if (!callbacks?.onBonusAttack || !this.bonusAttacks.length) return false;
+            const visible = () => canAttack && target.alive && target.isLocal &&
+                BO.World.hasLineOfSight(this.pos.x, this.pos.y + 1.25, this.pos.z, target.pos.x, target.pos.y + 1.1, target.pos.z);
+            if (this.pendingAttack) {
+                const { id } = this.pendingAttack;
+                const [range, cooldown, , multiplier, effect] = BO.ZombieBehaviors.attacks[id];
+                this.pendingAttack.time -= dt;
+                if (this.pendingAttack.time <= 0) {
+                    this.pendingAttack = null;
+                    this.bonusCooldowns.set(id, cooldown);
+                    this.attackSwing = 1;
+                    if (dist <= range && visible()) callbacks.onBonusAttack(this, multiplier, effect);
+                }
+                return true;
+            }
+            if (this.attackSwing > 0 || !canAttack) return false;
+            const id = this.bonusAttacks.find((key) => this.bonusCooldowns.get(key) <= 0 && dist <= BO.ZombieBehaviors.attacks[key][0]);
+            if (!id || !visible()) return false;
+            this.pendingAttack = { id, time: BO.ZombieBehaviors.attacks[id][2] };
+            this.attackSwing = 0.55;
+            BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 3, 0xfbbf24, 0.8, 1.4, 0.35, 0.8);
             return true;
         }
 

@@ -24,7 +24,7 @@
         }
 
         /**
-         * Universal Halo-inspired Multi-Kill, Killing Spree, Headhunter & Bulltrue tracker across ALL game modes.
+         * Tracks combat awards, with multi-kill announcements reserved for Multiplayer.
          */
         registerCombatKill(opts = {}) {
             const now = performance.now() / 1000;
@@ -43,7 +43,7 @@
             }
 
             // Multi-kill chain callouts & medals (Double Kill -> Killionaire!)
-            if (this._mkCount >= 2) {
+            if (BO.State.activeMode === 'mp' && this._mkCount >= 2) {
                 if (this._mkCount === 2) this.awardMedal('double_kill');
                 else if (this._mkCount === 3) this.awardMedal('triple_kill');
                 else if (this._mkCount === 4) this.awardMedal('fury_kill');

@@ -615,6 +615,9 @@
                 w.reserve = w.stats.reserveMax;
                 return;
             }
+            if (BO.State.activeMode === 'mp' && BO.MPMode.bountyHolder === this) return;
+            if (w.mag >= w.stats.magSize || w.reserve <= 0) return;
+            BO.Mods?.triggerReaction('reload');
             if (w.mag >= w.stats.magSize || w.reserve <= 0) return;
             if (BO.Combat && BO.Combat.cancelCharge) BO.Combat.cancelCharge();
             this.reloading = true;
@@ -752,6 +755,7 @@
             this.regenDelayTimer = this.zombiePerks.has('quick_revive') ? 2.4 : 4.0;
             this.flinchPitch += 0.045;
             this.cameraShake = Math.max(this.cameraShake, 0.035);
+            BO.Mods?.triggerReaction('hurt');
 
             // Armor absorbs 65% of damage first (Survival's plate vest sets armorAbsorb per front plate)
             if (this.armor > 0) {
@@ -1134,7 +1138,7 @@
                 if (this.tacStamina > 0.12 || BO.Mods?.fxActive?.().endlessStamina) {
                     this.tacSprinting = true;
                     const drain = (staminUp || BO.Mods?.fxActive?.().endlessStamina) ? 0.0 : (doubleTime ? 0.16 : 0.34);
-                    this.tacStamina = Math.max(0, this.tacStamina - drain * dt);
+                    this.tacStamina = Math.max(0, this.tacStamina - drain * dt * (this.mpPerks.includes('marathon') ? 0.5 : 1));
                 } else {
                     this.tacSprinting = false;
                 }
@@ -1439,10 +1443,12 @@
                 this.onGround = false;
                 this.coyoteTimer = 0;
                 this.jumpsUsed = 1;
+                BO.Mods?.triggerReaction('jump');
                 BO.Sound.playFootstep(true);
             } else if (canDoubleJump && this.jumpsUsed < 2) {
                 this.vel.y = 7.6 * jumpMult;
                 this.jumpsUsed = 2;
+                BO.Mods?.triggerReaction('jump');
                 BO.Sound.playFootstep(true);
             }
         }

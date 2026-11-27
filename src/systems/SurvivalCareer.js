@@ -165,7 +165,7 @@
         return {
             difficulty: Object.hasOwn(BO.SurvivalRules.difficulties, input.difficulty) ? input.difficulty : d.difficulty,
             gameType: Object.hasOwn(BO.SurvivalRules.modes, input.gameType) ? input.gameType : 'expedition',
-            modifiers: Array.isArray(input.modifiers) ? [...new Set(input.modifiers.filter((id) => Object.hasOwn(BO.SurvivalRules.modifiers, id)))] : [],
+            modifiers: Array.isArray(input.modifiers) ? [...new Set(input.modifiers.filter((id) => Object.hasOwn(BO.SurvivalRules.modifiers, id) || !!BO.ReactiveModifiers.get(id)))] : [],
             pool: Object.hasOwn(data.pools, input.pool) ? input.pool : d.pool,
             dayLength: [180, 360, 720].includes(Number(input.dayLength)) ? Number(input.dayLength) : d.dayLength,
             startHour: [0, 6, 8, 12, 18, 22].includes(Number(input.startHour)) ? Number(input.startHour) : d.startHour,

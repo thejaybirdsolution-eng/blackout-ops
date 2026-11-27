@@ -128,7 +128,7 @@
 
     const CATALOG = BO.ModeModifiersCatalog || { CATEGORIES: [], DEFS: [], BUNDLES: {} };
     const CATEGORIES = BASE_CATEGORIES.concat(CATALOG.CATEGORIES || []);
-    const DEFS = CORE_DEFS.concat(CATALOG.DEFS || []);
+    const DEFS = CORE_DEFS.concat(CATALOG.DEFS || [], BO.ReactiveModifiers.definitions);
     const DEF_MAP = {};
     DEFS.forEach((d) => { DEF_MAP[d.k] = d; });
 
@@ -247,7 +247,7 @@
 
         categoriesForMode(mode) {
             const dedicated = (CATALOG.CATEGORIES || []).filter((c) => c.mode === mode);
-            if (dedicated.length) return dedicated;
+            if (dedicated.length) return [...dedicated, { id: 'reactions', name: 'Triggered effects', icon: '↯', col: '#a78bfa' }];
             const defs = this.defsForMode(mode);
             return CATEGORIES.filter((c) => defs.some((d) => d.cat === c.id));
         }
@@ -265,12 +265,12 @@
             return (CATALOG.BUNDLES && CATALOG.BUNDLES[mode]) || [];
         }
 
-        get(k) { return DEF_MAP[k]; }
+        get(k) { return DEF_MAP[k] || BO.ReactiveModifiers.get(k); }
         getProtocol(id) { return PROTOCOLS.find((p) => p.id === id) || PROTOCOLS[0]; }
 
         countActive(mods, mode) {
             if (!mods) return 0;
-            return this.defsForMode(mode).filter((d) => mods[d.k]).length;
+            return Object.keys(mods).filter((k) => mods[k] && this.get(k)?.modes.includes(mode)).length;
         }
 
         /** The current match's modifier object (works in every mode). */
@@ -535,6 +535,7 @@
 
         /* ---------------- Weapons & Combat ---------------- */
         onWeaponShot(weaponInst) {
+            this.triggerReaction('shot');
             const fx = this.fxActive();
             this.shotCount++;
             const P = BO.Player;
@@ -544,6 +545,7 @@
         }
 
         onSwapWeapon() {
+            this.triggerReaction('swap');
             const fx = this.fxActive();
             if (fx.swapFireRateBuff) this.swapBuffTimer = 2.5;
         }
@@ -560,6 +562,7 @@
         }
 
         onSlide() {
+            this.triggerReaction('slide');
             const fx = this.fxActive();
             const P = BO.Player;
             if (!P || !P.alive) return;
@@ -772,6 +775,7 @@
 
         /* ---------------- Kills ---------------- */
         onKill(mods, target, ctx = {}) {
+            this.triggerReaction('kill', mods);
             if (!mods) return;
             const fx = this.fx(mods);
             this.killCount++;
@@ -874,6 +878,11 @@
         }
 
         /* ---------------- Incoming Damage & Economy ---------------- */
+        triggerReaction(event, mods) {
+            const active = BO.State.activeMode === 'survival' ? BO.SurvivalMode?.campaign?.options?.modifiers : (mods || this.active());
+            BO.ReactiveModifiers.fire(event, active, BO.Player);
+        }
+
         onTakeDamage(amount, attackerEntity) {
             this.lastDamagedAt = this.matchClock;
             const fx = this.fxActive();
@@ -956,6 +965,7 @@
             const fx = this.fx(mods);
             const P = BO.Player;
             let m = fx.speedMult || 1;
+            if (BO.Player?.mpPerks.includes('lightweight')) m *= 1.08;
             if (mods.slowPlayer) m *= 0.7;
             if (mods.adrenalineKills && this.adrenalineTimer > 0) m *= Math.max(1.35, fx.killSpeedBurst || 1.35);
             else if (this.adrenalineTimer > 0 && fx.killSpeedBurst) m *= fx.killSpeedBurst;

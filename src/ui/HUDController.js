@@ -616,16 +616,29 @@
                 if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
                 if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
                 if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
-                if (this.elPrompt) this.elPrompt.classList.add('hidden');
+                if (this.elPrompt) {
+                    const site = mp.modeType === 'search_destroy' ? mp._searchSite() : null;
+                    const atSite = site && P.alive && BO.Math.dist3D(P.pos.x, P.pos.y, P.pos.z, site.x, site.y || 0, site.z) <= 3.5;
+                    const attacking = mp.playerTeam === (mp.searchRound - 1) % 2;
+                    const canInteract = atSite && attacking !== !!mp.searchBomb;
+                    this.elPrompt.classList.toggle('hidden', !canInteract);
+                    if (canInteract) this.elPrompt.textContent = mp.searchBomb ? '[E] DEFUSE CHARGE' : '[E] PLANT CHARGE';
+                }
                 if (this.elMpScore) {
                     this.elMpScore.classList.remove('hidden');
                     const objStr = mp.modeType === 'dom'
                         ? mp.domStates.map((d) => `<span style="color:${d.owner === 0 ? '#38bdf8' : (d.owner === 1 ? '#ef4444' : '#94a3b8')}">[${d.id}]</span>`).join(' ')
+                        : mp.modeType === 'search_destroy' ? (mp.searchBomb ? `CHARGE ${Math.ceil(mp.searchBomb)}s` : `ROUND ${mp.searchRound}`)
+                        : mp.modeType === 'bounty' ? (mp.bountyHolder === P ? 'YOU HOLD THE BOUNTY' : 'BOUNTY')
                         : (mp.modeType === 'hardpoint' ? `HP ${Math.ceil(mp.hpTimer)}s` : (mp.modeType === 'gun_game' ? `TIER ${mp.playerGunTier + 1}/16` : ''));
+                    const pursuit = mp.modeType === 'bounty';
+                    const left = pursuit ? Math.floor(mp.bountySeconds.get(P) || 0) : mp.isSolo ? mp.playerKills : mp.teamScores[0];
+                    const right = pursuit ? Math.floor(Math.max(0, ...mp.bots.map((b) => mp.bountySeconds.get(b) || 0)))
+                        : mp.isSolo ? Math.max(0, ...mp.bots.map((b) => b.kills)) : mp.teamScores.slice(1).join(' / ');
                     this.elMpScore.innerHTML = `
-                        <span style="color:#38bdf8">${mp.modeType === 'ffa' ? mp.playerKills : mp.teamScores[0]}</span>
+                        <span style="color:#38bdf8">${left}</span>
                         <span style="color:#94a3b8;font-size:12px">${BO.Math.formatTime(mp.timeRemaining)} ${objStr}</span>
-                        <span style="color:#ef4444">${mp.modeType === 'ffa' ? Math.max(0, ...mp.bots.map((b) => b.kills)) : mp.teamScores[1]}</span>
+                        <span style="color:#ef4444">${right}</span>
                     `;
                 }
                 if (this.elPerkTray) {
@@ -949,7 +962,7 @@
                 const radarOn = !!(mp.customRules && mp.customRules.alwaysRadar);
                 for (const b of mp.bots) {
                     if (!b.alive) continue;
-                    const isAlly = mp.modeType !== 'ffa' && mp.modeType !== 'gun_game' && b.team === 0;
+                    const isAlly = !mp.isSolo && b.team === mp.playerTeam;
                     if (!isAlly && !radarOn && mp.uavTimer <= 0 && b.fireTimer <= 0 && b.pos.distanceTo(P.pos) > 14) continue;
                     ctx.fillStyle = isAlly ? '#38bdf8' : '#ef4444';
                     ctx.beginPath();
@@ -999,7 +1012,7 @@
 
             // Draw Online Squadmates / Remote Players on Minimap Radar
             if (BO.Net && BO.Net.active) {
-                const isFFA = BO.State.activeMode === 'mp' && (BO.MPMode.modeType === 'ffa' || BO.MPMode.modeType === 'gun_game');
+                const isFFA = BO.State.activeMode === 'mp' && BO.MPMode.isSolo;
                 for (const [pid, st] of BO.Net.remoteStates.entries()) {
                     if (pid === BO.Net.myPeerId || !st) continue;
                     const isEnemy = BO.State.activeMode === 'mp' && (isFFA || (st.team !== undefined && st.team !== BO.Net.myTeam));

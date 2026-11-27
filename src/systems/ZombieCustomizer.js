@@ -32,7 +32,8 @@
 
     const MOVEMENT_HABITS = [
         'lumber', 'crawl_fast', 'sprint', 'hop_erratic', 'flank_circle',
-        'charge_bull', 'stomp_march', 'leap_pounce', 'zig_zag', 'hover_drift', 'teleport_blink'
+        'charge_bull', 'stomp_march', 'leap_pounce', 'zig_zag', 'hover_drift', 'teleport_blink',
+        ...Object.keys(BO.ZombieBehaviors.movement)
     ];
 
     const ATTACK_TYPES = [
@@ -62,6 +63,7 @@
                 resistances: s.resistances || { bullet: 1, explosive: 1, fire: 1, headshot: 1, melee: 1 },
                 movementHabit: s.movementHabit || 'lumber',
                 attackType: s.attackType || 'melee',
+                bonusAttacks: (s.bonusAttacks || []).slice(),
                 splitCount: s.splitCount || 0,
                 jumpChance: s.jumpChance || 0,
                 isMagical: !!s.isMagical,
@@ -245,7 +247,9 @@
                 s.attack = ov.attack != null ? Math.max(0, Number(ov.attack)) : base.attack;
                 s.defense = ov.defense != null ? Math.max(0, Math.min(0.95, Number(ov.defense))) : base.defense;
                 s.movementHabit = ov.movementHabit || base.movementHabit;
-                s.attackType = ov.attackType || base.attackType;
+                s.attackType = ATTACK_TYPES.includes(ov.attackType) ? ov.attackType : base.attackType;
+                const bonus = Array.isArray(ov.bonusAttacks) ? ov.bonusAttacks : base.bonusAttacks;
+                s.bonusAttacks = [...new Set(bonus.filter((id) => Object.hasOwn(BO.ZombieBehaviors.attacks, id)))].slice(0, 2);
                 s.splitCount = ov.splitCount != null ? Math.max(0, Math.min(6, Math.floor(Number(ov.splitCount)))) : base.splitCount;
                 s.jumpChance = ov.jumpChance != null ? Math.max(0, Math.min(1, Number(ov.jumpChance))) : base.jumpChance;
                 s.isMagical = ov.isMagical != null ? !!ov.isMagical : base.isMagical;

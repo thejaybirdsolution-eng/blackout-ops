@@ -1485,7 +1485,7 @@
             const botRows = mp.bots.map((b) => [
                 b.id, b.team, b.alive ? 1 : 0,
                 Number(b.pos.x.toFixed(2)), Number(b.pos.y.toFixed(2)), Number(b.pos.z.toFixed(2)),
-                Number(b.yaw.toFixed(2)), Math.ceil(b.hp), b.kills, b.deaths, b.score
+                Number(b.yaw.toFixed(2)), Math.ceil(b.hp), b.kills, b.deaths, b.score, b.corpse?.impulse || null
             ]);
 
             this.broadcast({
@@ -1525,12 +1525,21 @@
 
                 if (Array.isArray(snap.bots)) {
                     for (const row of snap.bots) {
-                        const [id, team, alive, x, y, z, yaw, hp, kills, deaths, score] = row;
+                        const [id, team, alive, x, y, z, yaw, hp, kills, deaths, score, impulse] = row;
                         const b = mp.bots.find((x) => x.id === id);
                         if (b) {
                             b.team = team;
-                            b.alive = alive === 1;
-                            b.parts.root.visible = b.alive;
+                            const willLive = alive === 1;
+                            if (willLive && !b.alive) {
+                                b.spawnAt({ x, y, z, yaw });
+                            } else if (!willLive && b.alive && impulse) {
+                                b.pos.set(x, y, z);
+                                b.parts.root.position.copy(b.pos);
+                                b.parts.root.rotation.y = yaw;
+                                b._startCorpse(null, 0, impulse);
+                            }
+                            b.alive = willLive;
+                            b.parts.root.visible = willLive || !!b.corpse;
                             b.netTargetPos = new THREE.Vector3(x, y, z);
                             b.netTargetYaw = yaw;
                             b.hp = hp;

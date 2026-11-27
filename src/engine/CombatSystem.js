@@ -12,6 +12,7 @@
             this.projectiles = []; // grenades, semtex, c4, flashbang, monkey_bomb, raygun bolts, pokeball
             this.c4Charges = [];
             this.napalmPools = [];
+            this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
             this.targetPool = []; // Enemy meshes populated by active game mode
@@ -49,6 +50,7 @@
             this.projectiles = [];
             this.c4Charges = [];
             this.napalmPools = [];
+            this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
             this.targetPool = [];
@@ -220,7 +222,11 @@
 
             const tdInf = BO.State.activeMode === 'td' && BO.TowerDefenseMode && (BO.TowerDefenseMode.modifiers?.infiniteAmmo || BO.TowerDefenseMode.overdriveTimer > 0);
             const mgInf = BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.infiniteMag;
-            const infAmmo = (BO.Cheats && BO.Cheats.isActive('infammo')) || tdInf || mgInf;
+            const bountyAmmo = BO.State.activeMode === 'mp' && BO.MPMode.bountyHolder === P;
+            const infAmmo = (BO.Cheats && BO.Cheats.isActive('infammo')) || tdInf || mgInf || bountyAmmo;
+            const isMasterkey = w.fireMode === 'masterkey';
+            const isUnderbarrelLauncher = w.fireMode === 'underbarrel_launcher';
+            const isUnderbarrelFlame = w.fireMode === 'underbarrel_flame';
             if (w.stats.kind === 'melee') {
                 this._executeMeleeWeaponSwing(w);
                 return;
@@ -252,7 +258,7 @@
             const tdGongBoost = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.overdriveTimer > 0) ? 1.85 : 1.0;
             const modRof = BO.Mods ? BO.Mods.fireRateMult() : 1.0;
             const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost * modRof;
-            P.fireCooldown = 60 / Math.max(30, rpm);
+            P.fireCooldown = isUnderbarrelLauncher ? 1.55 : isUnderbarrelFlame ? 0.3 : isMasterkey ? 0.82 : 60 / Math.max(30, rpm);
             if (mgRt && mgRt.fireInterval) P.fireCooldown = Math.max(P.fireCooldown, mgRt.fireInterval);
 
             P.triggerMuzzleFlash();
@@ -296,7 +302,12 @@
             const aim = P.getAimRay(this.camera);
 
             // Special Magic Weapon & Explosive Archetypes
-            if (w.stats.magicType) {
+            if (isUnderbarrelLauncher) {
+                this._spawnEnergyOrb(aim.origin, aim.dir,
+                    { ...w, stats: { ...w.stats, damage: 145, explosiveRadius: 3.1 } }, 0, 'underbarrel');
+            } else if (isUnderbarrelFlame) {
+                this._fireDragonBreath(aim.origin, aim.dir, { ...w, stats: { ...w.stats, range: 5.6, damage: 35 } });
+            } else if (w.stats.magicType) {
                 this._fireMagicWeapon(aim.origin, aim.dir, w, hasDoubleTap);
             } else if (w.stats.isConeBlast) {
                 this._fireConeBlast(aim.origin, aim.dir, w);
@@ -306,8 +317,10 @@
                     this._spawnEnergyOrb(aim.origin, aim.dir, w, c * 0.015);
                 }
             } else {
-                const pellets = (w.stats.pellets || 1) * (hasDoubleTap ? 2 : 1);
-                let spread = BO.Math.lerp(w.stats.hipSpread, w.stats.adsSpread, P.adsAlpha);
+                const shot = isMasterkey ? { ...w, stats: { ...w.stats, category: 'Shotgun', damage: 20,
+                    range: 16, pellets: 7, hipSpread: 0.085, adsSpread: 0.065, penetration: 0 } } : w;
+                const pellets = (shot.stats.pellets || 1) * (hasDoubleTap ? 2 : 1);
+                let spread = BO.Math.lerp(shot.stats.hipSpread, shot.stats.adsSpread, P.adsAlpha);
                 if (P.zombiePerks.has('deadshot')) spread *= 0.65;
                 if (Math.hypot(P.vel.x, P.vel.z) > 1.5 && P.adsAlpha < 0.5) spread *= 1.35;
                 if (BO.Mods) spread *= BO.Mods.spreadMult();
@@ -324,7 +337,7 @@
                     shotDir.z += (Math.random() - 0.5) * 2 * spread;
                     shotDir.normalize();
 
-                    const res = this._castBulletRay(aim.origin, shotDir, w);
+                    const res = this._castBulletRay(aim.origin, shotDir, shot);
                     if (res.hit) anyHit = true;
                     if (res.headshot) anyHeadshot = true;
                     if (res.kills > 0) {
@@ -922,7 +935,7 @@
                 mesh,
                 pos: mesh.position.clone(),
                 vel: launch.multiplyScalar(42),
-                gravity: w.cfg.id === 'm1911' ? 8.5 : 0,
+                gravity: subKind === 'underbarrel' ? 16 : w.cfg.id === 'm1911' ? 8.5 : 0,
                 life: 3.0,
                 radius: w.stats.explosiveRadius || 3.0,
                 damage: w.stats.damage,
@@ -954,7 +967,7 @@
                 return;
             }
 
-            if (release && P.lethalId === 'frag' && !P.cookingFrag) return;
+            if (release && (!spec.cookable || !P.cookingFrag)) return;
             if (P.lethalCount <= 0 && !infAmmo) return;
 
             if (!infAmmo) P.lethalCount--;
@@ -983,6 +996,7 @@
             const infAmmo = BO.Cheats && BO.Cheats.isActive('infammo');
             if (!P.alive || P.inLastStand || (P.tacticalCount <= 0 && !infAmmo)) return;
             if (!infAmmo) P.tacticalCount--;
+            BO.Mods?.triggerReaction('tactical');
 
             if (P.tacticalId === 'stim') {
                 P.hp = P.maxHp;
@@ -1041,16 +1055,45 @@
                 stuck: false,
                 life: kind === 'pokeball' ? 0.95 : fuse,
                 radius: spec.radius || 5.5,
-                damage: spec.damage || 220,
+                damage: spec.damage ?? 220,
+                proximity: spec.proximity || 0,
                 stunDuration: spec.stunDuration || 0
             };
+            if (proj.proximity) {
+                proj.pos.copy(BO.Player.pos).addScaledVector(aim.dir.clone().setY(0).normalize(), 0.85);
+                proj.pos.y = BO.World.getGroundHeight(proj.pos.x, proj.pos.z, BO.Player.pos.y) + 0.08;
+                proj.mesh.position.copy(proj.pos);
+                proj.vel.set(0, 0, 0);
+                proj.stuck = true;
+                proj.armTime = 0.65;
+            }
             this.projectiles.push(proj);
             if (kind === 'c4') this.c4Charges.push(proj);
             if (kind === 'monkey_bomb') this.activeMonkeyBomb = proj;
             BO.Sound.playMelee();
         }
 
+        smokeBlocks(x1, y1, z1, x2, y2, z2) {
+            if (!this.smokeClouds.length) return false;
+            const a = new THREE.Vector3(x1, y1, z1);
+            const v = new THREE.Vector3(x2, y2, z2).sub(a);
+            const len = Math.max(0.01, v.lengthSq());
+            return this.smokeClouds.some(({ pos, radius }) => {
+                const t = BO.Math.clamp(pos.clone().sub(a).dot(v) / len, 0, 1);
+                return a.clone().addScaledVector(v, t).distanceToSquared(pos) < radius * radius;
+            });
+        }
+
         _updateProjectiles(dt) {
+            for (const cloud of this.smokeClouds) {
+                cloud.life -= dt;
+                cloud.pulse -= dt;
+                if (cloud.pulse <= 0 && cloud.life > 0) {
+                    cloud.pulse = 0.26;
+                    BO.FX.spawnParticles(cloud.pos, 16, 0xadbcc4, 4, 0.7, 1.1, 2.3);
+                }
+            }
+            this.smokeClouds = this.smokeClouds.filter((cloud) => cloud.life > 0);
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const p = this.projectiles[i];
                 p.life -= dt;
@@ -1175,6 +1218,31 @@
                     BO.Sound.playTone(980, 1240, 0.08, 'sine', 0.14);
                 }
 
+                if (p.kind === 'tomahawk') {
+                    const target = this.targetPool.find((mesh) => {
+                        const enemy = mesh.userData.entity;
+                        if (!enemy?.alive || !enemy.pos) return false;
+                        return Math.abs(p.pos.y - enemy.pos.y - 0.9) < 0.84 &&
+                            BO.Math.dist2D(p.pos.x, p.pos.z, enemy.pos.x, enemy.pos.z) < 0.73;
+                    });
+                    if (target) {
+                        const blade = { cfg: { id: 'tomahawk_axe' }, stats: { kind: 'melee', shortName: 'TOMAHAWK' } };
+                        const killed = this.onHitEnemy?.(target.userData.entity, p.damage, 'torso',
+                            p.pos.distanceTo(BO.Player.pos), blade, p.pos, p.vel.clone().normalize());
+                        BO.Sound.playHitmarker(false, killed);
+                        BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: !!killed });
+                        p.mesh.parent?.remove(p.mesh);
+                        this.projectiles.splice(i, 1);
+                        continue;
+                    }
+                }
+                if (p.proximity) {
+                    p.armTime -= dt;
+                    if (p.armTime <= 0 && this.targetPool.some((mesh) => {
+                        const entity = mesh.userData.entity;
+                        return entity?.alive && entity.pos?.distanceToSquared(p.pos) < p.proximity * p.proximity;
+                    })) p.life = 0;
+                }
                 if (p.life <= 0 && p.kind !== 'c4') {
                     if (p === this.activeMonkeyBomb) this.activeMonkeyBomb = null;
                     if (p.kind === 'pokeball') {
@@ -1186,8 +1254,24 @@
                     if (p.kind === 'napalm') {
                         this._spawnNapalmPool(p.pos.clone(), p.radius || 6.2, 9.0);
                     }
-                    const isFlash = p.kind === 'flashbang';
-                    this._detonateExplosion(p.pos, p.radius, p.damage, 'player', isFlash, p.stunDuration, p.kind, p.kind === 'napalm' ? 0xf97316 : 0xff7722);
+                    if (p.kind === 'tomahawk') {
+                        BO.Sound.playGrenadeBounce();
+                    } else if (p.kind === 'smoke') {
+                        this.smokeClouds.push({ pos: p.pos.clone().add(new THREE.Vector3(0, 1, 0)), life: 7, radius: p.radius, pulse: 0 });
+                    } else if (p.kind === 'decoy') {
+                        BO.Sound.playGunshot('smg', false, false, 0.45);
+                        for (const bot of BO.MPMode.active ? BO.MPMode.bots : []) {
+                            if (bot.alive && bot.pos.distanceToSquared(p.pos) < p.radius * p.radius) {
+                                bot.roamGoal = p.pos.clone();
+                                bot.path = BO.World.findPath(bot.pos.x, bot.pos.y, bot.pos.z, p.pos.x, p.pos.y, p.pos.z, false);
+                                bot.pathTimer = 3.5;
+                                bot.cachedTarget = null;
+                            }
+                        }
+                    } else {
+                        const isFlash = p.kind === 'flashbang' || p.kind === 'concussion';
+                        this._detonateExplosion(p.pos, p.radius, p.damage, 'player', isFlash, p.stunDuration, p.kind, p.kind === 'napalm' ? 0xf97316 : 0xff7722);
+                    }
                     if (BO.World.scene) BO.World.scene.remove(p.mesh);
                     this.projectiles.splice(i, 1);
                 }
@@ -1512,13 +1596,14 @@
                 BO.Sound.playFlashbang();
                 BO.FX.spawnParticles(pos, 18, 0xffffff, 8, 2, 0.35, 1.8);
                 if (distToPlayer < radius) {
-                    BO.Player.flashBlindTimer = Math.max(BO.Player.flashBlindTimer, 1.8 * (1 - distToPlayer / radius));
+                    BO.Player.flashBlindTimer = Math.max(BO.Player.flashBlindTimer, 1.8 * (1 - distToPlayer / radius) * (BO.Player.mpPerks.includes('tactical_mask') ? 0.35 : 1));
                 }
             } else {
                 BO.Sound.playExplosion(distScale);
                 BO.FX.spawnExplosion(pos, radius, color);
                 if (distToPlayer < radius) {
-                    const selfDmg = damage * (1 - distToPlayer / radius) * 0.45;
+                    const mine = weaponId === 'claymore' || weaponId === 'bouncing_betty';
+                    const selfDmg = damage * (1 - distToPlayer / radius) * 0.45 * (mine && BO.Player.mpPerks.includes('recon_spotter') ? 0.4 : 1);
                     BO.Player.takeDamage(selfDmg, pos, true);
                     BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.08);
                 }
@@ -1655,7 +1740,7 @@
 
             const aim = P.getAimRay(this.camera);
             this.raycaster.set(aim.origin, aim.dir);
-            this.raycaster.far = P.mpPerks.includes('bayonet_drill') ? 3.55 : 2.55;
+            this.raycaster.far = (P.mpPerks.includes('bayonet_drill') ? 3.55 : 2.55) + (P.activeWeapon?.stats.meleeReach || 0);
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
             for (const h of hits) {
                 const ent = h.object.userData.entity;
