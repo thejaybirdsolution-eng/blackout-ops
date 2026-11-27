@@ -1,0 +1,175 @@
+/* ============================================================================
+   BLACKOUT OPS — Unified Profile Hub, Continue Banner, Armory & Campaign UI
+   Follows css/aaa-theme.css tokens (--aaa-accent, graphite surfaces, hairlines).
+============================================================================ */
+
+.ph-continue-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 178, 63, 0.35);
+    border-left: 3px solid var(--aaa-accent, #ffb23f);
+    background: rgba(14, 17, 23, 0.85);
+    border-radius: 2px;
+}
+
+.ph-continue-banner small {
+    display: block;
+    font-family: var(--font-mono, monospace);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: var(--aaa-accent, #ffb23f);
+}
+
+.ph-continue-banner b {
+    font-family: var(--aaa-display, sans-serif);
+    font-size: 17px;
+    letter-spacing: 0.06em;
+    color: var(--aaa-text, #e8ecf1);
+}
+
+.ph-campaign-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(255, 178, 63, 0.55);
+    background: linear-gradient(90deg, rgba(255, 178, 63, 0.16), rgba(14, 17, 23, 0.9) 70%);
+    border-radius: 2px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--aaa-text, #e8ecf1);
+    transition: transform 0.22s ease, border-color 0.22s ease;
+}
+
+.ph-campaign-card:hover {
+    transform: translateX(3px);
+    border-color: var(--aaa-accent, #ffb23f);
+}
+
+.ph-campaign-card small {
+    display: block;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    color: var(--aaa-accent, #ffb23f);
+}
+
+.ph-campaign-card b {
+    font-family: var(--aaa-display, sans-serif);
+    font-size: 20px;
+    letter-spacing: 0.06em;
+}
+
+.ph-mode-prog {
+    display: inline-block;
+    margin-left: 8px;
+    font-family: var(--font-mono, monospace);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--aaa-accent, #ffb23f);
+    opacity: 0.92;
+}
+
+.ph-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 950;
+    background: rgba(5, 7, 10, 0.86);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.ph-modal-backdrop.hidden {
+    display: none;
+}
+
+.ph-modal {
+    width: min(900px, 95vw);
+    max-height: 86vh;
+    overflow-y: auto;
+    background: #0d1016;
+    border: 1px solid rgba(232, 236, 241, 0.14);
+    border-top: 2px solid var(--aaa-accent, #ffb23f);
+    border-radius: 2px;
+    padding: 22px 24px;
+    color: var(--aaa-text, #e8ecf1);
+}
+
+.ph-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.ph-kicker {
+    display: block;
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    color: var(--aaa-accent, #ffb23f);
+}
+
+.ph-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+}
+
+.ph-card {
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.025);
+    border-radius: 2px;
+}
+
+.ph-card.is-active {
+    border-color: var(--aaa-accent, #ffb23f);
+}
+
+.ph-xp-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.ph-xp-bar > i {
+    display: block;
+    height: 100%;
+    background: var(--aaa-accent, #ffb23f);
+}
+
+#campaign-hud-pill {
+    position: fixed;
+    top: 66px;
+    right: 20px;
+    z-index: 600;
+    max-width: 300px;
+    padding: 8px 12px;
+    background: rgba(9, 11, 15, 0.84);
+    border: 1px solid rgba(255, 178, 63, 0.45);
+    border-left: 3px solid var(--aaa-accent, #ffb23f);
+    font-size: 11px;
+    color: #e2e8f0;
+    pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ph-campaign-card {
+        transition: none;
+    }
+}

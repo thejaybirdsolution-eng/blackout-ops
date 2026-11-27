@@ -10,7 +10,7 @@
     const STORAGE_KEY = 'blackout_ops_save_v1';
     const STORAGE_TMP = STORAGE_KEY + '_tmp';
     const BACKUP_KEYS = [STORAGE_KEY + '_bak0', STORAGE_KEY + '_bak1', STORAGE_KEY + '_bak2'];
-    const CURRENT_VERSION = 2;
+    const CURRENT_VERSION = 3;
 
     let memoryFallback = null;
     const sliceOwners = new Map();
@@ -279,6 +279,24 @@
                 best: {},
                 plays: 0,
                 skipCountdown: false
+            },
+            profile: {
+                level: 1,
+                xp: 0,
+                totalXp: 0,
+                callingCard: 'card_blackout',
+                emblem: 'emb_star',
+                title: 'OPERATIVE',
+                unlockedCards: ['card_blackout'],
+                unlockedEmblems: ['emb_star'],
+                unlockedTitles: ['OPERATIVE'],
+                unlockedRewards: [],
+                lastMode: null,
+                lastMapId: null,
+                lastPlayedAt: 0,
+                onboardingDone: false,
+                challenges: { dailyKey: '', daily: [], weeklyKey: '', weekly: [] },
+                campaign: { completed: {}, activeMissionId: null, choices: {} }
             }
         };
     }
@@ -312,6 +330,11 @@
             if (!save.settings || typeof save.settings !== 'object') save.settings = {};
             if (!save.minigames || typeof save.minigames !== 'object') save.minigames = { best: {} };
             save.version = 2;
+            return save;
+        },
+        2(save) {
+            if (!save.profile || typeof save.profile !== 'object') save.profile = {};
+            save.version = 3;
             return save;
         }
     };
