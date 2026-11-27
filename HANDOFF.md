@@ -1,69 +1,60 @@
-# HANDOFF — Open World RPG ("Operation Meridian", mode `owrpg`)
+# HANDOFF — Blackout Ops (Open World RPG "Operation Meridian" + Minigames)
 
 ## Snapshot
-- **Branch:** `feature/owrpg-open-world` (from `master`). Check `git log -1 --oneline` for the current commit.
-- **QA:** `_qa_owrpg.html` — 29 / 29 pass. `_qa_runner.html` — 3 / 4; the one failure is pre-existing (it opens a guide tab called `'bosses'` that `ModeGuide` no longer has).
-- **Validator:** `BO.OWRPGValidator.runAll()` — 0 errors, 5 TTK warnings (bosses below the 18 s band on paper; abilities and cover stretch real fights).
-- **Perf (in-app browser, 1024×768):** ~160 draw calls in the open, ~180 in Freestead; world build ≈ 0.3 s; save ≈ 5 KB.
+- **Branch:** `feature/owrpg-minigames-flagship-2` (from `master` @ `c6de59e`). `git log --oneline master..` lists the work.
+- **QA:** `_qa_owrpg.html` — 143 / 143. `_qa_runner.html` (whole-game smoke: every mode + all 63 minigames) — 15 / 15.
+- **Validator:** `BO.OWRPGValidator.runAll()` — 0 errors, 0 warnings (also checks every hidden-site counter quest is reachable).
+- **Perf (headless SwiftShader, 1400×900):** OWRPG frame-budget spot 170 draw calls (target 180); Freestead spawn ~390 (was ~1,760).
 
-## Load order (index.html)
-1. `css/owrpg.css` after `css/vault-visuals.css`
-2. `src/data/OWRPGStatsData.js, OWRPGFactionsData.js, OWRPGWorldData.js, OWRPGDialogueData.js, OWRPGQuestsData.js` after `RPGEncounters.js` (WorldData needs `BO.WorldCore` + `BO.MapsData`)
-3. `src/owrpg/OWRPGSave, Character, Factions, Inventory, Quests, Dialogue, Combat, AI, WorldArt, WorldSim, Interiors, Validator` then `src/modes/OWRPGMode.js` after `SurvivalMode.js`
-4. `src/ui/OWRPGUI.js, OWRPGPipPad.js` after `RPGUI.js`, before `main.js`
+## Load order (index.html, additions this pass)
+1. `src/graphics/MeshProxy.js` after `CharacterShading.js`.
+2. `src/data/OWRPGDiscoveryData.js` after `OWRPGQuestsData.js`.
+3. `src/owrpg/OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js` **after** `src/modes/OWRPGMode.js` (they self-register with `OWRPGMode.registerSystem` at load).
+4. `src/minigames/MinigameFeel.js`, `MinigameDaily.js` after `MinigameCore.js`.
 
-## Integration points in existing files
-- `src/main.js` — start/stop/suspend, key routing (`OWRPGMode.handleKey` / `isSuppressed`), modal pause (`OWRPGUI.modalOpen`), update + HUD calls.
-- `src/engine/PlayerController.js` — incoming damage, cheat-death, no auto-regen, speed multiplier (4 one-line hooks).
-- `src/core/Settings.js` — `ow*` keybinds + "Open World RPG" controls group; `'owrpg'` added to `ALL_MODES`.
-- `src/ui/MenuController.js` — `#btn-menu-owrpg` opens slot select. `src/ui/ModeGuide.js` — guide entry. `src/ui/ControlsPanel.js` — mode label.
+## OWRPG system registry (new)
+`BO.OWRPGMode.registerSystem(sys)` — a system may implement `start(state, scene)`, `stop()`, `update(dt)`, `tick1()`,
+`handleKey(code, kb, e) → bool`, `nearest() → { obj, d, text }` and `interact(t)`. Hooks run inside try/catch.
+New world features should register here instead of adding lines to `OWRPGMode`.
 
 ## Module status
 | File | Status | Public surface |
 |---|---|---|
-| data/OWRPGStatsData.js | DONE | ATTRS, xpToNext, PERK_TREES, STATUSES, REACTIONS, ABILITIES, ENEMIES, ITEMS, AFFIXES, LOOT, perkIndex() |
-| data/OWRPGFactionsData.js | DONE | FACTIONS, TIERS, VENDORS |
-| data/OWRPGWorldData.js | DONE (Haven Basin full; other regions have hubs/sites, no quests yet) | REGIONS, POIS, NPCS, INTERACTS, PYLONS, LANDMARKS, regionAt, isInterior, isWet; registers map `meridian` |
-| data/OWRPGDialogueData.js | DONE (7 NPCs) | TREES |
-| data/OWRPGQuestsData.js | DONE (6 quests) | QUESTS |
-| owrpg/OWRPGSave.js | DONE | root, migrate, list, read, write, remove, byteSize |
-| owrpg/OWRPGCharacter.js | DONE | derived, addXp, perkBlock, takePerk, respec, encumbrance |
-| owrpg/OWRPGFactions.js | DONE | rep, tier, add, isHostile, isWary, canTrade, poiOwner |
-| owrpg/OWRPGInventory.js | DONE | add, remove, equip, weaponStats, rollLoot (pity), buy, sell, salvage |
-| owrpg/OWRPGQuests.js | DONE | start, setStage, complete, onEvent, markers, objective |
-| owrpg/OWRPGDialogue.js | DONE | entry, view, choose, check, apply |
-| owrpg/OWRPGCombat.js | DONE | onGunHit, damage, applyStatus, detonate, cast, aim |
-| owrpg/OWRPGAI.js | DONE | spawn, tick10, update, noise, engage, agentsNear, awareness |
-| owrpg/OWRPGWorldArt.js | DONE | populate, animate, setPylonActive |
-| owrpg/OWRPGWorldSim.js | DONE | init, update, tick1, discover, spawnPoi, timeLabel |
-| owrpg/OWRPGInteriors.js | DONE | build, nearest, interact, dropBag, enter, exit |
-| owrpg/OWRPGValidator.js | DONE | runAll() |
-| modes/OWRPGMode.js | DONE | start, stop, suspend, quickSave/Load, reward, giveXp, setFlag, travelTo |
-| ui/OWRPGUI.js | DONE | openSlots, openCreator, openDialogue, openVendor, openStash, openTravel, showDeath, updateHud |
-| ui/OWRPGPipPad.js | DONE | open(tab) — character, perks, inventory, abilities, quests, map, factions, system, dev (F8) |
+| graphics/MeshProxy.js | DONE | attach(root, key), set(lod, far), detach(lod) — merged-per-material far LOD, shared buffers by key |
+| owrpg/OWRPGCartography.js | DONE | reveal(x,z,r), isExplored, percent, regionPercent, range, questTarget, drawWorldBase/Fog, atlasHtml; HUD minimap |
+| owrpg/OWRPGDiscoveries.js | DONE | generate(seed), sites, isFound, foundCount, typeSummary, nearestUnfound, drawOnMinimap/WorldMap |
+| data/OWRPGDiscoveryData.js | DONE | PER_REGION, TYPES (7), BLESSINGS (8), BLESSING_SEC, LORE (24) |
+| owrpg/OWRPGChampions.js | DONE | AFFIXES (12), make(agent, n, forced), onSpawn, dealtMult, takenMult, afterDamaged, afterHitPlayer, onKilled, label |
+| minigames/MinigameFeel.js | DONE | onKill, onCombo, onComboBreak, onTick, onFinish, onResults, onBossRound, onBossDown, materialOf |
+| minigames/MinigameDaily.js | DONE | picks(dateKey), onResults(def,res), rank(got,max), navHtml(...) |
+| owrpg/* (previous modules) | DONE | see git history of this file for the original table |
 
-## Working
-Character creation (3 slots), Haven Basin vertical slice (Freestead Town with 4 NPCs and a stash, Pumphouse, Overpass, Relay, Convoy, Shale Cave, Culvert Sublevel interior), all five Dry Artery outcomes, 5 more quests, stealth/detection, faction AI and territory, theft detection, Primer/Detonator reactions, loot with pity, vendors, salvage, pylons, day/night, compass pins, save/load/migrate, F8 dev tools.
+## Save data
+- OWRPG schema **v4**: `slot.atlas = { explored (base64 64×64 bitset), found {siteId: playtime}, shrineT {}, champions, trials }`,
+  `player.blessing`, `worldFlags.{minimapEnabled, minimapNorthUp, minimapZoom, trackedQuests[]}`. `fill()` backfills old saves.
+- Minigames: `BO.Save.data.minigames.daily = { date, done, streak, lastFull }`.
 
-## Known gaps / next work
-- Regions 2–6 have hubs, sites and enemies but no authored quests yet (plan Phase 5).
-- Only 2 abilities per slot type beyond starters; no companions; no New Game+.
-- Base HUD still shows grenade/plate counters (unused in this mode).
-- Dish Ridge / Meridian Dome spawns are placeholders for Act II.
-- Not tested on a real 60 Hz display outside the app's browser pane.
+## Numeric world flags written by the new systems (quest counters use `count:<flag>:<n>`)
+`explored_pct`, `found_<type>` and `first_<type>` for cache/tome/shrine/shard/vista/cairn/altar, `sites_found`,
+`champions_slain`, `first_champion`, `trials_won`.
 
 ## Hard invariants
 - No ES `import`/`export`. IIFE on `window.BO`.
-- Never write `BO.Save.data` keys owned by other modes; everything lives in `BO.Save.data.owrpg`.
+- Never write `BO.Save.data` keys owned by other modes; OWRPG state lives in `BO.Save.data.owrpg`.
 - No `new THREE.Vector3()` in hot per-frame loops where avoidable; use module scratch vectors.
-- Keep files < 600 lines.
+- Keep files < 600 lines (MenuController/WorldBuilder/SurvivalUI and some minigame files predate this rule).
+- Assets: only commit files the code references (the local `staged_assets` mirror is ~3 GB). Compress PNG textures with
+  palette quantisation (quality 90) before committing.
 
-## Next concrete deliverable
-Author the Rust Sprawl questline (2 Syndicate faction quests, 1 side quest) in `src/data/OWRPGQuestsData.js` + `OWRPGDialogueData.js`, using Mags Orrin and a new NPC at the Goliath Crane. Acceptance: validator 0 errors, `_qa_owrpg.html` all green, each quest has combat / tech-stealth / social resolutions.
+## Known gaps / next work
+- Regions 2–12 still rely on the original quest set plus the self-starting exploration quests; more authored faction quests per region would deepen them.
+- Some minigame course files keep module-level geometry caches (~1,100 geometries resident after 40 back-to-back runs); textures are now released.
+- Heaviest minigames by draw calls: `sr_gauntlet` (~1,700), `mansion_raid`, `fun_snowboarding`, `fun_prophunt`, `heli_gunner` (~1,000–1,250). A static-merge pass per course would help.
+- Not tested on a real 60 Hz GPU outside headless SwiftShader.
 
 ## Bootstrap prompt for the next session
 ```text
-Read HANDOFF.md and DECISIONS.md in C:\Users\PC\.gemini\antigravity\scratch\blackout-ops first.
-Do not scan unrelated modes (Zombies, MP, TD, Minigames, Rogue Lite).
-Inspect only the files listed under "Next concrete deliverable", do it, run _qa_owrpg.html + BO.OWRPGValidator.runAll(), and update HANDOFF.md before finishing.
+Read HANDOFF.md and DECISIONS.md first. Run _qa_owrpg.html and _qa_runner.html (python server.py, then open them).
+New open-world features: register a system with BO.OWRPGMode.registerSystem. Keep the validator at 0 errors.
+Update src/data/UpdateLogData.js with one entry per shipped feature before committing.
 ```

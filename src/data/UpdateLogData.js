@@ -3639,7 +3639,7 @@
                         },
                         {
                                 "type": "p",
-                                "text": "I also committed the 180 staged assets the code was already asking for (the live site was getting 404s for some of them), compressed the large textures from 64 MB to 19 MB without lowering their resolution, added the missing kit colour maps, and repaired the Mode Guide and QA runner. The Open World RPG QA suite now runs 143 checks and passes all of them."
+                                "text": "I also committed the 259 staged assets the game was already asking for or now uses (models, textures, voice lines and kit colour maps; the live site was getting 404s for some of them), compressed the large textures from 64 MB to 19 MB without lowering their resolution, added the missing kit colour maps, and repaired the Mode Guide. The Open World RPG QA suite now runs 143 checks and passes all of them, and a new whole-game QA runner boots every mode and all 63 minigames with zero errors. It caught two real bugs that are now fixed: Rogue Lite crashed if you started it before picking a class, and Thorned Champions could reflect enough overkill damage to kill you outright."
                         }
                 ]
         },
