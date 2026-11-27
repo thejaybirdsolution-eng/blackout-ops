@@ -124,10 +124,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "8023c4ce73",
+      "hash": "10a515023a",
       "fileCount": 30,
-      "rawBytes": 718004,
-      "gzipBytes": 184219,
+      "rawBytes": 718337,
+      "gzipBytes": 184281,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",

@@ -9485,14 +9485,21 @@
                 const DLG = BO.OWRPGDialogue;
                 const INJ = BO.OWRPGAct2.DIALOGUE_INJECTIONS;
                 const origTree = DLG.tree.bind(DLG);
+                const treeCache = new WeakMap();
                 DLG.tree = (npcId) => {
                     const base = origTree(npcId);
                     const ext = INJ[npcId];
-                    if (!base || !ext || base._act2Patched) return base;
-                    base._act2Patched = true;
-                    if (base.nodes?.hub) base.nodes.hub.choices = [...ext.hubChoices, ...base.nodes.hub.choices];
-                    Object.assign(base.nodes, ext.extraNodes);
-                    return base;
+                    if (!base || !ext) return base;
+                    if (treeCache.has(base)) return treeCache.get(base);
+                    const nodes = Object.assign({}, base.nodes, ext.extraNodes);
+                    if (base.nodes?.hub) {
+                        nodes.hub = Object.assign({}, base.nodes.hub, {
+                            choices: [...ext.hubChoices, ...base.nodes.hub.choices]
+                        });
+                    }
+                    const wrapped = Object.assign({}, base, { nodes });
+                    treeCache.set(base, wrapped);
+                    return wrapped;
                 };
             }
 
