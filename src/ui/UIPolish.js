@@ -160,27 +160,43 @@
         const body = document.getElementById('settings-body');
         const tabs = document.getElementById('settings-tabs');
         if (!body || !tabs || !BO.Settings) return;
-        const activeBtn = tabs.querySelector('.active');
+        const activeBtn = tabs.querySelector('.btn-primary, .active, [aria-selected="true"]');
         const activeTab = activeBtn ? (activeBtn.dataset.stab || '') : '';
 
-        if (activeTab === 'video' && !document.getElementById('set-reduced-motion')) {
-            const anchor = document.getElementById('set-shake')?.closest('.settings-row') || body.lastElementChild;
-            const row = document.createElement('label');
-            row.className = 'settings-row';
-            row.setAttribute('data-tip', 'Disables non-essential UI animations, particles, and screen shakes.');
-            const cur = !!BO.Settings.get('reducedMotion');
-            row.innerHTML = `<span>Reduced Motion</span><input type="checkbox" id="set-reduced-motion" ${cur ? 'checked' : ''}>`;
-            if (anchor && anchor.parentNode === body) anchor.after(row);
-            else body.appendChild(row);
-            row.querySelector('#set-reduced-motion').addEventListener('change', (e) => {
-                BO.Settings.set('reducedMotion', !!e.target.checked);
-            });
+        if (activeTab === 'video') {
+            const s = BO.Settings.all;
+            if (!document.getElementById('set-reduced-motion')) {
+                const row = document.createElement('label');
+                row.className = 'setting-row';
+                row.setAttribute('data-tip-title', 'Reduced Motion');
+                row.setAttribute('data-tip', 'Disables non-essential UI transitions, particle bursts, and camera shakes.');
+                row.innerHTML = `<span>Reduced Motion</span><input type="checkbox" id="set-reduced-motion" ${s.reducedMotion ? 'checked' : ''}>`;
+                body.appendChild(row);
+                row.querySelector('#set-reduced-motion').addEventListener('change', (e) => {
+                    BO.Settings.set('reducedMotion', !!e.target.checked);
+                });
+            }
+            if (!document.getElementById('set-shake') && !document.getElementById('set-video-shake')) {
+                const shakeVal = s.screenShake ?? 1.0;
+                const row = document.createElement('label');
+                row.className = 'setting-row';
+                row.setAttribute('data-tip-title', 'Camera Screen Shake');
+                row.setAttribute('data-tip', 'Controls intensity of recoil, explosion, and landing camera shake (0% disables shake).');
+                row.innerHTML = `<span>Camera Screen Shake (<span id="lbl-video-shake">${Math.round(shakeVal * 100)}%</span>)</span>` +
+                    `<input type="range" id="set-video-shake" min="0" max="1.5" step="0.1" value="${shakeVal}">`;
+                body.appendChild(row);
+                row.querySelector('#set-video-shake').addEventListener('input', (e) => {
+                    const v = Number(e.target.value);
+                    row.querySelector('#lbl-video-shake').textContent = Math.round(v * 100) + '%';
+                    BO.Settings.set('screenShake', v);
+                });
+            }
         }
 
         if (activeTab === 'sound' && !document.getElementById('set-uivol')) {
             const s = BO.Settings.all;
             const uiRow = document.createElement('label');
-            uiRow.className = 'settings-row';
+            uiRow.className = 'setting-row';
             const uiVal = s.uiVolume ?? 0.8;
             uiRow.innerHTML = `<span>UI Feedback Volume (<span id="lbl-uivol">${Math.round(uiVal * 100)}%</span>)</span>` +
                 `<input type="range" id="set-uivol" min="0" max="1" step="0.05" value="${uiVal}">`;
@@ -193,7 +209,7 @@
             });
 
             const hideRow = document.createElement('label');
-            hideRow.className = 'settings-row';
+            hideRow.className = 'setting-row';
             const muteHidden = s.muteWhenHidden !== false;
             hideRow.innerHTML = `<span>Mute Audio When Tab Hidden</span><input type="checkbox" id="set-mute-hidden" ${muteHidden ? 'checked' : ''}>`;
             body.appendChild(hideRow);
@@ -210,7 +226,7 @@
             if (!list.getAttribute('role')) list.setAttribute('role', 'tablist');
             const tabs = Array.from(list.querySelectorAll('button, [data-stab], [data-btab], [role="tab"]'));
             if (!tabs.length) return;
-            let activeIdx = tabs.findIndex((t) => t.classList.contains('active') || t.getAttribute('aria-selected') === 'true');
+            let activeIdx = tabs.findIndex((t) => t.classList.contains('active') || t.classList.contains('btn-primary') || t.getAttribute('aria-selected') === 'true');
             if (activeIdx < 0) activeIdx = 0;
             tabs.forEach((tab, idx) => {
                 if (!tab.getAttribute('role')) tab.setAttribute('role', 'tab');

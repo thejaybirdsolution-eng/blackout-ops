@@ -573,7 +573,11 @@
             this.reloading = false;
             this.burstRemaining = 0;
             this.swapTimer = this.mpPerks.includes('amped') ? 0.16 : 0.28;
-            this._wasGuarding = false;
+            if (stowing) {
+                this.adsAlpha = 0;
+                this.inspectTimer = 0;
+                this.meleeTimer = 0;
+                this._wasGuarding = false;
             }
             this.rebuildViewmodel();
             BO.Sound?.playWeaponEquip?.();

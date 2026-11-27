@@ -973,3 +973,15 @@ body.sv-reduced-motion #hud-layer .aaa-ring {
         max-width: 92vw;
     }
 }
+
+/* ---- Prevent vertical flex-shrink overlap in Gunsmith lists & 720p Lobby summary */
+.opt-list > .opt-card, .cac-slots > *, #lobby-right > *, .setting-row {
+    flex-shrink: 0;
+}
+#lobby-right .lobby-summary {
+    padding: 10px 12px;
+    gap: 5px;
+}
+#lobby-right .deploy-btn {
+    padding: 12px 16px;
+}
