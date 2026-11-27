@@ -417,13 +417,18 @@
                     </select>
                 </label>
                 <div class="gs-class-pills">${availCats.map((cat) => `<button class="gs-class-pill ${this.activeWeaponClass === cat ? 'active' : ''}" data-wcat="${cat}">${SHORT_CLASS_LABELS[cat] || cat}</button>`).join('')}</div>`;
+            host.classList.add('weapon-picker-body');
             host.appendChild(tools);
             const list = document.createElement('div');
             list.className = 'opt-list';
+            list.tabIndex = 0;
+            list.setAttribute('role', 'region');
+            list.setAttribute('aria-label', 'Weapon results');
             host.appendChild(list);
 
             const populate = () => {
                 list.innerHTML = '';
+                list.scrollTop = 0;
                 const q = this.searchQuery.trim().toLowerCase();
                 const filtered = eligible.filter((w) =>
                     (['all', 'group'].includes(this.activeSourceGame) || w.sourceGames.includes(this.activeSourceGame)) &&
@@ -485,7 +490,7 @@
             });
             populate();
             const act = list.querySelector('.opt-card.active');
-            if (act) act.scrollIntoView({ block: 'nearest' });
+            if (act) list.scrollTop = Math.max(0, act.getBoundingClientRect().bottom - list.getBoundingClientRect().bottom);
         }
 
         _renderAttachments(host, cls, classIdx, slot, cat) {

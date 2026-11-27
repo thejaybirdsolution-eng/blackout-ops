@@ -2576,6 +2576,20 @@ input[type="range"] {
 .gs-class-pills { display: flex; flex-wrap: wrap; gap: 5px; }
 .gs-class-pill { padding: 4px 10px !important; border-radius: 999px !important; font-size: 11.5px !important; }
 .opt-list { display: flex; flex-direction: column; gap: 6px; }
+.picker-body.weapon-picker-body { display: flex; flex-direction: column; overflow: hidden; }
+.weapon-picker-body .picker-tools { flex-shrink: 0; }
+.weapon-picker-body .opt-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+}
+@media (max-width: 1000px) {
+    .cac-right.panel:has(.weapon-picker-body) { min-height: min-content; }
+    .picker-body.weapon-picker-body { flex: none; }
+    .weapon-picker-body .opt-list { flex: none; max-height: 47dvh; }
+}
+
 .opt-card {
     display: flex; flex-direction: column; gap: 3px;
     padding: 9px 11px;
