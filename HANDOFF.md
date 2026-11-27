@@ -1,10 +1,11 @@
 # HANDOFF — Open World RPG ("Operation Meridian", mode `owrpg`)
 
 ## Snapshot
-- **Branch:** `feature/owrpg-open-world` (from `master`). Check `git log -1 --oneline` for the current commit.
-- **QA:** `_qa_owrpg.html` — 29 / 29 pass. `_qa_runner.html` — 3 / 4; the one failure is pre-existing (it opens a guide tab called `'bosses'` that `ModeGuide` no longer has).
-- **Validator:** `BO.OWRPGValidator.runAll()` — 0 errors, 5 TTK warnings (bosses below the 18 s band on paper; abilities and cover stretch real fights).
-- **Perf (in-app browser, 1024×768):** ~160 draw calls in the open, ~180 in Freestead; world build ≈ 0.3 s; save ≈ 5 KB.
+- **Branch:** `core/feel-perf-stability` (cut from `polish/cosmetic-pass`). Check `git log -1 --oneline` for the current commit.
+- **QA:** `_qa_owrpg.html` — **120 / 120 pass**. `_qa_runner.html` — **24 / 24 pass** (fixed `'bosses'` legend tab guard + aligned Survival 1.0 GM assertions + added mode leak, dt-invariance, minigame seed, hitbox, atomic save, and 2-peer netcode suites).
+- **Validator:** `BO.OWRPGValidator.runAll()` — **0 errors**, **0 warnings**.
+- **Perf (Chromium, 1280×720):** `_qa_owrpg.html` direct scene **160 draw calls** (`< 180` target), **3.5 ms** median frame cost; live `index.bundled.html` (`medium` quality w/ PostFX) settles at **150 FPS** (`6.7 ms avg / 7.1 ms p95`); save ≈ 5 KB.
+- **Bundling & ADRs:** See `DECISIONS.md` (`ADR-011`–`ADR-016`) and `docs/CORE_PASS_REPORT.md`. Keep `WorldCore.js` & `SpatialHash.js` in `core` when updating `tools/bundle.py`.
 
 ## Load order (index.html)
 1. `css/owrpg.css` after `css/vault-visuals.css`
@@ -48,9 +49,8 @@ Character creation (3 slots), Haven Basin vertical slice (Freestead Town with 4 
 ## Known gaps / next work
 - Regions 2–6 have hubs, sites and enemies but no authored quests yet (plan Phase 5).
 - Only 2 abilities per slot type beyond starters; no companions; no New Game+.
-- Base HUD still shows grenade/plate counters (unused in this mode).
+- Base HUD grenade/plate counters & `.gear-dock` are now hidden cleanly in `owrpg` (fixed in `HUDController.js`).
 - Dish Ridge / Meridian Dome spawns are placeholders for Act II.
-- Not tested on a real 60 Hz display outside the app's browser pane.
 
 ## Hard invariants
 - No ES `import`/`export`. IIFE on `window.BO`.

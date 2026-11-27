@@ -15466,6 +15466,34 @@
                                 ]
                         }
                 ]
+        },
+        {
+                "id": 175,
+                "hash": "v3.2",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "06:00 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Core Feel, Performance & Stability Pass: Bundler, Gamepad, Netcode & Atomic Saves",
+                "major": true,
+                "tags": [
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Completed a comprehensive core performance, game feel, networking, persistence, and automated regression pass across all BLACKOUT OPS modes:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Performance & Lazy Bundler: Added Graphics Quality Presets (Low/Medium/High/Ultra with first-launch detection), live FPS / frame-time p95 / draw-call PerfOverlay, SpatialHash marker grids and 10 Hz subsystem throttling in Survival, shadow-caster budget culling (cutting MP & OWRPG draw calls by 31–57%), zero-alloc hot-path vectors, SceneCleanup teardown, and a dev-only mode bundler (tools/bundle.py + BundleLoader) trimming initial load from 212 requests to 2 bundles.",
+                                        "Game Feel & Gamepad: Added full W3C Gamepad support (deadzones, quadratic look, opt-in ADS slowdown), tightened MP spawn-trap avoidance and Zombies barricade unsticking, fixed Survival woodDoor physical colliders, and hid unused Plate/Gear HUD widgets in Open World RPG.",
+                                        "Netcode & Atomic Saves: Added inbound packet validation, per-peer rate limiting, 80 ms JitterBuffer smoothing, DeltaCodec, 10 s signaling timeout, exponential-backoff reconnects, SaveSystem v2 migrations with atomic _tmp writes + 3 rotating backups + auto corruption recovery, and Settings > Save .JSON export/import.",
+                                        "Unified QA Suite: Fixed the retired 'bosses' Mode Guide guard and expanded _qa_runner.html to 24/24 passing checks alongside 120/120 passing _qa_owrpg.html checks (0 validator errors)."
+                                ]
+                        }
+                ]
         }
 ]
     };
