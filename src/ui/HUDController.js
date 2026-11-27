@@ -110,11 +110,13 @@
             }
 
             BO.Events.on('hud:hitmarker', (d) => {
-                this.hitmarkerTimer = 0.14;
+                this.hitmarkerTimer = d.isKill ? 0.18 : 0.14;
                 if (this.elHitmarker) {
-                    this.elHitmarker.style.color = (d.isHeadshot || d.isKill) ? '#ef4444' : '#f8fafc';
+                    this.elHitmarker.classList.toggle('is-headshot', Boolean(d.isHeadshot && !d.isKill));
+                    this.elHitmarker.classList.toggle('is-kill', Boolean(d.isKill));
+                    this.elHitmarker.style.color = d.isKill ? '#ff4d4d' : (d.isHeadshot ? '#ffb23f' : '#f8fafc');
                     this.elHitmarker.style.opacity = '1';
-                    this.elHitmarker.style.transform = d.isKill ? 'scale(1.22)' : 'scale(1.0)';
+                    this.elHitmarker.style.transform = d.isKill ? 'scale(1.26)' : (d.isHeadshot ? 'scale(1.12)' : 'scale(1.0)');
                 }
             });
 
@@ -128,13 +130,19 @@
                 }
             });
 
+            this._toastStack = [];
             BO.Events.on('hud:toast', (t) => {
-                this.toastTimer = 2.6;
-                if (this.elToast) {
-                    this.elToast.classList.remove('hidden');
-                    this.elToast.textContent = t.text;
-                    this.elToast.style.color = t.color || '#f8fafc';
+                if (!t || !t.text) return;
+                this.toastTimer = 2.8;
+                const entry = { text: t.text, color: t.color || '#f8fafc', timer: 2.8 };
+                // Avoid duplicate consecutive identical spam
+                if (this._toastStack.length && this._toastStack[0].text === entry.text) {
+                    this._toastStack[0].timer = 2.8;
+                } else {
+                    this._toastStack.unshift(entry);
+                    if (this._toastStack.length > 3) this._toastStack.length = 3;
                 }
+                this._renderToastStack();
             });
 
             BO.Events.on('progression:medal', (m) => {
@@ -149,12 +157,16 @@
                 BO.Events.emit('hud:banner', { title: `RANK UP! LEVEL ${r.level}`, sub: r.rankName.toUpperCase(), color: '#fde047' });
             });
 
+            this._kfNextId = 1;
             BO.Events.on('hud:killfeed', (k) => {
                 this.killfeedItems.unshift({
-                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${k.killer}</span> <span style="color:#64748b">[${k.weapon}${k.headshot ? ' ⌖' : ''}]</span> <span style="color:#f8fafc">${k.victim}</span>`,
-                    timer: 5.0
+                    id: this._kfNextId++,
+                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${k.killer}</span> <span style="color:#64748b">[${k.weapon}${k.headshot ? ' ⌖ HS' : ''}]</span> <span style="color:#f8fafc">${k.victim}</span>`,
+                    timer: 5.0,
+                    leaving: false
                 });
                 if (this.killfeedItems.length > 5) this.killfeedItems.pop();
+                this._renderKillfeed(true);
             });
 
             BO.Events.on('hud:points_popup', (p) => {
@@ -165,6 +177,49 @@
                 this.elPointsPopups.appendChild(div);
                 setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 750);
             });
+        }
+
+        _renderToastStack() {
+            if (!this.elToast) return;
+            if (!this._toastStack || this._toastStack.length === 0) {
+                this.elToast.classList.add('hidden');
+                this.elToast.textContent = '';
+                return;
+            }
+            this.elToast.classList.remove('hidden');
+            this.elToast.innerHTML = '';
+            for (let i = 0; i < this._toastStack.length; i++) {
+                const item = this._toastStack[i];
+                const row = document.createElement('div');
+                row.className = 'hud-toast-item';
+                row.style.color = item.color;
+                row.style.opacity = String(Math.max(0.55, 1 - i * 0.16));
+                row.style.marginTop = i > 0 ? '4px' : '0';
+                row.textContent = item.text;
+                this.elToast.appendChild(row);
+            }
+        }
+
+        _renderKillfeed(isNew) {
+            if (!this.elKillfeed) return;
+            const existing = new Map();
+            this.elKillfeed.querySelectorAll('[data-kf-id]').forEach((el) => existing.set(el.dataset.kfId, el));
+            const keepIds = new Set(this.killfeedItems.map((k) => String(k.id)));
+            existing.forEach((el, id) => { if (!keepIds.has(id)) el.remove(); });
+            for (let i = 0; i < this.killfeedItems.length; i++) {
+                const k = this.killfeedItems[i];
+                let row = existing.get(String(k.id));
+                if (!row) {
+                    row = document.createElement('div');
+                    row.className = 'kf-entry' + (isNew ? ' kf-row' : '');
+                    row.dataset.kfId = String(k.id);
+                    row.innerHTML = k.html;
+                    this.elKillfeed.appendChild(row);
+                }
+                if (k.leaving && !row.classList.contains('kf-leaving')) {
+                    row.classList.add('kf-leaving');
+                }
+            }
         }
 
         setVisible(visible) {
@@ -281,19 +336,36 @@
                 this.medalTimer -= dt;
                 if (this.medalTimer <= 0 && this.elMedal) this.elMedal.classList.add('hidden');
             }
-            if (this.toastTimer > 0) {
+            if (this._toastStack && this._toastStack.length) {
+                let toastChanged = false;
+                for (let i = this._toastStack.length - 1; i >= 0; i--) {
+                    this._toastStack[i].timer -= dt;
+                    if (this._toastStack[i].timer <= 0) {
+                        this._toastStack.splice(i, 1);
+                        toastChanged = true;
+                    }
+                }
+                if (toastChanged) this._renderToastStack();
+            } else if (this.toastTimer > 0) {
                 this.toastTimer -= dt;
                 if (this.toastTimer <= 0 && this.elToast) this.elToast.classList.add('hidden');
             }
 
-            // Killfeed decay
+            // Killfeed decay (keyed DOM: only mutate on transition)
+            let kfChanged = false;
             for (let i = this.killfeedItems.length - 1; i >= 0; i--) {
-                this.killfeedItems[i].timer -= dt;
-                if (this.killfeedItems[i].timer <= 0) this.killfeedItems.splice(i, 1);
+                const item = this.killfeedItems[i];
+                item.timer -= dt;
+                if (item.timer <= 0.18 && !item.leaving) {
+                    item.leaving = true;
+                    kfChanged = true;
+                }
+                if (item.timer <= 0) {
+                    this.killfeedItems.splice(i, 1);
+                    kfChanged = true;
+                }
             }
-            if (this.elKillfeed) {
-                this.elKillfeed.innerHTML = this.killfeedItems.map((k) => `<div class="kf-entry">${k.html}</div>`).join('');
-            }
+            if (kfChanged) this._renderKillfeed(false);
 
             // Pointer lock hint
             if (this.elLockHint) {
@@ -310,11 +382,20 @@
                 this.elFlash.style.opacity = String(BO.Math.clamp(P.flashBlindTimer / 1.5, 0, 0.95));
             }
 
-            // Damage directional arcs
+            // Damage directional arcs (dirty-gated so DOM isn't rebuilt when idle)
             if (this.elDmgArcs) {
-                this.elDmgArcs.innerHTML = P.damageArcs.map((a) =>
-                    `<div class="dmg-arc" style="transform:rotate(${a.angle}rad);opacity:${BO.Math.clamp(a.timer, 0, 1)}"></div>`
-                ).join('');
+                const arcs = P.damageArcs;
+                if (!arcs || arcs.length === 0) {
+                    if (this._hadDmgArcs) {
+                        this.elDmgArcs.innerHTML = '';
+                        this._hadDmgArcs = false;
+                    }
+                } else {
+                    this._hadDmgArcs = true;
+                    this.elDmgArcs.innerHTML = arcs.map((a) =>
+                        `<div class="dmg-arc" style="transform:rotate(${a.angle}rad);opacity:${BO.Math.clamp(a.timer, 0, 1)}"></div>`
+                    ).join('');
+                }
             }
 
             const isKillcam = mode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
@@ -566,7 +647,16 @@
 
                 if (this.elRoundChalk) this.elRoundChalk.textContent = BO.Math.toRoman(zm.round);
                 if (this.elPointsVal) {
-                    this.elPointsVal.textContent = zm.points.toLocaleString('en-US');
+                    const pts = zm.points || 0;
+                    if (this._lastPointsTarget !== pts) {
+                        const prev = this._lastPointsTarget ?? pts;
+                        this._lastPointsTarget = pts;
+                        if (BO.UIPolish && BO.UIPolish.animateNumber) {
+                            BO.UIPolish.animateNumber(this.elPointsVal, prev, pts, 200, (n) => Math.round(n).toLocaleString('en-US'));
+                        } else {
+                            this.elPointsVal.textContent = pts.toLocaleString('en-US');
+                        }
+                    }
                     const pBox = this.elPointsVal.parentElement;
                     if (pBox) {
                         let zSub = pBox.querySelector('.z-hostiles-sub');

@@ -14,6 +14,9 @@
             this.activeTarget = null;
             this.lastX = 0;
             this.lastY = 0;
+            this._openTimer = null;
+            this._pendingTarget = null;
+            this._lastHideAt = 0;
         }
 
         init() {
@@ -21,6 +24,7 @@
             const box = document.createElement('div');
             box.id = 'bo-tooltip';
             box.className = 'bo-tooltip hidden';
+            box.style.pointerEvents = 'none';
             box.innerHTML = `
                 <div class="bo-tip-title"></div>
                 <div class="bo-tip-body"></div>
@@ -34,13 +38,13 @@
                 !(e.target && e.target.closest && e.target.closest('dialog[open], .ui-modal:not(.hidden)'));
             document.addEventListener('mouseover', (e) => {
                 if (inGameBlocked(e)) {
-                    if (this.activeTarget) this.hide();
+                    if (this.activeTarget || this._pendingTarget) this.hide();
                     return;
                 }
                 const target = e.target && e.target.closest ? e.target.closest('[data-tip], [data-tip-enemy]') : null;
                 if (target) {
-                    this.show(target, e.clientX, e.clientY);
-                } else if (this.activeTarget) {
+                    this.scheduleShow(target, e.clientX, e.clientY);
+                } else if (this.activeTarget || this._pendingTarget) {
                     this.hide();
                 }
             });
@@ -55,7 +59,7 @@
             });
 
             document.addEventListener('mouseout', (e) => {
-                if (!this.activeTarget) return;
+                if (!this.activeTarget && !this._pendingTarget) return;
                 const related = e.relatedTarget && e.relatedTarget.closest ? e.relatedTarget.closest('[data-tip], [data-tip-enemy]') : null;
                 if (!related) {
                     this.hide();
@@ -64,6 +68,30 @@
 
             document.addEventListener('mousedown', () => this.hide());
             window.addEventListener('blur', () => this.hide());
+        }
+
+        scheduleShow(target, x, y) {
+            if (!this.el || !target) return;
+            this.lastX = x;
+            this.lastY = y;
+            if (target === this.activeTarget && !this.el.classList.contains('hidden')) {
+                this._position(x, y);
+                return;
+            }
+            clearTimeout(this._openTimer);
+            const warm = this.activeTarget || (performance.now() - this._lastHideAt < 220);
+            if (warm) {
+                this._pendingTarget = null;
+                this.show(target, x, y);
+                return;
+            }
+            this._pendingTarget = target;
+            this._openTimer = setTimeout(() => {
+                if (this._pendingTarget === target && target.isConnected) {
+                    this._pendingTarget = null;
+                    this.show(target, this.lastX, this.lastY);
+                }
+            }, 140);
         }
 
         show(target, x, y) {
@@ -133,6 +161,10 @@
         }
 
         hide() {
+            clearTimeout(this._openTimer);
+            this._openTimer = null;
+            this._pendingTarget = null;
+            if (this.activeTarget) this._lastHideAt = performance.now();
             this.activeTarget = null;
             if (this.el) this.el.classList.add('hidden');
         }

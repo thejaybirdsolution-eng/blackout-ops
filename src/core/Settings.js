@@ -210,6 +210,8 @@
             if (s.hudOpacity === undefined) s.hudOpacity = 1.0;
             if (s.hitmarkerVolume === undefined) s.hitmarkerVolume = 1.0;
             if (s.zombieVolume === undefined) s.zombieVolume = 1.0;
+            if (s.uiVolume === undefined) s.uiVolume = 0.8;
+            if (s.muteWhenHidden === undefined) s.muteWhenHidden = true;
             if (s.dynamicLights === undefined) s.dynamicLights = true;
             if (s.wallDecals === undefined) s.wallDecals = true;
             if (s.postFx === undefined) s.postFx = true;
@@ -273,8 +275,16 @@
             const s = BO.Save?.data?.settings || {};
             document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
             if (s.colorBlindMode && s.colorBlindMode !== 'none') document.body.classList.add('cb-' + s.colorBlindMode);
-            if (s.reducedMotion) document.body.classList.add('sv-reduced-motion');
-            // HUD and terminal scale (80–140%), read by css/gm.css through --ui-scale.
+            const mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+            if (mq && !this._rmBound) {
+                this._rmBound = true;
+                const onChange = () => this.applyAccessibility();
+                if (mq.addEventListener) mq.addEventListener('change', onChange);
+                else if (mq.addListener) mq.addListener(onChange);
+            }
+            const reduced = Boolean(s.reducedMotion) || Boolean(mq && mq.matches);
+            if (reduced) document.body.classList.add('sv-reduced-motion');
+            // HUD and terminal scale (80–140%), read by css/gm.css and css/aaa-theme.css through --ui-scale.
             const scale = Math.max(0.8, Math.min(1.4, Number(s.uiScale) || 1));
             document.documentElement.style.setProperty('--ui-scale', String(scale));
         }
