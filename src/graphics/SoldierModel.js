@@ -304,10 +304,10 @@
             const head = this._tag(new THREE.Mesh(g('head', () => new THREE.SphereGeometry(0.105, 18, 14)), M.balaclava), entity, 'head');
             head.scale.set(0.95, 1.08, 1.02);
             headGroup.add(head);
-            // High-cut ballistic helmet shell.
-            const shell = this._mesh(g('helmet', () => lathe([
+            // High-cut ballistic helmet shell (also tagged head so outer helmet matches visible mesh).
+            const shell = this._tag(this._mesh(g('helmet', () => lathe([
                 [0.128, -0.005], [0.136, 0.02], [0.135, 0.06], [0.124, 0.1], [0.1, 0.135], [0.06, 0.158], [0.0, 0.165]
-            ], 22, 1.12)), M.helmet, 0, 0.03, -0.004);
+            ], 22, 1.12)), M.helmet, 0, 0.03, -0.004), entity, 'head');
             shell.scale.set(1.0, 1.0, 1.0);
             headGroup.add(shell);
             // Accessory rails and velcro top panel.

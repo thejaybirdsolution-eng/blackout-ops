@@ -399,7 +399,7 @@
             let hit = false, headshot = false, kills = 0;
             for (const h of hits) {
                 const ent = h.object.userData.entity;
-                if (!ent || !ent.alive || seen.has(ent)) continue;
+                if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || seen.has(ent)) continue;
                 seen.add(ent); hit = true;
                 const hb = h.object.userData.hitbox || 'torso';
                 if (hb === 'head') headshot = true;
@@ -456,13 +456,20 @@
             for (let i = 0; i < hits.length && pierceLeft > 0; i++) {
                 const h = hits[i];
                 const ent = h.object.userData.entity;
-                if (!ent || !ent.alive || hitEntities.has(ent)) continue;
+                if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || hitEntities.has(ent)) continue;
                 hitEntities.add(ent);
-                pierceLeft--;
+                const hitbox = h.object.userData.hitbox || 'torso';
+                if (hitbox === 'shield') {
+                    // Shield blocks penetration and ricochets sparks/sound while preserving existing 0.25x chip math
+                    pierceLeft = 0;
+                    BO.FX.spawnParticles(h.point, 7, 0xfacc15, 4.4, 9, 0.28, 0.8);
+                    BO.Sound?.playShieldRicochet?.(h.point);
+                } else {
+                    pierceLeft--;
+                }
                 didHit = true;
                 endPoint = h.point.clone();
 
-                const hitbox = h.object.userData.hitbox || 'torso';
                 const isHead = hitbox === 'head';
                 if (isHead) didHead = true;
 

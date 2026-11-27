@@ -126,9 +126,10 @@
         }
 
         getHitboxMeshes() {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
             });
             return list;
         }

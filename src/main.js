@@ -875,6 +875,7 @@
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
 
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+                if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
                 this.renderer.clear();
