@@ -8,8 +8,12 @@
 
     const BO = global.BO;
     const STORAGE_KEY = 'blackout_ops_save_v1';
+    const STORAGE_TMP = STORAGE_KEY + '_tmp';
+    const BACKUP_KEYS = [STORAGE_KEY + '_bak0', STORAGE_KEY + '_bak1', STORAGE_KEY + '_bak2'];
+    const CURRENT_VERSION = 2;
 
     let memoryFallback = null;
+    const sliceOwners = new Map();
 
     function buildStarterClasses() {
         return [
@@ -189,7 +193,7 @@
 
     function createDefaultSave() {
         return {
-            version: 1,
+            version: CURRENT_VERSION,
             callsign: 'SPECTRE-01',
             player: {
                 xp: 0,
@@ -297,74 +301,236 @@
         return target;
     }
 
-    function readRawStorage() {
-        try {
-            if (global.localStorage) {
-                return global.localStorage.getItem(STORAGE_KEY);
-            }
-        } catch (e) {
-            // Private browsing / restricted file:// storage fallback
+    const MIGRATIONS = {
+        0(save) {
+            if (!save.stats || typeof save.stats !== 'object') save.stats = {};
+            if (!save.weapons || typeof save.weapons !== 'object') save.weapons = {};
+            save.version = 1;
+            return save;
+        },
+        1(save) {
+            if (!save.settings || typeof save.settings !== 'object') save.settings = {};
+            if (!save.minigames || typeof save.minigames !== 'object') save.minigames = { best: {} };
+            save.version = 2;
+            return save;
         }
-        return memoryFallback;
+    };
+
+    function migrateSaveData(parsed) {
+        if (!parsed || typeof parsed !== 'object') return parsed;
+        let v = Number.isFinite(parsed.version) ? parsed.version : 0;
+        while (v < CURRENT_VERSION && typeof MIGRATIONS[v] === 'function') {
+            parsed = MIGRATIONS[v](parsed);
+            v = parsed.version;
+        }
+        parsed.version = CURRENT_VERSION;
+        return parsed;
     }
 
-    function writeRawStorage(str) {
-        memoryFallback = str;
+    function readKeySafe(key) {
         try {
             if (global.localStorage) {
-                global.localStorage.setItem(STORAGE_KEY, str);
+                return global.localStorage.getItem(key);
             }
         } catch (e) {
-            // Ignore storage quota / security exception; memoryFallback keeps session state
+            BO.log?.('SaveSystem', 'warn', 'localStorage read failed for ' + key, e);
         }
+        return null;
+    }
+
+    function writeKeySafe(key, val) {
+        if (!global.localStorage) return false;
+        try {
+            global.localStorage.setItem(key, val);
+            return global.localStorage.getItem(key) === val;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function removeKeySafe(key) {
+        try {
+            if (global.localStorage) global.localStorage.removeItem(key);
+        } catch (e) {
+            BO.log?.('SaveSystem', 'debug', 'localStorage remove failed for ' + key, e);
+        }
+    }
+
+    function validateParsedSave(parsed) {
+        return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.player && typeof parsed.player === 'object');
     }
 
     class SaveSystem {
         constructor() {
+            this.storageDegraded = false;
+            this.recoveredFromBackup = false;
+            this.recoverySource = null;
+            this.lastMigratedFrom = null;
+            this._degradedToastShown = false;
             this.data = this.load();
         }
 
-        load() {
+        _keysFor(primaryKey) {
+            const pk = primaryKey || STORAGE_KEY;
+            return {
+                primary: pk,
+                tmp: pk + '_tmp',
+                backups: [pk + '_bak0', pk + '_bak1', pk + '_bak2']
+            };
+        }
+
+        _writeAtomic(str, keyOverride) {
+            memoryFallback = str;
+            if (!global.localStorage) {
+                this.storageDegraded = true;
+                return false;
+            }
+            const keys = this._keysFor(keyOverride);
+            const prevPrimary = readKeySafe(keys.primary);
+
+            // Stage in _tmp first to avoid partial primary overwrite
+            let wroteTmp = writeKeySafe(keys.tmp, str);
+            if (!wroteTmp) {
+                // Quota pressure: prune oldest backups and retry
+                removeKeySafe(keys.backups[2]);
+                removeKeySafe(keys.backups[1]);
+                wroteTmp = writeKeySafe(keys.tmp, str);
+            }
+            if (!wroteTmp) {
+                this.storageDegraded = true;
+                BO.log?.('SaveSystem', 'warn', 'Storage quota/write failed; running in memory fallback');
+                if (!this._degradedToastShown) {
+                    this._degradedToastShown = true;
+                    setTimeout(() => BO.Events?.emit?.('hud:toast', {
+                        text: 'WARNING: Browser storage unavailable/full — export save JSON to keep progress!',
+                        color: '#ef4444'
+                    }), 300);
+                }
+                return false;
+            }
+
+            // Rotate backups when replacing an existing valid save
+            if (prevPrimary && prevPrimary !== str) {
+                try {
+                    const b1 = readKeySafe(keys.backups[1]);
+                    const b0 = readKeySafe(keys.backups[0]);
+                    if (b1) writeKeySafe(keys.backups[2], b1);
+                    if (b0) writeKeySafe(keys.backups[1], b0);
+                    writeKeySafe(keys.backups[0], prevPrimary);
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'debug', 'Backup rotation skipped under quota pressure', e);
+                }
+            }
+
+            const swapped = writeKeySafe(keys.primary, str);
+            removeKeySafe(keys.tmp);
+            if (!swapped) {
+                this.storageDegraded = true;
+                return false;
+            }
+            this.storageDegraded = false;
+            return true;
+        }
+
+        _hydrateFromParsed(parsed) {
+            const origVer = Number.isFinite(parsed.version) ? parsed.version : 0;
+            if (origVer < CURRENT_VERSION) this.lastMigratedFrom = origVer;
+            const migrated = migrateSaveData(parsed);
             const base = createDefaultSave();
-            const raw = readRawStorage();
-            if (!raw) return base;
-            try {
-                const parsed = JSON.parse(raw);
-                deepMerge(base, parsed);
-                // Ensure exactly 10 class slots exist and are well-formed
-                if (!Array.isArray(base.classes) || base.classes.length < 10) {
-                    const fresh = createDefaultClasses();
-                    for (let i = 0; i < 10; i++) {
-                        if (base.classes && base.classes[i]) {
-                            fresh[i] = deepMerge(fresh[i], base.classes[i]);
-                        }
-                    }
-                    base.classes = fresh;
-                }
+            deepMerge(base, migrated);
+            base.version = CURRENT_VERSION;
+            if (!Array.isArray(base.classes) || base.classes.length < 10) {
+                const fresh = createDefaultClasses();
                 for (let i = 0; i < 10; i++) {
-                    base.classes[i].id = i;
-                    if (!base.classes[i].primary) base.classes[i].primary = createDefaultClasses()[0].primary;
-                    if (!base.classes[i].secondary) base.classes[i].secondary = createDefaultClasses()[0].secondary;
-                    if (!Array.isArray(base.classes[i].perks) || base.classes[i].perks.length !== 3) {
-                        base.classes[i].perks = ['scavenger', 'sleight_of_hand', 'steady_aim'];
-                    }
-                    if (!Array.isArray(base.classes[i].killstreaks) || base.classes[i].killstreaks.length !== 3) {
-                        base.classes[i].killstreaks = ['uav', 'predator', 'chopper'];
-                    }
-                    if (!base.classes[i].ultimatePower) {
-                        base.classes[i].ultimatePower = 'gravity_spikes';
+                    if (base.classes && base.classes[i]) {
+                        fresh[i] = deepMerge(fresh[i], base.classes[i]);
                     }
                 }
-            } catch (e) {
-                console.warn('[SaveSystem] Corrupt save ignored, starting fresh.', e);
-                return createDefaultSave();
+                base.classes = fresh;
+            }
+            for (let i = 0; i < 10; i++) {
+                base.classes[i].id = i;
+                if (!base.classes[i].primary) base.classes[i].primary = createDefaultClasses()[0].primary;
+                if (!base.classes[i].secondary) base.classes[i].secondary = createDefaultClasses()[0].secondary;
+                if (!Array.isArray(base.classes[i].perks) || base.classes[i].perks.length !== 3) {
+                    base.classes[i].perks = ['scavenger', 'sleight_of_hand', 'steady_aim'];
+                }
+                if (!Array.isArray(base.classes[i].killstreaks) || base.classes[i].killstreaks.length !== 3) {
+                    base.classes[i].killstreaks = ['uav', 'predator', 'chopper'];
+                }
+                if (!base.classes[i].ultimatePower) {
+                    base.classes[i].ultimatePower = 'gravity_spikes';
+                }
             }
             return base;
         }
 
-        save() {
-            writeRawStorage(JSON.stringify(this.data));
-            BO.Events.emit('save:updated', this.data);
+        load(keyOverride = null) {
+            this.recoveredFromBackup = false;
+            this.recoverySource = null;
+            const keys = this._keysFor(keyOverride);
+            const candidates = [
+                { key: keys.primary, label: 'primary' },
+                { key: keys.tmp, label: 'tmp' },
+                { key: keys.backups[0], label: 'bak0' },
+                { key: keys.backups[1], label: 'bak1' },
+                { key: keys.backups[2], label: 'bak2' }
+            ];
+
+            let anyData = false;
+            for (let i = 0; i < candidates.length; i++) {
+                const raw = readKeySafe(candidates[i].key);
+                if (!raw) continue;
+                anyData = true;
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (!validateParsedSave(parsed)) continue;
+                    const hydrated = this._hydrateFromParsed(parsed);
+                    if (i > 0) {
+                        this.recoveredFromBackup = true;
+                        this.recoverySource = candidates[i].label;
+                        BO.log?.('SaveSystem', 'warn', `Primary save corrupt; recovered from ${candidates[i].label}`);
+                        setTimeout(() => BO.Events?.emit?.('hud:toast', {
+                            text: `Save recovered automatically from ${candidates[i].label} backup.`,
+                            color: '#ffb23f'
+                        }), 400);
+                    }
+                    return hydrated;
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'warn', `Failed to parse save candidate ${candidates[i].label}`, e);
+                }
+            }
+
+            if (!anyData && memoryFallback) {
+                try {
+                    const parsedMem = JSON.parse(memoryFallback);
+                    if (validateParsedSave(parsedMem)) return this._hydrateFromParsed(parsedMem);
+                } catch (e) {
+                    BO.log?.('SaveSystem', 'warn', 'Memory fallback save corrupt', e);
+                }
+            }
+            if (anyData) {
+                BO.log?.('SaveSystem', 'warn', 'All save copies corrupt; starting fresh.');
+            }
+            return createDefaultSave();
+        }
+
+        save(keyOverride = null) {
+            this.data.version = CURRENT_VERSION;
+            const json = JSON.stringify(this.data);
+            this._writeAtomic(json, keyOverride);
+            BO.Events?.emit?.('save:updated', this.data);
+        }
+
+        assertSliceOwner(sliceKey, ownerName) {
+            const existing = sliceOwners.get(sliceKey);
+            if (existing && existing !== ownerName) {
+                const msg = `Save slice "${sliceKey}" ownership conflict: ${existing} vs ${ownerName}`;
+                BO.log?.('SaveSystem', 'error', msg);
+                throw new Error(msg);
+            }
+            sliceOwners.set(sliceKey, ownerName);
+            return true;
         }
 
         getWeaponRecord(weaponId) {
@@ -381,27 +547,57 @@
         }
 
         exportSave() {
+            this.data.version = CURRENT_VERSION;
             return JSON.stringify(this.data, null, 2);
         }
 
-        importSave(jsonStr) {
-            const parsed = JSON.parse(jsonStr);
-            if (!parsed || typeof parsed !== 'object' || !parsed.player) {
-                throw new Error('Invalid BLACKOUT OPS save file.');
-            }
-            const fresh = createDefaultSave();
-            deepMerge(fresh, parsed);
-            this.data = fresh;
-            this.save();
+        downloadExportFile() {
+            const txt = this.exportSave();
+            const blob = new Blob([txt], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const stamp = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `blackout-ops-save-${stamp}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            BO.Events?.emit?.('hud:toast', { text: 'Save file exported.', color: '#22c55e' });
             return true;
         }
 
-        resetSave() {
+        importSave(jsonStr, keyOverride = null) {
+            const parsed = JSON.parse(jsonStr);
+            if (!validateParsedSave(parsed)) {
+                throw new Error('Invalid BLACKOUT OPS save file.');
+            }
+            this.data = this._hydrateFromParsed(parsed);
+            this.save(keyOverride);
+            return true;
+        }
+
+        importFromFile(file) {
+            if (!file) return Promise.reject(new Error('No file selected'));
+            return file.text().then((txt) => {
+                this.importSave(txt);
+                BO.Events?.emit?.('hud:toast', { text: 'Save imported & backups updated!', color: '#22c55e' });
+                return true;
+            });
+        }
+
+        resetSave(keyOverride = null) {
             this.data = createDefaultSave();
-            this.save();
+            this.save(keyOverride);
             return this.data;
         }
     }
 
     BO.Save = new SaveSystem();
+    BO.SaveSystemClass = SaveSystem;
+    BO.Save.CURRENT_VERSION = CURRENT_VERSION;
+    BO.Save.STORAGE_KEY = STORAGE_KEY;
+    BO.Save.BACKUP_KEYS = BACKUP_KEYS;
+    BO.Save.STORAGE_TMP = STORAGE_TMP;
+    BO.Save.migrateSaveData = migrateSaveData;
 })(window);

@@ -257,6 +257,51 @@
                 BO.Sound?.applyVolumes?.(true);
             });
         }
+
+        if (activeTab === 'controls' && !document.getElementById('set-pad-assist')) {
+            const s = BO.Settings.all;
+            const padRow = document.createElement('label');
+            padRow.className = 'setting-row';
+            padRow.setAttribute('data-tip-title', 'Gamepad Aim Assist');
+            padRow.setAttribute('data-tip', 'Subtle ADS turn-rate slowdown when aiming with a controller (off by default).');
+            padRow.innerHTML = `<span>Gamepad Aim Assist (ADS Slowdown)</span><input type="checkbox" id="set-pad-assist" ${s.gamepadAimAssist ? 'checked' : ''}>`;
+            body.appendChild(padRow);
+            padRow.querySelector('#set-pad-assist').addEventListener('change', (e) => {
+                BO.Settings.set('gamepadAimAssist', !!e.target.checked);
+            });
+        }
+
+        if (activeTab === 'save' && !document.getElementById('bo-save-tools')) {
+            const sv = BO.Save;
+            const wrap = document.createElement('div');
+            wrap.id = 'bo-save-tools';
+            wrap.style.cssText = 'margin-top:12px;padding:12px;border:1px solid var(--aaa-line, rgba(255,255,255,0.14));border-radius:6px;background:rgba(15,20,28,0.65);display:flex;flex-direction:column;gap:8px;';
+            const statusText = sv?.storageDegraded
+                ? 'STORAGE DEGRADED (IN-MEMORY FALLBACK — EXPORT BACKUP!)'
+                : (sv?.recoveredFromBackup
+                    ? `AUTO-RECOVERED FROM BACKUP (${String(sv.recoverySource || '').toUpperCase()})`
+                    : `ATOMIC SAVE v${sv?.CURRENT_VERSION || 2} • 3 ROTATING BACKUPS ACTIVE`);
+            const statusCol = sv?.storageDegraded ? '#ef4444' : (sv?.recoveredFromBackup ? '#ffb23f' : '#22c55e');
+            wrap.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">` +
+                `<strong style="font-size:12px;letter-spacing:0.08em;color:${statusCol};">${statusText}</strong>` +
+                `<div style="display:flex;gap:8px;align-items:center;">` +
+                `<button type="button" class="btn btn-sm" id="btn-bo-export-file">EXPORT .JSON</button>` +
+                `<label class="btn btn-sm" style="cursor:pointer;">IMPORT .JSON<input type="file" id="inp-bo-import-file" accept=".json,application/json" style="display:none;"></label>` +
+                `</div></div>`;
+            body.appendChild(wrap);
+            wrap.querySelector('#btn-bo-export-file').addEventListener('click', () => {
+                BO.Sound?.playUIClick?.();
+                sv?.downloadExportFile?.();
+            });
+            wrap.querySelector('#inp-bo-import-file').addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                sv?.importFromFile?.(file).catch((err) => {
+                    BO.Events?.emit?.('hud:toast', { text: 'Import failed: ' + (err?.message || 'Invalid JSON'), color: '#ef4444' });
+                });
+                e.target.value = '';
+            });
+        }
     }
 
     function syncTablistRoles() {
