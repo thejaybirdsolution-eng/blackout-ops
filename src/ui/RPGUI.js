@@ -70,17 +70,34 @@
                     <div class="rpg-haul"></div>
                     <div class="rpg-contract-hud"></div>
                     <div class="rpg-boons"></div>
+                    <div class="rpg-synergies"></div>
+                    <div class="rpg-artifacts-strip"></div>
                 </div>
                 <div class="rpg-bottom">
+                    <div class="rpg-isaac-vitals hidden">
+                        <div class="rpg-soulbar"><div class="rpg-soulbar-fill"></div><span class="rpg-soulbar-label"></span></div>
+                        <div class="rpg-vital-badges"></div>
+                    </div>
                     <div class="rpg-momentum"><div class="rpg-momentum-pips"></div><span class="rpg-momentum-label"></span></div>
                     <div class="rpg-xp"><div class="rpg-xp-fill"></div><span class="rpg-xp-label"></span></div>
                     <div class="rpg-abilities">
+                        <div class="rpg-ab rpg-ab-active empty" data-slot="active">
+                            <div class="rpg-ab-face"><span class="rpg-ab-glyph">🎲</span><div class="rpg-ab-cd"></div><span class="rpg-ab-cdtext"></span></div>
+                            <div class="rpg-charge-pips"></div>
+                            <span class="rpg-ab-key">G / C</span>
+                            <span class="rpg-ab-name">ACTIVE</span>
+                        </div>
                         ${['primer', 'detonator', 'ultimate', 'potion'].map((slot) => `
                         <div class="rpg-ab" data-slot="${slot}">
                             <div class="rpg-ab-face"><span class="rpg-ab-glyph"></span><div class="rpg-ab-cd"></div><span class="rpg-ab-cdtext"></span></div>
                             <span class="rpg-ab-key"></span>
                             <span class="rpg-ab-name"></span>
                         </div>`).join('')}
+                        <div class="rpg-ab rpg-ab-pocket empty" data-slot="pocket">
+                            <div class="rpg-ab-face"><span class="rpg-ab-glyph">🃏</span><div class="rpg-ab-cd"></div><span class="rpg-ab-cdtext"></span></div>
+                            <span class="rpg-ab-key">T</span>
+                            <span class="rpg-ab-name">POCKET</span>
+                        </div>
                     </div>
                     <div class="rpg-silenced hidden">SILENCED</div>
                 </div>`;
@@ -268,6 +285,7 @@
                     <li>Health does not regenerate. Drink potions with <b>${key('rpgPotion')}</b>; Rest rooms refill them.</li>
                     <li>Gold and items you find are <b>unbanked</b> until you reach an Extraction Beacon. Die and you lose them. XP is always kept.</li>
                     <li>Chain kills without getting hit to build <b>Momentum</b>: more XP, gold and damage.</li>
+                    <li>Find <b>Run Artifacts</b> on 3D pedestals, Devil Deals (−15% max HP) and Angel Sanctums (no Red HP damage taken). Use <b>G/C</b> for Active items, <b>T</b> for Pills/Tarot Cards, and <b>B</b> to drop Bombs on Tinted Rocks.</li>
                 </ol>`;
             return `
                 ${hero}
@@ -661,13 +679,42 @@
             set('obj', q('.rpg-objective'), eventObjective ? esc(eventObjective) : obj);
             const map = M.layout;
             set('encounter', q('.vault-encounter'), map ? `${esc(map.style)} · ${map.W} × ${map.L} m${!room.quiet && room.id !== 'boss' ? ` · ${esc(map.encounter.name)}` : ''}${run.curse ? ' · Cursed' : ''}` : '');
-            set('haul', q('.rpg-haul'), `<span class="rpg-gold">◆ ${fmt(run.gold)}</span><span>▣ ${run.pack.length}/${s.packSlots}</span><span>⚙ ${fmt(run.scrap)}</span><span class="rpg-dim">UNBANKED</span>`);
+            set('haul', q('.rpg-haul'), `<span class="rpg-gold">◆ ${fmt(run.gold)}</span><span>🔑 ${run.keys ?? 0}</span><span>💣 ${run.bombs ?? 0}</span><span>▣ ${run.pack.length}/${s.packSlots}</span><span>⚙ ${fmt(run.scrap)}</span><span class="rpg-dim">UNBANKED</span>`);
             const contract = D.CONTRACTS[run.contract];
             const contractStatus = contract && run.floor < contract.floor ? `counts from floor ${contract.floor}` :
                 contract && run.contractProgress >= contract.goal ? 'complete · extract to collect' : `${run.contractProgress}/${contract?.goal}`;
             set('contract', q('.rpg-contract-hud'), contract ? `⚑ ${esc(contract.name)} · ${contractStatus}` : '');
             const boonsHtml = Array.from(run.boons).map((id) => { const b = D.boonById(id); return `<span class="rpg-boon-chip" title="${esc(b.name)}: ${esc(b.desc)}">${b.icon}</span>`; }).join('');
             set('boons', q('.rpg-boons'), boonsHtml);
+
+            // Isaac Synergies & Artifact Icon Strip.
+            const ID = BO.RPGItemsData;
+            const synHtml = ID && Array.isArray(run.transformations) ? run.transformations.map((tid) => {
+                const tf = ID.transformationById(tid);
+                return tf ? `<span class="rpg-syn-badge" style="--c:${tf.color}" title="${esc(tf.desc)}">${tf.icon} ${esc(tf.name)}</span>` : '';
+            }).join('') : '';
+            set('synergies', q('.rpg-synergies'), synHtml);
+            const artHtml = ID && Array.isArray(run.artifacts) ? run.artifacts.map((aid) => {
+                const it = ID.passiveById(aid);
+                return it ? `<span class="rpg-art-chip" style="--c:${it.color}" title="${esc(it.name)}: ${esc(it.desc)}">${it.icon}</span>` : '';
+            }).join('') : '';
+            set('artifacts', q('.rpg-artifacts-strip'), artHtml);
+
+            // Soul Shield & Protection badges.
+            const vitalsEl = q('.rpg-isaac-vitals');
+            const soul = Math.round(run.soulShield || 0);
+            const showVitals = soul > 0 || run.holyMantleReady || (run.livesLeft || 0) > 0;
+            vitalsEl.classList.toggle('hidden', !showVitals);
+            if (showVitals) {
+                const cap = D.ISAAC?.soulShieldCap || 150;
+                q('.rpg-soulbar').classList.toggle('hidden', soul <= 0);
+                q('.rpg-soulbar-fill').style.width = BO.Math.clamp(soul / cap, 0, 1) * 100 + '%';
+                set('soul', q('.rpg-soulbar-label'), `💙 SOUL SHIELD ${soul}`);
+                const badges = [];
+                if (run.holyMantleReady) badges.push('<span class="rpg-vbadge" title="Negates next hit on this floor">🛡 MANTLE</span>');
+                if ((run.livesLeft || 0) > 0) badges.push(`<span class="rpg-vbadge cat" title="Dead Cat revives remaining">🐈 ×${run.livesLeft}</span>`);
+                set('vbadges', q('.rpg-vital-badges'), badges.join(''));
+            }
 
             // Momentum.
             const cap = run.boons.has('adrenal') ? 15 : D.MOMENTUM.max;
@@ -686,7 +733,7 @@
             q('.rpg-xp-fill').style.width = (need ? BO.Math.clamp(rec.xp / need, 0, 1) * 100 : 100) + '%';
             set('xp', q('.rpg-xp-label'), `LV ${rec.level} ${esc(C.name.toUpperCase())} • ${need ? `${fmt(rec.xp)} / ${fmt(need)} XP` : 'MAX LEVEL'}${this.Pr.unspentTalentTiers(rec) ? ' • <b>TALENT READY [TAB]</b>' : ''}`);
 
-            // Abilities.
+            // Abilities + Active + Pocket.
             const A = M.ability;
             const slots = {
                 primer: { def: C.abilities.primer, key: kb.rpgAbility1, cd: A.cd.primer, max: BO.RPGAbilities.cooldownFor('primer') },
@@ -696,6 +743,51 @@
             };
             for (const el of this.hud.querySelectorAll('.rpg-ab')) {
                 const slot = el.dataset.slot;
+                if (slot === 'active') {
+                    const actDef = ID && run.activeItem ? ID.activeById(run.activeItem) : null;
+                    const charges = run.activeCharges || 0;
+                    const maxCh = actDef ? actDef.charges : 0;
+                    set('gactive', el.querySelector('.rpg-ab-glyph'), actDef ? actDef.icon : '◇');
+                    set('nactive', el.querySelector('.rpg-ab-name'), actDef ? esc(actDef.name) : 'NO ACTIVE');
+                    const pipsHtml = actDef ? Array.from({ length: maxCh }, (_, idx) => `<i class="${idx < charges ? 'on' : ''}"></i>`).join('') : '';
+                    set('pactive', el.querySelector('.rpg-charge-pips'), pipsHtml);
+                    const ready = !!(actDef && charges >= maxCh);
+                    el.style.setProperty('--cd', actDef ? String(BO.Math.clamp(1 - charges / Math.max(1, maxCh), 0, 1)) : '0');
+                    el.querySelector('.rpg-ab-cdtext').textContent = actDef && !ready ? `${charges}/${maxCh}` : '';
+                    el.classList.toggle('ready', ready);
+                    el.classList.toggle('empty', !actDef);
+                    el.style.setProperty('--c', actDef ? actDef.color : '#4ade80');
+                    continue;
+                }
+                if (slot === 'pocket') {
+                    const pk = run.pocket;
+                    let glyph = '🃏';
+                    let label = 'EMPTY';
+                    let col = '#38bdf8';
+                    if (pk && ID) {
+                        if (pk.kind === 'pill') {
+                            const entry = run.pillMap?.[String(pk.appearanceIdx)];
+                            const pillDef = entry?.identified ? ID.pillById(entry.id) : null;
+                            const app = ID.PILL_APPEARANCES[pk.appearanceIdx] || {};
+                            glyph = '💊';
+                            label = pillDef ? esc(pillDef.name) : 'Mystery Pill ???';
+                            col = app.color || '#a855f7';
+                        } else if (pk.kind === 'card') {
+                            const cardDef = ID.cardById(pk.id);
+                            glyph = cardDef?.icon || '🃏';
+                            label = cardDef ? esc(`${cardDef.numeral} ${cardDef.name}`) : 'TAROT CARD';
+                            col = cardDef?.color || '#fde047';
+                        }
+                    }
+                    set('gpocket', el.querySelector('.rpg-ab-glyph'), glyph);
+                    set('npocket', el.querySelector('.rpg-ab-name'), label);
+                    el.style.setProperty('--cd', '0');
+                    el.querySelector('.rpg-ab-cdtext').textContent = '';
+                    el.classList.toggle('ready', !!pk);
+                    el.classList.toggle('empty', !pk);
+                    el.style.setProperty('--c', col);
+                    continue;
+                }
                 const info = slots[slot];
                 const glyph = slot === 'potion' ? '⚗' : (slot === 'ultimate' ? C.icon : (slot === 'primer' ? '◉' : '✸'));
                 set('g' + slot, el.querySelector('.rpg-ab-glyph'), glyph);
@@ -985,6 +1077,7 @@
             const tab = this._packTab;
             const tabs = `<div class="rpg-seg rpg-pack-tabs">
                 <button class="${tab === 'pack' ? 'active' : ''}" data-mact="ptab" data-tab="pack">PACK ${run.pack.length}/${s.packSlots}</button>
+                <button class="${tab === 'artifacts' ? 'active' : ''}" data-mact="ptab" data-tab="artifacts">ARTIFACTS ${(run.artifacts || []).length}</button>
                 <button class="${tab === 'talents' ? 'active' : ''}" data-mact="ptab" data-tab="talents">TALENTS${Pr.unspentTalentTiers(rec) ? ' •' : ''}</button>
                 <button class="${tab === 'boons' ? 'active' : ''}" data-mact="ptab" data-tab="boons">BOONS ${run.boons.size}</button>
             </div>`;
@@ -1003,10 +1096,35 @@
                         <div class="rpg-stat"><small>HP</small><b>${Math.ceil(BO.Player.hp)} / ${s.maxHp}</b></div>
                         <div class="rpg-stat"><small>POTIONS</small><b>${run.potions} / ${s.potionsMax}</b></div>
                         <div class="rpg-stat"><small>UNBANKED</small><b class="rpg-gold">◆ ${fmt(run.gold)}</b></div>
-                        <div class="rpg-stat"><small>SCRAP</small><b>⚙ ${fmt(run.scrap)}</b></div>
+                        <div class="rpg-stat"><small>KEYS / BOMBS</small><b>🔑 ${run.keys ?? 0} · 💣 ${run.bombs ?? 0}</b></div>
                         <div class="rpg-stat"><small>KILLS</small><b>${run.kills}</b></div>
                         <div class="rpg-stat"><small>REACTIONS</small><b>${run.reactions}</b></div>
                     </div>`;
+            } else if (tab === 'artifacts') {
+                const ID = BO.RPGItemsData;
+                const activeDef = ID && run.activeItem ? ID.activeById(run.activeItem) : null;
+                const counts = BO.RPGItems ? BO.RPGItems.transformationCounts(run) : {};
+                const synHtml = ID ? ID.TRANSFORMATIONS.map((tf) => {
+                    const c = counts[tf.id] || 0;
+                    const active = (run.transformations || []).includes(tf.id);
+                    return `<div class="rpg-art-card" style="--c:${tf.color}"><span>${tf.icon}</span><div><b>${esc(tf.name)} (${Math.min(3, c)}/3)${active ? ' ✓' : ''}</b><small>${esc(tf.desc)}</small></div></div>`;
+                }).join('') : '';
+                const passivesHtml = ID && (run.artifacts || []).length
+                    ? run.artifacts.map((id) => {
+                        const it = ID.passiveById(id);
+                        return it ? `<div class="rpg-art-card" style="--c:${it.color}"><span>${it.icon}</span><div><b>${esc(it.name)}</b><small>${esc(it.desc)}</small></div></div>` : '';
+                    }).join('')
+                    : '<div class="rpg-empty">No passive artifacts yet. Check Treasure rooms, Shops, Locked Reliquaries, and Devil/Angel pedestals!</div>';
+                body = `
+                    <h4>ACTIVE ITEM &amp; POCKET</h4>
+                    <div class="rpg-art-grid">
+                        <div class="rpg-art-card" style="--c:${activeDef ? activeDef.color : '#4ade80'}"><span>${activeDef ? activeDef.icon : '◇'}</span><div><b>${activeDef ? esc(activeDef.name) + ` (${run.activeCharges || 0}/${activeDef.charges}) [G/C]` : 'Empty Active Slot [G/C]'}</b><small>${activeDef ? esc(activeDef.desc) : 'Find an Active Artifact on pedestals to charge and trigger it.'}</small></div></div>
+                        <div class="rpg-art-card" style="--c:#38bdf8"><span>${run.pocket ? (run.pocket.kind === 'pill' ? '💊' : (ID?.cardById(run.pocket.id)?.icon || '🃏')) : '🃏'}</span><div><b>${run.pocket ? (run.pocket.kind === 'pill' ? (run.pillMap?.[String(run.pocket.appearanceIdx)]?.identified ? esc(ID.pillById(run.pillMap[String(run.pocket.appearanceIdx)].id).name) : 'Mystery Pill ???') : esc(ID?.cardById(run.pocket.id)?.name || 'Card')) + ' [T]' : 'Empty Pocket [T]'}</b><small>Press T to use your held Pill or Tarot Card. Press B to drop a Floor Bomb.</small></div></div>
+                    </div>
+                    <h4>TRANSFORMATIONS (COLLECT 3 TAGGED ITEMS)</h4>
+                    <div class="rpg-art-grid">${synHtml}</div>
+                    <h4>PASSIVE ARTIFACTS (${(run.artifacts || []).length})</h4>
+                    <div class="rpg-art-grid">${passivesHtml}</div>`;
             } else if (tab === 'talents') {
                 body = this._talentsHtml(true).replace(/data-act="talent"/g, 'data-mact="ptalent"');
             } else {

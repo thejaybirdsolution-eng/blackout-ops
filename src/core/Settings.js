@@ -55,11 +55,14 @@
         hotbar8: 'Digit8',
         hotbar9: 'Digit9',
         hotbar10: 'Digit0',
-        // RPG mode (class abilities replace grenades & powers there)
+        // RPG mode (class abilities + Isaac-style items)
         rpgAbility1: 'KeyQ',
         rpgAbility2: 'KeyF',
         rpgUltimate: 'KeyX',
         rpgPotion: 'KeyH',
+        rpgActive: 'KeyG',
+        rpgPocket: 'KeyT',
+        rpgBomb: 'KeyB',
         // Open World RPG (Operation Meridian)
         owAbility1: 'KeyQ',
         owAbility2: 'KeyF',
@@ -70,6 +73,9 @@
         owMap: 'KeyM',
         owHolster: 'KeyB',
         owDodge: 'AltLeft',
+        owMount: 'KeyT',
+        owUltimate: 'KeyU',
+        owRepair: 'KeyG',
         owQuickSave: 'F5',
         owQuickLoad: 'F9'
     };
@@ -110,13 +116,19 @@
             { action: 'rpgAbility1', label: 'Primer ability', tip: 'Rogue Lite: your class primer (Breach Charge, Napalm Lob, Cryo Lance). Primers apply a status effect.', ctx: ['rpg'] },
             { action: 'rpgAbility2', label: 'Detonator ability', tip: 'Rogue Lite: your class detonator (Concussion Slam, Flashover, Arc Lash). Detonators consume every status on a target and trigger its reaction.', ctx: ['rpg'] },
             { action: 'rpgUltimate', label: 'Ultimate', tip: 'Rogue Lite: your class ultimate. Charges as you deal damage.', ctx: ['rpg'] },
-            { action: 'rpgPotion', label: 'Drink potion', tip: 'Rogue Lite: drink a healing potion. Health does not regenerate in a delve; Rest rooms refill potions.', ctx: ['rpg'] }
+            { action: 'rpgPotion', label: 'Drink potion', tip: 'Rogue Lite: drink a healing potion. Health does not regenerate in a delve; Rest rooms refill potions.', ctx: ['rpg'] },
+            { action: 'rpgActive', label: 'Use active artifact', tip: 'Rogue Lite: trigger your charged active artifact (D6, Necronomicon, Book of Shadows, etc.). Charges refill as you clear rooms.', ctx: ['rpg'] },
+            { action: 'rpgPocket', label: 'Use pocket card / pill', tip: 'Rogue Lite: consume your carried Tarot Card or Mystery Pill.', ctx: ['rpg'] },
+            { action: 'rpgBomb', label: 'Drop bomb', tip: 'Rogue Lite: place an explosive bomb that damages foes and cracks Tinted Loot Rocks.', ctx: ['rpg'] }
         ] },
         { group: 'owrpg', label: 'Open World RPG', actions: [
             { action: 'owAbility1', label: 'Primer ability', tip: 'Open World RPG: fire your slotted Primer (Cryo Dart, Thermite, Arc Spike, Breach Bash). Primers apply a status.', ctx: ['owrpg'] },
             { action: 'owAbility2', label: 'Detonator ability', tip: 'Open World RPG: your Detonator consumes statuses on a target for a reaction (Combust, Shatter, Overload, Rupture).', ctx: ['owrpg'] },
             { action: 'owGadget', label: 'Tactical gadget', tip: 'Open World RPG: Med-Injector or Decoy Hologram.', ctx: ['owrpg'] },
             { action: 'owMed', label: 'Quick Med-Injector', tip: 'Open World RPG: use a Med-Injector from your pack.', ctx: ['owrpg'] },
+            { action: 'owUltimate', label: 'Unlockable Power / Ultimate', tip: 'Open World RPG: unleash your unlocked Ultimate ability.', ctx: ['owrpg'] },
+            { action: 'owMount', label: 'Summon / dismount mount', tip: 'Open World RPG: call or park your unlocked hoverbike, ATV, or war strider.', ctx: ['owrpg'] },
+            { action: 'owRepair', label: 'Field repair gear', tip: 'Open World RPG: consume a Field Repair Kit to restore equipped durability.', ctx: ['owrpg'] },
             { action: 'owCharacter', label: 'Pip-Pad', tip: 'Open World RPG: character, perks, inventory, abilities, quests, map and factions.', ctx: ['owrpg'] },
             { action: 'owQuestLog', label: 'Quest log', tip: 'Open World RPG: open the Pip-Pad on your quests.', ctx: ['owrpg'] },
             { action: 'owMap', label: 'Map', tip: 'Open World RPG: open the Pip-Pad map. Click to place compass pins.', ctx: ['owrpg'] },

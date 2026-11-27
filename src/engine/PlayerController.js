@@ -627,7 +627,8 @@
             const fastRldMult = activeMods.fastReload ? 0.35 : 1.0;
             const modRldMult = BO.Mods ? BO.Mods.reloadMult() : 1.0;
             const mealMult = BO.State.activeMode === 'survival' && BO.SurvivalMode.mealUntil > BO.SurvivalMode.clock ? 0.70 : 1;
-            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult * modRldMult * mealMult;
+            const rpgRldMult = (BO.State.activeMode === 'rpg' && BO.RPGItems?.reloadSpeedMult) ? (1 / Math.max(0.25, BO.RPGItems.reloadSpeedMult())) : 1.0;
+            this.reloadDuration = w.stats.reloadTime * speedColaMult * fastRldMult * modRldMult * mealMult * rpgRldMult;
             this.reloadTimer = this.reloadDuration;
             this.reloadStage = 0;
             BO.Sound.playReload(w.stats.shellReload ? 'shell' : 'out');
@@ -658,6 +659,15 @@
             this.armorReservePlates--;
             this.platingTimer = this.mpPerks.includes('runner_plates') ? 0.55 : 0.85;
             BO.Sound.playReload('in');
+        }
+
+        pushDamageArc(attackerPos, duration = 1.2) {
+            if (!attackerPos) return;
+            const dx = attackerPos.x - this.pos.x;
+            const dz = attackerPos.z - this.pos.z;
+            const worldAngle = Math.atan2(dx, dz);
+            const rel = BO.Math.wrapAngle(worldAngle - this.yaw + Math.PI);
+            this.damageArcs.push({ angle: rel, timer: duration });
         }
 
         takeDamage(amount, attackerPos = null, isExplosive = false, attackerEntity = null) {
@@ -1010,7 +1020,8 @@
                     }
                     if (w.mag < w.stats.magSize && w.reserve > 0) {
                         const speedColaMult = (this.zombiePerks.has('speed_cola') ? 0.52 : 1) * (this.zombiePerks.has('rush_order') && BO.ZombiesMode.exfilActive ? 0.7 : 1);
-                        this.reloadDuration = w.stats.reloadTime * speedColaMult;
+                        const rpgRldMult = (BO.State.activeMode === 'rpg' && BO.RPGItems?.reloadSpeedMult) ? (1 / Math.max(0.25, BO.RPGItems.reloadSpeedMult())) : 1.0;
+                        this.reloadDuration = w.stats.reloadTime * speedColaMult * rpgRldMult;
                         this.reloadTimer = this.reloadDuration;
                         BO.Sound.playReload('shell');
                     } else {
@@ -1191,6 +1202,7 @@
             if (this.inSwampMud && !this.mpPerks.includes('mudskipper')) speed *= 0.62;
             if (BO.State.activeMode === 'survival') speed *= BO.SurvivalMode.campaign?.speed || 1;
             if (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active) speed *= BO.OWRPGMode.speedMult();
+            if (BO.State.activeMode === 'rpg' && BO.RPGItems?.moveSpeedMult) speed *= BO.RPGItems.moveSpeedMult();
             speed *= gunMoveMult;
 
             if (this.sliding) {
@@ -1699,7 +1711,8 @@
         }
 
         _updateViewmodel(dt) {
-            if (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.hideViewmodel) {
+            if ((BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.hideViewmodel) ||
+                (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active && BO.OWRPGMode.holstered)) {
                 this.vmAnchor.visible = false;
                 return;
             }

@@ -410,7 +410,7 @@
                     : `${Math.ceil(P.hp)} / ${P.maxHp} HP  •  ${P.armorReservePlates} PLATES [4]`;
             }
             const plateRow = this.elPlates[0]?.parentElement?.parentElement;
-            if (plateRow) plateRow.classList.toggle('hidden', mode === 'rpg');
+            if (plateRow) plateRow.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
             for (let i = 0; i < 3; i++) {
                 if (this.elPlates[i]) {
                     const slot = P.plateSlots ? P.plateSlots[i] : undefined;
@@ -504,12 +504,12 @@
                     const text = '[' + BO.Settings.keyLabel(code) + ']';
                     if (tag && tag.textContent !== text) tag.textContent = text;
                 }
-                const hideSuper = mode === 'survival' || mode === 'rpg';
+                const hideSuper = mode === 'survival' || mode === 'rpg' || mode === 'owrpg';
                 this.elFieldInfo?.parentElement?.classList.toggle('hidden', hideSuper);
                 this.elUltInfo?.parentElement?.classList.toggle('hidden', hideSuper);
-                // RPG class abilities replace grenades (they live on the RPG ability bar).
-                this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg');
-                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg');
+                // RPG & OWRPG abilities replace COD grenades.
+                this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
             }
             if (this.elFieldInfo) {
                 this.elFieldInfo.textContent = P.fieldActiveTimer > 0
@@ -532,6 +532,14 @@
                 if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
                 if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
                 if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+            } else if (mode === 'owrpg') {
+                if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
+                if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
+                if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+                if (this.elMpScore) this.elMpScore.classList.add('hidden');
+                if (this.elKsDock) this.elKsDock.classList.add('hidden');
+                if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
+                if (this.elCompass) this.elCompass.classList.add('hidden');
             } else if (mode === 'rpg') {
                 if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
                 if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
@@ -756,8 +764,8 @@
                 BO.SurvivalMode.campaign?.has('sv_no_compass') ||
                 BO.SurvivalMode.campaign?.has('sv_hide_hud')
             );
-            if (this.elMinimap) this.elMinimap.classList.toggle('hidden', mode === 'survival' ? hideSurvMap : false);
-            if (mode !== 'survival') this._drawMinimap();
+            if (this.elMinimap) this.elMinimap.classList.toggle('hidden', mode === 'owrpg' ? true : (mode === 'survival' ? hideSurvMap : false));
+            if (mode !== 'survival' && mode !== 'owrpg') this._drawMinimap();
             else if (!hideSurvMap) this._drawSurvivalMinimap();
             if (this.scoreboardOpen) this._renderScoreboard();
         }

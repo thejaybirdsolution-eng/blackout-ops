@@ -61,7 +61,7 @@
     }
 
     // ------------------------------------------------------------------------
-    // Procedural Studio-Tropical PMREM Environment Map (Real AAA IBL Specular)
+    // Procedural Studio-Tropical PMREM Environment Map (HDR-style Sunset + Ocean IBL)
     // ------------------------------------------------------------------------
     let cachedEnvMap = null;
     function getEnvMap() {
@@ -71,25 +71,34 @@
             if (!renderer || !THREE.PMREMGenerator) return null;
             const pmrem = new THREE.PMREMGenerator(renderer);
             pmrem.compileEquirectangularShader();
-            const envTex = L.canvasTex('aaa26-beach-env-v3', 256, 128, (g, w, h) => {
+            const envTex = L.canvasTex('aaa26-beach-env-v4', 512, 256, (g, w, h) => {
                 const gr = g.createLinearGradient(0, 0, 0, h);
-                gr.addColorStop(0.0, '#0c4a6e');
-                gr.addColorStop(0.36, '#38bdf8');
-                gr.addColorStop(0.50, '#fffbeb');
-                gr.addColorStop(0.58, '#d6a46c');
-                gr.addColorStop(1.0, '#784e28');
+                gr.addColorStop(0.00, '#082f49');
+                gr.addColorStop(0.24, '#0284c7');
+                gr.addColorStop(0.42, '#7dd3fc');
+                gr.addColorStop(0.49, '#fffbeb');
+                gr.addColorStop(0.52, '#fde68a');
+                gr.addColorStop(0.56, '#06b6d4');
+                gr.addColorStop(0.72, '#0369a1');
+                gr.addColorStop(1.00, '#c29258');
                 g.fillStyle = gr; g.fillRect(0, 0, w, h);
-                // Crisp key-sun specular highlight (front-right)
-                const sun = g.createRadialGradient(w * 0.35, h * 0.22, 2, w * 0.35, h * 0.22, 28);
-                sun.addColorStop(0, '#ffffff');
-                sun.addColorStop(0.35, '#fef08a');
-                sun.addColorStop(0.7, '#f59e0b');
-                sun.addColorStop(1, 'rgba(255,245,210,0)');
+                // Crisp HDR key-sun specular highlight (golden hour)
+                const sun = g.createRadialGradient(w * 0.34, h * 0.24, 3, w * 0.34, h * 0.24, 58);
+                sun.addColorStop(0.00, '#ffffff');
+                sun.addColorStop(0.25, '#fef08a');
+                sun.addColorStop(0.60, 'rgba(249,115,22,0.55)');
+                sun.addColorStop(1.00, 'rgba(255,245,210,0)');
                 g.fillStyle = sun; g.fillRect(0, 0, w, h);
-                // Turquoise ocean rim reflection (back)
-                const rim = g.createRadialGradient(w * 0.82, h * 0.42, 4, w * 0.82, h * 0.42, 42);
-                rim.addColorStop(0, 'rgba(103, 232, 249, 0.85)');
-                rim.addColorStop(0.5, 'rgba(6, 182, 212, 0.45)');
+                // Warm sunset horizon glow
+                const dusk = g.createRadialGradient(w * 0.62, h * 0.48, 8, w * 0.62, h * 0.48, 96);
+                dusk.addColorStop(0, 'rgba(251, 146, 60, 0.65)');
+                dusk.addColorStop(0.5, 'rgba(244, 114, 182, 0.25)');
+                dusk.addColorStop(1, 'rgba(244, 114, 182, 0)');
+                g.fillStyle = dusk; g.fillRect(0, 0, w, h);
+                // Turquoise ocean rim bounce reflection
+                const rim = g.createRadialGradient(w * 0.82, h * 0.56, 6, w * 0.82, h * 0.56, 86);
+                rim.addColorStop(0, 'rgba(103, 232, 249, 0.92)');
+                rim.addColorStop(0.5, 'rgba(6, 182, 212, 0.48)');
                 rim.addColorStop(1, 'rgba(103, 232, 249, 0)');
                 g.fillStyle = rim; g.fillRect(0, 0, w, h);
             });
@@ -297,7 +306,9 @@
     function finalizeSkinnedGeo(out) {
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
-        geo.setAttribute('uv', new THREE.Float32BufferAttribute(out.uv, 2));
+        const uvAttr = new THREE.Float32BufferAttribute(out.uv, 2);
+        geo.setAttribute('uv', uvAttr);
+        geo.setAttribute('uv2', uvAttr);
         geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(out.si, 4));
         geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(out.sw, 4));
         geo.setIndex(out.idx);
@@ -313,14 +324,14 @@
         const hipSc = morph.hip || 1.08;
         const thighSc = morph.thigh || 1.04;
 
-        // 1. Unified Torso + Breasts + Pelvis + Glutes + Neck (72 slices x 64 segs for silky-round curves)
+        // 1. Unified Torso + Breasts + Pelvis + Glutes + Neck (UV Island: u in [0.00, 0.50], v in [0, 1])
         appendTubePart(out, 72, 64, (v, th, u) => {
             const r = evalUnifiedTorso(v, th, morph, 0);
-            r.uv = [u, v];
+            r.uv = [u * 0.5, v];
             return r;
         });
 
-        // 2. Seamless Left & Right Sculpted Legs (Hip -> Thigh -> Knee -> Calf -> Ankle, 44 x 32)
+        // 2. Seamless Left & Right Sculpted Legs (UV Island: u in [0.50, 0.75], v in [0, 1])
         for (const s of [1, -1]) {
             const bThigh = s > 0 ? BONE.THIGH_L : BONE.THIGH_R;
             const bSoft = s > 0 ? BONE.THIGH_SOFT_L : BONE.THIGH_SOFT_R;
@@ -330,7 +341,7 @@
             const cx = s * 0.092 * hipSc;
 
             appendTubePart(out, 44, 32, (v, th, u) => {
-                const y = lerp(0.935, 0.055, v);
+                const y = lerp(0.948, 0.055, v);
                 const sinT = Math.sin(th), cosT = Math.cos(th);
                 const front = Math.max(0, cosT), back = Math.max(0, -cosT);
                 const inner = s > 0 ? Math.max(0, -sinT) : Math.max(0, sinT);
@@ -338,9 +349,9 @@
                 let rad;
                 if (v < 0.50) {
                     const tv = v / 0.50;
-                    rad = lerp(0.098 * thighSc, 0.049, Math.pow(tv, 0.82));
+                    rad = lerp(0.102 * thighSc, 0.049, Math.pow(tv, 0.80));
                     rad += 0.013 * thighSc * front * gauss(tv, 0.38, 0.24);
-                    rad += 0.012 * thighSc * back * gauss(tv, 0.25, 0.24);
+                    rad += 0.013 * thighSc * back * gauss(tv, 0.25, 0.24);
                     rad += 0.008 * thighSc * inner * gauss(tv, 0.20, 0.18);
                 } else {
                     const cv = (v - 0.50) / 0.50;
@@ -355,12 +366,12 @@
                 const z = rad * cosT + zShift;
 
                 let skin;
-                if (v < 0.10) {
-                    const tHip = 1 - v / 0.10;
-                    const glW = tHip * back * 0.55;
-                    skin = normW(BONE.HIPS, tHip - glW, bGlute, glW, bThigh, 1 - tHip, 0, 0);
+                if (v < 0.15) {
+                    const tHip = 1 - smoothstep(0.0, 0.15, v);
+                    const glW = tHip * back * 0.52;
+                    skin = normW(BONE.HIPS, Math.max(0.01, tHip - glW), bGlute, glW, bThigh, 1 - tHip, 0, 0);
                 } else if (v < 0.36) {
-                    const softW = (back * 0.5 + inner * 0.5) * gauss(v, 0.18, 0.08) * 0.65;
+                    const softW = (back * 0.5 + inner * 0.5) * gauss(v, 0.20, 0.08) * 0.62;
                     skin = normW(bThigh, 1 - softW, bSoft, softW, 0, 0, 0, 0);
                 } else if (v < 0.60) {
                     const kBlend = smoothstep(0.43, 0.56, v);
@@ -369,11 +380,11 @@
                     const aBlend = smoothstep(0.92, 1.0, v);
                     skin = normW(bShin, 1 - aBlend, bFoot, aBlend, 0, 0, 0, 0);
                 }
-                return { p: [x, y, z], uv: [u, 1 - v * 0.6], skin };
+                return { p: [x, y, z], uv: [0.5 + u * 0.25, 1 - v], skin };
             });
         }
 
-        // 3. Seamless Left & Right Sculpted Arms (Shoulder -> Bicep -> Elbow -> Forearm -> Wrist, 28 x 22)
+        // 3. Seamless Left & Right Sculpted Arms with Smooth Deltoid Bridge (UV Island: u in [0.75, 1.00], v in [0, 1])
         for (const s of [1, -1]) {
             const bSh = s > 0 ? BONE.SH_L : BONE.SH_R;
             const bEl = s > 0 ? BONE.EL_L : BONE.EL_R;
@@ -383,10 +394,10 @@
                 let cx, cy, cz, rad;
                 if (v < 0.52) {
                     const t = v / 0.52;
-                    cx = lerp(0.146 * s, 0.170 * s, t);
-                    cy = lerp(1.395, 1.120, t);
+                    cx = lerp(0.140 * s, 0.170 * s, t);
+                    cy = lerp(1.404, 1.120, t);
                     cz = -0.006;
-                    rad = lerp(0.045, 0.031, t) + 0.007 * gauss(t, 0.16, 0.14);
+                    rad = lerp(0.048, 0.031, t) + 0.009 * gauss(t, 0.14, 0.14);
                 } else {
                     const t = (v - 0.52) / 0.48;
                     cx = lerp(0.170 * s, 0.182 * s, t);
@@ -397,8 +408,8 @@
                 const x = cx + rad * Math.sin(th);
                 const z = cz + rad * Math.cos(th) * 0.94;
                 let skin;
-                if (v < 0.12) {
-                    const cW = (1 - v / 0.12) * 0.75;
+                if (v < 0.17) {
+                    const cW = (1 - smoothstep(0.0, 0.17, v)) * 0.80;
                     skin = normW(BONE.CHEST, cW, bSh, 1 - cW, 0, 0, 0, 0);
                 } else if (v < 0.62) {
                     const eW = smoothstep(0.44, 0.59, v);
@@ -407,7 +418,7 @@
                     const wW = smoothstep(0.90, 1.0, v);
                     skin = normW(bEl, 1 - wW, bWr, wW, 0, 0, 0, 0);
                 }
-                return { p: [x, cy, z], uv: [u, 0.85 - v * 0.4], skin };
+                return { p: [x, cy, z], uv: [0.75 + u * 0.25, 1 - v], skin };
             });
         }
 
@@ -515,6 +526,103 @@
     }
 
     // ------------------------------------------------------------------------
+    // Bespoke Skinned Couture Beach Cover-Ups (kimono / rashguard / shawl)
+    // ------------------------------------------------------------------------
+    const coverGeoCache = new Map();
+    function getSkinnedCoverUpGeo(coverStyle, morph) {
+        const key = `cov:${coverStyle}:${morph.bust}:${morph.hip}:${morph.waist}`;
+        if (coverGeoCache.has(key)) return coverGeoCache.get(key).clone();
+
+        const out = { pos: [], uv: [], si: [], sw: [], idx: [] };
+        const addBand = (v0, v1, slices, segs, shapeFn) => {
+            const baseV = out.pos.length / 3;
+            const cols = segs + 1;
+            const keep = [];
+            for (let iy = 0; iy <= slices; iy++) {
+                const tv = iy / slices;
+                const v = lerp(v0, v1, tv);
+                for (let ix = 0; ix <= segs; ix++) {
+                    const u = ix / segs;
+                    const th = u * TAU;
+                    const sh = shapeFn(v, th, tv);
+                    const r = evalUnifiedTorso(sh.v, th, morph, sh.off ?? 0.014);
+                    out.pos.push(r.p[0], r.p[1], r.p[2]);
+                    out.uv.push(u * 2, tv);
+                    out.si.push(r.skin[0][0], r.skin[0][1], r.skin[0][2], r.skin[0][3]);
+                    out.sw.push(r.skin[1][0], r.skin[1][1], r.skin[1][2], r.skin[1][3]);
+                    keep.push(sh.inside !== false);
+                }
+            }
+            for (let iy = 0; iy < slices; iy++) {
+                for (let ix = 0; ix < segs; ix++) {
+                    const a = baseV + iy * cols + ix;
+                    const b = a + 1, c = a + cols, d = c + 1;
+                    if (keep[a - baseV] || keep[b - baseV] || keep[c - baseV] || keep[d - baseV]) {
+                        out.idx.push(a, c, b, b, c, d);
+                    }
+                }
+            }
+        };
+
+        if (coverStyle === 'kimono') {
+            // Sheer ruffled kimono wrap: open V-front, flowing lower ruffle hem, draped shoulders
+            addBand(0.26, 0.78, 28, 56, (v, th, tv) => {
+                const cosT = Math.cos(th), sinT = Math.sin(th);
+                const frontSplit = cosT > 0.76 - (1 - tv) * 0.25;
+                const ruffle = Math.sin(th * 12) * 0.008 * (1 - tv);
+                const flare = 0.013 + (1 - tv) * 0.018 + Math.abs(sinT) * 0.005;
+                return { v: v + ruffle, off: flare, inside: !frontSplit };
+            });
+            // Flowing kimono cap sleeves bound cleanly to chest/shoulder bones
+            for (const s of [1, -1]) {
+                const bSh = s > 0 ? BONE.SH_L : BONE.SH_R;
+                appendTubePart(out, 10, 20, (v, th, u) => {
+                    const cx = lerp(0.145 * s, 0.168 * s, v);
+                    const cy = lerp(1.40, 1.21, v);
+                    const rad = lerp(0.056, 0.088, Math.pow(v, 0.8)) + Math.sin(th * 8) * 0.005 * v;
+                    const x = cx + rad * Math.sin(th);
+                    const z = -0.006 + rad * Math.cos(th) * 0.92;
+                    const cw = (1 - smoothstep(0.0, 0.55, v)) * 0.75;
+                    return { p: [x, cy, z], uv: [u * 2, 1 - v], skin: normW(BONE.CHEST, cw, bSh, 1 - cw, 0, 0, 0, 0) };
+                });
+            }
+        } else if (coverStyle === 'rashguard') {
+            // Sporty zip surf-rashguard crop jacket with high mock collar
+            addBand(0.42, 0.82, 26, 56, (v, th, tv) => {
+                const cosT = Math.cos(th);
+                const zipV = cosT > 0.95 && v > 0.74;
+                const crop = 0.012 + (1 - tv) * 0.003;
+                return { v, off: crop, inside: !zipV };
+            });
+            for (const s of [1, -1]) {
+                const bSh = s > 0 ? BONE.SH_L : BONE.SH_R;
+                appendTubePart(out, 12, 18, (v, th, u) => {
+                    const cx = lerp(0.144 * s, 0.172 * s, v);
+                    const cy = lerp(1.40, 1.15, v);
+                    const rad = lerp(0.054, 0.038, v);
+                    const x = cx + rad * Math.sin(th);
+                    const z = -0.006 + rad * Math.cos(th) * 0.94;
+                    const cw = (1 - smoothstep(0.0, 0.45, v)) * 0.78;
+                    return { p: [x, cy, z], uv: [u * 2, 1 - v], skin: normW(BONE.CHEST, cw, bSh, 1 - cw, 0, 0, 0, 0) };
+                });
+            }
+        } else {
+            // Knotted hibiscus beach shawl draped asymmetrically across bust & shoulders
+            addBand(0.43, 0.76, 24, 56, (v, th, tv) => {
+                const sinT = Math.sin(th), cosT = Math.cos(th);
+                const drapeDip = Math.sin(th * 2 + 0.6) * 0.024 * (1 - tv);
+                const frontKnot = cosT > 0.92 && tv < 0.25;
+                const off = 0.013 + (1 - tv) * 0.012 + Math.abs(sinT) * 0.005;
+                return { v: v + drapeDip, off, inside: !frontKnot };
+            });
+        }
+
+        const geo = finalizeSkinnedGeo(out);
+        coverGeoCache.set(key, geo);
+        return geo.clone();
+    }
+
+    // ------------------------------------------------------------------------
     // Static Geometries & Detailed 3D Props
     // ------------------------------------------------------------------------
     const GEO = {};
@@ -548,28 +656,63 @@
         g.computeVertexNormals();
     }
 
+    function evalHeadPoint(v, th, offset = 0) {
+        const y = lerp(-0.012, 0.258, v);
+        const sinT = Math.sin(th), cosT = Math.cos(th);
+        const front = Math.max(0, cosT);
+        let rx = 0.114 * Math.pow(Math.sin(clamp(v, 0.001, 0.999) * Math.PI), 0.50);
+        if (v < 0.36) rx *= lerp(0.52, 1.0, smoothstep(0.0, 0.36, v));
+        const rz = rx * 0.98;
+        const cheek = 0.009 * (gauss(th, 0.56, 0.28) + gauss(th, TAU - 0.56, 0.28)) * gauss(v, 0.36, 0.095);
+        const noseC = Math.pow(front, 10);
+        const noseTip = 0.010 * noseC * gauss(v, 0.375, 0.036);
+        const noseBridge = 0.005 * Math.pow(front, 8) * gauss(v, 0.435, 0.055);
+        const mouthW = Math.pow(front, 8);
+        const upperLip = 0.0055 * mouthW * gauss(v, 0.295, 0.018);
+        const lowerLip = 0.0075 * mouthW * gauss(v, 0.265, 0.019);
+        const chin = 0.004 * Math.pow(front, 4) * gauss(v, 0.11, 0.052);
+        return [
+            (rx + cheek * 0.42 + offset) * sinT,
+            y,
+            (rz + cheek + noseTip + noseBridge + upperLip + lowerLip + chin + offset) * cosT
+        ];
+    }
+
     function getStaticGeos() {
         if (GEO.ready) return GEO;
         GEO.ready = true;
 
         // 3D Sculpted Anime Head (soft rounded chin, full cheeks, petite rounded nose, plush lips)
-        GEO.head = sculptStatic(40, 48, (v, th) => {
-            const y = lerp(-0.012, 0.258, v);
-            const sinT = Math.sin(th), cosT = Math.cos(th);
-            const front = Math.max(0, cosT);
-            let rx = 0.114 * Math.pow(Math.sin(clamp(v, 0.001, 0.999) * Math.PI), 0.50);
-            if (v < 0.36) rx *= lerp(0.52, 1.0, smoothstep(0.0, 0.36, v));
-            const rz = rx * 0.98;
-            const cheek = 0.009 * (gauss(th, 0.56, 0.28) + gauss(th, TAU - 0.56, 0.28)) * gauss(v, 0.34, 0.095);
-            const noseC = Math.pow(front, 10);
-            const noseTip = 0.010 * noseC * gauss(v, 0.355, 0.036);
-            const noseBridge = 0.005 * Math.pow(front, 8) * gauss(v, 0.42, 0.055);
-            const mouthW = Math.pow(front, 8);
-            const upperLip = 0.0055 * mouthW * gauss(v, 0.245, 0.018);
-            const lowerLip = 0.0075 * mouthW * gauss(v, 0.215, 0.019);
-            const chin = 0.004 * Math.pow(front, 4) * gauss(v, 0.09, 0.052);
-            return [(rx + cheek * 0.42) * sinT, y, (rz + cheek + noseTip + noseBridge + upperLip + lowerLip + chin) * cosT];
-        });
+        GEO.head = sculptStatic(40, 48, (v, th) => evalHeadPoint(v, th, 0));
+
+        // Conformal 3D Face Shell (evaluates exact head surface + 0.0014m offset -> ZERO Z-fighting!)
+        {
+            const fSlices = 28, fSegs = 32, cols = fSegs + 1;
+            const pos = [], uvs = [], idx = [];
+            for (let iy = 0; iy <= fSlices; iy++) {
+                const tv = iy / fSlices;
+                const vh = lerp(0.18, 0.72, tv);
+                for (let ix = 0; ix <= fSegs; ix++) {
+                    const tu = ix / fSegs;
+                    const th = lerp(-0.72, 0.72, tu);
+                    const p = evalHeadPoint(vh, th, 0.0014);
+                    pos.push(p[0], p[1], p[2]);
+                    uvs.push(tu, tv);
+                }
+            }
+            for (let iy = 0; iy < fSlices; iy++) {
+                for (let ix = 0; ix < fSegs; ix++) {
+                    const a = iy * cols + ix, b = a + 1, c = a + cols, d = c + 1;
+                    idx.push(a, b, c, b, d, c);
+                }
+            }
+            const fg = new THREE.BufferGeometry();
+            fg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            fg.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+            fg.setIndex(idx);
+            fg.computeVertexNormals();
+            GEO.faceShell = fg;
+        }
 
         // Curved 3D Upper Eyelash Ribbons
         const makeLash = (side) => {
@@ -642,6 +785,14 @@
             const swirl = v * TAU * 1.5;
             return [r * Math.sin(th) + Math.cos(swirl) * 0.018 * v, y, r * Math.cos(th) + Math.sin(swirl) * 0.018 * v];
         });
+        // Continuous interwoven 3-strand spline braid segment (replaces stacked spheres!)
+        GEO.braidSeg = sculptStatic(16, 18, (v, th) => {
+            const y = lerp(0.018, -0.072, v);
+            const weave = Math.cos(th * 3 + v * TAU * 1.5) * 0.007;
+            const r = (0.025 + weave) * (1 - v * 0.08);
+            return [r * Math.sin(th) * 1.15, y, r * Math.cos(th) * 0.85];
+        });
+        GEO.featherStrand = makeSilkRibbon(0.20, 0.022, 0.020, 0.026);
 
         GEO.ear = new THREE.SphereGeometry(0.019, 10, 8); GEO.ear.scale(0.38, 1.22, 0.82);
         GEO.nail = new THREE.SphereGeometry(0.0042, 6, 4); GEO.nail.scale(1.1, 0.45, 1.4);
@@ -704,91 +855,162 @@
         const sssCol = new THREE.Color(sssHex);
         mat.onBeforeCompile = (shader) => {
             shader.uniforms.uSSSColor = { value: sssCol };
-            shader.fragmentShader = 'uniform vec3 uSSSColor;\n' + shader.fragmentShader;
+            shader.uniforms.uSunDir = { value: new THREE.Vector3(0.48, 0.66, 0.58).normalize() };
+            shader.fragmentShader = 'uniform vec3 uSSSColor;\nuniform vec3 uSunDir;\n' + shader.fragmentShader;
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
                 `
                 vec3 nView = normalize(vNormal);
                 vec3 vDir = normalize(vViewPosition);
                 float ndv = clamp(dot(nView, vDir), 0.0, 1.0);
-                float rim = pow(1.0 - ndv, 3.0);
+                float rim = pow(1.0 - ndv, 2.7);
+                float sunWrap = clamp(dot(nView, uSunDir) * 0.5 + 0.5, 0.0, 1.0);
+                float backLit = pow(clamp(dot(-uSunDir, vDir), 0.0, 1.0), 2.4) * (0.4 + 0.6 * (1.0 - ndv));
                 float luma = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));
-                float sssBand = smoothstep(0.05, 0.46, luma) * (1.0 - smoothstep(0.46, 0.88, luma));
-                gl_FragColor.rgb += uSSSColor * (sssBand * 0.14 + rim * 0.11) + vec3(1.0, 0.92, 0.84) * pow(rim, 2.0) * 0.05;
+                float sssBand = smoothstep(0.05, 0.48, luma) * (1.0 - smoothstep(0.48, 0.90, luma));
+                vec3 oceanRim = vec3(0.26, 0.88, 0.96) * rim * 0.13;
+                gl_FragColor.rgb += uSSSColor * (sssBand * 0.16 * (0.65 + 0.35 * sunWrap) + backLit * 0.14 + rim * 0.09) + oceanRim;
                 #include <dithering_fragment>
                 `
             );
         };
-        mat.customProgramCacheKey = () => 'doa-sss-skin-v5';
+        mat.customProgramCacheKey = () => 'doa-sss-skin-v6';
     }
 
     function applyHairAnisoShader(mat, hiHex) {
         const hiCol = new THREE.Color(hiHex || '#ffffff');
         mat.onBeforeCompile = (shader) => {
             shader.uniforms.uHairHi = { value: hiCol };
-            shader.fragmentShader = 'uniform vec3 uHairHi;\n' + shader.fragmentShader;
+            shader.uniforms.uSunDir = { value: new THREE.Vector3(0.48, 0.66, 0.58).normalize() };
+            shader.fragmentShader = 'uniform vec3 uHairHi;\nuniform vec3 uSunDir;\n' + shader.fragmentShader;
             shader.fragmentShader = shader.fragmentShader.replace(
                 '#include <dithering_fragment>',
                 `
                 vec3 hN = normalize(vNormal);
                 vec3 hV = normalize(vViewPosition);
-                vec3 hHalf = normalize(hV + normalize(vec3(0.35, 0.85, 0.55)));
-                float anisoShift = hN.y * 0.72 + hHalf.y * 0.28;
-                float ring1 = exp(-pow((hN.y - 0.34) * 5.8, 2.0)) * pow(max(dot(hN, hV), 0.0), 0.65);
-                float ring2 = exp(-pow((hN.y + 0.18) * 7.2, 2.0)) * 0.55;
-                float rimSilk = pow(1.0 - clamp(dot(hN, hV), 0.0, 1.0), 3.2);
-                gl_FragColor.rgb += uHairHi * (ring1 * 0.34 + ring2 * 0.18) + uHairHi * rimSilk * 0.16;
+                vec3 hHalf = normalize(hV + uSunDir);
+                vec3 hT1 = normalize(vec3(0.0, 1.0, 0.0) + hN * 0.18);
+                vec3 hT2 = normalize(vec3(0.0, 1.0, 0.0) - hN * 0.14);
+                float tdoth1 = dot(hT1, hHalf);
+                float tdoth2 = dot(hT2, hHalf);
+                float kajiya1 = pow(sqrt(max(0.0, 1.0 - tdoth1 * tdoth1)), 28.0);
+                float kajiya2 = pow(sqrt(max(0.0, 1.0 - tdoth2 * tdoth2)), 14.0);
+                float rimSilk = pow(1.0 - clamp(dot(hN, hV), 0.0, 1.0), 3.0);
+                gl_FragColor.rgb += uHairHi * (kajiya1 * 0.36 + kajiya2 * 0.16 + rimSilk * 0.16);
                 #include <dithering_fragment>
                 `
             );
         };
-        mat.customProgramCacheKey = () => 'doa-hair-aniso-v4';
+        mat.customProgramCacheKey = () => 'doa-hair-aniso-v5';
     }
 
     function skinAlbedoTex(skinHex, blushHex) {
-        return L.canvasTex('aaa26-skin-v4:' + skinHex + ':' + blushHex, 1024, 1024, (g, w, h) => {
+        return L.canvasTex('aaa26-skin-v5:' + skinHex + ':' + blushHex, 1024, 1024, (g, w, h) => {
             g.fillStyle = hexStr(skinHex);
             g.fillRect(0, 0, w, h);
 
             const blush = (x, y, rx, ry, a, col = blushHex) => {
-                const rg = g.createRadialGradient(x, y, 6, x, y, rx);
+                const rg = g.createRadialGradient(x, y, 4, x, y, rx);
                 rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(255,120,110,0)');
                 g.globalAlpha = a; g.fillStyle = rg;
                 g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             };
 
-            for (const fx of [0, w]) {
-                // Warm sun-kissed chest, bust top & shoulder glow
-                blush(fx, h * 0.40, 192, 112, 0.26);
-                blush(fx, h * 0.82, 220, 130, 0.16);
-                blush(fx, h * 0.33, 140, 48, 0.18, '#fff7ed');
-                // Underbust depth
-                blush(fx, h * 0.46, 170, 48, 0.28, shadeHex(skinHex, -60));
-                // Clavicle highlights & subtle contours
+            // Island 1: Torso [0 .. w*0.5] (front seam at x=0 and x=w*0.5; back at x=w*0.25)
+            g.save();
+            g.beginPath(); g.rect(0, 0, w * 0.5, h); g.clip();
+            for (const fx of [0, w * 0.5]) {
+                blush(fx, h * 0.40, 118, 96, 0.25);
+                blush(fx, h * 0.82, 130, 110, 0.15);
+                blush(fx, h * 0.33, 96, 44, 0.18, '#fff7ed');
+                blush(fx, h * 0.46, 108, 44, 0.28, shadeHex(skinHex, -60));
                 g.strokeStyle = shadeHex(skinHex, -48);
                 g.lineCap = 'round';
-                g.globalAlpha = 0.32; g.lineWidth = 10;
-                g.beginPath(); g.moveTo(fx - 92, h * 0.22); g.quadraticCurveTo(fx, h * 0.25, fx + 92, h * 0.22); g.stroke();
-                g.strokeStyle = 'rgba(255,250,240,0.28)'; g.lineWidth = 6;
-                g.beginPath(); g.moveTo(fx - 86, h * 0.215); g.quadraticCurveTo(fx, h * 0.244, fx + 86, h * 0.215); g.stroke();
-                // Abdominal definition
+                g.globalAlpha = 0.32; g.lineWidth = 8;
+                g.beginPath(); g.moveTo(fx - 64, h * 0.22); g.quadraticCurveTo(fx, h * 0.25, fx + 64, h * 0.22); g.stroke();
+                g.strokeStyle = 'rgba(255,250,240,0.28)'; g.lineWidth = 5;
+                g.beginPath(); g.moveTo(fx - 58, h * 0.215); g.quadraticCurveTo(fx, h * 0.244, fx + 58, h * 0.215); g.stroke();
                 g.strokeStyle = shadeHex(skinHex, -46);
-                g.globalAlpha = 0.22; g.lineWidth = 8;
+                g.globalAlpha = 0.22; g.lineWidth = 6;
                 g.beginPath(); g.moveTo(fx, h * 0.44); g.lineTo(fx, h * 0.68); g.stroke();
-                g.beginPath(); g.moveTo(fx - 76, h * 0.52); g.quadraticCurveTo(fx - 52, h * 0.64, fx - 36, h * 0.74); g.stroke();
-                g.beginPath(); g.moveTo(fx + 76, h * 0.52); g.quadraticCurveTo(fx + 52, h * 0.64, fx + 36, h * 0.74); g.stroke();
-                // Cute navel
+                g.beginPath(); g.moveTo(fx - 54, h * 0.52); g.quadraticCurveTo(fx - 36, h * 0.64, fx - 24, h * 0.74); g.stroke();
+                g.beginPath(); g.moveTo(fx + 54, h * 0.52); g.quadraticCurveTo(fx + 36, h * 0.64, fx + 24, h * 0.74); g.stroke();
                 g.globalAlpha = 0.48; g.fillStyle = shadeHex(skinHex, -65);
-                g.beginPath(); g.ellipse(fx, h * 0.695, 10, 17, 0, 0, TAU); g.fill();
+                g.beginPath(); g.ellipse(fx, h * 0.695, 7, 14, 0, 0, TAU); g.fill();
                 g.globalAlpha = 1;
             }
-
-            // Back spine & glute crease
             g.strokeStyle = shadeHex(skinHex, -52);
-            g.globalAlpha = 0.30; g.lineWidth = 12;
-            g.beginPath(); g.moveTo(w * 0.5, h * 0.24); g.lineTo(w * 0.5, h * 0.92); g.stroke();
+            g.globalAlpha = 0.30; g.lineWidth = 10;
+            g.beginPath(); g.moveTo(w * 0.25, h * 0.24); g.lineTo(w * 0.25, h * 0.92); g.stroke();
             g.globalAlpha = 1;
+            g.restore();
+
+            // Island 2: Legs [w*0.5 .. w*0.75] (knees at y ~ 0.50*h, subtle sun-kissed tone)
+            g.save();
+            g.beginPath(); g.rect(w * 0.5, 0, w * 0.25, h); g.clip();
+            blush(w * 0.50, h * 0.50, 72, 48, 0.22);
+            blush(w * 0.75, h * 0.50, 72, 48, 0.22);
+            blush(w * 0.625, h * 0.72, 68, 120, 0.14, shadeHex(skinHex, -24));
+            g.restore();
+
+            // Island 3: Arms [w*0.75 .. w] (elbows & deltoid warmth)
+            g.save();
+            g.beginPath(); g.rect(w * 0.75, 0, w * 0.25, h); g.clip();
+            blush(w * 0.875, h * 0.52, 68, 42, 0.18);
+            blush(w * 0.875, h * 0.14, 78, 54, 0.15, '#fff7ed');
+            g.restore();
+        });
+    }
+
+    function skinRoughnessTex() {
+        return linearCanvasTex('aaa26-skin-rough-v1', 1024, 1024, (g, w, h) => {
+            g.fillStyle = 'rgb(112,112,112)'; // ~0.44 base roughness
+            g.fillRect(0, 0, w, h);
+            const sheen = (x, y, rx, ry, val) => {
+                const rg = g.createRadialGradient(x, y, 4, x, y, rx);
+                rg.addColorStop(0, `rgb(${val},${val},${val})`);
+                rg.addColorStop(1, 'rgba(112,112,112,0)');
+                g.fillStyle = rg;
+                g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
+            };
+            // Glossy sun-kissed skin sheen on upper chest, clavicles, shoulders, quads, shins
+            for (const fx of [0, w * 0.5]) {
+                sheen(fx, h * 0.22, 95, 36, 54);
+                sheen(fx, h * 0.35, 110, 54, 58);
+            }
+            sheen(w * 0.625, h * 0.30, 60, 140, 62);
+            sheen(w * 0.625, h * 0.72, 50, 150, 56);
+            sheen(w * 0.875, h * 0.16, 70, 56, 54);
+            // Glistening moisture micro-droplets across shoulders & limbs
+            g.fillStyle = 'rgb(34,34,34)';
+            for (let i = 0; i < 240; i++) {
+                const dx = (i * 193) % w, dy = (i * 317) % h;
+                g.beginPath(); g.arc(dx, dy, 1.5 + (i % 3), 0, TAU); g.fill();
+            }
+        });
+    }
+
+    function skinAOTex() {
+        return linearCanvasTex('aaa26-skin-ao-v1', 1024, 1024, (g, w, h) => {
+            g.fillStyle = 'rgb(255,255,255)';
+            g.fillRect(0, 0, w, h);
+            const occl = (x, y, rx, ry, val) => {
+                const rg = g.createRadialGradient(x, y, 4, x, y, rx);
+                rg.addColorStop(0, `rgb(${val},${val},${val})`);
+                rg.addColorStop(1, 'rgba(255,255,255,0)');
+                g.fillStyle = rg;
+                g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, TAU); g.fill();
+            };
+            // Crevice AO under bust, navel, sternum valley, groin fold, back of knees, underarms
+            for (const fx of [0, w * 0.5]) {
+                occl(fx, h * 0.47, 115, 38, 165);
+                occl(fx, h * 0.40, 22, 68, 185);
+                occl(fx, h * 0.695, 12, 18, 150);
+                occl(fx, h * 0.96, 85, 36, 175);
+            }
+            occl(w * 0.625, h * 0.50, 55, 28, 185);
+            occl(w * 0.875, h * 0.06, 65, 34, 175);
         });
     }
 
@@ -1086,15 +1308,18 @@
             map: skinAlbedoTex(d.skin, d.blush),
             normalMap: getSkinNormalMap(),
             normalScale: new THREE.Vector2(0.16, 0.16),
-            roughness: 0.42,
+            roughnessMap: skinRoughnessTex(),
+            aoMap: skinAOTex(),
+            aoMapIntensity: 0.48,
+            roughness: 1.0,
             metalness: 0.01,
-            clearcoat: 0.22,
-            clearcoatRoughness: 0.30,
-            sheen: 0.22,
+            clearcoat: 0.26,
+            clearcoatRoughness: 0.26,
+            sheen: 0.24,
             sheenColor: new THREE.Color(d.blush),
-            sheenRoughness: 0.50,
+            sheenRoughness: 0.46,
             envMap: env,
-            envMapIntensity: 0.56,
+            envMapIntensity: 0.65,
             emissive: 0x000000
         }));
         applySubsurfaceSkinShader(skinM, d.blush);
@@ -1191,7 +1416,7 @@
     }
 
     BO.BeachAnatomy = {
-        BONE, createSkeleton, getSkinnedBodyGeo, getSkinnedSuitGeo, getStaticGeos,
+        BONE, createSkeleton, getSkinnedBodyGeo, getSkinnedSuitGeo, getSkinnedCoverUpGeo, getStaticGeos,
         getEnvMap, createMaterials, createFaceMaterial, fabricAlbedoTex, faceOverlayTex,
         makeSpring, stepSpring, hexStr, shadeHex, clamp, lerp
     };

@@ -7,6 +7,7 @@
 
     const DAY_FILTERS = [
         { id: 'all', label: 'All Days' },
+        { id: '2026-11-27', label: 'Nov 27' },
         { id: '2026-11-26', label: 'Nov 26' },
         { id: '2026-11-25', label: 'Nov 25' },
         { id: '2026-11-24', label: 'Nov 24' },

@@ -270,16 +270,20 @@
         const sole = new THREE.Mesh(new THREE.CylinderGeometry(0.041, 0.039, 0.018, 16), soleM);
         sole.scale.set(0.95, 1, 2.28);
         sole.position.set(0, -0.050, 0.052);
-        const trim = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.0032, 6, 18), metalM);
+        const heelWedge = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.034, 0.014, 14), soleM);
+        heelWedge.position.set(0, -0.042, 0.008);
+        const trim = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.0034, 6, 18), metalM);
         trim.rotation.x = Math.PI / 2;
         trim.scale.set(0.95, 2.28, 1);
         trim.position.set(0, -0.046, 0.052);
-        g.add(sole, trim);
+        g.add(sole, heelWedge, trim);
         for (const s of [-1, 1]) {
-            const st = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.090, 6), strapM);
+            const st = new THREE.Mesh(new THREE.CylinderGeometry(0.0048, 0.0048, 0.092, 6), strapM);
             st.position.set(s * 0.018, -0.014, 0.086);
             st.rotation.set(1.18, 0, s * 0.36);
-            g.add(st);
+            const cross = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0028, 6, 12, Math.PI), strapM);
+            cross.position.set(0, -0.026, 0.068); cross.rotation.z = s * 0.25;
+            g.add(st, cross);
         }
         for (let k = 0; k < 2; k++) {
             const ankleStrap = new THREE.Mesh(new THREE.TorusGeometry(0.033 + k * 0.001, 0.0038, 6, 16), strapM);
@@ -287,9 +291,11 @@
             ankleStrap.position.set(0, 0.002 + k * 0.018, 0.0);
             g.add(ankleStrap);
         }
+        const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.010, 0.012, 0.004), metalM);
+        buckle.position.set(0.034, 0.012, 0.005);
         const charm = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 10, 8), metalM);
         charm.position.set(0, -0.004, 0.116);
-        g.add(charm);
+        g.add(buckle, charm);
         return g;
     }
 
@@ -715,12 +721,13 @@
             P.neck.add(cord, wh);
         }
 
-        // 4. Head, Cornea & Expressions
+        // 4. Head, Conformal Face Shell, Cornea & Expressions (ZERO Z-fighting!)
         const skull = new THREE.Mesh(G.head, skinM);
         skull.castShadow = true;
         skull.userData.noHit = true;
         P.head.add(skull);
 
+        P.corneas = [];
         for (const s of [-1, 1]) {
             const ear = new THREE.Mesh(G.ear, skinM);
             ear.position.set(s * 0.110, 0.104, -0.005);
@@ -733,11 +740,12 @@
                 er.rotation.y = Math.PI / 2;
                 P.head.add(er);
             }
-            // Real 3D Glossy Cornea Dome
+            // Real 3D Glossy Cornea Dome (toggled cleanly during blink & happy frames)
             const cor = new THREE.Mesh(G.cornea, corneaM);
-            cor.position.set(s * 0.042, 0.122, 0.098);
+            cor.position.set(s * 0.042, 0.114, 0.098);
             cor.userData.noHit = true;
             P.head.add(cor);
+            P.corneas.push(cor);
         }
 
         const faceTexOpen = AN.faceOverlayTex(d.eyes, d.hair, d.blush, 'open');
@@ -745,9 +753,7 @@
         const faceTexHappy = AN.faceOverlayTex(d.eyes, d.hair, d.blush, 'happy');
         const faceMat = AN.createFaceMaterial(faceTexOpen, d.blush);
         mats.push(faceMat);
-        const face = new THREE.Mesh(new THREE.SphereGeometry(0.115, 28, 20, Math.PI / 2 - 0.72, 1.44, Math.PI / 2 - 0.46, 0.96), faceMat);
-        face.scale.set(0.98, 1.04, 0.98);
-        face.position.set(0, 0.116, 0.006);
+        const face = new THREE.Mesh(G.faceShell, faceMat);
         face.userData.noHit = true;
         P.head.add(face);
         P.faceMat = faceMat;
@@ -755,9 +761,9 @@
 
         // 3D Curved Upper Eyelash Ribbons + Cute Ahoge Hair Strand
         const lashL = new THREE.Mesh(G.lashL, lashM);
-        lashL.position.set(0, 0.125, 0.104);
+        lashL.position.set(0, 0.118, 0.102);
         const lashR = new THREE.Mesh(G.lashR, lashM);
-        lashR.position.set(0, 0.125, 0.104);
+        lashR.position.set(0, 0.118, 0.102);
         P.head.add(lashL, lashR);
 
         const ahoge = new THREE.Mesh(G.ahoge, hairM);
@@ -791,6 +797,15 @@
             bR.position.set(0.025 + k * 0.026, 0.234 - k * 0.008, 0.092 - k * 0.014);
             bR.rotation.set(-0.06, 0.18 + k * 0.15, 0.12 + k * 0.08);
             P.head.add(bL, bR);
+        }
+
+        // Sleek layered feathered hair strands framing crown & temples
+        for (const s of [-1, 1]) {
+            const fStrand = new THREE.Mesh(G.featherStrand, hairM);
+            fStrand.position.set(s * 0.088, 0.205, 0.042);
+            fStrand.rotation.set(0.10, s * 0.45, s * 0.22);
+            fStrand.scale.set(s * 0.85, 0.95, 0.85);
+            P.head.add(fStrand);
         }
 
         // Sidelocks
@@ -872,23 +887,25 @@
                 hangChain(s * 0.085, 0.235, -0.045, 0.65, 3, 'tail', s);
             }
         } else if (d.style === 'braid') {
+            // Sculpted continuous interwoven 3-strand spline braid (replaces stacked spheres!)
             const pivot = new THREE.Group();
-            pivot.position.set(0.095, 0.075, 0.020);
+            pivot.position.set(0.096, 0.082, 0.022);
             let parent = pivot;
             for (let i = 0; i < 6; i++) {
                 const seg = new THREE.Group();
-                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.030 * (1 - i * 0.07), 12, 10), hairM);
-                bead.scale.set(1.1, 1.35, 0.85); bead.position.y = -0.030;
-                seg.add(bead);
+                const link = new THREE.Mesh(G.braidSeg, hairM);
+                const tap = 1 - i * 0.075;
+                link.scale.set(tap, 1.0, tap);
+                seg.add(link);
                 if (i === 5) {
                     const tie = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.006, 6, 12), accM);
-                    tie.rotation.x = Math.PI / 2; tie.position.y = -0.056;
+                    tie.rotation.x = Math.PI / 2; tie.position.y = -0.068;
                     const tuft = new THREE.Mesh(G.hairTip, hairM);
-                    tuft.scale.setScalar(0.60); tuft.position.y = -0.060;
+                    tuft.scale.setScalar(0.55); tuft.position.y = -0.072;
                     seg.add(tie, tuft);
                 }
                 parent.add(seg);
-                if (i > 0) seg.position.y = -0.060;
+                if (i > 0) seg.position.y = -0.068;
                 P.sway.push({ obj: seg, kind: 'braid', i, mirror: 1, sp: AN.makeSpring(82 - i * 8, 7.5, 0.45) });
                 parent = seg;
             }
@@ -981,21 +998,34 @@
             P.neck.add(hpG);
         }
 
-        // Removable outer top-armor beach jacket / vest (removed by Sweetheart Shore 2nd weapon!)
-        const topArmor = new THREE.Group();
-        const armorMat = new THREE.MeshStandardMaterial({
-            color: suit2.color, roughness: 0.38, metalness: 0.25,
-            emissive: accM.color, emissiveIntensity: 0.14
+        // Bespoke Skeleton-Bound Couture Beach Cover-Up (kimono / rashguard / shawl; removed by Weapon [2] Deagle!)
+        const coverStyle = (d.suit === 'sport' || d.suit === 'lifeguard') ? 'rashguard' : (d.suit === 'frill' || d.suit === 'shell' ? 'kimono' : 'shawl');
+        const coverGeo = AN.getSkinnedCoverUpGeo(coverStyle, d.morph);
+        const coverTex = AN.fabricAlbedoTex(coverStyle === 'kimono' ? 'hibiscus' : coverStyle === 'rashguard' ? 'stripe' : d.pattern, d.c2, d.c1);
+        const coverMat = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            map: coverTex,
+            roughness: coverStyle === 'rashguard' ? 0.30 : 0.40,
+            metalness: coverStyle === 'rashguard' ? 0.14 : 0.04,
+            sheen: 0.55,
+            sheenColor: new THREE.Color(d.metal || 0xfde047),
+            sheenRoughness: 0.35,
+            side: THREE.DoubleSide,
+            transparent: coverStyle !== 'rashguard',
+            opacity: coverStyle === 'kimono' ? 0.86 : coverStyle === 'shawl' ? 0.92 : 1.0,
+            envMap: env,
+            envMapIntensity: 0.95,
+            emissive: 0x000000
         });
-        const chestPlate = new THREE.Mesh(new THREE.CylinderGeometry(0.118 * bSc, 0.104, 0.165, 20), armorMat);
-        chestPlate.scale.set(1.06, 1.0, 0.94);
-        chestPlate.position.set(0, 0.068, 0.012);
-        const collarTrim = new THREE.Mesh(new THREE.TorusGeometry(0.088, 0.012, 8, 18), metalM);
-        collarTrim.rotation.x = Math.PI / 2 + 0.18;
-        collarTrim.position.set(0, 0.155, 0.008);
-        topArmor.add(chestPlate, collarTrim);
-        P.chest.add(topArmor);
+        mats.push(coverMat);
+        const topArmor = new THREE.SkinnedMesh(coverGeo, coverMat);
+        topArmor.castShadow = true;
+        topArmor.frustumCulled = false;
+        topArmor.userData.noHit = true;
+        body.add(topArmor);
+        topArmor.bind(skeleton);
         P.topArmor = topArmor;
+        P.topArmorMeta = { style: coverStyle, geo: coverGeo, mat: coverMat, metalM };
 
         const girlObj = {
             root, body, parts: P, hit, mats, def: d, armorRemoved: false,
@@ -1150,7 +1180,30 @@
         }
 
         const hipBounce = anim === 'cute_bounce' ? 0.085 : anim === 'playful_skip' ? 0.092 : 0.066;
-        P.hips.position.y = 0.94 + Math.abs(c) * hipBounce * amt;
+        let extraHopY = 0;
+        let twirlRotY = 0;
+        if (S && amt > 0.7) {
+            // Personality movement flair: volleyball dive-spikes, surfer wave-hops, idol spin-twirls!
+            if (d.prop === 'volleyball') {
+                const spike = Math.max(0, Math.sin(ph * 0.22));
+                if (spike > 0.85) {
+                    const sp = (spike - 0.85) / 0.15;
+                    extraHopY = Math.sin(sp * Math.PI) * 0.38;
+                    P.shR.rotation.set(-2.45 * sp, 0, -0.3);
+                    P.elR.rotation.set(-0.35, 0, 0);
+                }
+            } else if (d.animStyle === 'playful_skip') {
+                // Surfer wave-hop carving weave
+                extraHopY = Math.max(0, Math.sin(ph * 0.5)) * 0.18;
+                P.spine.rotation.z += Math.sin(ph * 0.5) * 0.14 * amt;
+            } else if (d.animStyle === 'cute_bounce' || d.animStyle === 'bouncy_drill') {
+                // Idol 360-degree spin-twirl flourish every ~4s
+                const cyc = (ph * 0.18) % (Math.PI * 2);
+                if (cyc < 0.95) twirlRotY = (cyc / 0.95) * TAU;
+            }
+        }
+        g.body.rotation.y = twirlRotY;
+        P.hips.position.y = 0.94 + Math.abs(c) * hipBounce * amt + extraHopY;
         P.hips.rotation.set(0, s * 0.15 * amt, -s * 0.095 * amt);
         P.spine.rotation.set(0.05 * amt, -s * 0.10 * amt, s * 0.04 * amt);
         P.chest.rotation.set(0.06 * amt + breath, -s * 0.14 * amt, s * 0.04 * amt);
@@ -1173,12 +1226,14 @@
                 P.faceMat.map = P.faces.blink;
                 P.faceMat.emissiveMap = P.faces.blink;
                 P.faceMat.needsUpdate = true;
+                if (P.corneas) for (const cor of P.corneas) cor.visible = false;
             } else if (g.blinking && g.blinkT <= 0) {
                 g.blinking = false;
                 g.blinkT = 2.0 + Math.random() * 2.8;
                 P.faceMat.map = P.faces.open;
                 P.faceMat.emissiveMap = P.faces.open;
                 P.faceMat.needsUpdate = true;
+                if (P.corneas) for (const cor of P.corneas) cor.visible = true;
             }
         }
     }
@@ -1200,8 +1255,14 @@
         const r = g.root;
         P.faceMat.map = P.faces.happy;
         P.faceMat.emissiveMap = P.faces.happy;
+        P.faceMat.emissive.setHex(0xffffff); // NEVER wash face in neon magenta!
         P.faceMat.needsUpdate = true;
-        for (const m of g.mats) { m.emissive.setHex(0xff5fa8); m.emissiveIntensity = 0.0; }
+        if (P.corneas) for (const cor of P.corneas) cor.visible = false;
+        for (const m of g.mats) {
+            if (m === P.faceMat) continue;
+            m.emissive.setHex(0xff5fa8);
+            m.emissiveIntensity = 0.0;
+        }
         giggleSound(pitch);
         const headPos = new THREE.Vector3();
         P.head.getWorldPosition(headPos);
@@ -1218,7 +1279,10 @@
         S.animate((dt) => {
             t += dt;
             const glow = t < 0.25 ? t / 0.25 : Math.max(0, 1 - (t - 0.25) / 2.2);
-            for (const m of g.mats) m.emissiveIntensity = 0.40 * glow + Math.max(0, Math.sin(t * 14)) * 0.10 * glow;
+            for (const m of g.mats) {
+                if (m === P.faceMat) { m.emissiveIntensity = 0.18 + 0.10 * glow; continue; }
+                m.emissiveIntensity = 0.36 * glow + Math.max(0, Math.sin(t * 14)) * 0.08 * glow;
+            }
 
             if (t < 1.7) {
                 // Cheerful hop & celebratory double wave

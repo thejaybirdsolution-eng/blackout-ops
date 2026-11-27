@@ -1,14 +1,15 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Inventory, Loot, Vendors & Salvage
-   Inventory entries: { uid, id, n, rarity?, affixes?, mfr? }. Weapons wrap a
-   WeaponsData archetype with rarity damage multiplier + affixes. Loot rolls use
-   weighted tables with a pity counter (Epic/Legendary guaranteed at 12).
+   BLACKOUT OPS — Open World RPG · Inventory, Multi-Slot Armor, Gun RPG Stats
+   Reads BO.OWRPGGunStats exclusively for OWRPG (never mutating BO.WeaponsData).
+   Supports multi-slot armor (helmet, rig, boots, relic), tools with
+   durability, and mount schematic auto-unlocks.
 ============================================================================ */
 (function (BO) {
     'use strict';
 
     const SD = () => BO.OWRPGStatsData;
     const RAR_ORDER = ['common', 'rare', 'epic', 'legendary'];
+    const ARMOR_SLOTS = { helmet: 'helmet', rig: 'rig', boots: 'boots', relic: 'relic', tool: 'tool' };
 
     const Inv = {
         def(id) { return SD().ITEMS[id]; },
@@ -20,11 +21,17 @@
             return entry;
         },
 
-        /** Adds n of an item (stackables merge). Weapons/rigs become unique instances. */
         add(s, id, n = 1, opts = {}) {
             const d = this.def(id);
             if (!d) { console.warn('[OWRPG] unknown item', id); return null; }
             if (id === 'relay_cell') { s.player.relayCells += n; BO.Events.emit('owrpg:item', { id, n }); return { id, n }; }
+            if (id.startsWith('schematic_') && BO.OWRPGMounts) {
+                const mountId = id.replace('schematic_', '');
+                if (BO.OWRPGExpansionData?.MOUNTS?.[mountId]) {
+                    BO.OWRPGMounts.unlock(s, mountId);
+                    return { id, n: 1, mountUnlocked: mountId };
+                }
+            }
             let last = null;
             if (d.stack || d.type === 'quest' || d.type === 'junk') {
                 const ex = s.player.inventory.find((e) => e.id === id);
@@ -50,6 +57,7 @@
                     if (!e.affixes.includes(k)) e.affixes.push(k);
                 }
             }
+            if (BO.OWRPGDurability) BO.OWRPGDurability.initItem(e);
             return e;
         },
 
@@ -104,13 +112,13 @@
             return BO.OWRPGCharacter.attr(s, d.req[0]) >= d.req[1];
         },
 
-        /** Equip a weapon into 'primary'/'secondary' or a rig into 'rig'. */
+        /** Equip a weapon ('primary'/'secondary'), armor ('helmet'/'rig'/'boots'/'relic'), or tool ('tool'). */
         equip(s, uid, slot) {
             const e = this.byUid(s, uid);
             if (!e) return 'Missing item';
             const d = this.def(e.id);
             if (!this.meetsReq(s, e.id)) return `Requires ${d.req[0]} ${d.req[1]}`;
-            if (d.type === 'rig') slot = 'rig';
+            if (ARMOR_SLOTS[d.type]) slot = ARMOR_SLOTS[d.type];
             else if (d.type !== 'weapon') return 'Not equippable';
             else if (slot !== 'primary' && slot !== 'secondary') slot = 'primary';
             const eq = s.player.equipped;
@@ -119,29 +127,55 @@
             return '';
         },
 
-        /** Combat-relevant stats of a weapon entry. */
+        /** Combat-relevant stats of a weapon entry (merges OWRPGGunStats + rarity + affixes + durability). */
         weaponStats(e) {
             const d = this.def(e.id);
             const r = SD().RARITY[e.rarity || d.rarity || 'common'];
-            const out = { dmgMult: r.mult, pen: 0, critAdd: 0, burnChance: 0, chillChance: 0, shockChance: 0 };
+            const gs = (BO.OWRPGGunStats && d && BO.OWRPGGunStats[d.base]) || {};
+            const durPerf = BO.OWRPGDurability ? BO.OWRPGDurability.performanceMult(e) : 1.0;
+            const out = {
+                dmgMult: r.mult * (gs.rpgDmgMult || 1.0) * durPerf,
+                pen: gs.armorPen || 0,
+                critChance: gs.critChance || 0.08,
+                critAdd: gs.critMultBonus || 0,
+                element: gs.element || 'kinetic',
+                elemDmg: (gs.elemDmg || 0) * durPerf,
+                statusChance: gs.statusChance || 0,
+                passiveTrait: gs.passiveTrait || null,
+                passiveDesc: gs.passiveDesc || '',
+                burnChance: 0, chillChance: 0, shockChance: 0, venomChance: 0, voidChance: 0
+            };
+            if (out.element && out.element !== 'kinetic' && out.statusChance > 0) {
+                const key = out.element + 'Chance';
+                if (key in out) out[key] += out.statusChance;
+            }
             for (const a of e.affixes || []) {
                 const A = SD().AFFIXES[a];
                 if (!A) continue;
-                for (const k of ['pen', 'critAdd', 'burnChance', 'chillChance', 'shockChance']) if (A[k]) out[k] += A[k];
+                for (const k of ['pen', 'critAdd', 'burnChance', 'chillChance', 'shockChance', 'venomChance', 'voidChance']) {
+                    if (A[k]) out[k] += A[k];
+                }
             }
             return out;
+        },
+
+        armorStats(e) {
+            const d = this.def(e.id);
+            if (!d) return { armor: 0 };
+            const mult = (SD().ARMOR_RARITY_MULT && SD().ARMOR_RARITY_MULT[e.rarity || d.rarity || 'common']) || 1.0;
+            const perf = BO.OWRPGDurability ? BO.OWRPGDurability.performanceMult(e) : 1.0;
+            return { armor: Math.round((d.armor || 0) * mult * perf), elemRes: d.elemRes || {}, setId: d.setId || null };
         },
 
         displayName(e) {
             const d = this.def(e.id);
             if (!d) return e.id;
-            const pre = (e.affixes || []).filter((a) => a !== 'light' || true).slice(0, 1).map((a) => SD().AFFIXES[a].name + ' ');
+            const pre = (e.affixes || []).slice(0, 1).map((a) => SD().AFFIXES[a] ? SD().AFFIXES[a].name + ' ' : '');
             return (d.type === 'weapon' ? pre.join('') : '') + d.name + (e.n > 1 ? ` ×${e.n}` : '');
         },
 
         rarityColor(e) { const d = this.def(e.id); return SD().RARITY[e.rarity || (d && d.rarity) || 'common'].color; },
 
-        /** Weighted loot roll with pity. Returns [{id,n,rarity?}] and credits. */
         rollLoot(s, table, rolls = 2) {
             const T = SD().LOOT[table];
             if (!T) return { items: [], credits: 0 };
@@ -154,10 +188,10 @@
                 if (row[0] === 'credits') out.credits += n;
                 else out.items.push({ id: row[0], n });
             }
-            // Pity: rare+ weapons/rigs upgrade to epic when the dry streak hits the guarantee.
+            const gearTypes = { weapon: 1, rig: 1, helmet: 1, boots: 1, relic: 1 };
             for (const it of out.items) {
                 const d = this.def(it.id);
-                if (d.type !== 'weapon' && d.type !== 'rig') continue;
+                if (!d || !gearTypes[d.type]) continue;
                 let r = d.rarity || 'common';
                 const roll = Math.random();
                 if (roll < 0.06) r = 'legendary'; else if (roll < 0.2) r = 'epic'; else if (roll < 0.5 && r === 'common') r = 'rare';
@@ -174,7 +208,6 @@
             s.player.credits += loot.credits;
         },
 
-        /** Vendor buy price for an item (null if the vendor won't trade). */
         buyPrice(s, vendorId, id) {
             const v = BO.OWRPGFactionsData.VENDORS[vendorId];
             const disc = BO.OWRPGFactions.vendorDiscount(s, v.faction);
@@ -208,12 +241,11 @@
             return each;
         },
 
-        /** Break junk or gear into credits-worth scrap (junk sells better salvaged with the perk). */
         salvage(s, uid) {
             const e = this.byUid(s, uid);
             if (!e) return 0;
             const d = this.def(e.id);
-            if (d.type === 'quest' || (d.type === 'consumable')) return 0;
+            if (d.type === 'quest' || d.type === 'consumable') return 0;
             const fx = BO.OWRPGCharacter.perkFx(s);
             const base = d.type === 'junk' ? d.scrap * 4 : Math.round(d.value * 0.25);
             const each = Math.round(base * (1 + (fx.salvage || 0)));

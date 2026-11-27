@@ -1303,6 +1303,40 @@
             const glowHex = isPaP ? 0xc084fc : (ms.glowColor || 0);
             const glowMat = glowHex ? new THREE.MeshBasicMaterial({ color: glowHex }) : bladeMat;
 
+            if (spec.id === 'magnifying_glass' || ms.meleeShape === 'magnifying_glass') {
+                const woodMat = this._accentMaterial('walnut', 0x5c3419);
+                const brassMat = new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.24, metalness: 0.92 });
+                const lensMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xdbeafe, roughness: 0.04, metalness: 0.05,
+                    transparent: true, opacity: 0.38, clearcoat: 1.0, clearcoatRoughness: 0.03,
+                    side: THREE.DoubleSide, depthWrite: false
+                });
+                const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.145, 14), woodMat);
+                handle.position.set(0, -0.045, 0.02); handle.rotation.x = 0.25;
+                const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.017, 12, 10), brassMat);
+                pommel.position.set(0, -0.115, 0.038);
+                const ferrule = new THREE.Mesh(new THREE.CylinderGeometry(0.0155, 0.0145, 0.032, 14), brassMat);
+                ferrule.position.set(0, 0.025, 0.002); ferrule.rotation.x = 0.25;
+                const bezel = new THREE.Mesh(new THREE.TorusGeometry(0.068, 0.0095, 14, 32), brassMat);
+                bezel.position.set(0, 0.102, -0.016);
+                const innerLip = new THREE.Mesh(new THREE.TorusGeometry(0.060, 0.004, 8, 28), steelMat);
+                innerLip.position.set(0, 0.102, -0.016);
+                const lens = new THREE.Mesh(new THREE.SphereGeometry(0.061, 24, 16), lensMat);
+                lens.scale.set(1, 1, 0.18);
+                lens.position.set(0, 0.102, -0.016);
+                const glintBar = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.034, 0.006, 0.002),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.42 })
+                );
+                glintBar.position.set(-0.018, 0.125, -0.008); glintBar.rotation.z = 0.65;
+                gun.add(handle, pommel, ferrule, bezel, innerLip, lens, glintBar);
+                const muzzleAnchor = new THREE.Object3D();
+                muzzleAnchor.position.set(0, 0.102, -0.05);
+                gun.add(muzzleAnchor);
+                if (withArms) this._attachFirstPersonArms(root, true);
+                return { root, gun, magGroup: new THREE.Group(), boltGroup: new THREE.Group(), muzzleAnchor, laserBeam: null, sightY: 0.102, sightZ: 0.0, sightEyeRelief: 0.16 };
+            }
+
             if (spec.id === 'combat_knife') {
                 const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.018, 0.13, 10), handleMat);
                 handle.position.set(0, -0.02, 0.05); handle.rotation.x = 1.15;

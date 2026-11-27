@@ -9,25 +9,108 @@
     const MA = () => BO.MinigameAudio;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
+    const BW_RAY = new THREE.Raycaster();
+    function hasBiLOS(from, to, extraMeshes) {
+        const wm = (BO.World && BO.World.worldMeshes && BO.World.worldMeshes.length) ? BO.World.worldMeshes : null;
+        const list = wm || extraMeshes;
+        if (!list || !list.length) return true;
+        const dir = to.clone().sub(from);
+        const dist = dir.length();
+        if (dist < 0.45) return true;
+        dir.divideScalar(dist);
+        BW_RAY.set(from, dir);
+        BW_RAY.near = 0.2;
+        BW_RAY.far = Math.max(0.25, dist - 0.30);
+        if (BW_RAY.intersectObjects(list, false).length > 0) return false;
+        // Reverse check prevents one-sided mesh backface leaks
+        BW_RAY.set(to, dir.clone().negate());
+        BW_RAY.near = 0.2;
+        BW_RAY.far = Math.max(0.25, dist - 0.30);
+        if (BW_RAY.intersectObjects(list, false).length > 0) return false;
+        if (wm && extraMeshes && extraMeshes.length) {
+            BW_RAY.set(from, dir);
+            BW_RAY.far = Math.max(0.25, dist - 0.30);
+            if (BW_RAY.intersectObjects(extraMeshes, false).length > 0) return false;
+        }
+        return true;
+    }
+
     function makeHands(S) {
-        const root = group(S.scene), bone = std(0xe6d2a2, 0.45), flesh = std(0x4a5d3e, 0.7), vein = basic(0x84cc16);
+        const root = group(S.scene);
+        const flesh = std(0x3a4f30, 0.65, 0.08);
+        const rotFlesh = std(0x273322, 0.78, 0.05);
+        const bone = std(0xe6d2a2, 0.42, 0.12);
+        const cuffMat = std(0x1e293b, 0.85, 0.1);
+        const carapaceMat = std(0x311042, 0.32, 0.55, { emissive: 0x6b21a8, emissiveIntensity: 0.35 });
+        const veinMat = new THREE.MeshStandardMaterial({ color: 0x84cc16, emissive: 0x65a30d, emissiveIntensity: 1.1, roughness: 0.3 });
+        const sacMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, emissive: 0x22c55e, emissiveIntensity: 1.25, roughness: 0.2, transparent: true, opacity: 0.92 });
+        const clawTipMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0x84cc16, emissiveIntensity: 0.45, roughness: 0.28, metalness: 0.25 });
+        const stage2Parts = [], stage3Parts = [], sacs = [], clawTips = [];
+
         const wrists = [-1, 1].map((side) => {
-            const wrist = group(root, side * 0.27, -0.23, -0.48);
-            rod(wrist, V(0, -0.14, 0.22), V(0, 0, 0), 0.072, flesh, 0.062);
-            const palm = part(wrist, new THREE.IcosahedronGeometry(0.092, 1), flesh, 0, 0, -0.022);
-            palm.scale.set(0.92, 0.52, 1.02);
-            for (let i = 0; i < 4; i++) {
-                const x = (i - 1.5) * 0.034, tip = V(x * 1.38, 0.048, -0.155 + Math.abs(x) * 0.48);
-                rod(wrist, V(x, 0, -0.042), tip, 0.018, flesh, 0.012);
-                rod(wrist, tip, V(tip.x, 0.014, tip.z - 0.066), 0.013, bone, 0.001);
+            const wrist = group(root, side * 0.29, -0.24, -0.46);
+            // Layered muscular mutated forearm + tattered quarantine sleeve cuff
+            rod(wrist, V(0, -0.17, 0.27), V(0, -0.02, 0.03), 0.078, flesh, 0.062);
+            rod(wrist, V(side * 0.02, -0.12, 0.20), V(side * 0.015, -0.02, 0.05), 0.044, rotFlesh, 0.036);
+            const cuff = part(wrist, new THREE.CylinderGeometry(0.082, 0.092, 0.075, 10), cuffMat, 0, -0.14, 0.22);
+            cuff.rotation.x = Math.PI * 0.35;
+
+            // Contoured palm + exposed dorsal bone ridge
+            const palm = part(wrist, new THREE.IcosahedronGeometry(0.094, 1), flesh, 0, 0, -0.025);
+            palm.scale.set(0.95, 0.50, 1.08);
+            const ridge = part(wrist, new THREE.BoxGeometry(0.042, 0.024, 0.14), bone, 0, 0.032, 0.04);
+            ridge.rotation.x = -0.15;
+
+            // Glowing bioluminescent acid sacs & pulsing vein network
+            for (const [sx, sy, sz, sr] of [[side * 0.032, 0.036, 0.09, 0.032], [side * -0.024, 0.024, 0.15, 0.026]]) {
+                const sac = part(wrist, new THREE.SphereGeometry(sr, 10, 8), sacMat, sx, sy, sz);
+                sac.scale.set(0.9, 0.72, 1.3);
+                sacs.push(sac);
             }
-            rod(wrist, V(side * -0.052, 0, 0), V(side * -0.112, 0.028, -0.092), 0.024, flesh, 0.012);
-            for (let i = 0; i < 3; i++) rod(wrist, V((i - 1) * 0.024, 0.036, 0.02), V((i - 1) * 0.035, 0.026, -0.055), 0.0045, vein);
+            for (let i = 0; i < 4; i++) {
+                rod(wrist, V((i - 1.5) * 0.022, 0.038, 0.14), V((i - 1.5) * 0.032, 0.026, -0.052), 0.005, veinMat);
+            }
+
+            // 4 Razor-clawed mutated fingers + opposable thumb + knuckle spikes
+            for (let i = 0; i < 4; i++) {
+                const x = (i - 1.5) * 0.034;
+                const knk = part(wrist, new THREE.ConeGeometry(0.014, 0.036, 5), bone, x, 0.028, -0.068);
+                knk.rotation.x = -0.4;
+                const tip = V(x * 1.42, 0.048, -0.165 + Math.abs(x) * 0.45);
+                rod(wrist, V(x, 0, -0.045), tip, 0.019, flesh, 0.012);
+                const talon = rod(wrist, tip, V(tip.x * 1.06, -0.018, tip.z - 0.095), 0.014, clawTipMat, 0.001);
+                clawTips.push(talon);
+            }
+            rod(wrist, V(side * -0.056, 0, 0), V(side * -0.118, 0.032, -0.098), 0.024, flesh, 0.013);
+            clawTips.push(rod(wrist, V(side * -0.118, 0.032, -0.098), V(side * -0.132, -0.012, -0.168), 0.013, clawTipMat, 0.001));
+
+            // Stage 2 Evolution Visuals: jagged forearm bone spikes & swollen acid glands
+            const s2 = group(wrist); s2.visible = false;
+            for (let k = 0; k < 3; k++) {
+                const sp = part(s2, new THREE.ConeGeometry(0.018, 0.09, 5), bone, side * 0.058, 0.02 - k * 0.032, 0.04 + k * 0.065);
+                sp.rotation.set(-0.55, 0, -side * 0.9);
+            }
+            const bigSac = part(s2, new THREE.SphereGeometry(0.044, 10, 8), sacMat, side * -0.018, 0.048, 0.02);
+            bigSac.scale.set(1.0, 0.7, 1.35);
+            sacs.push(bigSac);
+            stage2Parts.push(s2);
+
+            // Stage 3 Apex Evolution Visuals: obsidian-violet carapace + glowing dorsal crystals
+            const s3 = group(wrist); s3.visible = false;
+            const plate = part(s3, new THREE.BoxGeometry(0.11, 0.038, 0.20), carapaceMat, 0, 0.042, 0.09);
+            plate.rotation.x = -0.28;
+            for (let k = 0; k < 3; k++) {
+                const crys = part(s3, new THREE.OctahedronGeometry(0.024, 0), clawTipMat, side * 0.02, 0.072 - k * 0.018, 0.01 + k * 0.065);
+                crys.scale.set(0.65, 1.8, 0.65);
+                crys.rotation.x = -0.35;
+            }
+            stage3Parts.push(s3);
+
             wrist.rotation.set(0, side * 0.21, side * 0.32);
             return wrist;
         });
         root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
-        return { root, wrists };
+        return { root, wrists, stage2Parts, stage3Parts, sacs, veinMat, clawTipMat, clawTips };
     }
 
     function build(S, losMeshes) {
@@ -42,6 +125,7 @@
             const panel = group(gate, side * 2.35, 0, 0);
             const slab = box(panel, 0, 1.7, 0, 4.65, 3.4, 0.56, steel);
             if (losMeshes) losMeshes.push(slab);
+            if (S.solid) S.solid(slab);
             for (let j = 0; j < 5; j++) box(panel, 0, 0.42 + j * 0.6, 0.34, 4.38, 0.14, 0.18, armor);
             box(panel, side * -2.18, 1.7, 0.45, 0.12, 3.2, 0.12, amber);
             const coupler = drum(panel, 0, 1.55, 0.48, 0.64, 0.64, 0.42, copper);
@@ -79,6 +163,7 @@
             const t = sentryTurret();
             t.group.position.set(tx, ty, tz);
             S.scene.add(t.group);
+            S.collider(tx - 0.55, 0, tz - 0.55, tx + 0.55, 1.6, tz + 0.55);
             return { ...t, x: tx, y: ty, z: tz, hp: 320, maxHp: 320, alive: true, fireCd: 1.2 };
         });
 
@@ -149,14 +234,34 @@
 
     function spawnAcidPool(S, pos) {
         const w = S.data.siege;
-        const m = new THREE.Mesh(
-            new THREE.CircleGeometry(2.3, 18),
-            new THREE.MeshBasicMaterial({ color: 0x65f03c, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+        const g = new THREE.Group();
+        g.position.set(pos.x, 0.05, pos.z);
+        const pool = new THREE.Mesh(
+            new THREE.CircleGeometry(2.35, 22),
+            new THREE.MeshBasicMaterial({ color: 0x65f03c, transparent: true, opacity: 0.48, side: THREE.DoubleSide })
         );
-        m.rotation.x = -Math.PI / 2;
-        m.position.set(pos.x, 0.05, pos.z);
-        S.scene.add(m);
-        w.acidPools.push({ mesh: m, x: pos.x, z: pos.z, life: 6.5, tick: 0 });
+        pool.rotation.x = -Math.PI / 2;
+        const core = new THREE.Mesh(
+            new THREE.CircleGeometry(1.35, 18),
+            new THREE.MeshBasicMaterial({ color: 0xbef264, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+        );
+        core.rotation.x = -Math.PI / 2; core.position.y = 0.01;
+        const rim = new THREE.Mesh(
+            new THREE.RingGeometry(2.15, 2.42, 24),
+            new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
+        );
+        rim.rotation.x = -Math.PI / 2; rim.position.y = 0.015;
+        g.add(pool, core, rim);
+        const bubbles = [];
+        for (let b = 0; b < 5; b++) {
+            const ang = (b / 5) * Math.PI * 2, rad = 0.5 + (b % 2) * 0.75;
+            const bm = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), basic(0xd9f99d));
+            bm.position.set(Math.cos(ang) * rad, 0.08, Math.sin(ang) * rad);
+            g.add(bm);
+            bubbles.push({ mesh: bm, ph: b * 1.3 });
+        }
+        S.scene.add(g);
+        w.acidPools.push({ mesh: g, mats: [pool.material, core.material, rim.material], bubbles, x: pos.x, z: pos.z, life: 6.5, tick: 0 });
     }
 
     function detonateBarrel(S, b, def) {
@@ -282,9 +387,38 @@
         if (w.slamCd > 0) return;
         w.slamCd = 5.5; w.handBeat = 1; w.claws++;
         const pos = BO.Player.pos.clone();
-        BO.FX.spawnExplosion(pos, 5.2, 0x84ff4f);
+        BO.FX.spawnExplosion(pos, 5.4, 0x84ff4f);
         SFX.rumble(0.5);
         if (MA()) MA().acidSplash();
+        // Expanding 3D Bio-Rupture Shockwave Ring + Erupting Toxic Spikes
+        const ringM = new THREE.Mesh(
+            new THREE.RingGeometry(0.8, 1.35, 32),
+            new THREE.MeshBasicMaterial({ color: 0xa3e635, transparent: true, opacity: 0.9, side: THREE.DoubleSide })
+        );
+        ringM.rotation.x = -Math.PI / 2;
+        ringM.position.set(pos.x, 0.14, pos.z);
+        const spikes = [];
+        for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            const sp = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.6, 5), basic(k % 2 ? 0x4ade80 : 0xa3e635));
+            sp.position.set(pos.x + Math.cos(a) * 2.4, 0.4, pos.z + Math.sin(a) * 2.4);
+            sp.rotation.z = -Math.cos(a) * 0.3; sp.rotation.x = Math.sin(a) * 0.3;
+            S.scene.add(sp); spikes.push(sp);
+        }
+        S.scene.add(ringM);
+        let rt = 0;
+        S.animate((dt) => {
+            rt += dt;
+            ringM.scale.setScalar(1 + rt * 11);
+            ringM.material.opacity = Math.max(0, 0.9 - rt * 1.9);
+            const scY = rt < 0.18 ? rt / 0.18 : Math.max(0.01, 1 - (rt - 0.18) / 0.34);
+            for (const sp of spikes) sp.scale.set(1, scY, 1);
+            if (rt > 0.52) {
+                S.scene.remove(ringM);
+                for (const sp of spikes) S.scene.remove(sp);
+                return false;
+            }
+        });
         if (w.evoStage >= 2) spawnAcidPool(S, pos);
         for (const h of S.data.humans) {
             if (h.alive && h.root.position.distanceTo(pos) < 6.2) def._damageHuman(S, h, 185, 'SPORE RUPTURE!');
@@ -312,11 +446,33 @@
         w.hands.root.position.copy(cam.position);
         w.hands.root.quaternion.copy(cam.quaternion);
         w.handBeat = Math.max(0, w.handBeat - dt * 2.7);
+        w.spitBeat = Math.max(0, (w.spitBeat || 0) - dt * 3.2);
+        const evo = w.evoStage || 1;
+        if (w.hands.stage2Parts) for (const p2 of w.hands.stage2Parts) p2.visible = evo >= 2;
+        if (w.hands.stage3Parts) for (const p3 of w.hands.stage3Parts) p3.visible = evo >= 3;
         const bob = state === 'running' ? S.t : performance.now() * 0.001;
+        if (w.hands.veinMat) {
+            w.hands.veinMat.emissive.setHex(evo >= 3 ? 0xfacc15 : evo >= 2 ? 0x22d3ee : 0x65a30d);
+            w.hands.veinMat.emissiveIntensity = 1.0 + Math.sin(bob * 5) * 0.35;
+        }
+        if (w.hands.sacs) {
+            w.hands.sacs.forEach((sc, idx) => {
+                const pulse = 1 + Math.sin(bob * 6 + idx) * 0.14 + (w.spitBeat || 0) * 0.35;
+                sc.scale.set(0.9 * pulse, 0.72 * pulse, 1.3 * pulse);
+            });
+        }
         w.hands.wrists.forEach((wrist, i) => {
-            const side = i ? 1 : -1, reach = Math.sin(w.handBeat * Math.PI);
-            wrist.position.set(side * (0.27 - reach * 0.09), -0.23 + 0.012 * Math.sin(bob * 2.3 + i) + reach * 0.10, -0.48 - reach * 0.21);
-            wrist.rotation.set(reach * -0.4, side * (0.21 + reach * 0.42), side * (0.32 + 0.07 * Math.sin(bob * 2.5)));
+            const side = i ? 1 : -1, reach = Math.sin(w.handBeat * Math.PI), spit = Math.sin((w.spitBeat || 0) * Math.PI);
+            wrist.position.set(
+                side * (0.29 - reach * 0.11 + spit * 0.05),
+                -0.24 + 0.012 * Math.sin(bob * 2.3 + i) + reach * 0.12 - spit * 0.04,
+                -0.46 - reach * 0.24 + spit * 0.07
+            );
+            wrist.rotation.set(
+                reach * -0.45 + spit * 0.24,
+                side * (0.21 + reach * 0.48),
+                side * (0.32 + 0.07 * Math.sin(bob * 2.5) - reach * 0.18)
+            );
         });
         for (const sl of w.searchlights) sl.piv.rotation.y = Math.sin(bob * 0.55 + sl.phase) * 0.62;
         w.strobes.forEach((st, i) => { st.visible = Math.sin(bob * 8 + i * Math.PI) > 0; });
@@ -363,11 +519,28 @@
             if (ob.life <= 0) { S.scene.remove(ob.mesh); w.biomassOrbs.splice(i, 1); }
         }
 
-        // Corrosive Acid Pools (damage enemies & heal horde in Stage 3)
+        // Corrosive Acid Pools (damage enemies & heal horde in Stage 3) + bubbling toxic spore plumes
         for (let i = w.acidPools.length - 1; i >= 0; i--) {
             const ap = w.acidPools[i];
             ap.life -= dt; ap.tick -= dt;
-            ap.mesh.material.opacity = Math.min(0.48, ap.life * 0.15);
+            const fade = Math.min(1, ap.life * 0.35);
+            if (ap.mats) {
+                ap.mats[0].opacity = 0.45 * fade;
+                ap.mats[1].opacity = 0.55 * fade;
+                ap.mats[2].opacity = 0.72 * fade;
+            } else if (ap.mesh.material) {
+                ap.mesh.material.opacity = Math.min(0.48, ap.life * 0.15);
+            }
+            if (ap.bubbles) {
+                for (const b of ap.bubbles) {
+                    const cyc = (S.t * 2.2 + b.ph) % 1;
+                    b.mesh.position.y = 0.04 + cyc * 0.32;
+                    b.mesh.scale.setScalar(Math.sin(cyc * Math.PI) * 1.15);
+                }
+            }
+            if (Math.random() < dt * 7) {
+                BO.FX.spawnParticles(V(ap.x + (Math.random() - 0.5) * 2.6, 0.15, ap.z + (Math.random() - 0.5) * 2.6), 1, 0x84ff4f, 1.2, 2.4, 0.45, 0.7);
+            }
             if (ap.tick <= 0) {
                 ap.tick = 0.5;
                 for (const h of S.data.humans) if (h.alive && Math.hypot(h.root.position.x - ap.x, h.root.position.z - ap.z) < 2.6) def._damageHuman(S, h, 38, 'ACID POOL');
@@ -376,24 +549,30 @@
             if (ap.life <= 0) { S.scene.remove(ap.mesh); w.acidPools.splice(i, 1); }
         }
 
-        // Automated Fortress Sentry Turrets (active once gate is open or player enters range)
+        // Automated Fortress Sentry Turrets (STRICT Bidirectional LOS — ZERO Wall-Shooting!)
+        const extraLos = S.data.losMeshes;
         for (const t of w.turrets) {
             if (!t.alive || !w.gateOpen) continue;
+            const muzzle = V(t.x, 1.32, t.z);
             let tgt = null, bestD = 24;
             const pd = Math.hypot(p.pos.x - t.x, p.pos.z - t.z);
-            if (pd < bestD) { bestD = pd; tgt = p.pos.clone().add(V(0, 1.0, 0)); }
+            const pChest = p.pos.clone().add(V(0, 1.05, 0));
+            if (pd < bestD && hasBiLOS(muzzle, pChest, extraLos)) { bestD = pd; tgt = pChest; }
             let allyTgt = null;
             for (const al of S.data.allies) {
                 if (!al.alive) continue;
                 const ad = Math.hypot(al.pos.x - t.x, al.pos.z - t.z);
-                if (ad < bestD) { bestD = ad; tgt = al.pos.clone().add(V(0, 1.0, 0)); allyTgt = al; }
+                if (ad < bestD) {
+                    const aChest = al.pos.clone().add(V(0, 1.0, 0));
+                    if (hasBiLOS(muzzle, aChest, extraLos)) { bestD = ad; tgt = aChest; allyTgt = al; }
+                }
             }
             if (tgt) {
                 t.head.rotation.y = Math.atan2(tgt.x - t.x, tgt.z - t.z);
                 t.fireCd -= dt;
                 if (t.fireCd <= 0) {
                     t.fireCd = 0.42;
-                    BO.FX.spawnTracer(V(t.x, 1.25, t.z), tgt, 0xef4444, 0.03, 0.07);
+                    BO.FX.spawnTracer(muzzle, tgt, 0xef4444, 0.03, 0.07);
                     SFX.noise(0.04, 1500, 'bandpass', 1.4, 0.10);
                     if (allyTgt) allyTgt.takeDamage(18, 'torso', false, null, 'bullet');
                     else p.takeDamage(9, V(t.x, 1.2, t.z), false);
@@ -470,5 +649,5 @@
         }
     }
 
-    BO.BastionWarden = { build, damage, wake, slam, pounce, dropBiomass, spawnAcidPool, update };
+    BO.BastionWarden = { build, damage, wake, slam, pounce, dropBiomass, spawnAcidPool, update, hasBiLOS };
 })(window.BO);

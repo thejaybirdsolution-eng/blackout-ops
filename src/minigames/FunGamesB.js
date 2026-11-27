@@ -16,7 +16,7 @@
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
     /* =====================================================================
-       4. 360 TRICK SHOT — Jump Down + Mid-Air 360° + 0.5s Window + Miss Respawn
+       4. 360 TRICK SHOT — 5 Handcrafted Maps + Full Sandbox Mode
     ===================================================================== */
     const TOWER_H = 26;
     const FLIGHTS = [
@@ -26,36 +26,73 @@
         { name: 'Figure eight', width: 11, depth: 6, rate: 1.21, cross: 2 },
         { name: 'Night shift', width: 14, depth: 5, rate: 1.48, cross: 3 }
     ];
+    const TRICK_MAPS = {
+        industrial: { label: 'Foundry Tower', desc: 'Upgraded Foundry Tower, cranes, shipping containers & neon conduits.' },
+        alpine: { label: 'Alpine Cliffside', desc: 'Snowy alpine cliffside, pine ridges, timber chalets & gondola pylons.' },
+        neon_cyber: { label: 'Neon Cyber', desc: 'Cyberpunk skyscraper rooftop gap, neon rain & holo-billboards.' },
+        canyon_dam: { label: 'Canyon Dam', desc: 'Massive Red-Rock Canyon Dam spillway drop & rushing river gorge.' },
+        orbital_ring: { label: 'Orbital Ring', desc: 'Zero-G orbital gantry, space skybox, starfield & plasma jump rings.' }
+    };
+    const SB_PATTERNS = [
+        ['stationary', 'Stationary'], ['strafe', 'Side Strafe'], ['circle', 'Circle Orbit'],
+        ['figure8', 'Figure-8'], ['sprint', 'Random Sprint'], ['jumparc', 'Jump-Arc'], ['zigzag', 'Zig-Zag Rush']
+    ];
+    const SB_WEAPONS = [
+        ['intervention', 'Intervention'], ['barrett_50cal', 'Barrett .50'], ['deagle', 'Deagle'], ['kar98k_irons', 'Kar98k']
+    ];
     function runnerPosition(flight, phase, round, out) {
         return out.set(Math.sin(phase) * flight.width, 0,
             -15 - round * 2 + Math.sin(phase * flight.cross + 0.5) * flight.depth);
     }
     MG.register({
         id: 'fun_360_trickshot', cardImage: 'assets/minigames/fun_360_trickshot.webp', cat: 'fun', order: 4, name: '360 Trick Shot', icon: '🌀', accent: '#f59e0b', badge: 'SKILL',
-        tagline: 'Launch from five industrial rooftops. Spin 360°, hit the runner, then watch your jump from the chase camera.',
-        desc: 'Take off from five distinct industrial towers—Dispatch Roof, Freight Bridge, Cable Crane, Signal Mast and Chimney Crown—toward the moving runner below. Spin a full 360° in mid-air to arm your Intervention .408 for a crisp quickscope window, then watch your world-space slow-mo flight replay!',
-        heroLabel: 'FLIGHT CIRCUIT • 5 LAUNCH TOWERS', duration: 120, stars: [1800, 3600, 5600, 8200],
+        tagline: 'Launch across 5 handcrafted maps! Spin 360°+, hit the runner, watch the chase killcam — or open Sandbox!',
+        desc: 'Take off from five launch towers across 5 handcrafted arenas (Foundry Tower, Alpine Cliffside, Neon Cyber, Canyon Dam, Orbital Ring) with per-map high scores! Spin 360°/720°/1080° in mid-air to arm your Intervention .408, or launch Full Sandbox Mode to customize enemy patterns, positions, gravity, bounce pads, slow-mo air, spin rules & weapons live!',
+        heroLabel: 'FLIGHT CIRCUIT • 5 MAPS + SANDBOX', duration: 120, stars: [1800, 3600, 5600, 8200],
         standardWeapon: 'intervention', lockWeapon: true, infiniteMag: true, maxScopeTime: 1.0, customMusic: true,
-        blockFire: (S) => !(S && S.data && S.data.armedT > 0) || !!(S && S.data && S.data.killcamT > 0),
-        hubOptions: [{ key:'flightRules', label:'SESSION', default:'tour', choices:[
-            {val:'tour',label:'Tower Tour',desc:'Five launch platforms, two minutes, 0.50 s shot window.'},
-            {val:'studio',label:'Practice Studio',desc:'Unlimited session time and a 1.25 s shot window.'}] }],
-        variantKey: o => o.flightRules === 'studio' ? 'studio' : '',
-        variantLabel: o => o.flightRules === 'studio' ? 'PRACTICE STUDIO' : 'TOWER TOUR',
-        hideViewmodel: S => S.data.killcamT > 0,
-        onKey(S,code){
+        hasSandbox: true,
+        blockFire: (S) => !(S && S.data && (S.data.armedT > 0 || (S.data.sb && S.data.sb.spinReq === 0))) || !!(S && S.data && (S.data.killcamT > 0 || (S.data.sb && S.data.sb.open))),
+        hubOptions: [{
+            key: 'map', label: 'MAP', default: 'industrial',
+            choices: Object.entries(TRICK_MAPS).map(([val, m]) => ({ val, label: m.label, desc: m.desc }))
+        }],
+        variantKey: (opts) => (opts && opts.sandbox) ? 'sandbox' : ((opts && opts.map) || 'industrial'),
+        variantLabel: (opts) => (opts && opts.sandbox) ? 'SANDBOX' : (TRICK_MAPS[(opts && opts.map) || 'industrial']?.label || 'FOUNDRY TOWER').toUpperCase(),
+        hideViewmodel: (S) => !!(S && S.data && S.data.killcamT > 0),
+        onKey(S, code) {
             if (MG.state !== 'running') return false;
-            if (code === 'KeyE' || (code === 'Space' && S.data.killcamT > 0)) return BO.FlightCircuit.launch(S);
+            const D = S.data;
+            if (D.isSandbox && (code === 'Tab' || code === 'KeyB')) {
+                this._toggleSandbox(S);
+                return true;
+            }
+            if (D.isSandbox && code === 'KeyR') {
+                this._respawnTop(S);
+                MG.toast('POSITION RESET TO PAD', '#fde68a');
+                return true;
+            }
+            if (D.isSandbox && code === 'KeyP') {
+                this._placeEnemyAtCrosshair(S);
+                return true;
+            }
+            if (D.isSandbox && code === 'KeyF') {
+                D.sb.slowMoAir = !D.sb.slowMoAir;
+                this._refreshSandboxUI(S);
+                MG.toast('SLOW-MO AIR: ' + (D.sb.slowMoAir ? 'ON' : 'OFF'), D.sb.slowMoAir ? '#38bdf8' : '#cbd5e1');
+                return true;
+            }
+            if (D.sb && D.sb.open) return false;
+            if (code === 'KeyE' || (code === 'Space' && D.killcamT > 0)) return BO.FlightCircuit.launch(S);
             if (code === 'KeyF' || code === 'KeyQ') return BO.FlightCircuit.styleKey(S, code);
             return false;
         },
-        guide: { objective: 'Land five airborne 360°/720°/1080° trick shots across five industrial launch platforms.', tips: [
-            'Press [E] to launch cleanly off the deck. Hit a cyan Bounce Pad below to rocket 24 m back up for 720°/1080° double-bounce shots!',
+        guide: { objective: 'Land five airborne 360°/720°/1080° trick shots across five launch platforms on any of the 5 handcrafted maps.', tips: [
+            'Press [E] to launch cleanly off the deck. Hit a cyan Bounce Pad below to rocket back up for 720°/1080° double-bounce shots!',
             'Press [F] mid-air for a Nac-Swap twirl (+450) and [Q] for a Barrel Roll (+550). Shoot suspended gold Gongs for a Ricochet Bank-Shot!',
-            'Shoot red Propane Barrels near the runner for an Explosive Collateral, or snipe the orbiting UAV drone!'
+            'Open SANDBOX MODE from the hub and press [Tab] or [B] anytime to reposition enemies at your crosshair, pick 7 movement patterns, edit spin/timer/gravity rules & switch snipers!'
         ] },
-        weaponLabel: 'INTERVENTION .408 (MID-AIR 360)', weaponNote: 'Launch [E] • 360°/720° Spin • [F] Nac-Swap • [Q] Barrel Roll • Bounce Pads!',
-        keys: [['E', 'Launch from pad / skip replay'], ['MOUSE', 'Spin 360°/720°/1080° mid-air'], ['F / Q', 'Nac-Swap / Barrel Roll'], ['RMB / LMB', 'Quickscope / Fire armed!']],
+        weaponLabel: 'INTERVENTION .408 (MID-AIR 360)', weaponNote: '5 Maps (Separate High Scores) • [Tab/B] Sandbox Controls • Bounce Pads!',
+        keys: [['E', 'Launch from pad / skip replay'], ['MOUSE', 'Spin 360°/720°/1080° mid-air'], ['F / Q', 'Nac-Swap / Barrel Roll (F=Slow-Mo in Sandbox)'], ['TAB / B', 'Sandbox Panel (in Sandbox)']],
         map: {
             atmosphere: { skyTop: 0x0b1224, skyBottom: 0xd9561a, fogColor: 0x3b180a, fogDensity: 0.0042, sunColor: 0xfdba74, sunIntensity: 1.6, sunPos: [-40, 28, -40], hemiSky: 0xfdba74, hemiGround: 0x1e293b, hemiIntensity: 0.92 },
             boxes: [B(0, -0.5, -16, 130, 1, 130, 'asphalt'), B(0, TOWER_H * 0.5, 0, 5.6, TOWER_H, 5.6, 'soviet_concrete')],
@@ -64,7 +101,9 @@
         build(S) {
             const CS = BO.CourseScenery;
             const steelM = CS.texMat('diamond_plate', 4, 4), railM = std(0xfacc15, 0.38, 0.62);
-            // Crane tower trusses & 3 safety rails ONLY (Front ledge z = -2.8 is OPEN for jumping down!)
+            const mapId = (S.opts && S.opts.map && TRICK_MAPS[S.opts.map]) ? S.opts.map : 'industrial';
+            const isSandbox = !!(S.opts && S.opts.sandbox);
+            if (isSandbox) { S.data.noHighScore = true; S.duration = 0; }
             for (const [x1, z1, x2, z2] of [[-2.7, 2.7, 2.7, 2.8], [-2.8, -2.7, -2.65, 2.8], [2.65, -2.7, 2.8, 2.8]]) {
                 const bar = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x2 - x1), 1.0, Math.abs(z2 - z1)), railM);
                 bar.position.set((x1 + x2) / 2, TOWER_H + 0.5, (z1 + z2) / 2); S.add(bar);
@@ -72,24 +111,26 @@
             }
             const arrow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.8), basic(0xfacc15));
             arrow.rotation.x = -Math.PI / 2; arrow.position.set(0, TOWER_H + 0.03, -1.7); S.add(arrow);
-            const towerSign = A.sign('LAUNCH [E] -> 360°/720° -> [F] SWAP / [Q] ROLL!', 6.4, 0.85, { bg: '#451a03', color: '#fef08a', borderColor: '#facc15', size: 0.36 });
+            const towerSign = A.sign(isSandbox ? 'SANDBOX • [TAB/B] MENU • [P] PLACE • [R] RESET' : 'LAUNCH [E] -> 360°/720° -> [F] SWAP / [Q] ROLL!', 6.8, 0.85, { bg: '#451a03', color: '#fef08a', borderColor: '#facc15', size: 0.33 });
             towerSign.position.set(0, TOWER_H + 3.6, -2.7); S.add(towerSign);
             for (const sx of [-2.8, 2.8]) {
                 const post = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.6, 0.35), steelM);
                 post.position.set(sx, TOWER_H + 1.8, -2.7); S.add(post);
             }
-            // Textured Corrugated Shipping Containers & Parked Tactical Humvee in Floodlit Courtyard!
-            CS.cargoContainer(S, -16, 0, -20, 3.2, 2.9, 8.5, 'red', 0);
-            CS.cargoContainer(S, 16, 0, -22, 3.2, 2.9, 8.5, 'blue', 0);
-            CS.cargoContainer(S, -10, 0, -35, 8.5, 2.9, 3.2, 'olive', 0);
-            CS.cargoContainer(S, 11, 0, -35, 8.5, 2.9, 3.2, 'red', 0);
-            CS.humvee(S.scene, -16, 0, -7.5, 0.45, 0x3f4d36, false);
-            for (const [tx, tz] of [[-18, -10], [18, -10], [-18, -32], [18, -32]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, true));
 
-            Object.assign(S.data, { spinAccum: 0, lastYaw: BO.Player.yaw, armedT: 0, jumped: false, inAir: false, round: 1, killcamT: 0, kills: 0, totalRounds: 5, attempts: 0 });
+            Object.assign(S.data, {
+                mapId, isSandbox, spinAccum: 0, lastYaw: BO.Player.yaw, armedT: 0, armedMax: 0.58,
+                jumped: false, inAir: false, round: 1, killcamT: 0, kills: 0, totalRounds: 5, attempts: 0,
+                runners: [],
+                sb: isSandbox ? {
+                    open: false, enemyMove: true, pattern: 'figure8', speed: 1.0, enemyCount: 1,
+                    enemyX: 0, enemyY: 0, enemyZ: -22, distPreset: 'mid',
+                    shotWindow: 1.5, unlimitedWindow: false, spinReq: 360,
+                    gravScale: 1.0, bouncePower: 21.5, slowMoAir: false, weapon: 'intervention'
+                } : null
+            });
             BO.FlightCircuit.build(S);
             S.spawned = FLIGHTS.length;
-            // Apron lighting and a suspended gantry frame the runner from the ledge.
             for (const side of [-1, 1]) {
                 for (let i = 0; i < 9; i++) {
                     const strip = S.box(side * 15.8, 0.045, -7 - i * 3.7, 0.18, 0.08, 1.7, basic(0xffc777));
@@ -104,6 +145,7 @@
             S.data.route = new THREE.Line(route, new THREE.LineBasicMaterial({ color: 0x69d8e5 }));
             S.data.route.position.y = 0.09; S.data.route.frustumCulled = false; S.add(S.data.route);
             S.data.clean = 0; S.data.airTime = 0; S.data.windowUsed = false;
+            if (isSandbox) this._buildSandboxUI(S);
             this._spawnRunner(S, 1);
         },
         _respawnTop(S) {
@@ -113,8 +155,67 @@
             D.jumped = false; D.inAir = false; D.spinAccum = 0; D.armedT = 0;
             BO.FlightCircuit.reset(S);
         },
+        _sandboxRunnerPos(sb, idx, t, out) {
+            const spread = (idx - (sb.enemyCount - 1) * 0.5) * 4.5;
+            const bx = sb.enemyX + spread, by = sb.enemyY, bz = sb.enemyZ;
+            if (!sb.enemyMove || sb.pattern === 'stationary') return out.set(bx, by, bz);
+            const ph = t * sb.speed * 1.15 + idx * 1.45;
+            if (sb.pattern === 'strafe') return out.set(bx + Math.sin(ph * 1.4) * 10, by, bz);
+            if (sb.pattern === 'circle') return out.set(bx + Math.cos(ph) * 9, by, bz + Math.sin(ph) * 9);
+            if (sb.pattern === 'figure8') return out.set(bx + Math.sin(ph) * 11, by, bz + Math.sin(ph * 2) * 5.5);
+            if (sb.pattern === 'sprint') {
+                const seg = Math.floor(ph * 0.7), frac = (ph * 0.7) - seg;
+                const a1 = Math.sin(seg * 12.9898 + idx) * 43758.5453, a2 = Math.sin((seg + 1) * 12.9898 + idx) * 43758.5453;
+                const p1x = Math.sin(a1) * 11, p1z = Math.cos(a1 * 1.3) * 7;
+                const p2x = Math.sin(a2) * 11, p2z = Math.cos(a2 * 1.3) * 7;
+                return out.set(bx + p1x + (p2x - p1x) * frac, by, bz + p1z + (p2z - p1z) * frac);
+            }
+            if (sb.pattern === 'jumparc') {
+                const arc = Math.abs(Math.sin(ph * 1.5));
+                return out.set(bx + Math.sin(ph * 0.85) * 9, by + arc * 4.5, bz + Math.cos(ph * 0.65) * 4);
+            }
+            // zigzag
+            const tri = Math.abs(((ph * 0.8) % 2) - 1) * 2 - 1;
+            const triZ = Math.abs(((ph * 0.4) % 2) - 1) * 2 - 1;
+            return out.set(bx + tri * 11, by, bz + triZ * 6);
+        },
         _spawnRunner(S, rndNum) {
-            const flight = FLIGHTS[rndNum - 1], v = V(), path = S.data.route.geometry.attributes.position;
+            const D = S.data, v = V();
+            for (const r of D.runners || []) if (r && r.alive) r.remove();
+            D.runners = [];
+            if (D.isSandbox && D.sb) {
+                const sb = D.sb;
+                S.data.route.visible = sb.enemyMove && sb.pattern !== 'stationary';
+                const path = S.data.route.geometry.attributes.position;
+                for (let i = 0; i < path.count; i++) {
+                    this._sandboxRunnerPos(sb, 0, (i / (path.count - 1)) * TAU / Math.max(0.2, sb.speed * 1.15), v);
+                    path.setXYZ(i, v.x, v.y, v.z);
+                }
+                path.needsUpdate = true;
+                for (let k = 0; k < sb.enemyCount; k++) {
+                    const fig = F.human({ skin: F.SKINS[(k + 1) % F.SKINS.length], shirt: [0xef4444, 0x3b82f6, 0x22c55e, 0xa855f7, 0xf97316][k % 5], pants: 0x111827, helmet: true, hat: 'helmet', hatColor: 0xfacc15, gun: 'rifle', eyes: 'angry' });
+                    const ring = new THREE.Mesh(new THREE.RingGeometry(1.0, 1.45, 24), basic(0x38bdf8, { side: THREE.DoubleSide }));
+                    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.05; ring.userData.noHit = true;
+                    fig.root.add(ring);
+                    const tg = S.addTarget({
+                        mesh: fig.root, hitMeshes: fig.hit, pos: V(sb.enemyX, sb.enemyY, sb.enemyZ), life: 0, appear: 'scale', inT: 0.15, death: 'knock', deathColor: 0xef4444, bonus: true,
+                        onTick: (t) => {
+                            this._sandboxRunnerPos(D.sb, k, S.t, v);
+                            const dx = v.x - t.root.position.x, dz = v.z - t.root.position.z;
+                            t.root.position.copy(v);
+                            if (Math.hypot(dx, dz) > 0.002) t.root.rotation.y = Math.atan2(dx, dz);
+                            if (D.sb.enemyMove && D.sb.pattern !== 'stationary') F.walk(fig, S.t * 9 * D.sb.speed, 1, true);
+                            else F.pose(fig, 'idle');
+                        }
+                    });
+                    tg.sbIdx = k;
+                    D.runners.push(tg);
+                }
+                D.runner = D.runners[0];
+                return;
+            }
+            const flight = FLIGHTS[rndNum - 1], path = S.data.route.geometry.attributes.position;
+            S.data.route.visible = true;
             for (let i = 0; i < path.count; i++) {
                 runnerPosition(flight, i / (path.count - 1) * TAU, rndNum, v);
                 path.setXYZ(i, v.x, v.y, v.z);
@@ -133,7 +234,125 @@
                     F.walk(fig, S.t * 9, 1, true);
                 }
             });
-            S.data.runner = tg;
+            D.runners.push(tg);
+            D.runner = tg;
+        },
+        _placeEnemyAtCrosshair(S) {
+            const sb = S.data.sb; if (!sb) return;
+            const cam = BO.App.worldCamera, dir = new THREE.Vector3(); cam.getWorldDirection(dir);
+            let pt = null;
+            if (BO.World && BO.World.raycastWorld) {
+                const hits = BO.World.raycastWorld(cam.position, dir, 120);
+                if (hits && hits.length) pt = hits[0].point.clone();
+            }
+            if (!pt && dir.y < -0.02) {
+                const t = -cam.position.y / dir.y;
+                if (t > 1 && t < 110) pt = cam.position.clone().addScaledVector(dir, t);
+            }
+            if (!pt) pt = cam.position.clone().addScaledVector(dir, 26);
+            sb.enemyX = BO.Math.clamp(Math.round(pt.x * 10) / 10, -45, 45);
+            sb.enemyY = BO.Math.clamp(Math.round(Math.max(0, pt.y) * 10) / 10, 0, 22);
+            sb.enemyZ = BO.Math.clamp(Math.round(pt.z * 10) / 10, -58, 20);
+            this._spawnRunner(S, S.data.round);
+            this._refreshSandboxUI(S);
+            MG.toast(`ENEMY PLACED (${sb.enemyX}, ${sb.enemyY}, ${sb.enemyZ})`, '#38bdf8');
+        },
+        _switchSandboxWeapon(S, wid) {
+            const P = BO.Player, spec = BO.WeaponsData.get(wid);
+            if (!spec) return;
+            S.data.sb.weapon = wid;
+            const cfg = { id: wid, camo: 'default', attachments: { optic: spec.modelSpec?.defaultScope ? 'sniper_scope' : 'iron', muzzle: 'none', underbarrel: 'none', magazine: 'std_mag', stock: 'std_stock' } };
+            P.weapons = [P._createWeaponInstance(cfg, false)];
+            P.activeSlot = 0; P.reloading = false; P.adsAlpha = 0;
+            P.rebuildViewmodel();
+            this._refreshSandboxUI(S);
+            MG.toast('EQUIPPED: ' + spec.shortName, '#fde047');
+        },
+        _toggleSandbox(S, force) {
+            const D = S.data, sb = D.sb; if (!sb || !D.sbEl) return;
+            sb.open = force !== undefined ? force : !sb.open;
+            D.sbEl.style.display = sb.open ? 'flex' : 'none';
+            if (sb.open) {
+                if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
+                if (document.pointerLockElement) document.exitPointerLock();
+            } else {
+                if (BO.App && BO.App._safePointerLock) BO.App._safePointerLock();
+            }
+            SFX.clack();
+        },
+        _buildSandboxUI(S) {
+            const old = document.getElementById('trickshot-sandbox-ui'); if (old) old.remove();
+            const el = document.createElement('div');
+            el.id = 'trickshot-sandbox-ui';
+            el.style.cssText = 'position:fixed;right:18px;top:86px;width:min(365px,92vw);max-height:78vh;overflow-y:auto;display:none;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(12,18,32,0.96),rgba(7,10,20,0.96));border:2px solid #f59e0b;border-radius:12px;padding:12px 14px;color:#f8fafc;z-index:45;pointer-events:auto;box-shadow:0 20px 50px rgba(0,0,0,0.75);font-family:var(--font-ui);font-size:12px;';
+            el.addEventListener('mousedown', (e) => e.stopPropagation());
+            document.body.appendChild(el);
+            S.data.sbEl = el;
+            this._refreshSandboxUI(S);
+        },
+        _refreshSandboxUI(S) {
+            const D = S.data, sb = D.sb, el = D.sbEl; if (!sb || !el) return;
+            const row = (lbl, val, id, min, max, step, unit = '') => `<label style="display:grid;grid-template-columns:1fr auto;gap:4px;align-items:center;"><span>${lbl}</span><b style="color:#fde68a">${val}${unit}</b><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${val}" style="grid-column:1/-1;accent-color:#f59e0b;"></label>`;
+            el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(250,204,21,0.3);padding-bottom:6px;">
+                <b style="color:#fde047;letter-spacing:1.2px;">🧪 TRICKSHOT SANDBOX</b>
+                <button class="ff-btn" id="sb-close" style="padding:3px 9px;">CLOSE [TAB]</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <button class="ff-btn" id="sb-reset-pos">↻ RESET POS [R]</button>
+                <button class="ff-btn" id="sb-reset-all">⟲ RESET ALL</button>
+                <button class="ff-btn" id="sb-place" style="grid-column:1/-1;background:rgba(14,116,144,0.55);border-color:#22d3ee;">🎯 PLACE ENEMY AT CROSSHAIR [P]</button>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                <button class="ff-btn ${sb.enemyMove ? 'on' : ''}" id="sb-move-tog">MOVE: ${sb.enemyMove ? 'ON' : 'OFF'}</button>
+                <button class="ff-btn ${sb.slowMoAir ? 'on' : ''}" id="sb-slowmo">SLOW-MO AIR [F]: ${sb.slowMoAir ? 'ON' : 'OFF'}</button>
+            </div>
+            <div><small style="color:#93c5fd;display:block;margin-bottom:4px;">ENEMY PATTERN</small>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;">${SB_PATTERNS.map(([id, lbl]) => `<button class="ff-btn ${sb.pattern === id ? 'on' : ''}" data-pat="${id}" style="padding:4px 7px;font-size:10px;">${lbl}</button>`).join('')}</div>
+            </div>
+            <div><small style="color:#93c5fd;display:block;margin-bottom:4px;">DISTANCE PRESETS</small>
+                <div style="display:flex;gap:4px;">${[['Close 12m', -12], ['Mid 22m', -22], ['Far 35m', -35], ['Sniper 50m', -50]].map(([lbl, z]) => `<button class="ff-btn" data-dist="${z}" style="flex:1;padding:4px 4px;font-size:10px;">${lbl}</button>`).join('')}</div>
+            </div>
+            ${row('Enemy Speed', sb.speed.toFixed(1), 'sb-spd', 0.2, 3.0, 0.1, 'x')}
+            ${row('Enemy Count', sb.enemyCount, 'sb-cnt', 1, 5, 1, '')}
+            ${row('Enemy X', sb.enemyX, 'sb-ex', -45, 45, 1, 'm')}
+            ${row('Enemy Y', sb.enemyY, 'sb-ey', 0, 22, 0.5, 'm')}
+            ${row('Enemy Z', sb.enemyZ, 'sb-ez', -58, 20, 1, 'm')}
+            <div style="border-top:1px solid rgba(148,163,184,0.25);padding-top:6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><small style="color:#93c5fd;">TRICKSHOT RULES</small><button class="ff-btn ${sb.unlimitedWindow ? 'on' : ''}" id="sb-unlim" style="padding:2px 7px;font-size:10px;">WINDOW: ${sb.unlimitedWindow ? 'UNLIMITED' : sb.shotWindow.toFixed(1) + 's'}</button></div>
+                ${row('Shot Window', sb.shotWindow.toFixed(1), 'sb-win', 0.1, 10.0, 0.1, 's')}
+                ${row('Spin Requirement', sb.spinReq, 'sb-spin', 0, 1080, 90, '°')}
+                ${row('Gravity Scale', sb.gravScale.toFixed(2), 'sb-grav', 0.2, 2.0, 0.05, 'x')}
+                ${row('Bounce Power', sb.bouncePower.toFixed(1), 'sb-bnc', 10, 40, 0.5, ' m/s')}
+            </div>
+            <div><small style="color:#93c5fd;display:block;margin-bottom:4px;">WEAPON</small>
+                <div style="display:flex;gap:4px;flex-wrap:wrap;">${SB_WEAPONS.map(([id, lbl]) => `<button class="ff-btn ${sb.weapon === id ? 'on' : ''}" data-wep="${id}" style="padding:4px 7px;font-size:10px;">${lbl}</button>`).join('')}</div>
+            </div>`;
+            el.querySelector('#sb-close').onclick = () => this._toggleSandbox(S, false);
+            el.querySelector('#sb-reset-pos').onclick = () => { this._respawnTop(S); MG.toast('POSITION RESET TO PAD', '#fde68a'); };
+            el.querySelector('#sb-reset-all').onclick = () => {
+                Object.assign(sb, { enemyMove: true, pattern: 'figure8', speed: 1.0, enemyCount: 1, enemyX: 0, enemyY: 0, enemyZ: -22, shotWindow: 1.5, unlimitedWindow: false, spinReq: 360, gravScale: 1.0, bouncePower: 21.5, slowMoAir: false });
+                D.round = 1; this._switchSandboxWeapon(S, 'intervention'); this._respawnTop(S); this._spawnRunner(S, 1); this._refreshSandboxUI(S);
+                MG.toast('SANDBOX FULLY RESTORED', '#4ade80');
+            };
+            el.querySelector('#sb-place').onclick = () => { this._placeEnemyAtCrosshair(S); };
+            el.querySelector('#sb-move-tog').onclick = () => { sb.enemyMove = !sb.enemyMove; this._refreshSandboxUI(S); };
+            el.querySelector('#sb-slowmo').onclick = () => { sb.slowMoAir = !sb.slowMoAir; this._refreshSandboxUI(S); };
+            el.querySelector('#sb-unlim').onclick = () => { sb.unlimitedWindow = !sb.unlimitedWindow; this._refreshSandboxUI(S); };
+            el.querySelectorAll('[data-pat]').forEach((b) => { b.onclick = () => { sb.pattern = b.dataset.pat; this._spawnRunner(S, D.round); this._refreshSandboxUI(S); }; });
+            el.querySelectorAll('[data-dist]').forEach((b) => { b.onclick = () => { sb.enemyX = 0; sb.enemyY = 0; sb.enemyZ = +b.dataset.dist; this._spawnRunner(S, D.round); this._refreshSandboxUI(S); }; });
+            el.querySelectorAll('[data-wep]').forEach((b) => { b.onclick = () => this._switchSandboxWeapon(S, b.dataset.wep); });
+            const bindRange = (id, key, respawn = false) => {
+                const inp = el.querySelector('#' + id);
+                if (inp) inp.oninput = () => {
+                    sb[key] = parseFloat(inp.value);
+                    if (respawn) this._spawnRunner(S, D.round);
+                    this._refreshSandboxUI(S);
+                };
+            };
+            bindRange('sb-spd', 'speed'); bindRange('sb-cnt', 'enemyCount', true);
+            bindRange('sb-ex', 'enemyX', true); bindRange('sb-ey', 'enemyY', true); bindRange('sb-ez', 'enemyZ', true);
+            bindRange('sb-win', 'shotWindow'); bindRange('sb-spin', 'spinReq');
+            bindRange('sb-grav', 'gravScale'); bindRange('sb-bnc', 'bouncePower');
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
@@ -143,27 +362,32 @@
                 if (D.round > D.totalRounds && S.duration) S.t = Math.min(S.t, S.duration - 0.05);
                 BO.FlightCircuit.replay(S, THREE.MathUtils.clamp(1 - D.killcamT / 1.65, 0, 1));
                 if (D.shotTrace) D.shotTrace.material.opacity = BO.Math.clamp(D.killcamT / 0.8, 0, 1);
-                if (BO.State) BO.State.timeScale = 0.75;
+                if (BO.State) BO.State.timeScale = 0.72;
                 if (D.killcamT <= 0) {
                     if (D.shotTrace) D.shotTrace.visible = false;
                     if (BO.State) BO.State.timeScale = 1.0;
-                    if (D.round > D.totalRounds) { MG.finish('360 TRICKSHOT MASTER!', { color: '#facc15' }); }
+                    if (!D.isSandbox && D.round > D.totalRounds) { MG.finish('360 TRICKSHOT MASTER!', { color: '#facc15' }); }
                     else { this._respawnTop(S); this._spawnRunner(S, D.round); }
                 }
                 return;
             }
-            if (BO.State) BO.State.timeScale = 1.0;
+            const inAir = BO.FlightCircuit.airborne(S);
+            const gravScale = D.sb ? D.sb.gravScale : (D.flight ? D.flight.mapGrav : 1.0);
+            if (state === 'running' && !P.onGround && Math.abs(gravScale - 1.0) > 0.01) {
+                P.vel.y += (1.0 - gravScale) * 24.0 * dt;
+            }
+            if (BO.State) BO.State.timeScale = (D.sb && D.sb.slowMoAir && inAir && state === 'running') ? 0.38 : 1.0;
             if (state !== 'running') return;
             if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             if (BO.FlightCircuit.checkBouncePads(S, dt)) return;
 
-            // Player can start a 360/720/1080 ANY TIME while airborne!
-            const inAir = BO.FlightCircuit.airborne(S);
             const height = BO.FlightCircuit.pad(D).y;
             D.inAir = inAir;
+            const reqDeg = D.sb ? D.sb.spinReq : 360;
+            const reqRad = THREE.MathUtils.degToRad(reqDeg);
             if (inAir) D.airTime += dt;
             else { D.armedT = 0; D.windowUsed = false; D.airTime = 0; }
-            const lit = D.armedT > 0 ? 12 : Math.floor(Math.abs(D.spinAccum) / TAU * 12);
+            const lit = D.armedT > 0 ? 12 : (reqRad <= 0.01 ? 12 : Math.floor(Math.min(1, Math.abs(D.spinAccum) / reqRad) * 12));
             D.lamps.forEach((lamp, i) => lamp.material.color.setHex(i < lit ? 0xffc65c : 0x254451));
             if (!D.jumped && P.pos.y < height - 1.0) D.jumped = true;
             if (!inAir) D.spinAccum = 0;
@@ -181,50 +405,58 @@
             const dy = BO.Math.angleDiff(D.lastYaw, P.yaw);
             D.lastYaw = P.yaw;
             if (inAir) {
-                D.spinAccum += dy;
-                const q = Math.floor((Math.abs(D.spinAccum) / TAU) * 4);
-                if (q > D.flight.lastQuarter && q < 4) {
-                    D.flight.lastQuarter = q;
-                    if (BO.MinigameAudio) BO.MinigameAudio.spinTick(q - 1);
-                }
-                if (Math.abs(D.spinAccum) >= TAU - 0.00001) {
-                    D.flight.spinsDone++;
-                    D.flight.lastQuarter = 0;
-                    D.windowUsed = true;
-                    D.armedT = D.flight.practice ? 1.25 : 0.58;
-                    D.spinAccum = 0;
-                    if (BO.MinigameAudio) BO.MinigameAudio.spinTick(3); else SFX.ding(1.3);
-                    MG.toast((D.flight.spinsDone * 360) + '° ARMED — FIRE NOW!', '#4ade80');
+                if (reqDeg === 0) {
+                    D.armedT = D.sb ? (D.sb.unlimitedWindow ? 99 : D.sb.shotWindow) : 0.58;
+                    D.armedMax = Math.max(0.1, D.armedT);
+                } else {
+                    D.spinAccum += dy;
+                    const q = Math.floor((Math.abs(D.spinAccum) / Math.max(0.01, reqRad)) * 4);
+                    if (q > D.flight.lastQuarter && q < 4) {
+                        D.flight.lastQuarter = q;
+                        if (BO.MinigameAudio) BO.MinigameAudio.spinTick(q - 1);
+                    }
+                    if (Math.abs(D.spinAccum) >= reqRad - 0.0001) {
+                        D.flight.spinsDone++;
+                        D.flight.lastQuarter = 0;
+                        D.windowUsed = true;
+                        D.armedT = D.sb ? (D.sb.unlimitedWindow ? 99 : D.sb.shotWindow) : 0.58;
+                        D.armedMax = Math.max(0.1, D.armedT);
+                        D.spinAccum = 0;
+                        if (BO.MinigameAudio) BO.MinigameAudio.spinTick(3); else SFX.ding(1.3);
+                        MG.toast((D.flight.spinsDone * reqDeg) + '° ARMED — FIRE NOW!', '#4ade80');
+                    }
                 }
             }
-            if (D.armedT > 0) {
+            if (D.armedT > 0 && !(D.sb && D.sb.unlimitedWindow)) {
                 D.armedT -= dt;
                 if (D.armedT <= 0) MG.toast('SHOT WINDOW EXPIRED!', '#fde68a');
             }
         },
         onHit(S, ent, info) {
             const D = S.data, f = D.flight;
-            if (!ent.alive || D.armedT <= 0 || D.killcamT > 0) return false;
+            const armed = D.armedT > 0 || (D.sb && D.sb.spinReq === 0);
+            if (!ent.alive || !armed || D.killcamT > 0) return false;
             if (!D.inAir || BO.Player.onGround) return false;
             if (ent.isBonusUav) {
                 ent.kill(info); S.award(550 * S.comboMult, info.pt, 'MID-AIR UAV SNIPE!', '#22d3ee');
                 SFX.star(2); return true;
             }
             let trickBonus = 0, trickLabel = '';
-            if (ent.isRicochetGong && D.runner && D.runner.alive) {
+            const primaryRunner = (D.runners && D.runners.find((r) => r.alive)) || D.runner;
+            if (ent.isRicochetGong && primaryRunner && primaryRunner.alive) {
                 if (BO.MinigameAudio) BO.MinigameAudio.gongRicochet();
-                BO.FX.spawnTracer(info.pt, D.runner.root.position.clone().add(V(0, 1.2, 0)), 0xfacc15, 0.07, 0.35);
+                BO.FX.spawnTracer(info.pt, primaryRunner.root.position.clone().add(V(0, 1.2, 0)), 0xfacc15, 0.07, 0.35);
                 trickBonus = 900; trickLabel = 'RICOCHET GONG BANK SHOT!';
-                ent = D.runner; info = Object.assign({}, info, { pt: D.runner.root.position.clone().add(V(0, 1.2, 0)) });
-            } else if (ent.isPropaneBarrel && D.runner && D.runner.alive) {
+                ent = primaryRunner; info = Object.assign({}, info, { pt: primaryRunner.root.position.clone().add(V(0, 1.2, 0)) });
+            } else if (ent.isPropaneBarrel && primaryRunner && primaryRunner.alive) {
                 ent.kill(info); BO.FX.spawnExplosion(info.pt, 6.5, 0xf97316); SFX.rumble(0.75);
-                if (D.runner.root.position.distanceTo(info.pt) < 10.5) {
+                if (primaryRunner.root.position.distanceTo(info.pt) < 10.5) {
                     trickBonus = 850; trickLabel = 'EXPLOSIVE COLLATERAL!';
-                    ent = D.runner; info = Object.assign({}, info, { pt: D.runner.root.position.clone().add(V(0, 1.2, 0)) });
+                    ent = primaryRunner; info = Object.assign({}, info, { pt: primaryRunner.root.position.clone().add(V(0, 1.2, 0)) });
                 } else { S.award(300, info.pt, 'PROPANE BLAST!', '#fb923c'); return true; }
             }
-            if (ent !== D.runner) return false;
-            const winMax = f.practice ? 1.25 : 0.58;
+            if (!(D.runners && D.runners.includes(ent)) && ent !== D.runner) return false;
+            const winMax = D.armedMax || 0.58;
             const snap = Math.max(0, winMax - D.armedT);
             D.lastSnap = snap; BO.FlightCircuit.beginReplay(S, info.pt);
             if (!D.shotTrace) {
@@ -241,10 +473,10 @@
             const spinBonus = f.spinsDone >= 3 ? 1400 : f.spinsDone === 2 ? 600 : 0;
             const styleBonus = (f.nacSwap ? 450 : 0) + (f.barrelRoll ? 550 : 0) + (f.bounceCount > 0 ? 500 : 0) + trickBonus;
             const bonus = (info.hitbox === 'head' ? 750 : 0) + (BO.Player.adsAlpha > 0.2 ? 550 : 300) + spinBonus + styleBonus;
-            const spinTag = (Math.max(1, f.spinsDone) * 360) + '°';
+            const spinTag = (Math.max(1, f.spinsDone) * (D.sb ? D.sb.spinReq : 360)) + '°';
             const banner = [spinTag, ...f.styleTags, trickLabel || (info.hitbox === 'head' ? 'HEADSHOT' : BO.Player.adsAlpha > 0.2 ? 'QUICKSCOPE' : 'NO-SCOPE')].filter(Boolean).join(' + ');
             ent.kill(info);
-            D.kills++; D.round++; S.kills++; S.bumpCombo();
+            D.kills++; if (!D.isSandbox) D.round++; S.kills++; S.bumpCombo();
             S.award((1200 + bonus + (snap <= 0.20 ? 300 : 0)) * S.comboMult, info.pt, banner, '#facc15');
             SFX.star(3); BO.FX.spawnExplosion(info.pt, 3.6, 0xfacc15);
             D.killcamT = 1.85;
@@ -252,7 +484,13 @@
             return true;
         },
         result(S) {
-            const d = S.data, stars = S.def.stars.filter(n => S.score >= n).length;
+            const d = S.data;
+            if (d.isSandbox) {
+                return { score: 0, stars: 0, xp: 0, title: 'SANDBOX SESSION',
+                    stats: [['TRICKSHOTS HIT', d.kills], ['MAP', (TRICK_MAPS[d.mapId]?.label || 'Industrial').toUpperCase()], ['MISSED LANDINGS', d.attempts],
+                        ['LAST RELEASE', d.lastSnap == null ? '—' : Math.round(d.lastSnap * 1000) + ' ms']] };
+            }
+            const stars = S.def.stars.filter(n => S.score >= n).length;
             return { score: S.score, stars, xp: 120 + Math.round(S.score * 0.06) + stars * 150,
                 title: d.kills === 5 ? 'FLIGHT SERIES COMPLETE' : 'FLIGHT REPORT',
                 stats: [['FLIGHTS LANDED', d.kills + '/5'], ['QUICK RELEASES', d.clean], ['MISSED LANDINGS', d.attempts],
@@ -261,21 +499,30 @@
         dispose(S) {
             BO.FlightCircuit.stop(S);
             for (const line of [S.data.route, S.data.shotTrace]) if (line) { line.geometry.dispose(); line.material.dispose(); }
+            if (S.data.sbEl) S.data.sbEl.remove();
             if (BO.State) BO.State.timeScale = 1.0;
         },
         hud(S) {
-            const D = S.data;
-            const deg = Math.min(360, Math.round(Math.abs(D.spinAccum) * 180 / Math.PI));
+            const D = S.data, reqDeg = D.sb ? D.sb.spinReq : 360;
+            const deg = Math.min(Math.max(1, reqDeg), Math.round(Math.abs(D.spinAccum) * 180 / Math.PI));
+            const spinFrac = D.armedT > 0 ? 1 : (reqDeg <= 0 ? 1 : Math.min(1, deg / reqDeg));
+            const dash = (138.2 * (1 - spinFrac)).toFixed(1);
             const scopeLeft = Math.max(0, 1.0 - (S.data._scopeT || 0));
             const padName = BO.FlightCircuit.pad(D).name.toUpperCase();
+            const mapName = (TRICK_MAPS[D.mapId]?.label || 'Foundry Tower').toUpperCase();
+            const winMax = Math.max(0.1, D.armedMax || 0.58);
+            const winPct = D.armedT > 0 ? (D.sb && D.sb.unlimitedWindow ? 100 : Math.min(100, Math.round(D.armedT / winMax * 100))) : 0;
             const status = D.killcamT > 0
-                ? `REPLAY • RELEASE <b>${Math.round(D.lastSnap * 1000)} ms</b> [SPACE SKIP]`
+                ? `<b style="color:#fde047">🎬 KILLCAM REPLAY • ${Math.round(D.lastSnap * 1000)} ms [SPACE SKIP]</b>`
                 : !D.inAir
                     ? `PRESS <b>[E]</b> LAUNCH • ${padName}`
                     : D.armedT > 0
-                        ? `<b style="color:#4ade80">ARMED • FIRE ${D.armedT.toFixed(2)}s!</b>`
-                        : `SPIN <b>${deg}° / 360°</b>`;
-            return `<div class="course-console flight-console"><strong>${FLIGHTS[Math.min(D.round, 5) - 1].name} (${Math.min(D.round, D.totalRounds)}/${D.totalRounds})</strong><span>${status}</span><span>SCOPE <b>${scopeLeft.toFixed(2)}s</b></span><span>FALLS <b>${D.attempts}</b></span></div>`;
+                        ? `<b style="color:#4ade80">ARMED • FIRE ${D.sb && D.sb.unlimitedWindow ? '∞' : D.armedT.toFixed(2) + 's'}!</b>`
+                        : `SPIN <b>${deg}° / ${reqDeg}°</b>`;
+            const killcamFX = D.killcamT > 0 ? `<div style="position:fixed;inset:0;pointer-events:none;border-top:26px solid rgba(0,0,0,0.82);border-bottom:26px solid rgba(0,0,0,0.82);box-shadow:inset 0 0 90px rgba(250,204,21,0.22);z-index:18;"></div>` : '';
+            const spinRing = `<svg viewBox="0 0 52 52" style="width:40px;height:40px;flex-shrink:0;transform:rotate(-90deg)"><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(148,163,184,0.25)" stroke-width="5"/><circle cx="26" cy="26" r="22" fill="none" stroke="${D.armedT > 0 ? '#4ade80' : '#f59e0b'}" stroke-width="5" stroke-dasharray="138.2" stroke-dashoffset="${dash}" stroke-linecap="round"/></svg>`;
+            const sbNote = D.isSandbox ? `<span><b>[TAB/B]</b> SANDBOX • <b>[P]</b> PLACE • <b>[R]</b> RESET • <b>[F]</b> SLOW-MO ${D.sb.slowMoAir ? '<b style="color:#38bdf8">ON</b>' : 'OFF'}</span>` : `<span>SCOPE <b>${scopeLeft.toFixed(2)}s</b></span><span>FALLS <b>${D.attempts}</b></span>`;
+            return `${killcamFX}<div class="course-console flight-console" style="gap:10px 14px;">${spinRing}<div><div style="display:flex;gap:12px;align-items:center;"><strong>${mapName} • ${D.isSandbox ? 'SANDBOX' : FLIGHTS[Math.min(D.round, 5) - 1].name + ' (' + Math.min(D.round, D.totalRounds) + '/' + D.totalRounds + ')'}</strong><span>${status}</span>${sbNote}</div>${D.armedT > 0 ? `<div class="fun-bar" style="margin-top:4px;height:5px;"><i style="width:${winPct}%;background:linear-gradient(90deg,#4ade80,#fde047)"></i></div>` : ''}</div></div>`;
         }
     });
 

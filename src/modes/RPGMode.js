@@ -109,11 +109,13 @@
                     contractProgress: 0, curse: false, roomApplied: false, mystery: false,
                     door: 'standard', doorApplied: true
                 };
+                if (BO.RPGItems) BO.RPGItems.initRun(this.run);
                 p.elixir = null;
                 p.stats.delves++;
                 this.stats = profile.computeStats(this.run);
                 this.run.potions = this.stats.potionsMax;
             }
+            if (BO.RPGItems) BO.RPGItems.initRun(this.run);
             this.stats = profile.computeStats(this.run);
             this.ability.ult = this.run.ult || 0;
             this._firstFloor = true;
@@ -147,7 +149,23 @@
                 potions: r.potions, hpFrac: r.hpFrac, ult: r.ult, secondWindUsed: r.secondWindUsed, fieldMedicUsed: r.fieldMedicUsed,
                 lastBastionFloor: r.lastBastionFloor, floorsCleared: r.floorsCleared, elapsed: r.elapsed, levelsGained: r.levelsGained, bossKills: r.bossKills,
                 contract: r.contract, contractProgress: r.contractProgress, curse: !!r.curse, roomApplied: !!r.roomApplied, mystery: !!r.mystery,
-                door: r.door || 'standard', doorApplied: r.doorApplied !== false
+                door: r.door || 'standard', doorApplied: r.doorApplied !== false,
+                artifacts: Array.isArray(r.artifacts) ? r.artifacts.slice() : [],
+                activeItem: r.activeItem || null,
+                activeCharges: r.activeCharges || 0,
+                pocket: r.pocket ? Object.assign({}, r.pocket) : null,
+                pillMap: r.pillMap ? JSON.parse(JSON.stringify(r.pillMap)) : null,
+                keys: Number.isFinite(r.keys) ? r.keys : 1,
+                bombs: Number.isFinite(r.bombs) ? r.bombs : 2,
+                soulShield: r.soulShield || 0,
+                devilDeals: r.devilDeals || 0,
+                angelChance: Number.isFinite(r.angelChance) ? r.angelChance : 0.5,
+                transformations: Array.isArray(r.transformations) ? r.transformations.slice() : [],
+                holyMantleReady: !!r.holyMantleReady,
+                livesLeft: r.livesLeft || 0,
+                devilHpPenalty: r.devilHpPenalty || 0,
+                permPillBuffs: r.permPillBuffs ? Object.assign({}, r.permPillBuffs) : null,
+                tookRedHpDamageOnFloor: !!r.tookRedHpDamageOnFloor
             };
         }
 
@@ -159,6 +177,20 @@
             r.contract = Object.hasOwn(this.D.CONTRACTS, s.contract) ? s.contract : null;
             const contract = this.D.CONTRACTS[r.contract];
             r.contractProgress = contract ? BO.Math.clamp(Math.floor(Number(s.contractProgress) || 0), 0, contract.goal) : 0;
+            r.artifacts = Array.isArray(s.artifacts) ? s.artifacts.slice() : [];
+            r.activeItem = s.activeItem || null;
+            r.activeCharges = Number.isFinite(s.activeCharges) ? s.activeCharges : 0;
+            r.pocket = s.pocket && typeof s.pocket === 'object' ? Object.assign({}, s.pocket) : null;
+            r.pillMap = s.pillMap && typeof s.pillMap === 'object' ? JSON.parse(JSON.stringify(s.pillMap)) : null;
+            r.keys = Number.isFinite(s.keys) ? s.keys : 1;
+            r.bombs = Number.isFinite(s.bombs) ? s.bombs : 2;
+            r.soulShield = Number.isFinite(s.soulShield) ? s.soulShield : 0;
+            r.devilDeals = Number.isFinite(s.devilDeals) ? s.devilDeals : 0;
+            r.angelChance = Number.isFinite(s.angelChance) ? s.angelChance : 0.5;
+            r.transformations = Array.isArray(s.transformations) ? s.transformations.slice() : [];
+            r.holyMantleReady = !!s.holyMantleReady;
+            r.livesLeft = Number.isFinite(s.livesLeft) ? s.livesLeft : 0;
+            if (BO.RPGItems) BO.RPGItems.ensureRunState(r);
             return r;
         }
 
@@ -214,6 +246,7 @@
             this.cache = null;
             this.ability.storm = null;
             this.ability.dash = null;
+            if (BO.RPGItems) BO.RPGItems.clearVisuals();
             if (BO.RPGUI) BO.RPGUI.clearWorldUi();
         }
 
@@ -260,6 +293,7 @@
             }
             const sp = gen.layout.spawn;
 
+            if (BO.RPGItems) BO.RPGItems.resetFloor();
             this.stats = this.Profile.computeStats(r);
             const P = this.P;
             if (this._firstFloor) {
@@ -293,6 +327,7 @@
             this.trail = BO.RPGUnlocks.equipped(this.Profile.data, 'trail');
             this.trailClock = 0;
             this._populateRoom();
+            if (BO.RPGItems) BO.RPGItems.populateFloor(this);
             this._buildHazards();
             this._applyDoor();
 
@@ -562,6 +597,7 @@
                 const multiplier = this.roomEvent?.clearBonus() || 1;
                 this._awardXP((25 + 8 * r.floor) * multiplier, null, 'FLOOR CLEARED');
                 BO.Sound.playRoundEnd();
+                if (!silent && BO.RPGItems) BO.RPGItems.onFloorCleared();
             }
             if (r.roomType === 'boss') {
                 const p = this.Profile.data;
@@ -1092,6 +1128,10 @@
         }
 
         _onGunHit(z, dmg, hitbox, weapon, impactPos, dir) {
+            if (z && z.rpgProp) {
+                BO.RPGItems?.damageProp(z.rpgProp, dmg);
+                return !!z.rpgProp.dead;
+            }
             if (!this.isAlive(z)) return false;
             const s = this.stats;
             const isMelee = !!(weapon && (weapon.id === 'knife' || (weapon.stats && weapon.stats.kind === 'melee')));
@@ -1099,6 +1139,7 @@
             const ctx = { source: isMelee ? 'melee' : 'gun', hitbox, isHead, dir, weapon };
             const dealt = this.dealDamage(z, dmg, ctx);
             if (dealt > 0 && this.run.boons.has('vampiric_rounds')) this.heal(dealt * 0.015);
+            if (dealt > 0 && BO.RPGItems) BO.RPGItems.onGunHit(z, dealt, hitbox, weapon, impactPos, dir);
             if (ctx.killed || !this.isAlive(z)) return !!ctx.killed;
 
             // On-hit procs.
@@ -1136,6 +1177,7 @@
                 const d = BO.Math.dist2D(z.pos.x, z.pos.z, pos.x, pos.z);
                 this.dealDamage(z, damage * (1 - (d / radius) * 0.5), { source: 'ability' });
             }
+            if (BO.RPGItems) BO.RPGItems.onExplosionAt(pos, radius, damage);
         }
 
         _onEnemyKilled(z, ctx = {}) {
@@ -1165,9 +1207,11 @@
                 // XP & gold.
                 const xpBase = (r.arch.xp || 10) * (r.elite ? this.D.ELITE.xpMult : 1);
                 this._awardXP(xpBase, z.pos, null);
-                const goldBase = (r.arch.gold || 3) * (r.elite ? this.D.ELITE.goldMult : 1);
+                const midasMult = BO.RPGItems?.has('midas_crown') ? 1.45 : 1;
+                const goldBase = (r.arch.gold || 3) * (r.elite ? this.D.ELITE.goldMult : 1) * midasMult;
                 this._dropGold(z.pos, goldBase);
                 this._maybeDropItem(z);
+                if (BO.RPGItems) BO.RPGItems.onEnemyKilled(z, z.pos);
                 BO.Sound.playHitmarker(!!ctx.isHead, true);
                 BO.Events.emit('hud:hitmarker', { isHeadshot: !!ctx.isHead, isKill: true });
             }
@@ -1214,6 +1258,7 @@
             if (s.kitId === 'vanguard' && attackerPos && BO.Math.dist2D(attackerPos.x, attackerPos.z, P.pos.x, P.pos.z) <= 4) a *= 0.8;
             if (this.ability.ultActive > 0 && this.ability.ultId === 'juggernaut') a *= 1 - this.D.CLASSES.vanguard.abilities.ultimate.dr;
             if (s.talents.has('heat_shield') && this.enemiesInRadius(P.pos, 10, (z) => this.hasStatus(z, 'burn')).length) a *= 0.8;
+            if (BO.RPGItems) a = BO.RPGItems.onPlayerDamaged(a, attackerPos, attackerEntity);
             if (a > 0.5) {
                 const loss = Math.round(this.D.MOMENTUM.hitLoss * (1 - BO.Math.clamp(s.momentumKeep / 100, 0, 0.9)));
                 this.momentum.stacks = Math.max(0, this.momentum.stacks - Math.max(1, loss));
@@ -1221,7 +1266,7 @@
             return a;
         }
 
-        /** Returns true if death was prevented (Last Bastion, Second Wind, Field Medic). */
+        /** Returns true if death was prevented (Last Bastion, Second Wind, Field Medic, Dead Cat). */
         tryPreventDeath(P) {
             if (!this.active) return false;
             const r = this.run;
@@ -1245,6 +1290,15 @@
                 P.hp = Math.round(P.maxHp * 0.25);
                 P.reviveGraceTimer = 1.5;
                 BO.Events.emit('hud:banner', { title: 'FIELD MEDIC', sub: 'STABILISED AT 25% HP — ONCE PER DELVE', color: '#4ade80' });
+                return true;
+            }
+            if ((r.livesLeft || 0) > 0) {
+                r.livesLeft--;
+                P.hp = Math.max(1, P.maxHp);
+                P.reviveGraceTimer = 2.0;
+                BO.FX.spawnParticles(P.pos.clone().add(CAMERA_LIGHT_UP), 28, 0x94a3b8, 5, -1, 0.9, 1.4);
+                BO.Sound.playPerkBuy();
+                BO.Events.emit('hud:banner', { title: 'DEAD CAT — NINE LIVES', sub: `${r.livesLeft} ${r.livesLeft === 1 ? 'LIFE' : 'LIVES'} REMAINING`, color: '#cbd5e1' });
                 return true;
             }
             return false;
@@ -1534,6 +1588,12 @@
             const kbI = BO.Settings.keyLabel(BO.Settings.getKeybinds().interact);
             this.prompt = null;
             this._interactTarget = null;
+            const itemTarget = BO.RPGItems?.getInteractTarget?.(P.pos);
+            if (itemTarget) {
+                this.prompt = { ...itemTarget.prompt, text: itemTarget.prompt.text.replace('[E]', `[${kbI}]`) };
+                this._interactTarget = itemTarget;
+                return;
+            }
             for (const pk of this.pickups) {
                 if (pk.kind !== 'item') continue;
                 if (near(pk.pos.x, pk.pos.z, 2.0) && Math.abs(P.pos.y - pk.pos.y) < 1.6) {
@@ -1588,11 +1648,15 @@
 
         getPromptText() { return this.prompt; }
 
+        moveSpeedMult() { return BO.RPGItems ? BO.RPGItems.moveSpeedMult() : 1; }
+        reloadSpeedMult() { return BO.RPGItems ? BO.RPGItems.reloadSpeedMult() : 1; }
+
         interact() {
             if (!this.active || this.state === 'transition' || this.state === 'ended') return;
             const t = this._interactTarget;
             if (!t) return;
-            if (t.kind === 'item') this._collectItem(t.ref);
+            if (t.kind === 'rpg_pedestal' || t.kind === 'rpg_locked_chest') BO.RPGItems?.interactWith(t);
+            else if (t.kind === 'item') this._collectItem(t.ref);
             else if (t.kind === 'roomEvent') this.roomEvent?.interact();
             else if (t.kind === 'container') this._openContainer(t.ref);
             else if (t.kind === 'gate') this.enterGate(t.ref);
@@ -1648,6 +1712,7 @@
             this._updatePickups(dt);
             this._updateProps(dt);
             this._updateWaves(dt);
+            if (BO.RPGItems) BO.RPGItems.update(dt);
             this.roomEvent?.update(dt);
             this.vaultArt?.update(this.elapsed);
             if (this.trail) {
@@ -1767,6 +1832,10 @@
                     for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
                 }
             }
+            if (BO.RPGItems) {
+                const propMeshes = BO.RPGItems.getPropHitMeshes();
+                for (let m = 0; m < propMeshes.length; m++) hitMeshes.push(propMeshes[m]);
+            }
             BO.Combat.setTargetPool(hitMeshes);
         }
 
@@ -1827,7 +1896,8 @@
                 const hitWall = len > 0 && BO.World.raycastWorld(ep.pos, step.clone().normalize(), len + 0.15);
                 ep.pos.add(step);
                 ep.mesh.position.copy(ep.pos);
-                const hitPlayer = P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.8;
+                const blockedByOrbital = BO.RPGItems?.checkProjectileBlock?.(ep);
+                const hitPlayer = !blockedByOrbital && P.alive && BO.Math.dist3D(ep.pos.x, ep.pos.y, ep.pos.z, P.pos.x, P.pos.y + 1.1, P.pos.z) < 0.8;
                 if (hitPlayer) {
                     P.takeDamage(ep.damage, ep.owner ? ep.owner.pos : ep.pos, false, ep.owner);
                     if (ep.hexer) {
@@ -1836,7 +1906,7 @@
                     }
                     BO.FX.spawnParticles(ep.pos, 8, ep.color, 3.5, 6, 0.4, 1.2);
                 }
-                if (hitPlayer || hitWall || ep.life <= 0) {
+                if (blockedByOrbital || hitPlayer || hitWall || ep.life <= 0) {
                     if (hitWall) BO.FX.spawnParticles(ep.pos, 6, ep.color, 3, 6, 0.35, 1.0);
                     BO.World.scene.remove(ep.mesh);
                     this.projectiles.splice(i, 1);
@@ -1847,8 +1917,8 @@
         _updatePickups(dt) {
             const P = this.P;
             const target = P.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
-            // Once the room is clear, every coin flies to the player (no busywork sweeping).
-            const magnet = this.state === 'cleared' ? 999 : 5.5;
+            // Once the room is clear (or Magneto owned), every coin flies to the player (no busywork sweeping).
+            const magnet = (this.state === 'cleared' || BO.RPGItems?.has?.('magneto')) ? 999 : 5.5;
             for (let i = this.pickups.length - 1; i >= 0; i--) {
                 const pk = this.pickups[i];
                 if (pk.kind === 'gold') {

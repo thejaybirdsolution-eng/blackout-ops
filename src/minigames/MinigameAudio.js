@@ -64,6 +64,12 @@
             }
         }
 
+        setMode(mode) {
+            this.mode = mode;
+            this.step = 0;
+            this.timer = 0.02;
+        }
+
         setLowpass(hz, ramp = 0.08) {
             const ctx = this._ensureBus();
             if (!ctx || !this.filter) return;
@@ -430,6 +436,40 @@
                 if (st % 2 === 0) {
                     const b = bass[(st / 2) % bass.length];
                     this._osc(b, 0.22, 'triangle', st % 6 === 0 ? 0.10 : 0.055);
+                }
+            } else if (this.mode === 'toyshop_party') {
+                // 128 BPM Happy Club Disco Party Groove (16th note = 0.1172s)
+                this.timer = 0.1172;
+                const N = NOTE;
+                const st = s % 16;
+                const bar = Math.floor(s / 16) % 4;
+                const roots = [N.F2, N.D2, N.Bb2 * 0.5, N.C2];
+                const root = roots[bar];
+                const chords = [
+                    [N.F4, N.A4, N.C5],
+                    [N.D4, N.F4, N.A4],
+                    [N.Bb4 * 0.5, N.D4, N.F4],
+                    [N.C4, N.E4, N.G4]
+                ][bar];
+                // Four-on-the-floor punchy club kick + clap + offbeat open disco hats
+                if (st % 4 === 0) this._kick(0.28, 152, 46, 0.19);
+                if (st === 4 || st === 12) this._snare(0.18, 225, 0.13);
+                if (st % 4 === 2) this._hat(0.075, true, (st % 8 === 2) ? -0.25 : 0.25);
+                else if (st % 2 === 1) this._hat(0.035, false, 0);
+                // Funky octave disco bassline
+                const bassMult = (st % 4 === 2 || st === 15) ? 2 : 1;
+                this._osc(root * bassMult, 0.10, 'sawtooth', 0.11, { cutoff: 1450, cutoffEnd: 420, q: 2.2 });
+                // Euphoric bright disco chord stabs on offbeats & downbeats
+                if (st === 0 || st === 6 || st === 10) {
+                    for (let c = 0; c < chords.length; c++) {
+                        this._supersaw(chords[c], this.timer * 1.9, 0.036, 3600);
+                    }
+                }
+                // Happy bouncy party synth lead
+                const lead = [N.C5, 0, N.F5, N.A5, 0, N.G5, N.F5, 0, N.D5, 0, N.F5, N.A5, N.C6, 0, N.A5, N.G5][st];
+                if (lead) {
+                    this._osc(lead, 0.11, 'triangle', 0.085, { pan: Math.sin(s * 0.55) * 0.35 });
+                    this._osc(lead * 2, 0.08, 'sine', 0.035, { pan: -Math.sin(s * 0.55) * 0.35 });
                 }
             } else if (this.mode && this.mode.startsWith('kaiju')) {
                 // Godzilla Brass & Taiko Stomp March / Mecha-Titan Synth-Rock Anthem
@@ -902,11 +942,18 @@
             this._osc(1568, 0.38, 'sine', 0.14, { sfx: true });
             this._osc(3136, 0.22, 'triangle', 0.08, { sfx: true });
         }
+        partyBurst() {
+            [NOTE.F4, NOTE.A4, NOTE.C5, NOTE.F5, NOTE.A5, NOTE.C6].forEach((f, i) => {
+                this._osc(f, 0.38, 'sawtooth', 0.10, { cutoff: 4200, pan: (i % 2 ? 0.25 : -0.25), sfx: true, delay: i * 0.045 });
+            });
+            this._kick(0.32, 160, 44, 0.24, true);
+            this._noise(0.28, 3200, 'highpass', 1.1, 0.18, 0, true, 0.04);
+        }
         kaijuRoar() {
-            this._osc(92, 0.88, 'sawtooth', 0.28, { slideTo: 46, cutoff: 840, cutoffEnd: 240, pan: -0.2, sfx: true });
-            this._osc(138, 0.76, 'sawtooth', 0.20, { slideTo: 62, cutoff: 1120, cutoffEnd: 320, pan: 0.2, sfx: true, delay: 0.05 });
-            this._osc(58, 0.80, 'sine', 0.24, { slideTo: 29, sfx: true });
-            this._noise(0.78, 420, 'lowpass', 1.2, 0.28, 0, true);
+            this._osc(92, 0.96, 'sawtooth', 0.30, { slideTo: 42, cutoff: 880, cutoffEnd: 220, pan: -0.2, sfx: true });
+            this._osc(138, 0.84, 'sawtooth', 0.22, { slideTo: 58, cutoff: 1180, cutoffEnd: 300, pan: 0.2, sfx: true, delay: 0.05 });
+            this._osc(54, 0.88, 'sine', 0.28, { slideTo: 26, sfx: true });
+            this._noise(0.84, 420, 'lowpass', 1.2, 0.30, 0, true);
         }
         kaijuStep() {
             this._kick(0.32, 86, 26, 0.26, true);

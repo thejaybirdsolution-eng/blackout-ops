@@ -120,18 +120,18 @@
         tagline: 'Tear down a 260 km/h Synthwave Skybridge! Slash Cyber-Bikers with Thermal Katana [E] & down the Valkyrie!',
         desc: 'Mount your prototype KUSANAGI-X9 Cyber-Hoverbike and tear down the rain-slicked Neo-Shinjuku Skybridge at 260 km/h! Bank smoothly across 4 neon lanes with [A / D], vault Red Plasma Road-Barriers with [SPACE], slash flanking Yakuza Cyber-Bikers in half with your [E] Thermal Neon Katana, ignite [Q] Nitro Overdrive for 2x Speed & Score, and shoot down the SYNDICATE VALKYRIE VTOL GUNSHIP!',
         guide: {
-            objective: 'Survive the 260 km/h Neo-Shinjuku Skybridge pursuit, dodge Plasma Laser Gates, eliminate Cyber-Bikers, and destroy the Syndicate Valkyrie VTOL Gunship!',
+            objective: 'Survive the 260 km/h Neo-Shinjuku Skybridge pursuit, ride Green Boost Gates, dodge Red Laser Barriers, cleave Cyber-Bikers with Thermal Katana [E/RMB], and destroy the Valkyrie VTOL Gunship!',
             tips: [
-                'Use [A / D] to carve smoothly across the highway and [SPACE] to hydro-hop right over low Red Laser Gates!',
-                'Press [E] (3.5s cooldown) when a Yakuza Cyber-Biker pulls alongside your bike to cleave them instantly with your THERMAL KATANA (+450 pts)!',
-                'Press [Q] (12s cooldown) for NITRO OVERDRIVE—boosts speed to 380 km/h, grants brief barrier invulnerability, and doubles score!'
+                'Use [A / D] to carve across 4 neon lanes and [SPACE] (or Neon Jump Ramps) to vault Red Laser Gates!',
+                'Press [E], [V], or [RMB] to cleave nearby Yakuza Cyber-Bikers with your THERMAL KATANA (+450 pts) — ride Green Boost Gates to reset Katana cooldown instantly!',
+                'Press [F] for EMP Shockwave (10s cd) to fry pursuers, or [Q] for NITRO OVERDRIVE (380 km/h + 2× score)!'
             ]
         },
         heroLabel: 'FUN & SPECIALS • HIGH-SPEED CYBER VEHICULAR COMBAT', duration: 155,
         stars: [3000, 6200, 9800, 14500],
         standardWeapon: 'vector_kriss', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
-        weaponLabel: 'VECTOR SMG + HOVERBIKE + THERMAL KATANA [E]', weaponNote: '[A/D] Steer Bike • [SPACE] Boost-Jump Gates • [E] Katana Slash • [Q] Nitro!',
-        keys: [['A / D', 'Steer Hoverbike'], ['SPACE', 'Jump Laser Gates'], ['E', 'Thermal Katana (3.5s)'], ['Q', 'Nitro Overdrive (12s)']],
+        weaponLabel: 'VECTOR SMG + HOVERBIKE + THERMAL KATANA [E/RMB]', weaponNote: '[A/D] Steer • [SPACE] Jump • [E/RMB] Katana Slash • [F] EMP • [Q] Nitro!',
+        keys: [['A / D', 'Steer Hoverbike'], ['SPACE', 'Jump Laser Gates'], ['E / RMB / V', 'Thermal Katana (3.5s)'], ['F', 'EMP Surge (10s)'], ['Q', 'Nitro Overdrive (12s)']],
         map: {
             atmosphere: { skyTop: 0x050214, skyBottom: 0x4c0519, fogColor: 0x1a062b, fogDensity: 0.0085, sunColor: 0xf472b6, sunIntensity: 1.4, sunPos: [0, 22, -120], hemiSky: 0x38bdf8, hemiGround: 0x311042, hemiIntensity: 0.95 },
             skybox: 'skybox-night.png',
@@ -144,9 +144,9 @@
             const D = S.data;
             Object.assign(D, {
                 bikeX: 0, bikeY: 0, bikeVy: 0, bikeTilt: 0, bikeHp: 100, kmh: 260,
-                katanaCd: 0, katanaAnim: 0, nitroT: 0, nitroCd: 0,
-                roadTex: null, buildings: [], bikers: [], gates: [],
-                spawnCd: 1.0, gateCd: 2.6, killsCount: 0, gunship: null, gunshipSpawned: false, gunshipDown: false
+                katanaCd: 0, katanaAnim: 0, nitroT: 0, nitroCd: 0, empCd: 0,
+                roadTex: null, buildings: [], arches: [], bikers: [], gates: [], boosts: [],
+                spawnCd: 1.0, gateCd: 2.6, boostCd: 4.4, killsCount: 0, gunship: null, gunshipSpawned: false, gunshipDown: false
             });
 
             // Scrolling Neon Highway Deck + Synthwave Sun on Horizon + Streaming Hologram Skyscrapers!
@@ -195,24 +195,36 @@
                 D.buildings.push(mesh);
             }
 
-            // World-space Sculpted Player Hoverbike Nose, Cowling, Digital Speedometer & Thermal Katana Blade!
+            // Overhead Neon Highway Arches
+            for (let a = 0; a < 5; a++) {
+                const ag = new THREE.Group();
+                ag.position.set(0, 0, -110 + a * 28);
+                const arch = new THREE.Mesh(new THREE.TorusGeometry(9.6, 0.22, 8, 24, Math.PI), basic(a % 2 ? 0x22d3ee : 0xec4899));
+                ag.add(arch); S.add(ag);
+                D.arches.push(ag);
+            }
+
+            // World-space Sculpted Player Hoverbike Nose, Cowling, Underglow & Thermal Katana Blade!
             const bikeG = new THREE.Group();
             const cowl = new THREE.Mesh(new THREE.ConeGeometry(0.62, 2.2, 12), std(0x0f172a, 0.2, 0.88));
             cowl.rotation.x = -Math.PI / 2; cowl.position.set(0, 0.85, -1.25);
+            const trim = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 1.4), basic(0x22d3ee));
+            trim.position.set(0, 0.62, -1.1);
             const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.35, 0.85), new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.38 }));
             windshield.rotation.x = 0.45; windshield.position.set(0, 1.18, -0.95);
             const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.15, 8), std(0xe2e8f0, 0.2, 0.9));
             bar.rotation.z = Math.PI / 2; bar.position.set(0, 1.05, -0.55);
-            const katana = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.05, 0.14), basic(0xf43f5e));
+            const katana = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.06, 0.16), basic(0xf43f5e));
             katana.position.set(0.8, 1.15, -0.9); katana.visible = false;
-            bikeG.add(cowl, windshield, bar, katana);
+            bikeG.add(cowl, trim, windshield, bar, katana);
             S.add(bikeG);
             D.bikeMesh = bikeG;
             D.katanaMesh = katana;
 
             D.onKey = (e) => {
                 if (MG.session !== S || MG.state !== 'running') return;
-                if (e.code === 'KeyE') this._katanaSlash(S);
+                if (e.code === 'KeyE' || e.code === 'KeyV') this._katanaSlash(S);
+                else if (e.code === 'KeyF') this._empSurge(S);
                 else if (e.code === 'KeyQ') {
                     if (D.nitroCd <= 0) {
                         D.nitroCd = 12.0; D.nitroT = 4.5;
@@ -229,6 +241,22 @@
         dispose(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
+        },
+        _empSurge(S) {
+            const D = S.data, P = BO.Player;
+            if (D.empCd > 0) return;
+            D.empCd = 10.0;
+            tone(880, 160, 0.28, 'sawtooth', 0.14);
+            BO.FX.spawnExplosion(P.pos.clone().add(V(0, 1, -2)), 9, 0x22d3ee);
+            let shocked = 0;
+            for (const b of D.bikers.slice()) {
+                if (b.tgt.alive && b.tgt.basePos.distanceTo(P.pos) < 34) {
+                    b.fireCd = 4.0;
+                    b.tgt.damage(b.isGunship ? 8 : 3, { pt: b.tgt.basePos });
+                    shocked++;
+                }
+            }
+            MG.toast(shocked ? `⚡ EMP SURGE SHOCKED ${shocked} TARGET(S)!` : '⚡ EMP SURGE DEPLOYED!', '#22d3ee');
         },
         _katanaSlash(S) {
             const D = S.data, P = BO.Player;
@@ -283,16 +311,23 @@
             D.katanaCd = Math.max(0, D.katanaCd - dt);
             D.nitroCd = Math.max(0, D.nitroCd - dt);
             D.nitroT = Math.max(0, D.nitroT - dt);
+            D.empCd = Math.max(0, (D.empCd || 0) - dt);
+            if (P.adsHeld && !D._rmb) { D._rmb = true; this._katanaSlash(S); } else if (!P.adsHeld) D._rmb = false;
 
             const roadSpd = D.nitroT > 0 ? 72 : 48;
             D.kmh = Math.round(lerp(D.kmh, D.nitroT > 0 ? 380 : 260, dt * 5));
             D.roadTex.offset.y -= dt * (roadSpd * 0.085);
 
-            // Stream Cyberpunk Skyscrapers past at highway speed!
+            // Stream Cyberpunk Skyscrapers & Neon Arches past at highway speed!
             for (const b of D.buildings) {
                 b.position.z += roadSpd * dt;
                 if (b.position.z > 28) b.position.z -= 156;
             }
+            for (const ag of D.arches || []) {
+                ag.position.z += roadSpd * dt;
+                if (ag.position.z > 28) ag.position.z -= 140;
+            }
+            if (Math.random() < dt * 18) BO.FX.spawnParticles(V(D.bikeX + (Math.random() - 0.5) * 0.5, 0.6 + D.bikeY, 13.5), 1, D.nitroT > 0 ? 0xf43f5e : 0x22d3ee, 2, 1, 0.18, 0.5);
 
             // Lock Player onto their Hoverbike Cockpit with [A/D] Banking & [SPACE] Hydro-Hop!
             let steer = 0;
@@ -355,6 +390,42 @@
                 if (g.z > 22) { S.scene.remove(g.grp); D.gates.splice(i, 1); }
             }
 
+            // Green Boost Gates & Neon Jump Ramps!
+            D.boostCd -= dt;
+            if (D.boostCd <= 0) {
+                D.boostCd = 4.4;
+                const bx = -5.5 + Math.floor(Math.random() * 3) * 5.5;
+                const isRamp = Math.random() < 0.45;
+                const bg = new THREE.Group(); bg.position.set(bx, 0, -95);
+                if (isRamp) {
+                    const ramp = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.35, 3.6), basic(0xfacc15));
+                    ramp.position.set(0, 0.45, 0); ramp.rotation.x = 0.24; bg.add(ramp);
+                } else {
+                    const arch = new THREE.Mesh(new THREE.TorusGeometry(2.1, 0.14, 8, 20, Math.PI), basic(0x4ade80));
+                    arch.position.y = 0.8; bg.add(arch);
+                }
+                S.add(bg);
+                D.boosts.push({ grp: bg, x: bx, z: -95, isRamp, hit: false });
+            }
+            for (let i = (D.boosts || []).length - 1; i >= 0; i--) {
+                const bs = D.boosts[i];
+                bs.z += roadSpd * dt;
+                bs.grp.position.z = bs.z;
+                if (!bs.hit && Math.abs(bs.z - 12) < 1.3 && Math.abs(D.bikeX - bs.x) < 2.3) {
+                    bs.hit = true;
+                    if (bs.isRamp) {
+                        D.bikeVy = 13.5;
+                        SFX.boing();
+                        S.award(250, P.pos.clone().add(V(0, 1.8, 0)), '🚀 NEON RAMP LAUNCH! +250', '#fde047');
+                    } else {
+                        D.katanaCd = 0; D.bikeHp = Math.min(100, D.bikeHp + 10);
+                        SFX.ding(1.4);
+                        S.award(350, P.pos.clone().add(V(0, 1.8, 0)), '⚡ BOOST GATE! KATANA READY +10 HULL', '#4ade80');
+                    }
+                }
+                if (bs.z > 22) { S.scene.remove(bs.grp); D.boosts.splice(i, 1); }
+            }
+
             // Spawn Cyber-Bikers & Valkyrie Gunship Boss
             if (!D.gunshipSpawned && (D.killsCount >= 15 || S.t >= 58)) {
                 D.gunshipSpawned = true;
@@ -394,7 +465,8 @@
             return `<div class="fun-panel">
                 <div class="mgx-chip ${D.nitroT > 0 ? 'mgx-hot' : ''}">🏍️ SPEED <b>${D.kmh} KM/H</b></div>
                 <div class="mgx-chip ${D.bikeHp < 35 ? 'mgx-hot' : ''}">BIKE HULL <b>${Math.ceil(D.bikeHp)}%</b></div>
-                <div class="mgx-chip ${D.katanaCd <= 0 ? 'mgx-hot' : ''}">⚔️ KATANA [E] <b>${D.katanaCd <= 0 ? 'READY' : D.katanaCd.toFixed(1) + 's'}</b></div>
+                <div class="mgx-chip ${D.katanaCd <= 0 ? 'mgx-hot' : ''}">⚔️ KATANA [E/RMB] <b>${D.katanaCd <= 0 ? 'READY' : D.katanaCd.toFixed(1) + 's'}</b></div>
+                <div class="mgx-chip ${(D.empCd || 0) <= 0 ? 'mgx-hot' : ''}">⚡ EMP [F] <b>${(D.empCd || 0) <= 0 ? 'READY' : D.empCd.toFixed(1) + 's'}</b></div>
                 <div class="mgx-chip ${D.nitroCd <= 0 ? 'mgx-hot' : ''}">🔥 NITRO [Q] <b>${D.nitroT > 0 ? 'ACTIVE!' : D.nitroCd <= 0 ? 'READY' : D.nitroCd.toFixed(0) + 's'}</b></div>
             </div>
             ${gs ? `<div class="fun-panel" style="margin-top:5px;"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>🚁 SYNDICATE VALKYRIE VTOL GUNSHIP</span><b>${Math.max(0, Math.round(gs.tgt.hp))} / ${gs.maxHp}</b></div><div class="fun-bar"><i style="width:${Math.max(0, Math.round(gs.tgt.hp / gs.maxHp * 100))}%;background:linear-gradient(90deg,#ec4899,#22d3ee)"></i></div></div></div>` : ''}`;
@@ -446,18 +518,18 @@
         tagline: 'Fight inside a colossal 50m Neon Pinball Machine! Light [M-A-G-I-C] for MULTIBALL & shatter Chrome Spheres!',
         desc: 'You have been shrunk and dropped directly onto the illuminated playfield of a colossal 50-meter Carnival Pinball Machine! Sprint past 5 ringing 1,000-Point Electric Pop-Bumpers and Twin Swinging Giant Flippers, shoot the 5 glowing [M-A-G-I-C] Drop-Targets along the Backbox to unleash MULTIBALL JACKPOT FRENZY, press [E] TABLE NUDGE to ricochet giant rolling Chrome Pinballs into Bumper Combos, and defeat the backglass boss ARCADE WIZARD!',
         guide: {
-            objective: 'Shatter giant rolling Chrome Pinballs, light all 5 [M-A-G-I-C] Drop-Targets for Multiball Jackpot, avoid falling into the Drain Pit, and defeat the ARCADE WIZARD!',
+            objective: '1) Press [SPACE] in the Brass Plunger Lane for Skill Shot launch! 2) Shoot all 5 glowing [M-A-G-I-C] Drop-Targets to unleash MULTIBALL JACKPOT! 3) Control Flippers [Q/E] & Table Nudge [F] to shatter Chrome Balls and defeat the PINBALL WIZARD!',
             tips: [
-                'Shoot all 5 glowing letters [M] [A] [G] [I] [C] at the top of the table to trigger a +1,500 MULTIBALL JACKPOT and spawn Golden Bonus Balls!',
-                'Press [E] TABLE NUDGE (7s cooldown, max 2 consecutive before TILT warning!) to slam every rolling Chrome Pinball into the Electric Pop-Bumpers for massive ricochet combos!',
-                'Step into the right-side BRASS SPRING PLUNGER LANE anytime to launch yourself sky-high onto the Upper Bumper Deck!'
+                'Start safely in the right-side Plunger Lane — press [SPACE] when ready to fire through the Skill Shot Gate (+500 pts)!',
+                'Follow the neon floor guide arrows toward the [M] [A] [G] [I] [C] targets at the top of the table; hitting all 5 unleashes 2× Multiball Frenzy!',
+                'Snap the giant Flippers anytime with [Q] (Left) and [E] (Right) to volley balls back into bumpers (+250 pts), or press [F] Table Nudge!'
             ]
         },
         heroLabel: 'FUN & SPECIALS • GIANT CARNIVAL PINBALL ARENA', duration: 160,
         stars: [3200, 6500, 10500, 15500],
         standardWeapon: 'p90', lockWeapon: true, infiniteMag: true, forgivingMisses: true, customMusic: true,
-        weaponLabel: 'JACKPOT P90 + TABLE NUDGE [E] + PLUNGER LAUNCH', weaponNote: 'Shoot [M-A-G-I-C] Drop-Targets • [E] Table Nudge (7s) • Plunger Lane on Right!',
-        keys: [['WASD', 'Run Playfield'], ['E', 'Table NudgeSlam (7s)'], ['SPACE', 'Jump Rolling Chrome Balls'], ['LMB', 'Shatter Pinballs & Targets']],
+        weaponLabel: 'JACKPOT P90 + FLIPPERS [Q/E] + NUDGE [F]', weaponNote: '[SPACE] Fire Plunger • Shoot [M-A-G-I-C] • [Q/E] Flippers • [F] Table Nudge!',
+        keys: [['WASD', 'Run Playfield'], ['SPACE', 'Plunger Skill Shot / Jump'], ['Q / E', 'Left / Right Flippers'], ['F', 'Table Nudge (7s)'], ['LMB', 'Shoot [M-A-G-I-C] & Balls']],
         map: {
             atmosphere: { skyTop: 0x090418, skyBottom: 0x3b0764, fogColor: 0x1e0936, fogDensity: 0.006, sunColor: 0xfef08a, sunIntensity: 1.5, sunPos: [0, 55, 20], hemiSky: 0xf472b6, hemiGround: 0x1e1b4b, hemiIntensity: 1.0 },
             skybox: 'skybox-space.png',
@@ -476,7 +548,8 @@
             const D = S.data;
             Object.assign(D, {
                 balls: [], bumpers: [], flippers: [], magicLetters: [], magicLit: [false, false, false, false, false],
-                nudgeCd: 0, jackpots: 0, ballsShattered: 0, spawnCd: 1.0, wizard: null, wizardSpawned: false, wizardDown: false
+                nudgeCd: 0, feverT: 0, jackpots: 0, ballsShattered: 0, spawnCd: 1.0, wizard: null, wizardSpawned: false, wizardDown: false,
+                guideArrow: null, plungerArmed: true, spinners: [], skillGateHit: false
             });
 
             // Illuminated Glossy Playfield + Tempered Overhead Glass Rails + Towering Arcade Backglass Scoreboard!
@@ -501,8 +574,16 @@
             plungerRod.rotation.x = Math.PI / 2; plungerRod.position.set(16.5, 0.85, 25.5); S.add(plungerRod);
             const spring = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 2.2, 14, 6, true), new THREE.MeshBasicMaterial({ color: 0xfacc15, wireframe: true }));
             spring.rotation.x = Math.PI / 2; spring.position.set(16.5, 0.85, 24.2); S.add(spring);
-            const plLbl = labelSprite('🚀 SPRING PLUNGER BOOST!', '#fde047', 2.6);
-            plLbl.position.set(16.5, 2.5, 22.5); S.add(plLbl);
+            const plLbl = labelSprite('🚀 PRESS [SPACE] TO LAUNCH SKILL SHOT!', '#fde047', 3.4);
+            plLbl.position.set(16.5, 2.8, 18.5); S.add(plLbl);
+            // Glowing Skill-Shot Orbit Arch at top of plunger lane + Side Orbit Spinners!
+            const skGate = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.16, 8, 20, Math.PI), basic(0x4ade80));
+            skGate.position.set(16.4, 1.2, -16); S.add(skGate);
+            for (const sx of [-15.2, 10.6]) {
+                const spn = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.9, 0.14), basic(0x22d3ee));
+                spn.position.set(sx, 2.2, -6); S.add(spn);
+                D.spinners.push({ mesh: spn, x: sx, z: -6, spin: 0, cd: 0 });
+            }
 
             // 5 Giant 1,000-Point Electric Pop-Bumpers with Neon Mushroom Caps!
             const bumperLayout = [[-6.5, -10, 0xec4899], [2.5, -10, 0x22d3ee], [-2.0, -16, 0xfacc15], [-7.5, -2, 0x4ade80], [3.5, -2, 0xa855f7]];
@@ -519,44 +600,54 @@
                 D.bumpers.push({ grp: bg, cap, pos: V(bx, 0, bz), col, pulse: 0 });
             }
 
-            // 5 Shootable [M - A - G - I - C] Drop-Targets along the Upper Backbox!
+            // 5 Shootable [M - A - G - I - C] Drop-Targets along the Upper Backbox! (hp: 9999 so shooting lights them cleanly!)
             const letters = ['M', 'A', 'G', 'I', 'C'];
             letters.forEach((ch, idx) => {
                 const lx = -10 + idx * 4.0, lz = -22.5;
-                const mesh = A.sign(ch, 2.2, 2.6, { bg: '#311042', color: '#fde047', borderColor: '#22d3ee', size: 1.35, glow: '#22d3ee' });
+                const grp = new THREE.Group();
+                const card = A.sign(ch, 2.4, 2.8, { bg: '#311042', color: '#fde047', borderColor: '#22d3ee', size: 1.35, glow: '#22d3ee' });
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.14, 8, 24), basic(0x4ade80));
+                halo.visible = false;
+                grp.add(card, halo);
                 const tgt = S.addTarget({
-                    kind: 'drop_letter', mesh, pos: V(lx, 1.6, lz), hp: 1, life: 0, points: 250,
+                    kind: 'drop_letter', mesh: grp, hitMeshes: [card], pos: V(lx, 1.8, lz), hp: 9999, life: 0, points: 250,
                     appear: 'none', death: 'none', bonus: true,
                     onDamage: (t) => {
-                        t.hp = 999; // Stays alive & toggles lit state!
+                        t.hp = 9999; // Stays alive & toggles lit state cleanly!
                         if (!D.magicLit[idx]) {
                             D.magicLit[idx] = true;
-                            mesh.position.y = 0.85;
+                            halo.visible = true;
+                            grp.position.y = 2.4;
                             tone(520 + idx * 110, 880 + idx * 110, 0.18, 'triangle', 0.12);
-                            S.award(300, V(lx, 2.8, lz), `✨ LETTER [${ch}] LIT!`, '#fde047');
+                            BO.FX.spawnParticles(V(lx, 2.4, lz), 14, 0xfde047, 4, 2, 0.4, 1.1);
+                            S.award(300 * (D.feverT > 0 ? 2 : 1), V(lx, 3.0, lz), `✨ LETTER [${ch}] LIT!`, '#fde047');
                             if (D.magicLit.every(Boolean)) this._triggerMultiballJackpot(S);
                         }
                     }
                 });
-                D.magicLetters.push({ ch, mesh, tgt });
+                D.magicLetters.push({ ch, mesh: grp, card, halo, tgt, pos: V(lx, 0.12, lz) });
             });
 
-            // Twin Giant Swinging Pinball Flippers guarding the Bottom Drain Pit (z = 19.5)!
-            for (const [fx, side] of [[-6.5, 1], [2.5, -1]]) {
+            // Glowing Floor Pointer Chevron pointing toward the next unlit [M-A-G-I-C] target!
+            const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.95, 2.2, 4), basic(0xfde047));
+            arrow.rotation.x = -Math.PI / 2; arrow.position.set(-10, 0.35, -18.5);
+            S.add(arrow); D.guideArrow = arrow;
+
+            // Twin Giant Player-Controlled Flippers ([Q] Left / [E] Right) guarding the Drain Pit!
+            for (const [fx, side, keyCode] of [[-6.5, 1, 'KeyQ'], [2.5, -1, 'KeyE']]) {
                 const fg = new THREE.Group();
                 fg.position.set(fx, 0.65, 18.5);
                 const paddle = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.1, 0.95), std(0xef4444, 0.25, 0.3, { emissive: 0x991b1b, emissiveIntensity: 0.4 }));
                 paddle.position.x = side * 2.4;
                 const rubber = new THREE.Mesh(new THREE.CylinderGeometry(0.58, 0.58, 1.12, 16), chrome);
-                rubber.position.x = 0;
                 fg.add(paddle, rubber); S.add(fg);
-                D.flippers.push({ grp: fg, pos: V(fx + side * 2.0, 0.65, 18.5), side, swing: 0, timer: 1.4 + (side > 0 ? 0 : 0.9) });
+                D.flippers.push({ grp: fg, pos: V(fx + side * 2.0, 0.65, 18.5), side, keyCode, swing: 0 });
             }
 
             // Glowing Bottom "BALL DRAIN" Hazard Trench at z = 25.5!
             const drain = new THREE.Mesh(new THREE.PlaneGeometry(18, 3.2), basic(0xef4444));
             drain.rotation.x = -Math.PI / 2; drain.position.set(-2, 0.05, 25.8); S.add(drain);
-            const drainLbl = labelSprite('⚠️ BALL DRAIN PIT — DO NOT FALL IN!', '#fca5a5', 3.4);
+            const drainLbl = labelSprite('⚠️ BALL DRAIN PIT — HIT [Q / E] FLIPPERS!', '#fca5a5', 3.4);
             drainLbl.position.set(-2, 1.5, 25.8); S.add(drainLbl);
 
             // Spawn 3 initial Chrome Pinballs!
@@ -564,7 +655,15 @@
 
             D.onKey = (e) => {
                 if (MG.session !== S || MG.state !== 'running') return;
-                if (e.code === 'KeyE') this._tableNudge(S);
+                const P = BO.Player;
+                if (e.code === 'KeyF') this._tableNudge(S);
+                else if (e.code === 'KeyQ' || e.code === 'KeyE') this._fireFlipper(S, e.code);
+                else if (e.code === 'Space' && P.pos.x > 14.3 && P.pos.z > 12) {
+                    P.vel.z = -34; P.vel.y = 14.0; P.onGround = false;
+                    D.skillGateHit = false;
+                    SFX.boing();
+                    MG.toast('🚀 PLUNGER LAUNCHED — FLY THROUGH THE GREEN GATE!', '#fde047');
+                }
             };
             window.addEventListener('keydown', D.onKey);
         },
@@ -572,14 +671,30 @@
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.onKey) window.removeEventListener('keydown', S.data.onKey);
         },
+        _fireFlipper(S, keyCode) {
+            const D = S.data;
+            for (const fl of D.flippers) {
+                if (fl.keyCode !== keyCode) continue;
+                fl.swing = 0.28;
+                tone(280, 560, 0.10, 'square', 0.08);
+                for (const b of D.balls) {
+                    if (b.tgt.alive && b.tgt.basePos.distanceTo(fl.pos) < 5.6) {
+                        b.vel.z = -24;
+                        b.vel.x += (Math.random() - 0.5) * 16;
+                        S.award(250 * (D.feverT > 0 ? 2 : 1), fl.pos.clone().add(V(0, 1.5, 0)), '🔥 FLIPPER POWER RETURN! +250', '#38bdf8');
+                    }
+                }
+            }
+        },
         _triggerMultiballJackpot(S) {
             const D = S.data;
             D.jackpots++;
+            D.feverT = 20.0;
             D.magicLit = [false, false, false, false, false];
-            for (const ml of D.magicLetters) ml.mesh.position.y = 1.6;
+            for (const ml of D.magicLetters) { ml.mesh.position.y = 1.8; ml.halo.visible = false; }
             if (BO.MinigameAudio) BO.MinigameAudio.pinballJackpot(); else SFX.fanfare();
-            S.award(1500, V(-2, 4, -12), '🎰 M-A-G-I-C MULTIBALL JACKPOT (+1,500)!', '#fde047');
-            MG.toast('🎰 MULTIBALL JACKPOT — GOLDEN 2X BONUS PINBALLS UNLEASHED!', '#fde047');
+            S.award(1500, V(-2, 4, -12), '🎰 M-A-G-I-C MULTIBALL JACKPOT (+1,500 · 2× FEVER 20s)!', '#fde047');
+            MG.toast('🎰 MULTIBALL JACKPOT — GOLDEN 2X BONUS PINBALLS + 2× SCORE!', '#fde047');
             for (let i = 0; i < 3; i++) this._spawnPinball(S, true);
         },
         _tableNudge(S) {
@@ -639,26 +754,42 @@
             if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const D = S.data, P = BO.Player;
             D.nudgeCd = Math.max(0, D.nudgeCd - dt);
+            D.feverT = Math.max(0, (D.feverT || 0) - dt);
 
-            // Right-Side Brass Spring Plunger launches the player high up the playfield!
-            if (P.pos.x > 14.5 && P.pos.z > 20.5) {
-                P.vel.z = -32; P.vel.y = 13.5; P.onGround = false;
-                SFX.boing();
-                MG.toast('🚀 PLUNGER LAUNCHED ONTO THE PLAYFIELD!', '#fde047');
+            // Skill Shot Orbit Gate at top of plunger lane!
+            if (!D.skillGateHit && P.pos.x > 14.3 && P.pos.z < -14 && P.pos.z > -19) {
+                D.skillGateHit = true;
+                SFX.ding(1.5);
+                S.award(500, P.pos.clone().add(V(0, 1.8, 0)), '🎯 SKILL SHOT LAUNCH! +500', '#4ade80');
             }
+            // Side Orbit Spinners!
+            for (const spn of D.spinners || []) {
+                if (spn.cd > 0) spn.cd -= dt;
+                if (spn.spin > 0) { spn.spin -= dt; spn.mesh.rotation.x += dt * 24; }
+                if (spn.cd <= 0 && Math.hypot(P.pos.x - spn.x, P.pos.z - spn.z) < 2.2) {
+                    spn.cd = 4.0; spn.spin = 1.2;
+                    tone(740, 1280, 0.14, 'triangle', 0.09);
+                    S.award(150 * (D.feverT > 0 ? 2 : 1), spn.mesh.position.clone(), '🌀 ORBIT SPINNER! +150', '#22d3ee');
+                }
+            }
+            // Point Guide Arrow at next unlit M-A-G-I-C letter!
+            if (D.guideArrow) {
+                const nextIdx = D.magicLit.findIndex((x) => !x);
+                const nx = nextIdx >= 0 ? (-10 + nextIdx * 4.0) : -2;
+                D.guideArrow.position.set(nx, 0.35 + Math.sin(S.t * 6) * 0.15, -18.5 + Math.sin(S.t * 6) * 0.4);
+            }
+
             // Bottom Drain Pit hazard bounce-back
             if (P.pos.z > 24.5 && P.pos.x < 13.8) {
                 P.takeDamage(14, P.pos, true);
-                P.pos.set(16.5, 0.5, 21.5);
-                MG.toast('⚠️ DRAINED! RE-LAUNCHING FROM PLUNGER LANE!', '#f87171');
+                P.pos.set(16.5, 0.5, 21.5); P.vel.set(0, 0, 0);
+                MG.toast('⚠️ DRAINED! PRESS [SPACE] TO LAUNCH FROM PLUNGER LANE!', '#f87171');
             }
 
-            // Animate Twin Giant Swinging Flippers!
+            // Animate Giant Flippers (automatic guard OR player-snapped via [Q / E])!
             for (const fl of D.flippers) {
-                fl.timer -= dt;
-                if (fl.timer <= 0) { fl.timer = 1.9; fl.swing = 0.32; tone(280, 520, 0.10, 'square', 0.08); }
                 if (fl.swing > 0) fl.swing = Math.max(0, fl.swing - dt);
-                const ang = fl.side * (fl.swing > 0 ? 0.55 : -0.35);
+                const ang = fl.side * (fl.swing > 0 ? 0.62 : -0.32);
                 fl.grp.rotation.y = ang;
             }
 
@@ -749,12 +880,16 @@
             if (!P.alive) MG.finish('TILT — GAME OVER ON THE PLAYFIELD', { color: '#f87171' });
         },
         hud(S) {
-            const D = S.data, wz = D.wizard && D.wizard.tgt.alive ? D.wizard : null;
+            const D = S.data, P = BO.Player, wz = D.wizard && D.wizard.tgt.alive ? D.wizard : null;
+            const inLane = P.pos.x > 14.3 && P.pos.z > 12;
             const word = ['M', 'A', 'G', 'I', 'C'].map((c, i) => D.magicLit[i] ? `<b style="color:#fde047">[${c}]</b>` : `<span style="opacity:.45">${c}</span>`).join(' ');
+            const obj = inLane ? '1. PRESS [SPACE] FOR PLUNGER LAUNCH!' : wz ? '3. DEFEAT THE PINBALL WIZARD!' : `2. SHOOT [M-A-G-I-C] & PINBALLS (${D.ballsShattered}/14)`;
             return `<div class="fun-panel">
+                <div class="mgx-chip ${D.feverT > 0 ? 'mgx-hot' : ''}">${D.feverT > 0 ? '✨ 2× FEVER' : 'GOAL'} <b>${obj}</b></div>
                 <div class="mgx-chip">🎰 JACKPOT <b>${word}</b></div>
                 <div class="mgx-chip">🎱 SHATTERED <b>${D.ballsShattered}</b></div>
-                <div class="mgx-chip ${D.nudgeCd <= 0 ? 'mgx-hot' : ''}">💥 NUDGE [E] <b>${D.nudgeCd <= 0 ? 'READY' : D.nudgeCd.toFixed(1) + 's'}</b></div>
+                <div class="mgx-chip">FLIPPERS <b>[Q / E]</b></div>
+                <div class="mgx-chip ${D.nudgeCd <= 0 ? 'mgx-hot' : ''}">💥 NUDGE [F] <b>${D.nudgeCd <= 0 ? 'READY' : D.nudgeCd.toFixed(1) + 's'}</b></div>
             </div>
             ${wz ? `<div class="fun-panel" style="margin-top:5px;"><div class="fun-bar-wrap"><div class="fun-bar-lbl"><span>🧙‍♂️ ARCADE PINBALL WIZARD</span><b>${Math.max(0, Math.round(wz.tgt.hp))} / ${wz.maxHp}</b></div><div class="fun-bar"><i style="width:${Math.max(0, Math.round(wz.tgt.hp / wz.maxHp * 100))}%;background:linear-gradient(90deg,#facc15,#ec4899)"></i></div></div></div>` : ''}`;
         },

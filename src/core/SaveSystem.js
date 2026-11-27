@@ -270,6 +270,11 @@
                 crosshairStyle: 'dynamic',
                 showFps: true,
                 unlockAll: false
+            },
+            minigames: {
+                best: {},
+                plays: 0,
+                skipCountdown: false
             }
         };
     }

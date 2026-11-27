@@ -695,14 +695,26 @@
             // Bullets ray-test against world matrices; make sure freshly built props are placed before frame one.
             scene.updateMatrixWorld(true);
 
-            this.state = 'countdown';
-            this.countdown = def.countdown ?? 3.0;
+            const skipCd = !!(BO.Save && BO.Save.data && BO.Save.data.minigames && BO.Save.data.minigames.skipCountdown)
+                || !!(this.opts && this.opts.skipCountdown)
+                || !!def.noCountdown
+                || !!(S.data && S.data.noCountdown);
             this._lastBeep = 4;
             this.finishTimer = 0;
             this._buildHud();
             if (def.customMusic) { if (BO.Sound.stopMusic) BO.Sound.stopMusic(); }
             else BO.Sound.startMusic('zombies');
             BO.Events.emit('hud:banner', { title: def.name.toUpperCase(), sub: def.tagline || '', color: def.accent || '#f5a623' });
+            if (skipCd || (def.countdown !== undefined && def.countdown <= 0)) {
+                this.state = 'running';
+                this.countdown = 0;
+                this._showCountdown('GO!');
+                SFX.beep(true);
+                if (def.onGo) def.onGo(S, this.lib);
+            } else {
+                this.state = 'countdown';
+                this.countdown = def.countdown ?? 3.0;
+            }
             return scene;
         }
 
@@ -1201,8 +1213,9 @@
 
         _save() {
             const d = BO.Save.data;
-            if (!d.minigames) d.minigames = { best: {}, plays: 0 };
+            if (!d.minigames) d.minigames = { best: {}, plays: 0, skipCountdown: false };
             if (!d.minigames.best) d.minigames.best = {};
+            if (typeof d.minigames.skipCountdown !== 'boolean') d.minigames.skipCountdown = false;
             return d.minigames;
         }
 
@@ -1219,12 +1232,15 @@
             const S = this.session;
             const res = this._computeResult();
             const isExample = !!(S && S.opts && S.opts.exampleMode);
+            const isSandbox = !!(S && ((S.opts && S.opts.noHighScore) || (S.data && S.data.noHighScore) || def.noHighScore));
+            const noSave = isExample || isSandbox;
             if (isExample) { res.score = 0; res.stars = 0; res.xp = 0; }
+            else if (isSandbox) { res.stars = 0; res.xp = 0; }
             const key = this.bestKey(def, this.opts);
             const store = this._save();
-            const prev = store.best[key] || null;
-            const better = !isExample && (def.betterThan ? def.betterThan(res, prev) : (!prev || res.score > prev.score));
-            if (!isExample) {
+            const prev = noSave ? null : (store.best[key] || null);
+            const better = !noSave && (def.betterThan ? def.betterThan(res, prev) : (!prev || res.score > prev.score));
+            if (!noSave) {
                 store.plays = (store.plays || 0) + 1;
                 if (better) store.best[key] = { score: res.score, stars: Math.max(res.stars, prev ? prev.stars : 0), extra: res.saveExtra || null, at: Date.now() };
                 else if (prev && res.stars > prev.stars) prev.stars = res.stars;
@@ -1257,7 +1273,7 @@
                     <div class="mg-res-head">
                         <span class="mg-res-ico">${def.icon || '🎯'}</span>
                         <div><small>${{ fun: 'FUN & SPECIALS', target: 'TARGET PRACTICE', boss: 'BOSS RUSH', arcade: 'ARCADE HALL', speed: 'SPEED RUN', mole: 'WHACK-A-MOLE' }[def.cat] || 'MINIGAME'}${this.hasWeaponChoice(def) ? (this.opts.weapon === 'class' ? ' • MY CLASS' : ' • COURSE WEAPON') : ''}${this.opts.variantLabel ? ' • ' + esc(this.opts.variantLabel) : ''}</small><h2>${esc(def.name)}</h2></div>
-                        ${!isExample && better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!isExample && !prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : (isExample ? '<div class="mg-newbest">EXAMPLE POV</div>' : ''))}
+                        ${!noSave && better && prev ? '<div class="mg-newbest">NEW BEST!</div>' : (!noSave && !prev ? '<div class="mg-newbest mg-first">FIRST CLEAR</div>' : (isExample ? '<div class="mg-newbest">EXAMPLE POV</div>' : (isSandbox ? '<div class="mg-newbest">SANDBOX</div>' : '')))}
                     </div>
                     <div class="mg-res-title">${esc(res.title)}</div>
                     <div class="mg-res-score"><span id="mg-res-score">0</span><small>${esc(res.scoreLabel || 'POINTS')}</small></div>
@@ -1265,7 +1281,7 @@
                     <div class="mg-res-grid">${res.stats.map(([k, v]) => `<div><small>${esc(k)}</small><b>${esc(v)}</b></div>`).join('')}</div>
                     ${res.extraHtml || ''}
                     ${res.noGraph ? '' : `<div class="mg-res-graph"><canvas id="mg-res-canvas" width="640" height="120"></canvas><small>${esc(res.graphLabel || 'SCORE OVER TIME')}</small></div>`}
-                    <div class="mg-res-best">${isExample ? '<b>EXAMPLE PLAYBACK ONLY — 0 POINTS / NO PROGRESS SAVED</b>' : (prev ? 'PREVIOUS BEST: <b>' + esc(def.formatBest ? def.formatBest(prev) : Number(prev.score).toLocaleString()) + '</b>' : 'No previous record') + ' • +' + (res.xp || 0) + ' XP'}</div>
+                    <div class="mg-res-best">${isExample ? '<b>EXAMPLE PLAYBACK ONLY — 0 POINTS / NO PROGRESS SAVED</b>' : isSandbox ? '<b>SANDBOX MODE — NO HIGH SCORE OR XP SAVED</b>' : (prev ? 'PREVIOUS BEST: <b>' + esc(def.formatBest ? def.formatBest(prev) : Number(prev.score).toLocaleString()) + '</b>' : 'No previous record') + ' • +' + (res.xp || 0) + ' XP'}</div>
                     <div class="mg-res-actions">
                         <button class="btn" data-act="hub">MINIGAMES <kbd>ESC</kbd></button>
                         <button class="btn" data-act="menu">MAIN MENU</button>

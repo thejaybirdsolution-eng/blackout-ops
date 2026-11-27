@@ -1,8 +1,10 @@
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · World Art (runtime populate for 'meridian')
-   Builds the six skyline landmarks, instanced vegetation and rocks, water
-   sheets, transit pylon meshes and fog-piercing beacons. Animated by
-   BO.OWRPGWorldArt.animate(world, clock) each frame from OWRPGMode.
+   - Relocates Freestead GLB props cleanly inside Freestead Town (-190, 190)
+     with terrainHeight + building clearance
+   - Filters full road segments & rail lines so trees never spawn on roads
+   - Uses real dt in animate(world, clock, dt)
+   - Adds Freestead campfires/warm lanterns + 1-draw-call region weather motes
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -32,7 +34,7 @@
         if (solid) world.worldMeshes.push(m);
         return m;
     }
-    // Struts are collected per material and drawn as one InstancedMesh each (keeps lattice towers to 1 draw call).
+
     let strutBatches = null;
     function strut(scene, world, mat, x1, y1, z1, x2, y2, z2, r = 0.18) {
         const a = new THREE.Vector3(x1, y1, z1), b = new THREE.Vector3(x2, y2, z2);
@@ -57,11 +59,20 @@
         strutBatches = null;
     }
 
+    const WEATHER_COLORS = {
+        haven_basin: 0xfde68a,
+        rust_sprawl: 0xd6b08c,
+        mire_delta: 0x84cc16,
+        ash_quarry: 0xf97316,
+        alpine_array: 0xe2e8f0,
+        meridian_core: 0xc084fc
+    };
+
     const Art = {
         populate(world, scene) {
             const D = BO.OWRPGWorldData;
             const t = world.terrain;
-            const out = { beacons: [], plumes: [], arcs: [], spinners: [], pylons: {}, waters: [] };
+            const out = { beacons: [], plumes: [], arcs: [], spinners: [], pylons: {}, waters: [], flames: [], weather: null, weatherRegion: 'haven_basin', townProps: null };
             world.owrpg = out;
             strutBatches = new Map();
             if (BO.Assets && BO.Assets.applySkybox) {
@@ -72,18 +83,95 @@
             this._water(scene, D, out);
             for (const p of D.PYLONS) out.pylons[p.id] = this._pylon(world, scene, p, t.height(p.x, p.z));
             flushStruts(scene);
+            this._townWarmth(scene, D, t, out);
+            this._weatherMotes(scene, out);
+
+            // Relocated Freestead Town GLB props (grouped + distance-culled past 70m, no shadow cast)
             if (BO.Assets && BO.Assets.placeGLB) {
-                const fY = t.height(-20, 12);
-                BO.Assets.placeGLB(scene, 'mini_forest_kit/tent.glb', { pos: [-22, fY, 14], rot: 0.4, scale: 3.4, guardScene: scene });
-                BO.Assets.placeGLB(scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [148, t.height(148, -148), -148], scale: 2.8, guardScene: scene });
-                // Freestead Town & Meridian landmarks dressed with Mini Arena 3D props
-                BO.Assets.placeGLB(scene, 'mini_arena_kit/weapon-rack.glb', { pos: [-16, t.height(-16, 10), 10], rot: -0.6, scale: 2.3, guardScene: scene });
-                BO.Assets.placeGLB(scene, 'mini_arena_kit/banner.glb', { pos: [-12, t.height(-12, 16), 16], rot: 0.2, scale: 2.8, guardScene: scene });
-                BO.Assets.placeGLB(scene, 'mini_arena_kit/statue.glb', { pos: [-4, t.height(-4, 6), 6], rot: 0.8, scale: 2.8, guardScene: scene });
-                BO.Assets.placeGLB(scene, 'mini_arena_kit/column-damaged.glb', { pos: [8, t.height(8, -14), -14], rot: 0.3, scale: 2.6, guardScene: scene });
-                BO.Assets.placeGLB(scene, 'mini_arena_kit/trophy.glb', { pos: [-18, t.height(-18, 6), 6], rot: 0, scale: 2.0, guardScene: scene });
+                const T = D.TOWN;
+                const tp = new THREE.Group();
+                scene.add(tp);
+                out.townProps = tp;
+                const placeTownProp = (path, dx, dz, rot, scale) => {
+                    const px = T.x + dx, pz = T.z + dz;
+                    BO.Assets.placeGLB(tp, path, { pos: [px, t.height(px, pz), pz], rot, scale, castShadow: false, guardScene: scene });
+                };
+                placeTownProp('mini_forest_kit/tent.glb', -22, -6, 0.4, 3.4);
+                placeTownProp('mini_arena_kit/weapon-rack.glb', -5, -6, -0.6, 2.3);
+                placeTownProp('mini_arena_kit/banner.glb', 4, -16, 0.2, 2.8);
+                placeTownProp('mini_arena_kit/statue.glb', 0, 7, 0.8, 2.8);
+                placeTownProp('mini_arena_kit/column-damaged.glb', 22, -18, 0.3, 2.6);
+                placeTownProp('mini_arena_kit/trophy.glb', 7, 4, 0, 2.0);
+                BO.Assets.placeGLB(scene, 'city_industrial_kit/detail-tank-large.glb', { pos: [148, t.height(148, -148), -148], scale: 2.8, castShadow: false, guardScene: scene });
             }
             return out;
+        },
+
+        _townWarmth(scene, D, t, out) {
+            const T = D.TOWN;
+            const dummy = new THREE.Object3D();
+            // Batched campfire logs + flame + point light (3 draw calls total!)
+            const fx = T.x - 4, fz = T.z + 5, fy = t.height(fx, fz);
+            const logIm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.08, 0.1, 0.9, 6), std(0x4a3525, { roughness: 0.9 }), 3);
+            for (let i = 0; i < 3; i++) {
+                dummy.position.set(fx, fy + 0.1, fz);
+                dummy.rotation.set(0, (i / 3) * Math.PI, Math.PI / 2);
+                dummy.scale.set(1, 1, 1);
+                dummy.updateMatrix();
+                logIm.setMatrixAt(i, dummy.matrix);
+            }
+            logIm.instanceMatrix.needsUpdate = true;
+            scene.add(logIm);
+
+            const flame = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.65, 6), glow(0xf97316, 0.9));
+            flame.position.set(fx, fy + 0.42, fz);
+            scene.add(flame);
+            const fireLight = new THREE.PointLight(0xff9233, 1.8, 26, 1.6);
+            fireLight.position.set(fx, fy + 1.2, fz);
+            scene.add(fireLight);
+            out.flames.push({ mesh: flame, light: fireLight, baseY: fy + 0.42 });
+
+            // Batched gate & shop lanterns (2 InstancedMeshes for all 4 posts & bulbs)
+            const lanterns = [[4, -24], [4, 24], [29, 3], [-12, -8]];
+            const postIm = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 2.8, 6), std(0x27272a, { metalness: 0.6 }), lanterns.length);
+            const bulbIm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 8, 6), glow(0xfbbf24, 0.95), lanterns.length);
+            lanterns.forEach(([dx, dz], i) => {
+                const lx = T.x + dx, lz = T.z + dz, ly = t.height(lx, lz);
+                dummy.rotation.set(0, 0, 0);
+                dummy.position.set(lx, ly + 1.4, lz);
+                dummy.updateMatrix();
+                postIm.setMatrixAt(i, dummy.matrix);
+                dummy.position.set(lx, ly + 2.85, lz);
+                dummy.updateMatrix();
+                bulbIm.setMatrixAt(i, dummy.matrix);
+            });
+            postIm.instanceMatrix.needsUpdate = true;
+            bulbIm.instanceMatrix.needsUpdate = true;
+            scene.add(postIm, bulbIm);
+        },
+
+        _weatherMotes(scene, out) {
+            const COUNT = 150;
+            const pos = new Float32Array(COUNT * 3);
+            for (let i = 0; i < COUNT; i++) {
+                pos[i * 3] = (Math.random() - 0.5) * 44;
+                pos[i * 3 + 1] = Math.random() * 14;
+                pos[i * 3 + 2] = (Math.random() - 0.5) * 44;
+            }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            const mat = new THREE.PointsMaterial({ color: WEATHER_COLORS.haven_basin, size: 0.16, transparent: true, opacity: 0.6, depthWrite: false });
+            const pts = new THREE.Points(geo, mat);
+            pts.frustumCulled = false;
+            scene.add(pts);
+            out.weather = { points: pts, geo, mat, count: COUNT };
+        },
+
+        setRegionWeather(world, regId) {
+            const w = world.owrpg && world.owrpg.weather;
+            if (!w || world.owrpg.weatherRegion === regId) return;
+            world.owrpg.weatherRegion = regId;
+            w.mat.color.setHex(WEATHER_COLORS[regId] || 0xfde68a);
         },
 
         _beacon(scene, out, x, y, z, color, size = 0.7) {
@@ -141,14 +229,13 @@
             }
             const geo = new THREE.LatheGeometry(pts, 28);
             const m = mesh(scene, world, geo, std(0x8a8f86, { side: THREE.DoubleSide, roughness: 0.95 }), L.x, y - 3, L.z);
-            m.rotation.z = 0.06; // sunken lean
+            m.rotation.z = 0.06;
             for (let i = 0; i < 8; i++) {
                 const p = new THREE.Mesh(new THREE.SphereGeometry(4 + i * 0.8, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.16, fog: false, depthWrite: false }));
                 p.position.set(L.x, y + L.h + i * 5, L.z);
                 scene.add(p);
                 out.plumes.push({ m: p, base: y + L.h, phase: i / 8 });
             }
-            // Ring of colliders approximating the shell base.
             for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; addCol(world, L.x + Math.cos(a) * 14, L.z + Math.sin(a) * 14, 2.4, 2.4, y - 3, y + 12); }
         },
 
@@ -253,8 +340,8 @@
                 const z = D.BOUNDS.minZ + 12 + r() * (D.BOUNDS.maxZ - D.BOUNDS.minZ - 24);
                 const h = t.height(x, z);
                 if (h < D.WATER + 0.4 || t.slope(x, z) > 0.9 || nearAnchor(x, z)) continue;
-                const road = D.ROADS.some((rd) => rd.pts.some((pt, k) => k < rd.pts.length - 1 && Math.hypot(x - pt[0], z - pt[1]) < 6));
-                if (road) continue;
+                // Filter full road corridors and rail line
+                if (D.roadInfo(x, z) || D.railDist(x, z) < 4.5) continue;
                 const reg = D.regionAt(x, z).id;
                 const dens = { haven_basin: 0.55, alpine_array: 0.7, rust_sprawl: 0.12, mire_delta: 0.35, ash_quarry: 0.15, meridian_core: 0.1 }[reg];
                 if (r() > dens) continue;
@@ -303,11 +390,10 @@
                     });
                 }
             }
-            // Boulders.
             const rocks = [];
             for (let i = 0; i < 260; i++) {
                 const x = D.BOUNDS.minX + 10 + r() * 620, z = D.BOUNDS.minZ + 10 + r() * 620;
-                if (nearAnchor(x, z)) continue;
+                if (nearAnchor(x, z) || D.roadInfo(x, z)) continue;
                 rocks.push({ x, z, s: 0.5 + r() * 1.6 });
             }
             const rm = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x7b7d76, roughness: 0.95, flatShading: true }), rocks.length);
@@ -343,18 +429,18 @@
                 scene.add(m);
                 out.waters.push(m);
             };
-            sheet(250, 250, 210, D.WATER, 20, 0x2c4a3a, 0.82);       // Mire
-            sheet(40, 40, -180, -11.6, -60, 0x3d4a52, 0.8);           // Quarry sump
-            sheet(36, 36, 180, -6.4, -190, 0x4c1d95, 0.7);            // Crater pool
-            // Interior flood water is a batched box (see world data).
+            sheet(250, 250, 210, D.WATER, 20, 0x2c4a3a, 0.82);
+            sheet(40, 40, -180, -11.6, -60, 0x3d4a52, 0.8);
+            sheet(36, 36, 180, -6.4, -190, 0x4c1d95, 0.7);
         },
 
-        animate(world, clock) {
+        animate(world, clock, dt = 0.016) {
             const o = world.owrpg;
             if (!o) return;
+            const step = Math.min(0.1, dt || 0.016);
             const blink = Math.sin(clock * 3) > 0.1;
             for (const b of o.beacons) b.visible = blink;
-            for (const s of o.spinners) { if (s.axis === 'z') s.obj.rotation.z += s.speed * 0.016; else s.obj.rotation.y += s.speed * 0.016; }
+            for (const s of o.spinners) { if (s.axis === 'z') s.obj.rotation.z += s.speed * step; else s.obj.rotation.y += s.speed * step; }
             for (const p of o.plumes) {
                 const k = (clock * 0.05 + p.phase) % 1;
                 p.m.position.y = p.base + k * 40;
@@ -362,7 +448,7 @@
                 p.m.material.opacity = 0.2 * (1 - k);
             }
             for (const a of o.arcs) {
-                a.t -= 0.016;
+                a.t -= step;
                 if (a.t > 0) continue;
                 a.t = 0.08 + Math.random() * 0.25;
                 const pos = a.line.geometry.attributes.position;
@@ -373,6 +459,30 @@
                     pos.setXYZ(i, a.cx + (ex - a.cx) * k + (Math.random() - 0.5) * j, a.cy + (ey - a.cy) * k + (Math.random() - 0.5) * j, a.cz + (ez - a.cz) * k + (Math.random() - 0.5) * j);
                 }
                 pos.needsUpdate = true;
+            }
+            for (const f of o.flames) {
+                f.mesh.scale.set(0.9 + Math.sin(clock * 11) * 0.15, 0.9 + Math.cos(clock * 15) * 0.2, 0.9 + Math.sin(clock * 9) * 0.15);
+                f.light.intensity = 1.6 + Math.sin(clock * 13) * 0.35;
+            }
+            if (o.townProps && BO.Player && BO.OWRPGWorldData?.TOWN) {
+                const T = BO.OWRPGWorldData.TOWN;
+                o.townProps.visible = BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, T.x, T.z) < 70;
+            }
+            if (o.weather && BO.Player) {
+                const P = BO.Player;
+                o.weather.points.visible = !BO.OWRPGWorldData.isInterior(P.pos.x, P.pos.z);
+                if (o.weather.points.visible) {
+                    o.weather.points.position.set(P.pos.x, P.pos.y, P.pos.z);
+                    const arr = o.weather.geo.attributes.position.array;
+                    const fall = o.weatherRegion === 'alpine_array' ? -1.4 : (o.weatherRegion === 'ash_quarry' || o.weatherRegion === 'meridian_core' ? 0.9 : 0.2);
+                    for (let i = 0; i < o.weather.count; i++) {
+                        arr[i * 3 + 1] += fall * step;
+                        arr[i * 3] += Math.sin(clock + i) * 0.35 * step;
+                        if (arr[i * 3 + 1] > 14) arr[i * 3 + 1] = 0.5;
+                        else if (arr[i * 3 + 1] < 0) arr[i * 3 + 1] = 13.5;
+                    }
+                    o.weather.geo.attributes.position.needsUpdate = true;
+                }
             }
             for (const p of Object.values(o.pylons)) if (p.active) p.rings.forEach((r, i) => { r.rotation.z = clock * (1 + i * 0.6); });
             if (o.obelisk) o.obelisk.material.emissiveIntensity = 0.7 + Math.sin(clock * 1.3) * 0.3;

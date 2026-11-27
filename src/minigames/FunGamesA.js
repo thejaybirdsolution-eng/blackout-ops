@@ -21,21 +21,28 @@
        2. MASTER ZOMBIE — Multi-Zone Bastion Fortress + Strict LOS + Player-Like AI
     ===================================================================== */
     const HUMAN_SPECS = [
-        { name: 'SGT. VANCE (HEAVY)', hp: 3120, coat: 0x1e293b, hat: 'helmet', gun: 'rifle', rof: 0.22, magMax: 60, dmg: 16, y: 0, role: 'heavy', wps: [[-3.5, -14], [3.5, -14], [0, -18], [-6, -24]] },
-        { name: 'AGENT KESTREL (TOWER SNIPER)', hp: 2160, coat: 0x064e3b, hat: 'cap', gun: 'rifle', rof: 1.25, magMax: 10, dmg: 44, y: 4.3, role: 'sniper', wps: [[10.5, -24], [13.5, -24], [12, -26.5]] },
-        { name: 'BREACHER COLE (SHOTGUN)', hp: 2640, coat: 0x7f1d1d, hat: 'beanie', gun: 'rifle', rof: 0.85, magMax: 12, dmg: 30, y: 0, role: 'shotgun', wps: [[-12, -17], [-10, -25], [-4, -27], [-13, -29]] },
-        { name: 'MEDIC REED (SUPPORT)', hp: 2320, coat: 0xf8fafc, hat: 'cap', gun: 'pistol', rof: 0.48, magMax: 24, dmg: 18, y: 0, medic: true, role: 'medic', wps: [[2, -26], [-2, -29], [5, -28], [0, -22]] }
+        { name: 'SGT. VANCE (HEAVY)', hp: 3120, coat: 0x1e293b, hat: 'helmet', gun: 'rifle', rof: 0.22, magMax: 60, dmg: 16, y: 0, role: 'heavy', wps: [[-4.5, -13.2], [4.5, -13.2], [5.8, -20.5], [4.2, -27.5], [-4.5, -20.5], [-5.2, -14.2]] },
+        { name: 'AGENT KESTREL (TOWER SNIPER)', hp: 2160, coat: 0x064e3b, hat: 'cap', gun: 'rifle', rof: 1.25, magMax: 10, dmg: 44, y: 4.33, role: 'sniper', wps: [[10.2, -23.3], [13.8, -23.3], [13.8, -26.7], [10.2, -26.7]] },
+        { name: 'BREACHER COLE (SHOTGUN)', hp: 2640, coat: 0x7f1d1d, hat: 'beanie', gun: 'rifle', rof: 0.85, magMax: 12, dmg: 30, y: 0, role: 'shotgun', wps: [[-14.2, -14.5], [-14.2, -26.5], [-6.2, -29.2], [-4.5, -21.0], [-6.5, -14.2]] },
+        { name: 'MEDIC REED (SUPPORT)', hp: 2320, coat: 0xf8fafc, hat: 'cap', gun: 'pistol', rof: 0.48, magMax: 24, dmg: 18, y: 0, medic: true, role: 'medic', wps: [[4.5, -28.0], [-4.8, -32.2], [8.5, -32.2], [5.5, -20.0], [-3.2, -28.5]] }
     ];
 
     const LOS_RAY = new THREE.Raycaster();
     function hasLOS(from, to, losMeshes) {
+        if (BO.BastionWarden && BO.BastionWarden.hasBiLOS) {
+            return BO.BastionWarden.hasBiLOS(from, to, losMeshes);
+        }
         const dir = to.clone().sub(from);
         const dist = dir.length();
         if (dist < 0.4) return true;
         dir.divideScalar(dist);
         LOS_RAY.set(from, dir);
-        LOS_RAY.near = 0.25;
-        LOS_RAY.far = Math.max(0.3, dist - 0.35);
+        LOS_RAY.near = 0.2;
+        LOS_RAY.far = Math.max(0.25, dist - 0.30);
+        if (LOS_RAY.intersectObjects(losMeshes, false).length > 0) return false;
+        LOS_RAY.set(to, dir.clone().negate());
+        LOS_RAY.near = 0.2;
+        LOS_RAY.far = Math.max(0.25, dist - 0.30);
         return LOS_RAY.intersectObjects(losMeshes, false).length === 0;
     }
 
@@ -80,11 +87,12 @@
             for (const [vx, vz, yaw, col] of [[-5.8, 7.5, 0.28, 0x7f1d1d], [6.4, 2.2, -0.35, 0x1e3a5f], [-8.5, -2.5, 0.65, 0x3f4d36]]) {
                 const hv = CS.humvee(S.scene, vx, 0, vz, yaw, col, true);
                 S.collider(vx - 1.35, 0, vz - 2.2, vx + 1.35, 1.85, vz + 2.2);
+                S.solid(hv.blocker); S.solid(hv.cabin);
                 losMeshes.push(hv.blocker, hv.cabin);
             }
             for (const [tx, tz] of [[-13, 12], [13, 12], [-15, 0], [15, 0], [-14, -36], [14, -36]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, true));
 
-            // Fortress Perimeter Walls with Textured Stone & Battlements
+            // Fortress Perimeter Walls with Textured Stone, Battlements & Castle/Industrial GLB Citadel Towers!
             addOpaque(-11.5, 2.0, -10, 13, 4.0, 1.3, wallM);
             addOpaque(11.5, 2.0, -10, 13, 4.0, 1.3, wallM);
             addOpaque(-18, 2.0, -14.5, 1.3, 4.0, 9, wallM);
@@ -95,6 +103,40 @@
 
             for (const [cx, cz] of [[-18, -10], [18, -10], [-18, -37], [18, -37]]) {
                 addOpaque(cx, 2.7, cz, 3.4, 5.4, 3.4, darkWallM);
+                L.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [cx, 0, cz], fitSize: [3.7, 3.6, 3.7] });
+                L.placeGLB(S.scene, 'castle_kit/tower-square-mid-windows.glb', { pos: [cx, 3.5, cz], fitSize: [3.5, 2.8, 3.5] });
+                L.placeGLB(S.scene, 'castle_kit/tower-square-roof.glb', { pos: [cx, 6.2, cz], fitSize: [3.9, 2.4, 3.9] });
+                // Volumetric tower floodlight cone
+                const cone = new THREE.Mesh(
+                    new THREE.ConeGeometry(3.4, 15, 14, 1, true),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a, transparent: true, opacity: 0.065, side: THREE.DoubleSide, depthWrite: false })
+                );
+                cone.position.set(cx * 0.85, 3.8, cz + (cz > -20 ? 3.5 : -3.5));
+                cone.rotation.x = cz > -20 ? -0.45 : 0.45;
+                S.add(cone);
+            }
+            // Industrial Quarantine Bio-Tanks, Smokestacks & Gothic Barricade Banners
+            L.placeGLBInstanced(S.scene, 'city_industrial_kit/detail-tank-large.glb', [
+                { pos: [-22, 0, -22], scale: 2.2 }, { pos: [22, 0, -22], scale: 2.2 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'city_industrial_kit/chimney-large.glb', [
+                { pos: [-23, 0, -35], scale: 3.4 }, { pos: [23, 0, -35], scale: 3.4 }
+            ]);
+            L.placeGLBInstanced(S.scene, 'castle_kit/flag-banner-long.glb', [
+                { pos: [-5.5, 2.2, -9.2], scale: 2.0 }, { pos: [5.5, 2.2, -9.2], scale: 2.0 },
+                { pos: [-14, 2.5, -36.2], scale: 2.2 }, { pos: [14, 2.5, -36.2], scale: 2.2 }
+            ]);
+            // Volumetric quarantine ground mist layers
+            for (const [mx, mz, mr, col] of [[0, -18, 12, 0x22c55e], [-9, -27, 9, 0x7e22ce], [9, -27, 9, 0x22c55e]]) {
+                const mist = new THREE.Mesh(
+                    new THREE.CircleGeometry(mr, 20),
+                    new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.065, side: THREE.DoubleSide, depthWrite: false })
+                );
+                mist.rotation.x = -Math.PI / 2; mist.position.set(mx, 0.12, mz); S.add(mist);
+            }
+            // Gothic courtyard barricades with full solid collision & LOS blocking
+            for (const [bx, bz] of [[-7.2, -16.5], [7.2, -16.5], [5.8, -29.5]]) {
+                addOpaque(bx, 0.65, bz, 2.8, 1.3, 0.85, sandM);
             }
             // Graveyard & gothic perimeter atmosphere around the quarantine siege compound
             L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/graveyard_kit/gravestone-cross.glb', [
@@ -179,7 +221,12 @@
                 plate.position.y = 2.2; plate.add(rail, vitality); fig.root.add(plate);
                 const startWp = hs.wps[0];
                 const tg = S.addTarget({ mesh: fig.root, hitMeshes: [], pos: V(startWp[0], hs.y, startWp[1]), life: 0, appear: 'none', inT: 0.01, death: 'knock', deathColor: 0xef4444, bonus: true });
-                return Object.assign(tg, { spec: hs, fig, plate, vitality, hp: Math.round(hs.hp * 0.55), maxHp: Math.round(hs.hp * 0.55), mag: hs.magMax, reloadT: 0, fireCd: 0.8 + i * 0.3, healCd: 5.0, nadeCd: 6.0 + i * 2.0, smokeDropped: false, wpIdx: 0, walkPh: i * 1.4, strafeSign: i % 2 ? 1 : -1 });
+                return Object.assign(tg, {
+                    spec: hs, fig, plate, vitality, hp: Math.round(hs.hp * 0.55), maxHp: Math.round(hs.hp * 0.55),
+                    mag: hs.magMax, reloadT: 0, fireCd: 0.8 + i * 0.3, healCd: 5.0, nadeCd: 6.0 + i * 2.0,
+                    smokeDropped: false, wpIdx: 0, walkPh: i * 1.4, strafeSign: i % 2 ? 1 : -1,
+                    baseY: hs.y, jumpY: 0, vy: 0, jumping: false, jumpCd: 4.0 + i * 5.0
+                });
             });
             S.data.allies = [];
             S.data.acid = [];
@@ -326,14 +373,19 @@
             if (D.autoUncT <= 0) { D.autoUncT = 25; this._reinforce(S, S.rng() < 0.5 ? 'sprinter' : 'hopper'); MG.toast('AUTO HORDE: +1 UNCOMMON', '#38bdf8'); }
 
             if (P.triggerHeld && !D._lmb && D.cdAcid <= 0) {
-                D._lmb = true; D.cdAcid = 0.85; D.siege.handBeat = 0.85;
+                D._lmb = true; D.cdAcid = 0.85; D.siege.handBeat = 0.65; D.siege.spitBeat = 1.0;
                 const cam = BO.App.worldCamera, baseDir = new THREE.Vector3(); cam.getWorldDirection(baseDir);
                 const spreads = D.siege.evoStage >= 2 ? [-0.08, 0, 0.08] : [0];
                 for (const ang of spreads) {
                     const dir = baseDir.clone().applyAxisAngle(V(0, 1, 0), ang);
-                    const m = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), basic(0x4ade80));
-                    m.position.copy(cam.position).addScaledVector(dir, 0.9); S.add(m);
-                    D.acid.push({ mesh: m, prev: m.position.clone(), vel: dir.multiplyScalar(29).add(V(0, 1.5, 0)), life: 3.0 });
+                    // Multi-layered Acid-Comet Projectile
+                    const comet = new THREE.Group();
+                    const core = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 8), basic(0xd9f99d));
+                    const aura = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshBasicMaterial({ color: 0x4ade80, transparent: true, opacity: 0.52 }));
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.035, 6, 16), basic(0xa3e635));
+                    comet.add(core, aura, ring);
+                    comet.position.copy(cam.position).addScaledVector(dir, 0.95); S.add(comet);
+                    D.acid.push({ mesh: comet, ring, prev: comet.position.clone(), vel: dir.multiplyScalar(29).add(V(0, 1.5, 0)), life: 3.0 });
                 }
                 if (BO.MinigameAudio) BO.MinigameAudio.acidSpit(); else SFX.pop();
             } else if (!P.triggerHeld) D._lmb = false;
@@ -344,6 +396,8 @@
                 ac.prev.copy(ac.mesh.position);
                 ac.life -= dt; ac.vel.y -= 9.8 * dt;
                 ac.mesh.position.addScaledVector(ac.vel, dt);
+                if (ac.ring) { ac.ring.rotation.x += dt * 11; ac.ring.rotation.y += dt * 8; }
+                if (Math.random() < dt * 28) BO.FX.spawnParticles(ac.mesh.position.clone(), 1, 0x4ade80, 1.6, 0.8, 0.25, 0.55);
                 const w = D.siege, pos = ac.mesh.position;
                 const lockHit = !w.gateOpen && Math.abs(pos.z + 9.4) < 0.88 && Math.abs(pos.x) < 4.8 && pos.y < 3.5;
                 const engineHit = w.awake && Math.hypot(pos.x - w.root.position.x, pos.z - w.root.position.z) < 2.6 && pos.y < 4.8;
@@ -354,28 +408,42 @@
                 if (hit || ac.life <= 0) {
                     BO.FX.spawnExplosion(ac.mesh.position.clone(), 3.2, 0x4ade80);
                     if (BO.MinigameAudio) BO.MinigameAudio.acidSplash(); else SFX.pop();
-                    if (w.evoStage >= 2 && ac.mesh.position.y <= 0.6) BO.BastionWarden.spawnAcidPool(S, ac.mesh.position);
+                    if (w.evoStage >= 2 && ac.mesh.position.y <= 0.8) BO.BastionWarden.spawnAcidPool(S, ac.mesh.position);
                     BO.BastionWarden.damage(S, 108, ac.mesh.position, 3.7, this);
                     for (const h of D.humans) if (h.alive && h.root.position.distanceTo(ac.mesh.position) < 3.7) this._damageHuman(S, h, 80, 'ACID BURN!');
                     S.scene.remove(ac.mesh); D.acid.splice(i, 1);
                 }
             }
 
-            // Defender Grenades & Tactical Explosives
+            // Defender Grenades & Tactical Explosives (Strict Wall Collision — Zero Wall-Phasing!)
             for (let i = D.nades.length - 1; i >= 0; i--) {
                 const nd = D.nades[i]; nd.life -= dt;
                 const warning = 1 + 0.45 * (0.5 + 0.5 * Math.sin(nd.life * (nd.life < 0.55 ? 28 : 13)));
-                nd.mesh.scale.setScalar(warning); nd.vel.y -= 14 * dt; nd.mesh.position.addScaledVector(nd.vel, dt);
+                nd.mesh.scale.setScalar(warning);
+                const prevNade = nd.mesh.position.clone();
+                nd.vel.y -= 14 * dt;
+                nd.mesh.position.addScaledVector(nd.vel, dt);
+                if (!hasLOS(prevNade, nd.mesh.position, D.losMeshes)) {
+                    nd.mesh.position.copy(prevNade);
+                    nd.vel.x *= -0.35; nd.vel.z *= -0.35; nd.vel.y = Math.min(nd.vel.y, 0.5);
+                }
                 if (nd.mesh.position.y <= 0.15) { nd.mesh.position.y = 0.15; nd.vel.y *= -0.35; nd.vel.x *= 0.6; nd.vel.z *= 0.6; }
                 if (nd.life <= 0) {
                     const ep = nd.mesh.position.clone();
                     BO.FX.spawnExplosion(ep, 4.2, nd.col); SFX.rumble(0.45);
-                    if (P.pos.distanceTo(ep) < 4.5) P.takeDamage(nd.dmg, ep, false);
-                    for (const al of D.allies) if (al.alive && al.pos.distanceTo(ep) < 4.5) al.takeDamage(nd.dmg * 2, 'torso', false, null, 'blast');
+                    if (P.pos.distanceTo(ep) < 4.5 && hasLOS(ep.clone().add(V(0, 0.4, 0)), P.pos.clone().add(V(0, 1.0, 0)), D.losMeshes)) {
+                        P.takeDamage(nd.dmg, ep, false);
+                    }
+                    for (const al of D.allies) {
+                        if (al.alive && al.pos.distanceTo(ep) < 4.5 && hasLOS(ep.clone().add(V(0, 0.4, 0)), al.pos.clone().add(V(0, 1.0, 0)), D.losMeshes)) {
+                            al.takeDamage(nd.dmg * 2, 'torso', false, null, 'blast');
+                        }
+                    }
                     S.scene.remove(nd.mesh); D.nades.splice(i, 1);
                 }
             }
 
+            const tmpResolve = V();
             for (const h of D.humans) {
                 if (!h.alive) continue;
                 const fraction = Math.max(0, h.hp / h.maxHp);
@@ -398,50 +466,96 @@
                 }
                 const eye = h.root.position.clone().add(V(0, 1.45, 0));
                 let visibleTgt = null, visibleEnt = null, bestD = 38;
-                const pEye = P.pos.clone().add(V(0, 1.2, 0));
+                const pEye = P.pos.clone().add(V(0, 1.18, 0));
                 const pd = eye.distanceTo(pEye);
                 if (pd < bestD && hasLOS(eye, pEye, D.losMeshes)) { bestD = pd; visibleTgt = pEye; visibleEnt = null; }
                 for (const al of D.allies) {
                     if (!al.alive) continue;
-                    const aEye = al.pos.clone().add(V(0, 1.1, 0));
+                    const aEye = al.pos.clone().add(V(0, 1.05, 0));
                     const ad = eye.distanceTo(aEye);
                     if (ad < bestD && hasLOS(eye, aEye, D.losMeshes)) { bestD = ad; visibleTgt = aEye; visibleEnt = al; }
                 }
 
+                // Vertical Jump every 20 seconds (staggered per defender) with real gravity & landing dust
+                h.jumpCd -= dt;
+                if (!h.jumping && h.jumpCd <= 0) {
+                    h.jumping = true; h.vy = 7.2; h.jumpCd = 20.0;
+                    BO.FX.spawnParticles(h.root.position.clone().add(V(0, 0.12, 0)), 6, 0xd6d3d1, 2.2, 1.0, 0.25, 0.5);
+                }
+                if (h.jumping) {
+                    h.vy -= 19.0 * dt;
+                    h.jumpY += h.vy * dt;
+                    if (h.jumpY <= 0) {
+                        h.jumpY = 0; h.vy = 0; h.jumping = false;
+                        BO.FX.spawnParticles(h.root.position.clone().add(V(0, 0.12, 0)), 10, 0xd6d3d1, 3.0, 1.2, 0.35, 0.7);
+                    }
+                }
+                h.root.position.y = h.baseY + h.jumpY;
+
+                // Constant Fort Patrol + Kiting + Full Solid Obstacle Collision
                 let moving = false;
                 if (h.spec.y < 1) {
+                    let nx = h.root.position.x, nz = h.root.position.z;
                     if (visibleTgt && bestD < 6.5) {
-                        const away = h.root.position.clone().sub(visibleTgt); away.y = 0; away.normalize();
-                        const lat = V(-away.z * h.strafeSign, 0, away.x * h.strafeSign).multiplyScalar(0.5);
+                        const away = h.root.position.clone().sub(visibleTgt); away.y = 0;
+                        if (away.lengthSq() < 0.01) away.set(0, 0, 1);
+                        away.normalize();
+                        const lat = V(-away.z * h.strafeSign, 0, away.x * h.strafeSign).multiplyScalar(0.55);
                         const step = away.add(lat).normalize().multiplyScalar(3.6 * dt);
-                        h.root.position.x = BO.Math.clamp(h.root.position.x + step.x, -16, 16);
-                        h.root.position.z = BO.Math.clamp(h.root.position.z + step.z, -35, -12);
+                        nx += step.x; nz += step.z;
                         moving = true;
                     } else {
                         const wp = h.spec.wps[h.wpIdx];
-                        const dx = wp[0] - h.root.position.x, dz = wp[1] - h.root.position.z;
+                        const dx = wp[0] - nx, dz = wp[1] - nz;
                         const wd = Math.hypot(dx, dz);
-                        if (wd > 0.5) {
-                            h.root.position.x += (dx / wd) * 2.5 * dt;
-                            h.root.position.z += (dz / wd) * 2.5 * dt;
+                        const patrolSpd = visibleTgt ? 2.1 : 2.8;
+                        if (wd > 0.65) {
+                            nx += (dx / wd) * patrolSpd * dt;
+                            nz += (dz / wd) * patrolSpd * dt;
                             moving = true;
                             if (!visibleTgt) h.root.rotation.y = Math.atan2(dx, dz);
-                        } else { h.wpIdx = (h.wpIdx + 1) % h.spec.wps.length; }
+                        } else {
+                            h.wpIdx = (h.wpIdx + 1) % h.spec.wps.length;
+                        }
                     }
+                    tmpResolve.set(BO.Math.clamp(nx, -16.4, 16.4), 0, BO.Math.clamp(nz, -35.4, -11.4));
+                    BO.World.resolveHorizontal(tmpResolve, 0.50, 1.75, false);
+                    // Separate cleanly from fellow defenders so squads never overlap
+                    for (const o of D.humans) {
+                        if (o === h || !o.alive || o.spec.y >= 1) continue;
+                        const sx = tmpResolve.x - o.root.position.x, sz = tmpResolve.z - o.root.position.z;
+                        const sd = Math.hypot(sx, sz);
+                        if (sd > 0.001 && sd < 1.05) {
+                            tmpResolve.x += (sx / sd) * (1.05 - sd) * 0.5;
+                            tmpResolve.z += (sz / sd) * (1.05 - sd) * 0.5;
+                        }
+                    }
+                    h.root.position.x = BO.Math.clamp(tmpResolve.x, -16.4, 16.4);
+                    h.root.position.z = BO.Math.clamp(tmpResolve.z, -35.4, -11.4);
                 } else {
                     const wp = h.spec.wps[h.wpIdx];
                     const dx = wp[0] - h.root.position.x, dz = wp[1] - h.root.position.z, wd = Math.hypot(dx, dz);
-                    if (wd > 0.35) { h.root.position.x += (dx / wd) * 1.9 * dt; h.root.position.z += (dz / wd) * 1.9 * dt; moving = true; }
-                    else h.wpIdx = (h.wpIdx + 1) % h.spec.wps.length;
+                    if (wd > 0.35) {
+                        h.root.position.x = BO.Math.clamp(h.root.position.x + (dx / wd) * 2.1 * dt, 9.7, 14.3);
+                        h.root.position.z = BO.Math.clamp(h.root.position.z + (dz / wd) * 2.1 * dt, -27.1, -23.0);
+                        moving = true;
+                        if (!visibleTgt) h.root.rotation.y = Math.atan2(dx, dz);
+                    } else h.wpIdx = (h.wpIdx + 1) % h.spec.wps.length;
                 }
 
-                if (moving) { h.walkPh += dt * 8; F.walk(h.fig, h.walkPh, 1, !!visibleTgt); }
+                if (h.jumping) {
+                    h.fig.parts.legL.rotation.x = -0.78;
+                    h.fig.parts.legR.rotation.x = -0.54;
+                    h.fig.parts.hips.position.y = 1.02;
+                } else if (moving) {
+                    h.walkPh += dt * 8; F.walk(h.fig, h.walkPh, 1, !!visibleTgt);
+                }
                 if (visibleTgt) {
                     h.root.rotation.y = Math.atan2(visibleTgt.x - h.root.position.x, visibleTgt.z - h.root.position.z);
                     F.pose(h.fig, 'aim');
-                    // Fully loaded tactical grenades / equipment from custom loadouts!
+                    // Fully loaded tactical grenades / equipment (only thrown with strict LOS!)
                     h.nadeCd -= dt;
-                    if (h.nadeCd <= 0 && h.spec.role !== 'medic' && bestD < 28) {
+                    if (h.nadeCd <= 0 && h.spec.role !== 'medic' && bestD < 26 && hasLOS(eye, visibleTgt, D.losMeshes)) {
                         h.nadeCd = h.spec.role === 'heavy' ? 9.0 : h.spec.role === 'shotgun' ? 10.0 : 11.5;
                         const ndCol = h.spec.role === 'shotgun' ? 0xf97316 : h.spec.role === 'sniper' ? 0x38bdf8 : 0xef4444;
                         const nm = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), basic(ndCol));
@@ -452,7 +566,7 @@
                     if (h.reloadT > 0) { h.reloadT -= dt; if (h.reloadT <= 0) h.mag = h.spec.magMax; }
                     else {
                         h.fireCd -= dt;
-                        if (h.fireCd <= 0) {
+                        if (h.fireCd <= 0 && hasLOS(eye, visibleTgt, D.losMeshes)) {
                             h.fireCd = (h.spec.role === 'sniper' && bestD < 8) ? 0.35 : h.spec.rof;
                             h.mag--; if (h.mag <= 0) h.reloadT = 1.8;
                             if (h.spec.role === 'shotgun') {

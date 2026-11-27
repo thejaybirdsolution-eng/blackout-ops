@@ -1,36 +1,244 @@
 /* ============================================================================
    FLIGHT CIRCUIT — 360 Trick Shot Pro Arena
-   5 Iconic Textured Launch Towers (Dispatch Helipad, Freight Gantry, Cable Crane,
-   Comms Mast, Refinery Smokestack), 3 Pneumatic Bounce Pads for 720°/1080° chains,
-   Steel Ricochet Gongs, Explosive Propane Barrels, Aerial UAV Drone, 12-Lamp Spin
-   Meter, World-Space Slow-Mo Chase Replay & Hype Trap Audio Integration!
+   5 Handcrafted Maps (Industrial Foundry, Snowy Alpine Cliffside, Neon Cyber
+   Rooftops, Red-Rock Canyon Dam, Orbital Zero-G Gantry), 5 Launch Towers per
+   arena, Bounce Pads, Ricochet Gongs, Propane Barrels, UAV Drone, Spin Lamps &
+   World-Space Slow-Mo Chase Replay!
 ============================================================================ */
 (function (BO) {
     'use strict';
     const { group, part, box, rod, drum, ring, sign, std, basic, texMat, bouncePad, explosiveBarrel } = BO.CourseScenery;
     const A = BO.MinigameArt;
+    const L = BO.MinigameLib;
     const MA = () => BO.MinigameAudio;
     const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-    const pads = [
-        { x: 0, z: 0, y: 26, name: 'Dispatch Helipad' },
-        { x: -23, z: -4, y: 20, name: 'Freight Gantry' },
-        { x: 23, z: -8, y: 25, name: 'Harbor Crane' },
-        { x: -21, z: -39, y: 31, name: 'Comms Mast' },
-        { x: 13, z: -46, y: 36, name: 'Refinery Stack' }
-    ];
+    const MAP_DEFS = {
+        industrial: {
+            id: 'industrial', label: 'Foundry Tower', desc: 'Upgraded Foundry Tower, cranes, shipping containers & neon conduits.',
+            skybox: null, skyTop: 0x0b1224, skyBottom: 0xd9561a, fogColor: 0x3b180a, fogDensity: 0.0042,
+            hemiSky: 0xfdba74, hemiGround: 0x1e293b, grav: 1.0, floorMat: 'asphalt', floorTint: null,
+            pads: [
+                { x: 0, z: 0, y: 26, name: 'Dispatch Helipad' },
+                { x: -23, z: -4, y: 20, name: 'Freight Gantry' },
+                { x: 23, z: -8, y: 25, name: 'Harbor Crane' },
+                { x: -21, z: -39, y: 31, name: 'Comms Mast' },
+                { x: 13, z: -46, y: 36, name: 'Refinery Stack' }
+            ]
+        },
+        alpine: {
+            id: 'alpine', label: 'Alpine Cliffside', desc: 'Snowy alpine cliffside, pine ridges, timber chalets & gondola pylons.',
+            skybox: 'skybox-day.png', skyTop: 0x0369a1, skyBottom: 0xe0f2fe, fogColor: 0xbae6fd, fogDensity: 0.0036,
+            hemiSky: 0xe0f2fe, hemiGround: 0x475569, grav: 1.0, floorMat: 'snow', floorTint: 0xe2e8f0,
+            pads: [
+                { x: 0, z: 0, y: 26, name: 'Summit Gondola' },
+                { x: -24, z: -6, y: 21, name: 'Glacier Pylon' },
+                { x: 24, z: -10, y: 26, name: 'Timber Lookout' },
+                { x: -19, z: -40, y: 32, name: 'Avalanche Ridge' },
+                { x: 15, z: -45, y: 37, name: 'Peak Observatory' }
+            ]
+        },
+        neon_cyber: {
+            id: 'neon_cyber', label: 'Neon Cyber', desc: 'Cyberpunk skyscraper rooftop gap, neon rain & holo-billboards.',
+            skybox: 'skybox-night.png', skyTop: 0x050314, skyBottom: 0x3b0764, fogColor: 0x1a0633, fogDensity: 0.0046,
+            hemiSky: 0xf472b6, hemiGround: 0x0f172a, grav: 1.0, floorMat: 'asphalt', floorTint: 0x090d16,
+            pads: [
+                { x: 0, z: 0, y: 26, name: 'Arasaka Spire' },
+                { x: -22, z: -6, y: 22, name: 'Holo Deck' },
+                { x: 22, z: -9, y: 27, name: 'Synth Crane' },
+                { x: -20, z: -38, y: 31, name: 'Netrunner Relay' },
+                { x: 14, z: -46, y: 37, name: 'Skyline Apex' }
+            ]
+        },
+        canyon_dam: {
+            id: 'canyon_dam', label: 'Canyon Dam', desc: 'Massive Red-Rock Canyon Dam spillway drop & rushing river gorge.',
+            skybox: 'skybox-morning.png', skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0x7c2d12, fogDensity: 0.0038,
+            hemiSky: 0xfed7aa, hemiGround: 0x7c2d12, grav: 1.0, floorMat: 'concrete', floorTint: 0x9a3412,
+            pads: [
+                { x: 0, z: 0, y: 26, name: 'Dam Crest' },
+                { x: -24, z: -5, y: 22, name: 'West Spillway' },
+                { x: 24, z: -7, y: 26, name: 'Turbine Crane' },
+                { x: -20, z: -40, y: 32, name: 'Red Mesa Rim' },
+                { x: 14, z: -45, y: 36, name: 'Canyon Overlook' }
+            ]
+        },
+        orbital_ring: {
+            id: 'orbital_ring', label: 'Orbital Ring', desc: 'Zero-G orbital gantry, space skybox, starfield & plasma jump rings.',
+            skybox: 'skybox-space.png', skyTop: 0x020617, skyBottom: 0x0f172a, fogColor: 0x020617, fogDensity: 0.0022,
+            hemiSky: 0x38bdf8, hemiGround: 0x1e1b4b, grav: 0.65, floorMat: 'diamond_plate', floorTint: 0x1e293b,
+            pads: [
+                { x: 0, z: 0, y: 26, name: 'Docking Bay 01' },
+                { x: -23, z: -5, y: 21, name: 'Solar Gantry' },
+                { x: 23, z: -8, y: 25, name: 'Plasma Pylon' },
+                { x: -20, z: -39, y: 30, name: 'Telemetry Mast' },
+                { x: 14, z: -46, y: 36, name: 'Orbital Core' }
+            ]
+        }
+    };
+
     const targets = [V(0, 0, -18), V(-1, 0, -16), V(3, 0, -23), V(-3, 0, -24), V(1, 0, -25)];
 
-    function pad(D) { return pads[Math.min(pads.length - 1, D.round - 1)]; }
+    function mapDef(D) { return MAP_DEFS[D && D.mapId] || MAP_DEFS.industrial; }
+    function padsFor(D) { return mapDef(D).pads; }
+    function pad(D) { const ps = padsFor(D); return ps[Math.min(ps.length - 1, (D.round || 1) - 1)]; }
     function frame(p, i) { return Math.atan2(p.x - targets[i].x, p.z - targets[i].z); }
+
+    function applyAtmosphere(S, m) {
+        if (m.skybox) L.applySkybox(S.scene, m.skybox);
+        else {
+            S.scene.background = new THREE.Color(m.skyBottom);
+            S.scene.traverse((o) => {
+                if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
+                    o.visible = true;
+                    o.material.uniforms.uZenith.value.setHex(m.skyTop);
+                    o.material.uniforms.uHorizon.value.setHex(m.skyBottom);
+                }
+            });
+        }
+        if (S.scene.fog) { S.scene.fog.color.setHex(m.fogColor); S.scene.fog.density = m.fogDensity; }
+        S.scene.traverse((o) => {
+            if (o.isHemisphereLight) { o.color.setHex(m.hemiSky); o.groundColor.setHex(m.hemiGround); }
+        });
+    }
+
+    function buildThemedMap(S, m, animated) {
+        const CS = BO.CourseScenery;
+        const steel = texMat('diamond_plate', 4, 4), rust = texMat('rusted_metal', 4, 6);
+        const concrete = texMat('soviet_concrete', 4, 8);
+        const rng = L.mulberry32(563 + m.id.length * 97);
+
+        if (m.floorTint) {
+            const ov = new THREE.Mesh(new THREE.PlaneGeometry(132, 132), std(m.floorTint, m.id === 'neon_cyber' ? 0.25 : 0.85, m.id === 'orbital_ring' ? 0.55 : 0.08));
+            ov.rotation.x = -Math.PI / 2; ov.position.set(0, 0.02, -16); ov.receiveShadow = true; S.add(ov);
+        }
+
+        if (m.id === 'industrial') {
+            CS.cargoContainer(S, -16, 0, -20, 3.2, 2.9, 8.5, 'red', 0);
+            CS.cargoContainer(S, 16, 0, -22, 3.2, 2.9, 8.5, 'blue', 0);
+            CS.cargoContainer(S, -10, 0, -35, 8.5, 2.9, 3.2, 'olive', 0);
+            CS.cargoContainer(S, 11, 0, -35, 8.5, 2.9, 3.2, 'red', 0);
+            CS.humvee(S.scene, -16, 0, -7.5, 0.45, 0x3f4d36, false);
+            L.placeGLBInstanced(S.scene, 'city_industrial_kit/chimney-large.glb', [
+                { pos: [-38, 0, -45], scale: 5.5 }, { pos: [38, 0, -42], scale: 5.0 }
+            ]);
+            L.placeGLB(S.scene, 'city_industrial_kit/water-tower.glb', { pos: [-34, 0, -16], scale: 4.5 });
+            for (const [tx, tz] of [[-18, -10], [18, -10], [-18, -32], [18, -32]]) S.add(A.torch(S, V(tx, 0, tz), 0xf97316, true));
+            for (let i = 0; i < 28; i++) {
+                const a = (i / 28) * Math.PI * 2, r = 56 + rng() * 18, x = Math.cos(a) * r, z = -18 + Math.sin(a) * r, h = 10 + rng() * 28;
+                const bld = A.building(6 + rng() * 5, h, 6 + rng() * 5, 0x334155, i + 1, 0.55, true);
+                bld.position.set(x, h / 2, z); bld.rotation.y = -a; S.add(bld);
+            }
+        } else if (m.id === 'alpine') {
+            CS.alpineChalet(S.scene, -24, 0, -22, 0.5, 1.35);
+            CS.alpineChalet(S.scene, 25, 0, -26, -0.4, 1.25);
+            // Snowy mountain peaks & pine tree ridges
+            const snowM = std(0xf8fafc, 0.85), rockM = std(0x475569, 0.9);
+            const treeList = [];
+            for (let i = 0; i < 26; i++) {
+                const a = (i / 26) * Math.PI * 2, r = 52 + rng() * 22, x = Math.cos(a) * r, z = -18 + Math.sin(a) * r;
+                const mh = 18 + rng() * 28, mr = 14 + rng() * 10;
+                const peak = new THREE.Mesh(new THREE.ConeGeometry(mr, mh, 6), rockM);
+                peak.position.set(x, mh * 0.5 - 1, z); S.add(peak);
+                const cap = new THREE.Mesh(new THREE.ConeGeometry(mr * 0.55, mh * 0.52, 6), snowM);
+                cap.position.set(x, mh * 0.76 - 0.5, z); S.add(cap);
+                if (i < 18) treeList.push({ pos: [Math.cos(a) * (32 + rng() * 12), 0, -18 + Math.sin(a) * (30 + rng() * 12)], scale: 2.8 + rng() * 1.4, rot: rng() * Math.PI });
+            }
+            L.placeGLBInstanced(S.scene, 'mini_forest_kit/tree-high.glb', treeList);
+            // Gondola pylons + overhead steel cable
+            for (const gx of [-32, 32]) {
+                box(S.scene, gx, 16, -18, 1.1, 32, 1.1, steel);
+                box(S.scene, gx, 31.5, -18, 5.2, 0.8, 0.8, rust);
+            }
+            rod(S.scene, V(-32, 31.5, -18), V(32, 31.5, -18), 0.1, steel);
+        } else if (m.id === 'neon_cyber') {
+            // Neon skyscraper canyon + Holo-Billboards + Neon Rain!
+            const holoMsgs = [
+                ['SYNTH // 2099', '#090d16', '#22d3ee'], ['CYBER SHOT', '#3b0764', '#f472b6'],
+                ['APEX NEON', '#0f172a', '#fde047'], ['GHOST GRID', '#052e16', '#4ade80']
+            ];
+            for (let i = 0; i < 24; i++) {
+                const a = (i / 24) * Math.PI * 2, r = 50 + rng() * 18, x = Math.cos(a) * r, z = -18 + Math.sin(a) * r, h = 16 + rng() * 34;
+                const bld = A.building(7 + rng() * 5, h, 7 + rng() * 5, i % 2 ? 0x1e1b4b : 0x0f172a, i + 7, 0.85, true);
+                bld.position.set(x, h / 2, z); bld.rotation.y = -a; S.add(bld);
+                if (i % 6 === 0) {
+                    const [txt, bg, fg] = holoMsgs[(i / 6) % holoMsgs.length];
+                    const hb = A.sign(txt, 8.5, 2.2, { bg, color: fg, borderColor: fg, glow: fg, size: 0.42 });
+                    hb.position.set(x * 0.72, 14 + (i % 3) * 5, z * 0.72 - 4);
+                    hb.lookAt(0, hb.position.y, -18);
+                    S.add(hb);
+                }
+            }
+            // Neon floor grid strips
+            for (let gx = -24; gx <= 24; gx += 8) {
+                box(S.scene, gx, 0.04, -18, 0.12, 0.04, 62, basic(gx % 16 === 0 ? 0xf472b6 : 0x22d3ee));
+            }
+            // Neon rain particle system
+            const rCount = 320, rPos = new Float32Array(rCount * 3);
+            for (let i = 0; i < rCount; i++) {
+                rPos[i * 3] = (rng() - 0.5) * 70;
+                rPos[i * 3 + 1] = rng() * 44;
+                rPos[i * 3 + 2] = -18 + (rng() - 0.5) * 70;
+            }
+            const rGeo = new THREE.BufferGeometry();
+            rGeo.setAttribute('position', new THREE.BufferAttribute(rPos, 3));
+            const rain = new THREE.Points(rGeo, new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.24, transparent: true, opacity: 0.7 }));
+            S.add(rain);
+            animated.push({ obj: rain, kind: 'rain' });
+        } else if (m.id === 'canyon_dam') {
+            // Massive Concrete Dam Wall behind targets + Spillway Waterfall + Red-Rock Mesas!
+            const mesaM = std(0x9a3412, 0.92), redRockM = std(0xb45309, 0.88);
+            box(S.scene, 0, 14, -56, 76, 30, 8, concrete);
+            for (const sx of [-18, -6, 6, 18]) {
+                box(S.scene, sx, 16, -51.5, 2.2, 30, 2.5, rust);
+            }
+            // Spillway water chute & river channel below
+            const waterM = new THREE.MeshStandardMaterial({ color: 0x0284c7, emissive: 0x0369a1, emissiveIntensity: 0.35, roughness: 0.18, transparent: true, opacity: 0.85 });
+            const spill = new THREE.Mesh(new THREE.PlaneGeometry(18, 34), waterM);
+            spill.position.set(0, 14, -51.2); spill.rotation.x = 0.18; S.add(spill);
+            const river = new THREE.Mesh(new THREE.PlaneGeometry(24, 66), waterM);
+            river.rotation.x = -Math.PI / 2; river.position.set(0, 0.05, -20); S.add(river);
+            for (let i = 0; i < 20; i++) {
+                const a = (i / 20) * Math.PI * 2, r = 52 + rng() * 18, x = Math.cos(a) * r, z = -18 + Math.sin(a) * r;
+                const h = 14 + rng() * 26, w = 14 + rng() * 10;
+                const mesa = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.65, w, h, 7), i % 2 ? mesaM : redRockM);
+                mesa.position.set(x, h * 0.5, z); S.add(mesa);
+            }
+        } else if (m.id === 'orbital_ring') {
+            // Space Starfield + Glowing Plasma Jump Rings + Orbital Reactor Cores!
+            const sCount = 450, sPos = new Float32Array(sCount * 3);
+            for (let i = 0; i < sCount; i++) {
+                const a = rng() * Math.PI * 2, rad = 75 + rng() * 65;
+                sPos[i * 3] = Math.cos(a) * rad;
+                sPos[i * 3 + 1] = 10 + (rng() - 0.3) * 90;
+                sPos[i * 3 + 2] = -18 + Math.sin(a) * rad;
+            }
+            const sGeo = new THREE.BufferGeometry();
+            sGeo.setAttribute('position', new THREE.BufferAttribute(sPos, 3));
+            S.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color: 0xe0f2fe, size: 0.45 })));
+            for (const [rx, ry, rz] of [[0, 15, -10], [-13, 14, -20], [13, 16, -24], [0, 21, -30]]) {
+                const pr = ring(S.scene, rx, ry, rz, 3.6, 0.22, basic(0x38bdf8));
+                pr.rotation.y = Math.PI * 0.15;
+                animated.push({ obj: pr, kind: 'spin' });
+            }
+            for (const [cx, cz] of [[-38, -18], [38, -18], [0, -52]]) {
+                const core = part(S.scene, new THREE.OctahedronGeometry(4.2, 0), basic(0xc084fc), cx, 18, cz);
+                animated.push({ obj: core, kind: 'spin' });
+            }
+        }
+    }
 
     function build(S) {
         const D = S.data;
+        const m = mapDef(D);
+        applyAtmosphere(S, m);
         const metal = texMat('diamond_plate', 4, 4), rust = texMat('rusted_metal', 4, 6);
         const concrete = texMat('soviet_concrete', 4, 8);
         const gold = basic(0xffbb66), cyan = basic(0x38bdf8), red = basic(0xef4444);
 
         const animated = [];
+        buildThemedMap(S, m, animated);
+
+        const pads = m.pads;
         for (let i = 0; i < pads.length; i++) {
             const p = pads[i], g = group(S.scene, p.x, p.y, p.z);
             if (i) {
@@ -58,7 +266,6 @@
                     }
                 }
             } else {
-                // Helipad H-ring & spinning radar dish on Dispatch Roof
                 const hRing = ring(g, 0, 0.04, 0.4, 1.9, 0.08, gold);
                 hRing.rotation.x = -Math.PI / 2;
                 const radar = group(g, 2.2, 1.5, 2.2);
@@ -129,16 +336,6 @@
         });
         uav.isBonusUav = true;
 
-        // Illuminated Night/Sunset City Skyline Ring
-        const rng = BO.MinigameLib.mulberry32(563);
-        for (let i = 0; i < 32; i++) {
-            const a = (i / 32) * Math.PI * 2, r = 56 + rng() * 18, x = Math.cos(a) * r, z = -18 + Math.sin(a) * r, h = 10 + rng() * 28;
-            const bld = A.building(6 + rng() * 5, h, 6 + rng() * 5, 0x334155, i + 1, 0.55, true);
-            bld.position.set(x, h / 2, z);
-            bld.rotation.y = -a;
-            S.add(bld);
-        }
-
         // World-space Replay Stunt Double + Glowing Ribbon Trail + Tracer Shell
         const double = BO.MGFigures.human({ shirt: 0x25868e, pants: 0x253446, hat: 'helmet', hatColor: 0xf5b05a, gun: 'rifle' });
         S.add(double.root); double.root.visible = false;
@@ -151,17 +348,17 @@
 
         D.flight = {
             samples: [], timer: 0, double, trail, shell, lampBar, bouncePads, gongs, barrels, uav, animated,
-            from: V(), to: V(), lastPeak: 0, feedback: '', bestSnap: Infinity,
-            practice: S.opts.flightRules === 'studio', ready: false,
+            from: V(), to: V(), lastPeak: 0, feedback: '', bestSnap: Infinity, mapGrav: m.grav || 1.0,
+            practice: !!D.isSandbox, ready: false,
             spinsDone: 0, nacSwap: false, barrelRoll: false, rollT: 0, bounceCount: 0, styleTags: [], lastQuarter: 0
         };
-        if (D.flight.practice) S.duration = 0;
+        if (D.isSandbox) S.duration = 0;
         if (MA()) MA().start('trickshot');
         reset(S);
     }
 
     function reset(S) {
-        const D = S.data, p = pad(D), i = Math.min(4, D.round - 1), P = BO.Player;
+        const D = S.data, p = pad(D), i = Math.min(4, (D.round || 1) - 1), P = BO.Player;
         const yaw = frame(p, i);
         P.pos.set(p.x, p.y + 0.14, p.z);
         P.vel.set(0, 0, 0);
@@ -192,7 +389,7 @@
         const D = S.data, P = BO.Player, p = pad(D);
         if (D.killcamT > 0) { D.killcamT = 0.001; return true; }
         if (Math.abs(P.pos.y - p.y) > 0.75 || Math.abs(P.pos.x - p.x) > 3.15 || Math.abs(P.pos.z - p.z) > 3.15) return false;
-        const a = frame(p, Math.min(4, D.round - 1)), dx = -Math.sin(a), dz = -Math.cos(a);
+        const a = frame(p, Math.min(4, (D.round || 1) - 1)), dx = -Math.sin(a), dz = -Math.cos(a);
         const edge = 3.55 / Math.max(Math.abs(dx), Math.abs(dz));
         P.pos.set(p.x + dx * edge, p.y + 0.45, p.z + dz * edge);
         P.vel.set(dx * 5.2, 4.6, dz * 5.2);
@@ -228,17 +425,27 @@
         for (const a of f.animated) {
             if (a.kind === 'spin') a.obj.rotation.y += dt * 1.4;
             else if (a.kind === 'blink') a.obj.visible = Math.sin(S.t * 6) > 0;
+            else if (a.kind === 'rain') {
+                const pos = a.obj.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    let y = pos.getY(i) - dt * 26;
+                    if (y < 0) y = 44;
+                    pos.setY(i, y);
+                }
+                pos.needsUpdate = true;
+            }
         }
         if (f.rollT > 0) {
             f.rollT = Math.max(0, f.rollT - dt);
             P.parkourRoll = Math.sin((1 - f.rollT / 0.55) * Math.PI * 2) * 0.85;
             if (f.rollT === 0) P.parkourRoll = 0;
         }
+        const bounceVel = D.sb ? D.sb.bouncePower : 21.5;
         for (const bp of f.bouncePads) {
             bp.glowRing.scale.setScalar(1 + Math.sin(S.t * 4.5) * 0.05);
             if (D.jumped && P.pos.y <= 1.25 && P.vel.y < 0 && Math.hypot(P.pos.x - bp.x, P.pos.z - bp.z) <= bp.radius + 0.5) {
                 P.pos.y = 1.3;
-                P.vel.y = 21.5;
+                P.vel.y = bounceVel;
                 P.onGround = false;
                 f.bounceCount++;
                 if (!f.styleTags.includes('DOUBLE BOUNCE')) f.styleTags.push('DOUBLE BOUNCE');
@@ -302,5 +509,5 @@
         f.double.root.visible = false; f.shell.visible = false; f.trail.visible = false;
     }
 
-    BO.FlightCircuit = { build, reset, airborne, launch, styleKey, checkBouncePads, record, beginReplay, replay, stop, pad };
+    BO.FlightCircuit = { MAP_DEFS, build, reset, airborne, launch, styleKey, checkBouncePads, record, beginReplay, replay, stop, pad };
 })(window.BO);

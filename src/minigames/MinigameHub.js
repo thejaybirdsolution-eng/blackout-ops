@@ -105,7 +105,18 @@
                     </div>
                 </nav>
                 <section class="mgh-list">
-                    ${(() => { const co = CATS.find((c) => c.id === cat); return `<div class="mgh-list-head"><span>${co.icon}</span><div><b>${co.name.toUpperCase()}</b>${co.blurb ? `<small>${esc(co.blurb)}</small>` : ''}</div></div>`; })()}
+                    ${(() => {
+                        const co = CATS.find((c) => c.id === cat);
+                        const skipCd = !!(BO.Save && BO.Save.data && BO.Save.data.minigames && BO.Save.data.minigames.skipCountdown);
+                        return `<div class="mgh-list-head">
+                            <span>${co.icon}</span>
+                            <div><b>${co.name.toUpperCase()}</b>${co.blurb ? `<small>${esc(co.blurb)}</small>` : ''}</div>
+                            <button type="button" id="mgh-countdown-toggle" class="mgh-cd-toggle ${skipCd ? 'instant' : ''}" title="Toggle the 3-2-1-GO! starting countdown across minigames">
+                                <span class="mgh-cd-dot"></span>
+                                <span><b>${skipCd ? '⚡ 3-2-1 COUNTDOWN: OFF' : '⏱️ 3-2-1 COUNTDOWN: ON'}</b><small>${skipCd ? 'Instant Start Enabled' : 'Standard 3s Countdown'}</small></span>
+                            </button>
+                        </div>`;
+                    })()}
                     <div class="mgh-grid mgh-grid-${cat}">
                         ${list.map((d, i) => this._card(d, i, d.id === (sel && sel.id))).join('')}
                     </div>
@@ -267,6 +278,7 @@
                 ${dual}
                 ${options}
                 <div class="mgh-keys">${def.keys ? def.keys.map(([k, t]) => `<span><kbd>${esc(k)}</kbd> ${esc(t)}</span>`).join('') : def.cat === 'boss' ? '<span><kbd>H</kbd> Max heal (rest only)</span><span><kbd>N</kbd> Skip rest</span>' : '<span><kbd>R</kbd> Retry from results</span><span><kbd>N</kbd> Next course</span>'}<span><kbd>ESC</kbd> Pause</span></div>
+                ${def.hasSandbox ? `<button class="mgh-example mgh-sandbox-btn" data-sandbox="${def.id}">🧪 OPEN SANDBOX MODE (NO HIGH SCORE)</button>` : ''}
                 ${def.hasExample ? `<button class="mgh-example" data-example="${def.id}">▶ EXAMPLE</button>` : ''}
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
         },
@@ -304,6 +316,9 @@
             root.querySelectorAll('[data-example]').forEach((b) => {
                 b.onclick = () => this._play(b.dataset.example, { exampleMode: true });
             });
+            root.querySelectorAll('[data-sandbox]').forEach((b) => {
+                b.onclick = () => this._play(b.dataset.sandbox, { sandbox: true, noHighScore: true });
+            });
             root.querySelectorAll('[data-guide]').forEach((b) => {
                 b.onclick = () => { BO.Sound.playUIClick(); const d = MG.get(b.dataset.guide); if (d) this._openGuideModal(d); };
             });
@@ -311,6 +326,16 @@
         },
 
         _bind(body) {
+            const cdBtn = body.querySelector('#mgh-countdown-toggle');
+            if (cdBtn) {
+                cdBtn.onclick = () => {
+                    BO.Sound.playUIClick();
+                    if (!BO.Save.data.minigames) BO.Save.data.minigames = { best: {}, plays: 0, skipCountdown: false };
+                    BO.Save.data.minigames.skipCountdown = !BO.Save.data.minigames.skipCountdown;
+                    BO.Save.save();
+                    this.render();
+                };
+            }
             body.querySelectorAll('[data-cat]').forEach((b) => {
                 b.onclick = () => { BO.BeatSongs?.stopPreview?.(); BO.Sound.playUIClick(); MG.hubCat = b.dataset.cat; this.render({ resetList: true, resetDetail: true }); };
             });

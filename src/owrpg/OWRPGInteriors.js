@@ -1,9 +1,7 @@
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · Props, NPCs, Loot Bags & Sealed Interiors
-   Runtime meshes for every interactable in OWRPGWorldData.INTERACTS, named
-   NPCs, transit pylons and dropped loot. Interiors are sealed spaces built
-   off-map (x,z > 700); entering/exiting is a teleport through a hatch/ladder.
-   Persistent props use world flags: opened_<id>, sac_<id>.
+   Supports Workbenches, Bounty Boards, auto-dismount indoors/dialogue, and
+   new NPCs (Torin, Dr. Lyra Chen).
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -16,7 +14,7 @@
         const c = document.createElement('canvas');
         c.width = 256; c.height = 48;
         const g = c.getContext('2d');
-        g.font = 'bold 26px "Segoe UI", sans-serif';
+        g.font = 'bold 24px "Segoe UI", sans-serif';
         g.textAlign = 'center';
         g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,0.75)';
         g.strokeText(text, 128, 32);
@@ -76,19 +74,28 @@
 
         _mesh(def) {
             const g = new THREE.Group();
-            const add = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+            const add = (geo, mat, x = 0, y = 0, z = 0, shadow = true) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = shadow; g.add(m); return m; };
             switch (def.kind) {
                 case 'container':
                 case 'stash': {
                     add(new THREE.BoxGeometry(1.0, 0.6, 0.6), std(def.kind === 'stash' ? 0x334155 : 0x6b4f2e), 0, 0.3, 0);
-                    add(new THREE.BoxGeometry(1.04, 0.08, 0.64), std(0x1f2937, { metalness: 0.7 }), 0, 0.62, 0);
-                    if (def.locked) add(new THREE.BoxGeometry(0.12, 0.12, 0.04), glow(0xef4444), 0, 0.42, 0.32);
-                    g.userData.glow = add(new THREE.SphereGeometry(0.06, 6, 6), glow(def.kind === 'stash' ? 0x38bdf8 : 0xfbbf24), 0, 0.75, 0);
+                    add(new THREE.BoxGeometry(1.04, 0.08, 0.64), std(0x1f2937, { metalness: 0.7 }), 0, 0.62, 0, false);
+                    if (def.locked) add(new THREE.BoxGeometry(0.12, 0.12, 0.04), glow(0xef4444), 0, 0.42, 0.32, false);
+                    g.userData.glow = add(new THREE.SphereGeometry(0.06, 6, 6), glow(def.kind === 'stash' ? 0x38bdf8 : 0xfbbf24), 0, 0.75, 0, false);
                     break;
                 }
+                case 'workbench':
+                    add(new THREE.BoxGeometry(1.5, 0.9, 0.75), std(0x523b28), 0, 0.45, 0);
+                    add(new THREE.BoxGeometry(1.56, 0.08, 0.8), std(0x475569, { metalness: 0.8 }), 0, 0.92, 0, false);
+                    g.userData.glow = add(new THREE.BoxGeometry(0.28, 0.22, 0.2), glow(0xf59e0b), 0.4, 1.07, 0, false);
+                    break;
+                case 'bounty_board':
+                    add(new THREE.BoxGeometry(1.4, 1.6, 0.14), std(0x4a3525), 0, 1.1, 0);
+                    g.userData.glow = add(new THREE.BoxGeometry(0.95, 0.7, 0.04), glow(0xfacc15), 0, 1.25, 0.09, false);
+                    break;
                 case 'terminal':
                     add(new THREE.BoxGeometry(0.7, 1.3, 0.4), std(0x1e293b), 0, 0.65, 0);
-                    g.userData.glow = add(new THREE.BoxGeometry(0.5, 0.35, 0.02), glow(0x22d3ee), 0, 1.05, 0.21);
+                    g.userData.glow = add(new THREE.BoxGeometry(0.5, 0.35, 0.02), glow(0x22d3ee), 0, 1.05, 0.21, false);
                     break;
                 case 'hatch':
                     g.userData.glow = add(new THREE.TorusGeometry(1.1, 0.06, 6, 24), glow(0xf5a623), 0, 0.55, 0);
@@ -120,12 +127,10 @@
             return g;
         },
 
-        /* ------------------------------------------------ prompts */
-        /** Nearest interactable within reach of the player, with a prompt label. */
         nearest() {
             const P = BO.Player;
             const s = this.s;
-            let best = null, bd = 2.6;
+            let best = null, bd = 2.8;
             const consider = (type, obj, pos, text, reach = 2.6) => {
                 const d = BO.Math.dist3D(P.pos.x, P.pos.y + 0.9, P.pos.z, pos.x, pos.y + 0.6, pos.z);
                 if (d < Math.min(bd, reach)) { bd = d; best = { type, obj, text }; }
@@ -135,7 +140,7 @@
             for (const p of this.props) {
                 const def = p.def;
                 if (s.worldFlags['opened_' + def.id] && def.kind === 'container') continue;
-                consider('prop', p, p.pos, this._propText(def), def.kind === 'hatch' ? 2.4 : 2.2);
+                consider('prop', p, p.pos, this._propText(def), def.kind === 'hatch' ? 2.4 : 2.3);
             }
             const art = BO.World.owrpg;
             if (art) for (const py of this.D.PYLONS) {
@@ -150,6 +155,8 @@
             const C = BO.OWRPGCharacter;
             switch (def.kind) {
                 case 'stash': return 'Open stash';
+                case 'workbench': return 'Use Field Repair Bench';
+                case 'bounty_board': return 'Open Bounty Board';
                 case 'container': {
                     if (!def.locked) return 'Search ' + def.name;
                     const fx = C.perkFx(s);
@@ -168,10 +175,9 @@
             }
         },
 
-        /* ------------------------------------------------ actions */
         interact(t) {
             const M = BO.OWRPGMode;
-            if (t.type === 'npc') return M.openDialogue(t.obj.def.id);
+            if (t.type === 'npc') { BO.OWRPGMounts?.dismount(true); return M.openDialogue(t.obj.def.id); }
             if (t.type === 'bag') return this._lootBag(t.obj);
             if (t.type === 'pylon') return M.usePylon(t.obj);
             return this._useProp(t.obj);
@@ -186,6 +192,8 @@
             const toast = (text, color = '#e2e8f0') => BO.Events.emit('hud:toast', { text, color });
             switch (def.kind) {
                 case 'stash': M.openStash(); return;
+                case 'workbench': BO.OWRPGUI.openPipPad('inventory'); return;
+                case 'bounty_board': BO.OWRPGUI.openPipPad('bounties'); return;
                 case 'container': {
                     if (def.locked) {
                         const fx = C.perkFx(s);
@@ -253,14 +261,13 @@
                     p.mesh.removeFromParent();
                     this.props.splice(this.props.indexOf(p), 1);
                     M.giveXp(30, null, true);
-                    if (Math.random() < 0.5) BO.OWRPGAI.spawn('crawler', def.x + 2, def.z + 2, { poiId: 'shale_cave', leash: 40 })?.state;
+                    if (Math.random() < 0.5) BO.OWRPGAI.spawn('crawler', def.x + 2, def.z + 2, { poiId: 'shale_cave', leash: 40 });
                     return;
                 }
                 default: return;
             }
         },
 
-        /** Is a non-hostile member of `faction` within 18 m with line of sight? */
         _witnessed(faction, pos) {
             if (BO.OWRPGMode.camoT > 0) return false;
             return BO.OWRPGAI.agents.some((a) => a.alive && a.faction === faction && !a.hostile &&
@@ -287,8 +294,8 @@
             this.bags.splice(this.bags.indexOf(b), 1);
         },
 
-        /* ------------------------------------------------ interiors */
         enter(to, id) {
+            BO.OWRPGMounts?.dismount(true);
             const P = BO.Player;
             BO.OWRPGMode.checkpoint('Entering interior');
             P.pos.set(to.x, to.y, to.z);
@@ -307,11 +314,10 @@
             BO.OWRPGMode.checkpoint('Left interior');
         },
 
-        update(dt, clock) {
+        update(dt) {
             const P = BO.Player;
             for (const p of this.props) {
-                // Distance culling: props are small and detailed; nothing reads beyond ~100 m.
-                const near = BO.Math.dist2D(P.pos.x, P.pos.z, p.pos.x, p.pos.z) < 100;
+                const near = BO.Math.dist2D(P.pos.x, P.pos.z, p.pos.x, p.pos.z) < 58;
                 if (p.mesh.visible !== near) p.mesh.visible = near;
                 if (!near) continue;
                 p.phase += dt;
@@ -323,7 +329,7 @@
             for (const n of this.npcs) {
                 n.phase += dt;
                 const d = BO.Math.dist2D(P.pos.x, P.pos.z, n.pos.x, n.pos.z);
-                const near = d < 110;
+                const near = d < (n.def.indoor ? 36 : 65);
                 if (n.parts.root.visible !== near) n.parts.root.visible = near;
                 if (!near) continue;
                 const want = d < 6 ? Math.atan2(P.pos.x - n.pos.x, P.pos.z - n.pos.z) : n.def.yaw || 0;

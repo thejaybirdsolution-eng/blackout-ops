@@ -29,11 +29,16 @@
                 <div id="ow-hud" class="hidden">
                     <div class="ow-compass" id="ow-compass"></div>
                     <div class="ow-eye" id="ow-eye"><span></span><b id="ow-eye-label">HIDDEN</b></div>
+                    <div class="ow-boss hidden" id="ow-boss"></div>
+                    <div class="ow-event hidden" id="ow-event"></div>
                     <div class="ow-quest" id="ow-quest"></div>
                     <div class="ow-clock" id="ow-clock"></div>
                     <div class="ow-prompt hidden" id="ow-prompt"></div>
                     <div class="ow-xp" id="ow-xp"><div class="ow-xp-top"><b id="ow-lvl">LV 1</b><span id="ow-xpnum"></span></div><div class="ow-xp-bar"><i id="ow-xpfill"></i></div>
-                        <div class="ow-res"><span id="ow-cr"></span><span id="ow-cells"></span><span id="ow-enc"></span></div></div>
+                        <div class="ow-res"><span id="ow-cr"></span><span id="ow-cells"></span><span id="ow-enc"></span></div>
+                        <div class="ow-barrier hidden" id="ow-barrier"></div>
+                        <div class="ow-mount hidden" id="ow-mount"></div>
+                        <div class="ow-dur-warn hidden" id="ow-dur-warn"></div></div>
                     <div class="ow-abilities" id="ow-abilities"></div>
                     <div class="ow-pops" id="ow-pops"></div>
                     <div class="ow-floats" id="ow-floats"></div>
@@ -123,6 +128,7 @@
             deathRespawn() {
                 const s = this.s, P = BO.Player, T = BO.OWRPGWorldData.TOWN;
                 this.deathOpen = false;
+                BO.OWRPGMounts?.dismount(true);
                 s.player.credits = Math.floor(s.player.credits * 0.85);
                 P.alive = true; P.hp = P.maxHp; P.inLastStand = false;
                 P.pos.set(T.x + 20, BO.World.terrainHeight(T.x + 20, T.z + 20) + 0.3, T.z + 20);
@@ -331,27 +337,92 @@
             const key = (BO.Settings.getKeybinds().interact || 'KeyE').replace('Key', '');
             this._set('ow-prompt', pr ? `<kbd>${key}</kbd> ${esc(pr.text)}` : '', 'innerHTML');
             this._set('ow-prompt', pr ? 'ow-prompt' : 'ow-prompt hidden', 'className');
-            // Abilities.
+            // Abilities + Ultimate + Med + Tool.
             const kb = BO.Settings.getKeybinds();
             const cd = BO.OWRPGCombat.cd;
             const A = BO.OWRPGStatsData.ABILITIES;
             const meds = BO.OWRPGInventory.count(s, 'medkit');
-            const slot = (k, name, t, extra = '') => `<div class="ow-ab ${t > 0 ? 'cd' : ''}"><kbd>${k}</kbd><b>${name}</b>${t > 0 ? `<i>${Math.ceil(t)}</i>` : ''}${extra}</div>`;
+            const eqTool = BO.OWRPGInventory.equippedEntry(s, 'tool');
+            const toolDef = eqTool ? BO.OWRPGInventory.def(eqTool.id) : null;
+            const slot = (k, name, t, extra = '') => `<div class="ow-ab ${t > 0 ? 'cd' : ''}"><kbd>${k}</kbd><b>${esc(name)}</b>${t > 0 ? `<i>${Math.ceil(t)}</i>` : ''}${extra}</div>`;
             const kn = (c) => (c || '').replace('Key', '').replace('Digit', '');
+            const primDef = A.primer[p.abilities.primer];
+            const detDef = A.detonator[p.abilities.detonator];
+            const gadDef = A.gadget[p.abilities.gadget];
+            const ultDef = A.ultimate && A.ultimate[p.abilities.ultimate];
             this._set('ow-abilities',
-                slot(kn(kb.owAbility1), A.primer[p.abilities.primer].name, cd.primer, BO.OWRPGCombat.primerCharges > 0 && cd.primer > 0 ? '<em>+1</em>' : '') +
-                slot(kn(kb.owAbility2), A.detonator[p.abilities.detonator].name, cd.detonator) +
-                slot(kn(kb.owGadget), A.gadget[p.abilities.gadget].name, cd.gadget) +
-                slot(kn(kb.owMed), `Med ×${meds}`, 0), 'innerHTML');
+                (primDef ? slot(kn(kb.owAbility1), primDef.name, cd.primer, BO.OWRPGCombat.primerCharges > 0 && cd.primer > 0 ? '<em>+1</em>' : '') : '') +
+                (detDef ? slot(kn(kb.owAbility2), detDef.name, cd.detonator) : '') +
+                (gadDef ? slot(kn(kb.owGadget), gadDef.name, cd.gadget) : '') +
+                (ultDef ? slot(kn(kb.owUltimate || 'KeyU'), ultDef.name, cd.ultimate || 0, BO.OWRPGCombat.overdriveT > 0 ? '<em>SURGE</em>' : '') : '') +
+                slot(kn(kb.owMed), `Med ×${meds}`, 0) +
+                slot(kn(kb.owRepair || 'KeyG'), toolDef ? toolDef.name : 'Repair', 0), 'innerHTML');
+
+            // Boss HUD bar.
+            const boss = BO.OWRPGAI.agents.find((a) => a.alive && a.boss && (a.state === 'combat' || BO.Math.dist2D(a.ent.pos.x, a.ent.pos.z, BO.Player.pos.x, BO.Player.pos.z) < 75));
+            if (boss) {
+                const pct = Math.max(0, Math.min(100, (boss.ent.hp / boss.ent.maxHp) * 100));
+                const stBadges = Object.keys(boss.st || {}).map((stId) => `<span style="color:${BO.OWRPGStatsData.STATUSES[stId]?.color || '#fff'}">${stId.toUpperCase()}</span>`).join(' ');
+                this._set('ow-boss', `<div class="ow-boss-top"><b>☠ ${esc(boss.name)} · LV ${boss.lvl}</b><span>${Math.round(boss.ent.hp)} / ${boss.ent.maxHp} ${stBadges}</span></div><div class="ow-boss-bar"><i style="width:${pct.toFixed(1)}%"></i></div>`, 'innerHTML');
+                this._set('ow-boss', 'ow-boss', 'className');
+            } else {
+                this._set('ow-boss', 'ow-boss hidden', 'className');
+            }
+
+            // Dynamic World Event HUD card.
+            const ev = BO.OWRPGEvents?.activeEvent;
+            if (ev) {
+                const dist = Math.round(BO.Math.dist2D(BO.Player.pos.x, BO.Player.pos.z, ev.x, ev.z));
+                this._set('ow-event', `<b style="color:${ev.color}">⚡ EVENT: ${esc(ev.title)} (${dist}m)</b><span>${esc(ev.desc)} · ${ev.remaining}/${ev.total} left · ${Math.ceil(ev.t)}s</span>`, 'innerHTML');
+                this._set('ow-event', 'ow-event', 'className');
+            } else {
+                this._set('ow-event', 'ow-event hidden', 'className');
+            }
+
+            // Mount status & turbo boost bar.
+            const Mnt = BO.OWRPGMounts;
+            if (Mnt?.mounted && Mnt.activeId) {
+                const mDef = Mnt.defs[Mnt.activeId];
+                this._set('ow-mount', `<div><b>🏍 ${esc(mDef?.name || 'Mount')}</b><span>${Mnt.speed.toFixed(1)} m/s · [T] Dismount</span></div><div class="ow-mount-bar"><i style="width:${Math.round(Mnt.boostFuel)}%"></i></div>`, 'innerHTML');
+                this._set('ow-mount', 'ow-mount', 'className');
+            } else {
+                this._set('ow-mount', 'ow-mount hidden', 'className');
+            }
+
+            // Kinetic barrier bar.
+            if (BO.OWRPGCombat.barrierHp > 0 && BO.OWRPGCombat.barrierT > 0) {
+                this._set('ow-barrier', `🛡 BARRIER: <b>${Math.ceil(BO.OWRPGCombat.barrierHp)}</b> (${Math.ceil(BO.OWRPGCombat.barrierT)}s)`, 'innerHTML');
+                this._set('ow-barrier', 'ow-barrier', 'className');
+            } else {
+                this._set('ow-barrier', 'ow-barrier hidden', 'className');
+            }
+
+            // Low durability warning.
+            const Dur = BO.OWRPGDurability;
+            const worn = Dur && ['primary', 'secondary', 'helmet', 'rig', 'boots', 'relic'].some((sl) => {
+                const it = BO.OWRPGInventory.equippedEntry(s, sl);
+                return it && Dur.ratio(it) <= 0.25;
+            });
+            if (worn) {
+                this._set('ow-dur-warn', `⚠ GEAR WORN — PRESS [${kn(kb.owRepair || 'KeyG')}] OR TAB TO REPAIR`, 'textContent');
+                this._set('ow-dur-warn', 'ow-dur-warn', 'className');
+            } else {
+                this._set('ow-dur-warn', 'ow-dur-warn hidden', 'className');
+            }
+
             this._set('ow-compass', this._compassHtml(tracked), 'innerHTML');
             this._updateFloats();
         },
 
-        /** Pins (and, if enabled, the tracked quest) as bearings on a ±70° strip under the compass. */
+        /** Pins, active World Event, and tracked quest as bearings on a ±70° strip under the compass. */
         _compassHtml(tracked) {
             const s = this.s, P = BO.Player, D = BO.OWRPGWorldData;
             if (D.isInterior(P.pos.x, P.pos.z)) return '';
             const marks = s.pins.map((p) => ({ x: p[0], z: p[1], c: '#f472b6', g: '✚' }));
+            if (BO.OWRPGEvents?.activeEvent) {
+                const ev = BO.OWRPGEvents.activeEvent;
+                marks.push({ x: ev.x, z: ev.z, c: ev.color || '#38bdf8', g: '⚡' });
+            }
             if (s.worldFlags.compassQuest && tracked) {
                 const m = BO.OWRPGQuests.markers(s).find((k) => k.quest === tracked);
                 const poi = m && D.POIS.find((p) => p.id === m.poi);
@@ -385,7 +456,7 @@
         floatDamage(agent, dmg, crit, kind) {
             if (!this.root || this.floats.length > 24) return;
             const el = document.createElement('div');
-            const col = { burn: '#f97316', chill: '#38bdf8', shock: '#facc15', expose: '#f472b6', sneak: '#a3e635' }[kind] || (crit ? '#fde047' : '#f8fafc');
+            const col = { burn: '#f97316', chill: '#38bdf8', shock: '#facc15', venom: '#84cc16', void: '#c084fc', expose: '#f472b6', sneak: '#a3e635' }[kind] || (crit ? '#fde047' : '#f8fafc');
             el.className = 'ow-float' + (crit ? ' crit' : '');
             el.style.color = col;
             el.textContent = Math.round(dmg) + (kind === 'sneak' ? ' SNEAK' : '');
@@ -394,12 +465,15 @@
         },
 
         _updateFloats() {
+            const now = performance.now();
+            const dt = this._lastFloatT ? Math.min(0.05, Math.max(0.001, (now - this._lastFloatT) / 1000)) : (1 / 60);
+            this._lastFloatT = now;
             const cam = this.M.camera;
             const w = window.innerWidth, h = window.innerHeight;
             for (let i = this.floats.length - 1; i >= 0; i--) {
                 const f = this.floats[i];
-                f.t -= 1 / 60;
-                f.pos.y += 0.02;
+                f.t -= dt;
+                f.pos.y += dt * 1.2;
                 _v.copy(f.pos).project(cam);
                 if (f.t <= 0 || _v.z > 1) { f.el.remove(); this.floats.splice(i, 1); continue; }
                 f.el.style.transform = `translate(${((_v.x + 1) / 2) * w}px, ${((1 - _v.y) / 2) * h}px)`;

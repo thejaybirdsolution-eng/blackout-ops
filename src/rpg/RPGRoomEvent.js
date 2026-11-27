@@ -320,11 +320,26 @@
         }
 
         shop() {
+            const items = BO.RPGItems;
+            const prices = this.mode.D.ISAAC?.shopPrices || {};
             const options = [
                 ['Refill one potion · 28 gold', () => {
                     this.run.potions++; this.shop();
                 }, () => this.run.potions >= this.mode.stats.potionsMax, 28],
                 ['Heal 40% · 45 gold', () => { this.mode.heal(this.mode.P.maxHp * 0.4); this.shop(); }, () => this.mode.P.hp >= this.mode.P.maxHp, 45],
+                [`Soul Shield Heart · ${prices.heart_soul || 26} gold`, () => {
+                    items?.addSoulShield(25); this.shop();
+                }, () => !items || (this.run.soulShield || 0) >= 150, prices.heart_soul || 26],
+                [`Brass Key · ${prices.key || 16} gold`, () => {
+                    if (items) { items.ensureRunState(this.run); this.run.keys++; } this.shop();
+                }, () => !items, prices.key || 16],
+                [`Floor Bomb · ${prices.bomb_pickup || 16} gold`, () => {
+                    if (items) { items.ensureRunState(this.run); this.run.bombs++; } this.shop();
+                }, () => !items, prices.bomb_pickup || 16],
+                [`Mystery Pill / Card · ${prices.pill || 22} gold`, () => {
+                    if (items) items.spawnPickup(this.pos.clone().add(new THREE.Vector3(0, 0, 1.8)), Math.random() < 0.5 ? 'pill' : 'card');
+                    this.shop();
+                }, () => !items, prices.pill || 22],
                 ['Buy rare gear · 80 gold', () => {
                     this.used = true;
                     this.mode._dropItem(this.pos.clone().add(new THREE.Vector3(1.3, 0, 0)), this.profile.rollItem({ floor: this.run.floor + 1, minRarity: 'rare' }));
@@ -335,7 +350,7 @@
                 this.run.gold -= cost;
                 buy();
             }, this.run.gold < cost || blocked()]);
-            this.modal('Traveling Shop', '<p>You have ' + this.run.gold + ' unbanked gold. Gear appears beside the counter.</p>', options);
+            this.modal('Traveling Shop', '<p>You have ' + this.run.gold + ' unbanked gold. Pedestals in front of the counter also hold wares.</p>', options);
         }
 
         unlock() {
@@ -357,6 +372,7 @@
         sanctuary() {
             this.modal('Sanctuary', '<p>Take one blessing from this altar.</p>', [
                 ['Heal 55%', () => { this.mode.heal(this.mode.P.maxHp * 0.55); this.claim('Recovered health.'); }],
+                ['Gain +25 Soul Shield', () => { BO.RPGItems?.addSoulShield(25); this.claim('Soul Shield granted.'); }],
                 ['Refill one potion', () => { this.run.potions++; this.claim('Potion restored.'); }, this.run.potions >= this.mode.stats.potionsMax]
             ]);
         }

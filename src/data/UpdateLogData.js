@@ -9,7 +9,7 @@
         project: 'Blackout Ops',
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
-        period: 'Nov 22 – Nov 26, 2026 (ET)',
+        period: 'Nov 22 – Nov 27, 2026 (ET)',
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -3098,6 +3098,370 @@
                         {
                                 "type": "p",
                                 "text": "Rebuilt first-person operator hands and forearms with tapered sleeves, matte black tactical combat gloves, properly aligned wrist cuffs, a slim low-profile watch, and a clean two-handed thumbs-forward pistol ADS grip. Integrated sculpted 3D GLB dungeon monsters (Imp & Puglin) for fiend, spitter, stalker, and brute archetypes across Zombies, Open World RPG, Rogue Lite, and Tower Defense, added Mini Arena 3D weapon racks, banners, statues, columns, and trophies across Multiplayer and Open World RPG, and restored the missing industrial building colormap texture."
+                        }
+                ]
+        },
+        {
+                "id": 155,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:15 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Open World RPG: Meridian Overhaul — Gun RPG Stats, Elements, Armor Sets, Durability & Mounts",
+                "major": true,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Massive expansion to Operation Meridian: added dedicated RPG-only weapon stats for every firearm in the game (damage multipliers, crit chance/mult, armor penetration, passive traits, and 5 elemental damage types — Kinetic, Burn, Chill, Shock, Venom, Void) without altering standard shooter modes. Added 27 unlockable named weapons, multi-slot armor pieces (Helmets, Rigs, Boots, Relics) forming 4 set-bonus armor sets, equipment durability with field repair kits and a Pip-Pad Repair Workbench, 10 durable field tools [G], 4 unlockable Ultimate abilities [U], 4 summonable mounts [T] (Scout Bike, Hoverbike, Armored ATV, War Strider), 8 dynamic world events, a regional bounty board, a claimable Codex, new quests, and full Pip-Pad & HUD integration."
+                        }
+                ]
+        },
+        {
+                "id": 156,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:18 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Rogue Lite: Isaac-Style Relics, Orbitals, Charged Actives, Pills, Tarot Cards & Transformations",
+                "major": true,
+                "tags": [
+                        "rogue",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Expanded Rogue Lite delves with 40 passive tear/shot-modifying artifacts (multishot, homing, wall-bouncing, Brimstone blood beams, chain lightning, explosive shots, split shots), 3D orbiting/following familiars, 13 room-charged active items [G], 10 seeded Mystery Pills and 12 Tarot Cards [T], placeable bombs [B], Tinted Rocks, Golden Reliquaries, Treasure/Shop/Devil/Angel pedestals, and 5 three-piece character transformations."
+                        }
+                ]
+        },
+        {
+                "id": 157,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:20 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Minigames Hub: 3-2-1 Countdown Toggle & Sandbox Mode Launcher",
+                "major": false,
+                "tags": [
+                        "minigames",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added a persistent '3-2-1 COUNTDOWN: ON / OFF' toggle button in the Minigames Hub so players can skip the opening countdown and deploy instantaneously, alongside direct Sandbox launcher support for practice courses."
+                        }
+                ]
+        },
+        {
+                "id": 158,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:22 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "360 Trickshot: 5 Arena Maps (Separate High Scores) & Full Sandbox Editor",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Expanded 360 Trickshot into 5 distinct arenas (Skyhigh Neon Stadium, Scrapyard Launchpad, Obsidian Spire, Volcanic Foundry, Orbital Ring) each tracking its own separate personal bests. Added a full no-timer Trickshot Sandbox mode where players can reset position/dummies, toggle/customize enemy movement & patterns, relocate dummies, edit the 0.5s mid-air shot timer, toggle the 360-degree spin requirement, and practice freely with high scores disabled."
+                        }
+                ]
+        },
+        {
+                "id": 159,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:24 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Master Zombie: Fort Wall Line-of-Sight Fix, Patrol/Jump AI & Upgraded Player Evolution",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed a major issue in Master Zombie where human fort defenders could shoot through solid fortification walls; defenders now obey strict line-of-sight checks, continuously patrol the ramparts, and jump once every 20 seconds. Upgraded first-person evolved Zombie claws/arms, necrotic bolt & acid volley visuals, and fortress courtyard environmental detail."
+                        }
+                ]
+        },
+        {
+                "id": 160,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:26 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Final Fantasy RPG: Clear Quest Compass, Objective Tracker & Visual Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added a clear step-by-step Quest Objective Tracker, bearing compass arrow, and live overworld minimap markers pointing directly toward shrines, crystal objectives, and boss encounters in Final Fantasy RPG, plus upgraded spell effects and battlefield animations."
+                        }
+                ]
+        },
+        {
+                "id": 161,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:28 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Bunker Inspection: 2.8x Magnifying Glass Tool, Micro-Symptoms & Layered Survivor Overhaul",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Equipped Bunker Inspection officers with a bespoke secondary Optical Magnifying Glass [2] featuring a custom brass/glass 3D viewmodel and 2.8x optical zoom [RMB] lens reticle. Added 6 subtle hard-to-notice infection tells (micro-dilated iris ring, jawline spider-veins, cyanotic fingertips, fever sweat, nostril micro-bleed, and forged CLR:X-00 pass serials) alongside upgraded layered coats, accessories, and idle animations for survivors."
+                        }
+                ]
+        },
+        {
+                "id": 162,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:30 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Midnight Toyshop Prop Hunt: 5-Kill Rainbow Disco Party Mode, Club Music & Toy Train",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Upgraded Midnight Toyshop Prop Hunt with a live miniature Toy Train circling the carousel, interactive Jack-in-the-Box surprises, a mimic proximity radar, and the new 5-Kill Rainbow Disco Party Mode: busting your 5th mimic dims shop lighting, drops a spinning mirror disco ball with 8 sweeping rainbow spotlight cones and confetti, triggers 2x Party Fever scoring, makes mimics groove to the beat, and crossfades into happy club party music."
+                        }
+                ]
+        },
+        {
+                "id": 163,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:32 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Kaiju vs. Mecha Metropolis: Launch Crash Fix, Plasma Meteor & Power Substation Overhaul",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed the asset-helper crash preventing Kaiju vs. Mecha Metropolis from starting. Upgraded 1st-person articulated Obsidian Kaiju claws with plasma-reactive dorsal spines, layered dual-core Atomic Plasma Breath, added a hurled Plasma Meteor ability [E] and 3 destructible Power-Grid Substations (+100 HP & instant Overdrive), and enhanced skyscraper demolition and the Mecha-Titan Mk-IX showdown."
+                        }
+                ]
+        },
+        {
+                "id": 164,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:34 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Orbital Breach (Zero Gravity): Clear EVA Mission Loop & Zero-G Visual Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Rebuilt Orbital Breach with unmistakable step-by-step zero-gravity EVA mission objectives (sabotage solar arrays, seal hull breaches, push toward the command core), visual thruster/tether guidance rings, smoother 6-DOF microgravity drift controls, and upgraded orbiting space-station modules."
+                        }
+                ]
+        },
+        {
+                "id": 165,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:36 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Abyssal Mech Trench: Bioluminescent Ocean Floor & Deep-Sea Combat Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Overhauled Abyssal Mech Trench with glowing hydrothermal vents, rising bubble columns, drifting bioluminescent jellyfish, upgraded mech cockpit floodlights, sharper sonar pulse feedback, and tuned deep-sea Leviathan encounters."
+                        }
+                ]
+        },
+        {
+                "id": 166,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:38 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Jurassic Dino Safari: Lush Paddock Overhaul, Upgraded Raptors & T-Rex Stampede",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Upgraded Jurassic Dino Safari with denser electrified perimeter paddocks, misty amber floodlights, articulated multi-joint Raptor & Triceratops meshes, smoother dart-stun & stampede pacing, and an intensified Apex T-Rex finale."
+                        }
+                ]
+        },
+        {
+                "id": 167,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:40 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Cyberpunk Hoverbike Highway: Neon Arches, Boost Gates, Jump Ramps & EMP Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Enhanced Cyberpunk Hoverbike Neon Highway with overhead streaming neon arches, plasma underglow trails, green Boost Gates (cooldown reset + hull repair), Neon Jump Ramps for vaulting Red Laser Barriers, EMP Shockwaves [F], [RMB] Thermal Katana support, and upgraded Valkyrie Gunship action."
+                        }
+                ]
+        },
+        {
+                "id": 168,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:42 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Pinball Wizard 3D: Fixed M-A-G-I-C Targets, Manual Plunger, Player Flippers [Q/E] & Clear Goals",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed the M-A-G-I-C drop targets destroying on the first shot so all five letters light cleanly and guide arrows lead straight to Multiball Jackpot Fever (2x score + Golden Bonus Balls). Removed the instant auto-fling trap so players start safely in the plunger lane and fire a Skill Shot with [SPACE], added manual Left/Right Flippers [Q/E], Orbit Spinners, Table Nudge [F], and an unmistakable 3-step objective HUD."
+                        }
+                ]
+        },
+        {
+                "id": 169,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:44 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Heli Gunner: Fixed Sunken Buildings & Gunship Orbit Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed all sunken cityscape buildings in Heli Gunner so structures sit flush on terrain, upgraded rooftop & convoy target visibility, and enhanced chopper gunship optics, tracers, and explosive chain feedback."
+                        }
+                ]
+        },
+        {
+                "id": 170,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:46 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Mansion Raid: Fixed Invisible Bandits, Unblocked Doorways & Tactical Raid Overhaul",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Fixed invisible/occluded bandits shooting the player and cleared doorway collision geometry across Mansion Raid rooms. Added directional incoming damage arcs, tactical flashbang breaches, richer mansion interior dressings, and crisp scenario telegraphs."
+                        }
+                ]
+        },
+        {
+                "id": 171,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:48 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Sweetheart Shore: AAA-Grade Character Fidelity, Gerstner Ocean & Fever Overhaul",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Significantly upgraded character anatomy, expressive facial features, stylized swimwear, hair physics, and dynamic beach animations in BeachAnatomy and BeachArt alongside rolling Gerstner ocean waves, sunburst lighting, and Fever Mode shockwave combos."
+                        }
+                ]
+        },
+        {
+                "id": 172,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:50 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Speed Runs Overhaul: Upgraded All 8 Timed Courses",
+                "major": false,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Delivered a full visual, animation, and gameplay polish pass across Gauntlet Sprint, Outpost Rescue, Getaway Chase, The Splitter, Sky Snipers, Last 50, Freefall, and Ninja Stealth with richer scenery props, kinetic speed trails, and tighter checkpoint & hazard responsiveness."
+                        }
+                ]
+        },
+        {
+                "id": 173,
+                "hash": "v3.0",
+                "date": "Nov 27, 2026",
+                "fullDate": "November 27, 2026",
+                "time": "12:52 AM ET",
+                "dayKey": "2026-11-27",
+                "title": "Three-Headed Dragon: Complete Boss Redesign — Tri-Head Hydra Necks, Breath & Arena",
+                "major": true,
+                "tags": [
+                        "minigames"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Heavily redesigned the Three-Headed Dragon encounter with distinct sculpted Ignis (Fire), Glacius (Frost), and Voltaris (Lightning) dragon heads atop articulated snaking necks, armored obsidian torso & beating bat-wings, elemental breath beams, destructible weakpoint crests, and an atmospheric volcanic citadel speed-run arena."
                         }
                 ]
         }

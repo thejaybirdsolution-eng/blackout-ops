@@ -510,6 +510,23 @@
         WEAPONS[w.id] = w;
         ORDER.push(w.id);
     }
+    // Special Inspection Tool for Bunker mode (kept out of Create-a-Class & Mystery Box pools)
+    WEAPONS.magnifying_glass = Object.assign(makeMelee({
+        id: 'magnifying_glass',
+        name: 'OPTICAL MAGNIFYING GLASS',
+        shortName: 'MAGNIFIER',
+        tier: 'common',
+        damage: 15,
+        rpm: 90,
+        range: 2.2,
+        cleave: 1,
+        moveMult: 1.05,
+        meleeEffect: 'slash',
+        meleeShape: 'magnifying_glass',
+        primaryColor: 0xd97706,
+        accentColor: 0x5c3419,
+        description: 'Precision brass-rimmed inspection lens with 3.0x optical magnification for spotting faint infection symptoms and forged ID micro-print.'
+    }), { hiddenInLoadout: true, mysteryBox: true, hipPos: [0.19, -0.17, -0.34], adsPos: [0.0, -0.02, -0.22] });
 
     const POOLS = {
         commonGun: GUN_LIST.filter((w) => w.tier === 'common').map((w) => w.id),
@@ -546,9 +563,9 @@
         listLoadoutWeapons() {
             // In Sandbox Unlock-All mode, even Magic Weapons can be tested in Gunsmith!
             if (BO.Settings && BO.Settings.get('unlockAll')) {
-                return ORDER.map((id) => WEAPONS[id]);
+                return ORDER.map((id) => WEAPONS[id]).filter((w) => !w.hiddenInLoadout);
             }
-            return ORDER.map((id) => WEAPONS[id]).filter((w) => !w.mysteryBox);
+            return ORDER.map((id) => WEAPONS[id]).filter((w) => !w.mysteryBox && !w.hiddenInLoadout);
         },
         listAll() {
             return ORDER.map((id) => WEAPONS[id]);

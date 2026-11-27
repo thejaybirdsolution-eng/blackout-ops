@@ -491,6 +491,29 @@
 
     const SHRINE = { hpCostPct: 20, goldCost: (floor) => 60 + floor * 18 };
 
+    const ISAAC = {
+        heartHeal: 25,
+        soulHeartAmount: 25,
+        soulShieldCap: 150,
+        devilHpCostPct: 0.15,
+        bombDamage: 185,
+        bombRadius: 4.8,
+        bombFuse: 1.55,
+        startKeys: 1,
+        startBombs: 2,
+        shopPrices: {
+            heart_red: 15,
+            heart_soul: 26,
+            key: 16,
+            bomb_pickup: 16,
+            battery: 28,
+            pill: 22,
+            card: 26,
+            artifact: 65,
+            active: 70
+        }
+    };
+
     BO.RPGData = {
         STATUSES, STATUS_ORDER, REACTIONS, CLASSES, CLASS_ORDER, TALENTS, TALENT_TIER_LEVELS,
         LEVEL_CAP, xpToNext, levelHpBonus, levelPotionBonus, abilityPower, recommendedLevel,
@@ -498,7 +521,7 @@
         ENEMIES, ELITE_AFFIXES, ELITE, BOSSES, BIOMES, biomeForFloor, ROOMS,
         RARITIES, RARITY_INDEX, rarityWeights, ITEM_SLOTS, ITEM_POWER_PER_LEVEL, WEAPON_POOL, RIG_NAMES, RELIC_NAMES,
         AFFIXES, LEGENDARIES, SETS, CONTRACTS, BOONS, UPGRADES, BASE_POTIONS, BASE_POTION_HEAL, BASE_PACK_SLOTS, STASH_SIZE,
-        ELIXIRS, FORGE, SHRINE,
+        ELIXIRS, FORGE, SHRINE, ISAAC,
         talentById(classId, talentId) {
             for (const tier of TALENTS[classId] || []) {
                 const t = tier.find((x) => x.id === talentId);

@@ -27,6 +27,22 @@
             return L.pbrMat ? L.pbrMat(relPath, repeatX, repeatY, opts) : std(0x64748b, 0.8);
         },
 
+        applySkybox(scene, file) {
+            return L.applySkybox ? L.applySkybox(scene, file) : null;
+        },
+
+        loadGLB(relPath) {
+            return L.loadGLB ? L.loadGLB(relPath) : Promise.resolve(null);
+        },
+
+        placeGLB(parent, relPath, opts) {
+            return L.placeGLB ? L.placeGLB(parent, relPath, opts) : null;
+        },
+
+        placeGLBInstanced(parent, relPath, transforms, opts) {
+            return L.placeGLBInstanced ? L.placeGLBInstanced(parent, relPath, transforms, opts) : null;
+        },
+
         /* ------------------------------------------------------ bullseye */
         bullseyeTex(style = 'classic') {
             return canvasTex('bull:' + style, 512, 512, (g, w) => {

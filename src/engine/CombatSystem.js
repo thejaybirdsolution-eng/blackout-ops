@@ -73,6 +73,10 @@
             if (!P.alive) return;
             P.triggerHeld = pressed;
 
+            if (BO.State.activeMode === 'owrpg' && BO.OWRPGMode?.active && BO.OWRPGMode.holstered) {
+                if (justPressed) BO.OWRPGMode.toast('Weapon holstered — press [B] to draw', '#f59e0b');
+                return;
+            }
             if (P.swapTimer > 0 || P.meleeTimer > 0) return;
 
             if (P.usingBareHands) {
@@ -257,7 +261,9 @@
             const hasDoubleTap = P.zombiePerks.has('double_tap');
             const tdGongBoost = (BO.State.activeMode === 'td' && BO.TowerDefenseMode && BO.TowerDefenseMode.overdriveTimer > 0) ? 1.85 : 1.0;
             const modRof = BO.Mods ? BO.Mods.fireRateMult() : 1.0;
-            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost * modRof;
+            const rpgMod = (BO.State.activeMode === 'rpg' && BO.RPGItems?.shotModifiers) ? BO.RPGItems.shotModifiers() : null;
+            const rpgRof = rpgMod ? Math.max(0.25, rpgMod.fireRateMult || 1.0) : 1.0;
+            const rpm = w.stats.rpm * (hasDoubleTap ? 1.25 : 1.0) * (P.overdriveActive ? 1.60 : 1.0) * tdGongBoost * modRof * rpgRof;
             P.fireCooldown = isUnderbarrelLauncher ? 1.55 : isUnderbarrelFlame ? 0.3 : isMasterkey ? 0.82 : 60 / Math.max(30, rpm);
             if (mgRt && mgRt.fireInterval) P.fireCooldown = Math.max(P.fireCooldown, mgRt.fireInterval);
 
@@ -319,36 +325,48 @@
             } else {
                 const shot = isMasterkey ? { ...w, stats: { ...w.stats, category: 'Shotgun', damage: 20,
                     range: 16, pellets: 7, hipSpread: 0.085, adsSpread: 0.065, penetration: 0 } } : w;
-                const pellets = (shot.stats.pellets || 1) * (hasDoubleTap ? 2 : 1);
+                const basePellets = (shot.stats.pellets || 1) * (hasDoubleTap ? 2 : 1);
+                const pellets = rpgMod ? Math.max(1, basePellets + (rpgMod.multishot ? rpgMod.multishot - 1 : 0)) : basePellets;
                 let spread = BO.Math.lerp(shot.stats.hipSpread, shot.stats.adsSpread, P.adsAlpha);
                 if (P.zombiePerks.has('deadshot')) spread *= 0.65;
                 if (Math.hypot(P.vel.x, P.vel.z) > 1.5 && P.adsAlpha < 0.5) spread *= 1.35;
                 if (BO.Mods) spread *= BO.Mods.spreadMult();
+                if (rpgMod) spread += (rpgMod.spreadAdd || 0) + (pellets > 1 && basePellets === 1 ? 0.032 : 0);
 
                 let anyHit = false;
                 let anyKill = false;
                 let anyHeadshot = false;
                 let multiKills = 0;
 
-                for (let i = 0; i < pellets; i++) {
-                    const shotDir = aim.dir.clone();
-                    shotDir.x += (Math.random() - 0.5) * 2 * spread;
-                    shotDir.y += (Math.random() - 0.5) * 2 * spread;
-                    shotDir.z += (Math.random() - 0.5) * 2 * spread;
-                    shotDir.normalize();
+                if (rpgMod && rpgMod.brimstone) {
+                    const brRes = this._fireRpgBrimstone(aim.origin, aim.dir, shot, rpgMod);
+                    if (brRes.hit) anyHit = true;
+                    if (brRes.headshot) anyHeadshot = true;
+                    if (brRes.kills > 0) { anyKill = true; multiKills += brRes.kills; }
+                } else {
+                    for (let i = 0; i < pellets; i++) {
+                        const shotDir = aim.dir.clone();
+                        const fan = pellets > 1 && basePellets === 1 ? ((i - (pellets - 1) * 0.5) * 0.045) : 0;
+                        const { right } = P.getMoveDirectionVectors();
+                        if (fan) shotDir.addScaledVector(right, fan);
+                        shotDir.x += (Math.random() - 0.5) * 2 * spread;
+                        shotDir.y += (Math.random() - 0.5) * 2 * spread;
+                        shotDir.z += (Math.random() - 0.5) * 2 * spread;
+                        shotDir.normalize();
 
-                    const res = this._castBulletRay(aim.origin, shotDir, shot);
-                    if (res.hit) anyHit = true;
-                    if (res.headshot) anyHeadshot = true;
-                    if (res.kills > 0) {
-                        anyKill = true;
-                        multiKills += res.kills;
+                        const res = this._castBulletRay(aim.origin, shotDir, shot, rpgMod);
+                        if (res.hit) anyHit = true;
+                        if (res.headshot) anyHeadshot = true;
+                        if (res.kills > 0) {
+                            anyKill = true;
+                            multiKills += res.kills;
+                        }
                     }
                 }
 
                 if (anyHit) {
                     BO.Progression.recordStat('shotsHit', 1);
-                    BO.Sound.playHitmarker(anyHeadshot, anyKill);
+                    if (BO.State.activeMode !== 'owrpg') BO.Sound.playHitmarker(anyHeadshot, anyKill);
                     BO.Events.emit('hud:hitmarker', { isHeadshot: anyHeadshot, isKill: anyKill });
                     if (BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.recordKillcamFx) {
                         BO.MPMode.recordKillcamFx({ kind: 'hitmarker', isHeadshot: anyHeadshot, isKill: anyKill });
@@ -367,27 +385,68 @@
             }
         }
 
-        _castBulletRay(origin, dir, w) {
+        _fireRpgBrimstone(origin, dir, w, rpgMod) {
+            const range = 75 * (rpgMod.rangeMult || 1);
+            const wh = BO.World.raycastWorld(origin, dir, range);
+            const endPt = wh ? wh.point.clone() : origin.clone().addScaledVector(dir, range);
+            const startPt = origin.clone().addScaledVector(dir, 0.55).add(new THREE.Vector3(0, -0.09, 0));
+            BO.FX.spawnTracer(startPt, endPt, rpgMod.tracerColor || 0xef4444, Math.max(0.11, rpgMod.tracerWidth || 0.14), 0.24);
+            BO.FX.spawnParticles(endPt, 14, rpgMod.tracerColor || 0xef4444, 5, 4, 0.45, 1.3);
+            this.raycaster.set(origin, dir);
+            this.raycaster.far = wh ? wh.distance : range;
+            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const seen = new Set();
+            let hit = false, headshot = false, kills = 0;
+            for (const h of hits) {
+                const ent = h.object.userData.entity;
+                if (!ent || !ent.alive || seen.has(ent)) continue;
+                seen.add(ent); hit = true;
+                const hb = h.object.userData.hitbox || 'torso';
+                if (hb === 'head') headshot = true;
+                const dmg = w.stats.damage * (rpgMod.damageMult || 1) * (hb === 'head' ? (w.stats.headMult || 1.5) : 1) * 1.35;
+                if (this.onHitEnemy && this.onHitEnemy(ent, dmg, hb, h.distance, w, h.point, dir)) kills++;
+            }
+            return { hit, headshot, kills };
+        }
+
+        _castBulletRay(origin, dir, w, rpgMod = null, segDepth = 0) {
             const minRange = BO.State.activeMode === 'td' ? 195 : 85;
-            const maxDist = Math.max(minRange, w.stats.range * 2.4);
-            const worldHit = BO.World.raycastWorld(origin, dir, maxDist);
+            const maxDist = Math.max(minRange, w.stats.range * 2.4 * (rpgMod?.rangeMult || 1));
+            let castDir = dir.clone();
+            // Homing assist (Spoon Bender / Sacred Heart) subtly bends shot toward nearest enemy in front cone!
+            if (rpgMod && rpgMod.homing && segDepth === 0) {
+                let bestDot = 0.72, bestTo = null;
+                const tmp = new THREE.Vector3();
+                for (let i = 0; i < this.targetPool.length; i++) {
+                    const ent = this.targetPool[i].userData.entity;
+                    if (!ent || !ent.alive || !ent.pos) continue;
+                    tmp.set(ent.pos.x, ent.pos.y + 1.15, ent.pos.z).sub(origin);
+                    const d = tmp.length();
+                    if (d > maxDist || d < 0.5) continue;
+                    tmp.divideScalar(d);
+                    const dot = tmp.dot(castDir);
+                    if (dot > bestDot) { bestDot = dot; bestTo = tmp.clone(); }
+                }
+                if (bestTo) castDir.lerp(bestTo, 0.72).normalize();
+            }
+            const worldHit = BO.World.raycastWorld(origin, castDir, maxDist);
             const worldDist = worldHit ? worldHit.distance : maxDist;
 
             // Tracer start slightly offset right-down when hipfiring
             const P = BO.Player;
             const { right } = P.getMoveDirectionVectors();
-            const muzzlePos = origin.clone()
-                .addScaledVector(dir, 0.55)
+            const muzzlePos = segDepth > 0 ? origin.clone() : origin.clone()
+                .addScaledVector(castDir, 0.55)
                 .addScaledVector(right, (1 - P.adsAlpha) * 0.16)
                 .add(new THREE.Vector3(0, (1 - P.adsAlpha) * -0.10, 0));
 
-            this.raycaster.set(origin, dir);
+            this.raycaster.set(origin, castDir);
             this.raycaster.far = worldDist;
             const hits = this.raycaster.intersectObjects(this.targetPool, false);
 
             if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
-            let endPoint = worldHit ? worldHit.point.clone() : origin.clone().addScaledVector(dir, 60);
-            let pierceLeft = (w.stats.penetration || 0) + 1;
+            let endPoint = worldHit ? worldHit.point.clone() : origin.clone().addScaledVector(castDir, 60);
+            let pierceLeft = (w.stats.penetration || 0) + 1 + (rpgMod?.pierceAdd || 0);
             if (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.singleTargetShots) pierceLeft = 1;
             const hitEntities = new Set();
             let didHit = false;
@@ -414,7 +473,7 @@
                     falloff = BO.Math.clamp(1 - over * 0.45, 0.45, 1.0);
                 }
 
-                let dmg = w.stats.damage * falloff;
+                let dmg = w.stats.damage * falloff * (rpgMod?.damageMult || 1);
                 const perks = P.mpPerks;
                 if (perks.includes('duelist') && h.distance <= 6) dmg *= 1.25;
                 if (perks.includes('skyline') && !P.onGround) dmg *= 1.3;
@@ -462,7 +521,7 @@
                 }
 
                 if (this.onHitEnemy) {
-                    const killed = this.onHitEnemy(ent, dmg, hitbox, h.distance, w, h.point, dir);
+                    const killed = this.onHitEnemy(ent, dmg, hitbox, h.distance, w, h.point, castDir);
                     if (killed) kills++;
                 }
             }
@@ -472,10 +531,25 @@
                 BO.FX.spawnDecal(worldHit.point, n, false);
                 BO.FX.spawnParticles(worldHit.point, 4, 0xd4d4d8, 3.0, 11, 0.25, 0.7);
                 BO.Sound.playBulletImpact(worldHit);
+                if (rpgMod && rpgMod.explosive && !didHit && this.onExplodeAt) {
+                    const rad = rpgMod.explosiveRadius || 3.4;
+                    BO.FX.spawnExplosion(worldHit.point.clone(), rad, rpgMod.tracerColor || 0x84cc16);
+                    this.onExplodeAt(worldHit.point.clone(), rad, w.stats.damage * (rpgMod.damageMult || 1) * 0.65);
+                }
+                // Rubber Cement Wall-Bounce Ricochet!
+                if (rpgMod && rpgMod.bounceCount > segDepth) {
+                    const rDir = castDir.clone().reflect(n).normalize();
+                    const rOrig = worldHit.point.clone().addScaledVector(n, 0.12);
+                    const br = this._castBulletRay(rOrig, rDir, w, rpgMod, segDepth + 1);
+                    if (br.hit) didHit = true;
+                    if (br.headshot) didHead = true;
+                    kills += br.kills;
+                }
             }
 
-            const tracerCol = (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.tracerColor) || (w.isPaP ? 0xc084fc : 0xffd166);
-            BO.FX.spawnTracer(muzzlePos, endPoint, tracerCol, w.isPaP ? 0.036 : 0.022, 0.075);
+            const tracerCol = (rpgMod && rpgMod.tracerColor) || (BO.State.activeMode === 'minigame' && BO.Minigames && BO.Minigames.tracerColor) || (w.isPaP ? 0xc084fc : 0xffd166);
+            const tracerW = (rpgMod && rpgMod.tracerWidth) || (w.isPaP ? 0.036 : 0.022);
+            BO.FX.spawnTracer(muzzlePos, endPoint, tracerCol, tracerW, 0.08);
             if (BO.Net && BO.Net.active) {
                 BO.Net.sendPlayerFx({
                     kind: 'tracer',
@@ -1745,8 +1819,8 @@
                 const ent = h.object.userData.entity;
                 if (ent && ent.alive && this.onHitEnemy) {
                     BO.FX.spawnParticles(h.point, 8, 0x991b1b, 3.2, 10, 0.35, 1.0);
-                    const killed = this.onHitEnemy(ent, 150, 'torso', h.distance, { id: 'knife', stats: { id: 'knife' } }, h.point, aim.dir);
-                    BO.Sound.playHitmarker(false, killed);
+                    const killed = this.onHitEnemy(ent, 150, 'torso', h.distance, { id: 'knife', stats: { id: 'knife', kind: 'melee' } }, h.point, aim.dir);
+                    if (BO.State.activeMode !== 'owrpg') BO.Sound.playHitmarker(false, killed);
                     BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: killed });
                     break;
                 }

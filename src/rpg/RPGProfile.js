@@ -100,7 +100,8 @@
             p.uidSeq = Math.max(1, Math.floor(p.uidSeq) || 1);
             p.challengeReceipts = Array.isArray(raw.challengeReceipts) ? raw.challengeReceipts.filter((id) => typeof id === 'string').slice(-300) : [];
             p.unlockRecords = this._normalizeCounts(raw.unlockRecords, [
-                'puzzles', 'speedWins', 'defenses', 'strikes', 'curseExtractions', 'legendariesBanked', 'extractedFloor'
+                'puzzles', 'speedWins', 'defenses', 'strikes', 'curseExtractions', 'legendariesBanked', 'extractedFloor',
+                'devilDeals', 'transformations', 'artifactsCollected'
             ]);
             const unlocks = BO.RPGUnlocks;
             p.curios = Array.isArray(raw.curios) ? [...new Set(raw.curios)].filter((id) => unlocks.byId[id]?.slot === 'curio') : [];
@@ -586,6 +587,7 @@
                 if (run.elixir === 'fortune') s.goldFind += 30;
             }
             s.maxHp = Math.max(30, Math.round(s.maxHp * (1 + s.maxHpPct / 100) * (1 - ((run && run.shrineHpPenalty) || 0))));
+            if (run && BO.RPGItems) BO.RPGItems.applyProfileStats(s, run);
             s.cdrMult = clamp(1 - s.cdr / 100, 0.4, 1.6);
             s.dmgTakenMult = clamp(1 - s.dmgReduce / 100, 0.35, 1.5) * (run?.curse ? 1.15 : 1);
             s.potionHealFrac *= Math.max(0.2, 1 + s.potionHeal / 100);

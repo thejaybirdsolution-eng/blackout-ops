@@ -1,20 +1,21 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · Character (attributes, XP, perks, derived)
-   Pure functions over a slot object `s`. Attribute 5 is the neutral baseline
-   for relative modifiers; weakspot crit uses the absolute formula
-   M_crit = 1 + 0.50 + 0.045 * PRC (+ perk/affix additions).
-   Progression: perk point at every even level, attribute point at every odd
-   level >= 3. Perk tiers are XOR pairs and require the previous tier.
+   BLACKOUT OPS — Open World RPG · Character (attributes, XP, perks, armor sets)
+   Preserves starter formulas verified by _qa_owrpg.html:
+     maxHp = 60 + 8 * BRW (+ perks + non-starter gear)
+     maxWeight = 35 + 6 * BRW (+ perks + non-starter gear)
+     critMult = 1 + 0.50 + 0.045 * PRC (+ perks + non-starter gear)
 ============================================================================ */
 (function (BO) {
     'use strict';
 
     const SD = () => BO.OWRPGStatsData;
+    const EX = () => BO.OWRPGExpansionData;
+    const ARMOR_RARITY = { common: 1.0, rare: 1.25, epic: 1.55, legendary: 1.9 };
+    const ARMOR_SLOTS = ['helmet', 'rig', 'boots', 'relic'];
 
     const Char = {
         attr(s, id) { return s.player.attrs[id] || 5; },
 
-        /** Sum of every numeric perk effect. */
         perkFx(s) {
             const idx = SD().perkIndex();
             const out = {};
@@ -26,39 +27,97 @@
             return out;
         },
 
+        /** Compute active 2-piece & 3-piece Set Bonuses and summed armor stats. */
+        gearStats(s) {
+            const inv = BO.OWRPGInventory;
+            const Dur = BO.OWRPGDurability;
+            const counts = {};
+            const elemRes = { burn: 0, chill: 0, shock: 0, venom: 0, void: 0 };
+            const bonus = { armor: 0, maxHp: 0, carry: 0, critAdd: 0, cdr: 0, statusPotency: 0, noise: 0, speedMult: 0, meleeMult: 0, stealthMult: 0, detHeal: 0, reactMult: 0, heavyPen: 0, heavyDmg: 0, chain: 0 };
+
+            if (inv) {
+                for (const slot of ARMOR_SLOTS) {
+                    const entry = inv.equippedEntry(s, slot);
+                    if (!entry) continue;
+                    const def = SD().ITEMS[entry.id];
+                    if (!def) continue;
+                    const rar = ARMOR_RARITY[entry.rarity || def.rarity || 'common'] || 1.0;
+                    const perf = Dur ? Dur.performanceMult(entry) : 1.0;
+                    bonus.armor += Math.round((def.armor || 0) * rar * perf);
+                    if (def.elemRes) {
+                        for (const [el, v] of Object.entries(def.elemRes)) elemRes[el] = (elemRes[el] || 0) + v * perf;
+                    }
+                    if (def.stats) {
+                        for (const [k, v] of Object.entries(def.stats)) bonus[k] = (bonus[k] || 0) + v * perf;
+                    }
+                    if (def.setId) counts[def.setId] = (counts[def.setId] || 0) + 1;
+                }
+            }
+
+            const activeSets = [];
+            const setsData = EX() ? EX().ARMOR_SETS : {};
+            for (const [setId, n] of Object.entries(counts)) {
+                const setDef = setsData[setId];
+                if (!setDef) continue;
+                const applyTier = (b) => {
+                    if (!b) return;
+                    for (const [k, v] of Object.entries(b)) {
+                        if (k === 'label') continue;
+                        if (k === 'allElemRes') {
+                            for (const el of Object.keys(elemRes)) elemRes[el] += v;
+                        } else {
+                            bonus[k] = (bonus[k] || 0) + v;
+                        }
+                    }
+                };
+                const tiers = [];
+                if (n >= 2) { applyTier(setDef.bonus2); tiers.push(setDef.bonus2.label); }
+                if (n >= 3) { applyTier(setDef.bonus3); tiers.push(setDef.bonus3.label); }
+                activeSets.push({ id: setId, name: setDef.name, color: setDef.color, count: n, tiers });
+            }
+
+            for (const el of Object.keys(elemRes)) elemRes[el] = Math.min(0.75, elemRes[el]);
+            return { bonus, elemRes, activeSets };
+        },
+
         derived(s) {
             const a = (id) => this.attr(s, id);
             const fx = this.perkFx(s);
-            const inv = BO.OWRPGInventory;
-            const rig = inv ? inv.equippedEntry(s, 'rig') : null;
-            const rigDef = rig ? SD().ITEMS[rig.id] : null;
-            const maxWeight = 35 + 6 * a('BRW') + (fx.carry || 0);
+            const gs = this.gearStats(s);
+            const gb = gs.bonus;
+            const maxWeight = 35 + 6 * a('BRW') + (fx.carry || 0) + Math.round(gb.carry || 0);
+            const mergedFx = Object.assign({}, fx);
+            for (const k of ['detHeal', 'reactMult', 'heavyPen', 'heavyDmg', 'chain']) {
+                if (gb[k]) mergedFx[k] = (mergedFx[k] || 0) + gb[k];
+            }
             return {
-                maxHp: Math.round(60 + 8 * a('BRW') + (fx.maxHp || 0)),
+                maxHp: Math.round(60 + 8 * a('BRW') + (fx.maxHp || 0) + (gb.maxHp || 0)),
                 maxWeight,
-                armor: (rigDef ? rigDef.armor : 0) + (fx.armor || 0),
-                meleeMult: 1 + 0.06 * (a('BRW') - 5),
+                armor: Math.round((gb.armor || 0) + (fx.armor || 0)),
+                meleeMult: 1 + 0.06 * (a('BRW') - 5) + (gb.meleeMult || 0),
                 adsMult: 1 + 0.035 * (a('RFX') - 5),
                 spreadMult: Math.max(0.6, 1 - 0.03 * (a('RFX') - 5)),
                 dodgeWindow: 0.25 + 0.025 * a('RFX'),
-                cdMult: Math.max(0.35, (1 - 0.04 * (a('TCH') - 5)) * (1 - (fx.cdr || 0))),
-                statusPotency: 1 + 0.07 * (a('TCH') - 5),
+                cdMult: Math.max(0.35, (1 - 0.04 * (a('TCH') - 5)) * (1 - (fx.cdr || 0)) * (1 - (gb.cdr || 0))),
+                statusPotency: 1 + 0.07 * (a('TCH') - 5) + (gb.statusPotency || 0),
                 statusDur: 1 + (fx.statusDur || 0) + 0.07 * (a('TCH') - 5),
-                critMult: 1 + 0.5 + 0.045 * a('PRC') + (fx.critAdd || 0),
-                noiseMult: Math.max(0.3, (1 - 0.04 * (a('PRC') - 5)) * (1 + (fx.noise || 0))),
+                critMult: 1 + 0.5 + 0.045 * a('PRC') + (fx.critAdd || 0) + (gb.critAdd || 0),
+                noiseMult: Math.max(0.25, (1 - 0.04 * (a('PRC') - 5)) * (1 + (fx.noise || 0) + (gb.noise || 0))),
                 trapRadius: 2.5 * a('PRC'),
                 buyMult: Math.max(0.6, 1 - 0.035 * (a('PRS') - 5)),
                 sellMult: 0.35 * (1 + 0.035 * (a('PRS') - 5)),
                 repMult: 1 + 0.08 * (a('PRS') - 5),
-                stealthMult: 2.25 + (fx.stealthMult || 0),
+                stealthMult: 2.25 + (fx.stealthMult || 0) + (gb.stealthMult || 0),
                 detectSlow: fx.detectSlow || 0,
-                fx
+                gearSpeedMult: 1 + (gb.speedMult || 0),
+                elemRes: gs.elemRes,
+                activeSets: gs.activeSets,
+                fx: mergedFx
             };
         },
 
         xpToNext(s) { return SD().xpToNext(s.player.level); },
 
-        /** Adds XP and processes level-ups. Returns number of levels gained. */
         addXp(s, amount) {
             const p = s.player;
             const cap = SD().LEVEL_CAP;
@@ -76,7 +135,6 @@
             return gained;
         },
 
-        /** XP multiplier vs. an enemy level (anti-grind). */
         killXpMult(s, enemyLvl) { return s.player.level - enemyLvl >= 5 ? 0.25 : 1; },
 
         raiseAttr(s, id) {
@@ -87,7 +145,6 @@
             return true;
         },
 
-        /** Why a perk can't be taken ('' when it can). */
         perkBlock(s, perkId) {
             const e = SD().perkIndex()[perkId];
             if (!e) return 'Unknown perk';
@@ -122,7 +179,13 @@
             return true;
         },
 
-        /** Encumbrance band from carried weight. */
+        powerUnlocked(s, id) {
+            const rule = EX()?.POWER_UNLOCKS?.[id];
+            if (!rule) return true;
+            if (s.player.unlockedPowers && s.player.unlockedPowers.includes(id)) return true;
+            return !!rule.check(s);
+        },
+
         encumbrance(s) {
             const d = this.derived(s);
             const w = BO.OWRPGInventory ? BO.OWRPGInventory.weight(s) : 0;

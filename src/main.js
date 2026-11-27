@@ -739,13 +739,17 @@
             if (code === kb.rpgAbility2) { BO.RPGAbilities.cast('detonator'); return true; }
             if (code === kb.rpgUltimate) { BO.RPGAbilities.cast('ultimate'); return true; }
             if (code === kb.rpgPotion) { BO.RPGMode.drinkPotion(); return true; }
+            if (code === (kb.rpgActive || 'KeyG')) { if (BO.RPGItems?.useActive) BO.RPGItems.useActive(); return true; }
+            if (code === (kb.rpgPocket || 'KeyT')) { if (BO.RPGItems?.usePocket) BO.RPGItems.usePocket(); return true; }
+            if (code === (kb.rpgBomb || 'KeyB')) { if (BO.RPGItems?.dropBomb) BO.RPGItems.dropBomb(); return true; }
             if (code === 'Tab') { BO.RPGUI.openPack(); return true; }
             return false;
         }
 
         /** Shared bindings that do nothing in RPG mode (grenades, powers, plates, streaks, shops). */
         _isRpgSuppressed(code, kb) {
-            if (code === kb.rpgAbility1 || code === kb.rpgAbility2 || code === kb.rpgUltimate || code === kb.rpgPotion) return false;
+            if (code === kb.rpgAbility1 || code === kb.rpgAbility2 || code === kb.rpgUltimate || code === kb.rpgPotion ||
+                code === (kb.rpgActive || 'KeyG') || code === (kb.rpgPocket || 'KeyT') || code === (kb.rpgBomb || 'KeyB')) return false;
             return [kb.lethal, kb.tactical, kb.special, kb.ultimate, 'KeyZ', kb.armory, kb.armor, kb.exfil, 'Digit2', 'Digit3', 'Digit5', 'Digit6', 'Digit7'].includes(code);
         }
 

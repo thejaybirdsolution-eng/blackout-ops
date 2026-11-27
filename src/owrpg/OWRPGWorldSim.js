@@ -1,26 +1,23 @@
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · World Simulation
-   Day/night clock (40 min cycle) driving sun, sky and fog; the sun and its
-   shadow frustum follow the player. POI streaming rings: spawn at r+85 m,
-   despawn past r+150 m, state persisted in s.poiStates. Discovery + region
-   banners, area-cleared rewards, contested ownership, wilderness encounters
-   every 25–40 s of travel, terrain LOD.
+   Preserves the panoramic skybox texture on scene.background (tinting fog
+   and lights cleanly across day/night/interiors). Drives POI streaming,
+   expanded regional encounters, dynamic World Events, and weather motes.
 ============================================================================ */
 (function (BO) {
     'use strict';
 
     const DAY = 2400;
-    const ACTIVE_MAX = 22;
+    const ACTIVE_MAX = 24;
     const RESPAWN_SEC = 900;
     const ENCOUNTERS = {
-        haven_basin: [['raider', 'raider'], ['crawler', 'crawler', 'crawler'], ['raider', 'raider_marksman']],
-        rust_sprawl: [['raider', 'raider', 'raider'], ['enforcer', 'enforcer'], ['stalker', 'crawler']],
-        mire_delta: [['stalker', 'spitter'], ['crawler', 'crawler', 'stalker'], ['brute']],
-        ash_quarry: [['stalker', 'stalker'], ['militia', 'militia'], ['enforcer', 'syn_gunner']],
-        alpine_array: [['aegis', 'aegis'], ['stalker', 'stalker', 'spitter']],
-        meridian_core: [['helix', 'helix'], ['brute', 'stalker'], ['helix', 'spitter']]
+        haven_basin: [['raider', 'raider'], ['crawler', 'brood_venom_mite', 'crawler'], ['raider', 'raider_marksman'], ['raider_pyro', 'raider']],
+        rust_sprawl: [['raider', 'raider_bruiser'], ['enforcer', 'syn_arc_tech'], ['stalker', 'brood_venom_mite'], ['syn_sniper', 'enforcer']],
+        mire_delta: [['stalker', 'spitter'], ['brood_blight_hound', 'brood_venom_mite'], ['brood_frost_wraith', 'spitter'], ['brute']],
+        ash_quarry: [['brood_pyro_fiend', 'stalker'], ['militia', 'militia_scout'], ['enforcer', 'syn_gunner'], ['brood_iron_goliath']],
+        alpine_array: [['aegis', 'aegis_cryo'], ['aegis_heavy', 'aegis'], ['brood_frost_wraith', 'stalker']],
+        meridian_core: [['helix', 'helix_voidweaver'], ['helix_zealot', 'brood_void_stalker'], ['brood_iron_goliath', 'helix']]
     };
-    const lerp = (a, b, t) => a + (b - a) * t;
     const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
     const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 
@@ -30,6 +27,7 @@
         region: null,
         encT: 30,
         encN: 0,
+        hasSkybox: false,
 
         get s() { return BO.OWRPGMode.state; },
         get D() { return BO.OWRPGWorldData; },
@@ -43,7 +41,9 @@
             this.sun = scene.children.find((o) => o.isDirectionalLight);
             const atm = BO.World.mapData.atmosphere;
             this.base = { hemi: atm.hemiIntensity, sun: atm.sunIntensity, fog: new THREE.Color(atm.fogColor), sky: new THREE.Color(atm.skyBottom), fogD: atm.fogDensity };
-            scene.background = new THREE.Color(atm.skyBottom);
+            // Preserve panoramic skybox texture if applied; only set flat color as fallback!
+            this.hasSkybox = !!(scene.background && scene.background.isTexture);
+            if (!this.hasSkybox) scene.background = new THREE.Color(atm.skyBottom);
             if (this.sun) {
                 scene.add(this.sun.target);
                 const cam = this.sun.shadow.camera;
@@ -52,7 +52,6 @@
             }
         },
 
-        /** Hours/minutes string for the HUD (clock 0..2400 → 00:00..24:00). */
         timeLabel() {
             const h = (this.s.worldClock / DAY) * 24;
             const hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
@@ -87,18 +86,17 @@
             if (BO.World.terrain && !inside) BO.World.terrain.updateLOD(P.pos.x, P.pos.z, 135);
         },
 
-        /** 1 Hz: streaming, discovery, encounters. */
         tick1(dt) {
             const s = this.s;
             const P = BO.Player;
             const D = this.D;
             const inside = D.isInterior(P.pos.x, P.pos.z);
-            // Region banner.
             if (!inside) {
                 const reg = D.regionAt(P.pos.x, P.pos.z);
                 if (reg !== this.region) {
                     if (this.region) BO.Events.emit('hud:banner', { title: reg.name.toUpperCase(), sub: `Threat level ${reg.lvl}`, color: '#f5a623' });
                     this.region = reg;
+                    BO.OWRPGWorldArt.setRegionWeather?.(BO.World, reg.id);
                 }
             }
             for (const poi of D.POIS) {
@@ -110,7 +108,7 @@
                 else if (spawned && d > poi.r + 150) this.despawnPoi(poi);
             }
             this._encounters(dt, inside);
-            // Despawn far wilderness agents.
+            if (BO.OWRPGEvents) BO.OWRPGEvents.tick(dt);
             for (const a of BO.OWRPGAI.agents.slice()) {
                 if (a.poiId && a.poiId.startsWith('enc_') && a.alive && BO.Math.dist2D(a.ent.pos.x, a.ent.pos.z, P.pos.x, P.pos.z) > 170) BO.OWRPGAI.despawn(a);
             }
@@ -139,7 +137,6 @@
                 if (BO.OWRPGAI.agents.length >= ACTIVE_MAX) break;
                 const def = BO.OWRPGStatsData.ENEMIES[sp[0]];
                 if (def.boss && s.worldFlags['killed_' + sp[0]]) continue;
-                // Contested sites keep only the owner's side once someone has taken them.
                 if (poi.kind === 'contested' && owner && BO.OWRPGFactionsData.FACTIONS[def.faction] && def.faction !== owner) continue;
                 const x = poi.x + sp[1], z = poi.z + sp[2];
                 const y = sp[3] != null ? (poi.interior ? 0 : BO.World.terrainHeight(poi.x, poi.z)) + sp[3] : (poi.interior ? 0 : null);
@@ -176,7 +173,6 @@
         },
 
         _encounters(dt, inside) {
-            const s = this.s;
             const P = BO.Player;
             const D = this.D;
             if (inside) return;

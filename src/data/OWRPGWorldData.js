@@ -1,10 +1,8 @@
 /* ============================================================================
-   BLACKOUT OPS — Open World RPG · The Meridian Expanse (640 × 640 m)
-   Six regions around a vitrified blast crater, a road network, six skyline
-   landmarks (35–58 m) for diegetic navigation, Freestead Town, points of
-   interest with spawns/containers, transit pylons and one sealed interior
-   (the Culvert Sublevel, built off-map at x,z ≈ 900).
-   Coordinates: +x east, +z south. Registers map id 'meridian'.
+   BLACKOUT OPS — Open World RPG · The Meridian Expanse (640 x 640 m)
+   Six regions around a vitrified blast crater, road network, six skyline
+   landmarks, Freestead Town, POIs with new enemies & 4 regional World Bosses,
+   transit pylons, and sealed Culvert Sublevel interior.
 ============================================================================ */
 (function (BO) {
     'use strict';
@@ -15,10 +13,10 @@
     const WATER = -0.6;
 
     const REGIONS = [
-        { id: 'haven_basin', name: 'Haven Basin', x: -190, z: 190, r: 120, lvl: '1–4', faction: 'militia', col: [0.42, 0.5, 0.3] },
-        { id: 'rust_sprawl', name: 'Rust Sprawl', x: 40, z: 200, r: 110, lvl: '4–8', faction: 'syndicate', col: [0.46, 0.42, 0.36] },
+        { id: 'haven_basin', name: 'Haven Basin', x: -190, z: 190, r: 120, lvl: '1–5', faction: 'militia', col: [0.42, 0.5, 0.3] },
+        { id: 'rust_sprawl', name: 'Rust Sprawl', x: 40, z: 200, r: 110, lvl: '5–9', faction: 'syndicate', col: [0.46, 0.42, 0.36] },
         { id: 'mire_delta', name: 'Mire Delta', x: 210, z: 20, r: 110, lvl: '7–12', faction: null, col: [0.27, 0.36, 0.27] },
-        { id: 'ash_quarry', name: 'Ash Quarry', x: -180, z: -60, r: 100, lvl: '8–13', faction: 'contested', col: [0.5, 0.46, 0.42] },
+        { id: 'ash_quarry', name: 'Ash Quarry', x: -180, z: -60, r: 100, lvl: '9–13', faction: 'contested', col: [0.5, 0.46, 0.42] },
         { id: 'alpine_array', name: 'Alpine Array', x: -60, z: -220, r: 110, lvl: '12–17', faction: 'aegis', col: [0.62, 0.66, 0.66] },
         { id: 'meridian_core', name: 'Meridian Core', x: 180, z: -190, r: 100, lvl: '16–20', faction: 'helix', col: [0.33, 0.28, 0.38] }
     ];
@@ -27,7 +25,6 @@
 
     const smooth = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
     const lerp = (a, b, t) => a + (b - a) * t;
-    const gauss = (x, z, cx, cz, r) => Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * r * r));
 
     function regionAt(x, z) {
         let best = REGIONS[0], bd = Infinity;
@@ -38,7 +35,6 @@
         return best;
     }
 
-    /* --------------------------------------------------------------- roads */
     const ROADS = [
         { w: 7, mat: 'asphalt', pts: [[-300, 200], [-230, 196], [-190, 214], [-140, 200], [-60, 196], [40, 214], [120, 200], [200, 120], [210, 40]] },
         { w: 6, mat: 'asphalt', pts: [[-190, 166], [-170, 110], [-160, 40], [-150, -40], [-120, -110], [-70, -140]] },
@@ -71,20 +67,15 @@
         return b;
     }
 
-    /* --------------------------------------------------------------- raw terrain */
     function rawHeight(x, z) {
         let h = N.fbm(x / 110, z / 110, 7, 4) * 5 + N.fbm(x / 28, z / 28, 19, 3) * 1.1 + 2;
-        // Haven Basin: soft terraced valley.
         const hv = smooth(130, 60, Math.hypot(x + 190, z - 190));
         if (hv > 0) { const t = Math.max(1.2, 4.5 + N.fbm(x / 60, z / 60, 3, 3) * 5); h = lerp(h, Math.floor(t / 2.4) * 2.4 + (t % 2.4) * 0.35, hv * 0.85); }
-        // Rust Sprawl: flat yards with a sunken rail trench.
         const rs = smooth(120, 70, Math.hypot(x - 40, z - 200));
         h = lerp(h, 2 + N.fbm(x / 40, z / 40, 9, 2) * 0.8, rs * 0.8);
         h -= 2.6 * smooth(6, 2, railDist(x, z)) * rs;
-        // Mire Delta: low marsh, pools sit under WATER.
         const md = smooth(130, 60, Math.hypot(x - 210, z - 20));
         h = lerp(h, -0.9 + N.fbm(x / 26, z / 26, 41, 3) * 2.2, md);
-        // Ash Quarry: stepped open pit with a rim.
         const dq = Math.hypot(x - QUARRY.x, z - QUARRY.z);
         if (dq < 85) {
             const depth = dq < 62 ? -16 * (1 - (dq / 62) ** 2) : 0;
@@ -92,23 +83,19 @@
             const rim = 5 * Math.exp(-((dq - 68) ** 2) / 60);
             h = lerp(h, 2 + stepped + rim, smooth(85, 60, dq));
         }
-        // Alpine Array: ridge rising to the north edge.
         const north = smooth(-130, -270, z) * smooth(300, 120, Math.abs(x + 60));
         h += north * (N.ridged(x / 70, z / 70, 5, 4) * 26 + 22);
-        // Meridian Core: vitrified crater bowl and rim.
         const dc = Math.hypot(x - CORE.x, z - CORE.z);
         if (dc < 90) {
             const bowl = dc < 44 ? -12 * (1 - (dc / 44) ** 2) : 0;
             const rim = 16 * Math.exp(-((dc - 54) ** 2) / 90);
             h = lerp(h, 3 + bowl + rim, smooth(90, 60, dc));
         }
-        // Natural boundary berms.
         const edge = Math.min(x - BOUNDS.minX, BOUNDS.maxX - x, z - BOUNDS.minZ, BOUNDS.maxZ - z);
         h += smooth(16, 0, edge) * 22;
         return h;
     }
 
-    /* --------------------------------------------------------------- pads & kit */
     const boxes = [];
     const pads = [];
     function addPad(x, z, w, d, blend = 8) {
@@ -134,7 +121,6 @@
     }
     const B = (x, y, z, w, h, d, mat, opts) => boxes.push(Object.assign({ x, y, z, w, h, d, mat }, opts || {}));
 
-    /** A closed one-room building with a doorway on side 'n'|'s'|'e'|'w'. y = floor base. */
     function building(x, z, w, d, y, mat, door = 's', h = 3.4, roof = 'dark_slate_roof') {
         const t = 0.3, dw = 1.8, dh = 2.5;
         B(x, y + 0.1, z, w, 0.2, d, 'wood_plank');
@@ -162,12 +148,10 @@
     }
 
     /* ================================================================ LAYOUT */
-    // ---- Freestead Town (Haven Basin): palisade, HQ, store, clinic, workshop.
     const TOWN = { x: -190, z: 190 };
     const townY = addPad(TOWN.x, TOWN.z, 66, 56, 12);
     (function town() {
         const y = townY, hw = 33, hd = 28, wh = 3.2;
-        // Palisade with gates on east, north and south.
         const seg = (x1, z1, x2, z2) => {
             const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
             if (x1 === x2) B(cx, y + wh / 2, cz, 0.6, wh, Math.abs(z2 - z1), 'wood_fort');
@@ -181,8 +165,7 @@
         building(TOWN.x - 12, TOWN.z - 14, 12, 9, y, 'brick', 's', 4.2);          // Militia HQ (Kessler)
         building(TOWN.x + 12, TOWN.z - 12, 10, 8, y, 'green_siding', 's');        // Dottie's Supply
         building(TOWN.x - 12, TOWN.z + 12, 10, 8, y, 'yellow_siding', 'n');       // Clinic
-        building(TOWN.x + 13, TOWN.z + 12, 9, 7, y, 'wood_plank', 'n');           // Workshop
-        // Well, crates, water tower.
+        building(TOWN.x + 13, TOWN.z + 12, 9, 7, y, 'wood_plank', 'n');           // Workshop (Sola & Torin)
         B(TOWN.x, y + 0.5, TOWN.z, 2.4, 1.0, 2.4, 'castle_stone');
         B(TOWN.x + 24, y + 0.6, TOWN.z - 2, 1.2, 1.2, 1.2, 'wood_crate');
         B(TOWN.x + 25.4, y + 0.6, TOWN.z - 1.6, 1.2, 1.2, 1.2, 'wood_crate');
@@ -190,15 +173,13 @@
         B(TOWN.x - 25, y + 9.5, TOWN.z - 20, 4, 3, 4, 'wood_plank');
     })();
 
-    // ---- Culvert Pumphouse (Pump Three) + surface junction.
     const PUMP = { x: -118, z: 150 };
     const pumpY = addPad(PUMP.x, PUMP.z, 24, 18);
     building(PUMP.x, PUMP.z, 10, 8, pumpY, 'soviet_concrete', 'w', 4.0);
-    B(PUMP.x + 8, pumpY + 0.8, PUMP.z + 4, 3, 1.6, 2, 'rusted_metal');               // junction box
-    B(PUMP.x + 3.5, pumpY + 1.2, PUMP.z - 6, 6, 2.4, 0.8, 'rust_steel');              // pipe run
-    B(PUMP.x - 8, pumpY + 0.25, PUMP.z + 5, 3, 0.5, 3, 'diamond_plate');               // sublevel hatch
+    B(PUMP.x + 8, pumpY + 0.8, PUMP.z + 4, 3, 1.6, 2, 'rusted_metal');
+    B(PUMP.x + 3.5, pumpY + 1.2, PUMP.z - 6, 6, 2.4, 0.8, 'rust_steel');
+    B(PUMP.x - 8, pumpY + 0.25, PUMP.z + 5, 3, 0.5, 3, 'diamond_plate');
 
-    // ---- Raider Overpass: broken highway deck on pillars + barricades.
     const OVER = { x: -112, z: 252 };
     const overY = addPad(OVER.x, OVER.z, 40, 22);
     for (const dx of [-14, 0, 14]) B(OVER.x + dx, overY + 2.5, OVER.z, 2, 5, 2, 'concrete');
@@ -208,21 +189,18 @@
     B(OVER.x + 4, overY + 1.1, OVER.z + 6, 4.5, 2.2, 2, 'container_red');
     const ramps = [{ axis: 'x', z: OVER.z, x1: OVER.x + 34, x2: OVER.x + 20, y1: overY, y2: overY + 5.8, w: 4, mat: 'concrete' }];
 
-    // ---- Abandoned Relay (mast + shack).
     const RELAY = { x: -258, z: 122 };
     const relayY = addPad(RELAY.x, RELAY.z, 18, 16);
     building(RELAY.x + 5, RELAY.z + 2, 6, 5, relayY, 'concrete', 'w');
     for (const [lx, lz] of [[-1.2, -1.2], [1.2, -1.2], [-1.2, 1.2], [1.2, 1.2]]) B(RELAY.x - 4 + lx, relayY + 9, RELAY.z + lz, 0.22, 18, 0.22, 'rust_steel');
     B(RELAY.x - 4, relayY + 18.1, RELAY.z, 3, 0.2, 3, 'diamond_plate');
 
-    // ---- Crashed Convoy: overturned trucks.
     const CONVOY = { x: -150, z: 104 };
     const convoyY = addPad(CONVOY.x, CONVOY.z, 26, 16);
     B(CONVOY.x - 6, convoyY + 1.3, CONVOY.z, 8, 2.6, 3, 'container_olive', { rotY: 0 });
     B(CONVOY.x + 5, convoyY + 1.0, CONVOY.z + 2, 6, 2.0, 2.6, 'truck_yellow');
     B(CONVOY.x + 1, convoyY + 0.5, CONVOY.z - 5, 3, 1.0, 2, 'rusted_metal');
 
-    // ---- Shale Cave (brood nest): rock arch + boulders.
     const CAVE = { x: -268, z: 268 };
     const caveY = addPad(CAVE.x, CAVE.z, 20, 18, 6);
     B(CAVE.x - 7, caveY + 3, CAVE.z, 4, 6, 10, 'bunker_stone');
@@ -230,21 +208,18 @@
     B(CAVE.x, caveY + 6.5, CAVE.z, 18, 1.2, 12, 'bunker_stone');
     B(CAVE.x, caveY + 3, CAVE.z - 6.5, 18, 6, 1.2, 'bunker_stone');
 
-    // ---- Syndicate Rail Yard (Rust Sprawl): fence, office, containers.
     const YARD = { x: 40, z: 196 };
     const yardY = addPad(YARD.x, YARD.z, 50, 36);
-    building(YARD.x - 10, YARD.z - 8, 10, 8, yardY, 'rusted_metal', 'e', 3.6);         // Mags' office
+    building(YARD.x - 10, YARD.z - 8, 10, 8, yardY, 'rusted_metal', 'e', 3.6);
     for (let i = 0; i < 5; i++) B(YARD.x + 4 + i * 3.2, yardY + 1.3, YARD.z + 8, 2.6, 2.6, 6, i % 2 ? 'container_blue' : 'container_red');
     B(YARD.x + 12, yardY + 3.9, YARD.z + 8, 2.6, 2.6, 6, 'container_olive');
     B(YARD.x - 25, yardY + 1.5, YARD.z, 0.4, 3, 36, 'privacy_fence');
 
-    // ---- Ash Quarry camp (contested).
     const QCAMP = { x: -150, z: -40 };
     const qcampY = addPad(QCAMP.x, QCAMP.z, 20, 16);
     building(QCAMP.x, QCAMP.z, 8, 6, qcampY, 'rusted_metal', 'e');
     B(QCAMP.x - 7, qcampY + 0.6, QCAMP.z + 5, 5, 1.2, 0.8, 'sandbag');
 
-    // ---- Aegis Checkpoint (Alpine edge).
     const CHECK = { x: -72, z: -140 };
     const checkY = addPad(CHECK.x, CHECK.z, 26, 18);
     building(CHECK.x - 6, CHECK.z, 9, 7, checkY, 'lab_panel', 'e', 3.6);
@@ -252,30 +227,41 @@
     B(CHECK.x + 6, checkY + 1, CHECK.z + 7, 0.6, 2, 6, 'concrete');
     B(CHECK.x + 6, checkY + 3.2, CHECK.z, 0.3, 0.3, 8, 'diamond_plate', { noCollide: true });
 
-    // ---- Helix Shrine (crater approach).
     const SHRINE = { x: 140, z: -122 };
     const shrineY = addPad(SHRINE.x, SHRINE.z, 18, 18);
     for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; B(SHRINE.x + Math.cos(a) * 6, shrineY + 2, SHRINE.z + Math.sin(a) * 6, 0.8, 4, 0.8, 'pentagon_marble'); }
     B(SHRINE.x, shrineY + 0.3, SHRINE.z, 4, 0.6, 4, 'pentagon_panel');
 
-    // ---- Mire nest.
     const NEST = { x: 214, z: 26 };
 
-    // ---- Culvert Sublevel interior (sealed, off-map). Floor top y = 0.
+    // New Expansion POIs (flat pads well inside bounds and above water)
+    const BARGE = { x: 136, z: 54 };
+    const bargeY = addPad(BARGE.x, BARGE.z, 18, 12, 6);
+    B(BARGE.x, bargeY + 1.1, BARGE.z, 12, 2.2, 4.5, 'container_blue');
+    B(BARGE.x + 4, bargeY + 0.6, BARGE.z - 4, 3, 1.2, 2, 'rusted_metal');
+
+    const BUNKER = { x: -135, z: -205 };
+    const bunkerY = addPad(BUNKER.x, BUNKER.z, 20, 16, 6);
+    building(BUNKER.x, BUNKER.z, 8, 7, bunkerY, 'soviet_concrete', 's', 3.5);
+    B(BUNKER.x + 6, bunkerY + 0.6, BUNKER.z + 5, 4, 1.2, 0.8, 'sandbag');
+
+    const RIFT = { x: 230, z: -145 };
+    const riftY = addPad(RIFT.x, RIFT.z, 16, 16, 6);
+    B(RIFT.x, riftY + 1.2, RIFT.z, 2.4, 2.4, 2.4, 'pentagon_marble');
+
+    // Sealed Culvert Sublevel interior (off-map).
     const INT = { x: 900, z: 900 };
     (function culvert() {
         const x = INT.x, z = INT.z, H = 4.2;
-        B(x, -0.2, z + 22, 26, 0.4, 56, 'bunker_stone');                       // floor
-        B(x, H + 0.2, z + 22, 26, 0.4, 56, 'bunker_stone');                    // ceiling
+        B(x, -0.2, z + 22, 26, 0.4, 56, 'bunker_stone');
+        B(x, H + 0.2, z + 22, 26, 0.4, 56, 'bunker_stone');
         B(x - 13, H / 2, z + 22, 0.6, H, 56, 'bunker_stone');
         B(x + 13, H / 2, z + 22, 0.6, H, 56, 'bunker_stone');
         B(x, H / 2, z - 6, 26, H, 0.6, 'bunker_stone');
         B(x, H / 2, z + 50, 26, H, 0.6, 'bunker_stone');
-        // Corridor walls dividing the entry tunnel from the chamber.
         B(x - 7, H / 2, z + 10, 11, H, 0.6, 'soviet_concrete');
         B(x + 8, H / 2, z + 10, 9, H, 0.6, 'soviet_concrete');
         B(x - 3, H / 2, z + 2, 0.6, H, 16, 'soviet_concrete');
-        // Valve room partition + pipes and cover in the chamber.
         B(x + 6, H / 2, z + 20, 0.6, H, 10, 'rust_steel');
         B(x - 6, 0.6, z + 28, 4, 1.2, 1.2, 'rusted_metal');
         B(x + 5, 0.6, z + 36, 1.2, 1.2, 4, 'rusted_metal');
@@ -283,30 +269,39 @@
         B(x, 0.02, z + 32, 18, 0.04, 20, 'swamp_water', { noCollide: true });
     })();
 
-    /* --------------------------------------------------------------- gameplay anchors */
-    // y is resolved at runtime (terrain height; +0.2 indoors). 'int' = inside the sealed Culvert.
     const POIS = [
         { id: 'freestead', name: 'Freestead Town', region: 'haven_basin', x: TOWN.x, z: TOWN.z, r: 34, safe: true, kind: 'settlement' },
         { id: 'pump_three', name: 'Culvert Pumphouse', region: 'haven_basin', x: PUMP.x, z: PUMP.z, r: 18, kind: 'site',
             spawns: [['crawler', -6, 10], ['crawler', 8, 12], ['raider', 12, -8]] },
         { id: 'overpass', name: 'Raider Overpass', region: 'haven_basin', x: OVER.x, z: OVER.z, r: 26, kind: 'camp',
-            spawns: [['raider', -10, 5], ['raider', 8, -5], ['raider', 14, 6], ['raider_marksman', 0, -2, 5.8], ['raider_boss', 2, 5]] },
-        { id: 'relay', name: 'Abandoned Relay', region: 'haven_basin', x: RELAY.x, z: RELAY.z, r: 16, kind: 'site', spawns: [['crawler', 6, -6], ['crawler', -6, 7]] },
-        { id: 'convoy', name: 'Crashed Convoy', region: 'haven_basin', x: CONVOY.x, z: CONVOY.z, r: 18, kind: 'site', spawns: [['crawler', -4, 8], ['stalker', 9, -6], ['crawler', 12, 4]] },
+            spawns: [['raider', -10, 5], ['raider', 8, -5], ['raider_pyro', 14, 6], ['raider_marksman', 0, -2, 5.8], ['raider_boss', 2, 5]] },
+        { id: 'relay', name: 'Abandoned Relay', region: 'haven_basin', x: RELAY.x, z: RELAY.z, r: 16, kind: 'site', spawns: [['crawler', 6, -6], ['brood_venom_mite', -6, 7]] },
+        { id: 'convoy', name: 'Crashed Convoy', region: 'haven_basin', x: CONVOY.x, z: CONVOY.z, r: 18, kind: 'site', spawns: [['crawler', -4, 8], ['stalker', 9, -6], ['brood_venom_mite', 12, 4]] },
         { id: 'shale_cave', name: 'Shale Cave', region: 'haven_basin', x: CAVE.x, z: CAVE.z, r: 18, kind: 'nest', spawns: [['crawler', 0, 0], ['crawler', 3, 3], ['stalker', -3, 2], ['spitter', 0, -3]] },
         { id: 'rail_yard', name: 'Ironclad Rail Yard', region: 'rust_sprawl', x: YARD.x, z: YARD.z, r: 30, kind: 'hub', faction: 'syndicate',
-            spawns: [['enforcer', 8, -6], ['enforcer', -14, 10], ['syn_gunner', 14, 0]] },
+            spawns: [['enforcer', 8, -6], ['enforcer', -14, 10], ['syn_gunner', 14, 0], ['syn_arc_tech', 4, -12]] },
         { id: 'quarry_camp', name: 'Quarry Dig Camp', region: 'ash_quarry', x: QCAMP.x, z: QCAMP.z, r: 22, kind: 'contested',
-            spawns: [['militia', -6, 6], ['militia', -8, -4], ['enforcer', 10, 6], ['syn_gunner', 12, -6]] },
-        { id: 'quarry_pit', name: 'Excavator Pit', region: 'ash_quarry', x: QUARRY.x, z: QUARRY.z, r: 30, kind: 'site', spawns: [['stalker', 10, 0], ['brute', -6, 8], ['spitter', 4, -10]] },
+            spawns: [['militia', -6, 6], ['militia_scout', -8, -4], ['enforcer', 10, 6], ['syn_gunner', 12, -6]] },
+        { id: 'quarry_pit', name: 'Excavator Pit', region: 'ash_quarry', x: QUARRY.x, z: QUARRY.z, r: 32, kind: 'site',
+            spawns: [['brood_pyro_fiend', 12, 0], ['brute', -8, 10], ['spitter', 6, -12], ['boss_quarry_colossus', 16, 14]] },
         { id: 'checkpoint', name: 'Aegis Checkpoint K-4', region: 'alpine_array', x: CHECK.x, z: CHECK.z, r: 20, kind: 'hub', faction: 'aegis',
-            spawns: [['aegis', 8, -4], ['aegis', 8, 4]] },
-        { id: 'dish_ridge', name: 'Deep-Space Dish Ridge', region: 'alpine_array', x: -60, z: -238, r: 34, kind: 'site', spawns: [['aegis', 0, 8], ['aegis', 10, -6], ['stalker', -12, 0]] },
+            spawns: [['aegis', 8, -4], ['aegis_heavy', 8, 4]] },
+        { id: 'dish_ridge', name: 'Deep-Space Dish Ridge', region: 'alpine_array', x: -60, z: -238, r: 34, kind: 'site',
+            spawns: [['aegis', 0, 8], ['aegis_cryo', 12, -6], ['stalker', -12, 0], ['boss_alpine_warden', -16, 12]] },
         { id: 'helix_shrine', name: 'Helix Bloom Shrine', region: 'meridian_core', x: SHRINE.x, z: SHRINE.z, r: 16, kind: 'hub', faction: 'helix',
-            spawns: [['helix', 6, 6], ['helix', -6, -6]] },
-        { id: 'mire_nest', name: 'Cooling Stack Nest', region: 'mire_delta', x: NEST.x, z: NEST.z, r: 28, kind: 'nest', spawns: [['stalker', 0, 10], ['spitter', 8, -4], ['spitter', -10, 0], ['brute', 4, 4]] },
-        { id: 'goliath', name: 'Goliath Crane', region: 'rust_sprawl', x: 90, z: 232, r: 18, kind: 'site', spawns: [['raider', 0, 6], ['raider', 6, -2], ['raider_marksman', -4, 0]] },
-        { id: 'meridian_dome', name: 'Meridian Containment Dome', region: 'meridian_core', x: CORE.x, z: CORE.z, r: 40, kind: 'endgame', spawns: [['helix', 20, 0], ['brute', -16, 10], ['helix', 0, -22], ['stalker', 14, 16]] },
+            spawns: [['helix', 8, 6], ['helix_zealot', -8, -6]] },
+        { id: 'mire_nest', name: 'Cooling Stack Nest', region: 'mire_delta', x: NEST.x, z: NEST.z, r: 28, kind: 'nest',
+            spawns: [['brood_blight_hound', 0, 12], ['spitter', 8, -6], ['brood_frost_wraith', -12, 0], ['boss_mire_hydra', -8, 12]] },
+        { id: 'goliath', name: 'Goliath Crane', region: 'rust_sprawl', x: 90, z: 232, r: 18, kind: 'site',
+            spawns: [['raider_bruiser', 0, 8], ['raider_pyro', 8, -2], ['syn_sniper', -6, 0]] },
+        { id: 'sunken_barge', name: 'Sunken Cargo Barge', region: 'mire_delta', x: BARGE.x, z: BARGE.z, r: 18, kind: 'site',
+            spawns: [['brood_blight_hound', -6, 8], ['brood_frost_wraith', 8, -6], ['spitter', 6, 8]] },
+        { id: 'bunker_delta', name: 'Bunker Delta', region: 'alpine_array', x: BUNKER.x, z: BUNKER.z, r: 20, kind: 'site',
+            spawns: [['aegis_heavy', 6, 8], ['aegis_cryo', -8, 6], ['brood_iron_goliath', 10, -8]] },
+        { id: 'crater_rift', name: 'Crater Anomaly Rift', region: 'meridian_core', x: RIFT.x, z: RIFT.z, r: 20, kind: 'site',
+            spawns: [['helix_voidweaver', 6, 6], ['helix_zealot', -8, 4], ['brood_void_stalker', 0, -10]] },
+        { id: 'meridian_dome', name: 'Meridian Containment Dome', region: 'meridian_core', x: CORE.x, z: CORE.z, r: 42, kind: 'endgame',
+            spawns: [['helix_voidweaver', 22, 0], ['brood_iron_goliath', -18, 12], ['helix', 0, -24], ['boss_meridian_sovereign', 14, 18]] },
         { id: 'culvert_sublevel', name: 'Culvert Sublevel', region: 'haven_basin', x: INT.x, z: INT.z + 22, r: 30, kind: 'interior', interior: true,
             spawns: [['crawler', -6, 0], ['crawler', 6, 4], ['stalker', 0, 10], ['spitter', -8, 16], ['matriarch', 0, 22]] }
     ];
@@ -316,21 +311,24 @@
         { id: 'dottie', name: 'Dottie Vail', faction: 'militia', x: TOWN.x + 12, z: TOWN.z - 13, indoor: true, yaw: 0, dialogue: 'dottie', vendor: 'freestead_store' },
         { id: 'ines', name: 'Medic Ines', faction: 'militia', x: TOWN.x - 12, z: TOWN.z + 13, indoor: true, yaw: Math.PI, dialogue: 'ines' },
         { id: 'sola', name: 'Engineer Sola', faction: 'militia', x: TOWN.x + 13, z: TOWN.z + 13, indoor: true, yaw: Math.PI, dialogue: 'sola' },
+        { id: 'torin', name: 'Quartermaster Torin', faction: 'militia', x: TOWN.x + 6, z: TOWN.z + 6, yaw: -Math.PI * 0.75, dialogue: 'torin', vendor: 'torin_bench' },
         { id: 'mags', name: 'Mags Orrin', faction: 'syndicate', x: YARD.x - 10, z: YARD.z - 8, indoor: true, yaw: Math.PI / 2, dialogue: 'mags', vendor: 'syndicate_fence' },
         { id: 'vance', name: 'Lt. Imre Vance', faction: 'aegis', x: CHECK.x - 6, z: CHECK.z, indoor: true, yaw: Math.PI / 2, dialogue: 'vance', vendor: 'aegis_quarter' },
+        { id: 'lyra', name: 'Dr. Lyra Chen', faction: 'aegis', x: QCAMP.x + 6, z: QCAMP.z - 6, yaw: Math.PI * 0.5, dialogue: 'lyra', vendor: 'lyra_field' },
         { id: 'calla', name: 'Sister Calla', faction: 'helix', x: SHRINE.x, z: SHRINE.z, yaw: 0, dialogue: 'calla', vendor: 'helix_exchange' }
     ];
 
-    // Interactables. kind: container | terminal | valve | hatch | exit | mast | sac | board
     const INTERACTS = [
         { id: 'c_town_stash', kind: 'stash', name: 'Personal Stash', x: TOWN.x - 22, z: TOWN.z + 4 },
+        { id: 'w_town_bench', kind: 'workbench', name: 'Field Repair Bench', x: TOWN.x + 8, z: TOWN.z + 4 },
+        { id: 'b_town_bounties', kind: 'bounty_board', name: 'Freestead Bounty Board', x: TOWN.x - 4, z: TOWN.z - 4 },
         { id: 'c_pump_office', kind: 'container', name: 'Foreman Locker', x: PUMP.x + 2.5, z: PUMP.z - 2.5, indoor: true, loot: 'cache', grant: 'pressure_schematic' },
         { id: 't_junction', kind: 'terminal', name: 'Surface Junction', x: PUMP.x + 8, z: PUMP.z + 5.6 },
         { id: 'h_culvert', kind: 'hatch', name: 'Sublevel Hatch', x: PUMP.x - 8, z: PUMP.z + 5, to: { x: INT.x, y: 0.1, z: INT.z - 3, yaw: Math.PI } },
         { id: 'x_culvert', kind: 'exit', name: 'Ladder to Surface', x: INT.x, z: INT.z - 4.5, int: true, to: { x: PUMP.x - 8, z: PUMP.z + 8.5, yaw: 0 } },
         { id: 'v_bypass', kind: 'valve', name: 'Bypass Valve', x: INT.x + 9.5, z: INT.z + 20, int: true },
         { id: 'c_culvert_cache', kind: 'container', name: 'Flooded Crate', x: INT.x - 10, z: INT.z + 44, int: true, loot: 'locked' },
-        { id: 'c_overpass_box', kind: 'container', name: "Vasko's Strongbox", x: OVER.x + 2, z: OVER.z + 2.4, loot: 'locked', locked: true, y: overY + 5.85 },
+        { id: 'c_overpass_box', kind: 'container', name: "Vasko's Strongbox", x: OVER.x + 2, z: OVER.z + 2.4, loot: 'locked', locked: true, y: overY + 5.85, grant: 'vasko_crest' },
         { id: 'c_convoy', kind: 'container', name: 'Aegis Cargo Case', x: CONVOY.x - 1, z: CONVOY.z - 2, loot: 'cache', grant: 'convoy_manifest', grant2: 'relay_fuse' },
         { id: 'm_relay', kind: 'mast', name: 'Relay Mast Panel', x: RELAY.x - 2.4, z: RELAY.z },
         { id: 'c_relay', kind: 'container', name: 'Tool Chest', x: RELAY.x + 5, z: RELAY.z + 3, indoor: true, loot: 'cache' },
@@ -338,9 +336,12 @@
         { id: 's_sac_1', kind: 'sac', name: 'Brood Egg Sac', x: CAVE.x - 3, z: CAVE.z - 3 },
         { id: 's_sac_2', kind: 'sac', name: 'Brood Egg Sac', x: CAVE.x + 3.5, z: CAVE.z - 2 },
         { id: 's_sac_3', kind: 'sac', name: 'Brood Egg Sac', x: CAVE.x, z: CAVE.z + 3 },
-        { id: 'c_quarry', kind: 'container', name: 'Survey Crate', x: QUARRY.x + 4, z: QUARRY.z + 3, loot: 'cache' },
+        { id: 'c_quarry', kind: 'container', name: 'Survey Crate', x: QUARRY.x + 4, z: QUARRY.z + 3, loot: 'cache', grant: 'quarry_core_sample' },
         { id: 'c_dish', kind: 'container', name: 'Aegis Footlocker', x: -56, z: -236, loot: 'locked', locked: true },
-        { id: 'c_nest', kind: 'container', name: 'Half-Sunk Cache', x: NEST.x - 4, z: NEST.z + 6, loot: 'locked' }
+        { id: 'c_nest', kind: 'container', name: 'Half-Sunk Cache', x: NEST.x - 4, z: NEST.z + 6, loot: 'locked', grant: 'mire_toxin_sample' },
+        { id: 'c_barge', kind: 'container', name: 'Barge Manifest Locker', x: BARGE.x - 4, z: BARGE.z + 4, loot: 'locked' },
+        { id: 'c_bunker_delta', kind: 'container', name: 'Bunker Telemetry Vault', x: BUNKER.x, z: BUNKER.z, indoor: true, loot: 'locked', locked: true, grant: 'aegis_blackbox' },
+        { id: 'c_crater_rift', kind: 'container', name: 'Helix Cipher Chest', x: RIFT.x + 4, z: RIFT.z - 4, loot: 'locked', grant: 'helix_cipher' }
     ];
 
     const PYLONS = [
@@ -363,11 +364,8 @@
     ];
     for (const l of LANDMARKS) if (l.id !== 'obelisk' && l.id !== 'excavator') addPad(l.x, l.z, 12, 12, 6);
 
-    /* --------------------------------------------------------------- colours */
-    /** Only the Mire holds standing water at sea level (the quarry and crater have their own pools). */
     function isWet(x, z) { return Math.hypot(x - 210, z - 20) < 125; }
     function colorAt(x, z, h, slope) {
-        // Soft biome borders: inverse-distance blend of every region's palette.
         let c = [0, 0, 0], wsum = 0;
         for (const r of REGIONS) {
             const w = 1 / Math.pow(Math.max(0.05, Math.hypot(x - r.x, z - r.z) / r.r), 6);
@@ -413,8 +411,7 @@
 
     BO.OWRPGWorldData = {
         BOUNDS, WATER, REGIONS, ROADS, RAIL, POIS, NPCS, INTERACTS, PYLONS, LANDMARKS, INTERIOR: INT,
-        TOWN, regionAt, rawFinal, heightAt: rawFinal, isWet,
-        /** True when (x,z) is inside the sealed interior space. */
+        TOWN, regionAt, rawFinal, heightAt: rawFinal, isWet, segDist, roadInfo, railDist,
         isInterior(x, z) { return x > 700 && z > 700; }
     };
 })(window.BO);

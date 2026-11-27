@@ -320,164 +320,641 @@
     });
 
     /* ================================================================
-       8. HELI GUNNER — orbit a city block from a helicopter door
+       8. HELI GUNNER — orbit a city block from a Black Hawk gunship door
     ================================================================ */
     const HELI_PTS = (() => {
         const pts = [];
         for (let i = 0; i < 24; i++) {
             const a = -i / 24 * Math.PI * 2;
-            const r = 50 + Math.sin(i / 24 * Math.PI * 4) * 6;
-            pts.push(V(Math.cos(a) * r, 27 + Math.sin(i / 24 * Math.PI * 6) * 3, Math.sin(a) * r));
+            const r = 49 + Math.sin(i / 24 * Math.PI * 4) * 5.5;
+            pts.push(V(Math.cos(a) * r, 27 + Math.sin(i / 24 * Math.PI * 6) * 3.5, Math.sin(a) * r));
         }
         return pts;
     })();
+
+    function heliSunsetSkyboxTex() {
+        return L.canvasTex('heli-sunset-skybox-v1', 1024, 512, (g, w, h) => {
+            const sky = g.createLinearGradient(0, 0, 0, h);
+            sky.addColorStop(0.00, '#0f172a');
+            sky.addColorStop(0.24, '#312e81');
+            sky.addColorStop(0.42, '#9d174d');
+            sky.addColorStop(0.50, '#f97316');
+            sky.addColorStop(0.54, '#fde047');
+            sky.addColorStop(0.62, '#1e293b');
+            sky.addColorStop(1.00, '#090d16');
+            g.fillStyle = sky; g.fillRect(0, 0, w, h);
+            const sun = g.createRadialGradient(w * 0.28, h * 0.48, 6, w * 0.28, h * 0.48, 120);
+            sun.addColorStop(0, 'rgba(255,252,220,1)');
+            sun.addColorStop(0.22, 'rgba(253,224,71,0.82)');
+            sun.addColorStop(0.55, 'rgba(249,115,22,0.35)');
+            sun.addColorStop(1, 'rgba(249,115,22,0)');
+            g.fillStyle = sun; g.fillRect(0, 0, w, h);
+            g.fillStyle = 'rgba(254,215,170,0.12)';
+            for (let i = 0; i < 18; i++) {
+                g.beginPath();
+                g.ellipse(((i * 97) % w), h * (0.28 + (i % 5) * 0.045), 60 + (i % 4) * 32, 8 + (i % 3) * 4, 0, 0, Math.PI * 2);
+                g.fill();
+            }
+        });
+    }
+
+    function heliThermalOverlay(on) {
+        let el = document.getElementById('mg-heli-flir');
+        if (on) {
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'mg-heli-flir';
+                el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:18;'
+                    + 'background:radial-gradient(circle at 50% 50%, rgba(16,185,129,0.06) 42%, rgba(2,24,18,0.68) 100%),'
+                    + 'repeating-linear-gradient(0deg, rgba(52,211,153,0.05) 0px, rgba(52,211,153,0.05) 1px, transparent 1px, transparent 3px);'
+                    + 'mix-blend-mode:screen;box-shadow:inset 0 0 90px rgba(6,78,59,0.85);';
+                const tag = document.createElement('div');
+                tag.textContent = 'FLIR THERMAL • WHOT [Q]';
+                tag.style.cssText = 'position:absolute;top:76px;left:50%;transform:translateX(-50%);padding:3px 10px;'
+                    + 'border:1px solid rgba(52,211,153,0.65);background:rgba(2,44,34,0.72);color:#6ee7b7;'
+                    + 'font:800 11px monospace;letter-spacing:2px;border-radius:4px;';
+                el.appendChild(tag);
+                document.body.appendChild(el);
+            }
+            el.style.display = 'block';
+        } else if (el) {
+            el.style.display = 'none';
+        }
+    }
+
+    function applyHeliThermalTargets(S, on) {
+        if (!S || !S.targets) return;
+        for (const tg of S.targets) {
+            if (!tg.alive || !tg.fig) continue;
+            const col = tg.penalty ? 0x38bdf8 : (tg.isRocketeer ? 0xff2222 : 0xff6a00);
+            const inten = on ? (tg.penalty ? 0.85 : 1.15) : 0;
+            tg.root.traverse((o) => {
+                if (!o.isMesh || !o.material || o.userData.noThermal) return;
+                const mats = Array.isArray(o.material) ? o.material : [o.material];
+                for (const m of mats) {
+                    if (!m.emissive) continue;
+                    if (on) {
+                        if (m.userData._origEm === undefined) m.userData._origEm = m.emissive.getHex();
+                        if (m.userData._origEmI === undefined) m.userData._origEmI = m.emissiveIntensity || 0;
+                        m.emissive.setHex(col);
+                        m.emissiveIntensity = inten;
+                    } else if (m.userData._origEm !== undefined) {
+                        m.emissive.setHex(m.userData._origEm);
+                        m.emissiveIntensity = m.userData._origEmI;
+                    }
+                }
+            });
+        }
+    }
+
     MG.register({
         id: 'heli_gunner', cat: 'target', order: 8,
         name: 'Heli Gunner', icon: '🚁', accent: '#a3e635',
-        tagline: 'Door seat, open sky, rooftops full of trouble',
-        desc: 'Ride in the open door of a Black Hawk circling a downtown block. Hostiles pop up on the rooftops; hostages and civilians do too. The helicopter climbs and dips as it orbits, so read the roofline and lead your shots.',
-        hudSub: 'Hostiles on rooftops — hostages are a heavy penalty',
-        duration: 60, stars: [3000, 6500, 10500, 15000], standardWeapon: 'm249', rail: true, customMusic: true,
+        tagline: 'Door seat, sunset skyline, rooftops full of trouble',
+        desc: 'Ride in the open door of a Black Hawk circling a downtown block at sunset. Animated rooftop hostiles, RPG Rocketeers with laser telegraphs, explosive fuel barrels, and hostages appear across the skyline. Toggle FLIR Thermal Sight with [Q] and intercept Rocketeers before they fire.',
+        hudSub: '[Q] Thermal FLIR • Shoot RPG Rocketeers & Red Barrels • Spare Hostages',
+        duration: 60, stars: [3500, 7500, 12000, 17500], standardWeapon: 'm249', rail: true, customMusic: true,
+        keys: [['MOUSE', 'Aim M134 / M249'], ['LMB', 'Fire'], ['Q', 'Toggle Thermal Sight']],
         map: {
-            atmosphere: { skyTop: 0x1e3a8a, skyBottom: 0xfdba74, fogColor: 0xd8b494, fogDensity: 0.004, sunColor: 0xffc58a, sunIntensity: 1.6, sunPos: [-60, 40, 80], hemiSky: 0xfed7aa, hemiGround: 0x334155, hemiIntensity: 0.8 },
-            boxes: [B(0, -0.5, 0, 400, 1, 400, 'asphalt')],
+            atmosphere: { skyTop: 0x1e1b4b, skyBottom: 0xf97316, fogColor: 0x7c3e45, fogDensity: 0.0036, sunColor: 0xffb36b, sunIntensity: 1.75, sunPos: [-65, 34, 75], hemiSky: 0xfdba74, hemiGround: 0x1e293b, hemiIntensity: 0.85 },
+            boxes: [B(0, -0.5, 0, 420, 1, 420, 'asphalt')],
             spawn: { x: HELI_PTS[0].x, y: HELI_PTS[0].y, z: HELI_PTS[0].z, yaw: 0 }
         },
         build(S) {
             if (BO.MinigameAudio) BO.MinigameAudio.start('tactical');
+            // Apply rich sunset equirectangular skybox (guaranteed crisp golden-dusk horizon)
+            const skyTex = heliSunsetSkyboxTex();
+            skyTex.mapping = THREE.EquirectangularReflectionMapping;
+            S.scene.background = skyTex;
+
             const R = K.rail(HELI_PTS, true, 0.5);
             S.data.rail = R;
             S.data.dist = 0;
-            // city block
+            S.data.hull = 100;
+            S.data.thermal = false;
+            S.data.rpgLocks = 0;
+            S.data.radars = [];
+            S.data.barrels = [];
+            S.data.cars = [];
+            S.data.baseFog = S.scene.fog ? S.scene.fog.color.getHex() : 0x7c3e45;
+            S.data.baseFogD = S.scene.fog ? S.scene.fog.density : 0.0036;
+
+            // PBR concrete & glass skyscraper material set
+            const facadePaths = [
+                'cyberpunk/Brutalist Exteriors/tower-facade-panels-001.png',
+                'cyberpunk/Brutalist Concrete/smog-grey-facade-concrete-001.png',
+                'cyberpunk/Brutalist Concrete/water-stained-tower-concrete-001.png',
+                'cyberpunk/Brutalist Exteriors/rain-streaked-exterior-wall-001.png',
+                'cyberpunk/Commercial Neon/black-glass-shopfront-tile-001.png'
+            ];
+            const roofSlabMat = L.pbrMat('cyberpunk/Brutalist Concrete/sunlit-civic-concrete-slab-001.png', 2, 2, { color: 0x64748b, roughness: 0.84, metalness: 0.1 });
+            const parapetMat = std(0x1f2937, 0.78, 0.2);
+            const glassAccentMat = new THREE.MeshStandardMaterial({ color: 0xfdba74, emissive: 0xf97316, emissiveIntensity: 0.32, roughness: 0.15, metalness: 0.85 });
+
+            // City block buildings — CRITICAL: y = h / 2 so every roof sits cleanly at y = h!
             const roofs = [];
             const rnd = L.mulberry32(88);
-            const cols = [0x64748b, 0x78716c, 0x475569, 0x7c2d12, 0x334155, 0x57534e];
+            const cols = [0x94a3b8, 0x78716c, 0x64748b, 0x9a5b4a, 0x475569, 0x71717a];
+            const acInst = [];
+            const tankInst = [];
+            const chimInst = [];
+
             for (let gx = -3; gx <= 3; gx++) {
                 for (let gz = -3; gz <= 3; gz++) {
-                    const cx = gx * 11 + (rnd() - 0.5) * 2, cz = gz * 11 + (rnd() - 0.5) * 2;
+                    const cx = gx * 11 + (rnd() - 0.5) * 1.6, cz = gz * 11 + (rnd() - 0.5) * 1.6;
                     if (Math.hypot(cx, cz) > 38) continue;
-                    const w = 6 + rnd() * 3, d = 6 + rnd() * 3;
-                    const h = 6 + rnd() * 18 + (Math.hypot(cx, cz) < 15 ? 6 : 0);
-                    const b = A.building(w, h, d, cols[Math.floor(rnd() * cols.length)], gx * 7 + gz, 0.35);
-                    b.position.set(cx, 0, cz);
+                    const isCenter = gx === 0 && gz === 0;
+                    const w = isCenter ? 8.8 : 6.2 + rnd() * 2.6;
+                    const d = isCenter ? 8.8 : 6.2 + rnd() * 2.6;
+                    const h = isCenter ? 24 : (7 + rnd() * 16 + (Math.hypot(cx, cz) < 16 ? 5 : 0));
+                    const fPath = facadePaths[Math.abs(gx * 3 + gz) % facadePaths.length];
+                    const wallTex = L.loadTex(fPath, Math.max(1, Math.round(w / 5)), Math.max(1, Math.round(h / 8)));
+                    const winTex = A.windowsTex(Math.abs(gx * 7 + gz) % 6, 0.45, '#fde68a', '#1e293b').clone();
+                    winTex.needsUpdate = true; winTex.wrapS = winTex.wrapT = THREE.RepeatWrapping;
+                    winTex.userData.mgOwned = true;
+                    winTex.repeat.set(Math.max(1, Math.round(w / 5)), Math.max(1, Math.round(h / 10)));
+                    const pbrSide = new THREE.MeshStandardMaterial({
+                        map: wallTex, color: cols[Math.floor(rnd() * cols.length)],
+                        roughness: fPath.includes('black-glass') ? 0.18 : 0.65,
+                        metalness: fPath.includes('black-glass') ? 0.72 : 0.18,
+                        emissive: 0xffffff, emissiveMap: winTex, emissiveIntensity: 0.35
+                    });
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [pbrSide, pbrSide, roofSlabMat, roofSlabMat, pbrSide, pbrSide]);
+                    b.position.set(cx, h / 2, cz);
+                    b.castShadow = b.receiveShadow = true;
                     S.add(b);
                     S.solid(b);
-                    const lip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.5, d + 0.3), std(0x1f2937, 0.8));
-                    lip.position.set(cx, h + 0.25, cz);
+
+                    // Parapet rim around roof edge
+                    const lip = new THREE.Mesh(new THREE.BoxGeometry(w + 0.34, 0.42, d + 0.34), parapetMat);
+                    lip.position.set(cx, h + 0.21, cz);
                     S.add(lip);
-                    if (rnd() < 0.4) {
-                        const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.8, 10), std(0x9ca3af, 0.6, 0.5));
-                        tank.position.set(cx + w * 0.25, h + 1.2, cz - d * 0.2);
-                        S.add(tank);
+
+                    // Center tower helipad + radar dish; other roofs get AC/water-tanks/chimneys
+                    if (isCenter) {
+                        const hPad = new THREE.Mesh(new THREE.CircleGeometry(3.5, 32), new THREE.MeshStandardMaterial({
+                            map: L.canvasTex('heli-center-pad', 256, 256, (g, pw) => {
+                                g.fillStyle = '#334155'; g.fillRect(0, 0, pw, pw);
+                                g.strokeStyle = '#facc15'; g.lineWidth = 12; g.beginPath(); g.arc(128, 128, 108, 0, Math.PI * 2); g.stroke();
+                                g.fillStyle = '#f8fafc'; g.font = '900 140px Bahnschrift, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('H', 128, 134);
+                            }), roughness: 0.72
+                        }));
+                        hPad.rotation.x = -Math.PI / 2; hPad.position.set(cx, h + 0.44, cz);
+                        S.add(hPad);
+                        const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), basic(0xf97316));
+                        beacon.position.set(cx + w * 0.42, h + 0.6, cz + d * 0.42);
+                        S.add(beacon);
+                        S.animate(() => { beacon.visible = Math.sin(performance.now() * 0.006) > 0; });
+                    } else {
+                        if (rnd() < 0.55) {
+                            const ac = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.85, 1.1), std(0x94a3b8, 0.5, 0.5));
+                            ac.position.set(cx - w * 0.22, h + 0.43, cz + d * 0.18);
+                            S.add(ac);
+                            const fan = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.08, 10), std(0x1f2937, 0.5));
+                            fan.position.set(cx - w * 0.22, h + 0.88, cz + d * 0.18);
+                            S.add(fan);
+                        }
+                        if (rnd() < 0.38) {
+                            tankInst.push({ pos: [cx + w * 0.24, h, cz - d * 0.22], rotY: rnd() * Math.PI });
+                        } else if (rnd() < 0.35) {
+                            chimInst.push({ pos: [cx - w * 0.24, h, cz - d * 0.24], rotY: 0 });
+                        } else if (rnd() < 0.28) {
+                            acInst.push({ pos: [cx + w * 0.22, h, cz + d * 0.22], rotY: rnd() * Math.PI });
+                        }
+                        if (rnd() < 0.22) {
+                            // Rotating rooftop radar dish
+                            const radBase = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 1.1, 8), std(0x475569, 0.5, 0.7));
+                            radBase.position.set(cx, h + 0.55, cz);
+                            const dishPivot = new THREE.Group();
+                            dishPivot.position.set(cx, h + 1.15, cz);
+                            const dish = new THREE.Mesh(new THREE.ConeGeometry(0.65, 0.45, 14, 1, true), std(0xe2e8f0, 0.35, 0.6));
+                            dish.rotation.x = Math.PI * 0.35;
+                            dishPivot.add(dish);
+                            S.add(radBase, dishPivot);
+                            S.data.radars.push(dishPivot);
+                        }
                     }
+
+                    // Sunset reflection band near crown
+                    const crown = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.45, d + 0.06), glassAccentMat);
+                    crown.position.set(cx, h - 0.6, cz);
+                    S.add(crown);
+
                     roofs.push({ x: cx, z: cz, w, d, h });
                 }
             }
             S.data.roofs = roofs;
-            // outer city ring for skyline
-            for (let i = 0; i < 70; i++) {
-                const a = rnd() * Math.PI * 2, r = 90 + rnd() * 120, h = 15 + rnd() * 50, w = 10 + rnd() * 10;
-                const b = A.building(w, h, w, cols[i % cols.length], 100 + i, 0.3);
-                b.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+
+            if (tankInst.length) L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank-large.glb', tankInst, { fitSize: [1.8, 1.5, 1.8] });
+            if (acInst.length) L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/detail-tank.glb', acInst, { fitSize: [1.4, 1.2, 1.4] });
+            if (chimInst.length) L.placeGLBInstanced(S.scene, 'staged_assets/3d_models/city_industrial_kit/chimney-small.glb', chimInst, { fitSize: [1.0, 2.0, 1.0] });
+            if (roofs.length > 2) {
+                const wtRf = roofs[Math.floor(roofs.length * 0.35)];
+                L.placeGLB(S.scene, 'staged_assets/3d_models/city_industrial_kit/water-tower.glb', { pos: [wtRf.x - wtRf.w * 0.2, wtRf.h, wtRf.z + wtRf.d * 0.2], fitSize: [2.4, 3.2, 2.4] });
+            }
+
+            // Outer city ring skyline — fixed at y = h / 2 so towers sit grounded on the asphalt!
+            for (let i = 0; i < 74; i++) {
+                const a = rnd() * Math.PI * 2, r = 88 + rnd() * 125, h = 18 + rnd() * 54, w = 10 + rnd() * 10;
+                const b = A.building(w, h, w * (0.8 + rnd() * 0.4), cols[i % cols.length], 100 + i, 0.42, true);
+                b.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
                 S.add(b);
             }
-            // roads
+
+            // Street grid with lane markings, streetlights & moving neon car traffic below
+            const laneTex = L.canvasTex('heli-street-lane', 64, 256, (g, w, h) => {
+                g.fillStyle = '#18181b'; g.fillRect(0, 0, w, h);
+                g.fillStyle = '#3f3f46'; g.fillRect(0, 0, 3, h); g.fillRect(w - 3, 0, 3, h);
+                g.fillStyle = '#facc15';
+                for (let y = 8; y < h; y += 36) g.fillRect(w * 0.47, y, w * 0.06, 20);
+            });
+            laneTex.wrapS = laneTex.wrapT = THREE.RepeatWrapping;
+            laneTex.repeat.set(1, 14);
+            const roadMat = new THREE.MeshStandardMaterial({ map: laneTex, roughness: 0.86 });
+            const lampMat = basic(0xfde68a);
+            const poleMat = std(0x27272a, 0.5, 0.7);
             for (let i = -3; i <= 3; i++) {
                 for (const rot of [0, Math.PI / 2]) {
-                    const road = new THREE.Mesh(new THREE.PlaneGeometry(3, 90), std(0x1f2937, 0.95));
+                    const road = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 110), roadMat);
                     road.rotation.set(-Math.PI / 2, 0, rot);
-                    road.position.set(rot ? 0 : i * 11 + 5.5, 0.02, rot ? i * 11 + 5.5 : 0);
+                    road.position.set(rot ? 0 : i * 11 + 5.5, 0.03, rot ? i * 11 + 5.5 : 0);
                     S.add(road);
                 }
+                if (Math.abs(i) <= 2) {
+                    const lx = i * 11 + 3.6, lz = i * 11 + 3.6;
+                    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 3.6, 6), poleMat);
+                    pole.position.set(lx, 1.8, lz);
+                    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), lampMat);
+                    bulb.position.set(lx, 3.65, lz);
+                    S.add(pole, bulb);
+                }
             }
-            // helicopter interior that rides with us
+            // Moving neon cars along avenues
+            const carBodyMat = std(0x0f172a, 0.3, 0.7);
+            const headM = basic(0x67e8f9), tailM = basic(0xf43f5e);
+            for (let ci = 0; ci < 12; ci++) {
+                const car = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, 2.2), carBodyMat);
+                body.position.y = 0.35;
+                const hl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.1), headM); hl.position.set(0, 0.36, 1.12);
+                const tl = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.1), tailM); tl.position.set(0, 0.36, -1.12);
+                car.add(body, hl, tl);
+                const axis = ci % 2 === 0 ? 'z' : 'x';
+                const lane = (-2 + (ci % 5)) * 11 + 5.5;
+                const dir = (ci % 4 < 2) ? 1 : -1;
+                if (axis === 'x') car.rotation.y = dir > 0 ? Math.PI / 2 : -Math.PI / 2;
+                else car.rotation.y = dir > 0 ? 0 : Math.PI;
+                S.add(car);
+                S.data.cars.push({ obj: car, axis, lane: lane + dir * 0.7, dir, pos: -50 + ci * 9, spd: 11 + (ci % 4) * 3.5 });
+            }
+
+            // Place explosive red barrels on prominent rooftops
+            for (let ri = 0; ri < roofs.length; ri++) {
+                if (ri % 3 !== 1) continue;
+                const rf = roofs[ri];
+                const bx = rf.x + (rnd() - 0.5) * (rf.w * 0.35);
+                const bz = rf.z + (rnd() - 0.5) * (rf.d * 0.35);
+                const bGroup = new THREE.Group();
+                const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.15, 14), std(0xdc2626, 0.42, 0.35));
+                cyl.position.y = 0.58;
+                const band = new THREE.Mesh(new THREE.CylinderGeometry(0.435, 0.435, 0.22, 14), std(0xfacc15, 0.5));
+                band.position.y = 0.62;
+                const topCap = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.04, 14), std(0x1f2937, 0.6));
+                topCap.position.y = 1.16;
+                bGroup.add(cyl, band, topCap);
+                const bPos = V(bx, rf.h + 0.42, bz);
+                S.addTarget({
+                    mesh: bGroup, hitMeshes: [cyl, band], pos: bPos, points: 250, bonus: true, life: 0,
+                    appear: 'none', inT: 0.01, death: 'burst', deathColor: 0xf97316,
+                    onKill: (tg) => {
+                        const center = tg.root.position.clone();
+                        BO.FX.spawnExplosion(center, 4.5, 0xf97316);
+                        BO.Sound.playExplosion(0.5);
+                        BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.045);
+                        for (const other of S.targets) {
+                            if (!other.alive || other === tg || other.penalty || !other.fig) continue;
+                            if (other.root.position.distanceTo(center) < 6.8) {
+                                S.award(other.isRocketeer ? 350 : 200, other.root.position.clone().add(V(0, 2.0, 0)), 'BARREL BLAST!', '#fb923c');
+                                other.kill({ pt: other.root.position.clone().add(V(0, 1.0, 0)) });
+                            }
+                        }
+                    }
+                });
+            }
+
+            // =================================================================
+            // Rich Contoured Black Hawk Gunship Interior
+            // =================================================================
             const heli = new THREE.Group();
-            const floor = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 3.4), std(0x1f2937, 0.7, 0.4));
-            floor.position.set(-0.6, -0.04, 0);
-            heli.add(floor);
-            const hull = std(0x3f4b3a, 0.6, 0.4);
-            for (const z of [-1.6, 1.6]) {
-                const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.0, 0.14), hull);
-                post.position.set(0.55, 1.0, z);
+            const odHull = std(0x3b4734, 0.58, 0.35);
+            const odDark = std(0x232a1f, 0.68, 0.45);
+            const deckMat = L.pbrMat('cyberpunk/Industrial Maintenance/diamond-plate-walkway-001.png', 2, 3, { color: 0x334155, roughness: 0.6, metalness: 0.55 });
+            const metalDark = std(0x18181b, 0.35, 0.8);
+
+            // Riveted deck + armored lower sponson + ribbed door bulkhead posts
+            const floor = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 4.2), deckMat);
+            floor.position.set(-0.65, -0.06, -0.2);
+            const portWall = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.05, 4.1), odHull);
+            portWall.position.set(-1.92, 1.0, -0.2);
+            const bulkhead = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.18), odDark);
+            bulkhead.position.set(-0.7, 1.0, -0.85);
+            heli.add(floor, portWall, bulkhead);
+            for (const z of [-2.1, -0.85, 1.35]) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2.1, 0.20), odHull);
+                post.position.set(0.58, 1.02, z);
                 heli.add(post);
             }
-            const roofP = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 3.6), hull);
-            roofP.position.set(-0.5, 2.05, 0);
-            heli.add(roofP);
-            const skid = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.6, 6), std(0x18181b, 0.5, 0.7));
-            skid.rotation.x = Math.PI / 2;
-            skid.position.set(0.9, -0.6, 0);
-            heli.add(skid);
+            // Contoured overhead fuselage & cabin roof
+            const roofP = new THREE.Mesh(new THREE.BoxGeometry(2.75, 0.18, 4.4), odHull);
+            roofP.position.set(-0.6, 2.10, -0.2);
+            const noseCanopy = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, 1.7, 12, 1, false, -Math.PI * 0.45, Math.PI * 0.9), odDark);
+            noseCanopy.rotation.z = Math.PI / 2; noseCanopy.rotation.y = Math.PI / 2;
+            noseCanopy.position.set(-0.65, 0.95, -2.55);
+            const cockpitGlass = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.95, 0.06), new THREE.MeshPhysicalMaterial({ color: 0x0f172a, roughness: 0.1, transparent: true, opacity: 0.42 }));
+            cockpitGlass.position.set(-0.65, 1.55, -2.35); cockpitGlass.rotation.x = 0.45;
+            heli.add(roofP, noseCanopy, cockpitGlass);
+
+            // Animated Pilot & Co-Pilot Helmets in front cockpit seats
+            const pilots = [];
+            const helmetMat = std(0x3f4b3a, 0.4, 0.35);
+            const visorMat = std(0x090d16, 0.08, 0.9);
+            const suitMat = std(0x2c3627, 0.8);
+            for (const px of [-1.15, -0.15]) {
+                const seat = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.95, 0.45), odDark);
+                seat.position.set(px, 0.72, -1.55);
+                const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.24, 0.65, 10), suitMat);
+                torso.position.set(px, 0.92, -1.72);
+                const helm = new THREE.Group();
+                helm.position.set(px, 1.44, -1.72);
+                const dome = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), helmetMat);
+                const visor = new THREE.Mesh(new THREE.SphereGeometry(0.165, 12, 10, -0.8, 1.6, 0.8, 1.0), visorMat);
+                visor.position.set(0, 0.01, -0.02);
+                const mic = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 6), metalDark);
+                mic.position.set(0.11, -0.06, -0.12); mic.rotation.x = Math.PI / 2;
+                helm.add(dome, visor, mic);
+                heli.add(seat, torso, helm);
+                pilots.push(helm);
+            }
+
+            // Glowing avionics dash + overhead console
+            const dashTex = L.canvasTex('heli-avionics', 256, 64, (g, w, h) => {
+                g.fillStyle = '#090d16'; g.fillRect(0, 0, w, h);
+                for (let x = 14; x < w - 14; x += 48) {
+                    g.strokeStyle = '#22c55e'; g.lineWidth = 2; g.strokeRect(x, 10, 36, 44);
+                    g.fillStyle = '#14532d'; g.fillRect(x + 3, 13, 30, 38);
+                    g.fillStyle = '#4ade80'; g.fillRect(x + 6, 26, 24, 3);
+                }
+            });
+            const dash = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.34, 0.45), new THREE.MeshStandardMaterial({ map: dashTex, emissive: 0x22c55e, emissiveMap: dashTex, emissiveIntensity: 0.7 }));
+            dash.position.set(-0.65, 1.06, -2.18);
+            heli.add(dash);
+
+            // Heavy tubular landing skids
+            const skidMain = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 4.2, 8), metalDark);
+            skidMain.rotation.x = Math.PI / 2; skidMain.position.set(0.95, -0.58, -0.2);
+            heli.add(skidMain);
+            for (const sz of [-1.2, 0.9]) {
+                const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.75, 6), metalDark);
+                strut.position.set(0.75, -0.32, sz); strut.rotation.z = -0.55;
+                heli.add(strut);
+            }
+
+            // Articulated door-mounted M134 Minigun cradle & tracer ammo chute
+            const gunCradle = new THREE.Group();
+            gunCradle.position.set(0.62, 0.92, 0.35);
+            const pintle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.65, 8), metalDark);
+            pintle.position.y = -0.32;
+            const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.22, 0.46), metalDark);
+            const barrelGroup = new THREE.Group();
+            barrelGroup.position.set(0.18, 0.02, 0);
+            for (let bi = 0; bi < 6; bi++) {
+                const ba = bi / 6 * Math.PI * 2;
+                const brl = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.92, 6), std(0x3f3f46, 0.3, 0.85));
+                brl.rotation.z = Math.PI / 2;
+                brl.position.set(0.46, Math.sin(ba) * 0.055, Math.cos(ba) * 0.055);
+                barrelGroup.add(brl);
+            }
+            const barrelClamp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 12), metalDark);
+            barrelClamp.rotation.z = Math.PI / 2; barrelClamp.position.x = 0.76;
+            barrelGroup.add(barrelClamp);
+            const ammoChute = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 0.16), std(0xd4a017, 0.35, 0.8));
+            ammoChute.position.set(-0.08, -0.24, 0.18); ammoChute.rotation.x = 0.35;
+            gunCradle.add(pintle, receiver, barrelGroup, ammoChute);
+            heli.add(gunCradle);
+
+            // Overhead spinning rotor + translucent motion-blur rotor disc
             const rotor = new THREE.Group();
+            rotor.position.set(-0.65, 2.52, -0.35);
             for (let i = 0; i < 4; i++) {
-                const blade = new THREE.Mesh(new THREE.BoxGeometry(7, 0.04, 0.3), std(0x111827, 0.6, 0.4));
-                blade.rotation.y = i * Math.PI / 4;
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.045, 0.32), std(0x111827, 0.5, 0.45));
+                blade.rotation.y = i * Math.PI / 2;
                 rotor.add(blade);
             }
-            rotor.position.set(-0.6, 2.6, 0);
+            const blurTex = L.canvasTex('heli-rotor-blur', 256, 256, (g, w, h) => {
+                g.clearRect(0, 0, w, h);
+                const rg = g.createRadialGradient(128, 128, 12, 128, 128, 126);
+                rg.addColorStop(0, 'rgba(30,41,59,0.5)');
+                rg.addColorStop(0.55, 'rgba(15,23,42,0.28)');
+                rg.addColorStop(0.92, 'rgba(250,204,21,0.16)');
+                rg.addColorStop(1, 'rgba(15,23,42,0)');
+                g.fillStyle = rg; g.fillRect(0, 0, w, h);
+            });
+            const blurDisc = new THREE.Mesh(new THREE.CircleGeometry(4.2, 32), new THREE.MeshBasicMaterial({ map: blurTex, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false }));
+            blurDisc.rotation.x = -Math.PI / 2;
+            rotor.add(blurDisc);
             heli.add(rotor);
-            const dash = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.14, 1.1), basic(0x22c55e));
-            dash.position.set(-0.2, 1.1, -1.35); heli.add(dash);
+
             if (BO.Settings.getQualityPreset().pointLights) {
-                const cLight = new THREE.PointLight(0xf97316, 1.2, 8, 1.6); cLight.position.set(-0.4, 1.8, 0); heli.add(cLight);
+                const cLight = new THREE.PointLight(0xf97316, 1.4, 9, 1.5); cLight.position.set(-0.4, 1.85, -0.3); heli.add(cLight);
             }
-            heli.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+            heli.traverse((o) => { if (o.isMesh && o !== blurDisc) o.castShadow = true; });
             S.add(heli);
             S.data.heli = heli;
             S.data.rotor = rotor;
-            K.cloudLayer(S, 12, 80, 220, 0xfff7ed, 0.7);
+            S.data.pilots = pilots;
+            S.data.gunCradle = gunCradle;
+            S.data.barrelGroup = barrelGroup;
+            K.cloudLayer(S, 14, 78, 230, 0xfed7aa, 0.68);
         },
-        dispose() { if (BO.MinigameAudio) BO.MinigameAudio.stop(); },
+        onKey(S, code) {
+            if (code === 'KeyQ' && MG.state === 'running') {
+                S.data.thermal = !S.data.thermal;
+                heliThermalOverlay(S.data.thermal);
+                applyHeliThermalTargets(S, S.data.thermal);
+                if (S.scene && S.scene.fog) {
+                    S.scene.fog.color.setHex(S.data.thermal ? 0x042f2e : S.data.baseFog);
+                    S.scene.fog.density = S.data.thermal ? 0.0022 : S.data.baseFogD;
+                }
+                SFX.tone(S.data.thermal ? 1400 : 880, S.data.thermal ? 2100 : 520, 0.12, 'sine', 0.14);
+                MG.toast(S.data.thermal ? 'THERMAL FLIR ONLINE' : 'OPTICS NORMAL', S.data.thermal ? '#34d399' : '#cbd5e1');
+                return true;
+            }
+            return false;
+        },
+        dispose(S) {
+            heliThermalOverlay(false);
+            if (BO.MinigameAudio) BO.MinigameAudio.stop();
+        },
         preUpdate(S, dt, lib, state) {
             if (BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             const R = S.data.rail;
             if (!R) return;
             if (state !== 'countdown') S.data.dist += 15 * dt;
-            const r = K.driveRail(S, R, S.data.dist, dt, { bank: 0.18, pitchFollow: 0.2, eye: 1.25 });
+            const r = K.driveRail(S, R, S.data.dist, dt, { bank: 0.24, pitchFollow: 0.28, eye: 1.25 });
             if (!r) return;
             if (!S.data.aimed) {
                 S.data.aimed = true;
-                BO.Player.yaw = Math.atan2(r.p.x, r.p.z); // face the city centre
+                BO.Player.yaw = Math.atan2(r.p.x, r.p.z);
                 BO.Player.pitch = -0.32;
             }
             const heli = S.data.heli;
-            // The open door (local +X) faces the city centre: pick whichever side of travel it lies on.
             const h = r.heading;
             const rightX = Math.cos(h), rightZ = -Math.sin(h);
             const side = (rightX * -r.p.x + rightZ * -r.p.z) >= 0 ? 0 : Math.PI;
             heli.position.copy(BO.Player.rideState.pos);
             heli.rotation.set(0, h + side, 0);
-            heli.rotateX(-(BO.Player.rideState.roll || 0) * 0.5);
-            S.data.rotor.rotation.y += dt * 28;
+            heli.rotateX(-(BO.Player.rideState.roll || 0) * 0.55);
+            S.data.rotor.rotation.y += dt * 36;
+
+            // Animate pilot helmets scanning + M134 door gun tracking/spinning
+            const now = performance.now() * 0.001;
+            if (S.data.pilots) {
+                S.data.pilots.forEach((p, idx) => { p.rotation.y = Math.sin(now * 0.9 + idx * 1.7) * 0.22; p.rotation.x = Math.sin(now * 1.5 + idx) * 0.06; });
+            }
+            if (S.data.gunCradle) {
+                S.data.gunCradle.rotation.z = BO.Math.clamp(BO.Player.pitch * 0.7, -0.55, 0.35);
+                if (BO.Player.mouseDragging) S.data.barrelGroup.rotation.x += dt * 42;
+            }
+
+            // Animate rooftop radars & city car traffic
+            for (const rad of S.data.radars) rad.rotation.y += dt * 1.6;
+            for (const c of S.data.cars) {
+                c.pos += c.dir * c.spd * dt;
+                if (c.pos > 55) c.pos = -55;
+                if (c.pos < -55) c.pos = 55;
+                if (c.axis === 'z') c.obj.position.set(c.lane, 0.04, c.pos);
+                else c.obj.position.set(c.pos, 0.04, c.lane);
+            }
+
+            // Continuous twin-blade rotor chop audio
             S.data.thwop = (S.data.thwop || 0) - dt;
-            if (S.data.thwop <= 0) { SFX.noise(0.09, 160, 'lowpass', 0.8, 0.18); S.data.thwop = 0.11; }
-            BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.004);
+            if (S.data.thwop <= 0) {
+                SFX.noise(0.085, 145, 'lowpass', 0.85, 0.19);
+                SFX.tone(68, 52, 0.08, 'triangle', 0.08);
+                S.data.thwop = 0.105;
+            }
+            BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.0045);
         },
         schedule(S) {
-            K.ramp(S, { from: 1.15, to: 0.5, start: 0.4 }, (at, k, rng) => {
+            K.ramp(S, { from: 1.15, to: 0.46, start: 0.35 }, (at, k, rng) => {
                 const pickR = rng();
-                const civ = rng() < 0.15;
-                const life = lerp(2.8, 1.5, k);
-                const lateral = (rng() - 0.5) * 0.8;
+                const rollType = rng();
+                const civ = rollType < 0.14;
+                const rocketeer = !civ && k > 0.18 && rollType > 0.76;
+                const life = lerp(3.1, 1.8, k) * (rocketeer ? 1.25 : 1);
+                const lateral = (rng() - 0.5) * 0.72;
                 S.at(at, (S2) => {
+                    const F = BO.MGFigures;
                     const R = S2.data.rail;
-                    const hp = R.curve.getPointAt((((S2.data.dist + 20) / R.len) % 1 + 1) % 1);
+                    const hp = R.curve.getPointAt((((S2.data.dist + 18) / R.len) % 1 + 1) % 1);
                     const toHeli = Math.atan2(hp.x, hp.z);
                     const cands = S2.data.roofs.filter((rf) => {
                         const a = Math.atan2(rf.x, rf.z);
-                        return Math.abs(BO.Math.angleDiff(a, toHeli)) < 1.0 || Math.hypot(rf.x, rf.z) < 10;
+                        return Math.abs(BO.Math.angleDiff(a, toHeli)) < 1.05 || Math.hypot(rf.x, rf.z) < 12;
                     });
                     if (!cands.length) return;
                     const rf = cands[Math.floor(pickR * cands.length) % cands.length];
                     const dir = V(hp.x - rf.x, 0, hp.z - rf.z).normalize();
-                    const pos = V(rf.x + dir.x * (rf.w / 2 - 0.6) + dir.z * lateral * rf.w, rf.h + 0.5, rf.z + dir.z * (rf.d / 2 - 0.6) - dir.x * lateral * rf.d);
-                    const t = A.silhouette(civ ? 'hostage' : 'hostile', 1.25);
-                    S2.addTarget(Object.assign(t, {
-                        pos, faceCamera: true, points: 150, penalty: civ ? 300 : 0, penaltyLabel: 'HOSTAGE!', life: civ ? life * 1.3 : life,
-                        appear: 'rise', riseDepth: 2.4, death: 'tumble', deathColor: 0x57534e
-                    }));
+                    const pos = V(
+                        rf.x + dir.x * (rf.w / 2 - 0.75) + dir.z * lateral * rf.w,
+                        rf.h + 0.42,
+                        rf.z + dir.z * (rf.d / 2 - 0.75) - dir.x * lateral * rf.d
+                    );
+                    const fig = F.human(civ
+                        ? F.randomCivilian(rng, { shirt: 0x38bdf8, eyes: 'scared', mouth: 'o' })
+                        : rocketeer
+                            ? { skin: F.SKINS[Math.floor(rng() * F.SKINS.length)], shirt: 0x7f1d1d, pants: 0x18181b, bandana: 0xef4444, vest: 0x27272a, gun: 'rifle', eyes: 'angry', scale: 1.08 }
+                            : { skin: F.SKINS[Math.floor(rng() * F.SKINS.length)], shirt: 0x1f2937, pants: 0x111827, mask: 0x0a0a0a, vest: 0x3f4a2a, gun: 'rifle', eyes: 'angry' });
+                    F.pose(fig, civ ? 'handsUp' : 'aim');
+
+                    // Clear visual indicators: Hostage halo OR RPG Rocketeer laser sight
+                    let laser = null;
+                    if (civ) {
+                        const halo = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.04, 6, 18), basic(0x38bdf8));
+                        halo.rotation.x = Math.PI / 2; halo.position.y = 2.08; halo.userData.noHit = true; halo.userData.noThermal = true;
+                        fig.root.add(halo);
+                    } else if (rocketeer) {
+                        const rpgTube = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 1.05, 8), std(0x365314, 0.6));
+                        rpgTube.rotation.x = Math.PI / 2; rpgTube.position.set(0.18, -0.58, 0.25); rpgTube.userData.noHit = true;
+                        fig.parts.armR.add(rpgTube);
+                        const lGeo = new THREE.CylinderGeometry(0.028, 0.028, 1, 6);
+                        lGeo.translate(0, 0.5, 0); lGeo.rotateX(Math.PI / 2);
+                        laser = new THREE.Mesh(lGeo, new THREE.MeshBasicMaterial({ color: 0xff2222, transparent: true, opacity: 0.72 }));
+                        laser.userData.noHit = true; laser.userData.noThermal = true;
+                        S2.scene.add(laser);
+                        S2.data.rpgLocks++;
+                        SFX.tone(1100, 1480, 0.09, 'sawtooth', 0.08);
+                    }
+
+                    const st = { t: rng() * 2, lockT: 0, fired: false };
+                    const tg = S2.addTarget({
+                        mesh: fig.root, hitMeshes: fig.hit, pos, faceCamera: true,
+                        points: rocketeer ? 400 : 180, penalty: civ ? 350 : 0, penaltyLabel: 'HOSTAGE!',
+                        life: civ ? life * 1.25 : life,
+                        appear: 'rise', riseDepth: 1.8, death: 'tumble', deathColor: civ ? 0x38bdf8 : 0xef4444,
+                        onTick: (t, dt) => {
+                            st.t += dt;
+                            F.pose(fig, civ ? 'handsUp' : 'aim', st.t);
+                            if (laser && t.alive) {
+                                st.lockT += dt;
+                                const muzzle = t.root.position.clone().add(V(0, 1.55, 0));
+                                const chop = BO.Player.rideState ? BO.Player.rideState.pos.clone().add(V(0, 0.8, 0)) : BO.App.worldCamera.position;
+                                const dLen = muzzle.distanceTo(chop);
+                                laser.position.copy(muzzle);
+                                laser.lookAt(chop);
+                                laser.scale.set(1 + Math.sin(st.t * 24) * 0.35, 1 + Math.sin(st.t * 24) * 0.35, dLen);
+                                laser.material.opacity = st.lockT > 1.7 ? (Math.sin(st.t * 38) > 0 ? 0.95 : 0.25) : 0.65;
+                                if (st.lockT >= 2.4 && !st.fired && MG.state === 'running') {
+                                    st.fired = true;
+                                    BO.FX.spawnTracer(muzzle, chop, 0xf97316, 0.16, 0.32);
+                                    BO.FX.spawnExplosion(chop.clone().add(V(0, -0.3, 0)), 1.8, 0xf97316);
+                                    SFX.rumble(0.42);
+                                    MG.flashScreen('rgba(239,68,68,0.45)');
+                                    BO.Player.cameraShake = Math.max(BO.Player.cameraShake, 0.11);
+                                    S2.data.hull = Math.max(0, S2.data.hull - 25);
+                                    if (S2.data.hull <= 0) MG.finish('BLACK HAWK DOWN', { color: '#f87171' });
+                                    t.retire();
+                                }
+                            }
+                        },
+                        onKill: (t) => {
+                            if (laser && laser.parent) laser.parent.remove(laser);
+                            if (rocketeer) {
+                                S2.data.rpgLocks = Math.max(0, S2.data.rpgLocks - 1);
+                                S2.award(150, t.root.position.clone().add(V(0, 2.2, 0)), 'RPG INTERCEPT!', '#fde047');
+                            }
+                            SFX.thunk();
+                        },
+                        onExpire: () => {
+                            if (laser && laser.parent) laser.parent.remove(laser);
+                            if (rocketeer) S2.data.rpgLocks = Math.max(0, S2.data.rpgLocks - 1);
+                        }
+                    });
+                    tg.fig = fig;
+                    tg.isRocketeer = rocketeer;
+                    if (S2.data.thermal) applyHeliThermalTargets(S2, true);
                 });
             });
+        },
+        hud(S) {
+            const hull = S.data.hull ?? 100;
+            const alt = BO.Player && BO.Player.rideState ? Math.round(BO.Player.rideState.pos.y * 3.28) : 90;
+            return `<div class="mgx-raid">
+                <div class="mgx-hp"><small>CHOPPER HULL</small><div class="mgx-hp-bar"><i style="width:${hull}%;background:${hull > 50 ? '#22c55e' : hull > 25 ? '#f59e0b' : '#ef4444'}"></i></div><b>${hull}%</b></div>
+                <div class="mgx-chip">ALT <b>${alt} FT</b></div>
+                <div class="mgx-chip ${S.data.thermal ? 'mgx-hot' : ''}">[Q] FLIR <b>${S.data.thermal ? 'ON' : 'OFF'}</b></div>
+                ${S.data.rpgLocks > 0 ? `<div class="mgx-chip mgx-bad">⚠ RPG LOCK <b>${S.data.rpgLocks}</b></div>` : ''}
+            </div>`;
         }
     });
 

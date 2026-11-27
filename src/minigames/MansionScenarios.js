@@ -51,17 +51,27 @@
     ];
 
     // candidate floor slots (room-local), well clear of the walls and doors
-    const GX = [-4.5, -3, -1.5, 0, 1.5, 3, 4.5];
-    const GZ = [-4.6, -3.2, -1.8, -0.4, 1.0, 2.4];
+    const GX = [-4.4, -2.9, -1.4, 0, 1.4, 2.9, 4.4];
+    const GZ = [-4.5, -3.1, -1.7, -0.3, 1.1, 2.5];
 
     function freeSlots(room) {
         const out = [];
+        const doorClear = (x, z) => {
+            // Keep 1.55m clearance around all 4 room-wall doorway centers (±6, 0) & (0, ±6)
+            if (Math.abs(x) < 1.55 && Math.abs(Math.abs(z) - 6) < 1.75) return false;
+            if (Math.abs(z) < 1.55 && Math.abs(Math.abs(x) - 6) < 1.75) return false;
+            return true;
+        };
         for (const x of GX) for (const z of GZ) {
+            if (!doorClear(x, z)) continue;
             let ok = true;
+            let nearCover = false;
             for (const f of room.furn || []) {
-                if (Math.abs(x - f.x) < f.w / 2 + 0.55 && Math.abs(z - f.z) < f.d / 2 + 0.55) { ok = false; break; }
+                const dx = Math.abs(x - f.x), dz = Math.abs(z - f.z);
+                if (dx < f.w / 2 + 0.65 && dz < f.d / 2 + 0.65) { ok = false; break; }
+                if (dx < f.w / 2 + 1.45 && dz < f.d / 2 + 1.45) nearCover = true;
             }
-            if (ok) out.push({ x, z, k: x + ',' + z });
+            if (ok) out.push({ x, z, k: x + ',' + z, nearCover });
         }
         return out;
     }
@@ -93,8 +103,13 @@
                 const taken = [];
                 for (const ch of code) {
                     const type = { C: 'stand', V: 'cover', S: 'shield', H: 'host', B: 'boss' }[ch];
-                    // shields need room for their hostage in front (towards +z), cover needs a gap behind
-                    const pool = slots[r.id].filter((s) => !taken.some((t) => Math.abs(t.x - s.x) < 1.6 && Math.abs(t.z - s.z) < 1.6) && (type !== 'shield' || s.z < 2.4));
+                    // shields need room for their hostage in front (+z) and lateral peek; cover prefers spots adjacent to furniture
+                    let pool = slots[r.id].filter((s) => !taken.some((t) => Math.abs(t.x - s.x) < 1.6 && Math.abs(t.z - s.z) < 1.6)
+                        && (type !== 'shield' || (s.z < 2.1 && Math.abs(s.x) < 4.0)));
+                    if (type === 'cover') {
+                        const covPool = pool.filter((s) => s.nearCover);
+                        if (covPool.length) pool = covPool;
+                    }
                     if (!pool.length) continue;
                     let best = Infinity;
                     for (const s of pool) best = Math.min(best, used.get(r.id + ':' + s.k) || 0);

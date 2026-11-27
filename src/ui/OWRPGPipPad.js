@@ -13,22 +13,22 @@
         ['perks', 'Perks', 'staged_assets/ui/scifi_icons/Power Cores/amber-overdrive-cell-001.png'],
         ['inventory', 'Inventory', 'staged_assets/ui/military_icons/Field Gear/assault-day-pack-001.png'],
         ['abilities', 'Abilities', 'staged_assets/ui/scifi_icons/Gadgets/acoustic-hull-probe-001.png'],
+        ['mounts', 'Mounts', 'staged_assets/ui/military_icons/Vehicles/recon-dirt-bike-001.png'],
         ['quests', 'Quests', 'staged_assets/ui/military_icons/Maps Data/fire-support-target-card-001.png'],
+        ['bounties', 'Bounties', 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png'],
+        ['codex', 'Codex', 'staged_assets/ui/military_icons/Field Gear/encrypted-field-notebook-001.png'],
         ['map', 'Map', 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png'],
         ['factions', 'Factions', 'staged_assets/ui/military_icons/Communications/antenna-relay-puck-001.png'],
         ['system', 'System', 'staged_assets/ui/dieselpunk_icons/Tools/antenna-splice-kit-001.png']
     ];
     const ATTR_COL = { BRW: '#f97316', RFX: '#a3e635', TCH: '#38bdf8', PRC: '#facc15', PRS: '#f472b6' };
-    // Ability unlocks: [requirement label, test(s)].
-    const UNLOCK = {
-        cryo_dart: ['Starter', () => true],
-        thermite: ['Syndicate Trusted or TCH 7', (s) => BO.OWRPGFactions.rep(s, 'syndicate') >= 250 || BO.OWRPGCharacter.attr(s, 'TCH') >= 7],
-        arc_mine: ['Aegis Trusted or TCH 8', (s) => BO.OWRPGFactions.rep(s, 'aegis') >= 250 || BO.OWRPGCharacter.attr(s, 'TCH') >= 8],
-        breach_bash: ['BRW 7 or Militia Trusted', (s) => BO.OWRPGCharacter.attr(s, 'BRW') >= 7 || BO.OWRPGFactions.rep(s, 'militia') >= 250],
-        arc_lash: ['Starter', () => true],
-        concussion: ['Level 6', (s) => s.player.level >= 6],
-        med_injector: ['Starter', () => true],
-        decoy_holo: ['Level 4 or any Ghost perk', (s) => s.player.level >= 4 || s.player.perks.some((p) => p.startsWith('ghost'))]
+    const ELEM_BADGE = {
+        kinetic: { label: 'KINETIC', color: '#cbd5e1' },
+        burn: { label: 'BURN', color: '#f97316' },
+        chill: { label: 'CHILL', color: '#38bdf8' },
+        shock: { label: 'SHOCK', color: '#facc15' },
+        venom: { label: 'VENOM', color: '#84cc16' },
+        void: { label: 'VOID', color: '#c084fc' }
     };
 
     const Pad = {
@@ -61,19 +61,37 @@
 
         /* ------------------------------------------------ tabs */
         _character() {
-            const s = this.s, SD = BO.OWRPGStatsData, C = BO.OWRPGCharacter;
+            const s = this.s, SD = BO.OWRPGStatsData, C = BO.OWRPGCharacter, I = BO.OWRPGInventory;
             const d = C.derived(s), enc = C.encumbrance(s), p = s.player;
             const rows = SD.ATTRS.map((a) => `<div class="ow-attr"><div class="ow-attr-name" style="--c:${ATTR_COL[a.id]}"><b>${a.name}</b><small>${a.desc}</small></div>
                 <div class="ow-attr-ctl"><span class="ow-pips">${Array.from({ length: 10 }, (_, i) => `<i class="${i < C.attr(s, a.id) ? 'on' : ''}" style="--c:${ATTR_COL[a.id]}"></i>`).join('')}</span><b class="ow-num">${C.attr(s, a.id)}</b>
                 <button class="ow-btn ow-sq" data-act="raise" data-v="${a.id}" ${p.attrPoints > 0 && C.attr(s, a.id) < 10 ? '' : 'disabled'}>+</button></div></div>`).join('');
             const stat = (k, v) => `<div class="ow-stat"><small>${k}</small><b>${v}</b></div>`;
-            return `<div class="ow-two"><div><div class="ow-sub">ATTRIBUTES ${p.attrPoints ? `<span class="ow-gold">${p.attrPoints} to spend</span>` : ''}</div><div class="ow-attrs">${rows}</div></div>
+            const res = d.elemRes || {};
+            const resPills = ['burn', 'chill', 'shock', 'venom', 'void'].map((el) => {
+                const pct = Math.round((res[el] || 0) * 100);
+                return `<span class="ow-elem-pill" style="--c:${ELEM_BADGE[el].color}">${ELEM_BADGE[el].label} RES <b>${pct}%</b></span>`;
+            }).join('');
+            const slotOrder = [['helmet', 'HELMET'], ['rig', 'ARMOR RIG'], ['boots', 'BOOTS'], ['relic', 'RELIC'], ['tool', 'FIELD TOOL [G]']];
+            const doll = slotOrder.map(([sl, lbl]) => {
+                const e = I.equippedEntry(s, sl);
+                const def = e ? I.def(e.id) : null;
+                const durPct = e && BO.OWRPGDurability ? Math.round(BO.OWRPGDurability.ratio(e) * 100) : 100;
+                return `<div class="ow-doll-slot"><small>${lbl}</small><b>${def ? esc(def.name) : '<span class="ow-dim">Empty</span>'}</b>${e ? `<em style="color:${BO.OWRPGDurability?.badgeColor(durPct / 100) || '#4ade80'}">${durPct}%</em>` : ''}</div>`;
+            }).join('');
+            const setsHtml = (d.activeSets || []).length
+                ? d.activeSets.map((st) => `<div class="ow-set-card" style="--c:${st.color}"><b>${esc(st.name)} (${st.count}/3)</b><small>${st.tiers.length ? st.tiers.map(esc).join(' · ') : 'Equip 2+ pieces for set bonus'}</small></div>`).join('')
+                : '<div class="ow-empty">Equip matching set armor (Warden Vanguard, Ironclad Juggernaut, Ghost Stalker, Meridian Arc-Tech) to unlock 2-pc &amp; 3-pc bonuses.</div>';
+            return `<div class="ow-two"><div><div class="ow-sub">ATTRIBUTES ${p.attrPoints ? `<span class="ow-gold">${p.attrPoints} to spend</span>` : ''}</div><div class="ow-attrs">${rows}</div>
+                <div class="ow-sub">ARMOR PAPER-DOLL &amp; TOOL</div><div class="ow-paperdoll">${doll}</div></div>
                 <div><div class="ow-sub">DERIVED</div><div class="ow-stats">
                 ${stat('Max HP', d.maxHp)}${stat('Armor', d.armor)}${stat('Carry', `${enc.weight.toFixed(1)} / ${d.maxWeight} kg (${enc.label})`)}
                 ${stat('Weakspot ×', d.critMult.toFixed(2))}${stat('Sneak attack ×', d.stealthMult.toFixed(2))}${stat('Cooldowns', Math.round(d.cdMult * 100) + '%')}
                 ${stat('Status potency', Math.round(d.statusPotency * 100) + '%')}${stat('Noise', Math.round(d.noiseMult * 100) + '%')}${stat('Buy prices', Math.round(d.buyMult * 100) + '%')}
                 ${stat('Reputation gains', Math.round(d.repMult * 100) + '%')}${stat('XP', `${p.xp} / ${C.xpToNext(s)}`)}${stat('Credits', p.credits)}</div>
-                <div class="ow-sub">RECORD</div><div class="ow-stats">${stat('Kills', s.stats.kills)}${stat('Sneak kills', s.stats.sneakKills)}${stat('Reactions', s.stats.reactions)}${stat('Discovered', s.stats.discovered)}${stat('Deaths', s.stats.deaths)}${stat('Played', Math.round(s.playtimeSec / 60) + ' min')}</div></div></div>`;
+                <div class="ow-sub">ELEMENTAL RESISTANCES</div><div class="ow-elem-row">${resPills}</div>
+                <div class="ow-sub">ACTIVE SET BONUSES</div>${setsHtml}
+                <div class="ow-sub">RECORD</div><div class="ow-stats">${stat('Kills', s.stats.kills)}${stat('Sneak kills', s.stats.sneakKills)}${stat('Reactions', s.stats.reactions)}${stat('Events cleared', s.stats.eventsCleared || 0)}${stat('Discovered', s.stats.discovered)}${stat('Played', Math.round(s.playtimeSec / 60) + ' min')}</div></div></div>`;
         },
 
         _perks() {
@@ -89,42 +107,142 @@
         },
 
         _inventory() {
-            const s = this.s, I = BO.OWRPGInventory, SD = BO.OWRPGStatsData;
+            const s = this.s, I = BO.OWRPGInventory, SD = BO.OWRPGStatsData, Dur = BO.OWRPGDurability;
             const eq = s.player.equipped;
-            const groups = { weapon: [], rig: [], consumable: [], junk: [], quest: [] };
-            for (const e of s.player.inventory) groups[I.def(e.id).type]?.push(e);
+            const groups = { weapon: [], helmet: [], rig: [], boots: [], relic: [], tool: [], consumable: [], junk: [], quest: [] };
+            let totalRepair = 0;
+            for (const slot of ['primary', 'secondary', 'helmet', 'rig', 'boots', 'relic', 'tool']) {
+                const it = eq[slot] ? I.byUid(s, eq[slot]) : null;
+                if (it && Dur) totalRepair += Dur.repairCost(s, it);
+            }
+            for (const e of s.player.inventory) {
+                const d = I.def(e.id);
+                if (!d) continue;
+                if (Dur && Dur.supports(d.type)) Dur.initItem(e);
+                (groups[d.type] || groups.junk).push(e);
+            }
             const row = (e) => {
                 const d = I.def(e.id);
                 const isEq = Object.values(eq).includes(e.uid);
                 let info = `${I.entryWeight(e).toFixed(1)} kg`;
+                let rpgInspector = '';
+                let durBar = '';
+                if (Dur && Dur.supports(d.type) && e.maxDur) {
+                    const r = Dur.ratio(e);
+                    const pct = Math.round(r * 100);
+                    durBar = `<div class="ow-dur-wrap"><span class="ow-durbar"><i style="width:${pct}%;background:${Dur.badgeColor(r)}"></i></span><small>${Math.round(e.dur)}/${e.maxDur} dur (${pct}%)</small></div>`;
+                }
                 if (d.type === 'weapon') {
                     const ws = I.weaponStats(e), base = BO.WeaponsData.get(d.base);
-                    info = `${base.category} · ${Math.round(base.damage * ws.dmgMult)} dmg · ${e.mfr || ''} ${(e.affixes || []).map((a) => SD.AFFIXES[a].name).join(', ')} · ${info}`;
-                } else if (d.type === 'rig') info = `${d.armor} armor · ${info}`;
-                else if (d.desc) info = d.desc + ' · ' + info;
+                    const gs = BO.OWRPGExpansionData?.getGunStats?.(d.base) || {};
+                    const eb = ELEM_BADGE[ws.element] || ELEM_BADGE.kinetic;
+                    const traitName = (BO.OWRPGExpansionData?.PASSIVE_TRAITS?.[ws.passiveTrait]?.name) || '';
+                    info = `${base.category} · ${Math.round(base.damage * ws.dmgMult)} RPG dmg · ${(e.mfr || '')} ${(e.affixes || []).map((a) => SD.AFFIXES[a]?.name || a).join(', ')} · ${info}`;
+                    rpgInspector = `<div class="ow-gun-insp"><span class="ow-elem-pill" style="--c:${eb.color}">${eb.label}${ws.elemDmg ? ' +' + Math.round(ws.elemDmg) : ''}</span>` +
+                        `<span>Crit ${Math.round((ws.critChance || 0.08) * 100)}% (+${Math.round((ws.critAdd || 0) * 100)}%)</span>` +
+                        `<span>Pen ${ws.pen || 0}</span>` +
+                        (traitName ? `<span title="${esc(gs.passiveDesc || ws.passiveDesc || '')}">★ ${esc(traitName)}</span>` : '') +
+                        `</div>`;
+                } else if (d.type === 'helmet' || d.type === 'rig' || d.type === 'boots' || d.type === 'relic') {
+                    const as = I.armorStats(e);
+                    const resList = Object.entries(d.elemRes || {}).map(([k, v]) => `${k.toUpperCase()} +${Math.round(v * 100)}%`).join(', ');
+                    const setName = d.setId && BO.OWRPGExpansionData?.ARMOR_SETS?.[d.setId]?.name;
+                    info = `${as.armor} armor${setName ? ' · Set: ' + setName : ''}${resList ? ' · ' + resList : ''} · ${info}`;
+                } else if (d.desc) {
+                    info = d.desc + ' · ' + info;
+                }
                 const req = d.req && !I.meetsReq(s, e.id) ? `<em class="ow-bad">Req ${d.req[0]} ${d.req[1]}</em>` : '';
                 let btns = '';
                 if (d.type === 'weapon') btns = `<button class="ow-btn ow-sm" data-act="equip" data-v="${e.uid}|primary" ${eq.primary === e.uid ? 'disabled' : ''}>PRIMARY</button><button class="ow-btn ow-sm" data-act="equip" data-v="${e.uid}|secondary" ${eq.secondary === e.uid ? 'disabled' : ''}>SIDEARM</button>`;
-                if (d.type === 'rig') btns = `<button class="ow-btn ow-sm" data-act="equip" data-v="${e.uid}|rig" ${eq.rig === e.uid ? 'disabled' : ''}>WEAR</button>`;
+                if (d.type === 'helmet' || d.type === 'rig' || d.type === 'boots' || d.type === 'relic') btns = `<button class="ow-btn ow-sm" data-act="equip" data-v="${e.uid}|${d.type}" ${eq[d.type] === e.uid ? 'disabled' : ''}>EQUIP</button>`;
+                if (d.type === 'tool') btns = `<button class="ow-btn ow-sm" data-act="equip" data-v="${e.uid}|tool" ${eq.tool === e.uid ? 'disabled' : ''}>SLOT [G]</button><button class="ow-btn ow-sm" data-act="useTool" data-v="${e.uid}">USE</button>`;
                 if (d.type === 'consumable' && e.id !== 'relay_cell') btns = `<button class="ow-btn ow-sm" data-act="use" data-v="${e.uid}">USE</button>`;
+                const repCost = Dur && Dur.supports(d.type) ? Dur.repairCost(s, e) : 0;
+                if (repCost > 0) btns += `<button class="ow-btn ow-sm" data-act="repairItem" data-v="${e.uid}" ${s.player.credits >= repCost ? '' : 'disabled'}>REPAIR ${repCost}cr</button>`;
                 if (d.type !== 'quest' && !isEq) btns += `<button class="ow-btn ow-sm ow-ghost" data-act="salvage" data-v="${e.uid}">SALVAGE</button><button class="ow-btn ow-sm ow-ghost" data-act="drop" data-v="${e.uid}">DROP</button>`;
-                return `<div class="ow-item ${isEq ? 'eq' : ''}"><div><b style="color:${I.rarityColor(e)}">${esc(I.displayName(e))}${isEq ? ' <span class="ow-tagx">EQUIPPED</span>' : ''}</b><small>${esc(info)}</small>${req}</div><div class="ow-row">${btns}</div></div>`;
+                return `<div class="ow-item ${isEq ? 'eq' : ''}"><div><b style="color:${I.rarityColor(e)}">${esc(I.displayName(e))}${isEq ? ' <span class="ow-tagx">EQUIPPED</span>' : ''}</b><small>${esc(info)}</small>${rpgInspector}${durBar}${req}</div><div class="ow-row ow-wrap">${btns}</div></div>`;
             };
             const enc = BO.OWRPGCharacter.encumbrance(s);
             const sect = (k, n) => groups[k].length ? `<div class="ow-sub">${n}</div><div class="ow-list">${groups[k].map(row).join('')}</div>` : '';
-            return `<p class="ow-dim">Carrying <b>${enc.weight.toFixed(1)} / ${enc.max} kg</b> — <b>${enc.label}</b>. Heavy loads slow your sprint and make you louder. Relay Cells: ${s.player.relayCells}. Credits: <b class="ow-gold">${s.player.credits}</b>.</p>
-                ${sect('weapon', 'WEAPONS')}${sect('rig', 'RIGS')}${sect('consumable', 'CONSUMABLES')}${sect('junk', 'SALVAGE')}${sect('quest', 'QUEST ITEMS')}`;
+            const wb = `<div class="ow-workbench"><div><b>FIELD REPAIR WORKBENCH</b><small>Damaged gear loses effectiveness at &le;25% durability. Tech reduces repair cost.</small></div><button class="ow-btn ${totalRepair ? 'ow-primary' : ''}" data-act="repairAll" ${totalRepair > 0 && s.player.credits >= totalRepair ? '' : 'disabled'}>${totalRepair ? `REPAIR ALL EQUIPPED (${totalRepair} cr)` : 'EQUIPPED GEAR 100%'}</button></div>`;
+            return `${wb}<p class="ow-dim">Carrying <b>${enc.weight.toFixed(1)} / ${enc.max} kg</b> — <b>${enc.label}</b>. Heavy loads slow your sprint and make you louder. Relay Cells: ${s.player.relayCells}. Credits: <b class="ow-gold">${s.player.credits}</b>.</p>
+                ${sect('weapon', 'WEAPONS (MERIDIAN RPG STATS)')}${sect('helmet', 'HELMETS')}${sect('rig', 'ARMOR RIGS')}${sect('boots', 'BOOTS')}${sect('relic', 'RELICS')}${sect('tool', 'FIELD PICKUPS & TOOLS')}${sect('consumable', 'CONSUMABLES')}${sect('junk', 'SALVAGE')}${sect('quest', 'QUEST ITEMS & KEYS')}`;
         },
 
         _abilities() {
             const s = this.s, A = BO.OWRPGStatsData.ABILITIES, kb = BO.Settings.getKeybinds();
+            const EX = BO.OWRPGExpansionData;
             const kn = (c) => (c || '').replace('Key', '');
-            const col = (slot, key) => `<div><div class="ow-sub">${slot.toUpperCase()} <kbd>${kn(key)}</kbd></div><div class="ow-chips">${Object.entries(A[slot]).map(([id, a]) => {
-                const [label, test] = UNLOCK[id]; const ok = test(s); const on = s.player.abilities[slot] === id;
-                return `<button class="ow-chip ${on ? 'on' : ''}" data-act="ability" data-v="${slot}|${id}" ${ok ? '' : 'disabled'}><b>${a.name}</b><small>${a.desc} · ${a.cd}s</small>${ok ? '' : `<em>${label}</em>`}</button>`;
+            const col = (slot, key) => `<div><div class="ow-sub">${slot.toUpperCase()} <kbd>${kn(key)}</kbd></div><div class="ow-chips">${Object.entries(A[slot] || {}).map(([id, a]) => {
+                const ok = BO.OWRPGCharacter.powerUnlocked ? BO.OWRPGCharacter.powerUnlocked(s, id) : true;
+                const label = (EX?.POWER_UNLOCKS?.[id]?.label) || 'Locked';
+                const on = s.player.abilities[slot] === id;
+                return `<button class="ow-chip ${on ? 'on' : ''}" data-act="ability" data-v="${slot}|${id}" ${ok ? '' : 'disabled'}><b>${esc(a.name)}</b><small>${esc(a.desc)} · ${a.cd}s</small>${ok ? '' : `<em>Unlock: ${esc(label)}</em>`}</button>`;
             }).join('')}</div></div>`;
-            return `<p class="ow-dim">Primers apply a status: <span style="color:#f97316">Burn</span>, <span style="color:#38bdf8">Chill</span>, <span style="color:#facc15">Shock</span>, <span style="color:#f472b6">Expose</span>. Detonators consume statuses for reactions: Combust, Shatter, Overload, Rupture.</p>
-                <div class="ow-three">${col('primer', kb.owAbility1)}${col('detonator', kb.owAbility2)}${col('gadget', kb.owGadget)}</div>`;
+            return `<p class="ow-dim">Primers apply 5-Element Statuses: <span style="color:#f97316">Burn</span>, <span style="color:#38bdf8">Chill</span>, <span style="color:#facc15">Shock</span>, <span style="color:#84cc16">Venom</span>, <span style="color:#c084fc">Void</span>, <span style="color:#f472b6">Expose</span>. Detonators consume statuses for chain reactions, and Ultimates turn the tide.</p>
+                <div class="ow-four">${col('primer', kb.owAbility1)}${col('detonator', kb.owAbility2)}${col('gadget', kb.owGadget)}${col('ultimate', kb.owUltimate || 'KeyU')}</div>`;
+        },
+
+        _mounts() {
+            const s = this.s;
+            const MOUNTS = BO.OWRPGExpansionData?.MOUNTS || {};
+            const Mnt = BO.OWRPGMounts;
+            const active = (s.player.mounts && s.player.mounts.active) || null;
+            const cards = Object.values(MOUNTS).map((m) => {
+                const owned = Mnt ? Mnt.isOwned(s, m.id) : false;
+                const sel = active === m.id;
+                const isRidden = Mnt && Mnt.mounted && Mnt.activeId === m.id;
+                return `<div class="ow-mount-card ${sel ? 'on' : ''} ${owned ? '' : 'locked'}" style="--c:#${m.color.toString(16).padStart(6, '0')}">
+                    <div><b>${esc(m.name)}</b><small>${esc(m.desc)}</small>
+                    <div class="ow-mount-stats"><span>Cruise ${m.speed} m/s</span><span>Turbo ${m.boostSpeed} m/s</span><span>Mounted DR +${Math.round(m.dr * 100)}%</span><span>Jump ${m.jump}</span></div>
+                    ${owned ? '' : `<em>Unlock: ${esc(m.unlockLabel)}</em>`}</div>
+                    <div class="ow-row">${owned ? `<button class="ow-btn ${isRidden ? 'ow-primary' : ''}" data-act="mountSelect" data-v="${m.id}">${isRidden ? 'MOUNTED [T]' : 'SUMMON [T]'}</button>` : '<span class="ow-dim">LOCKED</span>'}</div></div>`;
+            }).join('');
+            return `<p class="ow-dim">Press <kbd>T</kbd> anytime outdoors to summon or dismount your selected vehicle/walker. Hold <kbd>Shift</kbd> for turbo boost and <kbd>Space</kbd> to jump terrain gaps.</p><div class="ow-list">${cards}</div>`;
+        },
+
+        _bounties() {
+            const s = this.s;
+            const list = BO.OWRPGExpansionData?.BOUNTIES || [];
+            const bState = s.player.bounties || { active: null, completed: 0, progress: 0 };
+            const ev = BO.OWRPGEvents?.activeEvent;
+            const evCard = ev
+                ? `<div class="ow-note" style="border-color:${ev.color}"><div><b style="color:${ev.color}">ACTIVE WORLD EVENT: ${esc(ev.title)}</b><br><small>${esc(ev.desc)} · ${ev.remaining}/${ev.total} enemies · ${Math.ceil(ev.t)}s</small></div></div>`
+                : `<div class="ow-workbench"><div><b>DYNAMIC WORLD EVENTS</b><small>Roam outside Freestead to encounter Supply Drops, Faction Skirmishes, Void Storms, and Rogue Patrols.</small></div><button class="ow-btn" data-act="scanEvent">SCAN NEARBY SECTOR</button></div>`;
+            const cards = list.map((b) => {
+                const isAct = bState.active === b.id;
+                const pct = isAct ? Math.min(100, Math.round((bState.progress / b.count) * 100)) : 0;
+                return `<div class="ow-bounty-card ${isAct ? 'active' : ''}"><div><b>${esc(b.title)}</b><small>${esc(b.desc)}</small>
+                    <small class="ow-gold">Reward: ${b.xp} XP · ${b.credits} cr</small>
+                    ${isAct ? `<div class="ow-dur-wrap"><span class="ow-durbar"><i style="width:${pct}%;background:#fbbf24"></i></span><small>${bState.progress} / ${b.count} eliminated</small></div>` : ''}</div>
+                    <div>${isAct ? `<button class="ow-btn ow-sm ow-ghost" data-act="abandonBounty">ABANDON</button>` : `<button class="ow-btn ow-sm" data-act="acceptBounty" data-v="${b.id}">${bState.active ? 'SWITCH' : 'ACCEPT'}</button>`}</div></div>`;
+            }).join('');
+            return `${evCard}<p class="ow-dim">Bounties Completed: <b class="ow-gold">${bState.completed || 0}</b> · World Events Cleared: <b class="ow-gold">${s.stats.eventsCleared || 0}</b></p><div class="ow-list">${cards}</div>`;
+        },
+
+        _codex() {
+            const s = this.s;
+            const EX = BO.OWRPGExpansionData;
+            const claimed = (s.player.codex && s.player.codex.unlocksClaimed) || [];
+            const cards = (EX?.CODEX_MILESTONES || []).map((cx) => {
+                const done = cx.check(s);
+                const got = claimed.includes(cx.id);
+                const rwNames = [cx.reward?.credits ? `${cx.reward.credits} cr` : '', ...(cx.reward?.items || []).map((id) => BO.OWRPGInventory.def(id)?.name || id)].filter(Boolean).join(', ');
+                return `<div class="ow-codex-card ${got ? 'claimed' : done ? 'ready' : ''}"><div><b>${esc(cx.title)}</b><small>${esc(cx.desc)}</small><small class="ow-gold">Unlock: ${esc(rwNames)}</small></div>
+                    <div>${got ? '<span class="ow-tagx">CLAIMED</span>' : done ? `<button class="ow-btn ow-primary ow-sm" data-act="claimCodex" data-v="${cx.id}">CLAIM</button>` : '<span class="ow-dim">IN PROGRESS</span>'}</div></div>`;
+            }).join('');
+            const kills = Object.entries((s.player.codex && s.player.codex.enemies) || {}).map(([id, n]) => {
+                const def = BO.OWRPGStatsData.ENEMIES[id];
+                return `<div class="ow-stat"><small>${esc(def ? def.name : id)}</small><b>${n} slain</b></div>`;
+            }).join('') || '<div class="ow-empty">No hostile encounters logged yet.</div>';
+            const guns = ((BO.WeaponsData && BO.WeaponsData.ORDER) || []).slice(0, 24).map((wid) => {
+                const w = BO.WeaponsData.get(wid), gs = EX.getGunStats(wid);
+                const eb = ELEM_BADGE[gs.element] || ELEM_BADGE.kinetic;
+                return `<div class="ow-item"><div><b>${esc(w.name)}</b><small>${esc(w.category)} · ×${gs.rpgDmgMult} RPG · Crit ${Math.round(gs.critChance * 100)}% · Pen ${gs.armorPen} · ${esc(gs.unlockReq)}</small></div><span class="ow-elem-pill" style="--c:${eb.color}">${eb.label}</span></div>`;
+            }).join('');
+            return `<div class="ow-sub">CODEX MILESTONES &amp; UNLOCKABLES</div><div class="ow-list">${cards}</div>
+                <div class="ow-sub">BESTIARY KILL LOG</div><div class="ow-stats">${kills}</div>
+                <div class="ow-sub">MERIDIAN WEAPON COMPENDIUM (RPG STATS)</div><div class="ow-list">${guns}</div>`;
         },
 
         _quests() {
@@ -232,7 +350,7 @@
             const pois = D.POIS.map((p) => `<button class="ow-btn ow-sm" data-act="devTp" data-v="${p.id}">${esc(p.name)}</button>`).join('');
             const res = this.validation ? `<pre class="ow-pre">${esc(this.validation)}</pre>` : '';
             return `<p class="ow-dim">Developer tools. Changes are saved with your character.</p>
-                <div class="ow-sub">GRANTS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devXp">+1000 XP</button><button class="ow-btn ow-sm" data-act="devAttr">+2 attr pts</button><button class="ow-btn ow-sm" data-act="devCells">+3 relay cells</button><button class="ow-btn ow-sm" data-act="devCr">+500 cr</button><button class="ow-btn ow-sm" data-act="devRep">+250 all reps</button><button class="ow-btn ow-sm" data-act="devTime">+6 hours</button><button class="ow-btn ow-sm" data-act="devVal">Run validator</button></div>
+                <div class="ow-sub">GRANTS</div><div class="ow-row ow-wrap"><button class="ow-btn ow-sm" data-act="devXp">+1000 XP</button><button class="ow-btn ow-sm" data-act="devAttr">+2 attr pts</button><button class="ow-btn ow-sm" data-act="devCells">+3 relay cells</button><button class="ow-btn ow-sm" data-act="devCr">+500 cr</button><button class="ow-btn ow-sm" data-act="devRep">+250 all reps</button><button class="ow-btn ow-sm" data-act="devTime">+6 hours</button><button class="ow-btn ow-sm" data-act="devMounts">Unlock all mounts</button><button class="ow-btn ow-sm" data-act="devEvent">Spawn world event</button><button class="ow-btn ow-sm" data-act="devVal">Run validator</button></div>
                 <div class="ow-sub">TELEPORT</div><div class="ow-row ow-wrap">${pois}</div>
                 <div class="ow-sub">WORLD FLAGS</div><pre class="ow-pre">${esc(JSON.stringify(this.s.worldFlags, null, 1))}</pre>${res}`;
         },
@@ -251,6 +369,61 @@
                 this.render();
             },
             use(v) { BO.OWRPGMode.useConsumable(v); this.render(); },
+            useTool(v) {
+                const err = BO.OWRPGDurability?.useTool(this.s, v);
+                if (err) BO.OWRPGMode.toast(err, '#f97316');
+                BO.OWRPGMode.applyDerived();
+                this.render();
+            },
+            repairItem(v) {
+                const err = BO.OWRPGDurability?.repairItem(this.s, v, 'credits');
+                if (err) BO.OWRPGMode.toast(err, '#f97316');
+                else { BO.OWRPGMode.applyDerived(); BO.OWRPGMode.toast('Repaired!', '#4ade80'); }
+                this.render();
+            },
+            repairAll() {
+                const err = BO.OWRPGDurability?.repairAllEquipped(this.s);
+                if (err) BO.OWRPGMode.toast(err, '#f97316');
+                else { BO.OWRPGMode.applyDerived(); BO.OWRPGMode.toast('All equipped gear repaired!', '#4ade80'); }
+                this.render();
+            },
+            mountSelect(v) {
+                if (BO.OWRPGMounts?.select(this.s, v)) {
+                    this.UI.close();
+                    if (!BO.OWRPGMounts.mounted) BO.OWRPGMounts.mount();
+                } else {
+                    this.render();
+                }
+            },
+            acceptBounty(v) {
+                this.s.player.bounties = this.s.player.bounties || { active: null, completed: 0, progress: 0 };
+                this.s.player.bounties.active = v;
+                this.s.player.bounties.progress = 0;
+                const B = BO.OWRPGExpansionData?.BOUNTIES?.find((b) => b.id === v);
+                if (B) BO.OWRPGMode.toast(`Bounty Accepted: ${B.title}`, '#fbbf24');
+                this.render();
+            },
+            abandonBounty() {
+                if (this.s.player.bounties) { this.s.player.bounties.active = null; this.s.player.bounties.progress = 0; }
+                this.render();
+            },
+            scanEvent() {
+                const ev = BO.OWRPGEvents?.spawnNearPlayer?.();
+                if (!ev) BO.OWRPGMode.toast('Step outside Freestead roads to scan for active events.', '#94a3b8');
+                this.render();
+            },
+            claimCodex(v) {
+                const cx = BO.OWRPGExpansionData?.CODEX_MILESTONES?.find((m) => m.id === v);
+                if (!cx || !cx.check(this.s)) return;
+                this.s.player.codex = this.s.player.codex || { enemies: {}, elements: {}, unlocksClaimed: [] };
+                if (this.s.player.codex.unlocksClaimed.includes(v)) return;
+                this.s.player.codex.unlocksClaimed.push(v);
+                if (cx.reward?.credits) this.s.player.credits += cx.reward.credits;
+                for (const it of cx.reward?.items || []) BO.OWRPGInventory.add(this.s, it, 1);
+                BO.Sound?.playQuestFanfare?.();
+                BO.OWRPGMode.toast(`Codex Claimed: ${cx.title}!`, '#fbbf24');
+                this.render();
+            },
             salvage(v) { const cr = BO.OWRPGInventory.salvage(this.s, v); if (cr) BO.OWRPGMode.toast(`Salvaged for ${cr} cr`, '#fbbf24'); this.render(); },
             drop(v) { BO.OWRPGInventory.removeUid(this.s, v); BO.OWRPGMode.refreshLoadout(); this.render(); },
             ability(v) { const [slot, id] = v.split('|'); this.s.player.abilities[slot] = id; this.render(); },
@@ -271,6 +444,8 @@
             devCr() { this.s.player.credits += 500; this.render(); },
             devRep() { for (const f of Object.keys(BO.OWRPGFactionsData.FACTIONS)) BO.OWRPGFactions.add(this.s, f, 250, { raw: true, noSpill: true }); BO.OWRPGAI.refreshHostility(); this.render(); },
             devTime() { this.s.worldClock = (this.s.worldClock + 600) % 2400; this.render(); },
+            devMounts() { for (const id of Object.keys(BO.OWRPGExpansionData?.MOUNTS || {})) BO.OWRPGMounts?.unlock(this.s, id); this.render(); },
+            devEvent() { const ev = BO.OWRPGEvents?.spawnNearPlayer?.(); if (!ev) BO.OWRPGMode.toast('Move away from Freestead to spawn event', '#f97316'); else this.UI.close(); },
             devVal() { const r = BO.OWRPGValidator.runAll(); this.validation = r.report; this.render(); }
         }
     };

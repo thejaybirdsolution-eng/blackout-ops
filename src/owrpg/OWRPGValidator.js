@@ -1,14 +1,17 @@
 /* ============================================================================
    BLACKOUT OPS — Open World RPG · Developer Integrity Validator
-   runAll() checks: dialogue graph refs (next ids, items, quests, vendors,
-   dead ends), quest refs (stages, markers, givers, branch items/pylons),
-   world refs (enemy ids, loot tables, NPC dialogue trees), a spatial audit
-   (anchors on terrain/above water/off colliders when a world is built) and a
-   TTK curve check (trash 0.8–4.5 s, bosses 18–55 s at the intended level).
-   Returns { errors, warnings, report }.
+   Checks dialogue graph refs, quest refs, world refs, OWRPGGunStats coverage,
+   armor sets/mounts/abilities, spatial audit, and TTK curve.
 ============================================================================ */
 (function (BO) {
     'use strict';
+
+    const ENTRY_NODES = [
+        'intro_1', 'hub', 'prefixed', 'turnin', 'hostile_bark', 'hostile',
+        'nest_done', 'relay_done', 'signal',
+        'wheels_done', 'trials_done', 'barge_done', 'smugglers_done',
+        'rogue_done', 'mire_done', 'blackbox_done', 'truce_done', 'cipher_done'
+    ];
 
     const V = {
         runAll(logToConsole = false) {
@@ -17,6 +20,7 @@
             this._dialogue(err, warn);
             this._quests(err, warn);
             this._world(err, warn);
+            this._expansion(err, warn);
             this._ttk(err, warn);
             if (BO.World && BO.World.mapData && BO.World.mapData.id === 'meridian') this._spatial(err, warn);
             const report = `OWRPG validator: ${errors.length} error(s), ${warnings.length} warning(s)\n` +
@@ -45,7 +49,7 @@
                     }
                     if (n.choices && n.choices.every((c) => c.req && !c.req.quest && !c.req.flag && !c.req.stage && !c.req.notFlag)) warn(`${npc}.${id}: every choice is gated — player can get stuck`);
                 }
-                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !['intro_1', 'hub', 'prefixed', 'turnin', 'hostile_bark', 'hostile', 'nest_done', 'relay_done', 'signal'].includes(id)) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
+                for (const id of Object.keys(t.nodes)) if (!reached.has(id) && !ENTRY_NODES.includes(id)) warn(`${npc}.${id}: node not reachable from any choice (entry-only?)`);
             }
         },
 
@@ -56,7 +60,7 @@
                 for (const [sid, st] of Object.entries(q.stages)) {
                     if (st.marker && !D.POIS.some((p) => p.id === st.marker)) err(`${id}.${sid}: marker '${st.marker}' is not a POI`);
                     for (const [k, next] of Object.entries(st.on || {})) {
-                        if (!q.stages[next]) err(`${id}.${sid}: event '${k}' → missing stage '${next}'`);
+                        if (!q.stages[next]) err(`${id}.${sid}: event '${k}' -> missing stage '${next}'`);
                         const [type, a] = k.split(':');
                         if (type === 'item' && !SD.ITEMS[a]) err(`${id}.${sid}: unknown item '${a}'`);
                         if (type === 'kill' && !SD.ENEMIES[a]) err(`${id}.${sid}: unknown enemy '${a}'`);
@@ -96,17 +100,33 @@
             if (D.POIS.filter((p) => !p.interior).length < 12) warn('fewer than 12 surface POIs');
         },
 
-        /** Expected time-to-kill with the starter carbine (scaled by an assumed level-appropriate weapon). */
+        _expansion(err) {
+            const SD = BO.OWRPGStatsData;
+            const GS = BO.OWRPGGunStats;
+            const EX = BO.OWRPGExpansionData;
+            if (!GS) { err('OWRPGGunStats missing'); return; }
+            for (const wid of BO.WeaponsData.ORDER) {
+                if (!GS[wid]) err(`OWRPGGunStats missing weapon '${wid}'`);
+            }
+            if (!EX) { err('OWRPGExpansionData missing'); return; }
+            for (const b of EX.BOUNTIES || []) {
+                if (!SD.ENEMIES[b.target]) err(`bounty ${b.id}: unknown enemy '${b.target}'`);
+            }
+            for (const cx of EX.CODEX_MILESTONES || []) {
+                for (const it of cx.reward?.items || []) if (!SD.ITEMS[it]) err(`codex ${cx.id}: unknown reward item '${it}'`);
+            }
+        },
+
         _ttk(err, warn) {
             const SD = BO.OWRPGStatsData;
             const carbine = BO.WeaponsData.get('m16a4');
             for (const [id, e] of Object.entries(SD.ENEMIES)) {
-                const gear = 1 + 0.05 * (e.lvl - 1);                     // better weapons as you level
-                const dps = carbine.damage * gear * (Math.min(carbine.rpm, 450) / 60) * 0.5;  // sustained burst cadence, 50% hits
+                const gear = 1 + 0.05 * (e.lvl - 1);
+                const dps = carbine.damage * gear * (Math.min(carbine.rpm, 450) / 60) * 0.5;
                 const ehp = e.hp * (100 + e.armor) / 100;
                 const ttk = ehp / dps;
                 const band = e.boss ? [18, 55] : [0.8, 4.5];
-                if (e.boss && ttk < band[0]) warn(`boss ${id}: TTK ${ttk.toFixed(1)} s is below ${band[0]} s (abilities/reactions extend fights)`);
+                if (e.boss && ttk < band[0]) warn(`boss ${id}: TTK ${ttk.toFixed(1)} s is below ${band[0]} s`);
                 else if (!e.boss && (ttk < band[0] || ttk > band[1])) warn(`enemy ${id}: TTK ${ttk.toFixed(1)} s outside ${band[0]}–${band[1]} s`);
             }
         },
@@ -128,7 +148,6 @@
                 if (poi.interior || sp[3] != null) continue;
                 const y = W.terrainHeight(x, z);
                 if (!W.hasHeadroom(x, y, z, 0.3, 1.7)) {
-                    // Spawns inside a collider will be pushed out by physics; flag them for authoring.
                     warn(`spawn ${poi.id}/${sp[0]} at (${x.toFixed(0)},${z.toFixed(0)}) overlaps geometry`);
                 }
             }

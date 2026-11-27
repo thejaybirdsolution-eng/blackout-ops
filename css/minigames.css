@@ -52,10 +52,34 @@
 .mgh-howto b { color: var(--text-main); }
 .mgh-howto ul { margin: 6px 0 0; padding-left: 16px; }
 
-.mgh-list-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.mgh-list-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .mgh-list-head > span { font-size: 34px; }
+.mgh-list-head > div { flex: 1; min-width: 200px; }
 .mgh-list-head b { letter-spacing: 3px; font-size: 18px; }
 .mgh-list-head small { display: block; color: var(--text-dim); font-size: 12px; max-width: 640px; }
+.mgh-cd-toggle {
+    display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border-radius: 10px;
+    cursor: pointer; text-align: left; font-family: var(--font-ui);
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.95));
+    border: 1px solid rgba(250, 204, 21, 0.42); color: #f8fafc;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.mgh-cd-toggle:hover { transform: translateY(-2px); border-color: #fde047; box-shadow: 0 10px 24px rgba(250, 204, 21, 0.22); }
+.mgh-cd-toggle.instant {
+    border-color: #22d3ee;
+    background: linear-gradient(135deg, rgba(8, 51, 68, 0.95), rgba(15, 23, 42, 0.95));
+    box-shadow: 0 8px 22px rgba(34, 211, 238, 0.25);
+}
+.mgh-cd-dot {
+    width: 11px; height: 11px; border-radius: 50%; background: #facc15;
+    box-shadow: 0 0 10px #facc15; flex-shrink: 0;
+}
+.mgh-cd-toggle.instant .mgh-cd-dot { background: #22d3ee; box-shadow: 0 0 12px #22d3ee; }
+.mgh-cd-toggle b { display: block; font-size: 12px; letter-spacing: 1.4px; line-height: 1.15; }
+.mgh-cd-toggle small { display: block; font-size: 10px; color: #94a3b8; letter-spacing: 0.6px; margin-top: 2px; }
+.mgh-sandbox-btn { border-color: rgba(192, 132, 252, 0.58) !important; color: #e9d5ff !important; background: rgba(59, 7, 100, 0.68) !important; }
+.mgh-sandbox-btn:hover { background: rgba(107, 33, 168, 0.85) !important; color: #fff !important; }
 .mgh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .mgh-grid-boss { grid-template-columns: 1fr; }
 .mgh-card {

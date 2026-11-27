@@ -169,14 +169,14 @@
 
     MG.register({
         id: 'fun_final_fantasy', cat: 'fun', order: 6, name: 'Final Fantasy RPG', icon: '⚔️', accent: '#3b82f6', badge: 'STORY RPG',
-        tagline: 'Start Solo! Explore an entire World, recruit all 3 Allies via quests, Shop, Bag & 3 Bosses!',
-        desc: 'An entire explorable Final Fantasy world! Begin alone in Crystalia Village with just yourself. Visit the Weapon/Item Shop & Inn, venture out into Whispering Woods, Sunscorch Canyon, and Ironhold Citadel to complete each companion\'s recruitment quest (Aria, Vex & Titus), loot 8 chests, battle 20 random enemy types to level up, and conquer 3 legendary Bosses!',
+        tagline: 'Start Solo! Follow the Compass & Beacon across Crystalia, recruit 3 Allies, Shop, Hunt Elites & slay 3 Bosses!',
+        desc: 'An entire explorable Final Fantasy world! Begin alone in Crystalia Village, follow your Horizon Compass & 3D Golden Beacon to speak with Elder Aldric, visit the Weapon/Item Shop & Inn, sprint on Chocobo-speed ([Shift]) across Whispering Woods, Sunscorch Canyon, and Ironhold Citadel to recruit Aria, Vex & Titus, hunt 3 Optional Elites, loot 8 chests, and conquer 3 legendary Bosses with animated 3D spells & Limit Breaks!',
         heroLabel: 'FUN • FULL EXPLORABLE STORY JRPG', duration: 0, stars: [4000, 9000, 15000, 24000],
         standardWeapon: 'm1911', lockWeapon: true, blockFire: true, hideViewmodel: true, customMusic: true,
-        weaponNote: 'WASD Explore World • [E] Talk / Shop / Quests • [1–6] Battle Hotkeys or Mouse',
-        keys: [['WASD', 'Explore World'], ['E', 'Interact (NPCs / Shop / Chests / Bosses)'], ['1–6 / MOUSE', 'Command ATB Battles']],
+        weaponNote: 'WASD Explore • [SHIFT] Chocobo Sprint • [E] Talk / Shop / Chests / Elites • [1–6] Battle',
+        keys: [['WASD / SHIFT', 'Explore / Chocobo Sprint'], ['E', 'Interact (NPCs / Shop / Chests / Elites / Bosses)'], ['1–6 / MOUSE', 'Command ATB Battles']],
         map: {
-            atmosphere: { skyTop: 0x050816, skyBottom: 0x1e3a8a, fogColor: 0x0f172a, fogDensity: 0.0055, sunColor: 0xbfdbfe, sunIntensity: 1.45, sunPos: [20, 60, 20], hemiSky: 0x60a5fa, hemiGround: 0x1e1b4b, hemiIntensity: 0.95 },
+            atmosphere: { skyTop: 0x050816, skyBottom: 0x1e3a8a, fogColor: 0x0f172a, fogDensity: 0.0052, sunColor: 0xbfdbfe, sunIntensity: 1.45, sunPos: [20, 60, 20], hemiSky: 0x60a5fa, hemiGround: 0x1e1b4b, hemiIntensity: 0.95 },
             boxes: [B(0, -0.5, -18, 200, 1, 200, 'concrete')],
             spawn: { x: 0, y: 0, z: 28, yaw: 0 }
         },
@@ -185,7 +185,6 @@
             K.groundPlane(S, 200, 0x14532d, 0.002);
             const pathM = std(0x78716c, 0.95), woodM = std(0x78350f, 0.85), sandM = std(0xb45309, 0.9), stoneM = std(0x334155, 0.85);
             const roofM = std(0x991b1b, 0.75), winM = basic(0xfef08a), postM = std(0x1f2937, 0.5, 0.7);
-            // Crossroad stone paths from Crystalia Village (0,24) to Woods(-48,-4), Canyon(48,-4), Citadel(-26,-52), Astral(0,-76)
             const addRoad = (x, z, w, d, m = pathM) => { const r = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m); r.rotation.x = -Math.PI / 2; r.position.set(x, 0.02, z); S.add(r); };
             addRoad(0, 24, 24, 24, stoneM); // Village Plaza
             addRoad(0, -24, 5, 96);          // Main North-South Road
@@ -194,7 +193,7 @@
             addRoad(48, -4, 34, 34, sandM);  // Sunscorch Canyon desert plateau
             addRoad(0, -76, 22, 22, std(0x1e1b4b, 0.5, 0.4)); // Astral Sanctum
 
-            // Crystalia Village Buildings (Inn & Gear Shop with Pitched Roofs & Warm Windows) + Central Mana Fountain!
+            // Crystalia Village Buildings (Inn & Gear Shop) + Castle Watchtowers + Central Mana Fountain!
             for (const [bx, roofCol] of [[-8, 0x065f46], [8, 0x9a3412]]) {
                 S.box(bx, 2.2, 26, 6, 4.4, 5, woodM, { solid: true });
                 const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2.4, 4), std(roofCol, 0.75));
@@ -204,32 +203,42 @@
                     win.position.set(bx + wx, 2.5, 23.48); S.add(win);
                 }
             }
+            for (const gx of [-4.2, 4.2]) {
+                L.placeGLB(S.scene, 'castle_kit/tower-square-base.glb', { pos: [gx, 0, 12], scale: 2.0 });
+                L.placeGLB(S.scene, 'castle_kit/tower-square-roof.glb', { pos: [gx, 3.8, 12], scale: 2.0 });
+            }
             // Central Crystalia Mana Fountain with rotating crystal spire
             const fBasin = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.9, 0.65, 20), stoneM); fBasin.position.set(0, 0.32, 24);
             const fWater = new THREE.Mesh(new THREE.CircleGeometry(2.35, 20), std(0x38bdf8, 0.15, 0.3, { emissive: 0x0284c7, emissiveIntensity: 0.5 })); fWater.rotation.x = -Math.PI / 2; fWater.position.set(0, 0.67, 24);
             const fSpire = new THREE.Mesh(new THREE.OctahedronGeometry(0.85, 0), std(0x7dd3fc, 0.1, 0.4, { emissive: 0x38bdf8, emissiveIntensity: 0.9 })); fSpire.scale.set(0.65, 1.8, 0.65); fSpire.position.set(0, 2.4, 24);
             S.add(fBasin, fWater, fSpire); S.data.fountainSpire = fSpire;
 
-            // Glowing Roadside Lantern Posts
             for (const [lx, lz] of [[-3.5, 14], [3.5, 14], [-3.5, -18], [3.5, -18], [-24, -7.5], [24, -7.5]]) {
                 const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 3.6, 8), postM); lp.position.set(lx, 1.8, lz);
                 const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), winM); orb.position.set(lx, 3.7, lz);
                 S.add(lp, orb);
             }
-            // Astral Sanctum Magic Rune Circle
+            // Astral Sanctum Magic Rune Circle + Dungeon Ruins Columns
             const rune = new THREE.Mesh(new THREE.RingGeometry(7.2, 8.2, 36), basic(0xc084fc, { side: THREE.DoubleSide }));
             rune.rotation.x = -Math.PI / 2; rune.position.set(0, 0.06, -76); S.add(rune);
+            L.placeGLBInstanced(S.scene, 'mini_dungeon_kit/column.glb', [
+                { pos: [-8.5, 0, -68], scale: 2.8 }, { pos: [8.5, 0, -68], scale: 2.8 },
+                { pos: [-8.5, 0, -84], scale: 2.8 }, { pos: [8.5, 0, -84], scale: 2.8 }
+            ]);
 
             const innSg = A.sign('INN [E] FREE REST', 4.6, 0.85, { bg: '#064e3b', color: '#a7f3d0', borderColor: '#34d399', size: 0.46 }); innSg.position.set(-8, 4.9, 23.3); S.add(innSg);
             const shopSg = A.sign('WEAPONS & BAG SHOP [E]', 5.0, 0.85, { bg: '#451a03', color: '#fde68a', borderColor: '#f59e0b', size: 0.42 }); shopSg.position.set(8, 4.9, 23.3); S.add(shopSg);
             void roofM;
 
-            // Scenic Trees in Emerald Woods & Rocks in Sunscorch Canyon & Obsidian Pillars in Sanctum
+            // Richer Woods Trees, Canyon Mesas & Ambient Drifting Mana Motes
             const rnd = L.mulberry32(991);
+            const woodTrees = [];
             for (let i = 0; i < 36; i++) {
-                const tr = A.tree(1.6 + rnd() * 0.9, 0x065f46);
-                tr.position.set(-22 - rnd() * 52, 0, 14 - rnd() * 44); S.add(tr);
+                const tx = -22 - rnd() * 52, tz = 14 - rnd() * 44;
+                if (i < 16) woodTrees.push({ pos: [tx, 0, tz], scale: 2.2 + rnd() * 1.1, rot: rnd() * TAU });
+                else { const tr = A.tree(1.6 + rnd() * 0.9, 0x065f46); tr.position.set(tx, 0, tz); S.add(tr); }
             }
+            L.placeGLBInstanced(S.scene, 'mini_forest_kit/tree-high.glb', woodTrees);
             for (let i = 0; i < 18; i++) {
                 const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(2.2 + rnd() * 2, 0), sandM);
                 rk.position.set(28 + rnd() * 42, 1.4, 14 - rnd() * 44); S.add(rk);
@@ -239,8 +248,21 @@
                 const cr = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 0), std(0x38bdf8, 0.15, 0.2, { emissive: 0x0ea5e9, emissiveIntensity: 0.7 }));
                 cr.scale.set(0.6, 2.8, 0.6); cr.position.set(Math.cos(a) * 11, 2.8, -76 + Math.sin(a) * 11); S.add(cr);
             }
-            // Ironhold Citadel gate
+            // Ambient glowing Mana Motes
+            const mCount = 160, mPos = new Float32Array(mCount * 3);
+            for (let i = 0; i < mCount; i++) {
+                mPos[i * 3] = (rnd() - 0.5) * 150; mPos[i * 3 + 1] = 0.8 + rnd() * 8; mPos[i * 3 + 2] = 30 - rnd() * 120;
+            }
+            const mGeo = new THREE.BufferGeometry(); mGeo.setAttribute('position', new THREE.BufferAttribute(mPos, 3));
+            const motes = new THREE.Points(mGeo, new THREE.PointsMaterial({ color: 0x7dd3fc, size: 0.28, transparent: true, opacity: 0.75 }));
+            S.add(motes); S.data.manaMotes = motes;
+
+            // Ironhold Citadel gate + GLB Keep
             S.box(-26, 3.0, -56, 12, 6, 3, stoneM, { solid: true });
+            L.placeGLB(S.scene, 'castle_kit/gate.glb', { pos: [-26, 0, -55], scale: 3.4 });
+            L.placeGLBInstanced(S.scene, 'castle_kit/flag-banner-long.glb', [
+                { pos: [-31, 3.5, -54], scale: 2.2 }, { pos: [-21, 3.5, -54], scale: 2.2 }
+            ]);
             const citSg = A.sign('IRONHOLD CITADEL — BOSS I', 6.5, 0.95, { bg: '#7f1d1d', color: '#fef08a', borderColor: '#facc15', size: 0.44 }); citSg.position.set(-26, 6.6, -54.2); S.add(citSg);
             const astSg = A.sign('ASTRAL SANCTUM — FINAL BOSSES', 7.5, 0.95, { bg: '#3b0764', color: '#e9d5ff', borderColor: '#c084fc', size: 0.44 }); astSg.position.set(0, 5.2, -84); S.add(astSg);
 
@@ -261,6 +283,22 @@
                 spawnNpc('sanctum', 'ASTRAL GATE', { shirt: 0xa855f7, eyes: 'angry', gun: 'none' }, V(0, 0, -76), '#c084fc')
             ];
 
+            // 3 Optional Elite Hunts in the Wilds (Bonus Gil + XP + Limit!)
+            S.data.elites = [
+                { id: 'e1', pos: V(-34, 0, 12), spec: { name: 'ELITE: CACTUAR KING', hp: 420, atk: 34, col: 0x84cc16, shape: 'cactus', weak: 'ice', gil: 450, xp: 260, sc: 1.45 }, alive: true },
+                { id: 'e2', pos: V(36, 0, 12), spec: { name: 'ELITE: CRIMSON BEHEMOTH', hp: 560, atk: 42, col: 0xdc2626, shape: 'beast', weak: 'ice', gil: 550, xp: 340, sc: 1.5 }, alive: true },
+                { id: 'e3', pos: V(14, 0, -42), spec: { name: 'ELITE: ASTRAL IRON GIANT', hp: 680, atk: 48, col: 0x38bdf8, shape: 'knight', weak: 'thunder', gil: 700, xp: 440, sc: 1.55 }, alive: true }
+            ].map((el) => {
+                const mesh = buildFFMonsterMesh(el.spec, 0.9);
+                mesh.position.copy(el.pos);
+                const halo = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.45, 22), basic(0xf97316, { side: THREE.DoubleSide }));
+                halo.rotation.x = -Math.PI / 2; halo.position.y = 0.05; mesh.add(halo);
+                const sg = A.sign('★ ELITE HUNT [E]', 3.4, 0.55, { bg: '#450a0a', color: '#fde047', borderColor: '#f97316', size: 0.38 });
+                sg.position.set(0, 3.4, 0); mesh.add(sg);
+                S.add(mesh);
+                return Object.assign(el, { mesh });
+            });
+
             // 8 Overworld Treasure Chests
             const chestSpots = [
                 [-14, 16, { item: 'wep', idx: 1, label: 'Mythril Saber!' }], [14, 16, { item: 'gil', amt: 250, label: '250 Gil!' }],
@@ -278,6 +316,20 @@
                 return { id: i, pos: V(cx, 0, cz), mesh: cg, lid, beam, loot, opened: false };
             });
 
+            // Floating 3D Golden Waypoint Arrow + Tall Beacon Pillar + Ground Halo on Active Quest Target!
+            const qb = new THREE.Group();
+            const qPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.95, 24, 16, 1, true), basic(0xfde047, { transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }));
+            qPillar.position.y = 12;
+            const qHalo = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.35, 28), basic(0xfacc15, { side: THREE.DoubleSide, transparent: true, opacity: 0.85 }));
+            qHalo.rotation.x = -Math.PI / 2; qHalo.position.y = 0.08;
+            const qArrow = new THREE.Group(); qArrow.position.y = 4.6;
+            const qCone = new THREE.Mesh(new THREE.ConeGeometry(0.65, 1.35, 8), basic(0xfde047)); qCone.rotation.x = Math.PI;
+            const qStem = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.9, 8), basic(0xfacc15)); qStem.position.y = 1.05;
+            qArrow.add(qCone, qStem);
+            qb.add(qPillar, qHalo, qArrow);
+            S.add(qb);
+            S.data.questBeacon = qb; S.data.questArrow = qArrow; S.data.questHalo = qHalo;
+
             // START SOLO WITH ONLY 1 CHARACTER! Allies must be found & recruited via Story Quests!
             S.data.party = [
                 { id: 'player', name: 'PLAYER', cls: 'Knight', lv: 1, xp: 0, hp: 220, maxHp: 220, mp: 65, maxMp: 65, baseAtk: 34, spd: 28, atb: 100, limit: 25, limName: 'OMNISLASH', status: [], def: 12, spName: 'CROSS-SLASH', spCost: 14, wep: FF_EQUIP.weapons[0], arm: FF_EQUIP.armors[0] }
@@ -287,7 +339,6 @@
                 vex: { id: 'vex', name: 'VEX', cls: 'Rogue', lv: 3, xp: 0, hp: 215, maxHp: 215, mp: 85, maxMp: 85, baseAtk: 42, spd: 38, atb: 100, limit: 25, limName: 'PHANTOM RUSH', status: [], def: 11, spName: 'TWIN FANG', spCost: 15, wep: FF_EQUIP.weapons[3], arm: FF_EQUIP.armors[2] },
                 titus: { id: 'titus', name: 'TITUS', cls: 'Paladin', lv: 4, xp: 0, hp: 310, maxHp: 310, mp: 75, maxMp: 75, baseAtk: 38, spd: 24, atb: 100, limit: 25, limName: 'HOLY AEGIS', status: [], def: 18, spName: 'HOLY SMITE', spCost: 14, wep: FF_EQUIP.weapons[4], arm: FF_EQUIP.armors[3] }
             };
-            // Healing Save Crystals in the overworld wilds!
             S.data.crystals = [V(-24, 0, 6), V(26, 0, -4), V(0, 0, -42)].map((cp) => {
                 const cm = new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), std(0x38bdf8, 0.1, 0.3, { emissive: 0x0ea5e9, emissiveIntensity: 0.9 }));
                 cm.scale.set(0.65, 1.8, 0.65); cm.position.set(cp.x, 1.8, cp.z); S.add(cm);
@@ -297,10 +348,10 @@
             S.data.ownedWeps = [0]; S.data.ownedArms = [0];
             S.data.gil = 200;
             S.data.bag = { potion: 5, hipotion: 1, ether: 2, phoenix: 1, bomb: 2, elixir: 0 };
-            S.data.quests = { aria: false, vex: false, titus: false, boss2: false, boss3: false };
-            S.data.mode = 'explore'; // 'explore' | 'battle' | 'shop' | 'dialog'
+            S.data.quests = { elder: false, aria: false, vex: false, titus: false, boss2: false, boss3: false };
+            S.data.mode = 'explore';
             S.data.encMeter = 0; S.data.lastWalkPos = BO.Player.pos.clone();
-            S.data.battleStage = null;
+            S.data.battleStage = null; S.data.camCut = null;
 
             const ui = document.createElement('div');
             ui.id = 'ff-rpg-ui'; ui.className = 'ff-shell'; ui.style.display = 'none';
@@ -311,6 +362,12 @@
             const qh = document.createElement('div');
             qh.className = 'ff-quest'; document.body.appendChild(qh);
             S.data.questUi = qh;
+
+            const comp = document.createElement('div');
+            comp.id = 'ff-compass-ui';
+            comp.style.cssText = 'position:fixed;top:74px;left:50%;transform:translateX(-50%);width:min(440px,86vw);height:36px;background:rgba(6,10,24,0.88);border:1px solid rgba(250,204,21,0.5);border-radius:9px;overflow:hidden;pointer-events:none;z-index:26;box-shadow:0 8px 24px rgba(0,0,0,0.55);font-family:var(--font-ui);';
+            document.body.appendChild(comp);
+            S.data.compassUi = comp;
 
             const mapBox = document.createElement('div');
             mapBox.className = 'ff-map';
@@ -330,24 +387,63 @@
             const dot = (px, pz, col, r = 4) => { const [x, y] = toXY(px, pz); g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); };
             dot(0, 24, '#34d399', 5); dot(-48, -4, '#f472b6', 4); dot(48, -4, '#10b981', 4); dot(-26, -51, '#facc15', 4.5); dot(0, -76, '#c084fc', 5);
             for (const ch of S.data.chests || []) if (!ch.opened) dot(ch.pos.x, ch.pos.z, '#fde047', 2.2);
+            for (const el of S.data.elites || []) if (el.alive) dot(el.pos.x, el.pos.z, '#f97316', 3.0);
             const qt = this._questTarget(S); const [qx, qy] = toXY(qt.pos.x, qt.pos.z);
             g.strokeStyle = '#fde047'; g.lineWidth = 1.5; g.beginPath(); g.arc(qx, qy, 7, 0, TAU); g.stroke();
             dot(BO.Player.pos.x, BO.Player.pos.z, '#ffffff', 3.5);
         },
+        _dirLabel(from, to) {
+            const a = Math.atan2(to.x - from.x, -(to.z - from.z));
+            const dirs = ['North', 'NE', 'East', 'SE', 'South', 'SW', 'West', 'NW'];
+            return dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
+        },
         _questTarget(S) {
             const Q = S.data.quests;
-            if (!Q.aria) return { title: 'Find & Help ARIA in Whispering Woods (West)', pos: V(-48, 0, -4) };
-            if (!Q.vex) return { title: 'Find & Help VEX in Sunscorch Canyon (East)', pos: V(48, 0, -4) };
-            if (!Q.titus) return { title: 'Aid TITUS & Slay IFRIT at Ironhold Citadel (NW)', pos: V(-26, 0, -51) };
-            if (!Q.boss2) return { title: 'Confront BAHAMUT at Astral Sanctum (Far North)', pos: V(0, 0, -76) };
-            return { title: 'Vanquish OMEGA ASTRAL at Astral Sanctum!', pos: V(0, 0, -76) };
+            if (!Q.elder) return { step: 'STEP 1/6', title: 'Speak to Elder Aldric by Crystalia Fountain — Press [E]', pos: V(0, 0, 20) };
+            if (!Q.aria) return { step: 'STEP 2/6', title: 'Venture West to Whispering Woods & Rescue ARIA ([E])', pos: V(-48, 0, -4) };
+            if (!Q.vex) return { step: 'STEP 3/6', title: 'Travel East to Sunscorch Canyon & Aid VEX ([E])', pos: V(48, 0, -4) };
+            if (!Q.titus) return { step: 'STEP 4/6', title: 'Storm Ironhold Citadel (NW) & Slay IFRIT for TITUS ([E])', pos: V(-26, 0, -51) };
+            if (!Q.boss2) return { step: 'STEP 5/6', title: 'Confront BAHAMUT PRIME at Astral Sanctum ([E])', pos: V(0, 0, -76) };
+            return { step: 'STEP 6/6', title: 'Vanquish OMEGA ASTRAL at Astral Sanctum ([E])', pos: V(0, 0, -76) };
         },
         _updateQuestHUD(S) {
-            const qh = S.data.questUi; if (!qh) return;
-            const qt = this._questTarget(S);
-            const dist = Math.round(BO.Player.pos.distanceTo(qt.pos));
-            const area = BO.Player.pos.z > 10 && Math.abs(BO.Player.pos.x) < 16 ? 'CRYSTALIA VILLAGE (SAFE)' : BO.Player.pos.x < -18 && BO.Player.pos.z > -32 ? 'EMERALD WOODS' : BO.Player.pos.x > 18 ? 'SUNSCORCH CANYON' : BO.Player.pos.z < -60 ? 'ASTRAL SANCTUM' : 'OVERWORLD WILDS';
-            qh.innerHTML = `<small>${area}</small><div><b>QUEST:</b> ${esc(qt.title)}</div><div style="margin-top:4px;color:#93c5fd;">TARGET: <b>${dist}m</b> • PARTY: <b>${S.data.party.length}/4</b> • GIL: <b>${S.data.gil}</b></div>`;
+            const D = S.data, qh = D.questUi, comp = D.compassUi;
+            const qt = this._questTarget(S), P = BO.Player;
+            const dist = Math.round(P.pos.distanceTo(qt.pos));
+            const dirName = this._dirLabel(P.pos, qt.pos);
+            if (D.questBeacon) {
+                D.questBeacon.position.set(qt.pos.x, 0, qt.pos.z);
+                D.questBeacon.visible = D.mode === 'explore';
+            }
+            // Nearest unopened Treasure Chest Radar
+            let nearChest = null, nearCD = Infinity;
+            for (const ch of D.chests || []) {
+                if (ch.opened) continue;
+                const d = P.pos.distanceTo(ch.pos);
+                if (d < nearCD) { nearCD = d; nearChest = ch; }
+            }
+            const chestStr = nearChest ? `📦 CHEST RADAR: <b>${Math.round(nearCD)}m ${this._dirLabel(P.pos, nearChest.pos)}</b>` : '📦 ALL CHESTS LOOTED';
+            const area = P.pos.z > 10 && Math.abs(P.pos.x) < 16 ? 'CRYSTALIA VILLAGE (SAFE)' : P.pos.x < -18 && P.pos.z > -32 ? 'EMERALD WOODS' : P.pos.x > 18 ? 'SUNSCORCH CANYON' : P.pos.z < -60 ? 'ASTRAL SANCTUM' : 'OVERWORLD WILDS';
+            if (qh) {
+                qh.innerHTML = `<small>${area} • ${qt.step}</small><div><b>${esc(qt.title)}</b> (${dist}m ${dirName})</div><div style="margin-top:4px;color:#93c5fd;">PARTY: <b>${D.party.length}/4</b> • GIL: <b>${D.gil}</b> • ${chestStr}</div><div style="margin-top:2px;font-size:10px;color:#fde68a;">HOLD [SHIFT] CHOCOBO SPRINT</div>`;
+            }
+            if (comp) {
+                comp.style.display = D.mode === 'explore' ? 'block' : 'none';
+                const heading = -P.yaw;
+                const bearing = Math.atan2(qt.pos.x - P.pos.x, -(qt.pos.z - P.pos.z));
+                const rel = BO.Math.wrapAngle(bearing - heading);
+                const fovHalf = 1.05;
+                const pct = BO.Math.clamp(50 + (rel / fovHalf) * 46, 4, 96);
+                const cardinals = [['N', 0], ['NE', Math.PI * 0.25], ['E', Math.PI * 0.5], ['SE', Math.PI * 0.75], ['S', Math.PI], ['SW', -Math.PI * 0.75], ['W', -Math.PI * 0.5], ['NW', -Math.PI * 0.25]];
+                const ticks = cardinals.map(([lbl, ang]) => {
+                    const dr = BO.Math.wrapAngle(ang - heading);
+                    if (Math.abs(dr) > fovHalf) return '';
+                    const x = (50 + (dr / fovHalf) * 46).toFixed(1);
+                    return `<span style="position:absolute;left:${x}%;top:4px;transform:translateX(-50%);font-size:10px;font-weight:800;color:${lbl === 'N' ? '#facc15' : '#93c5fd'};">${lbl}</span>`;
+                }).join('');
+                const offEdge = rel < -fovHalf ? '◀ ' : rel > fovHalf ? ' ▶' : '';
+                comp.innerHTML = `${ticks}<div style="position:absolute;left:${pct.toFixed(1)}%;bottom:3px;transform:translateX(-50%);font-size:11px;font-weight:900;color:#fde047;text-shadow:0 0 8px #f59e0b;white-space:nowrap;">${offEdge}◆ ${dist}m${offEdge ? '' : ''}</div>`;
+            }
         },
         onKey(S, code) {
             if (MG.state !== 'running') return false;
@@ -382,6 +478,12 @@
                     return;
                 }
             }
+            for (const el of D.elites || []) {
+                if (el.alive && P.pos.distanceTo(el.pos) < 4.2) {
+                    this._startBattle(S, el.spec, 'elite:' + el.id);
+                    return;
+                }
+            }
             for (const npc of D.npcs) {
                 if (P.pos.distanceTo(npc.pos) < 4.5) {
                     if (npc.id === 'inn') {
@@ -389,30 +491,39 @@
                         SFX.heal(); MG.toast('RESTED AT INN! ALL PARTY HP/MP RESTORED!', '#34d399'); return;
                     }
                     if (npc.id === 'shop') { this._openShop(S); return; }
-                    if (npc.id === 'elder') { this._showDialog(S, 'ELDER ALDRIC', 'Darkness gathers at the Northern Sanctum. Recruit Aria in the West Woods, Vex in the East Canyon, and Titus at Ironhold Citadel before facing Omega Astral!'); return; }
+                    if (npc.id === 'elder') {
+                        D.quests.elder = true;
+                        this._updateQuestHUD(S);
+                        this._showDialog(S, 'ELDER ALDRIC', 'Darkness gathers at the Northern Sanctum! Follow the Golden Beacon & Compass: recruit ARIA in Whispering Woods (West), VEX in Sunscorch Canyon (East), and TITUS at Ironhold Citadel (NW) before facing Omega Astral!');
+                        return;
+                    }
                     if (npc.id === 'aria') {
+                        D.quests.elder = true;
                         if (D.quests.aria) this._showDialog(S, 'ARIA', 'Already by your side! Let us march on Omega Astral.');
                         else this._startBattle(S, FF_BOSSES.aria_guard, 'aria');
                         return;
                     }
                     if (npc.id === 'vex') {
+                        D.quests.elder = true;
                         if (D.quests.vex) this._showDialog(S, 'VEX', 'My twinblades are yours—next stop, Ironhold Citadel!');
                         else this._startBattle(S, FF_BOSSES.vex_guard, 'vex');
                         return;
                     }
                     if (npc.id === 'titus') {
+                        D.quests.elder = true;
                         if (D.quests.titus) this._showDialog(S, 'TITUS', 'Ironhold stands firm. To the Northern Sanctum!');
                         else this._startBattle(S, FF_BOSSES.boss1, 'boss1');
                         return;
                     }
                     if (npc.id === 'sanctum') {
+                        D.quests.elder = true;
                         if (!D.quests.boss2) this._startBattle(S, FF_BOSSES.boss2, 'boss2');
                         else this._startBattle(S, FF_BOSSES.boss3, 'boss3');
                         return;
                     }
                 }
             }
-            MG.toast('Walk up to an NPC, Chest or Sanctum Gate first!', '#cbd5e1');
+            MG.toast('Walk up to an NPC, Chest, Elite Hunt or Sanctum Gate first!', '#cbd5e1');
         },
         _showDialog(S, speaker, text) {
             const D = S.data, el = D.ui;
@@ -538,6 +649,41 @@
             el.querySelectorAll('[data-wep]').forEach((b) => { b.onclick = () => { u.wep = FF_EQUIP.weapons[+b.dataset.wep]; D.log = `${u.name} equipped ${u.wep.name}!`; this._refreshBattleUI(S); }; });
             el.querySelectorAll('[data-arm]').forEach((b) => { b.onclick = () => { u.arm = FF_EQUIP.armors[+b.dataset.arm]; D.log = `${u.name} equipped ${u.arm.name}!`; this._refreshBattleUI(S); }; });
         },
+        _playBattleFX(S, kind, heroPos, enemyPos, col = 0xfacc15) {
+            const D = S.data;
+            const tgt = enemyPos.clone().add(V(0, 1.5, 0));
+            D.camCut = { t: 0, dur: kind === 'orbital' || kind === 'limit' ? 0.95 : 0.65, focus: tgt.clone(), side: (Math.random() < 0.5 ? -1 : 1) };
+            if (kind === 'slash' || kind === 'limit') {
+                const arc = new THREE.Mesh(new THREE.TorusGeometry(kind === 'limit' ? 2.4 : 1.7, 0.14, 6, 22, Math.PI * 0.95), basic(col));
+                arc.position.copy(tgt); arc.rotation.set(0.35, 0, Math.random() * 1.4);
+                S.scene.add(arc);
+                let ft = 0; S.animate((dt) => { ft += dt; arc.rotation.z += dt * 16; arc.scale.setScalar(1 + ft * 1.6); if (ft > 0.38) { S.scene.remove(arc); return false; } });
+            } else if (kind === 'fire') {
+                const meteor = new THREE.Mesh(new THREE.SphereGeometry(1.1, 12, 10), basic(0xf97316));
+                meteor.position.copy(tgt).add(V(0, 13, 0)); S.scene.add(meteor);
+                let ft = 0; S.animate((dt) => { ft += dt; meteor.position.y = tgt.y + Math.max(0, 13 * (1 - ft / 0.34)); BO.FX.spawnParticles(meteor.position, 2, 0xfacc15, 3, 1, 0.25, 0.7); if (ft > 0.36) { S.scene.remove(meteor); BO.FX.spawnExplosion(tgt, 5.2, 0xf97316); return false; } });
+            } else if (kind === 'ice') {
+                const spires = [];
+                for (let k = 0; k < 7; k++) {
+                    const a = (k / 7) * TAU, r = k === 0 ? 0 : 1.6;
+                    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.32, 2.8, 5), std(0x7dd3fc, 0.15, 0.2, { emissive: 0x38bdf8, emissiveIntensity: 0.75 }));
+                    sp.position.set(tgt.x + Math.cos(a) * r, 0.8, tgt.z + Math.sin(a) * r); S.scene.add(sp); spires.push(sp);
+                }
+                let ft = 0; S.animate((dt) => { ft += dt; const sc = ft < 0.15 ? ft / 0.15 : Math.max(0.01, 1 - (ft - 0.15) / 0.45); for (const sp of spires) sp.scale.set(1, sc, 1); if (ft > 0.6) { for (const sp of spires) S.scene.remove(sp); return false; } });
+            } else if (kind === 'thunder') {
+                const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.45, 16, 8), basic(0xfef08a));
+                bolt.position.copy(tgt).add(V(0, 7, 0)); S.scene.add(bolt);
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.3, 24), basic(0xfacc15, { side: THREE.DoubleSide }));
+                ring.rotation.x = -Math.PI / 2; ring.position.set(tgt.x, 0.15, tgt.z); S.scene.add(ring);
+                let ft = 0; S.animate((dt) => { ft += dt; bolt.scale.x = bolt.scale.z = 1 + Math.sin(ft * 60) * 0.4; ring.scale.setScalar(1 + ft * 12); if (ft > 0.36) { S.scene.remove(bolt); S.scene.remove(ring); return false; } });
+            } else if (kind === 'orbital') {
+                const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.6, 22, 16), basic(col, { transparent: true, opacity: 0.78 }));
+                beam.position.copy(tgt).add(V(0, 10, 0)); S.scene.add(beam);
+                const rOrb = new THREE.Mesh(new THREE.RingGeometry(1.2, 2.0, 28), basic(0xe9d5ff, { side: THREE.DoubleSide }));
+                rOrb.rotation.x = -Math.PI / 2; rOrb.position.set(tgt.x, 0.18, tgt.z); S.scene.add(rOrb);
+                let ft = 0; S.animate((dt) => { ft += dt; beam.scale.x = beam.scale.z = 1.4 - ft; rOrb.scale.setScalar(1 + ft * 14); if (ft > 0.72) { S.scene.remove(beam); S.scene.remove(rOrb); return false; } });
+            }
+        },
         _cmd(S, act) {
             const D = S.data, u = D.party[D.turnIdx];
             if (D.busy || !u || u.hp <= 0) return;
@@ -556,8 +702,13 @@
             const dmg = Math.round((u.baseAtk + u.lv * 4 + (u.wep?.atk || 0) + (isSp || isLim ? (u.wep?.mag || 0) * 1.4 : 0)) * mult * (0.9 + Math.random() * 0.25));
             D.enemy.hp -= dmg; S.award(dmg * 2);
             if (!isLim) u.limit = Math.min(100, u.limit + 22);
-            BO.FX.spawnTracer(D.heroFigs[D.turnIdx].root.position.clone().add(V(0, 1.3, 0)), D.enemyMesh.position.clone().add(V(0, 1.4, 0)), isLim ? 0xfacc15 : isSp ? 0x38bdf8 : 0xe2e8f0, isLim ? 0.14 : 0.08, 0.22);
-            BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.4, 0)), isLim ? 5.5 : isSp ? 3.5 : 1.8, isLim ? 0xfacc15 : 0x38bdf8);
+            const hPos = D.heroFigs[D.turnIdx].root.position;
+            BO.FX.spawnTracer(hPos.clone().add(V(0, 1.3, 0)), D.enemyMesh.position.clone().add(V(0, 1.4, 0)), isLim ? 0xfacc15 : isSp ? 0x38bdf8 : 0xe2e8f0, isLim ? 0.14 : 0.08, 0.22);
+            this._playBattleFX(S, isLim ? 'limit' : 'slash', hPos, D.enemyMesh.position, isLim ? 0xfacc15 : isSp ? 0x38bdf8 : 0xfef08a);
+            if (isLim) {
+                BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.4, 0)), 5.8, 0xfacc15);
+                MG.flashScreen('rgba(250,204,21,0.22)');
+            }
             if (isLim && BO.MinigameAudio) BO.MinigameAudio.ffLimit(); else SFX[isLim ? 'star' : 'thunk'](isLim ? 3 : undefined);
             D.log = isLim ? `🌟 LIMIT BREAK! ${u.name} unleashes ${u.limName} for ${dmg} DMG!` : `${u.name} ${isSp ? u.spName : 'strikes'} for ${dmg} DMG!`;
             this._afterAction(S);
@@ -585,7 +736,7 @@
             const weakHit = D.enemy.weak === sp.elem;
             const dmg = Math.round((42 + u.lv * 5 + (u.wep?.mag || 10) * 2.2) * sp.pwr * (weakHit ? 1.75 : 1.0));
             D.enemy.hp -= dmg; S.award(dmg * 2); u.limit = Math.min(100, u.limit + 20);
-            BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.5, 0)), weakHit ? 4.5 : 3.0, sp.col);
+            this._playBattleFX(S, sp.elem, D.heroFigs[D.turnIdx].root.position, D.enemyMesh.position, sp.col);
             if (BO.MinigameAudio) BO.MinigameAudio.ffSpell(sp.elem); else SFX.thunk();
             D.log = `${u.name} casts ${sp.name} for ${dmg} DMG!${weakHit ? ' 🔥 WEAKNESS HIT (1.75x)!' : ''}`;
             this._afterAction(S);
@@ -598,6 +749,7 @@
             const weakHit = D.enemy.weak === sm.elem;
             const dmg = Math.round((sm.dmg + (u.wep?.mag || 0) * 2.5) * (weakHit ? 1.5 : 1.0));
             D.enemy.hp -= dmg; S.award(dmg * 3);
+            this._playBattleFX(S, 'orbital', D.heroFigs[D.turnIdx].root.position, D.enemyMesh.position, sm.col);
             BO.FX.spawnExplosion(D.enemyMesh.position.clone().add(V(0, 1.8, 0)), 7.5, sm.col); SFX.rumble(0.6);
             D.log = `🐉 EIDOLON ${sm.name}! Deals ${dmg} massive damage!${weakHit ? ' (ELEMENTAL WEAKNESS!)' : ''}`;
             this._afterAction(S);
@@ -629,6 +781,11 @@
                 if (qt === 'aria' && !D.quests.aria) { D.quests.aria = true; D.party.push(D.alliesPool.aria); const n = D.npcs.find((x) => x.id === 'aria'); if (n) n.fig.root.visible = false; MG.toast('ARIA JOINED YOUR PARTY!', '#f472b6'); }
                 else if (qt === 'vex' && !D.quests.vex) { D.quests.vex = true; D.party.push(D.alliesPool.vex); const n = D.npcs.find((x) => x.id === 'vex'); if (n) n.fig.root.visible = false; MG.toast('VEX JOINED YOUR PARTY!', '#10b981'); }
                 else if (qt === 'boss1' && !D.quests.titus) { D.quests.titus = true; D.party.push(D.alliesPool.titus); const n = D.npcs.find((x) => x.id === 'titus'); if (n) n.fig.root.visible = false; MG.toast('IFRIT SLAIN — TITUS JOINED YOUR PARTY!', '#facc15'); }
+                else if (qt && qt.startsWith('elite:')) {
+                    const el = (D.elites || []).find((e) => 'elite:' + e.id === qt);
+                    if (el) { el.alive = false; el.mesh.visible = false; }
+                    MG.toast('★ ELITE HUNT COMPLETE! HUGE GIL & XP!', '#fde047');
+                }
                 else if (qt === 'boss2') { D.quests.boss2 = true; MG.toast('BAHAMUT VANQUISHED! APPROACH SANCTUM AGAIN FOR OMEGA!', '#38bdf8'); }
                 else if (qt === 'boss3') { D.quests.boss3 = true; MG.finish('OMEGA ASTRAL CONQUERED — WORLD SAVED!', { color: '#fde047' }); }
                 this._updateQuestHUD(S);
@@ -675,9 +832,33 @@
             const D = S.data, P = BO.Player;
             if (state === 'running' && BO.MinigameAudio) BO.MinigameAudio.tick(dt);
             if (D.fountainSpire) { D.fountainSpire.rotation.y += dt * 1.4; D.fountainSpire.position.y = 2.4 + Math.sin(S.t * 2.5) * 0.18; }
+            if (D.questArrow && D.questBeacon && D.questBeacon.visible) {
+                D.questArrow.rotation.y += dt * 2.2;
+                D.questArrow.position.y = 4.6 + Math.sin(S.t * 3.5) * 0.45;
+                if (D.questHalo) D.questHalo.scale.setScalar(1 + Math.sin(S.t * 4) * 0.08);
+            }
+            if (D.manaMotes) D.manaMotes.rotation.y += dt * 0.015;
             if (D.mode !== 'explore') {
                 if (document.pointerLockElement && MG.state === 'running') document.exitPointerLock();
                 if (D.enemyMesh) D.enemyMesh.rotation.y += dt * 0.9;
+                if (D.mode === 'battle' && D.enemyMesh && BO.App.worldCamera) {
+                    const cam = BO.App.worldCamera;
+                    if (D.camCut) {
+                        D.camCut.t += dt;
+                        const p = D.camCut.t / D.camCut.dur;
+                        const zoom = Math.sin(Math.min(1, p) * Math.PI);
+                        const side = D.camCut.side || 1;
+                        const tgt = D.camCut.focus;
+                        cam.position.set(tgt.x + side * (5.2 - zoom * 2.2), 3.1 - zoom * 0.8, tgt.z + 6.4 - zoom * 2.4);
+                        cam.lookAt(tgt);
+                        if (p >= 1) D.camCut = null;
+                    } else {
+                        const tgt = D.enemyMesh.position.clone().add(V(0, 1.4, 0));
+                        cam.position.set(P.pos.x + Math.sin(S.t * 0.35) * 2.4, 3.8, P.pos.z + 2.2);
+                        cam.lookAt(tgt);
+                    }
+                    cam.updateMatrixWorld();
+                }
                 if (D.mode === 'battle' && !D.busy && D.party[D.turnIdx]?.atb < 100) {
                     for (const p of D.party) if (p.hp > 0) p.atb = Math.min(100, p.atb + dt * (p.spd || 28) * (p.status?.includes('haste') ? 1.65 : 1.0));
                     if (D.party[D.turnIdx].atb >= 100) { SFX.ding(1.15); this._refreshBattleUI(S); }
@@ -693,11 +874,14 @@
                     SFX.heal(); MG.toast('MANA CRYSTAL! FULL HP/MP RESTORED!', '#38bdf8');
                 }
             }
-            if (P.keys?.ShiftLeft && Math.hypot(P.vel.x, P.vel.z) > 0.5) { P.pos.x += P.vel.x * 0.45 * dt; P.pos.z += P.vel.z * 0.45 * dt; }
+            if (P.keys?.ShiftLeft && Math.hypot(P.vel.x, P.vel.z) > 0.5) {
+                P.pos.x += P.vel.x * 0.55 * dt; P.pos.z += P.vel.z * 0.55 * dt;
+                if (Math.random() < dt * 14) BO.FX.spawnParticles(P.pos.clone().add(V(0, 0.25, 0)), 1, 0xfacc15, 1.5, 1.2, 0.3, 0.6);
+            }
             const moved = P.pos.distanceTo(D.lastWalkPos);
             D.lastWalkPos.copy(P.pos);
+            this._updateQuestHUD(S);
             if (moved > 0.01) {
-                this._updateQuestHUD(S);
                 this._drawMiniMap(S);
                 const inVillage = P.pos.z > 10 && Math.abs(P.pos.x) < 16;
                 if (!inVillage) {
@@ -714,6 +898,7 @@
             if (BO.MinigameAudio) BO.MinigameAudio.stop();
             if (S.data.ui) S.data.ui.remove();
             if (S.data.questUi) S.data.questUi.remove();
+            if (S.data.compassUi) S.data.compassUi.remove();
             if (S.data.mapBox) S.data.mapBox.remove();
         }
     });
@@ -724,21 +909,27 @@
     const VISUAL_SIGNS = (() => {
         const defs = [
             { cat: 'FACE', label: 'Crimson Glowing Pupils', trait: 'glowEye' },
+            { cat: 'FACE', label: 'Micro-Dilated Asymmetric Iris Ring (Magnifier)', trait: 'microPupil' },
             { cat: 'FACE', label: 'Necrotic Grey/Green Skin Pallor', trait: 'sickSkin' },
             { cat: 'FACE', label: 'Spasming Jaw / Erratic Head Twitch', trait: 'twitch' },
             { cat: 'FACE', label: 'Slanted Red Scowl & Pale Lips', trait: 'scowl' },
+            { cat: 'FACE', label: 'Faint Nostril Micro-Bleed Speck (Magnifier)', trait: 'microBleed' },
+            { cat: 'FACE', label: 'Glistening Fever Sweat Bead (Magnifier)', trait: 'sweatDrop' },
             { cat: 'SKIN', label: 'Blackened Vein Patches on Neck', trait: 'veinNeck' },
+            { cat: 'SKIN', label: 'Hairline Subdermal Spider-Veins on Jaw (Magnifier)', trait: 'subdermalVein' },
             { cat: 'SKIN', label: 'Blood-Stained Torn Shirt Collar', trait: 'bloodShirt' },
             { cat: 'SKIN', label: 'Green Fungal Pustule Spots on Torso', trait: 'rash' },
             { cat: 'WOUNDS', label: 'Fresh Bite Mark Scar on Shoulder', trait: 'biteShoulder' },
             { cat: 'WOUNDS', label: 'Dark Rot & Blackened Hands', trait: 'rotHands' },
+            { cat: 'WOUNDS', label: 'Cyanotic Blue-Grey Fingernail Tips (Magnifier)', trait: 'paleFingernails' },
             { cat: 'WOUNDS', label: 'Bloody Emergency Forearm Bandage', trait: 'bandage' },
             { cat: 'BEHAVIOR', label: 'Hunched Trembling Fever Shiver', trait: 'hunch' },
             { cat: 'BEHAVIOR', label: 'Toxic Green Spore Cloud on Collar', trait: 'spores' },
             { cat: 'BEHAVIOR', label: 'Heavy Wheezing / Dark Mist Cough', trait: 'cough' },
             { cat: 'BADGE', label: 'Expired RED STAMP Quarantine Pass', trait: 'badBadgeRed' },
             { cat: 'BADGE', label: 'Blood-Smudged / Torn Bunker ID', trait: 'badBadgeBlood' },
-            { cat: 'BADGE', label: 'Forged Crooked Ink-Smear Permit', trait: 'badBadgeCrook' }
+            { cat: 'BADGE', label: 'Forged Crooked Ink-Smear Permit', trait: 'badBadgeCrook' },
+            { cat: 'BADGE', label: 'Micro-Print Clearance Mismatch CLR:X-00 (Magnifier)', trait: 'forgedSerial' }
         ];
         const tiers = ['Mild', 'Acute', 'Severe', 'Late-Stage', 'Critical', 'Strain-B', 'Variant-X'];
         const out = [];
@@ -767,9 +958,10 @@
             g.fillText(name.slice(0, 10), 82, 64);
             g.fillStyle = '#64748b'; g.font = '10px monospace';
             g.fillText(type === 'badBadgeRed' ? 'EXP: 2024' : 'EXP: 2027', 82, 82);
-            g.fillText('CLR: B-09', 82, 96);
+            g.fillStyle = type === 'forgedSerial' ? '#b91c1c' : '#64748b';
+            g.fillText(type === 'forgedSerial' ? 'CLR: X-00' : 'CLR: B-09', 82, 96);
             g.font = '900 18px sans-serif'; g.textAlign = 'center';
-            if (type === 'clean') {
+            if (type === 'clean' || type === 'forgedSerial') {
                 g.strokeStyle = '#16a34a'; g.lineWidth = 2.5; g.strokeRect(24, 126, w - 48, 34);
                 g.fillStyle = '#16a34a'; g.fillText('CLEARED', w / 2, 149);
             } else if (type === 'badBadgeRed') {
@@ -796,19 +988,19 @@
     ];
 
     MG.register({
-        id: 'fun_inspection', cat: 'fun', order: 7, name: 'Bunker Inspection', icon: '🪪', accent: '#eab308', badge: '10 MIN',
-        tagline: 'NO auto-scan! Inspect layered visitors, toggle UV Lamp [L] & Question [Q], use your Manual!',
-        desc: 'Ten-minute Quarantine Checkpoint shift! NO automatic scanner—inspect richly detailed visitors in line! Look closely with [RMB] Zoom & [L] UV Lamp for subtle discolored veins, faint sclera tint, micro-twitches, scars, coughs & ID discrepancies. Question ([Q]) nervous entrants or close the Steel Gate ([G]) when outbreaks happen!',
-        heroLabel: 'FUN • PURE VISUAL CHECKPOINT • 10 MINUTES', duration: 600, stars: [1500, 3500, 6200, 10000],
-        standardWeapon: 'm1911', lockWeapon: true, fixedAmmo: true, infiniteMag: false, customMusic: true,
+        id: 'fun_inspection', cat: 'fun', order: 7, name: 'Bunker Inspection', icon: '🔎', accent: '#eab308', badge: '10 MIN',
+        tagline: 'Switch [2] Brass Magnifying Glass + [RMB] 2.8x Lens, [L] UV Lamp & [Q] Question to catch subtle tells!',
+        desc: 'Ten-minute Quarantine Checkpoint shift! Switch to your Brass Magnifying Glass ([2] / Scroll) and hold [RMB] for 2.8x optical zoom to spot micro-dilated iris rings, subdermal spider-veins, cyanotic fingertips, fever sweat, and forged CLR:X-00 serials! Pair with [L] UV Lamp, [T] IR Thermometer & [G] Steel Gate Shutter.',
+        heroLabel: 'FUN • OPTICAL MAGNIFIER CHECKPOINT • 10 MINUTES', duration: 600, stars: [1500, 3500, 6200, 10000],
+        standardWeapon: 'm1911', secondaryWeapon: 'magnifying_glass', lockWeapon: true, fixedAmmo: true, infiniteMag: false, customMusic: true,
         hubOptions: [{ key: 'inspDiff', label: 'DIFFICULTY', default: 'easy', choices: Object.entries(DIFF_CONF).map(([k, v]) => ({ val: k, label: k.toUpperCase(), desc: v.label })) }],
-        weaponLabel: 'SMALL PISTOL (20 / 50 / 100 BULLETS)', weaponNote: 'NO Auto-Scan • [L] UV Lamp • [T] IR Thermometer • [Q] Question • [F] Manual',
-        keys: [['F / TAB', 'Field Manual'], ['RMB', 'Zoom In'], ['L', 'UV Lamp'], ['T', 'IR Temp Scan'], ['Q', 'Question'], ['E / X', 'Approve / Deny'], ['G', 'Gate Shutter']],
+        weaponLabel: 'M1911 + OPTICAL MAGNIFYING GLASS [2]', weaponNote: '[2] Equip Magnifier + [RMB] 2.8x Zoom • [L] UV Lamp • [T] IR Temp • [Q] Question • [F] Manual',
+        keys: [['2 / Scroll', 'Magnifying Glass'], ['RMB', '2.8x Optical Zoom'], ['F / TAB', 'Field Manual'], ['L', 'UV Lamp'], ['T', 'IR Temp Scan'], ['Q', 'Question'], ['E / X', 'Approve / Deny'], ['G', 'Gate Shutter']],
         guide: {
-            objective: 'Work a 10-minute Bunker gate shift. Admit healthy survivors [E] and reject infected visitors [X] using pure visual inspection.',
+            objective: 'Work a 10-minute Bunker gate shift. Admit healthy survivors [E] and reject infected visitors [X] by inspecting fine physical & pass details.',
             tips: [
-                'There is ZERO auto-scanning! Use [RMB] Zoom and [L] UV Lamp to catch subtle pale olive skin, faint crimson pupils, bruised fingertips, or tiny neck veins.',
-                'Check the visitor\'s held Sector-4 Pass for REVOKED tags, smudged blood stains, or crooked forged stamps.',
+                'Press [2] (or Mouse Wheel) to draw your Brass Magnifying Glass, then hold [RMB] for crisp 2.8x optical zoom to spot tiny iris rings, jawline veins, nosebleeds, and CLR:X-00 forged IDs!',
+                'Toggle [L] UV Lamp to reveal latent fungal pustules and purple neck veins.',
                 'Press [G] to drop the Steel Gate Shutter if a sleeper mutates behind you inside the bunker!'
             ]
         },
@@ -880,8 +1072,27 @@
             mesh.position.set(x, y, z); S.add(mesh); S.collider(x - w / 2, y - h / 2, z - d / 2, x + w / 2, y + h / 2, z + d / 2);
         },
         start(S) {
-            const w = BO.Player.activeWeapon;
+            const w = BO.Player.weapons?.[0] || BO.Player.activeWeapon;
             if (w) { const tot = S.data.dc.bullets; w.mag = Math.min(8, tot); w.reserve = Math.max(0, tot - w.mag); }
+            const mag = BO.Player.weapons?.[1];
+            if (mag && mag.cfg.id === 'magnifying_glass') {
+                mag.stats.adsFov = 25;
+                mag.stats.adsTime = 0.14;
+            }
+            this._buildLensUI(S);
+        },
+        _buildLensUI(S) {
+            const old = document.getElementById('insp-lens-overlay'); if (old) old.remove();
+            const el = document.createElement('div');
+            el.id = 'insp-lens-overlay';
+            el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:26;opacity:0;transition:opacity 0.14s ease;' +
+                'background:radial-gradient(circle at 50% 50%, rgba(254,249,195,0.03) 0%, rgba(254,240,138,0.07) 26%, rgba(217,119,6,0.55) 27.2%, rgba(9,13,22,0.88) 29.5%, rgba(9,13,22,0.94) 100%);';
+            el.innerHTML = `<div style="position:absolute;left:50%;top:50%;width:52vh;height:52vh;transform:translate(-50%,-50%);border-radius:50%;border:4px solid rgba(251,191,36,0.85);box-shadow:inset 0 0 26px rgba(254,240,138,0.22),0 0 24px rgba(0,0,0,0.85);">
+                <div style="position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);border:1.5px solid rgba(254,240,138,0.55);border-radius:50%;"></div>
+                <div style="position:absolute;bottom:-30px;left:50%;transform:translateX(-50%);font:800 11px monospace;letter-spacing:2px;color:#fde68a;background:rgba(9,13,22,0.88);padding:3px 10px;border-radius:999px;border:1px solid rgba(251,191,36,0.45);white-space:nowrap;">🔎 2.8× OPTICAL MAGNIFYING GLASS</div>
+            </div>`;
+            document.body.appendChild(el);
+            S.data.lensEl = el;
         },
         _buildManualUI(S) {
             const old = document.getElementById('insp-manual-ui'); if (old) old.remove();
@@ -926,9 +1137,19 @@
                 hat: Math.random() < 0.45 ? (Math.random() < 0.5 ? 'cap' : 'beanie') : 'none',
                 longHair: Math.random() < 0.35
             }));
-            // Rich visitor clothing accessories: layered scarf/collar + travel backpack
-            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.045, 6, 14), std([0x334155, 0x78350f, 0x064e3b, 0x4c1d95][Math.floor(Math.random() * 4)], 0.8));
+            // Rich visitor clothing accessories: layered jacket coat/collar, belt buckle, travel backpack & glasses
+            const coatCols = [0x334155, 0x78350f, 0x064e3b, 0x4c1d95, 0x1e293b];
+            const coatCol = coatCols[Math.floor(Math.random() * coatCols.length)];
+            const collar = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.048, 6, 14), std(coatCol, 0.78));
             collar.rotation.x = Math.PI / 2; collar.position.set(0, 1.35, 0.02); fig.root.add(collar);
+            const lapelL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.24, 0.04), std(coatCol, 0.7));
+            lapelL.position.set(-0.09, 1.18, 0.16); lapelL.rotation.z = 0.2;
+            const lapelR = lapelL.clone(); lapelR.position.x = 0.09; lapelR.rotation.z = -0.2;
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.06, 0.28), std(0x18181b, 0.4, 0.5));
+            belt.position.set(0, 0.85, 0.01);
+            const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.07, 0.04), std(0xfbbf24, 0.25, 0.85));
+            buckle.position.set(0, 0.85, 0.16);
+            fig.root.add(lapelL, lapelR, belt, buckle);
             if (Math.random() < 0.65) {
                 const pack = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.38, 0.16), std(0x44403c, 0.85));
                 pack.position.set(0, 1.08, -0.2); fig.root.add(pack);
@@ -940,12 +1161,28 @@
                 }
             }
 
-            // SUBTLE YET NOTICEABLE visual symptoms (require a closer look with [RMB] / [L] UV!)
+            // SUBTLE YET NOTICEABLE visual symptoms (Micro-tells reward Magnifying Glass [2] + [RMB] & UV [L]!)
             const uvSpots = [];
             if (tr === 'glowEye') {
                 for (const s of [-1, 1]) {
                     const ge = new THREE.Mesh(new THREE.SphereGeometry(0.026, 6, 6), std(0x7f1d1d, 0.4, 0, { emissive: 0x991b1b, emissiveIntensity: 0.55 }));
                     ge.position.set(s * 0.075, 1.56, 0.185); fig.root.add(ge);
+                }
+            } else if (tr === 'microPupil') {
+                // Tiny crimson iris ring on one eye (hard to see without 2.8x Magnifying Glass!)
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.014, 0.024, 12), basic(0xdc2626, { side: THREE.DoubleSide }));
+                ring.position.set(0.075, 1.56, 0.205); fig.root.add(ring); uvSpots.push(ring);
+            } else if (tr === 'microBleed') {
+                const bleed = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.028, 0.015), std(0x991b1b, 0.35));
+                bleed.position.set(0.022, 1.49, 0.205); fig.root.add(bleed);
+            } else if (tr === 'sweatDrop') {
+                const sw = new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), std(0xbae6fd, 0.08, 0.2, { transparent: true, opacity: 0.85 }));
+                sw.scale.y = 1.45; sw.position.set(-0.07, 1.63, 0.198); fig.root.add(sw);
+            } else if (tr === 'subdermalVein') {
+                for (let k = 0; k < 3; k++) {
+                    const hv = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.008, 0.012), std(0x581c87, 0.6));
+                    hv.position.set(0.11, 1.44 + k * 0.018, 0.145); hv.rotation.z = k % 2 ? 0.35 : -0.4;
+                    fig.root.add(hv); uvSpots.push(hv);
                 }
             } else if (tr === 'veinNeck') {
                 const vn = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.105, 0.09, 10), std(0x4c1d95, 0.7, 0, { transparent: true, opacity: 0.68 }));
@@ -962,13 +1199,18 @@
                 for (const h of [fig.parts.armL, fig.parts.armR]) {
                     if (h) { const hd = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.12, 0.11), std(0x27272a, 0.75)); hd.position.y = -0.35; h.add(hd); }
                 }
+            } else if (tr === 'paleFingernails') {
+                if (fig.parts.armL) {
+                    const cn = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.05, 0.09), std(0x64748b, 0.55));
+                    cn.position.set(0, -0.37, 0.02); fig.parts.armL.add(cn);
+                }
             } else if (tr === 'bandage') {
                 const bn = new THREE.Mesh(new THREE.CylinderGeometry(0.072, 0.072, 0.16, 8), std(0xe2e8f0, 0.9));
                 bn.position.set(0.24, 1.06, 0.05); fig.root.add(bn);
                 const bd = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.15), std(0x991b1b, 0.8));
                 bd.position.set(0.24, 1.06, 0.06); fig.root.add(bd); uvSpots.push(bd);
             }
-            const badgeKind = (tr === 'badBadgeRed' || tr === 'badBadgeBlood' || tr === 'badBadgeCrook') ? tr : 'clean';
+            const badgeKind = (tr === 'badBadgeRed' || tr === 'badBadgeBlood' || tr === 'badBadgeCrook' || tr === 'forgedSerial') ? tr : 'clean';
             const passTex = badgeTex(badgeKind, vName);
             const card = new THREE.Mesh(new THREE.PlaneGeometry(0.30, 0.38), new THREE.MeshBasicMaterial({ map: passTex, side: THREE.DoubleSide }));
             card.position.set(-0.30, 1.24, 0.27);
@@ -1040,6 +1282,11 @@
         },
         update(S, dt, lib, state) {
             const D = S.data, P = BO.Player;
+            const holdingMag = P.activeWeapon && P.activeWeapon.cfg && P.activeWeapon.cfg.id === 'magnifying_glass';
+            if (D.lensEl) {
+                const zooming = holdingMag && P.adsAlpha > 0.45 && state === 'running' && !D.manualOpen;
+                D.lensEl.style.opacity = zooming ? String(Math.min(1, (P.adsAlpha - 0.45) * 1.9)) : '0';
+            }
             if (D.shutter) D.shutter.position.y = BO.Math.lerp(D.shutter.position.y, D.gateClosed ? 2.4 : 5.4, dt * 8);
             const hasOutbreak = D.survivors.some((s) => s.infected);
             if (D.beacon) D.beacon.material.color.setHex(hasOutbreak && Math.sin(S.t * 14) > 0 ? 0xef4444 : 0xf59e0b);
@@ -1055,8 +1302,11 @@
                     F.walk(ent.fig, S.t * 9, 1, false);
                 }
                 if (ent.questionBoost > 0) ent.questionBoost -= dt;
-                // Subtle natural breathing & nervous behavior cues!
+                // Subtle natural breathing, head glance & nervous behavior cues!
                 ent.fig.root.position.y = Math.sin(S.t * 2.2) * 0.015;
+                if (tr !== 'twitch' && ent.fig.parts.head) {
+                    ent.fig.parts.head.rotation.y = Math.sin(S.t * 1.4) * 0.08;
+                }
                 if (tr === 'twitch') {
                     const amp = ent.questionBoost > 0 ? 0.24 : 0.12;
                     ent.fig.root.rotation.y = (Math.sin(S.t * 17) > 0.72) ? Math.sin(S.t * 35) * amp : 0;
@@ -1113,15 +1363,16 @@
             const totalScore = S.score + healthy * 350;
             return { score: totalScore, stars: this.stars.filter((th) => totalScore >= th).length, title: healthy >= 8 ? 'HAWK-EYE WARDEN' : 'SHIFT COMPLETE', stats: [['CLEAN SURVIVORS', healthy], ['CORRECT CALLS', D.correct], ['MISTAKES', D.wrong], ['OUTBREAKS QUELLED', S.kills]] };
         },
-        dispose(S) { if (BO.MinigameAudio) BO.MinigameAudio.stop(); if (S.data.manualEl) S.data.manualEl.remove(); },
+        dispose(S) { if (BO.MinigameAudio) BO.MinigameAudio.stop(); if (S.data.manualEl) S.data.manualEl.remove(); if (S.data.lensEl) S.data.lensEl.remove(); },
         hud(S) {
             const D = S.data, w = BO.Player.activeWeapon, ammo = w ? w.mag + w.reserve : 0;
+            const holdingMag = w && w.cfg && w.cfg.id === 'magnifying_glass';
             const healthy = D.survivors.filter((s) => !s.infected).length, inf = D.survivors.filter((s) => s.infected).length;
             const bioIco = '<img class="insp-ico" src="staged_assets/ui/scifi_icons/Gadgets/bio-signature-sampler-001.png" alt="">';
             const lockIco = '<img class="insp-ico" src="staged_assets/ui/scifi_icons/Effects Status/docking-locked-icon-001.png" alt="">';
             const gaugeIco = '<img class="insp-ico" src="staged_assets/ui/dieselpunk_icons/Ui Symbols/engine-boost-gauge-symbol-001.png" alt="">';
             const tempChip = D.entrant && D.entrant.tempScanned ? `<div class="mgx-chip ${parseFloat(D.entrant.tempC) >= 38.5 ? 'mgx-bad' : 'mgx-hot'}">${gaugeIco}TEMP <b>${D.entrant.tempC}°C</b></div>` : `<div class="mgx-chip">${gaugeIco}TEMP <b>[T] SCAN</b></div>`;
-            return `<div class="fun-panel"><div class="mgx-chip">${bioIco}SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">${lockIco}OUTBREAKS <b>${inf}</b></div><div class="mgx-chip">AMMO <b>${ammo}</b></div>${tempChip}<div class="mgx-chip">${bioIco}${D.uvOn ? 'UV ON' : 'STD LIGHT'}</div><div class="mgx-chip"><b>[F]</b> MANUAL • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
+            return `<div class="fun-panel"><div class="mgx-chip">${bioIco}SURVIVORS <b>${healthy}</b></div><div class="mgx-chip ${inf > 0 ? 'mgx-bad' : ''}">${lockIco}OUTBREAKS <b>${inf}</b></div><div class="mgx-chip ${holdingMag ? 'mgx-hot' : ''}">${holdingMag ? '🔎 <b>MAGNIFIER [RMB]</b>' : `AMMO <b>${ammo}</b>`}</div>${tempChip}<div class="mgx-chip">${bioIco}${D.uvOn ? 'UV ON' : 'STD LIGHT'}</div><div class="mgx-chip"><b>[2]</b> LENS • <b>[F]</b> MANUAL • <b>[E]</b> IN / <b>[X]</b> DENY</div></div>
             ${D.entrant ? `<div class="fun-panel" style="margin-top:4px;font-size:11.5px;color:#fde68a;"><b>${D.entrant.vName}:</b> ${esc(D.dialogTxt)}</div>` : ''}`;
         }
     });
