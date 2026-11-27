@@ -92,7 +92,15 @@
         BO.Sound?.playUISliderTick?.();
     }
 
+    function unlockOnce() {
+        BO.Sound?.ensureContext?.();
+        document.removeEventListener('pointerdown', unlockOnce, true);
+        document.removeEventListener('keydown', unlockOnce, true);
+    }
+
     function init() {
+        document.addEventListener('pointerdown', unlockOnce, true);
+        document.addEventListener('keydown', unlockOnce, true);
         document.addEventListener('pointerover', onPointerOver, { passive: true });
         document.addEventListener('click', onClick, false);
         document.addEventListener('change', onChange, false);

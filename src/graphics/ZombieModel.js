@@ -682,8 +682,8 @@
                     const shield = this._tagHitbox(new THREE.Mesh(this._geo('shield_geo', () => new THREE.BoxGeometry(0.60, 0.98, 0.08)), shieldMat), entity, 'shield');
                     shield.position.set(-0.08, -0.34, 0.24);
                     shield.rotation.x = 1.25;
-                    const viewport = new THREE.Mesh(this._geo('shield_vp', () => new THREE.BoxGeometry(0.38, 0.14, 0.095)),
-                        this._mat('shield_vp_m', () => new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 })));
+                    const viewport = this._tagHitbox(new THREE.Mesh(this._geo('shield_vp', () => new THREE.BoxGeometry(0.38, 0.14, 0.095)),
+                        this._mat('shield_vp_m', () => new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 }))), entity, 'shield');
                     viewport.position.set(-0.08, -0.14, 0.32);
                     viewport.rotation.x = 1.25;
                     armL.add(shield, viewport);
