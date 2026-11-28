@@ -131,6 +131,7 @@
     const matCache = new Map();
     const glbCache = new Map();
     const glbPromises = new Map();
+    const failedPaths = new Set();
     const sharedGeos = new Set();
     const sharedMats = new Set();
 
@@ -184,30 +185,58 @@
         return matCache.get(key);
     }
 
-    function loadSkyboxTex(relPath) {
+    function loadSkyboxTex(relPath, onLoad, onError) {
         const clean = String(relPath || '').replace(/^\/+/, '');
         const full = clean.startsWith('staged_assets/')
             ? clean
             : (clean.includes('/') ? 'staged_assets/3d_models/skyboxes/' + clean : 'staged_assets/3d_models/skyboxes/Skyboxes/' + clean);
+        if (failedPaths.has(full)) {
+            if (onError) onError();
+            return null;
+        }
         const key = 'sky:' + full;
-        if (texCache.has(key)) return texCache.get(key);
-        const tex = new THREE.TextureLoader().load(full);
+        if (texCache.has(key)) {
+            const cached = texCache.get(key);
+            if (cached._boLoaded) {
+                if (onLoad) onLoad(cached);
+            } else if (cached._boWaiters) {
+                cached._boWaiters.push([onLoad, onError]);
+            }
+            return cached;
+        }
+        const waiters = [[onLoad, onError]];
+        const tex = new THREE.TextureLoader().load(
+            full,
+            (loaded) => {
+                loaded._boLoaded = true;
+                loaded._boWaiters = null;
+                for (const [ok] of waiters) { if (ok) ok(loaded); }
+            },
+            undefined,
+            () => {
+                failedPaths.add(full);
+                texCache.delete(key);
+                for (const [, errCb] of waiters) { if (errCb) errCb(); }
+            }
+        );
         tex.mapping = THREE.EquirectangularReflectionMapping;
         if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+        tex._boWaiters = waiters;
         texCache.set(key, tex);
         return tex;
     }
 
     function applySkybox(scene, relPath) {
         if (!scene || !relPath) return null;
-        const tex = loadSkyboxTex(relPath);
-        scene.traverse((o) => {
-            if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
-                o.visible = false;
-            }
+        return loadSkyboxTex(relPath, (tex) => {
+            if (BO.World?.scene && scene !== BO.World.scene) return;
+            scene.traverse((o) => {
+                if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
+                    o.visible = false;
+                }
+            });
+            scene.background = tex;
         });
-        scene.background = tex;
-        return tex;
     }
 
     function _cloneGLBScene(source) {
@@ -240,6 +269,7 @@
 
     function loadGLB(relPath) {
         const path = resolvePath(relPath, '3d_models/');
+        if (failedPaths.has(path)) return Promise.reject(new Error('Cached asset failure: ' + path));
         if (glbCache.has(path)) return Promise.resolve(_cloneGLBScene(glbCache.get(path)));
         if (glbPromises.has(path)) return glbPromises.get(path).then((sc) => _cloneGLBScene(sc));
         if (typeof THREE.GLTFLoader !== 'function') {
@@ -268,8 +298,9 @@
                 glbPromises.delete(path);
                 resolve(sc);
             }, undefined, (err) => {
+                failedPaths.add(path);
                 glbPromises.delete(path);
-                console.warn('[BO.Assets] Failed to load GLB:', path, err);
+                BO.log?.('Assets', 'debug', 'Optional GLB unavailable:', path);
                 reject(err);
             });
         });
@@ -427,6 +458,7 @@
 
     function loadAudioBuffer(relPath) {
         const path = resolvePath(relPath, 'audio/');
+        if (failedPaths.has(path)) return Promise.resolve(null);
         if (audioCache.has(path)) return Promise.resolve(audioCache.get(path));
         if (audioPromises.has(path)) return audioPromises.get(path);
         const ctx = _getAudioCtx();
@@ -436,10 +468,12 @@
             .then((buf) => (buf ? ctx.decodeAudioData(buf) : null))
             .then((decoded) => {
                 if (decoded) audioCache.set(path, decoded);
+                else failedPaths.add(path);
                 audioPromises.delete(path);
                 return decoded;
             })
             .catch(() => {
+                failedPaths.add(path);
                 audioPromises.delete(path);
                 return null;
             });
@@ -37601,6 +37635,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     let padOwnsFire = false;
     let padOwnsAds = false;
     let padOwnsSprint = false;
+    let padOwnsLethal = false;
 
     function radialDeadzone(x, y, dz) {
         const len = Math.hypot(x, y);
@@ -37630,13 +37665,19 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (padOwnsFire) {
                 P.triggerHeld = false;
                 if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+                if (BO.Combat && BO.Combat.releaseFireInput) BO.Combat.releaseFireInput();
             }
             if (padOwnsAds) P.adsHeld = false;
-            if (padOwnsSprint && P.keys) delete P.keys['GamepadSprint'];
+            if (padOwnsSprint) {
+                P.padSprint = false;
+                if (P.keys) delete P.keys['GamepadSprint'];
+            }
+            if (padOwnsLethal && P.cookingFrag) P.cookingFrag = false;
         }
         padOwnsFire = false;
         padOwnsAds = false;
         padOwnsSprint = false;
+        padOwnsLethal = false;
     }
 
     function poll(dt) {
@@ -37724,15 +37765,24 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             P.triggerHeld = false;
             padOwnsFire = false;
             if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+            if (BO.Combat && BO.Combat.releaseFireInput) BO.Combat.releaseFireInput();
         }
 
         // Face & shoulder buttons (edge-triggered)
-        if (edgePressed(pad, 0) && typeof P.tryJump === 'function') P.tryJump();
-        if (edgePressed(pad, 1) && typeof P.toggleCrouchOrSlide === 'function') P.toggleCrouchOrSlide();
+        if (edgePressed(pad, 0) && typeof P.tryJumpOrMantle === 'function') P.tryJumpOrMantle();
+        if (edgePressed(pad, 1) && typeof P.tryCrouchOrSlide === 'function') P.tryCrouchOrSlide();
         if (edgePressed(pad, 2) && typeof P.startReload === 'function') P.startReload();
         if (edgePressed(pad, 3) && typeof P.switchWeapon === 'function') P.switchWeapon();
-        if (edgePressed(pad, 5) && BO.Combat?.useLethal) BO.Combat.useLethal();
-        if (edgePressed(pad, 4) && BO.Combat?.useTactical) BO.Combat.useTactical();
+        if (edgePressed(pad, 11) && BO.Combat?.meleeAttack) BO.Combat.meleeAttack();
+        const rbDown = pressed(pad, 5);
+        if (rbDown && !padOwnsLethal) {
+            padOwnsLethal = true;
+            if (BO.Combat?.throwLethal) BO.Combat.throwLethal(true, false);
+        } else if (!rbDown && padOwnsLethal) {
+            padOwnsLethal = false;
+            if (BO.Combat?.throwLethal) BO.Combat.throwLethal(false, true);
+        }
+        if (edgePressed(pad, 4) && BO.Combat?.throwTactical) BO.Combat.throwTactical();
     }
 
     BO.GamepadInput = {
@@ -45262,26 +45312,26 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
     // 20 BRAND-NEW UNIQUE SUPPORT DEPLOYABLES (6 appear each intermission cycle!)
     const ROTATING_DEPLOYABLES = [
-        { id: 'tesla_coil', name: '⚡ TESLA ARC TOWER', cost: 1100, color: '#22d3ee', desc: 'Zaps up to 3 zombies at once with high-voltage chain lightning arcs!' },
-        { id: 'flame_turret', name: '🔥 INFERNO FLAME TURRET', cost: 950, color: '#f97316', desc: 'Blasts searing fire cones that ignite and burn approaching hordes over time!' },
-        { id: 'cryo_projector', name: '❄ CRYO FREEZE EMITTER', cost: 1050, color: '#38bdf8', desc: 'Fires freezing frost pulses that freeze zombies solid for 2.5x shatter damage!' },
-        { id: 'mortar_battery', name: '💣 ARTILLERY MORTAR BATTERY', cost: 1350, color: '#f59e0b', desc: 'Lobs high-arc explosive artillery shells into zombie clusters every 3.2 seconds!' },
-        { id: 'laser_beacon', name: '🛰 ORBITAL LASER RELAY', cost: 1650, color: '#e879f9', desc: 'Calls down a devastating orbital sky-beam directly onto the toughest zombie or Boss!' },
-        { id: 'sniper_nest', name: '🎯 TOWER AI MARKSMAN', cost: 1200, color: '#60a5fa', desc: 'Stations an elite AI Sniper atop your Sniping Tower landing high-damage headshots across the map!' },
-        { id: 'shield_gen', name: '🛡 AEGIS WALL REGENERATOR', cost: 1250, color: '#3b82f6', desc: 'Passively repairs all active Defense Wall Layers (+9 HP/sec) during combat!' },
-        { id: 'healing_fountain', name: '✚ COMBAT MED-STATION', cost: 850, color: '#22c55e', desc: 'Glowing medic beacon on the Keep that heals players (+20 HP/sec) and repairs Armor!' },
-        { id: 'ammo_fabricator', name: '📦 AUTO-AMMO DISPENSER', cost: 900, color: '#fde047', desc: 'Automatically tops off reserve ammo every 4s for players defending the Keep!' },
-        { id: 'landmine_field', name: '💥 PROXIMITY MINE CLUSTER (x6)', cost: 650, color: '#ef4444', desc: 'Scatters 6 armed red proximity mines in front of your walls that blast zombies on contact!' },
-        { id: 'barbed_wire', name: '⛓ ELECTRIFIED RAZOR WIRE', cost: 600, color: '#94a3b8', desc: 'Deploys razor-wire killstrips that slow zombies by 55% and shred them as they cross!' },
-        { id: 'sawblade_spinner', name: '⚙ WHIRLING SAWBLADE GRINDER', cost: 980, color: '#cbd5e1', desc: 'Spinning steel buzzsaw pylon in the courtyard that slices nearby zombies to ribbons!' },
-        { id: 'decoy_holo', name: '👤 HOLOGRAPHIC DECOY EMITTER', cost: 750, color: '#a855f7', desc: 'Projects a taunting hologram soldier (650 HP) that lures zombies away from your walls!' },
-        { id: 'attack_drone', name: '🚁 AUTONOMOUS HUNTER DRONE', cost: 1400, color: '#38bdf8', desc: 'Flying quad-rotor drone that orbits overhead and machine-guns zombies from the sky!' },
-        { id: 'gravity_well', name: '🌀 SINGULARITY GRAVITY TRAP', cost: 1300, color: '#c084fc', desc: 'Periodically yanks zombies inward into a purple singularity vortex and crushes them!' },
-        { id: 'acid_sprayer', name: '☣ CORROSIVE ACID SPRAYER', cost: 1000, color: '#84cc16', desc: 'Coats zombies in corrosive acid (+45% damage taken from all sources) and melts HP!' },
-        { id: 'gold_miner', name: '⛏ AETHER GOLD EXTRACTOR', cost: 950, color: '#facc15', desc: 'Extracts +160 passive Gold every 11 seconds during combat waves!' },
-        { id: 'emp_tower', name: '📡 EMP DISRUPTOR PYLON', cost: 1150, color: '#06b6d4', desc: 'Unleashes periodic EMP shockwaves that stun zombies and jam gun/magic attacks!' },
-        { id: 'combat_mech', name: '🤖 MINI-JUGGERNAUT MECH BOT', cost: 1850, color: '#f43f5e', desc: 'Heavy armored 3D walking mech with dual miniguns that patrols the courtyard!' },
-        { id: 'airstrike_beacon', name: '✈ A-10 CARPET BOMB FLARE', cost: 1100, color: '#fb923c', desc: 'Immediate tactical airstrike dropping 6 massive explosive bombs across the zombie lanes!' }
+        { id: 'tesla_coil', name: 'TESLA ARC TOWER', cost: 1100, color: '#22d3ee', desc: 'Zaps up to 3 zombies at once with high-voltage chain lightning arcs!' },
+        { id: 'flame_turret', name: 'INFERNO FLAME TURRET', cost: 950, color: '#f97316', desc: 'Blasts searing fire cones that ignite and burn approaching hordes over time!' },
+        { id: 'cryo_projector', name: 'CRYO FREEZE EMITTER', cost: 1050, color: '#38bdf8', desc: 'Fires freezing frost pulses that freeze zombies solid for 2.5x shatter damage!' },
+        { id: 'mortar_battery', name: 'ARTILLERY MORTAR BATTERY', cost: 1350, color: '#f59e0b', desc: 'Lobs high-arc explosive artillery shells into zombie clusters every 3.2 seconds!' },
+        { id: 'laser_beacon', name: 'ORBITAL LASER RELAY', cost: 1650, color: '#e879f9', desc: 'Calls down a devastating orbital sky-beam directly onto the toughest zombie or Boss!' },
+        { id: 'sniper_nest', name: 'TOWER AI MARKSMAN', cost: 1200, color: '#60a5fa', desc: 'Stations an elite AI Sniper atop your Sniping Tower landing high-damage headshots across the map!' },
+        { id: 'shield_gen', name: 'AEGIS WALL REGENERATOR', cost: 1250, color: '#3b82f6', desc: 'Passively repairs all active Defense Wall Layers (+9 HP/sec) during combat!' },
+        { id: 'healing_fountain', name: 'COMBAT MED-STATION', cost: 850, color: '#22c55e', desc: 'Glowing medic beacon on the Keep that heals players (+20 HP/sec) and repairs Armor!' },
+        { id: 'ammo_fabricator', name: 'AUTO-AMMO DISPENSER', cost: 900, color: '#fde047', desc: 'Automatically tops off reserve ammo every 4s for players defending the Keep!' },
+        { id: 'landmine_field', name: 'PROXIMITY MINE CLUSTER (x6)', cost: 650, color: '#ef4444', desc: 'Scatters 6 armed red proximity mines in front of your walls that blast zombies on contact!' },
+        { id: 'barbed_wire', name: 'ELECTRIFIED RAZOR WIRE', cost: 600, color: '#94a3b8', desc: 'Deploys razor-wire killstrips that slow zombies by 55% and shred them as they cross!' },
+        { id: 'sawblade_spinner', name: 'WHIRLING SAWBLADE GRINDER', cost: 980, color: '#cbd5e1', desc: 'Spinning steel buzzsaw pylon in the courtyard that slices nearby zombies to ribbons!' },
+        { id: 'decoy_holo', name: 'HOLOGRAPHIC DECOY EMITTER', cost: 750, color: '#a855f7', desc: 'Projects a taunting hologram soldier (650 HP) that lures zombies away from your walls!' },
+        { id: 'attack_drone', name: 'AUTONOMOUS HUNTER DRONE', cost: 1400, color: '#38bdf8', desc: 'Flying quad-rotor drone that orbits overhead and machine-guns zombies from the sky!' },
+        { id: 'gravity_well', name: 'SINGULARITY GRAVITY TRAP', cost: 1300, color: '#c084fc', desc: 'Periodically yanks zombies inward into a purple singularity vortex and crushes them!' },
+        { id: 'acid_sprayer', name: 'CORROSIVE ACID SPRAYER', cost: 1000, color: '#84cc16', desc: 'Coats zombies in corrosive acid (+45% damage taken from all sources) and melts HP!' },
+        { id: 'gold_miner', name: 'AETHER GOLD EXTRACTOR', cost: 950, color: '#facc15', desc: 'Extracts +160 passive Gold every 11 seconds during combat waves!' },
+        { id: 'emp_tower', name: 'EMP DISRUPTOR PYLON', cost: 1150, color: '#06b6d4', desc: 'Unleashes periodic EMP shockwaves that stun zombies and jam gun/magic attacks!' },
+        { id: 'combat_mech', name: 'MINI-JUGGERNAUT MECH BOT', cost: 1850, color: '#f43f5e', desc: 'Heavy armored 3D walking mech with dual miniguns that patrols the courtyard!' },
+        { id: 'airstrike_beacon', name: 'A-10 CARPET BOMB FLARE', cost: 1100, color: '#fb923c', desc: 'Immediate tactical airstrike dropping 6 massive explosive bombs across the zombie lanes!' }
     ];
 
     class TowerDefenseMode {
@@ -48273,6 +48323,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.bannerTimer = 0;
             this.medalTimer = 0;
             this.toastTimer = 0;
+            this._customPromptTimer = 0;
             this.killfeedItems = [];
             this.fpsAccum = 0;
             this.fpsFrames = 0;
@@ -48477,6 +48528,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this._renderToastStack();
             this.bannerTimer = 0;
             this.medalTimer = 0;
+            this._customPromptTimer = 0;
             this.killfeedItems = [];
             this._renderKillfeed(false);
             if (this.elBanner) this.elBanner.classList.add('hidden');
@@ -48500,6 +48552,21 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
                 this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
             }
+        }
+
+        /** Flashes the hitmarker reticle for minigames & custom modes. */
+        flashHitmarker(isKill = false, isHeadshot = false) {
+            BO.Events?.emit?.('hud:hitmarker', { isKill: !!isKill, isHeadshot: !!isHeadshot });
+        }
+
+        /** Displays a short-lived interaction prompt banner on the HUD. */
+        showPrompt(text, color = '#f5a623', duration = 0.25) {
+            if (!this.elPrompt || !text) return;
+            this.elPrompt.classList.remove('hidden');
+            this.elPrompt.textContent = text;
+            this.elPrompt.style.borderColor = color;
+            this.elPrompt.style.color = '#f8fafc';
+            this._customPromptTimer = Math.max(0.1, duration);
         }
 
         setScoreboardOpen(open) {
@@ -48646,6 +48713,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (this.elLockHint) {
                 const locked = !!document.pointerLockElement;
                 this.elLockHint.classList.toggle('hidden', locked || BO.State.paused);
+            }
+
+            if (this._customPromptTimer > 0) {
+                this._customPromptTimer -= dt;
+                if (this._customPromptTimer <= 0 && mode === 'minigame' && this.elPrompt) {
+                    this.elPrompt.classList.add('hidden');
+                }
             }
 
             // Vignette & Flashbang
@@ -52020,11 +52094,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (meta) {
                     if (mode === 'zombies') meta.textContent = `Round ${BO.ZombiesMode?.round || 1} • ${BO.ZombiesMode?.aliveCount || 0} hostiles`;
                     else if (mode === 'td') meta.textContent = `Wave ${BO.TowerDefenseMode?.wave || 1} • ${BO.TowerDefenseMode?.gold || 0} Gold`;
-                    else if (mode === 'mp') meta.textContent = BO.MultiplayerMode?.formatName || 'Arena Combat';
+                    else if (mode === 'mp') meta.textContent = BO.MPMode?.active ? (BO.MPMode.variant || BO.MPMode.modeType || 'arena').replace(/_/g, ' ').toUpperCase() : 'Arena Combat';
                     else if (mode === 'minigame') meta.textContent = BO.Minigames?.def?.name || 'Minigame';
                     else if (mode === 'owrpg') meta.textContent = BO.OWRPGWorldSim?.region?.name || 'Meridian';
-                    else if (mode === 'rpg') meta.textContent = `Depth ${BO.RPGMode?.depth || 1}`;
-                    else if (mode === 'survival') meta.textContent = `Day ${BO.ZoneDayCycle?.day || 1}`;
+                    else if (mode === 'rpg') meta.textContent = `Floor ${BO.RPGMode?.run?.floor || 1}`;
+                    else if (mode === 'survival') meta.textContent = `Day ${BO.SurvivalMode?.campaign?.day || 1}`;
                     else meta.textContent = 'Combat suspended';
                 }
             }
@@ -56885,7 +56959,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             speaker: 'Director Reyes',
             briefing: 'Before deploying to the Quarantine Perimeter, calibrate optics and trigger discipline at the Task Force live-fire course.',
             objectiveText: 'Complete Range Day qualification with Bronze star or higher.',
-            launchOpts: { mode: 'minigame', id: 'range_day' },
+            launchOpts: { mode: 'minigame', id: 'range_day', mgId: 'range_day' },
             rewardXp: 300,
             rewardEmblem: 'emb_crosshair',
             debriefChoices: [
@@ -56940,7 +57014,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             speaker: 'Director Reyes',
             briefing: 'Cross into the 500 m Exclusion Zone to verify Lantern interference and complete an expedition ending.',
             objectiveText: 'Deploy to Exclusion Zone Survival and achieve an expedition ending.',
-            launchOpts: { mode: 'survival', difficulty: 'tactical' },
+            launchOpts: { mode: 'survival', difficulty: 'standard' },
             rewardXp: 650,
             rewardEmblem: 'emb_lantern',
             debriefChoices: [
@@ -57157,10 +57231,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         if (completed) setTimeout(() => BO.CampaignUI?.showDebrief?.(completed), 300);
                     }
                 });
-            }
-            if (typeof document !== 'undefined') {
-                document.addEventListener('game:survivalEnding', () => tryCompleteForMode('survival'));
-                document.addEventListener('game:minigameDaily', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:survivalEnding', () => tryCompleteForMode('survival'));
+                BO.Events.on('game:minigameDaily', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:minigameComplete', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:rpgExtract', () => tryCompleteForMode('rpg'));
             }
         }
     };
@@ -58602,6 +58676,17 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this._bindInputs();
             this._onResize();
             window.addEventListener('resize', () => this._onResize());
+            this.canvas.addEventListener('webglcontextlost', (e) => {
+                e.preventDefault();
+                this._clearInputState();
+                if (BO.State.screen === 'playing' && !BO.State.paused) BO.Menus?.setPauseOpen?.(true);
+                BO.Events?.emit?.('hud:toast', { text: 'Graphics context paused — recovering...', color: '#f5a623' });
+            });
+            this.canvas.addEventListener('webglcontextrestored', () => {
+                this._applyRendererQuality();
+                this._onResize();
+                BO.Events?.emit?.('hud:toast', { text: 'Graphics context restored.', color: '#22c55e' });
+            });
             BO.Events.on('settings:changed', (e) => {
                 if (['quality', 'exposure', 'resScale', 'hudOpacity', 'postFx'].includes(e.key)) {
                     this._applyRendererQuality();

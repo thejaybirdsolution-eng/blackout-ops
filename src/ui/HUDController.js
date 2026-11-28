@@ -29,6 +29,7 @@
             this.bannerTimer = 0;
             this.medalTimer = 0;
             this.toastTimer = 0;
+            this._customPromptTimer = 0;
             this.killfeedItems = [];
             this.fpsAccum = 0;
             this.fpsFrames = 0;
@@ -233,6 +234,7 @@
             this._renderToastStack();
             this.bannerTimer = 0;
             this.medalTimer = 0;
+            this._customPromptTimer = 0;
             this.killfeedItems = [];
             this._renderKillfeed(false);
             if (this.elBanner) this.elBanner.classList.add('hidden');
@@ -256,6 +258,21 @@
                 const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
                 this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
             }
+        }
+
+        /** Flashes the hitmarker reticle for minigames & custom modes. */
+        flashHitmarker(isKill = false, isHeadshot = false) {
+            BO.Events?.emit?.('hud:hitmarker', { isKill: !!isKill, isHeadshot: !!isHeadshot });
+        }
+
+        /** Displays a short-lived interaction prompt banner on the HUD. */
+        showPrompt(text, color = '#f5a623', duration = 0.25) {
+            if (!this.elPrompt || !text) return;
+            this.elPrompt.classList.remove('hidden');
+            this.elPrompt.textContent = text;
+            this.elPrompt.style.borderColor = color;
+            this.elPrompt.style.color = '#f8fafc';
+            this._customPromptTimer = Math.max(0.1, duration);
         }
 
         setScoreboardOpen(open) {
@@ -402,6 +419,13 @@
             if (this.elLockHint) {
                 const locked = !!document.pointerLockElement;
                 this.elLockHint.classList.toggle('hidden', locked || BO.State.paused);
+            }
+
+            if (this._customPromptTimer > 0) {
+                this._customPromptTimer -= dt;
+                if (this._customPromptTimer <= 0 && mode === 'minigame' && this.elPrompt) {
+                    this.elPrompt.classList.add('hidden');
+                }
             }
 
             // Vignette & Flashbang

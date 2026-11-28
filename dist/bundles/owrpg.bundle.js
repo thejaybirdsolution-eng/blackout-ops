@@ -10539,7 +10539,7 @@ uniform vec3 uCam; uniform float uFar;`)
             if (!node) return;
             this.dlg = { npc: npcId, node };
             this.M.setFlag('met_' + npcId, true);
-            BO.Assets?.playClip?.('audio/overhaul/env/book_open.wav', { volume: 0.38, rateJitter: 0.06 });
+            BO.Assets?.playClip?.('rpg_sfx/bookOpen.ogg', { volume: 0.38, rateJitter: 0.06 });
             this._renderDialogue();
         },
 

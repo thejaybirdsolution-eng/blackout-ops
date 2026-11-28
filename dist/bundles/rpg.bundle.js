@@ -6322,6 +6322,7 @@
                 p.scrap += contractReward.scrap;
                 p.contractCompletions[r.contract] = (p.contractCompletions[r.contract] || 0) + 1;
             }
+            BO.emitGameEvent?.('game:rpgExtract', { floor: r.floor, gold: r.gold });
             this._finish('extract', { bonusXp, banked, soldOverflow, goldKept: r.gold, scrapKept: r.scrap, contractReward });
         }
 

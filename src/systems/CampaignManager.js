@@ -126,10 +126,10 @@
                         if (completed) setTimeout(() => BO.CampaignUI?.showDebrief?.(completed), 300);
                     }
                 });
-            }
-            if (typeof document !== 'undefined') {
-                document.addEventListener('game:survivalEnding', () => tryCompleteForMode('survival'));
-                document.addEventListener('game:minigameDaily', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:survivalEnding', () => tryCompleteForMode('survival'));
+                BO.Events.on('game:minigameDaily', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:minigameComplete', () => tryCompleteForMode('minigame'));
+                BO.Events.on('game:rpgExtract', () => tryCompleteForMode('rpg'));
             }
         }
     };

@@ -69,6 +69,17 @@
             this._bindInputs();
             this._onResize();
             window.addEventListener('resize', () => this._onResize());
+            this.canvas.addEventListener('webglcontextlost', (e) => {
+                e.preventDefault();
+                this._clearInputState();
+                if (BO.State.screen === 'playing' && !BO.State.paused) BO.Menus?.setPauseOpen?.(true);
+                BO.Events?.emit?.('hud:toast', { text: 'Graphics context paused — recovering...', color: '#f5a623' });
+            });
+            this.canvas.addEventListener('webglcontextrestored', () => {
+                this._applyRendererQuality();
+                this._onResize();
+                BO.Events?.emit?.('hud:toast', { text: 'Graphics context restored.', color: '#22c55e' });
+            });
             BO.Events.on('settings:changed', (e) => {
                 if (['quality', 'exposure', 'resScale', 'hudOpacity', 'postFx'].includes(e.key)) {
                     this._applyRendererQuality();

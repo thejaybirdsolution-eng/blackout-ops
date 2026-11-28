@@ -741,11 +741,11 @@
                 if (meta) {
                     if (mode === 'zombies') meta.textContent = `Round ${BO.ZombiesMode?.round || 1} • ${BO.ZombiesMode?.aliveCount || 0} hostiles`;
                     else if (mode === 'td') meta.textContent = `Wave ${BO.TowerDefenseMode?.wave || 1} • ${BO.TowerDefenseMode?.gold || 0} Gold`;
-                    else if (mode === 'mp') meta.textContent = BO.MultiplayerMode?.formatName || 'Arena Combat';
+                    else if (mode === 'mp') meta.textContent = BO.MPMode?.active ? (BO.MPMode.variant || BO.MPMode.modeType || 'arena').replace(/_/g, ' ').toUpperCase() : 'Arena Combat';
                     else if (mode === 'minigame') meta.textContent = BO.Minigames?.def?.name || 'Minigame';
                     else if (mode === 'owrpg') meta.textContent = BO.OWRPGWorldSim?.region?.name || 'Meridian';
-                    else if (mode === 'rpg') meta.textContent = `Depth ${BO.RPGMode?.depth || 1}`;
-                    else if (mode === 'survival') meta.textContent = `Day ${BO.ZoneDayCycle?.day || 1}`;
+                    else if (mode === 'rpg') meta.textContent = `Floor ${BO.RPGMode?.run?.floor || 1}`;
+                    else if (mode === 'survival') meta.textContent = `Day ${BO.SurvivalMode?.campaign?.day || 1}`;
                     else meta.textContent = 'Combat suspended';
                 }
             }

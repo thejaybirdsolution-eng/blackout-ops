@@ -1368,6 +1368,7 @@
                 }
                 BO.MinigameFeel?.onResults(res, this.starsOf(def, this.opts).length);
                 BO.MinigameDaily?.onResults(def, res);
+                if (res.stars >= 1) BO.emitGameEvent?.('game:minigameComplete', { id: def.id, stars: res.stars, score: res.score });
             }
 
             this.blockingUI = true;
@@ -16361,7 +16362,6 @@
                 const tgt = D.targetsLeft[0];
                 const p = tgt.root.position;
                 const quad = (p.z < PLAZA.fz ? 'NORTH' : 'SOUTH') + '-' + (p.x < 0 ? 'WEST' : 'EAST');
-                playClip('ui/Interface Sounds (Kenney)/Audio/confirmation_002.ogg', 0.42, 0.03);
                 SFX.ding(1.3);
                 MG.toast(`📡 SPOTTER INTEL: MARK SPOTTED IN ${quad} PLAZA!`, '#fde047');
                 const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.1, 24), basic(0xfde047, { side: THREE.DoubleSide, transparent: true, opacity: 0.9 }));

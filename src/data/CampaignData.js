@@ -17,7 +17,7 @@
             speaker: 'Director Reyes',
             briefing: 'Before deploying to the Quarantine Perimeter, calibrate optics and trigger discipline at the Task Force live-fire course.',
             objectiveText: 'Complete Range Day qualification with Bronze star or higher.',
-            launchOpts: { mode: 'minigame', id: 'range_day' },
+            launchOpts: { mode: 'minigame', id: 'range_day', mgId: 'range_day' },
             rewardXp: 300,
             rewardEmblem: 'emb_crosshair',
             debriefChoices: [
@@ -72,7 +72,7 @@
             speaker: 'Director Reyes',
             briefing: 'Cross into the 500 m Exclusion Zone to verify Lantern interference and complete an expedition ending.',
             objectiveText: 'Deploy to Exclusion Zone Survival and achieve an expedition ending.',
-            launchOpts: { mode: 'survival', difficulty: 'tactical' },
+            launchOpts: { mode: 'survival', difficulty: 'standard' },
             rewardXp: 650,
             rewardEmblem: 'emb_lantern',
             debriefChoices: [

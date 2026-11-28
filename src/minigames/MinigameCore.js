@@ -1293,6 +1293,7 @@
                 }
                 BO.MinigameFeel?.onResults(res, this.starsOf(def, this.opts).length);
                 BO.MinigameDaily?.onResults(def, res);
+                if (res.stars >= 1) BO.emitGameEvent?.('game:minigameComplete', { id: def.id, stars: res.stars, score: res.score });
             }
 
             this.blockingUI = true;

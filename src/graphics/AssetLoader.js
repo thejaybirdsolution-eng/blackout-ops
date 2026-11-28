@@ -11,6 +11,7 @@
     const matCache = new Map();
     const glbCache = new Map();
     const glbPromises = new Map();
+    const failedPaths = new Set();
     const sharedGeos = new Set();
     const sharedMats = new Set();
 
@@ -64,30 +65,58 @@
         return matCache.get(key);
     }
 
-    function loadSkyboxTex(relPath) {
+    function loadSkyboxTex(relPath, onLoad, onError) {
         const clean = String(relPath || '').replace(/^\/+/, '');
         const full = clean.startsWith('staged_assets/')
             ? clean
             : (clean.includes('/') ? 'staged_assets/3d_models/skyboxes/' + clean : 'staged_assets/3d_models/skyboxes/Skyboxes/' + clean);
+        if (failedPaths.has(full)) {
+            if (onError) onError();
+            return null;
+        }
         const key = 'sky:' + full;
-        if (texCache.has(key)) return texCache.get(key);
-        const tex = new THREE.TextureLoader().load(full);
+        if (texCache.has(key)) {
+            const cached = texCache.get(key);
+            if (cached._boLoaded) {
+                if (onLoad) onLoad(cached);
+            } else if (cached._boWaiters) {
+                cached._boWaiters.push([onLoad, onError]);
+            }
+            return cached;
+        }
+        const waiters = [[onLoad, onError]];
+        const tex = new THREE.TextureLoader().load(
+            full,
+            (loaded) => {
+                loaded._boLoaded = true;
+                loaded._boWaiters = null;
+                for (const [ok] of waiters) { if (ok) ok(loaded); }
+            },
+            undefined,
+            () => {
+                failedPaths.add(full);
+                texCache.delete(key);
+                for (const [, errCb] of waiters) { if (errCb) errCb(); }
+            }
+        );
         tex.mapping = THREE.EquirectangularReflectionMapping;
         if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+        tex._boWaiters = waiters;
         texCache.set(key, tex);
         return tex;
     }
 
     function applySkybox(scene, relPath) {
         if (!scene || !relPath) return null;
-        const tex = loadSkyboxTex(relPath);
-        scene.traverse((o) => {
-            if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
-                o.visible = false;
-            }
+        return loadSkyboxTex(relPath, (tex) => {
+            if (BO.World?.scene && scene !== BO.World.scene) return;
+            scene.traverse((o) => {
+                if (o.isMesh && o.material && o.material.isShaderMaterial && o.material.uniforms && o.material.uniforms.uZenith) {
+                    o.visible = false;
+                }
+            });
+            scene.background = tex;
         });
-        scene.background = tex;
-        return tex;
     }
 
     function _cloneGLBScene(source) {
@@ -120,6 +149,7 @@
 
     function loadGLB(relPath) {
         const path = resolvePath(relPath, '3d_models/');
+        if (failedPaths.has(path)) return Promise.reject(new Error('Cached asset failure: ' + path));
         if (glbCache.has(path)) return Promise.resolve(_cloneGLBScene(glbCache.get(path)));
         if (glbPromises.has(path)) return glbPromises.get(path).then((sc) => _cloneGLBScene(sc));
         if (typeof THREE.GLTFLoader !== 'function') {
@@ -148,8 +178,9 @@
                 glbPromises.delete(path);
                 resolve(sc);
             }, undefined, (err) => {
+                failedPaths.add(path);
                 glbPromises.delete(path);
-                console.warn('[BO.Assets] Failed to load GLB:', path, err);
+                BO.log?.('Assets', 'debug', 'Optional GLB unavailable:', path);
                 reject(err);
             });
         });
@@ -307,6 +338,7 @@
 
     function loadAudioBuffer(relPath) {
         const path = resolvePath(relPath, 'audio/');
+        if (failedPaths.has(path)) return Promise.resolve(null);
         if (audioCache.has(path)) return Promise.resolve(audioCache.get(path));
         if (audioPromises.has(path)) return audioPromises.get(path);
         const ctx = _getAudioCtx();
@@ -316,10 +348,12 @@
             .then((buf) => (buf ? ctx.decodeAudioData(buf) : null))
             .then((decoded) => {
                 if (decoded) audioCache.set(path, decoded);
+                else failedPaths.add(path);
                 audioPromises.delete(path);
                 return decoded;
             })
             .catch(() => {
+                failedPaths.add(path);
                 audioPromises.delete(path);
                 return null;
             });

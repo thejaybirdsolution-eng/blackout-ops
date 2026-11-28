@@ -20,6 +20,7 @@
     let padOwnsFire = false;
     let padOwnsAds = false;
     let padOwnsSprint = false;
+    let padOwnsLethal = false;
 
     function radialDeadzone(x, y, dz) {
         const len = Math.hypot(x, y);
@@ -49,13 +50,19 @@
             if (padOwnsFire) {
                 P.triggerHeld = false;
                 if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+                if (BO.Combat && BO.Combat.releaseFireInput) BO.Combat.releaseFireInput();
             }
             if (padOwnsAds) P.adsHeld = false;
-            if (padOwnsSprint && P.keys) delete P.keys['GamepadSprint'];
+            if (padOwnsSprint) {
+                P.padSprint = false;
+                if (P.keys) delete P.keys['GamepadSprint'];
+            }
+            if (padOwnsLethal && P.cookingFrag) P.cookingFrag = false;
         }
         padOwnsFire = false;
         padOwnsAds = false;
         padOwnsSprint = false;
+        padOwnsLethal = false;
     }
 
     function poll(dt) {
@@ -143,15 +150,24 @@
             P.triggerHeld = false;
             padOwnsFire = false;
             if (BO.Combat && BO.Combat.handleFireInput) BO.Combat.handleFireInput(false, false);
+            if (BO.Combat && BO.Combat.releaseFireInput) BO.Combat.releaseFireInput();
         }
 
         // Face & shoulder buttons (edge-triggered)
-        if (edgePressed(pad, 0) && typeof P.tryJump === 'function') P.tryJump();
-        if (edgePressed(pad, 1) && typeof P.toggleCrouchOrSlide === 'function') P.toggleCrouchOrSlide();
+        if (edgePressed(pad, 0) && typeof P.tryJumpOrMantle === 'function') P.tryJumpOrMantle();
+        if (edgePressed(pad, 1) && typeof P.tryCrouchOrSlide === 'function') P.tryCrouchOrSlide();
         if (edgePressed(pad, 2) && typeof P.startReload === 'function') P.startReload();
         if (edgePressed(pad, 3) && typeof P.switchWeapon === 'function') P.switchWeapon();
-        if (edgePressed(pad, 5) && BO.Combat?.useLethal) BO.Combat.useLethal();
-        if (edgePressed(pad, 4) && BO.Combat?.useTactical) BO.Combat.useTactical();
+        if (edgePressed(pad, 11) && BO.Combat?.meleeAttack) BO.Combat.meleeAttack();
+        const rbDown = pressed(pad, 5);
+        if (rbDown && !padOwnsLethal) {
+            padOwnsLethal = true;
+            if (BO.Combat?.throwLethal) BO.Combat.throwLethal(true, false);
+        } else if (!rbDown && padOwnsLethal) {
+            padOwnsLethal = false;
+            if (BO.Combat?.throwLethal) BO.Combat.throwLethal(false, true);
+        }
+        if (edgePressed(pad, 4) && BO.Combat?.throwTactical) BO.Combat.throwTactical();
     }
 
     BO.GamepadInput = {

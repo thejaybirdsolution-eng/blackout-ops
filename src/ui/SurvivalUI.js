@@ -736,11 +736,11 @@
                     return this.renderBriefing();
                 }
                 case 'openZombieCustomizer': {
-                    if (!BO.Menu || !BO.Menu.openEnemyPoolModal) return;
+                    if (!BO.Menus || !BO.Menus.openEnemyPoolModal) return;
                     BO.Sound?.playUIClick?.();
                     const wasOpen = this.dialog && this.dialog.open;
                     if (wasOpen) this.dialog.close();
-                    BO.Menu.openEnemyPoolModal({
+                    BO.Menus.openEnemyPoolModal({
                         mode: 'survival',
                         onClose: () => {
                             if (wasOpen && this.dialog && !this.dialog.open) this.dialog.showModal();

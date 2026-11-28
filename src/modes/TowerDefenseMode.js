@@ -100,26 +100,26 @@
 
     // 20 BRAND-NEW UNIQUE SUPPORT DEPLOYABLES (6 appear each intermission cycle!)
     const ROTATING_DEPLOYABLES = [
-        { id: 'tesla_coil', name: '⚡ TESLA ARC TOWER', cost: 1100, color: '#22d3ee', desc: 'Zaps up to 3 zombies at once with high-voltage chain lightning arcs!' },
-        { id: 'flame_turret', name: '🔥 INFERNO FLAME TURRET', cost: 950, color: '#f97316', desc: 'Blasts searing fire cones that ignite and burn approaching hordes over time!' },
-        { id: 'cryo_projector', name: '❄ CRYO FREEZE EMITTER', cost: 1050, color: '#38bdf8', desc: 'Fires freezing frost pulses that freeze zombies solid for 2.5x shatter damage!' },
-        { id: 'mortar_battery', name: '💣 ARTILLERY MORTAR BATTERY', cost: 1350, color: '#f59e0b', desc: 'Lobs high-arc explosive artillery shells into zombie clusters every 3.2 seconds!' },
-        { id: 'laser_beacon', name: '🛰 ORBITAL LASER RELAY', cost: 1650, color: '#e879f9', desc: 'Calls down a devastating orbital sky-beam directly onto the toughest zombie or Boss!' },
-        { id: 'sniper_nest', name: '🎯 TOWER AI MARKSMAN', cost: 1200, color: '#60a5fa', desc: 'Stations an elite AI Sniper atop your Sniping Tower landing high-damage headshots across the map!' },
-        { id: 'shield_gen', name: '🛡 AEGIS WALL REGENERATOR', cost: 1250, color: '#3b82f6', desc: 'Passively repairs all active Defense Wall Layers (+9 HP/sec) during combat!' },
-        { id: 'healing_fountain', name: '✚ COMBAT MED-STATION', cost: 850, color: '#22c55e', desc: 'Glowing medic beacon on the Keep that heals players (+20 HP/sec) and repairs Armor!' },
-        { id: 'ammo_fabricator', name: '📦 AUTO-AMMO DISPENSER', cost: 900, color: '#fde047', desc: 'Automatically tops off reserve ammo every 4s for players defending the Keep!' },
-        { id: 'landmine_field', name: '💥 PROXIMITY MINE CLUSTER (x6)', cost: 650, color: '#ef4444', desc: 'Scatters 6 armed red proximity mines in front of your walls that blast zombies on contact!' },
-        { id: 'barbed_wire', name: '⛓ ELECTRIFIED RAZOR WIRE', cost: 600, color: '#94a3b8', desc: 'Deploys razor-wire killstrips that slow zombies by 55% and shred them as they cross!' },
-        { id: 'sawblade_spinner', name: '⚙ WHIRLING SAWBLADE GRINDER', cost: 980, color: '#cbd5e1', desc: 'Spinning steel buzzsaw pylon in the courtyard that slices nearby zombies to ribbons!' },
-        { id: 'decoy_holo', name: '👤 HOLOGRAPHIC DECOY EMITTER', cost: 750, color: '#a855f7', desc: 'Projects a taunting hologram soldier (650 HP) that lures zombies away from your walls!' },
-        { id: 'attack_drone', name: '🚁 AUTONOMOUS HUNTER DRONE', cost: 1400, color: '#38bdf8', desc: 'Flying quad-rotor drone that orbits overhead and machine-guns zombies from the sky!' },
-        { id: 'gravity_well', name: '🌀 SINGULARITY GRAVITY TRAP', cost: 1300, color: '#c084fc', desc: 'Periodically yanks zombies inward into a purple singularity vortex and crushes them!' },
-        { id: 'acid_sprayer', name: '☣ CORROSIVE ACID SPRAYER', cost: 1000, color: '#84cc16', desc: 'Coats zombies in corrosive acid (+45% damage taken from all sources) and melts HP!' },
-        { id: 'gold_miner', name: '⛏ AETHER GOLD EXTRACTOR', cost: 950, color: '#facc15', desc: 'Extracts +160 passive Gold every 11 seconds during combat waves!' },
-        { id: 'emp_tower', name: '📡 EMP DISRUPTOR PYLON', cost: 1150, color: '#06b6d4', desc: 'Unleashes periodic EMP shockwaves that stun zombies and jam gun/magic attacks!' },
-        { id: 'combat_mech', name: '🤖 MINI-JUGGERNAUT MECH BOT', cost: 1850, color: '#f43f5e', desc: 'Heavy armored 3D walking mech with dual miniguns that patrols the courtyard!' },
-        { id: 'airstrike_beacon', name: '✈ A-10 CARPET BOMB FLARE', cost: 1100, color: '#fb923c', desc: 'Immediate tactical airstrike dropping 6 massive explosive bombs across the zombie lanes!' }
+        { id: 'tesla_coil', name: 'TESLA ARC TOWER', cost: 1100, color: '#22d3ee', desc: 'Zaps up to 3 zombies at once with high-voltage chain lightning arcs!' },
+        { id: 'flame_turret', name: 'INFERNO FLAME TURRET', cost: 950, color: '#f97316', desc: 'Blasts searing fire cones that ignite and burn approaching hordes over time!' },
+        { id: 'cryo_projector', name: 'CRYO FREEZE EMITTER', cost: 1050, color: '#38bdf8', desc: 'Fires freezing frost pulses that freeze zombies solid for 2.5x shatter damage!' },
+        { id: 'mortar_battery', name: 'ARTILLERY MORTAR BATTERY', cost: 1350, color: '#f59e0b', desc: 'Lobs high-arc explosive artillery shells into zombie clusters every 3.2 seconds!' },
+        { id: 'laser_beacon', name: 'ORBITAL LASER RELAY', cost: 1650, color: '#e879f9', desc: 'Calls down a devastating orbital sky-beam directly onto the toughest zombie or Boss!' },
+        { id: 'sniper_nest', name: 'TOWER AI MARKSMAN', cost: 1200, color: '#60a5fa', desc: 'Stations an elite AI Sniper atop your Sniping Tower landing high-damage headshots across the map!' },
+        { id: 'shield_gen', name: 'AEGIS WALL REGENERATOR', cost: 1250, color: '#3b82f6', desc: 'Passively repairs all active Defense Wall Layers (+9 HP/sec) during combat!' },
+        { id: 'healing_fountain', name: 'COMBAT MED-STATION', cost: 850, color: '#22c55e', desc: 'Glowing medic beacon on the Keep that heals players (+20 HP/sec) and repairs Armor!' },
+        { id: 'ammo_fabricator', name: 'AUTO-AMMO DISPENSER', cost: 900, color: '#fde047', desc: 'Automatically tops off reserve ammo every 4s for players defending the Keep!' },
+        { id: 'landmine_field', name: 'PROXIMITY MINE CLUSTER (x6)', cost: 650, color: '#ef4444', desc: 'Scatters 6 armed red proximity mines in front of your walls that blast zombies on contact!' },
+        { id: 'barbed_wire', name: 'ELECTRIFIED RAZOR WIRE', cost: 600, color: '#94a3b8', desc: 'Deploys razor-wire killstrips that slow zombies by 55% and shred them as they cross!' },
+        { id: 'sawblade_spinner', name: 'WHIRLING SAWBLADE GRINDER', cost: 980, color: '#cbd5e1', desc: 'Spinning steel buzzsaw pylon in the courtyard that slices nearby zombies to ribbons!' },
+        { id: 'decoy_holo', name: 'HOLOGRAPHIC DECOY EMITTER', cost: 750, color: '#a855f7', desc: 'Projects a taunting hologram soldier (650 HP) that lures zombies away from your walls!' },
+        { id: 'attack_drone', name: 'AUTONOMOUS HUNTER DRONE', cost: 1400, color: '#38bdf8', desc: 'Flying quad-rotor drone that orbits overhead and machine-guns zombies from the sky!' },
+        { id: 'gravity_well', name: 'SINGULARITY GRAVITY TRAP', cost: 1300, color: '#c084fc', desc: 'Periodically yanks zombies inward into a purple singularity vortex and crushes them!' },
+        { id: 'acid_sprayer', name: 'CORROSIVE ACID SPRAYER', cost: 1000, color: '#84cc16', desc: 'Coats zombies in corrosive acid (+45% damage taken from all sources) and melts HP!' },
+        { id: 'gold_miner', name: 'AETHER GOLD EXTRACTOR', cost: 950, color: '#facc15', desc: 'Extracts +160 passive Gold every 11 seconds during combat waves!' },
+        { id: 'emp_tower', name: 'EMP DISRUPTOR PYLON', cost: 1150, color: '#06b6d4', desc: 'Unleashes periodic EMP shockwaves that stun zombies and jam gun/magic attacks!' },
+        { id: 'combat_mech', name: 'MINI-JUGGERNAUT MECH BOT', cost: 1850, color: '#f43f5e', desc: 'Heavy armored 3D walking mech with dual miniguns that patrols the courtyard!' },
+        { id: 'airstrike_beacon', name: 'A-10 CARPET BOMB FLARE', cost: 1100, color: '#fb923c', desc: 'Immediate tactical airstrike dropping 6 massive explosive bombs across the zombie lanes!' }
     ];
 
     class TowerDefenseMode {
