@@ -1,12 +1,26 @@
 # Prompts to carry out the Overhaul Plan
 
-There are 28 prompts, plus a RESUME prompt and a VERIFY prompt. Run them **in order, one per session**, starting each in the `blackout-ops` folder. Paste the whole prompt (everything inside its box). Each one is self-contained: it tells the AI which files to read, what to build, how to test it, and when it is done.
+There are 28 phase prompts plus 17 supporting prompts and templates: RESUME, VERIFY, setup (S1–S2), after-phase checks (H1–H4), cross-cutting work (X1–X7), the launch checklist (L1), and a bug report template (BR). Run the phase prompts **in order, one per session**, starting each in the `blackout-ops` folder. Paste the whole prompt (everything inside its box). Each one is self-contained: it tells the AI which files to read, what to build, how to test it, and when it is done.
 
-**Before prompt 1:** commit `docs/PLAN_OWRPG_AND_MINIGAMES.md`, `docs/AI_STANDING_RULES.md` and this file to `master`, so every session can read them.
+**Before prompt 1:** run **S1** and **S2** (setup and repo hygiene).
 
-**After every prompt:** check the AI's final report. If any test failed or anything is listed as unfinished, run **VERIFY** (to check the work) or **RESUME** (to continue it) before moving on.
+**After every phase prompt:** read the AI's final report, then run **H1** (live-site check). If any test failed or anything is listed as unfinished, run **VERIFY** (to check the work) or **RESUME** (to continue it) before moving on.
 
 **If a session runs out of context mid-prompt,** run RESUME. Don't re-run the original prompt.
+
+## Full run order
+
+| When | Prompts |
+|---|---|
+| Once, first | S1 Setup check → S2 Repo hygiene |
+| Part A | 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → X6 Balance playtest (minigames) → X5 Asset sourcing (minigame maps) → 11 → 12 → 13 → 14 |
+| End of Part A | H3 Health check → X1 Online co-op check → X3 Game Guide update → X4 Controls audit |
+| Part B | 15 → X2 Save check → X5 Asset sourcing (towns, dungeons) → 16 → 17 → 18 → 19 → 20 → X2 Save check → H3 Health check → 21 → 22 → 23 → 24 → X1 Online co-op check → 25 → X2 Save check → 26 → 27 → H3 Health check → 28 |
+| End of Part B | X3 Game Guide update → X4 Controls audit → X6 Balance playtest (Open World) → X7 Performance pass → L1 Launch checklist |
+| After every phase | H1 Live-site check |
+| Any time | H2 Hotfix · H4 Split a phase that's too big · RESUME · VERIFY · BR Bug report template |
+
+Supporting prompts are at the end of this file.
 
 ---
 
@@ -550,4 +564,285 @@ Part 2, release (B9):
 - A final full regression of every suite and tools/qa script, plus a 2-hour-equivalent scripted playthrough (new character → Act II) in _qa_owrpg.
 
 Exit gate: everything green. Finish with docs (HANDOFF summary of the whole overhaul), update-log entry ("Open World RPG overhaul complete"), tick every remaining plan step, merge, push, confirm the GitHub Pages deploy, and give a final report listing every phase with its merge commit.
+```
+
+---
+
+# SUPPORTING PROMPTS
+
+## S1 — Setup check (run once, before Prompt 1)
+
+```
+Read docs/AI_STANDING_RULES.md, docs/PLAN_OWRPG_AND_MINIGAMES.md and HANDOFF.md.
+
+Goal: confirm this machine and repo are ready for the overhaul, and record a baseline. Change no game code.
+
+1. Run git status, git log -5 and git fetch; confirm master equals origin/master. Report anything uncommitted (do not commit the user's draft docs, the revert_staged_assets scripts, or unreferenced staged_assets files).
+2. Confirm Python 3 works; install Playwright if missing (pip install playwright, then python -m playwright install chromium); confirm the gh CLI is authenticated (gh auth status).
+3. Start python server.py --no-open --port 8791 in the background.
+4. Run _qa_runner.html, _qa_hitboxes.html and _qa_owrpg.html headless, plus the smoke test on index.html and index.bundled.html (every mode plus all 63 minigames).
+5. Run python tools/stamp_versions.py --check.
+6. Write docs/BASELINE.md with: today's date, the master commit, every QA result with numbers, the smoke result, per-mode median and p95 frame time and draw calls, and GPU geometry/texture counts after 3 matches per mode.
+7. Commit docs/BASELINE.md to master and push.
+
+Report: the environment status, the baseline numbers, and anything that is not ready (with the fix).
+```
+
+## S2 — Repo hygiene (run once, before Prompt 1)
+
+```
+Read docs/AI_STANDING_RULES.md.
+
+Branch: overhaul/s2-hygiene.
+
+Goal: stop the 2.9 GB of unreferenced files in staged_assets/ (and other local-only files) from cluttering git status and risking an accidental commit, without deleting anything.
+
+1. There is no .gitignore. Create one that ignores staged_assets/** EXCEPT the files the game actually references. Build the allow-list by scanning src/, css/, index.html and dist/ for every staged_assets path, including paths built at runtime by the BO.Assets helpers (read src/graphics/AssetLoader.js to see how paths are composed, e.g. a 'monsters/' prefix). Every already-tracked file must stay tracked (git ls-files staged_assets). Use negation rules (!path) for referenced files, or ignore whole folders where nothing inside is referenced.
+2. Also ignore: tools/qa/out/ screenshots and json (keep .md summaries), __pycache__/, *.pyc, .claude/settings.local.json, the user's local docs/POLISH_PROMPT.md, docs/PROMPT_2_CORE_FEEL_PERF_STABILITY.md and docs/PROMPT_3_COMPLETE_AND_CONNECT.md, and revert_staged_assets.* (do not delete them).
+3. Add tools/check_assets.py: list every asset path referenced in code that is missing from disk or ignored by git (a referenced asset must never be ignored), and exit 1 on any. Add it to AI_STANDING_RULES.md's testing list, and to tools/qa/run_all.py if that exists.
+4. Verify:
+   - git status shows no staged_assets noise;
+   - check_assets.py passes;
+   - the smoke tests pass on index.html and index.bundled.html with zero 404s;
+   - after the push, GitHub Pages still serves the referenced assets (curl 10 random referenced asset URLs on the live site and expect 200).
+
+Finish: a HANDOFF note, merge, push, and report the counts (ignored files, allow-listed files).
+```
+
+## H1 — Live-site check (run after every phase is merged)
+
+```
+Read docs/AI_STANDING_RULES.md. Change no code unless a check fails.
+
+1. Run git log -1 on master; confirm origin/master matches.
+2. gh api repos/thejaybirdsolution-eng/blackout-ops/pages/builds/latest: wait until it reports status "built" for that commit (poll every 10 s for up to 5 minutes).
+3. Open https://thejaybirdsolution-eng.github.io/blackout-ops/?qa=1 headless (Playwright) and confirm:
+   - the ?v= stamps in the live index.html match the repo;
+   - the newest update-log entry id is shown in the menu's patch notes;
+   - there are zero page errors, console errors and 404s;
+   - starting and exiting one match per mode, plus 3 random minigames, works with no errors.
+4. Take a screenshot of the main menu and one in-game screenshot per mode; save them to tools/qa/out/live/.
+
+If anything fails, find the cause (missing file, unstamped version, untracked asset, bundle out of date), fix it on a hotfix branch, merge, push, and repeat this check.
+
+Report: the deployed commit, every check's result, and any fixes made.
+```
+
+## H2 — Hotfix (when you find a bug while playing)
+
+Replace the bracketed parts with your bug before pasting (use the BR template at the end).
+
+```
+Read docs/AI_STANDING_RULES.md and HANDOFF.md.
+
+Bug report:
+- Where: [mode / course / region / menu]
+- What I did: [steps]
+- What happened: [actual result, error text if any]
+- What should happen: [expected result]
+- How often: [always / sometimes / once]
+
+Branch: hotfix/<short-name>.
+
+1. Reproduce it headless (Playwright) or with a scripted test before changing anything; capture the error or a screenshot.
+2. Find the root cause (file:line), and grep for the same mistake anywhere else in the codebase. Fix every occurrence.
+3. Add a regression check (in _qa_runner.html, _qa_owrpg.html or tools/qa/) that fails without the fix and passes with it.
+4. Run every test in AI_STANDING_RULES.md.
+5. If docs/PROGRESS.md exists (a phase is mid-flight), do not touch that phase branch: hotfix master only.
+
+Finish: an update-log entry ("Fixed: …"), merge, push, run the H1 live-site check, and report the cause, the fix and the regression test.
+```
+
+## H3 — Health check (after every 3–4 phases)
+
+```
+Read docs/AI_STANDING_RULES.md, docs/BASELINE.md, HANDOFF.md, and docs/PLAN_OWRPG_AND_MINIGAMES.md (to see which phases are done).
+
+Branch: overhaul/health-<date>.
+
+Goal: catch slow drift: regressions, dead code, inconsistent patterns, performance creep.
+
+1. Run everything: tools/qa/run_all.py (or every suite individually), the smoke tests on both entry points, and tools/check_assets.py.
+2. Compare performance with docs/BASELINE.md: per-mode median and p95 frame time, draw calls, triangles, and GPU memory across 3 matches. For any metric more than 10% worse than baseline, find the cause and fix it.
+3. Review everything merged since the last health check for code cohesion (git log, and git diff <last-health-tag>..master):
+   - dead code, and unused functions or files;
+   - duplicated helpers that should be shared;
+   - inconsistent patterns: HUD writes not using BO.HUD.set*, per-frame allocations, new scenes missing from GPULedger._collectKept;
+   - leftover debug logs, TODOs and placeholders.
+   Fix each one.
+4. Save compatibility: in a temporary git worktree at docs/BASELINE.md's commit, play briefly headless and export a save from every mode that saves. Load those saves on current master and confirm they work.
+5. Update docs/BASELINE.md with the new numbers (keep a history table), and tag the commit health-<date>.
+
+Finish: a HANDOFF note, merge, push, run H1, and report every problem found and fixed.
+```
+
+## H4 — Split a phase that's too big
+
+Replace the bracketed part before pasting.
+
+```
+Read docs/AI_STANDING_RULES.md, docs/PLAN_OWRPG_AND_MINIGAMES.md and docs/PLAN_PROMPTS.md.
+
+Phase prompt [NUMBER] keeps running out of context. Do not write game code.
+
+1. Read every file that prompt touches, and estimate the work per step.
+2. Split it into 2–4 smaller prompts that each fit one session. Each new prompt must:
+   - keep the exact structure of the existing prompts (read list, branch name, numbered steps, verification, exit gate, finish line);
+   - not overlap with the others;
+   - leave master shippable when merged on its own.
+3. Put them into docs/PLAN_PROMPTS.md in place of the original (numbered like 21a, 21b, …), and update the run-order table.
+4. Commit to master and push.
+
+Report the new prompts.
+```
+
+## X1 — Online co-op compatibility check (end of Part A, and after Prompt 24)
+
+```
+Read docs/AI_STANDING_RULES.md, HANDOFF.md, and src/net/NetworkManager.js, src/net/CoopExtensions.js and src/net/NetValidation.js in full (ADR-017).
+
+Branch: overhaul/net-check.
+
+Goal: make sure the overhaul did not break online play, and that new content behaves sensibly online.
+
+1. Open two headless browser pages on the local server and connect them through the game's own invite/room flow (or an existing loopback test path, if there is one). Run host and client through one Zombies match, one Tower Defense match, one Rogue Lite run, and Minigames Same-Room Versus on 3 courses.
+2. Check that:
+   - both sides see the same match state;
+   - hits and kills register on both;
+   - neither side has page errors;
+   - NetValidation rejects malformed packets;
+   - leaving and rejoining works.
+3. For every system the overhaul added that touches shared state (the minigame HUD, bounds and counters; later, any online parts of Open World), confirm the host is authoritative and clients cannot desync or crash. Fix any breakage.
+4. Add an automated two-page co-op smoke test to tools/qa/ and to run_all.py.
+
+Finish: a HANDOFF note, an update-log entry if anything player-visible changed, merge, push, run H1, and report.
+```
+
+## X2 — Save compatibility check (after Prompts 15, 20 and 25)
+
+```
+Read docs/AI_STANDING_RULES.md, src/core/SaveSystem.js, src/owrpg/OWRPGSave.js, and the HANDOFF sections for the phases merged since the last X2.
+
+Branch: overhaul/save-check.
+
+1. Create real saves on the commit before the newest save-format change: check it out in a temporary git worktree and serve it on another port. Play headless long enough to create an Open World character with quests, inventory, equipment, a companion and faction rep, plus Rogue Lite, Survival and Profile progress. Export each save.
+2. Load every one on current master. Confirm nothing is lost: items, quest stages, flags, rep, companions, levels, cosmetics, minigame personal bests and stars. Confirm new systems start up sensibly (for example, the chronicle reconstructed from completed quests, starter recipes, recalculated rarities).
+3. Test a corrupted save and a save from a much older version: the game must not crash, must explain the problem, and must keep a backup.
+4. Add these saves to tools/qa/fixtures/, and an automated migration test to run_all.py.
+
+Fix any data loss or crash. Finish: a HANDOFF note, merge, push, run H1, and report.
+```
+
+## X3 — Game Guide, mode cards and tutorials update (end of Part A, end of Part B)
+
+```
+Read docs/AI_STANDING_RULES.md, src/ui/ModeGuide.js, the main-menu mode cards in src/ui/MenuController.js, src/minigames/MinigameHub.js, and the HANDOFF sections for every phase merged since the last X3.
+
+Branch: overhaul/guide-update.
+
+1. Update the in-game Game Guide (ModeGuide) so every new mechanic, control, activity, system and course change is documented accurately, and nothing still describes removed or changed behaviour.
+2. Update the main-menu mode cards and hub descriptions. Counts (courses, regions, NPCs, quests, dungeons) must match the real data: compute them from the data, don't hard-code numbers.
+3. First-time tutorial prompts: every new system (crafting, journal, activities, housing, …) gets a short contextual hint the first time it becomes relevant, shown once (saved), and switchable off in Settings.
+4. Spell-check and tone-check all new player-facing text.
+
+Verify with headless screenshots of every guide page and card. Finish: HANDOFF, an update-log entry, merge, push, run H1, and report.
+```
+
+## X4 — Controls, gamepad and settings audit (end of Part A, end of Part B)
+
+```
+Read docs/AI_STANDING_RULES.md, src/core/Settings.js (DEFAULT_KEYBINDS and the controls list with its per-mode ctx), src/ui/ControlsPanel.js, and the gamepad input module.
+
+Branch: overhaul/controls-audit.
+
+1. List every key the overhaul added (grep new code for e.code, handleKey and keybind checks). Each must be a rebindable action in Settings with a label, a tip and the right mode context. No hard-coded keys.
+2. Find key conflicts within each mode context and resolve them.
+3. Gamepad: every new action is reachable on a controller, and every new UI (crafting, journal, lockpicking, card game, housing, minigame results) is navigable with the D-pad or stick plus A/B.
+4. Settings: every new option (accessibility, colour-blind palette, reduced motion, tutorial hints) is in the Settings UI and persists.
+5. Add an automated check that every action used in code exists in DEFAULT_KEYBINDS, and that no mode context has duplicate bindings.
+
+Finish: HANDOFF, an update-log entry, merge, push, run H1, and report.
+```
+
+## X5 — Asset sourcing pass (before Prompt 11, and before Prompts 16 and 21)
+
+```
+Read docs/AI_STANDING_RULES.md, C:\Users\PC\Desktop\game assets\README.md, and the plan phases this pass prepares for (A3 minigame maps, or B1 towns and B4 dungeons).
+
+Branch: overhaul/assets-<topic>.
+
+Goal: pick and prepare the exact assets the next phases will use, so the building sessions don't spend their context searching.
+
+1. Inventory the relevant kits in C:\Users\PC\Desktop\game assets and staged_assets/ (models, textures, audio): name, path, format, polycount and texture size for models, and licence.
+2. For each map, settlement or dungeon theme in the coming phases, choose a coherent set of assets: one art style per location, never mixing low-poly and realistic in one scene.
+3. Convert or optimise where needed: GLB only, textures at most 1024² except hero assets, merge tiny meshes, strip unused animations. Copy the chosen files into staged_assets/ with clear folder names.
+4. Write docs/ASSET_MANIFEST_<topic>.md: theme, asset list, intended use, licence and file size.
+5. Make sure every copied file will be referenced (the next phase uses the manifest), and update the .gitignore allow-list from S2 as files become referenced.
+
+Do not build scenes in this prompt. Finish: commit the manifest and assets, merge, push, and report the manifest.
+```
+
+## X6 — Balance playtest (after Prompt 10 for minigames; after Prompt 28 for Open World)
+
+```
+Read docs/AI_STANDING_RULES.md and HANDOFF.md.
+
+Branch: overhaul/balance-<part>.
+
+Minigames version:
+1. For every course, run the golden bot at three skill levels over 5 seeds each: perfect; human-like (150 ms reaction plus aim error); and novice (300 ms plus larger aim error).
+2. A novice should reach 1★ on most courses, human-like play 2–3★, and Platinum should need near-flawless play.
+3. Flag courses with no difficulty ramp, dead time over 3 s, or score cliffs, and fix them (timings, target life, spawn density, thresholds).
+
+Open World version:
+1. Run a fresh character through the first 3 regions on a scripted route.
+2. Track: XP and level against the quest level bands; credits against prices; time to kill and time to die per enemy family at band level; loot rarity rates; and crafting affordability.
+3. Compare with docs/OWRPG_ECONOMY.md and fix every outlier.
+
+Write the results tables into docs/BALANCE.md. Finish: HANDOFF, an update-log entry, merge, push, run H1, and report.
+```
+
+## X7 — Performance pass (end of Part B)
+
+```
+Read docs/AI_STANDING_RULES.md, docs/BASELINE.md, and DECISIONS.md ADR-026, ADR-028, ADR-030, ADR-031 and ADR-032.
+
+Branch: overhaul/perf-pass.
+
+1. Profile every mode, every minigame, every Open World settlement and dungeon, and the menus. Record median and p95 frame time, draw calls, triangles, shader programs, GPU geometries and textures, and JS heap growth over 5 minutes.
+2. For the 10 worst cases, profile at method level (wrap hot functions, as the earlier audits did), then fix the root causes: allocations, redundant raycasts, uncached queries, oversized meshes or textures, missing instancing, too many lights or shadow casters.
+3. Revisit static world batching: render-only merged meshes per material, for truly static props only. Never doors, interactables, destructibles, or anything a raycast depends on, unless the raycast list keeps the originals. Implement it only where it is safe, behind a quality setting.
+4. Low-end check: with the Low quality preset at 1366×768, the median frame time must stay within budget.
+5. Update docs/BASELINE.md.
+
+Finish: an ADR for any new technique, HANDOFF, an update-log entry, merge, push, run H1, and report with before/after tables.
+```
+
+## L1 — Launch checklist (the very last prompt)
+
+```
+Read docs/AI_STANDING_RULES.md, docs/PLAN_OWRPG_AND_MINIGAMES.md (every step must be marked ✅), docs/BASELINE.md and HANDOFF.md.
+
+Branch: release/overhaul-complete.
+
+1. Confirm every plan step is marked ✅ with a commit hash. Run VERIFY-style checks on any step without one.
+2. Full regression: run_all.py, the smoke tests on both entry points, check_assets.py, the co-op smoke, the save migration tests, stamp_versions --check, and a fresh tools/bundle.py.
+3. A scripted, headless fresh-player pass: first launch → onboarding → each mode for 5 minutes → minigame hub → 5 courses → Open World new character → first settlement → first quest → craft → first dungeon. Zero errors, and no UI overlap (an mg_hud-style check on every screen visited).
+4. README.md: update the feature list and counts to match the game.
+5. HANDOFF.md: rewrite the top as a concise summary of the finished overhaul (systems, where they live, how to extend them).
+6. Update log: a "major" entry summarising the whole overhaul.
+7. Merge to master, push, run H1, and tag the release (git tag overhaul-1.0, then push the tag).
+
+Report: the final numbers against docs/BASELINE.md, every suite's result, and the tag.
+```
+
+## BR — Bug report template (fill this in and paste it into H2)
+
+```
+Where: (mode / course / region / menu)
+What I did: (step by step)
+What happened: (include any red error text, or a screenshot path)
+What should happen:
+How often: (always / sometimes / once)
+Browser and quality preset: (e.g. Chrome, High)
 ```
