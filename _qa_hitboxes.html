@@ -105,6 +105,7 @@
     function audit(ent, label, opts = {}) {
       const root = ent.parts.root;
       root.updateMatrixWorld(true);
+      BO.Hitboxes.refresh(ent, true);
       const hits = BO.Hitboxes.collect(ent, []);
       const vis = visibleBody(ent);
       // Skinned meshes: widen the bind-pose bounding sphere so posed triangles are not culled early.
@@ -150,7 +151,7 @@
     }
     const pct = (x) => (x * 100).toFixed(1) + '%';
     function judge(res, kind) {
-      const lim = kind === 'skinned' ? { miss: 0.06, ghost: 0.12 } : kind === 'rigid' ? { miss: 0.04, ghost: 0.08 } : { miss: 0.03, ghost: 0.03 };
+      const lim = kind === 'skinned' ? { miss: 0.02, ghost: 0.02 } : kind === 'rigid' ? { miss: 0.03, ghost: 0.05 } : { miss: 0.02, ghost: 0.02 };
       return { ok: res.visRays > 10 && res.missRate <= lim.miss && res.ghostRate <= lim.ghost, detail: `miss ${pct(res.missRate)} / ghost ${pct(res.ghostRate)} over ${res.visRays} body rays, ${res.hitCount} surfaces` };
     }
     const kindOf = (ent) => { const rig = ent.parts.glbRig; if (!rig) return 'procedural'; let sk = false; rig.model.traverse((o) => { if (o.isSkinnedMesh) sk = true; }); return rig.kind === 'HumanoidDriver' || (sk && rig.kind !== 'ClipDriver') ? 'skinned' : (sk ? 'skinned' : 'rigid'); };
@@ -268,9 +269,13 @@
       const head = d.b.head.getWorldPosition(new THREE.Vector3());
       check('Zombies: rigged monster walk cycle swings the legs', thSwing > 0.12, thSwing.toFixed(2) + ' rad');
       check('Zombies: rigged monster attack winds the arm up overhead', d.attackTwoHand || hand.y > head.y - 0.25, `hand ${hand.y.toFixed(2)} vs head ${head.y.toFixed(2)}`);
-      // Rigged hitboxes follow the pose.
-      const proxy = BO.Hitboxes.collect(rz, []).find((m) => /hand|lowerarm/i.test(m.name));
-      check('Zombies: monster hitboxes ride the animated bones', !!proxy && proxy.parent.isBone);
+      // Skinned hit groups must follow the pose: after re-skinning, the hand group's sphere sits on the hand bone.
+      rz.parts.root.updateMatrixWorld(true); // the renderer does this every frame in-game
+      BO.Hitboxes.refresh(rz, true);
+      const proxy = BO.Hitboxes.collect(rz, []).find((m) => new RegExp('hit:hand_' + (d.attackSide < 0 ? 'r' : 'l'), 'i').test(m.name));
+      let follows = false;
+      if (proxy) { rz.parts.root.updateMatrixWorld(true); const c = proxy.geometry.boundingSphere.center.clone().applyMatrix4(proxy.matrixWorld); follows = c.distanceTo(hand) < 0.35 * (rz.parts.root.scale.y || 1); }
+      check('Zombies: monster hit surfaces deform with the animated skin', follows);
     }
     // Death falls backward relative to facing, whatever the facing.
     const victim = zs.find((z) => !z.parts.glbRig && !z.parts.isQuadruped);

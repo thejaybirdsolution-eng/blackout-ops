@@ -83,13 +83,18 @@
             return out;
         }
 
+        /**
+         * Tileable surface texture (concrete, asphalt, sand, sandbag, bunker stone…).
+         * Albedo from 5-octave value noise; aggregate stamped as soft round stones and pits (no
+         * square pixels); an authored heightfield (raised stones, sunken pits, recessed joints)
+         * becomes the normal map, and a matching roughness map makes polished aggregate catch light.
+         */
         _createNoiseTexture(key, w, h, baseHex, variance, speckColor, gridOpts) {
             if (this.textures[key]) return this.textures[key];
             const c = this._makeCanvas(w, h);
             const ctx = c.getContext('2d');
             const rng = seededNoise(key.length * 1337 + baseHex.charCodeAt(1) * 97);
 
-            // Tileable fractal value noise (replaces hard-edged blotch circles).
             const S = 2; // supersample: author at 2x for crisper close-up detail
             if (c.width !== w * S) { c.width = w * S; c.height = h * S; }
             const W = w * S, H = h * S;
@@ -98,44 +103,96 @@
             const img = ctx.createImageData(W, H);
             const d = img.data;
             const v = variance / 255;
-            for (let i = 0, j = 0; i < field.length; i++, j += 4) {
-                const n = (field[i] - 0.5) * 2 * v + (rng() - 0.5) * v * 0.35;
-                d[j] = Math.max(0, Math.min(255, (base.r + n) * 255));
-                d[j + 1] = Math.max(0, Math.min(255, (base.g + n * 0.96) * 255));
-                d[j + 2] = Math.max(0, Math.min(255, (base.b + n * 0.9) * 255));
-                d[j + 3] = 255;
+            const col = new Float32Array(W * H * 3);
+            const height = new Float32Array(W * H);
+            const rough = new Float32Array(W * H);
+            const roughBase = ({ asphalt: 0.93, desert_sand: 0.96, sandbag: 0.95, bunker_stone: 0.91, concrete: 0.88 })[key] || 0.9;
+            for (let i = 0; i < field.length; i++) {
+                const grain = (rng() - 0.5);
+                const n = (field[i] - 0.5) * 2 * v + grain * v * 0.35;
+                col[i * 3] = base.r + n;
+                col[i * 3 + 1] = base.g + n * 0.96;
+                col[i * 3 + 2] = base.b + n * 0.9;
+                height[i] = 0.5 + (field[i] - 0.5) * 0.45 + grain * 0.05;
+                rough[i] = roughBase + (0.5 - field[i]) * 0.08;
             }
-            ctx.putImageData(img, 0, 0);
-            ctx.save();
-            ctx.scale(S, S);
 
+            // Aggregate: soft-edged round stones (light, raised) and pits (dark, sunken), wrapped for tiling.
             if (speckColor) {
-                ctx.fillStyle = speckColor;
-                for (let i = 0; i < 900; i++) {
-                    ctx.fillRect(rng() * w, rng() * h, 1 + rng() * 2, 1 + rng() * 2);
+                const m = /rgba?\(([^)]+)\)/.exec(speckColor);
+                const parts = m ? m[1].split(',').map((x) => parseFloat(x)) : [128, 128, 128, 0.2];
+                const sr = parts[0] / 255, sg = parts[1] / 255, sb = parts[2] / 255, sa = parts.length > 3 ? parts[3] : 1;
+                const lumS = sr * 0.3 + sg * 0.59 + sb * 0.11, lumB = base.r * 0.3 + base.g * 0.59 + base.b * 0.11;
+                const raised = lumS >= lumB; // lighter aggregate stands proud, darker reads as pits
+                const count = Math.round(2600 * (w * h) / (256 * 256));
+                for (let k = 0; k < count; k++) {
+                    const cx = rng() * W, cy = rng() * H;
+                    // Fine, irregular aggregate: mostly sub-centimetre grains, occasional larger chips.
+                    const r = (0.32 + Math.pow(rng(), 2.8) * 1.25) * S;
+                    const a = sa * (0.45 + rng() * 0.8);
+                    const tone = 0.8 + rng() * 0.4;
+                    const ang = rng() * Math.PI, ca = Math.cos(ang), sa2 = Math.sin(ang), stretch = 1 + rng() * 0.7;
+                    const R = Math.ceil(r * stretch + 1);
+                    for (let oy = -R; oy <= R; oy++) {
+                        for (let ox = -R; ox <= R; ox++) {
+                            const ux = (ox * ca + oy * sa2) / stretch, uy = -ox * sa2 + oy * ca;
+                            const dist = Math.hypot(ux, uy);
+                            if (dist > r + 1) continue;
+                            const fall = dist < r - 0.5 ? 1 : Math.max(0, (r + 0.5 - dist)); // anti-aliased rim
+                            const dome = Math.sqrt(Math.max(0, 1 - (dist * dist) / (r * r)));
+                            const x = ((Math.floor(cx) + ox) % W + W) % W, y = ((Math.floor(cy) + oy) % H + H) % H;
+                            const i = y * W + x, a2 = a * fall;
+                            col[i * 3] += (sr * tone - col[i * 3]) * a2;
+                            col[i * 3 + 1] += (sg * tone - col[i * 3 + 1]) * a2;
+                            col[i * 3 + 2] += (sb * tone - col[i * 3 + 2]) * a2;
+                            height[i] += (raised ? 0.2 : -0.22) * dome * fall * Math.min(1, a * 2.5);
+                            rough[i] += (raised ? -0.06 : 0.03) * fall * Math.min(1, a * 2.5);
+                        }
+                    }
                 }
             }
 
+            // Expansion joints / mortar lines are recessed in the heightfield as well as painted.
             if (gridOpts) {
+                const stepX = (gridOpts.stepX || 64) * S, stepY = (gridOpts.stepY || 64) * S;
+                const half = Math.max(1, (gridOpts.lineWidth || 2) * S * 0.5);
+                for (let y = 0; y < H; y++) {
+                    const dy = Math.min(y % stepY, stepY - (y % stepY));
+                    for (let x = 0; x < W; x++) {
+                        const dx = Math.min(x % stepX, stepX - (x % stepX));
+                        const dd = Math.min(dx, dy);
+                        if (dd > half + 1.5) continue;
+                        const k = dd <= half ? 1 : 1 - (dd - half) / 1.5;
+                        const i = y * W + x;
+                        height[i] -= 0.38 * k;
+                        rough[i] += 0.05 * k;
+                    }
+                }
+            }
+
+            for (let i = 0, j = 0; i < height.length; i++, j += 4) {
+                d[j] = Math.max(0, Math.min(255, col[i * 3] * 255));
+                d[j + 1] = Math.max(0, Math.min(255, col[i * 3 + 1] * 255));
+                d[j + 2] = Math.max(0, Math.min(255, col[i * 3 + 2] * 255));
+                d[j + 3] = 255;
+                rough[i] = Math.max(0.3, Math.min(1, rough[i]));
+            }
+            ctx.putImageData(img, 0, 0);
+
+            if (gridOpts) {
+                ctx.save();
+                ctx.scale(S, S);
                 ctx.strokeStyle = gridOpts.color;
                 ctx.lineWidth = gridOpts.lineWidth || 2;
                 const stepX = gridOpts.stepX || 64;
                 const stepY = gridOpts.stepY || 64;
-                for (let x = 0; x <= w; x += stepX) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, h);
-                    ctx.stroke();
-                }
-                for (let y = 0; y <= h; y += stepY) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(w, y);
-                    ctx.stroke();
-                }
+                for (let x = 0; x <= w; x += stepX) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y <= h; y += stepY) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                ctx.restore();
             }
 
-            ctx.restore();
+            this.heightMaps[key] = this._normalFromHeight(height, W, H, /sand/.test(key) ? 1.6 : 2.3);
+            this.roughMaps[key] = this._roughnessTex(rough, W, H);
             const tex = this._toTex(c, 1, 1, true);
             this.textures[key] = tex;
             return tex;

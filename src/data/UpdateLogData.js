@@ -3997,6 +3997,72 @@
                                 ]
                         }
                 ]
+        },
+
+        {
+                "id": 193,
+                "hash": "exact-2",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "06:20 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Exact Monster Hitboxes: The Hit Surface Is the Moving Skin",
+                "major": true,
+                "tags": [
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Animated monsters (Imp and Puglin archetypes, the Open World creatures built on them, and every skinned enemy model) now take hits on their exact deformed skin:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Before: rigid copies of each bone's piece, which left gaps and overhangs where joints bend (up to 6% of shots on the body missed, and the hit area overhung the body by up to 12%).",
+                                        "Now: each monster's vertices are re-skinned from its live skeleton the moment a shot's path reaches it (at most once per frame, about a millisecond), and the hit groups sit on that exact surface.",
+                                        "Zones still come from the bone under the hit: head, torso or limb. A claw raised overhead is hittable exactly where it's drawn.",
+                                        "The audit's limit for these models dropped from 6%/12% to 2%/2%. Measured worst case: 0.0% miss across all 70 zombie archetypes, the bosses, Rogue Lite, Tower Defense and the Open World."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 194,
+                "hash": "exact-2",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "06:30 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Graphics: Rebuilt Concrete, Asphalt, Sand & Stone Surfaces",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "td",
+                        "survival",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The procedural ground and wall surfaces used in every arena map were stamped with hard 1–3 pixel squares that looked like blocky noise up close. Rebuilt:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Aggregate is now thousands of fine, irregular, anti-aliased grains and chips instead of square pixels, with tones varied per grain.",
+                                        "Each surface gets a real height field: lighter stones stand proud, darker pits sink in, and expansion joints and mortar lines are recessed. This drives the normal map, so surfaces catch light with depth.",
+                                        "Matching roughness maps let aggregate read slightly smoother than the binder.",
+                                        "Applies to concrete, asphalt, desert sand, sandbags and bunker stone wherever they appear."
+                                ]
+                        }
+                ]
         }
 ]
     };

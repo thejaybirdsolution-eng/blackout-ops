@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "aa59c664cc",
+      "hash": "ec6280c9aa",
       "fileCount": 77,
-      "rawBytes": 3294259,
-      "gzipBytes": 738837,
+      "rawBytes": 3306730,
+      "gzipBytes": 742105,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
