@@ -23,7 +23,10 @@ REF_RE = re.compile(r'((?:src|href)=")((?:src|css|vendor)/[^"?#]+)(?:\?v=[^"]*)?
 
 
 def digest(rel: str) -> str:
-    return hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()[:8]
+    # Hash with LF line endings: git stores (and GitHub Pages serves) LF, while Windows
+    # checkouts may hold CRLF, so the stamp must not depend on the local checkout.
+    data = (ROOT / rel).read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()[:8]
 
 
 def main() -> int:
