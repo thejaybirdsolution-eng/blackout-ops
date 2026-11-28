@@ -426,8 +426,12 @@
         }
 
         rebuildViewmodel() {
+            // Release the outgoing viewmodel's GPU resources (the cached fist rig is kept).
+            const keep = this.fistRig ? [this.fistRig.root] : null;
             while (this.vmAnchor.children.length > 0) {
-                this.vmAnchor.remove(this.vmAnchor.children[0]);
+                const old = this.vmAnchor.children[0];
+                this.vmAnchor.remove(old);
+                BO.SceneCleanup?.disposeObject?.(old, { keep });
             }
             this.vmBuild = null;
             this.muzzleFlashMesh = null;

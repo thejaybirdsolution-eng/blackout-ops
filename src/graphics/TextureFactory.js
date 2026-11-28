@@ -532,7 +532,7 @@
             const mat = new THREE.MeshStandardMaterial({
                 map: clonedMap,
                 roughness: clonedRough ? 1.0 : roughness,
-                roughnessMap: clonedRough || undefined,
+                roughnessMap: clonedRough,
                 metalness,
                 emissive,
                 emissiveIntensity

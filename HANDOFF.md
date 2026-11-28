@@ -2,9 +2,18 @@
 
 ## Release Snapshot
 - **Branch:** `master` (merged `release/1.0-complete` + `origin/master` flagship-2 `#174–#182`).
-- **QA Suites:** `_qa_runner.html` (30 checks) + `_qa_owrpg.html` (OWRPG 143 checks including Cartography, 156 hidden sites, Champions & `OWRPGValidator`).
+- **QA Suites:** `_qa_runner.html` (30 checks) + `_qa_owrpg.html` (OWRPG 143 checks including Cartography, 156 hidden sites, Champions & `OWRPGValidator`) + `_qa_hitboxes.html` (56 checks).
 - **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-023`).
 - **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
+
+## Performance, Mocap Animation & Spawn Audit (Nov 28, 2026)
+- **Rig merge (ADR-028):** `BotAI` and procedural `ZombieEntity` keep `MeshProxy.attachArticulated` on while alive (136 → 54 draw calls per operator, ~65 → ~38 per zombie). Bots return to detail at death and re-merge in `spawnAt`; `destroy()` detaches. The hitbox audit treats `lodDetail` as visible body.
+- **UAL presets (ADR-029):** `staged_assets/3d_models/monsters/humanoid-presets.glb` holds 12 Quaternius UAL clips (jog, sprint, scratch, jab, cross, overhead smash, cast, throw, head/chest hits, death with pelvis drop, dance). `HumanoidDriver._samplePresets` layers them; `ATTACK_CLIPS` holds each clip's measured strike time. `Rig.handlesDeath` is a live getter.
+- **GPU leak:** `BO.SceneCleanup.disposeObject(root, { keep, detach })` frees a subtree; `PlayerController.rebuildViewmodel` (keeps the cached fist rig) and the main-menu/Gunsmith showcase use it. Geometry count is now flat across weapon swaps and repeated matches.
+- **Shader hitches:** `BlackoutApp._precompileScene()` runs `renderer.compile` for the world and viewmodel into the PostFX targets at match start; `renderer.debug.checkShaderErrors` is only on with `?debug=`.
+- **Settings:** `_ensureDefaults` runs once per settings object and `applyAccessibility` only writes the DOM when its signature changes (it used to restyle the root on every `Settings.get`).
+- **Zombie spawns:** `_pickSpawnPoint`'s last resort no longer offsets the player spawn blindly (Kino trapped bosses/hounds behind the lobby wall); window-incapable enemies spawn on a barrier's interior side, then on unlocked-zone nav waypoints.
+- **Headless audit tools** (outside the repo): every mode + all 63 minigames booted and played with zero script errors or 404s; `_qa_runner` 30/30, `_qa_hitboxes` 56/56, `_qa_owrpg` 143/143.
 
 ## Open World Ground Cover (Nov 28, 2026)
 - `src/owrpg/OWRPGGroundCover.js` (`BO.OWRPGGroundCover`) is a registered Open World system: biome grass, wildflowers, ferns, reeds, heather, scrub, rocks and glowing crystals or embers, streamed in 16 m chunks within the preset radius. `stats` reports chunks, instances and draw calls. Palettes are in `BIOMES`, keyed by region id.
@@ -18,7 +27,7 @@
 - `src/graphics/SoldierModel.js` — jointed soldier (elbow/knee/ankle pivots), weapon on the torso, two-bone IK hands, `SoldierModel.animate(parts, state, dt)` (aim, recoil, reload, crouch, downed, sprint, pitch). `CharacterMesh.animateSoldier` is the entry point; `animateLimbs` forwards soldiers automatically.
 - `src/graphics/SunShadow.js` + `CoreStability.applySceneQualityBudgets` — stable sun shadows and the reversible caster budget (ADR-026).
 - `AssetLoader._cloneGLBScene` now copies `animations` onto clones (r149's `clone()` drops them), which is what lets clip-driven models animate at all.
-- QA: `_qa_hitboxes.html` (44 checks: silhouette ray audit per enemy family in MP, Zombies, Rogue Lite, TD, Open World and online avatars, plus animation checks).
+- QA: `_qa_hitboxes.html` (56 checks: silhouette ray audit per enemy family in MP, Zombies, Rogue Lite, TD, Open World and online avatars, plus animation checks).
 - **Performance, Animation & Hitbox Accuracy Completion:** Fixed `ZoneWorldPlus` NPC weapon/entity wiring and defender/broker/gated-NPC soldier animations, `SurvivalCampaign` Haven NPC & `GMEconomy` settler idle animations, `TowerDefenseMode` allied soldier & guard-dog bite animations, `OWRPGCombat` decoy animation/material reuse, explicit `dt` propagation to `animateLimbs`, allocation-free `_livingTargets()` / companion targeting loops, `Hitboxes.fromModel` multi-material proxy safety + `HitboxDebug` hidden-chain pruning, `ZoneWild` hitbox disposal, and `sharedAsset` protection in `CoreStability` / `ZoneWorldPlus`.
 
 ## 1.0 Feature Modules Added

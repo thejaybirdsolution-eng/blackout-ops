@@ -1484,6 +1484,8 @@
 
         _ensureDefaults() {
             const s = BO.Save.data.settings;
+            // get()/all run in per-frame paths: fill defaults once per settings object, not on every read.
+            if (this._defaultedSettings === s && this._defaultedData === BO.Save.data) return;
             if (!s.bloodLevel) s.bloodLevel = 'normal'; // 'off' | 'normal' | 'ultra'
             if (s.screenShake === undefined) s.screenShake = 1.0;
             if (s.exposure === undefined) s.exposure = 1.08;
@@ -1538,6 +1540,8 @@
             for (const c of Object.keys(CHEAT_DEFS)) {
                 if (BO.Save.data.cheats[c] === undefined) BO.Save.data.cheats[c] = false;
             }
+            this._defaultedSettings = s;
+            this._defaultedData = BO.Save.data;
         }
 
         get all() {
@@ -1561,19 +1565,25 @@
         applyAccessibility() {
             if (typeof document === 'undefined' || !document.body) return;
             const s = BO.Save?.data?.settings || {};
-            document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
-            if (s.colorBlindMode && s.colorBlindMode !== 'none') document.body.classList.add('cb-' + s.colorBlindMode);
-            const mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-            if (mq && !this._rmBound) {
-                this._rmBound = true;
+            if (!this._rmQuery && window.matchMedia) {
+                this._rmQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
                 const onChange = () => this.applyAccessibility();
-                if (mq.addEventListener) mq.addEventListener('change', onChange);
-                else if (mq.addListener) mq.addListener(onChange);
+                if (this._rmQuery.addEventListener) this._rmQuery.addEventListener('change', onChange);
+                else if (this._rmQuery.addListener) this._rmQuery.addListener(onChange);
             }
+            const mq = this._rmQuery;
+            const cb = s.colorBlindMode && s.colorBlindMode !== 'none' ? 'cb-' + s.colorBlindMode : '';
             const reduced = Boolean(s.reducedMotion) || Boolean(mq && mq.matches);
-            if (reduced) document.body.classList.add('sv-reduced-motion');
             // HUD and terminal scale (80–140%), read by css/gm.css and css/aaa-theme.css through --ui-scale.
             const scale = Math.max(0.8, Math.min(1.4, Number(s.uiScale) || 1));
+            // Only touch the DOM when something changed: a root style write forces a full style recalc.
+            const sig = cb + '|' + reduced + '|' + scale;
+            if (sig === this._a11ySig && document.body.classList.contains('bo-a11y')) return;
+            this._a11ySig = sig;
+            document.body.classList.add('bo-a11y');
+            document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
+            if (cb) document.body.classList.add(cb);
+            if (reduced) document.body.classList.add('sv-reduced-motion');
             document.documentElement.style.setProperty('--ui-scale', String(scale));
         }
 
@@ -16522,6 +16532,64 @@
                                 ]
                         }
                 ]
+        },
+{
+                "id": 199,
+                "hash": "perf-anim-4",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "10:37 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Performance, Mocap Monster Animation & Zombie Spawn Fix",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "zombies",
+                        "mp",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A full-game audit pass: every mode and all 63 minigame courses were booted and played headless with no script errors, and the fixes below came out of it."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Performance:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Multiplayer bots now draw their rigid parts merged per joint and material: a Killhouse frame went from about 2,600 draw calls to about 770, with identical visuals and hitboxes.",
+                                        "Zombies get the same merge (about 40% fewer draw calls each), which matters most in late rounds.",
+                                        "Shaders for the map and your weapon are compiled while the match loads, so the first seconds of play no longer hitch on new materials.",
+                                        "Fixed a GPU memory leak: every weapon swap and every match left the old viewmodel and Gunsmith model in video memory.",
+                                        "Settings reads no longer rewrite the page's accessibility styles on every frame."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Animation:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Imp and Puglin monsters (Zombies fiends and brutes, Open World creatures) now use motion-captured clips from the Universal Animation Library: jog and sprint, claw scratches, jabs, crosses, overhead smashes, casts and throws, head and chest hit reactions, a dance and a real fall-down death.",
+                                        "Each strike clip is timed so the swing lands on the same beat as the hit, and the death no longer leaves Open World monsters standing limp before they sink."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Fixes:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Kino der Toten: from round 10, bosses, hellhounds and giant zombies could spawn in the gap behind the lobby wall and stay trapped, stalling the round. They now burst in through a barricade.",
+                                        "The first-launch welcome panel closes itself if a match starts from an invite link or the campaign."
+                                ]
+                        }
+                ]
         }
 ]
     };
@@ -18631,7 +18699,7 @@
             const mat = new THREE.MeshStandardMaterial({
                 map: clonedMap,
                 roughness: clonedRough ? 1.0 : roughness,
-                roughnessMap: clonedRough || undefined,
+                roughnessMap: clonedRough,
                 metalness,
                 emissive,
                 emissiveIntensity
@@ -26301,10 +26369,11 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                        speed so feet do not skate.
    • HumanoidDriver  — skinned humanoids without clips (the Imp and Puglin
                        monsters). Builds a relaxed rest pose out of the bind
-                       T-pose, then drives walk/run cycles, idle breathing,
-                       claw swipes and two-handed smashes, spit/cast thrusts,
-                       hit flinches by zone, stun wobble, dance and a limp death,
-                       all as character-space bone rotations.
+                       T-pose and drives a procedural base (stride, breathing,
+                       lean, stun wobble), then layers Quaternius UAL mocap
+                       presets on top: zombie idle/walk, jog/sprint, scratch,
+                       jab, cross, overhead smash, cast, throw, head/chest hit
+                       reactions, dance and a full fall-down death.
    • BobDriver       — rigid models with no skeleton: bob, sway and lean.
 
    Every rig also replaces the entity's hit list with surfaces taken from the
@@ -26368,9 +26437,13 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         ftL: /^foot_l$|^l(eft)?_?foot$/i, ftR: /^foot_r$|^r(ight)?_?foot$/i
     };
 
-    // Quaternius UAL2, CC0. The compact GLB contains only in-place idle/walk
-    // rotations. Each monster keeps its own proportions, root movement and combat poses.
-    let locomotionSource;
+    // Quaternius Universal Animation Library 1 & 2 (CC0), stripped to the 20 tracked bones.
+    //  • zombie-locomotion.glb — in-place idle/walk rotations.
+    //  • humanoid-presets.glb  — jog, sprint, melee (scratch, jab, cross, overhead smash),
+    //    cast and throw, head/chest hit reactions, a full fall-down death and a dance loop,
+    //    with the pelvis translation track so the death drops the body to the ground.
+    // Each monster keeps its own proportions; clips are applied as deltas from the UAL rest pose.
+    let locomotionSource, presetSource;
     function loadLocomotion() {
         if (!locomotionSource) {
             locomotionSource = BO.Assets.loadGLB('monsters/zombie-locomotion.glb').catch((err) => {
@@ -26380,6 +26453,31 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         }
         return locomotionSource;
     }
+    function loadPresets() {
+        if (!presetSource) {
+            presetSource = BO.Assets.loadGLB('monsters/humanoid-presets.glb').catch((err) => {
+                BO.log?.('EnemyRig', 'debug', 'Using procedural combat poses', err);
+                return null;
+            });
+        }
+        return presetSource;
+    }
+
+    /**
+     * Strike timing per attack clip (seconds into the clip where the striking arm peaks),
+     * measured from the clip's arm angular velocity. The entity's swing timer is mapped so
+     * the clip's strike lands on the same beat as the gameplay hit (p = 0.47).
+     */
+    const ATTACK_CLIPS = {
+        Zombie_Scratch: { strike: 0.6, span: 1.15 },
+        Punch_Jab: { strike: 0.17, span: 0.62 },
+        Punch_Cross: { strike: 0.23, span: 0.72 },
+        Sword_Attack: { strike: 0.4, span: 0.95 },
+        Spell_Simple_Shoot: { strike: 0.12, span: 0.5 },
+        OverhandThrow: { strike: 0.4, span: 0.95 }
+    };
+    const STRIKE_P = 0.47;
+    const DEATH_RATE = 1.5; // Death01 is 2.4 s; this lands the body in 1.6 s, before entities start sinking it.
 
     class HumanoidDriver {
         static detect(model) {
@@ -26446,19 +26544,62 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             this.apply();
             loadLocomotion().then((source) => {
                 if (!source || this.rig.disposed) return;
-                this.presets = source.animations.map((clip) => {
-                    const tracks = [];
-                    for (const track of clip.tracks) {
-                        const name = THREE.PropertyBinding.parseTrackName(track.name).nodeName;
-                        const bone = this.order.find((joint) => joint.name === name);
-                        if (!bone) continue;
-                        const rest = source.getObjectByName(name).quaternion;
-                        const basis = this.L0.get(bone).clone().multiply(rest.clone().invert());
-                        tracks.push({ bone, basis, sampler: track.createInterpolant() });
-                    }
-                    return { name: clip.name, duration: clip.duration, tracks };
-                });
+                this.presets = source.animations.map((clip) => this._bindClip(source, clip));
             });
+            this.clips = null;
+            this.hitT = -1;
+            this.hitClip = null;
+            this.deadT = 0;
+            this.deathByClip = null;
+            this.lastFlinch = 0;
+            loadPresets().then((source) => {
+                if (!source || this.rig.disposed) return;
+                const clips = {};
+                for (const clip of source.animations) clips[clip.name] = this._bindClip(source, clip);
+                this.clips = clips;
+            });
+        }
+
+        /** Binds a UAL clip to this skeleton: rotation deltas from the UAL rest, pelvis offset scaled to this body. */
+        _bindClip(source, clip) {
+            const tracks = [];
+            let pos = null;
+            for (const track of clip.tracks) {
+                const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+                const name = parsed.nodeName;
+                const bone = this.order.find((joint) => joint.name === name);
+                const restNode = bone && source.getObjectByName(name);
+                if (!restNode) continue;
+                if (parsed.propertyName === 'quaternion') {
+                    const basis = this.L0.get(bone).clone().multiply(restNode.quaternion.clone().invert());
+                    tracks.push({ bone, basis, sampler: track.createInterpolant() });
+                } else if (parsed.propertyName === 'position' && bone === this.b.pelvis && this.pelvis0) {
+                    const restLen = restNode.position.length() || 1;
+                    pos = { sampler: track.createInterpolant(), rest: restNode.position.clone(), ratio: this.pelvis0.length() / restLen };
+                }
+            }
+            return { name: clip.name, duration: clip.duration, tracks, pos };
+        }
+
+        /** Blends one bound clip at time `t` into the current pose by `amount` (0..1). */
+        _sampleClip(clip, t, amount, withPelvis) {
+            if (!clip || amount <= 0.001) return;
+            const time = clamp(t, 0, clip.duration - 1e-4);
+            for (let i = 0; i < clip.tracks.length; i++) {
+                const { bone, basis, sampler } = clip.tracks[i];
+                _qa.fromArray(sampler.evaluate(time)).premultiply(basis);
+                bone.quaternion.slerp(_qa, amount);
+            }
+            if (withPelvis && clip.pos) {
+                const v = clip.pos.sampler.evaluate(time);
+                _vb.set(v[0], v[1], v[2]).sub(clip.pos.rest).multiplyScalar(clip.pos.ratio).add(this.pelvis0);
+                this.b.pelvis.position.lerp(_vb, amount);
+            }
+        }
+
+        /** True once the death fall is driven by the authored clip (entities then only sink the body). */
+        get handlesDeath() {
+            return this.deathByClip != null ? this.deathByClip : !!(this.clips && this.clips.Death01);
         }
 
         _sampleLocomotion(weight, stride) {
@@ -26563,6 +26704,9 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 this.attackSide = -this.attackSide;
                 this.attackRanged = !!st.ranged;
                 this.attackTwoHand = brute && Math.random() < 0.55;
+                this.attackClip = this.attackRanged ? (brute ? 'OverhandThrow' : 'Spell_Simple_Shoot')
+                    : brute ? (this.attackTwoHand ? 'Sword_Attack' : 'Punch_Cross')
+                        : (this.attackSide > 0 ? 'Zombie_Scratch' : 'Punch_Jab');
             }
             this.lastSwing = swing;
             const p = swing > 0 ? 1 - swing : 1;
@@ -26654,6 +26798,56 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             this.apply();
             const combat = Math.max(s.flinch, s.stun, s.dance, s.dead, swing > 0 || st.firing ? 1 : 0);
             this._sampleLocomotion(0.78 * (1 - clamp(combat, 0, 1)) * (1 - s.run), s.a);
+            this._samplePresets(dt, st, swing, p, combat);
+        }
+
+        /** Authored combat/locomotion layers from the UAL preset library, over the procedural base. */
+        _samplePresets(dt, st, swing, p, combat) {
+            const C = this.clips;
+            if (!C) return;
+            const s = this.s;
+            // Death: latch which system owns the fall so it never switches halfway.
+            if (st.dead) {
+                if (this.deathByClip == null) this.deathByClip = !!C.Death01;
+                this.deadT += dt;
+                if (this.deathByClip) {
+                    this._sampleClip(C.Death01, this.deadT * DEATH_RATE, clamp(this.deadT * 7, 0, 1), true);
+                    return;
+                }
+            } else {
+                this.deadT = 0;
+                this.deathByClip = null;
+            }
+            // Run cycle: jog blending into sprint, phase-locked to the stride so feet stay planted.
+            const runW = 0.85 * s.run * (1 - clamp(combat, 0, 1)) * (1 - s.dead);
+            if (runW > 0.001) {
+                const sprint = clamp((s.run - 0.55) / 0.45, 0, 1);
+                const cyc = this.gait / (Math.PI * 2);
+                if (C.Jog_Fwd_Loop) this._sampleClip(C.Jog_Fwd_Loop, (cyc % 1) * C.Jog_Fwd_Loop.duration, runW * (1 - sprint), false);
+                if (C.Sprint_Loop) this._sampleClip(C.Sprint_Loop, (cyc % 1) * C.Sprint_Loop.duration, runW * sprint, false);
+            }
+            // Dance (Ray-gun "Dance" effects, emotes).
+            if (s.dance > 0.01 && C.Dance_Loop) this._sampleClip(C.Dance_Loop, this.t % C.Dance_Loop.duration, s.dance * 0.9, true);
+            // Attacks: the clip's strike frame lands on the gameplay hit beat.
+            if (swing > 0 && this.attackClip && C[this.attackClip]) {
+                const clip = C[this.attackClip], tm = ATTACK_CLIPS[this.attackClip];
+                const t = tm.strike + (p - STRIKE_P) * tm.span;
+                const w = ease(clamp(p / 0.12, 0, 1)) * (1 - ease(clamp((p - 0.8) / 0.2, 0, 1)));
+                this._sampleClip(clip, t, 0.88 * w * (1 - s.stun), false);
+            }
+            // Hit reactions: a fresh flinch restarts the zone's clip.
+            const fl = st.flinch || 0;
+            if (fl > this.lastFlinch + 0.3) {
+                this.hitClip = st.hitZone === 'head' ? C.Hit_Head : C.Hit_Chest;
+                this.hitT = 0;
+            }
+            this.lastFlinch = fl;
+            if (this.hitClip && this.hitT >= 0) {
+                this.hitT += dt;
+                const k = this.hitT / this.hitClip.duration;
+                if (k >= 1) this.hitT = -1;
+                else this._sampleClip(this.hitClip, this.hitT, 0.8 * Math.sqrt(1 - k), false);
+            }
         }
 
         setHeadScale(sc) { this.headScale = sc; if (this.b.head) this.b.head.scale.setScalar(sc); }
@@ -26863,12 +27057,14 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             else if (HumanoidDriver.detect(model)) this.driver = new HumanoidDriver(this, model, opts);
             else this.driver = new BobDriver(this);
             this.kind = this.driver.constructor.name;
-            this.handlesDeath = !!this.driver.handlesDeath;
             this.weapon = null;
             if (entity && BO.Hitboxes) BO.Hitboxes.fromModel(entity, model, opts.hitbox || {});
             if (parts) parts.glbRig = this;
             this._q = new THREE.Quaternion();
         }
+
+        /** Whether the driver plays the death itself (clip-driven); read live because presets stream in. */
+        get handlesDeath() { return !!this.driver.handlesDeath; }
 
         /** Per-frame drive. `dt` may be omitted; wall-clock delta is used then. */
         update(dt, st = {}) {
@@ -35998,8 +36194,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         rebuildViewmodel() {
+            // Release the outgoing viewmodel's GPU resources (the cached fist rig is kept).
+            const keep = this.fistRig ? [this.fistRig.root] : null;
             while (this.vmAnchor.children.length > 0) {
-                this.vmAnchor.remove(this.vmAnchor.children[0]);
+                const old = this.vmAnchor.children[0];
+                this.vmAnchor.remove(old);
+                BO.SceneCleanup?.disposeObject?.(old, { keep });
             }
             this.vmBuild = null;
             this.muzzleFlashMesh = null;
@@ -39919,6 +40119,14 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.parts.root.rotation.order = 'YXZ';
             BO.World.scene.add(this.parts.root);
             if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+            // Merge rigid parts sharing a joint and material (~40% fewer draw calls per zombie; a
+            // late round puts two dozen on screen). Joints keep animating the batches and the hidden
+            // detail keeps exact hit surfaces. GLB-bodied archetypes and the Open World (own LOD) opt out.
+            this.lod = null;
+            if (BO.MeshProxy && BO.State.activeMode !== 'owrpg' && !this.parts.glbPending && !this.parts.glbRig) {
+                this.lod = BO.MeshProxy.attachArticulated(this.parts.root);
+                BO.MeshProxy.set(this.lod, true);
+            }
         }
 
         /** Keeps a held gun pointing along the facing however the arm is posed. */
@@ -40654,6 +40862,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         destroy() {
             this.parts.glbPending = null;
             this.parts.glbRig?.dispose();
+            if (this.lod) { BO.MeshProxy.detach(this.lod); this.lod = null; }
             if (this._superBolts && BO.World.scene) {
                 for (const b of this._superBolts) {
                     if (b.mesh) BO.World.scene.remove(b.mesh);
@@ -40760,6 +40969,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             }
             BO.World.scene.add(this.parts.root);
             if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+            // An operator is ~136 meshes. Merge rigid parts that share a joint and a material
+            // (60% fewer draw calls and shadow casters); the joints still animate the merged
+            // batches and the hidden detail keeps the exact hit surfaces. The Open World AI
+            // manages its own distance LOD, so it opts out here.
+            this.lod = null;
+            if (BO.MeshProxy && BO.State.activeMode !== 'owrpg' && !this.parts.glbRig) {
+                this.lod = BO.MeshProxy.attachArticulated(this.parts.root);
+                BO.MeshProxy.set(this.lod, true);
+            }
         }
 
         _addSquadMark() {
@@ -40808,6 +41026,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 limb.part.rotation.z = limb.baseZ;
             }
             this.corpse = null;
+            if (this.lod) BO.MeshProxy.set(this.lod, true);
             this.parts.root.rotation.set(0, this.yaw, 0);
             this._syncSquadMark();
             this.parts.root.position.copy(this.pos);
@@ -40825,6 +41044,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.alive = false;
                 this.deaths++;
                 this.respawnTimer = this.respawnDelay;
+                // Ragdoll and weapon drop work on the individual parts.
+                if (this.lod) BO.MeshProxy.set(this.lod, false);
                 if (this.parts.glbRig) this.deathT = 0;
                 else if (BO.State.activeMode === 'mp' || BO.State.activeMode === 'owrpg') this._startCorpse(attacker, impulse ?? dmg);
                 else this.parts.root.visible = false;
@@ -41308,6 +41529,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         destroy() {
             this.parts.glbPending = null;
             this.parts.glbRig?.dispose();
+            if (this.lod) { BO.MeshProxy.detach(this.lod); this.lod = null; }
             this.squadMark?.material.dispose();
             this.squadMark?.geometry.dispose();
             if (this.parts && this.parts.root && BO.World.scene) {
@@ -41886,7 +42108,33 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this._recentZSpawns.set(`${Math.round(bestW.data.outside[0])}_${Math.round(bestW.data.outside[2])}_1`, now);
                 return { x: bestW.data.outside[0], y: bestW.data.outside[1] || bestW.data.y || 0, z: bestW.data.outside[2], winInter: bestW };
             }
-            return { x: BO.World.mapData.playerSpawn.x, y: BO.World.mapData.playerSpawn.y || 0, z: (BO.World.mapData.playerSpawn.z || 0) + 6, winInter: null };
+            // Window-incapable enemies (bosses, hounds, floaters, giants) with no ground spawner in an
+            // unlocked zone burst in through a barrier: they appear on its interior side, which is always
+            // inside the playable area (a blind offset from the spawn can land in a sealed wall cavity).
+            const breachWins = validWindows.length ? validWindows : allWindows;
+            if (breachWins.length > 0) {
+                let bestW = breachWins[0], bestScore = -Infinity;
+                for (let i = 0; i < breachWins.length; i++) {
+                    const w = breachWins[i];
+                    const sc = scorePoint(w.data.inside[0], w.data.inside[1] || 0, w.data.inside[2], false);
+                    if (sc > bestScore) { bestScore = sc; bestW = w; }
+                }
+                const ins = bestW.data.inside;
+                this._recentZSpawns.set(`${Math.round(ins[0])}_${Math.round(ins[2])}_0`, now);
+                return { x: ins[0], y: ins[1] || 0, z: ins[2], winInter: null };
+            }
+            // Maps without barriers: the nav waypoints of unlocked zones are walkable by construction.
+            const nodes = (map.waypoints || []).filter((n) => unlocked.has(n.zone));
+            if (nodes.length > 0) {
+                let best = nodes[0], bestScore = -Infinity;
+                for (const n of nodes) {
+                    const sc = scorePoint(n.x, n.y || 0, n.z, false);
+                    if (sc > bestScore) { bestScore = sc; best = n; }
+                }
+                return { x: best.x, y: best.y || 0, z: best.z, winInter: null };
+            }
+            const ps = map.playerSpawn || { x: 0, y: 0, z: 0 };
+            return { x: ps.x, y: ps.y || 0, z: ps.z || 0, winInter: null };
         }
 
         get perksAllowed() {
@@ -56881,6 +57129,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (BO.Events) {
                 BO.Events.on('profile:updated', () => this._syncMenuBadges());
                 BO.Events.on('save:updated', () => this._syncMenuBadges());
+                // A match started from anywhere (invite link, campaign, Continue) must never sit under a menu modal.
+                BO.Events.on('game:modeStart', () => {
+                    if (this.modalEl && !this.modalEl.classList.contains('hidden')) this.closeModal(true);
+                });
             }
             setTimeout(() => this.maybeShowOnboarding(), 500);
         },
@@ -57007,14 +57259,14 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             return box;
         },
 
-        closeModal() {
+        closeModal(silent) {
             if (this.modalEl) this.modalEl.classList.add('hidden');
             if (typeof this._onCloseHook === 'function') {
                 const fn = this._onCloseHook;
                 this._onCloseHook = null;
                 fn();
             }
-            BO.Sound?.playUIClick?.();
+            if (!silent) BO.Sound?.playUIClick?.();
         },
 
         /* --------------------------------------------- OPERATOR PROFILE */
@@ -57773,6 +58025,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
    - BO.log(scope, level, msg, err): structured ring-buffered logger
    - BO.emitGameEvent(type, payload): canonical gameplay event dispatcher
    - BO.SceneCleanup.disposeScene(scene, renderer): deterministic leak teardown
+   - BO.SceneCleanup.disposeObject(root, { keep, detach }): subtree teardown for rebuilt meshes
    - Wraps BO.Menus.renderLegend so unknown legendTab keys (e.g. 'bosses') fall back safely
    ============================================================================ */
 (function (global) {
@@ -57870,24 +58123,41 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
     }
 
+    /**
+     * Release the GPU resources of one subtree (geometry, materials, owned textures) while
+     * respecting every shared cache. Optionally detaches the root from its parent.
+     * Children listed in `keep` (and their subtrees) are skipped so cached rigs survive.
+     */
+    function disposeObject(root, opts) {
+        if (!root) return;
+        const keep = opts && opts.keep;
+        const stack = [root];
+        while (stack.length) {
+            const obj = stack.pop();
+            if (!obj || (keep && keep.indexOf(obj) !== -1)) continue;
+            const ch = obj.children;
+            for (let i = 0; i < ch.length; i++) stack.push(ch[i]);
+            if (isSharedAsset(obj)) continue;
+            if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
+                try { obj.dispose(); } catch (_) {}
+            }
+            if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
+                try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
+            }
+            const mat = obj.material;
+            if (Array.isArray(mat)) {
+                for (let i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
+            } else if (mat) {
+                disposeMaterial(mat);
+            }
+        }
+        if (opts && opts.detach && root.parent) root.parent.remove(root);
+    }
+
     function disposeScene(scene, renderer) {
         if (scene) {
             try {
-                scene.traverse((obj) => {
-                    if (!obj || isSharedAsset(obj)) return;
-                    if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
-                        try { obj.dispose(); } catch (_) {}
-                    }
-                    if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
-                        try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
-                    }
-                    const mat = obj.material;
-                    if (Array.isArray(mat)) {
-                        for (let i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
-                    } else if (mat) {
-                        disposeMaterial(mat);
-                    }
-                });
+                disposeObject(scene);
                 while (scene.children.length > 0) {
                     scene.remove(scene.children[0]);
                 }
@@ -57981,6 +58251,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     BO.emitGameEvent = emitGameEvent;
     BO.SceneCleanup = {
         disposeScene,
+        disposeObject,
         applySceneQualityBudgets,
         installLegendGuard
     };
@@ -59110,6 +59381,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             });
             this.renderer.autoClear = false;
             this.renderer.info.autoReset = false;
+            // Shader error checks call getProgramInfoLog after every link, which blocks on the
+            // driver and turns each first-seen material into a frame hitch. Keep them for ?debug.
+            this.renderer.debug.checkShaderErrors = /[?&]debug=/i.test(location.search);
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
@@ -59274,7 +59548,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         _rebuildShowcaseWeapon(weaponCfg) {
             if (!this.showcasePivot) return;
             while (this.showcasePivot.children.length > 0) {
-                this.showcasePivot.remove(this.showcasePivot.children[0]);
+                const old = this.showcasePivot.children[0];
+                this.showcasePivot.remove(old);
+                BO.SceneCleanup?.disposeObject?.(old);
             }
             const spec = BO.WeaponsData.get(weaponCfg.id);
             const built = BO.WeaponMesh.buildWeapon(weaponCfg.id, weaponCfg.attachments, weaponCfg.camo, false, false, !!spec.canDualWield);
@@ -59504,11 +59780,35 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             }
 
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
+            this._precompileScene();
             BO.ReactiveModifiers.reset();
             BO.HUD?.resetForMode?.(opts.mode);
             BO.Menus.showScreen('playing');
             BO.CampaignUI?.syncHudPill?.();
             this._safePointerLock();
+        }
+
+        /**
+         * Link every shader the freshly built world and viewmodel need while the match is still
+         * loading, into the same targets the frame renders to, so the first seconds of play do not
+         * hitch on first-seen materials. Late arrivals (streamed GLBs) still compile on first draw.
+         */
+        _precompileScene() {
+            const r = this.renderer;
+            if (!r || typeof r.compile !== 'function' || !BO.World?.scene) return;
+            const prevTarget = r.getRenderTarget();
+            try {
+                const post = BO.PostFX && BO.PostFX.begin(r);
+                r.compile(BO.World.scene, this.worldCamera);
+                if (BO.Player?.vmScene && BO.Player.vmCamera) {
+                    if (post && BO.PostFX.vmRT) r.setRenderTarget(BO.PostFX.vmRT);
+                    r.compile(BO.Player.vmScene, BO.Player.vmCamera);
+                }
+            } catch (err) {
+                BO.log?.('App', 'debug', 'Shader precompile skipped', err);
+            } finally {
+                r.setRenderTarget(prevTarget);
+            }
         }
 
         _clearInputState() {

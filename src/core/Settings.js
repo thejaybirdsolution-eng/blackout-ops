@@ -205,6 +205,8 @@
 
         _ensureDefaults() {
             const s = BO.Save.data.settings;
+            // get()/all run in per-frame paths: fill defaults once per settings object, not on every read.
+            if (this._defaultedSettings === s && this._defaultedData === BO.Save.data) return;
             if (!s.bloodLevel) s.bloodLevel = 'normal'; // 'off' | 'normal' | 'ultra'
             if (s.screenShake === undefined) s.screenShake = 1.0;
             if (s.exposure === undefined) s.exposure = 1.08;
@@ -259,6 +261,8 @@
             for (const c of Object.keys(CHEAT_DEFS)) {
                 if (BO.Save.data.cheats[c] === undefined) BO.Save.data.cheats[c] = false;
             }
+            this._defaultedSettings = s;
+            this._defaultedData = BO.Save.data;
         }
 
         get all() {
@@ -282,19 +286,25 @@
         applyAccessibility() {
             if (typeof document === 'undefined' || !document.body) return;
             const s = BO.Save?.data?.settings || {};
-            document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
-            if (s.colorBlindMode && s.colorBlindMode !== 'none') document.body.classList.add('cb-' + s.colorBlindMode);
-            const mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-            if (mq && !this._rmBound) {
-                this._rmBound = true;
+            if (!this._rmQuery && window.matchMedia) {
+                this._rmQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
                 const onChange = () => this.applyAccessibility();
-                if (mq.addEventListener) mq.addEventListener('change', onChange);
-                else if (mq.addListener) mq.addListener(onChange);
+                if (this._rmQuery.addEventListener) this._rmQuery.addEventListener('change', onChange);
+                else if (this._rmQuery.addListener) this._rmQuery.addListener(onChange);
             }
+            const mq = this._rmQuery;
+            const cb = s.colorBlindMode && s.colorBlindMode !== 'none' ? 'cb-' + s.colorBlindMode : '';
             const reduced = Boolean(s.reducedMotion) || Boolean(mq && mq.matches);
-            if (reduced) document.body.classList.add('sv-reduced-motion');
             // HUD and terminal scale (80–140%), read by css/gm.css and css/aaa-theme.css through --ui-scale.
             const scale = Math.max(0.8, Math.min(1.4, Number(s.uiScale) || 1));
+            // Only touch the DOM when something changed: a root style write forces a full style recalc.
+            const sig = cb + '|' + reduced + '|' + scale;
+            if (sig === this._a11ySig && document.body.classList.contains('bo-a11y')) return;
+            this._a11ySig = sig;
+            document.body.classList.add('bo-a11y');
+            document.body.classList.remove('cb-protanopia', 'cb-deuteranopia', 'cb-tritanopia', 'sv-reduced-motion');
+            if (cb) document.body.classList.add(cb);
+            if (reduced) document.body.classList.add('sv-reduced-motion');
             document.documentElement.style.setProperty('--ui-scale', String(scale));
         }
 

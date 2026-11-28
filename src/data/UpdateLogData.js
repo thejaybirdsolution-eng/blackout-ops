@@ -4188,6 +4188,64 @@
                                 ]
                         }
                 ]
+        },
+{
+                "id": 199,
+                "hash": "perf-anim-4",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "10:37 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Performance, Mocap Monster Animation & Zombie Spawn Fix",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "zombies",
+                        "mp",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A full-game audit pass: every mode and all 63 minigame courses were booted and played headless with no script errors, and the fixes below came out of it."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Performance:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Multiplayer bots now draw their rigid parts merged per joint and material: a Killhouse frame went from about 2,600 draw calls to about 770, with identical visuals and hitboxes.",
+                                        "Zombies get the same merge (about 40% fewer draw calls each), which matters most in late rounds.",
+                                        "Shaders for the map and your weapon are compiled while the match loads, so the first seconds of play no longer hitch on new materials.",
+                                        "Fixed a GPU memory leak: every weapon swap and every match left the old viewmodel and Gunsmith model in video memory.",
+                                        "Settings reads no longer rewrite the page's accessibility styles on every frame."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Animation:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Imp and Puglin monsters (Zombies fiends and brutes, Open World creatures) now use motion-captured clips from the Universal Animation Library: jog and sprint, claw scratches, jabs, crosses, overhead smashes, casts and throws, head and chest hit reactions, a dance and a real fall-down death.",
+                                        "Each strike clip is timed so the swing lands on the same beat as the hit, and the death no longer leaves Open World monsters standing limp before they sink."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Fixes:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Kino der Toten: from round 10, bosses, hellhounds and giant zombies could spawn in the gap behind the lobby wall and stay trapped, stalling the round. They now burst in through a barricade.",
+                                        "The first-launch welcome panel closes itself if a match starts from an invite link or the campaign."
+                                ]
+                        }
+                ]
         }
 ]
     };
