@@ -31,6 +31,10 @@
             if (BO.Events) {
                 BO.Events.on('profile:updated', () => this._syncMenuBadges());
                 BO.Events.on('save:updated', () => this._syncMenuBadges());
+                // A match started from anywhere (invite link, campaign, Continue) must never sit under a menu modal.
+                BO.Events.on('game:modeStart', () => {
+                    if (this.modalEl && !this.modalEl.classList.contains('hidden')) this.closeModal(true);
+                });
             }
             setTimeout(() => this.maybeShowOnboarding(), 500);
         },
@@ -157,14 +161,14 @@
             return box;
         },
 
-        closeModal() {
+        closeModal(silent) {
             if (this.modalEl) this.modalEl.classList.add('hidden');
             if (typeof this._onCloseHook === 'function') {
                 const fn = this._onCloseHook;
                 this._onCloseHook = null;
                 fn();
             }
-            BO.Sound?.playUIClick?.();
+            if (!silent) BO.Sound?.playUIClick?.();
         },
 
         /* --------------------------------------------- OPERATOR PROFILE */

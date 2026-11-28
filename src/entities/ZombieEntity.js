@@ -134,6 +134,14 @@
             this.parts.root.rotation.order = 'YXZ';
             BO.World.scene.add(this.parts.root);
             if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+            // Merge rigid parts sharing a joint and material (~40% fewer draw calls per zombie; a
+            // late round puts two dozen on screen). Joints keep animating the batches and the hidden
+            // detail keeps exact hit surfaces. GLB-bodied archetypes and the Open World (own LOD) opt out.
+            this.lod = null;
+            if (BO.MeshProxy && BO.State.activeMode !== 'owrpg' && !this.parts.glbPending && !this.parts.glbRig) {
+                this.lod = BO.MeshProxy.attachArticulated(this.parts.root);
+                BO.MeshProxy.set(this.lod, true);
+            }
         }
 
         /** Keeps a held gun pointing along the facing however the arm is posed. */
@@ -869,6 +877,7 @@
         destroy() {
             this.parts.glbPending = null;
             this.parts.glbRig?.dispose();
+            if (this.lod) { BO.MeshProxy.detach(this.lod); this.lod = null; }
             if (this._superBolts && BO.World.scene) {
                 for (const b of this._superBolts) {
                     if (b.mesh) BO.World.scene.remove(b.mesh);

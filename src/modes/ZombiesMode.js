@@ -563,7 +563,33 @@
                 this._recentZSpawns.set(`${Math.round(bestW.data.outside[0])}_${Math.round(bestW.data.outside[2])}_1`, now);
                 return { x: bestW.data.outside[0], y: bestW.data.outside[1] || bestW.data.y || 0, z: bestW.data.outside[2], winInter: bestW };
             }
-            return { x: BO.World.mapData.playerSpawn.x, y: BO.World.mapData.playerSpawn.y || 0, z: (BO.World.mapData.playerSpawn.z || 0) + 6, winInter: null };
+            // Window-incapable enemies (bosses, hounds, floaters, giants) with no ground spawner in an
+            // unlocked zone burst in through a barrier: they appear on its interior side, which is always
+            // inside the playable area (a blind offset from the spawn can land in a sealed wall cavity).
+            const breachWins = validWindows.length ? validWindows : allWindows;
+            if (breachWins.length > 0) {
+                let bestW = breachWins[0], bestScore = -Infinity;
+                for (let i = 0; i < breachWins.length; i++) {
+                    const w = breachWins[i];
+                    const sc = scorePoint(w.data.inside[0], w.data.inside[1] || 0, w.data.inside[2], false);
+                    if (sc > bestScore) { bestScore = sc; bestW = w; }
+                }
+                const ins = bestW.data.inside;
+                this._recentZSpawns.set(`${Math.round(ins[0])}_${Math.round(ins[2])}_0`, now);
+                return { x: ins[0], y: ins[1] || 0, z: ins[2], winInter: null };
+            }
+            // Maps without barriers: the nav waypoints of unlocked zones are walkable by construction.
+            const nodes = (map.waypoints || []).filter((n) => unlocked.has(n.zone));
+            if (nodes.length > 0) {
+                let best = nodes[0], bestScore = -Infinity;
+                for (const n of nodes) {
+                    const sc = scorePoint(n.x, n.y || 0, n.z, false);
+                    if (sc > bestScore) { bestScore = sc; best = n; }
+                }
+                return { x: best.x, y: best.y || 0, z: best.z, winInter: null };
+            }
+            const ps = map.playerSpawn || { x: 0, y: 0, z: 0 };
+            return { x: ps.x, y: ps.y || 0, z: ps.z || 0, winInter: null };
         }
 
         get perksAllowed() {

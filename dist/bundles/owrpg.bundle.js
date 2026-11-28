@@ -9537,7 +9537,7 @@
         if (kind === 'rock') { g = new THREE.DodecahedronGeometry(0.28, 0); g.scale(1.25, 0.62, 1); g.translate(0, 0.07, 0); }
         else if (kind === 'scrub') { g = new THREE.IcosahedronGeometry(0.32, 0); g.scale(1.2, 0.7, 1.2); g.translate(0, 0.16, 0); }
         else { g = new THREE.OctahedronGeometry(0.12, 0); g.scale(0.7, 2.8, 0.7); g.translate(0, 0.3, 0); }
-        g = g.toNonIndexed();
+        if (g.index) g = g.toNonIndexed();
         const n = g.attributes.position.count;
         g.setAttribute('aH', new THREE.Float32BufferAttribute(new Float32Array(n).fill(0), 1));
         g.setAttribute('aP', new THREE.Float32BufferAttribute(new Float32Array(n).fill(0), 1));

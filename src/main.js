@@ -36,6 +36,9 @@
             });
             this.renderer.autoClear = false;
             this.renderer.info.autoReset = false;
+            // Shader error checks call getProgramInfoLog after every link, which blocks on the
+            // driver and turns each first-seen material into a frame hitch. Keep them for ?debug.
+            this.renderer.debug.checkShaderErrors = /[?&]debug=/i.test(location.search);
             if (THREE.sRGBEncoding) this.renderer.outputEncoding = THREE.sRGBEncoding;
             this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
             this.renderer.toneMappingExposure = 1.08;
@@ -200,7 +203,9 @@
         _rebuildShowcaseWeapon(weaponCfg) {
             if (!this.showcasePivot) return;
             while (this.showcasePivot.children.length > 0) {
-                this.showcasePivot.remove(this.showcasePivot.children[0]);
+                const old = this.showcasePivot.children[0];
+                this.showcasePivot.remove(old);
+                BO.SceneCleanup?.disposeObject?.(old);
             }
             const spec = BO.WeaponsData.get(weaponCfg.id);
             const built = BO.WeaponMesh.buildWeapon(weaponCfg.id, weaponCfg.attachments, weaponCfg.camo, false, false, !!spec.canDualWield);
@@ -430,11 +435,35 @@
             }
 
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
+            this._precompileScene();
             BO.ReactiveModifiers.reset();
             BO.HUD?.resetForMode?.(opts.mode);
             BO.Menus.showScreen('playing');
             BO.CampaignUI?.syncHudPill?.();
             this._safePointerLock();
+        }
+
+        /**
+         * Link every shader the freshly built world and viewmodel need while the match is still
+         * loading, into the same targets the frame renders to, so the first seconds of play do not
+         * hitch on first-seen materials. Late arrivals (streamed GLBs) still compile on first draw.
+         */
+        _precompileScene() {
+            const r = this.renderer;
+            if (!r || typeof r.compile !== 'function' || !BO.World?.scene) return;
+            const prevTarget = r.getRenderTarget();
+            try {
+                const post = BO.PostFX && BO.PostFX.begin(r);
+                r.compile(BO.World.scene, this.worldCamera);
+                if (BO.Player?.vmScene && BO.Player.vmCamera) {
+                    if (post && BO.PostFX.vmRT) r.setRenderTarget(BO.PostFX.vmRT);
+                    r.compile(BO.Player.vmScene, BO.Player.vmCamera);
+                }
+            } catch (err) {
+                BO.log?.('App', 'debug', 'Shader precompile skipped', err);
+            } finally {
+                r.setRenderTarget(prevTarget);
+            }
         }
 
         _clearInputState() {

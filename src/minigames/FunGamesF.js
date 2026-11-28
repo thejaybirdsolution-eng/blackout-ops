@@ -1269,12 +1269,11 @@
                 else if (e.code === 'KeyR') {
                     D.heat = Math.max(0, D.heat - 45);
                     D.overheated = false;
-                    BO.FX.spawnParticles(P_pos_safe().add(V(0, 1.2, 0)), 14, 0xe2e8f0, 3, 2.5, 0.4, 0.7);
+                    BO.FX.spawnParticles(BO.Player.pos.clone().add(V(0, 1.2, 0)), 14, 0xe2e8f0, 3, 2.5, 0.4, 0.7);
                     tone(650, 220, 0.22, 'sawtooth', 0.09);
                     MG.toast('💨 PROTON PACK VENTED!', '#bae6fd');
                 }
             };
-            const P_pos_safe = () => BO.Player.pos.clone();
             window.addEventListener('keydown', D.onKey);
         },
         dispose(S) {

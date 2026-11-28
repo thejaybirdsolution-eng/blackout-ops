@@ -4,6 +4,7 @@
    - BO.log(scope, level, msg, err): structured ring-buffered logger
    - BO.emitGameEvent(type, payload): canonical gameplay event dispatcher
    - BO.SceneCleanup.disposeScene(scene, renderer): deterministic leak teardown
+   - BO.SceneCleanup.disposeObject(root, { keep, detach }): subtree teardown for rebuilt meshes
    - Wraps BO.Menus.renderLegend so unknown legendTab keys (e.g. 'bosses') fall back safely
    ============================================================================ */
 (function (global) {
@@ -101,24 +102,41 @@
         }
     }
 
+    /**
+     * Release the GPU resources of one subtree (geometry, materials, owned textures) while
+     * respecting every shared cache. Optionally detaches the root from its parent.
+     * Children listed in `keep` (and their subtrees) are skipped so cached rigs survive.
+     */
+    function disposeObject(root, opts) {
+        if (!root) return;
+        const keep = opts && opts.keep;
+        const stack = [root];
+        while (stack.length) {
+            const obj = stack.pop();
+            if (!obj || (keep && keep.indexOf(obj) !== -1)) continue;
+            const ch = obj.children;
+            for (let i = 0; i < ch.length; i++) stack.push(ch[i]);
+            if (isSharedAsset(obj)) continue;
+            if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
+                try { obj.dispose(); } catch (_) {}
+            }
+            if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
+                try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
+            }
+            const mat = obj.material;
+            if (Array.isArray(mat)) {
+                for (let i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
+            } else if (mat) {
+                disposeMaterial(mat);
+            }
+        }
+        if (opts && opts.detach && root.parent) root.parent.remove(root);
+    }
+
     function disposeScene(scene, renderer) {
         if (scene) {
             try {
-                scene.traverse((obj) => {
-                    if (!obj || isSharedAsset(obj)) return;
-                    if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
-                        try { obj.dispose(); } catch (_) {}
-                    }
-                    if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
-                        try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
-                    }
-                    const mat = obj.material;
-                    if (Array.isArray(mat)) {
-                        for (let i = 0; i < mat.length; i++) disposeMaterial(mat[i]);
-                    } else if (mat) {
-                        disposeMaterial(mat);
-                    }
-                });
+                disposeObject(scene);
                 while (scene.children.length > 0) {
                     scene.remove(scene.children[0]);
                 }
@@ -212,6 +230,7 @@
     BO.emitGameEvent = emitGameEvent;
     BO.SceneCleanup = {
         disposeScene,
+        disposeObject,
         applySceneQualityBudgets,
         installLegendGuard
     };

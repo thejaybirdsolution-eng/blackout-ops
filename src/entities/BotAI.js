@@ -87,6 +87,15 @@
             }
             BO.World.scene.add(this.parts.root);
             if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+            // An operator is ~136 meshes. Merge rigid parts that share a joint and a material
+            // (60% fewer draw calls and shadow casters); the joints still animate the merged
+            // batches and the hidden detail keeps the exact hit surfaces. The Open World AI
+            // manages its own distance LOD, so it opts out here.
+            this.lod = null;
+            if (BO.MeshProxy && BO.State.activeMode !== 'owrpg' && !this.parts.glbRig) {
+                this.lod = BO.MeshProxy.attachArticulated(this.parts.root);
+                BO.MeshProxy.set(this.lod, true);
+            }
         }
 
         _addSquadMark() {
@@ -135,6 +144,7 @@
                 limb.part.rotation.z = limb.baseZ;
             }
             this.corpse = null;
+            if (this.lod) BO.MeshProxy.set(this.lod, true);
             this.parts.root.rotation.set(0, this.yaw, 0);
             this._syncSquadMark();
             this.parts.root.position.copy(this.pos);
@@ -152,6 +162,8 @@
                 this.alive = false;
                 this.deaths++;
                 this.respawnTimer = this.respawnDelay;
+                // Ragdoll and weapon drop work on the individual parts.
+                if (this.lod) BO.MeshProxy.set(this.lod, false);
                 if (this.parts.glbRig) this.deathT = 0;
                 else if (BO.State.activeMode === 'mp' || BO.State.activeMode === 'owrpg') this._startCorpse(attacker, impulse ?? dmg);
                 else this.parts.root.visible = false;
@@ -635,6 +647,7 @@
         destroy() {
             this.parts.glbPending = null;
             this.parts.glbRig?.dispose();
+            if (this.lod) { BO.MeshProxy.detach(this.lod); this.lod = null; }
             this.squadMark?.material.dispose();
             this.squadMark?.geometry.dispose();
             if (this.parts && this.parts.root && BO.World.scene) {

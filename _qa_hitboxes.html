@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" href="data:,">
 <meta charset="UTF-8">
 <title>Blackout Ops — Enemy Hitbox &amp; Animation QA</title>
 <style>
@@ -92,7 +93,8 @@
     function visibleBody(ent) {
       const root = ent.parts.root, out = [];
       const walk = (o, chainVisible) => {
-        const vis = chainVisible && o.visible;
+        // LOD-hidden detail is drawn by its merged MeshProxy batch: it is the visible body.
+        const vis = chainVisible && (o.visible || o.userData.lodDetail);
         if (!vis) return;
         if (o.userData.isWeapon || o === ent.parts.haloGroup || o.name === 'bo-contact-shadow' || o.name === 'MeshProxy' || o.isSprite || o.isLine || o.isPoints) return;
         if (o.isMesh && !o.userData.hitProxy && !isEffect(o.material) && (!o.userData.noHit || o.isSkinnedMesh || o.userData.glbPart) && !(o.userData.keepVisible && o.userData.noHit)) out.push(o);
@@ -286,6 +288,12 @@
       await wait(0);
       check('Both authored monster locomotion presets bind to the live skeleton',
         d.presets?.length === 2 && d.presets.every((c) => c.tracks.length >= 16 && c.duration > 0));
+      await BO.Assets.loadGLB('monsters/humanoid-presets.glb');
+      await wait(0);
+      const libNames = ['Jog_Fwd_Loop', 'Sprint_Loop', 'Death01', 'Hit_Chest', 'Hit_Head', 'Zombie_Scratch', 'Punch_Jab', 'Punch_Cross', 'Sword_Attack', 'Spell_Simple_Shoot', 'OverhandThrow', 'Dance_Loop'];
+      check('UAL preset library (run, melee, cast, hit, death, dance) binds to the live skeleton',
+        !!d.clips && libNames.every((n) => d.clips[n] && d.clips[n].tracks.length >= 16 && d.clips[n].duration > 0) && !!d.clips.Death01.pos,
+        d.clips ? Object.keys(d.clips).length + ' clips' : 'not loaded');
       const before = d.b.uaR.quaternion.clone();
       let thSwing = 0;
       for (let f = 0; f < 60; f++) { BO.CharacterMesh.animateLimbs(rz.parts, 2.5, f * 0.1, 0, 0, 'torso', 1 / 60); thSwing = Math.max(thSwing, d.D.get(d.b.thL).angleTo(new THREE.Quaternion())); }
@@ -301,6 +309,14 @@
       let follows = false;
       if (proxy) { rz.parts.root.updateMatrixWorld(true); const c = proxy.geometry.boundingSphere.center.clone().applyMatrix4(proxy.matrixWorld); follows = c.distanceTo(hand) < 0.35 * (rz.parts.root.scale.y || 1); }
       check('Zombies: monster hit surfaces deform with the animated skin', follows);
+      // Authored death: the clip drops the pelvis to the floor and owns the fall (no rigid topple).
+      const dz = rigged[rigged.length - 1], dd = dz.parts.glbRig.driver;
+      dz.parts.root.updateMatrixWorld(true);
+      const standY = dd.b.pelvis.getWorldPosition(new THREE.Vector3()).y - dz.parts.root.position.y;
+      for (let f = 0; f < 100; f++) dz.parts.glbRig.update(1 / 60, { speed: 0, dead: true });
+      dz.parts.root.updateMatrixWorld(true);
+      const deadY = dd.b.pelvis.getWorldPosition(new THREE.Vector3()).y - dz.parts.root.position.y;
+      check('Zombies: rigged monster death clip lays the body on the ground', dz.parts.glbRig.handlesDeath && deadY < standY * 0.45, `pelvis ${standY.toFixed(2)} → ${deadY.toFixed(2)}`);
     }
     // Death falls backward relative to facing, whatever the facing.
     const victim = zs.find((z) => !z.parts.glbRig && !z.parts.isQuadruped);

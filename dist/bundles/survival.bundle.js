@@ -21097,9 +21097,7 @@
         hudChips() {
             const f = this.here();
             return FRONTS[f]?.severe ? [{ text: f, cls: 'warn' }] : [];
-        },
-
-        FRONTS
+        }
     };
 
     GM.register('weather', Weather);
