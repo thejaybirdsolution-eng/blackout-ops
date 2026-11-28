@@ -16362,6 +16362,131 @@
                                 ]
                         }
                 ]
+        },
+        {
+                "id": 195,
+                "hash": "ow3-cover",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "07:10 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World: Living Ground Cover Across All 12 Regions",
+                "major": true,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The Open World's terrain was bare between trees and props. Every region now has its own ground layer that streams in around you as you travel:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Haven Basin: lush grass with yellow, white, violet and pink wildflowers.",
+                                        "Whispering Woods: deep green grass with dense fern beds.",
+                                        "Barrow Moor: muted moor grass and low purple heather.",
+                                        "Mire Delta and Sunken Coast: tall reed beds along the waterline, plus pale dune grass on the coast.",
+                                        "Sunscorched Badlands and Rust Sprawl: dry, sparse grass with scrub bushes and scattered stones.",
+                                        "Ash Quarry: grey rubble and stone fields with very little growth.",
+                                        "Alpine Array: meadow grass with white, blue and pale-yellow alpine flowers.",
+                                        "Frostfang Peaks: frosted grass, snowy rocks and ice crystals.",
+                                        "Meridian Core: violet growth with glowing purple and blue crystal shards.",
+                                        "Obsidian Dragonwilds: charred grass, black rock and glowing ember crystals.",
+                                        "Borders blend: plants are re-sampled across region edges, so biomes fade into each other instead of switching at a line."
+                                ]
+                        }
+                ]
+        },
+{
+                "id": 196,
+                "hash": "ow3-sway",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "07:20 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World: Wind, Walk-Through Plants and Clean Placement",
+                "major": false,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "How the new ground cover behaves and where it is allowed to grow:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Plants sway in a two-speed wind and sway harder in storms, rain, snow and ash weather.",
+                                        "Grass, flowers, ferns and reeds bend and part around you as you walk through them.",
+                                        "Plants shrink smoothly at the edge of the view radius instead of popping in, and blades darken toward the root so tufts read with depth.",
+                                        "Ground cover stays off roads, rails, deep water, steep slopes, building footprints, walls and props, and settlement grounds. Reeds grow only at the waterline.",
+                                        "Tufts tilt with the hillside instead of standing straight up on slopes.",
+                                        "Hidden automatically inside dungeon interiors."
+                                ]
+                        }
+                ]
+        },
+{
+                "id": 197,
+                "hash": "ow3-perf",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "07:30 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World: Ground Cover Performance & Quality Presets",
+                "major": false,
+                "tags": [
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The ground layer is built to stay cheap:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "The whole layer draws in seven or fewer draw calls (one instanced batch per plant type), and buffers are rebuilt only when the set of nearby chunks changes.",
+                                        "16 m chunks are generated nearest-first inside a 2.5 ms per-frame budget, so fast travel and sprinting never hitch.",
+                                        "Radius and density follow the graphics preset: Medium 40 m, High 60 m, Ultra 84 m with extra density. Low turns it off.",
+                                        "Placement is deterministic: the same spot always grows the same plants.",
+                                        "Plants receive sun shadows but cast none, keeping the shadow pass unchanged."
+                                ]
+                        }
+                ]
+        },
+{
+                "id": 198,
+                "hash": "ow3-trees",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "07:40 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World: Weathered Dead Trees Per Region",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The dead trees outside the forests used a bright orange wood that looked like clay blobs from a distance. Their wood is now desaturated and weathered to suit each region:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Grey-violet on Barrow Moor, mossy olive in Mire Delta and ash grey in Ash Quarry.",
+                                        "Rust brown in Rust Sprawl, sun-bleached pale in the Badlands and driftwood grey on the Sunken Coast.",
+                                        "Dusky violet in the Meridian Core and charred black in the Obsidian Dragonwilds.",
+                                        "Each tree varies slightly in tone, so groves don't look copy-pasted."
+                                ]
+                        }
+                ]
         }
 ]
     };

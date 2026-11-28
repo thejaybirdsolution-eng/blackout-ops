@@ -6,6 +6,12 @@
 - **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-023`).
 - **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
 
+## Open World Ground Cover (Nov 28, 2026)
+- `src/owrpg/OWRPGGroundCover.js` (`BO.OWRPGGroundCover`) is a registered Open World system: biome grass, wildflowers, ferns, reeds, heather, scrub, rocks and glowing crystals or embers, streamed in 16 m chunks within the preset radius. `stats` reports chunks, instances and draw calls. Palettes are in `BIOMES`, keyed by region id.
+- Placement filters: `isInterior`, water, `roadInfo`, `railDist`, a collider spatial hash (`_blocked`) and settlement POI radii. The layer is hidden inside dungeon interiors.
+- Dead trees in `OWRPGWorldArt.js` use a cloned, desaturating material plus per-tree instance tint (`DEAD_TINT`).
+- Headless shots: `tools/js/ow_cover.js` (outside the repo) tours regions and prints cover stats.
+
 ## Enemy Rigs, Hitboxes & Graphics Pass (Nov 28, 2026)
 - `src/graphics/Hitboxes.js` — hit surfaces = visible body (ADR-024). Entities call `BO.Hitboxes.prepare(ent, parts)` once and `collect(ent, out)` per frame; GLB bodies call `fromModel`. Skinned hit groups are re-skinned by `Hitboxes.refresh(ent)`, which `CombatSystem._castTargets` calls for enemies a ray reaches; any other raycaster against skinned enemies should call it first. Mark anything that must never take hits with `userData.noHit` (or `isWeapon` on a weapon root).
 - `src/graphics/EnemyRig.js` — GLB animation drivers (ADR-025). Zombie archetype overlays mount through `EnemyRig.mountZombieOverlay`; Open World GLB enemies through `EnemyRig.mount`. `rig.attachWeapon(id)` puts a gun in a GLB hand.
