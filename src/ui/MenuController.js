@@ -798,7 +798,8 @@
             if (name === 'main_menu') {
                 BO.Sound.startMusic('menu');
                 const cls = BO.Loadout.getActiveClass();
-                document.getElementById('menu-showcase-name').textContent = `${cls.name} — ${BO.WeaponsData.get(cls.primary.id).name}`;
+                const scName = document.getElementById('menu-showcase-name');
+                if (scName) scName.textContent = `${cls.name} — ${BO.WeaponsData.get(cls.primary.id).name}`;
                 if (BO.GunsmithUI.onRebuildShowcase) BO.GunsmithUI.onRebuildShowcase(cls.primary);
             } else if (name === 'play_lobby') {
                 this.renderLobby();

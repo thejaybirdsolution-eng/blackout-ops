@@ -526,13 +526,16 @@
             host.appendChild(list);
             for (const att of (BO.AttachmentsData.ATTACHMENTS[cat] || [])) {
                 if (att.mods?.weaponCategory && att.mods.weaponCategory !== baseSpec.category) continue;
-                const unlocked = BO.Progression.isAttachmentUnlocked(cfg.id, att.unlockWeaponLevel);
+                const lv = att.unlockWeaponLevel || 1;
+                const unlocked = BO.Progression.isAttachmentUnlocked(cfg.id, lv);
+                const lvCol = lv >= 20 ? '#f5a623' : (lv >= 12 ? '#38bdf8' : '#94a3b8');
                 list.appendChild(this._optionCard({
                     name: att.name,
                     desc: att.desc,
+                    badge: lv > 1 ? `<span class="opt-tier" style="--tier-col:${lvCol};">LV ${lv}</span>` : '',
                     active: curAttId === att.id,
                     locked: !unlocked,
-                    lockText: `Unlocks at weapon level ${att.unlockWeaponLevel}`,
+                    lockText: `Unlocks at weapon level ${lv}`,
                     onEnter: () => {
                         if (!unlocked) return;
                         const preview = BO.Math.deepClone(cfg);

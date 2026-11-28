@@ -5885,6 +5885,10 @@
     };
     for (const [slot, entries] of Object.entries(classicAttachments)) {
         for (const [id, name, desc, mods] of entries) ATTACHMENTS[slot].push({ id, name, desc, mods, unlockWeaponLevel: 4 });
+        // Keep factory default at index 0, then sort ascending by unlock level so master-tier attachments sit at the bottom.
+        const [factoryDefault, ...rest] = ATTACHMENTS[slot];
+        rest.sort((a, b) => (a.unlockWeaponLevel || 1) - (b.unlockWeaponLevel || 1));
+        ATTACHMENTS[slot] = factoryDefault ? [factoryDefault, ...rest] : rest;
     }
 
     const classicPerks = [
@@ -21633,8 +21637,8 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             } else {
                 support(rearZ, 0.026, 0.047);
             }
-            const sightY = this._attachOptic(gun, ms, attachments, darkMat, steelMat, railY, rearZ, frontZ);
-            return { sightY, sightZ: rearZ, sightEyeRelief: ms.isPistol ? 0.23 : 0.18 };
+            const { sightY, sightEyeRelief } = this._attachOptic(gun, ms, attachments, darkMat, steelMat, railY, rearZ, frontZ);
+            return { sightY, sightZ: rearZ, sightEyeRelief: sightEyeRelief ?? (ms.isPistol ? 0.23 : 0.18) };
         }
 
         buildWeapon(weaponId, attachments = {}, camoId = 'default', isPaP = false, withArms = false, isDualWield = false) {
@@ -22253,123 +22257,236 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         _attachOptic(gun, ms, attachments, darkMat, steelMat, topY, rearZ, frontZ) {
             const optic = attachments.optic || (ms.defaultScope ? 'sniper_scope' : 'iron');
             let sightY = topY + 0.022;
-            const reticleMat = new THREE.MeshBasicMaterial({ color: 0xff3030, toneMapped: false, side: THREE.DoubleSide });
-            const glassMat = (hex, op) => new THREE.MeshStandardMaterial({
-                color: hex, roughness: 0.06, metalness: 0.28, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide
+            let sightEyeRelief = ms.isPistol ? 0.23 : 0.18;
+            const retMat = (hex = 0xff3030) => new THREE.MeshBasicMaterial({ color: hex, toneMapped: false, side: THREE.DoubleSide });
+            const glassMat = (hex, op = 0.045) => new THREE.MeshBasicMaterial({
+                color: hex, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide
             });
+            const makeDot = (y, z, r, hex) => {
+                const m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), retMat(hex));
+                m.position.set(0, y, z);
+                m.userData.aimMarker = true;
+                return m;
+            };
+            const addTick = (w, h, x, y, z, mat) => {
+                const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+                m.position.set(x, y, z);
+                gun.add(m);
+                return m;
+            };
+            const addRectFrame = (cx, cy, cz, winW, winH, depth, wall, mat) => {
+                const topBar = new THREE.Mesh(new THREE.BoxGeometry(winW + wall * 2, wall, depth), mat);
+                topBar.position.set(cx, cy + winH * 0.5 + wall * 0.5, cz);
+                const sideL = new THREE.Mesh(new THREE.BoxGeometry(wall, winH, depth), mat);
+                sideL.position.set(cx - winW * 0.5 - wall * 0.5, cy, cz);
+                const sideR = sideL.clone();
+                sideR.position.x = cx + winW * 0.5 + wall * 0.5;
+                gun.add(topBar, sideL, sideR);
+            };
 
             if (optic === 'iron') {
-                const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.008, 0.018), darkMat);
-                rearBase.position.set(0, topY + 0.007, rearZ);
-                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.0055, 0.019, 0.014), darkMat);
-                rearL.position.set(-0.009, topY + 0.017, rearZ);
+                const rearBase = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.007, 0.016), darkMat);
+                rearBase.position.set(0, topY + 0.006, rearZ);
+                const rearL = new THREE.Mesh(new THREE.BoxGeometry(0.0038, 0.018, 0.012), darkMat);
+                rearL.position.set(-0.0105, topY + 0.016, rearZ);
                 const rearR = rearL.clone();
-                rearR.position.x = 0.009;
-                const tritiumMat = new THREE.MeshBasicMaterial({ color: 0x9aefad, toneMapped: false });
-                const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0014, 8, 8), tritiumMat);
-                rearDotL.position.set(-0.009, topY + 0.022, rearZ + 0.0075);
+                rearR.position.x = 0.0105;
+                const tritMat = retMat(0x9aefad);
+                const rearDotL = new THREE.Mesh(new THREE.SphereGeometry(0.0010, 8, 8), tritMat);
+                rearDotL.position.set(-0.0105, topY + 0.021, rearZ + 0.0065);
                 const rearDotR = rearDotL.clone();
-                rearDotR.position.x = 0.009;
+                rearDotR.position.x = 0.0105;
 
                 sightY = topY + 0.023;
-                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.0045, 0.018, 0.010), darkMat);
+                const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.0026, 0.017, 0.008), darkMat);
                 frontPost.position.set(0, topY + 0.010, frontZ);
                 if (!ms.isPistol) {
-                    const hood = new THREE.Mesh(new THREE.TorusGeometry(0.012, 0.0022, 6, 14, Math.PI * 1.08), darkMat);
-                    hood.rotation.z = Math.PI * 0.95;
-                    hood.position.set(0, sightY, frontZ);
-                    gun.add(hood);
+                    const wingL = new THREE.Mesh(new THREE.BoxGeometry(0.0022, 0.018, 0.009), darkMat);
+                    wingL.position.set(-0.010, topY + 0.014, frontZ);
+                    wingL.rotation.z = -0.14;
+                    const wingR = wingL.clone();
+                    wingR.position.x = 0.010;
+                    wingR.rotation.z = 0.14;
+                    gun.add(wingL, wingR);
                 }
-                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.0020, 8, 8), tritiumMat);
-                bead.position.set(0, sightY, frontZ + 0.004);
-                bead.userData.aimMarker = true;
+                const bead = makeDot(sightY, frontZ + 0.004, 0.0011, 0x9aefad);
                 gun.add(rearBase, rearL, rearR, rearDotL, rearDotR, frontPost, bead);
             } else if (optic === 'reflex') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(0.030, 0.011, 0.056), darkMat);
-                base.position.set(0, topY + 0.010, -0.02);
-                const lockNut = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.008, 10), steelMat);
+                sightEyeRelief = ms.isPistol ? 0.19 : 0.125;
+                sightY = topY + 0.027;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.009, 0.052), darkMat);
+                base.position.set(0, topY + 0.008, -0.02);
+                const lockNut = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.007, 10), steelMat);
                 lockNut.rotation.z = Math.PI * 0.5;
-                lockNut.position.set(-0.018, topY + 0.010, -0.02);
-                const shroudGeo = new THREE.TorusGeometry(0.014, 0.0032, 8, 18, Math.PI * 1.15);
-                const shroud = new THREE.Mesh(shroudGeo, darkMat);
-                shroud.rotation.z = -Math.PI * 0.075;
-                shroud.position.set(0, topY + 0.025, -0.02);
-                const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0125, 18), glassMat(0x38bdf8, 0.22));
-                lens.position.set(0, topY + 0.026, -0.02);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0019, 8, 8), reticleMat);
-                dot.position.set(0, topY + 0.026, -0.02);
-                dot.userData.aimMarker = true;
+                lockNut.position.set(-0.016, topY + 0.008, -0.02);
+                const shroud = new THREE.Mesh(new THREE.TorusGeometry(0.0165, 0.0016, 8, 24, Math.PI * 1.18), darkMat);
+                shroud.rotation.z = -Math.PI * 0.09;
+                shroud.position.set(0, sightY, -0.02);
+                const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0155, 22), glassMat(0x38bdf8, 0.045));
+                lens.position.set(0, sightY, -0.02);
+                const dot = makeDot(sightY, -0.0195, 0.00085, 0xff3030);
                 gun.add(base, lockNut, shroud, lens, dot);
+            } else if (optic === 'aperture') {
+                sightEyeRelief = ms.isPistol ? 0.19 : 0.125;
                 sightY = topY + 0.026;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.026, 0.010, 0.036), darkMat);
+                base.position.set(0, topY + 0.008, -0.02);
+                const ring = new THREE.Mesh(new THREE.TorusGeometry(0.015, 0.0015, 8, 24), darkMat);
+                ring.position.set(0, sightY, -0.02);
+                const earL = new THREE.Mesh(new THREE.BoxGeometry(0.0025, 0.018, 0.016), steelMat);
+                earL.position.set(-0.017, sightY - 0.004, -0.02);
+                const earR = earL.clone();
+                earR.position.x = 0.017;
+                const tickMat = retMat(0xfbbf24);
+                addTick(0.0042, 0.0006, -0.0085, sightY, -0.019, tickMat);
+                addTick(0.0042, 0.0006, 0.0085, sightY, -0.019, tickMat);
+                const dot = makeDot(sightY, -0.019, 0.0008, 0xfbbf24);
+                gun.add(base, ring, earL, earR, dot);
             } else if (optic === 'holo') {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.013, 0.072), darkMat);
-                base.position.set(0, topY + 0.0105, -0.02);
-                const qdLever = new THREE.Mesh(new THREE.CapsuleGeometry(0.0035, 0.016, 4, 8), steelMat);
+                sightEyeRelief = ms.isPistol ? 0.19 : 0.125;
+                sightY = topY + 0.029;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.010, 0.068), darkMat);
+                base.position.set(0, topY + 0.0085, -0.02);
+                const qdLever = new THREE.Mesh(new THREE.CapsuleGeometry(0.0030, 0.015, 4, 8), steelMat);
                 qdLever.rotation.x = Math.PI * 0.5;
-                qdLever.position.set(-0.021, topY + 0.0105, -0.015);
-                const hood = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.0055, 0.046), darkMat);
-                hood.position.set(0, topY + 0.048, -0.02);
-                const sideL = new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.036, 0.044), darkMat);
-                sideL.position.set(-0.017, topY + 0.031, -0.02);
-                const sideR = sideL.clone(); sideR.position.x = 0.017;
-                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.028, 0.028), glassMat(0x22d3ee, 0.16));
-                lens.position.set(0, topY + 0.031, -0.02);
-                const ring = new THREE.Mesh(new THREE.RingGeometry(0.0054, 0.0068, 22), reticleMat);
-                ring.position.set(0, topY + 0.031, -0.019);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0016, 8, 8), reticleMat);
-                dot.position.set(0, topY + 0.031, -0.019);
-                dot.userData.aimMarker = true;
-                gun.add(base, qdLever, hood, sideL, sideR, lens, ring, dot);
+                qdLever.position.set(-0.020, topY + 0.0085, -0.015);
+                addRectFrame(0, sightY, -0.02, 0.033, 0.025, 0.044, 0.0024, darkMat);
+                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.032, 0.024), glassMat(0x22d3ee, 0.05));
+                lens.position.set(0, sightY, -0.02);
+                const redMat = retMat(0xff3030);
+                const ring = new THREE.Mesh(new THREE.RingGeometry(0.0052, 0.0060, 24), redMat);
+                ring.position.set(0, sightY, -0.019);
+                addTick(0.0006, 0.0028, 0, sightY + 0.0074, -0.019, redMat);
+                addTick(0.0006, 0.0028, 0, sightY - 0.0074, -0.019, redMat);
+                addTick(0.0028, 0.0006, -0.0074, sightY, -0.019, redMat);
+                addTick(0.0028, 0.0006, 0.0074, sightY, -0.019, redMat);
+                const dot = makeDot(sightY, -0.019, 0.00075, 0xff3030);
+                gun.add(base, qdLever, lens, ring, dot);
+            } else if (optic === 'acog') {
+                sightEyeRelief = 0.105;
                 sightY = topY + 0.031;
+                const rad = 0.0195;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.010, 0.068), darkMat);
+                base.position.set(0, topY + 0.0085, -0.02);
+                const bodyTube = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad * 0.96, 0.034, 24, 1, true), darkMat);
+                bodyTube.rotation.x = Math.PI * 0.5;
+                bodyTube.position.set(0, sightY, -0.02);
+                const frontRim = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.0020, 8, 24), steelMat);
+                frontRim.position.set(0, sightY, -0.037);
+                const rearRim = frontRim.clone();
+                rearRim.position.z = -0.003;
+                const fiber = new THREE.Mesh(new THREE.CylinderGeometry(0.0026, 0.0026, 0.032, 10), retMat(0xef4444));
+                fiber.rotation.x = Math.PI * 0.5;
+                fiber.position.set(0, sightY + rad + 0.0032, -0.02);
+                const lens = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.96, 24), glassMat(0x38bdf8, 0.045));
+                lens.position.set(0, sightY, -0.02);
+                const chevMat = retMat(0xff3b30);
+                const chevL = new THREE.Mesh(new THREE.PlaneGeometry(0.0046, 0.0007), chevMat);
+                chevL.position.set(-0.0016, sightY - 0.0014, -0.019);
+                chevL.rotation.z = 0.72;
+                const chevR = chevL.clone();
+                chevR.position.x = 0.0016;
+                chevR.rotation.z = -0.72;
+                addTick(0.0006, 0.0065, 0, sightY - 0.0056, -0.019, chevMat);
+                addTick(0.0036, 0.0005, 0, sightY - 0.0045, -0.019, chevMat);
+                addTick(0.0024, 0.0005, 0, sightY - 0.0072, -0.019, chevMat);
+                const dot = makeDot(sightY, -0.019, 0.00075, 0xff3b30);
+                gun.add(base, bodyTube, frontRim, rearRim, fiber, lens, chevL, chevR, dot);
+            } else if (optic === 'thermal_holo') {
+                sightEyeRelief = 0.12;
+                sightY = topY + 0.030;
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.036, 0.010, 0.070), darkMat);
+                base.position.set(0, topY + 0.0085, -0.02);
+                const sideMod = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.016, 0.042), steelMat);
+                sideMod.position.set(0.024, sightY - 0.004, -0.02);
+                addRectFrame(0, sightY, -0.02, 0.036, 0.026, 0.040, 0.0022, darkMat);
+                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.025), glassMat(0x06b6d4, 0.06));
+                lens.position.set(0, sightY, -0.02);
+                const hudMat = retMat(0x22d3ee);
+                for (const sx of [-1, 1]) {
+                    for (const sy of [-1, 1]) {
+                        addTick(0.0035, 0.00055, sx * 0.0075, sightY + sy * 0.0068, -0.019, hudMat);
+                        addTick(0.00055, 0.0035, sx * 0.0090, sightY + sy * 0.0053, -0.019, hudMat);
+                    }
+                }
+                addTick(0.0048, 0.0005, -0.0062, sightY, -0.019, hudMat);
+                addTick(0.0048, 0.0005, 0.0062, sightY, -0.019, hudMat);
+                const dot = makeDot(sightY, -0.019, 0.0008, 0xfbbf24);
+                gun.add(base, sideMod, lens, dot);
+            } else if (optic === 'apex_hybrid') {
+                sightEyeRelief = 0.11;
+                sightY = topY + 0.030;
+                const goldMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.28, metalness: 0.86 });
+                const base = new THREE.Mesh(new THREE.BoxGeometry(0.034, 0.010, 0.072), darkMat);
+                base.position.set(0, topY + 0.0085, -0.02);
+                addRectFrame(0, sightY, -0.02, 0.036, 0.028, 0.038, 0.0020, steelMat);
+                const trim = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.0018, 0.040), goldMat);
+                trim.position.set(0, sightY + 0.0165, -0.02);
+                const lens = new THREE.Mesh(new THREE.PlaneGeometry(0.035, 0.027), glassMat(0x10b981, 0.04));
+                lens.position.set(0, sightY, -0.02);
+                const emMat = retMat(0x34d399);
+                addTick(0.0065, 0.00055, -0.0068, sightY, -0.019, emMat);
+                addTick(0.0065, 0.00055, 0.0068, sightY, -0.019, emMat);
+                addTick(0.00055, 0.0052, 0, sightY + 0.0060, -0.019, emMat);
+                addTick(0.00055, 0.0075, 0, sightY - 0.0072, -0.019, emMat);
+                addTick(0.0032, 0.0005, 0, sightY - 0.0065, -0.019, emMat);
+                const dot = makeDot(sightY, -0.019, 0.00075, 0xfde047);
+                gun.add(base, trim, lens, dot);
             } else {
-                const isSniper = (optic === 'sniper_scope' || optic === 'var_zoom_20x');
-                const len = isSniper ? 0.22 : 0.115;
-                const rad = isSniper ? 0.022 : 0.019;
-                const scopeMat = new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.36, metalness: 0.82, side: THREE.DoubleSide });
-                const tubeGeo = new THREE.CylinderGeometry(rad * 0.84, rad * 0.84, len * 0.64, 18, 1, true);
+                const isVar20 = optic === 'var_zoom_20x';
+                const isLow = optic === 'low_power_scope';
+                const len = isLow ? 0.145 : (isVar20 ? 0.24 : 0.22);
+                const rad = isLow ? 0.018 : (isVar20 ? 0.023 : 0.022);
+                sightEyeRelief = 0.16;
+                sightY = topY + 0.032;
+                const scopeMat = new THREE.MeshStandardMaterial({ color: isLow ? 0x1e242c : 0x14171c, roughness: 0.34, metalness: 0.84, side: THREE.DoubleSide });
+                const tubeGeo = new THREE.CylinderGeometry(rad * 0.86, rad * 0.86, len * 0.64, 20, 1, true);
                 tubeGeo.rotateX(Math.PI * 0.5);
                 const scopeTube = new THREE.Mesh(tubeGeo, scopeMat);
-                scopeTube.position.set(0, topY + 0.032, -0.02);
+                scopeTube.position.set(0, sightY, -0.02);
 
-                // Stepped objective & ocular bells
-                const objBellGeo = new THREE.CylinderGeometry(rad * 1.18, rad * 0.86, len * 0.24, 18, 1, true);
+                const objBellGeo = new THREE.CylinderGeometry(rad * 1.18, rad * 0.88, len * 0.24, 20, 1, true);
                 objBellGeo.rotateX(Math.PI * 0.5);
                 const objBell = new THREE.Mesh(objBellGeo, scopeMat);
-                objBell.position.set(0, topY + 0.032, -0.02 - len * 0.38);
+                objBell.position.set(0, sightY, -0.02 - len * 0.38);
 
-                const ocBellGeo = new THREE.CylinderGeometry(rad * 0.86, rad * 1.04, len * 0.20, 18, 1, true);
+                const ocBellGeo = new THREE.CylinderGeometry(rad * 0.88, rad * 1.04, len * 0.20, 20, 1, true);
                 ocBellGeo.rotateX(Math.PI * 0.5);
                 const ocBell = new THREE.Mesh(ocBellGeo, scopeMat);
-                ocBell.position.set(0, topY + 0.032, -0.02 + len * 0.38);
+                ocBell.position.set(0, sightY, -0.02 + len * 0.38);
 
-                // Elevation & windage adjustment turrets
-                const topTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0085, 0.009, 0.012, 12), steelMat);
-                topTurret.position.set(0, topY + 0.032 + rad * 0.95, -0.02);
-                const sideTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.008, 0.011, 12), steelMat);
+                const topTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.008, 0.010, 12), steelMat);
+                topTurret.position.set(0, sightY + rad * 0.96, -0.02);
+                const sideTurret = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0072, 0.009, 12), steelMat);
                 sideTurret.rotation.z = Math.PI * 0.5;
-                sideTurret.position.set(rad * 0.95, topY + 0.032, -0.02);
+                sideTurret.position.set(rad * 0.96, sightY, -0.02);
 
-                // Twin machined ring mounts
-                const ringGeo = new THREE.TorusGeometry(rad * 0.90, 0.0042, 8, 18);
+                // Ring mounts sit strictly outside the tube radius so they never protrude into the optic bore.
+                const ringGeo = new THREE.TorusGeometry(rad * 1.04, 0.0032, 8, 20);
                 const rMount1 = new THREE.Mesh(ringGeo, steelMat);
-                rMount1.position.set(0, topY + 0.032, 0.018);
-                const rMount2 = rMount1.clone(); rMount2.position.z = -0.056;
-                const foot1 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.014, 0.018), darkMat);
-                foot1.position.set(0, topY + 0.011, 0.018);
-                const foot2 = foot1.clone(); foot2.position.z = -0.056;
+                rMount1.position.set(0, sightY, 0.018);
+                const rMount2 = rMount1.clone();
+                rMount2.position.z = -0.056;
+                const foot1 = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.012, 0.016), darkMat);
+                foot1.position.set(0, topY + 0.010, 0.018);
+                const foot2 = foot1.clone();
+                foot2.position.z = -0.056;
 
-                const lMat = glassMat(isSniper ? 0x0284c7 : 0x38bdf8, isSniper ? 0.30 : 0.18);
-                const glint = new THREE.Mesh(new THREE.CircleGeometry(rad * 1.02, 18), lMat);
-                glint.position.set(0, topY + 0.032, -0.02 - len * 0.49);
-                const rearLens = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.92, 18), lMat);
-                rearLens.position.set(0, topY + 0.032, -0.02 + len * 0.48);
-                const dot = new THREE.Mesh(new THREE.SphereGeometry(0.0018, 8, 8), reticleMat);
-                dot.position.set(0, topY + 0.032, -0.02);
-                dot.userData.aimMarker = true;
+                if (isVar20) {
+                    const accentRing = new THREE.Mesh(new THREE.TorusGeometry(rad * 1.05, 0.0018, 8, 24), retMat(0x38bdf8));
+                    accentRing.position.set(0, sightY, -0.02 + len * 0.28);
+                    gun.add(accentRing);
+                }
+
+                const lMat = glassMat(isVar20 ? 0x38bdf8 : (isLow ? 0xfbbf24 : 0x0284c7), 0.06);
+                const glint = new THREE.Mesh(new THREE.CircleGeometry(rad * 1.06, 20), lMat);
+                glint.position.set(0, sightY, -0.02 - len * 0.49);
+                const rearLens = new THREE.Mesh(new THREE.CircleGeometry(rad * 0.96, 20), lMat);
+                rearLens.position.set(0, sightY, -0.02 + len * 0.48);
+                const dot = makeDot(sightY, -0.02, 0.0008, isVar20 ? 0x38bdf8 : (isLow ? 0xfbbf24 : 0xff3030));
                 gun.add(scopeTube, objBell, ocBell, topTurret, sideTurret, rMount1, rMount2, foot1, foot2, glint, rearLens, dot);
-                sightY = topY + 0.032;
             }
-            return sightY;
+            return { sightY, sightEyeRelief };
         }
 
         _buildLauncher(root, gun, accentMat, darkMat, steelMat, withArms) {
@@ -29919,10 +30036,10 @@ uniform float uSSSStrength;`)
             let adsTime = base.adsTime;
             const opticId = (atts && atts.optic) ? atts.optic : (base.isSniperScope ? 'sniper_scope' : 'iron');
             let adsFov = base.adsFov;
-            if (base.isSniperScope && opticId !== 'sniper_scope' && opticId !== 'var_zoom_20x') {
+            if (base.isSniperScope && opticId !== 'sniper_scope' && opticId !== 'var_zoom_20x' && opticId !== 'low_power_scope') {
                 // Non-sniper optics on sniper rifles replace the sniper zoom with standard optic FOV & snappy ADS!
                 adsFov = 62;
-                const snappyMap = { iron: 0.78, reflex: 0.82, holo: 0.86, acog: 0.92 };
+                const snappyMap = { iron: 0.78, reflex: 0.82, aperture: 0.84, holo: 0.86, thermal_holo: 0.90, acog: 0.92, apex_hybrid: 0.92 };
                 adsTime *= (snappyMap[opticId] || 0.85);
             }
             let recoilMult = 1.0;
@@ -29935,7 +30052,7 @@ uniform float uSSSStrength;`)
             let moveMult = base.moveMult;
             let suppressed = false;
             let showLaser = false;
-            let useScopeOverlay = (opticId === 'sniper_scope' || opticId === 'var_zoom_20x');
+            let useScopeOverlay = (opticId === 'sniper_scope' || opticId === 'var_zoom_20x' || opticId === 'low_power_scope');
             let variableZoom = (opticId === 'var_zoom_20x');
             let minZoom = 1.0;
             let maxZoom = 20.0;
@@ -49272,6 +49389,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const useScope = allowFpvHud && w && w.stats.useScopeOverlay && P.adsAlpha > 0.80;
             if (this.elScope) {
                 this.elScope.classList.toggle('hidden', !useScope);
+                if (useScope) this.elScope.dataset.scope = w.stats.opticId || 'sniper_scope';
                 const zRead = document.getElementById('scope-zoom-readout');
                 if (zRead) {
                     if (useScope && w.stats.variableZoom) {
@@ -50745,13 +50863,16 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             host.appendChild(list);
             for (const att of (BO.AttachmentsData.ATTACHMENTS[cat] || [])) {
                 if (att.mods?.weaponCategory && att.mods.weaponCategory !== baseSpec.category) continue;
-                const unlocked = BO.Progression.isAttachmentUnlocked(cfg.id, att.unlockWeaponLevel);
+                const lv = att.unlockWeaponLevel || 1;
+                const unlocked = BO.Progression.isAttachmentUnlocked(cfg.id, lv);
+                const lvCol = lv >= 20 ? '#f5a623' : (lv >= 12 ? '#38bdf8' : '#94a3b8');
                 list.appendChild(this._optionCard({
                     name: att.name,
                     desc: att.desc,
+                    badge: lv > 1 ? `<span class="opt-tier" style="--tier-col:${lvCol};">LV ${lv}</span>` : '',
                     active: curAttId === att.id,
                     locked: !unlocked,
-                    lockText: `Unlocks at weapon level ${att.unlockWeaponLevel}`,
+                    lockText: `Unlocks at weapon level ${lv}`,
                     onEnter: () => {
                         if (!unlocked) return;
                         const preview = BO.Math.deepClone(cfg);
@@ -52643,7 +52764,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (name === 'main_menu') {
                 BO.Sound.startMusic('menu');
                 const cls = BO.Loadout.getActiveClass();
-                document.getElementById('menu-showcase-name').textContent = `${cls.name} — ${BO.WeaponsData.get(cls.primary.id).name}`;
+                const scName = document.getElementById('menu-showcase-name');
+                if (scName) scName.textContent = `${cls.name} — ${BO.WeaponsData.get(cls.primary.id).name}`;
                 if (BO.GunsmithUI.onRebuildShowcase) BO.GunsmithUI.onRebuildShowcase(cls.primary);
             } else if (name === 'play_lobby') {
                 this.renderLobby();

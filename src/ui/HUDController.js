@@ -572,6 +572,7 @@
             const useScope = allowFpvHud && w && w.stats.useScopeOverlay && P.adsAlpha > 0.80;
             if (this.elScope) {
                 this.elScope.classList.toggle('hidden', !useScope);
+                if (useScope) this.elScope.dataset.scope = w.stats.opticId || 'sniper_scope';
                 const zRead = document.getElementById('scope-zoom-readout');
                 if (zRead) {
                     if (useScope && w.stats.variableZoom) {

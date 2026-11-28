@@ -119,10 +119,10 @@
             let adsTime = base.adsTime;
             const opticId = (atts && atts.optic) ? atts.optic : (base.isSniperScope ? 'sniper_scope' : 'iron');
             let adsFov = base.adsFov;
-            if (base.isSniperScope && opticId !== 'sniper_scope' && opticId !== 'var_zoom_20x') {
+            if (base.isSniperScope && opticId !== 'sniper_scope' && opticId !== 'var_zoom_20x' && opticId !== 'low_power_scope') {
                 // Non-sniper optics on sniper rifles replace the sniper zoom with standard optic FOV & snappy ADS!
                 adsFov = 62;
-                const snappyMap = { iron: 0.78, reflex: 0.82, holo: 0.86, acog: 0.92 };
+                const snappyMap = { iron: 0.78, reflex: 0.82, aperture: 0.84, holo: 0.86, thermal_holo: 0.90, acog: 0.92, apex_hybrid: 0.92 };
                 adsTime *= (snappyMap[opticId] || 0.85);
             }
             let recoilMult = 1.0;
@@ -135,7 +135,7 @@
             let moveMult = base.moveMult;
             let suppressed = false;
             let showLaser = false;
-            let useScopeOverlay = (opticId === 'sniper_scope' || opticId === 'var_zoom_20x');
+            let useScopeOverlay = (opticId === 'sniper_scope' || opticId === 'var_zoom_20x' || opticId === 'low_power_scope');
             let variableZoom = (opticId === 'var_zoom_20x');
             let minZoom = 1.0;
             let maxZoom = 20.0;

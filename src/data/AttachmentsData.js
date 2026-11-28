@@ -682,6 +682,10 @@
     };
     for (const [slot, entries] of Object.entries(classicAttachments)) {
         for (const [id, name, desc, mods] of entries) ATTACHMENTS[slot].push({ id, name, desc, mods, unlockWeaponLevel: 4 });
+        // Keep factory default at index 0, then sort ascending by unlock level so master-tier attachments sit at the bottom.
+        const [factoryDefault, ...rest] = ATTACHMENTS[slot];
+        rest.sort((a, b) => (a.unlockWeaponLevel || 1) - (b.unlockWeaponLevel || 1));
+        ATTACHMENTS[slot] = factoryDefault ? [factoryDefault, ...rest] : rest;
     }
 
     const classicPerks = [

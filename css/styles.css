@@ -792,37 +792,89 @@ html, body {
 #sniper-scope-overlay {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 50% 50%, transparent 25%, rgba(0, 0, 0, 0.96) 27%);
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, transparent 29%, rgba(3, 6, 12, 0.72) 30.2%, rgba(0, 0, 0, 0.97) 32%);
+}
+
+#sniper-scope-overlay[data-scope="low_power_scope"] {
+    background: radial-gradient(circle at 50% 50%, transparent 33.5%, rgba(3, 6, 12, 0.68) 34.8%, rgba(0, 0, 0, 0.96) 36.5%);
+}
+
+#sniper-scope-overlay[data-scope="var_zoom_20x"] {
+    background: radial-gradient(circle at 50% 50%, transparent 32.5%, rgba(6, 20, 32, 0.55) 33.5%, rgba(0, 0, 0, 0.97) 35.2%);
 }
 
 #sniper-scope-overlay .scope-h {
     position: absolute;
     top: 50%;
-    left: 22%;
-    right: 22%;
-    height: 2px;
-    background: rgba(15, 23, 42, 0.9);
+    left: 18%;
+    right: 18%;
+    height: 1px;
+    transform: translateY(-0.5px);
+    background: linear-gradient(90deg,
+        rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.92) 22%,
+        rgba(15, 23, 42, 0.65) 22.1%, rgba(15, 23, 42, 0.65) calc(50% - 14px),
+        transparent calc(50% - 14px), transparent calc(50% + 14px),
+        rgba(15, 23, 42, 0.65) calc(50% + 14px), rgba(15, 23, 42, 0.65) 77.9%,
+        rgba(15, 23, 42, 0.92) 78%, rgba(15, 23, 42, 0.92) 100%);
 }
 
 #sniper-scope-overlay .scope-v {
     position: absolute;
     left: 50%;
-    top: 12%;
-    bottom: 12%;
-    width: 2px;
-    background: rgba(15, 23, 42, 0.9);
+    top: 10%;
+    bottom: 10%;
+    width: 1px;
+    transform: translateX(-0.5px);
+    background: linear-gradient(180deg,
+        rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.92) 22%,
+        rgba(15, 23, 42, 0.65) 22.1%, rgba(15, 23, 42, 0.65) calc(50% - 14px),
+        transparent calc(50% - 14px), transparent calc(50% + 14px),
+        rgba(15, 23, 42, 0.65) calc(50% + 14px), rgba(15, 23, 42, 0.65) 77.9%,
+        rgba(15, 23, 42, 0.92) 78%, rgba(15, 23, 42, 0.92) 100%);
+}
+
+#sniper-scope-overlay[data-scope="var_zoom_20x"] .scope-h {
+    background: linear-gradient(90deg,
+        rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.92) 20%,
+        rgba(56, 189, 248, 0.65) 20.1%, rgba(56, 189, 248, 0.65) calc(50% - 12px),
+        transparent calc(50% - 12px), transparent calc(50% + 12px),
+        rgba(56, 189, 248, 0.65) calc(50% + 12px), rgba(56, 189, 248, 0.65) 79.9%,
+        rgba(15, 23, 42, 0.92) 80%, rgba(15, 23, 42, 0.92) 100%);
+}
+
+#sniper-scope-overlay[data-scope="var_zoom_20x"] .scope-v {
+    background: linear-gradient(180deg,
+        rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.92) 20%,
+        rgba(56, 189, 248, 0.65) 20.1%, rgba(56, 189, 248, 0.65) calc(50% - 12px),
+        transparent calc(50% - 12px), transparent calc(50% + 12px),
+        rgba(56, 189, 248, 0.72) calc(50% + 12px), rgba(56, 189, 248, 0.72) 79.9%,
+        rgba(15, 23, 42, 0.92) 80%, rgba(15, 23, 42, 0.92) 100%);
 }
 
 #sniper-scope-overlay .scope-dot {
     position: absolute;
     left: 50%;
     top: 50%;
-    width: 6px;
-    height: 6px;
-    margin: -3px 0 0 -3px;
+    width: 3px;
+    height: 3px;
+    margin: -1.5px 0 0 -1.5px;
     border-radius: 50%;
     background: #ef4444;
-    box-shadow: 0 0 8px #ef4444;
+    box-shadow: 0 0 5px rgba(239, 68, 68, 0.85);
+}
+
+#sniper-scope-overlay[data-scope="low_power_scope"] .scope-dot {
+    background: #fbbf24;
+    box-shadow: 0 0 5px rgba(251, 191, 36, 0.8);
+}
+
+#sniper-scope-overlay[data-scope="var_zoom_20x"] .scope-dot {
+    width: 2.5px;
+    height: 2.5px;
+    margin: -1.25px 0 0 -1.25px;
+    background: #38bdf8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.95);
 }
 
 /* Dynamic Crosshair & Hitmarker */
