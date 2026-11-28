@@ -344,13 +344,22 @@
                 b.onclick = () => { BO.Sound.playUIClick(); this.showScreen('main_menu'); };
             });
 
-            document.getElementById('btn-edit-callsign').onclick = () => {
+            document.getElementById('btn-edit-callsign').onclick = async () => {
                 const cur = BO.Save.data.callsign || 'SPECTRE-01';
-                const next = window.prompt('Enter Operator Callsign (max 16 chars):', cur);
+                const next = await BO.Dialog.prompt({
+                    kicker: 'OPERATOR IDENTITY',
+                    title: 'EDIT CALLSIGN',
+                    message: 'Enter your Operator Callsign (max 16 characters).',
+                    defaultValue: cur,
+                    maxLength: 16,
+                    placeholder: 'SPECTRE-01',
+                    confirmLabel: 'SAVE CALLSIGN'
+                });
                 if (next !== null && next.trim()) {
                     BO.Save.data.callsign = next.trim().slice(0, 16).toUpperCase();
                     BO.Save.save();
                     this.updateAllRankBadges();
+                    BO.Events.emit('hud:toast', { text: `Callsign updated: ${BO.Save.data.callsign}`, color: '#4ade80' });
                 }
             };
 
@@ -445,9 +454,16 @@
             }
             const btnEpResetAll = document.getElementById('btn-ep-reset-all');
             if (btnEpResetAll) {
-                btnEpResetAll.onclick = () => {
+                btnEpResetAll.onclick = async () => {
                     BO.Sound.playUIClick();
-                    if (!confirm('Reset all zombie stats, start rounds, spawn % and disabled enemies back to defaults?')) return;
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'RESET ALL SETTINGS?',
+                        message: 'Reset all zombie stats, start rounds, spawn percentages, and disabled enemies back to defaults?',
+                        tone: 'danger',
+                        confirmLabel: 'RESET ALL'
+                    });
+                    if (!ok) return;
                     if (BO.ZombieCustomizer) BO.ZombieCustomizer.resetAll();
                     this._setDisabledEnemies([]);
                     this.renderEnemyPool();
@@ -483,13 +499,20 @@
             }
             const btnEpSavePreset = document.getElementById('btn-ep-save-preset');
             if (btnEpSavePreset) {
-                btnEpSavePreset.onclick = () => {
+                btnEpSavePreset.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const nameInp = document.getElementById('ep-preset-name');
                     const sel = document.getElementById('ep-preset-select');
                     const typed = (nameInp && nameInp.value.trim()) || (sel && sel.value !== '__default__' ? sel.value : '');
-                    const name = typed || prompt('Enter a name for this zombie setup:', BO.ZombieCustomizer.config.activePresetName || 'My Setup');
+                    const name = typed || await BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'SAVE ZOMBIE SETUP',
+                        message: 'Enter a name for this zombie setup.',
+                        defaultValue: BO.ZombieCustomizer.config.activePresetName || 'My Setup',
+                        maxLength: 48,
+                        confirmLabel: 'SAVE SETUP'
+                    });
                     if (!name || !name.trim()) return;
                     BO.ZombieCustomizer.savePreset(name.trim());
                     if (nameInp) nameInp.value = name.trim();
@@ -499,13 +522,20 @@
             }
             const btnEpDelPreset = document.getElementById('btn-ep-del-preset');
             if (btnEpDelPreset) {
-                btnEpDelPreset.onclick = () => {
+                btnEpDelPreset.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const sel = document.getElementById('ep-preset-select');
                     const name = sel && sel.value;
                     if (!name || name === '__default__') return;
-                    if (!confirm(`Delete saved zombie setup "${name}"?`)) return;
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'DELETE SAVED SETUP?',
+                        message: `Delete saved zombie setup "${name}"?`,
+                        tone: 'danger',
+                        confirmLabel: 'DELETE SETUP'
+                    });
+                    if (!ok) return;
                     BO.ZombieCustomizer.deletePreset(name);
                     const nameInp = document.getElementById('ep-preset-name');
                     if (nameInp && nameInp.value.trim() === name) nameInp.value = '';
@@ -518,22 +548,40 @@
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const json = BO.ZombieCustomizer.exportJSON();
+                    const openFallback = () => BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'EXPORT SETUP JSON',
+                        message: 'Copy your zombie setup JSON below:',
+                        defaultValue: json,
+                        multiline: true,
+                        readOnly: true,
+                        selectAll: true,
+                        confirmLabel: 'DONE',
+                        cancelLabel: ''
+                    });
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(json).then(
                             () => BO.Events.emit('hud:toast', { text: 'Zombie setup JSON copied to clipboard!', color: '#38bdf8' }),
-                            () => prompt('Copy your zombie setup JSON:', json)
+                            openFallback
                         );
                     } else {
-                        prompt('Copy your zombie setup JSON:', json);
+                        openFallback();
                     }
                 };
             }
             const btnEpImport = document.getElementById('btn-ep-import');
             if (btnEpImport) {
-                btnEpImport.onclick = () => {
+                btnEpImport.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
-                    const raw = prompt('Paste exported zombie setup JSON:');
+                    const raw = await BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'IMPORT SETUP JSON',
+                        message: 'Paste exported zombie setup JSON below:',
+                        multiline: true,
+                        placeholder: '{"version":...}',
+                        confirmLabel: 'IMPORT'
+                    });
                     if (!raw || !raw.trim()) return;
                     try {
                         BO.ZombieCustomizer.importJSON(raw.trim());
@@ -541,7 +589,12 @@
                         this.renderEnemyPool();
                         BO.Events.emit('hud:toast', { text: 'Imported zombie setup!', color: '#4ade80' });
                     } catch (err) {
-                        alert('Could not import zombie setup JSON: ' + err.message);
+                        BO.Dialog.alert({
+                            kicker: 'IMPORT ERROR',
+                            title: 'INVALID ZOMBIE SETUP',
+                            message: err.message,
+                            tone: 'danger'
+                        });
                     }
                 };
             }
@@ -595,7 +648,7 @@
             if (btnPauseControls) btnPauseControls.onclick = () => { BO.Sound.playUIClick(); BO.ControlsPanel.open(); };
             // Survival: leaving or restarting used to drop everything since the last save without a word.
             // Save automatically when it is safe; otherwise ask, saying how much would be lost.
-            const survivalLeave = (verb) => {
+            const survivalLeave = async (verb) => {
                 const SM = BO.SurvivalMode;
                 if (BO.State.activeMode !== 'survival' || !SM?.active || !SM.campaign) return true;
                 const c = SM.campaign;
@@ -605,16 +658,50 @@
                 if (ago != null && ago < 15) return true; // nothing meaningful to lose
                 const lost = ago == null ? 'This run has never been saved' : 'Your last save was ' + (ago >= 60 ? Math.floor(ago / 60) + ' min ' : '') + (ago % 60) + ' s of play ago';
                 const why = verb === 'exit' ? ' and enemies are too close to save now' : '';
-                return window.confirm(lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?');
+                return BO.Dialog.confirm({
+                    kicker: 'EXCLUSION ZONE SURVIVAL',
+                    title: verb === 'exit' ? 'ABANDON UNSAVED PROGRESS?' : 'RESTART EXPEDITION?',
+                    message: lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?',
+                    tone: 'danger',
+                    confirmLabel: verb === 'exit' ? 'QUIT TO MENU' : 'RESTART RUN'
+                });
             };
-            document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('restart')) return; this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
+            document.getElementById('btn-pause-restart').onclick = async () => {
+                BO.Sound.playUIClick();
+                if (this._leavePromptOpen) return;
+                this._leavePromptOpen = true;
+                try {
+                    if (!(await survivalLeave('restart'))) return;
+                    this.setPauseOpen(false);
+                    if (this.onRestartMatch) this.onRestartMatch();
+                } finally {
+                    this._leavePromptOpen = false;
+                }
+            };
             // RPG: leaving suspends the delve at the start of the current floor (resume from the Haven).
-            const rpgLeave = () => {
+            const rpgLeave = async () => {
                 const RM = BO.RPGMode;
                 if (BO.State.activeMode !== 'rpg' || !RM?.active || !RM.run || RM.state === 'ended') return true;
-                return window.confirm(`Leave the delve? It is suspended at the start of floor ${RM.run.floor} — resume it from the Haven. Anything picked up on this floor is lost.`);
+                return BO.Dialog.confirm({
+                    kicker: 'ROGUE LITE',
+                    title: 'SUSPEND DELVE?',
+                    message: `Leave the delve? It is suspended at the start of floor ${RM.run.floor} — resume it from the Haven. Anything picked up on this floor is lost.`,
+                    tone: 'danger',
+                    confirmLabel: 'SUSPEND & EXIT'
+                });
             };
-            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('exit') || !rpgLeave()) return; this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
+            document.getElementById('btn-pause-quit').onclick = async () => {
+                BO.Sound.playUIClick();
+                if (this._leavePromptOpen) return;
+                this._leavePromptOpen = true;
+                try {
+                    if (!(await survivalLeave('exit')) || !(await rpgLeave())) return;
+                    this.setPauseOpen(false);
+                    if (this.onExitToMenu) this.onExitToMenu();
+                } finally {
+                    this._leavePromptOpen = false;
+                }
+            };
 
             const pauseRoundInput = document.getElementById('pause-round-input');
             const btnPauseJump = document.getElementById('btn-pause-jump-round');
@@ -820,7 +907,12 @@
             if (!open && BO.ControlsPanel?.isOpen) BO.ControlsPanel.close();
             if (open && this.modalTdShop) this.modalTdShop.classList.add('hidden');
             if (open && this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
+            if (open && this.modalTdCustomClass) this.modalTdCustomClass.classList.add('hidden');
+            if (open && this.modalTdPerks) this.modalTdPerks.classList.add('hidden');
+            if (open && this.modalTdLift) this.modalTdLift.classList.add('hidden');
+            if (open && this.modalZBuild) this.modalZBuild.classList.add('hidden');
             if (open && this.modalMpClass) this.modalMpClass.classList.add('hidden');
+            if (open && BO.ProfileHubUI?.closeModal) BO.ProfileHubUI.closeModal();
             if (!open && this.modalBoxPicker) this.modalBoxPicker.classList.add('hidden');
             if (open && document.pointerLockElement) document.exitPointerLock();
         }
@@ -833,7 +925,7 @@
                 el.innerHTML = `
                     <div class="rank-emblem" style="color:${info.prestigeInfo.color};border-color:${info.prestigeInfo.color}">${hasHat ? '🎩' : info.prestigeInfo.icon}</div>
                     <div class="rank-meta">
-                        <div class="callsign">${callsign} ${hasHat ? '<span style="color:#fde047;font-size:11px;">[TOP HAT]</span>' : ''}</div>
+                        <div class="callsign">${escAttr(callsign)} ${hasHat ? '<span style="color:#fde047;font-size:11px;">[TOP HAT]</span>' : ''}</div>
                         <div class="rank-sub">LV ${info.level} • ${info.rankName.toUpperCase()} ${info.prestige > 0 ? `(P${info.prestige})` : ''}</div>
                         <div class="xp-track"><div class="xp-fill" style="width:${Math.round(info.levelProgress * 100)}%"></div></div>
                     </div>
@@ -1869,19 +1961,52 @@
                     <div class="panel-title">OFFLINE SAVE MANAGEMENT</div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button class="btn btn-primary" id="btn-export-save" data-tip-title="Export Save" data-tip="Copies your entire offline profile into the text box so you can back it up.">EXPORT SAVE JSON</button>
+                        <button class="btn" id="btn-download-save" data-tip-title="Download Backup File" data-tip="Downloads your full save as a .json file.">DOWNLOAD .JSON</button>
                         <button class="btn" id="btn-import-save" data-tip-title="Import Save" data-tip="Paste a previously exported save below and click here to restore it.">IMPORT SAVE JSON</button>
+                        <button class="btn" id="btn-import-save-file" data-tip-title="Load Backup File" data-tip="Choose a .json backup file from your device.">IMPORT .JSON FILE</button>
                         <button class="btn btn-zombies" id="btn-reset-save" data-tip-title="Reset Everything" data-tip="Wipes all levels, camos, and classes back to Level 1.">RESET ALL PROGRESS</button>
                     </div>
+                    <input type="file" id="inp-save-file" accept=".json" class="hidden">
                     <textarea id="save-json-box" rows="10" style="width:100%;margin-top:10px;background:#0d131d;color:#e2e8f0;border:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:12px;" placeholder="Exported JSON appears here or paste save JSON to import..."></textarea>
                 `;
                 document.getElementById('btn-export-save').onclick = () => { document.getElementById('save-json-box').value = BO.Save.exportSave(); };
+                document.getElementById('btn-download-save').onclick = () => { BO.Save.downloadExportFile(); };
                 document.getElementById('btn-import-save').onclick = () => {
-                    try { BO.Save.importSave(document.getElementById('save-json-box').value); this.updateAllRankBadges(); alert('Save data imported successfully!'); }
-                    catch (e) { alert('Import failed: ' + e.message); }
+                    try {
+                        BO.Save.importSave(document.getElementById('save-json-box').value);
+                        this.updateAllRankBadges();
+                        BO.Events.emit('hud:toast', { text: 'Save data imported successfully!', color: '#4ade80' });
+                    } catch (e) {
+                        BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                    }
                 };
-                document.getElementById('btn-reset-save').onclick = () => {
-                    if (window.confirm('Reset ALL rank, prestige, weapon levels, camos, and combat stats?')) {
-                        BO.Save.resetSave(); this.updateAllRankBadges(); this.renderBarracks();
+                const inpFile = document.getElementById('inp-save-file');
+                document.getElementById('btn-import-save-file').onclick = () => inpFile?.click();
+                if (inpFile) {
+                    inpFile.onchange = () => {
+                        const file = inpFile.files && inpFile.files[0];
+                        if (!file) return;
+                        BO.Save.importFromFile(file).then(() => {
+                            this.updateAllRankBadges();
+                            this.renderBarracks();
+                        }).catch((e) => {
+                            BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                        });
+                    };
+                }
+                document.getElementById('btn-reset-save').onclick = async () => {
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'DANGER ZONE',
+                        title: 'RESET ALL PROGRESS?',
+                        message: 'This permanently wipes rank, prestige, weapon levels, camos, and combat stats back to Level 1.',
+                        tone: 'danger',
+                        confirmLabel: 'WIPE SAVE'
+                    });
+                    if (ok) {
+                        BO.Save.resetSave();
+                        this.updateAllRankBadges();
+                        this.renderBarracks();
+                        BO.Events.emit('hud:toast', { text: 'Save data reset to Level 1.', color: '#f59e0b' });
                     }
                 };
             }
@@ -2617,9 +2742,12 @@
                     </div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                         <button class="btn btn-primary" id="btn-set-export-save">EXPORT SAVE JSON</button>
+                        <button class="btn" id="btn-set-download-save">DOWNLOAD .JSON</button>
                         <button class="btn" id="btn-set-import-save">IMPORT SAVE JSON</button>
+                        <button class="btn" id="btn-set-import-save-file">IMPORT .JSON FILE</button>
                         <button class="btn btn-zombies" id="btn-set-reset-save">RESET ALL PROGRESS</button>
                     </div>
+                    <input type="file" id="inp-set-save-file" accept=".json" class="hidden">
                     <textarea id="set-save-json-box" rows="9" style="width:100%;margin-top:10px;background:#0d131d;color:#e2e8f0;border:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:12px;" placeholder="Click EXPORT SAVE JSON to copy your offline profile or paste a backup JSON here to import..."></textarea>
                 `;
                 document.getElementById('set-unlockall').onchange = (e) => {
@@ -2629,20 +2757,45 @@
                 document.getElementById('btn-set-export-save').onclick = () => {
                     document.getElementById('set-save-json-box').value = BO.Save.exportSave();
                 };
+                document.getElementById('btn-set-download-save').onclick = () => {
+                    BO.Save.downloadExportFile();
+                };
                 document.getElementById('btn-set-import-save').onclick = () => {
                     try {
                         BO.Save.importSave(document.getElementById('set-save-json-box').value);
                         this.updateAllRankBadges();
-                        alert('Save data imported successfully!');
+                        BO.Events.emit('hud:toast', { text: 'Save data imported successfully!', color: '#4ade80' });
                     } catch (e) {
-                        alert('Import failed: ' + e.message);
+                        BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
                     }
                 };
-                document.getElementById('btn-set-reset-save').onclick = () => {
-                    if (window.confirm('Reset ALL rank, prestige, weapon levels, camos, and combat stats?')) {
+                const inpSetFile = document.getElementById('inp-set-save-file');
+                document.getElementById('btn-set-import-save-file').onclick = () => inpSetFile?.click();
+                if (inpSetFile) {
+                    inpSetFile.onchange = () => {
+                        const file = inpSetFile.files && inpSetFile.files[0];
+                        if (!file) return;
+                        BO.Save.importFromFile(file).then(() => {
+                            this.updateAllRankBadges();
+                            this.renderSettings();
+                        }).catch((e) => {
+                            BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                        });
+                    };
+                }
+                document.getElementById('btn-set-reset-save').onclick = async () => {
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'DANGER ZONE',
+                        title: 'RESET ALL PROGRESS?',
+                        message: 'This permanently wipes rank, prestige, weapon levels, camos, and combat stats back to Level 1.',
+                        tone: 'danger',
+                        confirmLabel: 'WIPE SAVE'
+                    });
+                    if (ok) {
                         BO.Save.resetSave();
                         this.updateAllRankBadges();
                         this.renderSettings();
+                        BO.Events.emit('hud:toast', { text: 'Save data reset to Level 1.', color: '#f59e0b' });
                     }
                 };
             } else if (this.settingsTab === 'legend') {

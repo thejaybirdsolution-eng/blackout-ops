@@ -170,7 +170,13 @@
             if (p[key].includes(id)) return false;
             p[key].push(id);
             this.save();
-            if (notify) BO.Events?.emit?.('hud:toast', { text: `UNLOCKED ${slot.toUpperCase()}: ${id}`, color: '#4ade80' });
+            BO.Events?.emit?.('profile:updated', p);
+            if (notify) {
+                const label = slot === 'card'
+                    ? (CALLING_CARDS.find((c) => c.id === id)?.name || id)
+                    : (slot === 'emblem' ? (EMBLEMS.find((e) => e.id === id)?.name || id) : id);
+                BO.Events?.emit?.('hud:toast', { text: `UNLOCKED ${slot.toUpperCase()}: ${label}`, color: '#4ade80' });
+            }
             return true;
         },
 
@@ -243,7 +249,10 @@
                     }
                 }
             }
-            if (changed) this.save();
+            if (changed) {
+                this.save();
+                BO.Events?.emit?.('profile:updated', this.getState());
+            }
         },
 
         claimChallenge(id) {
@@ -327,6 +336,7 @@
                 p.lastPlayedAt = Date.now();
                 if (d.mode === 'survival') this.progressChallengeKind('survival_runs', 1);
                 this.save();
+                BO.Events?.emit?.('profile:updated', p);
             };
 
             const onMatchEnded = (rep) => {
@@ -373,22 +383,30 @@
                         this.unlockCosmetic('title', 'MERIDIAN RANGER');
                     }
                 });
-            }
-
-            if (typeof document !== 'undefined') {
-                document.addEventListener('game:modeStart', (e) => onModeStart(e.detail));
-                document.addEventListener('game:survivalEnding', () => {
+                BO.Events.on('game:modeStart', onModeStart);
+                BO.Events.on('game:survivalEnding', () => {
                     this.grantXp(450, 'survival');
                     this.unlockCosmetic('card', 'card_zone_lantern', true);
                     this.unlockCosmetic('emblem', 'emb_lantern');
                     this.unlockCosmetic('title', 'ZONE SURVIVOR');
                 });
-                document.addEventListener('game:minigameDaily', () => {
+                BO.Events.on('game:minigameDaily', () => {
                     this.grantXp(220, 'minigames_daily');
                     this.progressChallengeKind('minigame_runs', 1);
                     this.unlockCosmetic('card', 'card_sharpshooter', true);
                     this.unlockCosmetic('emblem', 'emb_trophy');
                     this.unlockCosmetic('title', 'MARKSMAN');
+                });
+                BO.Events.on('game:minigameComplete', (d) => {
+                    this.progressChallengeKind('minigame_runs', 1);
+                    this.grantXp(80 + Math.min(3, d?.stars || 0) * 35, 'minigames');
+                });
+                BO.Events.on('game:rpgExtract', (d) => {
+                    this.progressChallengeKind('rpg_progress', 1);
+                    this.grantXp(160 + (d?.floor || 1) * 25, 'rpg');
+                    this.unlockCosmetic('card', 'card_vault_delver', true);
+                    this.unlockCosmetic('emblem', 'emb_relic');
+                    this.unlockCosmetic('title', 'VAULT RUNNER');
                 });
             }
         }

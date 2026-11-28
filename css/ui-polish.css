@@ -215,3 +215,101 @@ body.sv-reduced-motion .td-shop-card, body.sv-reduced-motion .rpg-nav-btn, body.
     .rpg-nav-btn:hover, .rpg-nav-btn:active,
     .ow-choices .ow-choice:hover { transform: none; }
 }
+
+/* ---- Tactical Dialog System (BO.Dialog) ---- */
+.bo-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1300;
+    background: rgba(4, 6, 10, 0.82);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.bo-dialog-backdrop.hidden { display: none; }
+.bo-dialog-box {
+    width: min(460px, 94vw);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+    background: var(--ui-bg-1, #0d1118);
+    border: 1px solid var(--ui-line-strong, rgba(232, 236, 241, 0.2));
+    border-top: 2px solid var(--aaa-accent, #ffb23f);
+    border-radius: var(--ui-radius-lg, 6px);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72);
+    color: var(--aaa-text, #e8ecf1);
+    animation: boModalIn 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.bo-dialog-box.is-wide { width: min(620px, 94vw); }
+.bo-dialog-box[data-tone="danger"] { border-top-color: #ef4444; }
+.bo-dialog-box[data-tone="success"] { border-top-color: #22c55e; }
+.bo-dialog-box[data-tone="info"] { border-top-color: #38bdf8; }
+.bo-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.bo-dialog-kicker {
+    font-family: var(--font-mono, monospace);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--aaa-accent, #ffb23f);
+    margin-bottom: 3px;
+}
+.bo-dialog-box[data-tone="danger"] .bo-dialog-kicker { color: #f87171; }
+.bo-dialog-box[data-tone="info"] .bo-dialog-kicker { color: #38bdf8; }
+.bo-dialog-box[data-tone="success"] .bo-dialog-kicker { color: #4ade80; }
+.bo-dialog-title {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: 0.08em;
+    color: #f8fafc;
+}
+.bo-dialog-x { padding: 3px 8px; line-height: 1; }
+.bo-dialog-msg {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #cbd5e1;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.bo-dialog-field.hidden,
+.bo-dialog-input.hidden,
+.bo-dialog-textarea.hidden,
+.bo-dialog-msg.hidden,
+.bo-dialog-kicker.hidden { display: none; }
+.bo-dialog-input,
+.bo-dialog-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #070a0f;
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+    padding: 9px 11px;
+    font-family: var(--font-mono, monospace);
+    font-size: 13px;
+}
+.bo-dialog-input:focus,
+.bo-dialog-textarea:focus {
+    outline: none;
+    border-color: var(--aaa-accent, #ffb23f);
+    box-shadow: 0 0 0 2px rgba(255, 178, 63, 0.18);
+}
+.bo-dialog-textarea { resize: vertical; min-height: 110px; max-height: 45vh; }
+.bo-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 2px;
+}
+.bo-dialog-actions .hidden { display: none; }
+body.sv-reduced-motion .bo-dialog-box { animation: none; }
+@media (prefers-reduced-motion: reduce) { .bo-dialog-box { animation: none; } }

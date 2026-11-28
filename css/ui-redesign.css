@@ -1079,12 +1079,18 @@ button.ph-card:hover:not(:disabled) {
     backdrop-filter: blur(8px);
 }
 
-#hud-layer .hud-toast-item {
-    background: rgba(8, 12, 20, 0.84);
-    border: 1px solid var(--ui-line);
+#hud-toast .hud-toast-item {
+    background: rgba(8, 12, 20, 0.92);
+    border: 1px solid rgba(232, 236, 241, 0.16);
+    border-left: 3px solid currentColor;
     border-radius: var(--ui-radius-sm);
-    padding: 4px 12px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(10px);
+    animation: boModalIn 0.18s ease both;
 }
 
 /* ============================================================================

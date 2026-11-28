@@ -577,18 +577,41 @@
                 case 'startfloor': ok(); this.startFloor = Number(btn.dataset.floor) || 1; break;
                 case 'difficulty': ok(); p.difficulty = btn.dataset.diff; Pr.save(); break;
                 case 'delve':
-                    if (p.run && !window.confirm(`Start a new delve? The suspended delve on floor ${p.run.floor} and its unbanked haul will be lost.`)) return;
+                    if (p.run) {
+                        BO.Dialog.confirm({
+                            kicker: 'THE HAVEN',
+                            title: 'START NEW DELVE?',
+                            message: `Start a new delve? The suspended delve on floor ${p.run.floor} and its unbanked haul will be lost.`,
+                            tone: 'danger',
+                            confirmLabel: 'NEW DELVE'
+                        }).then((confirmed) => {
+                            if (!confirmed) return;
+                            ok();
+                            Pr.clearRun();
+                            this._launch({ resume: false, startFloor: this.startFloor });
+                        });
+                        return;
+                    }
                     ok();
                     Pr.clearRun();
                     this._launch({ resume: false, startFloor: this.startFloor });
                     return;
                 case 'resume': ok(); this._launch({ resume: true }); return;
                 case 'abandon':
-                    if (!window.confirm('Abandon this delve? Its unbanked gold and items are lost. XP you earned is kept.')) return;
-                    ok();
-                    p.stats.deaths++;
-                    Pr.clearRun();
-                    break;
+                    BO.Dialog.confirm({
+                        kicker: 'THE HAVEN',
+                        title: 'ABANDON DELVE?',
+                        message: 'Abandon this delve? Its unbanked gold and items are lost. XP you earned is kept.',
+                        tone: 'danger',
+                        confirmLabel: 'ABANDON'
+                    }).then((confirmed) => {
+                        if (!confirmed) return;
+                        ok();
+                        p.stats.deaths++;
+                        Pr.clearRun();
+                        this.renderHaven();
+                    });
+                    return;
                 case 'equip': if (Pr.equipFromStash(uid)) { ok(); this.selectedUid = null; } else fail(); break;
                 case 'unequip': if (Pr.unequip(btn.dataset.slot)) ok(); else fail('Your stash is full.'); break;
                 case 'select': ok(); this.selectedUid = uid; break;

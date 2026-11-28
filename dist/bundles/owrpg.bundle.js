@@ -10464,7 +10464,19 @@ uniform vec3 uCam; uniform float uFar;`)
             // Slots & creator (main menu).
             slotContinue(v) { this.close(true); this._start({ mode: 'owrpg', slot: Number(v) }); },
             slotNew(v) { this.openCreator(Number(v)); },
-            slotDelete(v) { if (confirm('Delete this character permanently?')) { BO.OWRPGSave.remove(Number(v)); this.openSlots(); } },
+            async slotDelete(v) {
+                const ok = await BO.Dialog.confirm({
+                    kicker: 'OPERATION MERIDIAN',
+                    title: 'DELETE CHARACTER?',
+                    message: 'Delete this operative permanently? This cannot be undone.',
+                    tone: 'danger',
+                    confirmLabel: 'DELETE'
+                });
+                if (ok) {
+                    BO.OWRPGSave.remove(Number(v));
+                    this.openSlots();
+                }
+            },
             attrUp(v) { const c = this.creator; if (c.points > 0 && c.attrs[v] < 10) { c.attrs[v]++; c.points--; this._renderCreator(); } },
             attrDown(v) { const c = this.creator; if (c.attrs[v] > 1) { c.attrs[v]--; c.points++; this._renderCreator(); } },
             diff(v) { this.creator.difficulty = v; this._renderCreator(); },

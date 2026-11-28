@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — core.bundle.js (77 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — core.bundle.js (78 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/core/Namespace.js --- */
 /* ============================================================================
@@ -2728,7 +2728,7 @@
                     if (this.active && !this.isHost && this.status === 'connecting') {
                         this.status = 'error';
                         this.statusText = `CONNECTION TIMEOUT [${clean}] — CLICK JOIN TO RETRY`;
-                        BO.Events.emit('hud:toast', { text: `Lobby [${clean}] timed out after 10s.`, color: '#ef4444' });
+                        BO.Events.emit('net:error', { message: `Lobby [${clean}] timed out after 10s.` });
                         this.addChatMessage('SYSTEM', `Connection to [${clean}] timed out. Verify code and retry.`, '#ef4444');
                         BO.Events.emit('net:updated');
                     }
@@ -2779,6 +2779,7 @@
                         }
                         this.status = 'error';
                         this.statusText = `ROOM [${clean}] NOT FOUND`;
+                        BO.Events.emit('net:error', { message: `Room [${clean}] not found.` });
                         this.addChatMessage('SYSTEM', `Room [${clean}] not found. Check the code or click Host Online Lobby.`, '#ef4444');
                         BO.Events.emit('net:updated');
                     }
@@ -48299,6 +48300,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     'use strict';
 
     const BO = global.BO;
+    const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     const PERK_SHORT = {
         quick_revive: ['QR', '#38bdf8'],
@@ -48323,6 +48325,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.bannerTimer = 0;
             this.medalTimer = 0;
             this.toastTimer = 0;
+            this._toastInterval = null;
             this._customPromptTimer = 0;
             this.killfeedItems = [];
             this.fpsAccum = 0;
@@ -48438,6 +48441,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     if (this._toastStack.length > 3) this._toastStack.length = 3;
                 }
                 this._renderToastStack();
+                this._ensureToastTicker();
             });
 
             BO.Events.on('progression:medal', (m) => {
@@ -48452,11 +48456,34 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 BO.Events.emit('hud:banner', { title: `RANK UP! LEVEL ${r.level}`, sub: r.rankName.toUpperCase(), color: '#fde047' });
             });
 
+            BO.Events.on('progression:weapon_levelup', (w) => {
+                if (!w) return;
+                BO.Events.emit('hud:toast', { text: `WEAPON LEVEL UP: ${w.weaponName || w.weaponId} LV ${w.level}`, color: '#38bdf8' });
+                BO.Sound?.playMedal?.();
+            });
+
+            BO.Events.on('progression:camo_unlock', (c) => {
+                if (!c) return;
+                BO.Events.emit('hud:banner', { title: 'CAMO UNLOCKED', sub: `${c.weaponName || c.weaponId} — ${c.camoName}`, color: '#c084fc' });
+                BO.Sound?.playRankUp?.();
+            });
+
+            BO.Events.on('progression:challenge', (ch) => {
+                if (!ch) return;
+                BO.Events.emit('hud:banner', { title: 'CHALLENGE COMPLETE', sub: `${ch.name} (+${ch.rewardXp} XP)`, color: '#4ade80' });
+                BO.Sound?.playMedal?.();
+            });
+
+            BO.Events.on('progression:prestige', (p) => {
+                if (!p) return;
+                BO.Events.emit('hud:banner', { title: `PRESTIGE ${p.prestige} UNLOCKED!`, sub: 'NEW CALLING EMBLEM & PERMANENT UNLOCK TOKEN', color: '#fde047' });
+            });
+
             this._kfNextId = 1;
             BO.Events.on('hud:killfeed', (k) => {
                 this.killfeedItems.unshift({
                     id: this._kfNextId++,
-                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${k.killer}</span> <span style="color:#64748b">[${k.weapon}${k.headshot ? ' ⌖ HS' : ''}]</span> <span style="color:#f8fafc">${k.victim}</span>`,
+                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${escHtml(k.killer)}</span> <span style="color:#64748b">[${escHtml(k.weapon)}${k.headshot ? ' ⌖ HS' : ''}]</span> <span style="color:#f8fafc">${escHtml(k.victim)}</span>`,
                     timer: 5.0,
                     leaving: false
                 });
@@ -48472,6 +48499,33 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.elPointsPopups.appendChild(div);
                 setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 750);
             });
+        }
+
+        _ensureToastTicker() {
+            if (this._toastInterval || !this._toastStack?.length) return;
+            this._toastInterval = setInterval(() => {
+                if (!this._toastStack || !this._toastStack.length) {
+                    clearInterval(this._toastInterval);
+                    this._toastInterval = null;
+                    this.toastTimer = 0;
+                    if (this.elToast) this.elToast.classList.add('hidden');
+                    return;
+                }
+                let changed = false;
+                for (let i = this._toastStack.length - 1; i >= 0; i--) {
+                    this._toastStack[i].timer -= 0.1;
+                    if (this._toastStack[i].timer <= 0) {
+                        this._toastStack.splice(i, 1);
+                        changed = true;
+                    }
+                }
+                if (changed) this._renderToastStack();
+                if (!this._toastStack.length) {
+                    clearInterval(this._toastInterval);
+                    this._toastInterval = null;
+                    this.toastTimer = 0;
+                }
+            }, 100);
         }
 
         _renderToastStack() {
@@ -48551,6 +48605,14 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 else delete this.elHud.dataset.mode;
                 const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
                 this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
+                if (mode !== 'survival') {
+                    this.elHud.classList.remove('is-survival');
+                    const topSv = document.getElementById('hud-survival');
+                    if (topSv) topSv.hidden = true;
+                    const svHud = document.getElementById('sv-hud');
+                    if (svHud) svHud.hidden = true;
+                    BO.SurvivalUI?.updateHud?.();
+                }
             }
         }
 
@@ -48570,6 +48632,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         setScoreboardOpen(open) {
+            if (open && !['mp', 'td', 'zombies'].includes(BO.State.activeMode)) return;
             this.scoreboardOpen = open;
             if (!this.elScoreboardModal) return;
             this.elScoreboardModal.classList.toggle('hidden', !open);
@@ -48586,7 +48649,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const rows = mp.getScoreboard();
                 body.innerHTML = rows.map((r) => `
                     <tr class="${r.isPlayer ? 'sb-row-player' : ''}">
-                        <td>${r.name}</td>
+                        <td>${escHtml(r.name)}</td>
                         <td>${r.team === 0 ? '<span style="color:#38bdf8">◆ ALLIES</span>' : '<span style="color:#ef4444">✕ HOSTILES</span>'}</td>
                         <td>${r.kills}</td>
                         <td>${r.deaths}</td>
@@ -48601,7 +48664,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         if (pid === BO.Net.myPeerId) continue;
                         peerRows.push(`
                             <tr>
-                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td>★ ${escHtml(prof.callsign || 'FRIEND')}</td>
                                 <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
                                 <td>${prof.kills || 0}</td>
                                 <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
@@ -48611,7 +48674,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'COMMANDER'} (YOU)</td>
+                        <td>${escHtml(BO.Save.data.callsign || 'COMMANDER')} (YOU)</td>
                         <td><span style="color:#22c55e">DEFENDERS</span></td>
                         <td>${td.kills}</td>
                         <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
@@ -48626,7 +48689,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         if (pid === BO.Net.myPeerId) continue;
                         peerRows.push(`
                             <tr>
-                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td>★ ${escHtml(prof.callsign || 'FRIEND')}</td>
                                 <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
                                 <td>${prof.kills || 0}</td>
                                 <td>ALIVE</td>
@@ -48636,7 +48699,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'SURVIVOR'} (YOU)</td>
+                        <td>${escHtml(BO.Save.data.callsign || 'SURVIVOR')} (YOU)</td>
                         <td><span style="color:#dc2626">${BO.Net && BO.Net.active && BO.Net.players.size > 1 ? 'CO-OP SQUAD' : 'SOLO'}</span></td>
                         <td>${zm.kills}</td>
                         <td>${zm.headshots} HS</td>
@@ -48677,20 +48740,6 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (this.medalTimer > 0) {
                 this.medalTimer -= dt;
                 if (this.medalTimer <= 0 && this.elMedal) this.elMedal.classList.add('hidden');
-            }
-            if (this._toastStack && this._toastStack.length) {
-                let toastChanged = false;
-                for (let i = this._toastStack.length - 1; i >= 0; i--) {
-                    this._toastStack[i].timer -= dt;
-                    if (this._toastStack[i].timer <= 0) {
-                        this._toastStack.splice(i, 1);
-                        toastChanged = true;
-                    }
-                }
-                if (toastChanged) this._renderToastStack();
-            } else if (this.toastTimer > 0) {
-                this.toastTimer -= dt;
-                if (this.toastTimer <= 0 && this.elToast) this.elToast.classList.add('hidden');
             }
 
             // Killfeed decay (keyed DOM: only mutate on transition)
@@ -49975,8 +50024,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.render();
                 this.refresh3D();
             };
-            document.getElementById('gs-rename-btn').onclick = () => {
-                const nn = window.prompt('Class name (max 22 characters):', cls.name);
+            document.getElementById('gs-rename-btn').onclick = async () => {
+                const nn = await BO.Dialog.prompt({
+                    kicker: 'GUNSMITH',
+                    title: 'RENAME CLASS',
+                    message: 'Enter a name for this custom loadout (max 22 characters).',
+                    defaultValue: cls.name,
+                    maxLength: 22,
+                    confirmLabel: 'RENAME'
+                });
                 if (nn !== null) { BO.Loadout.renameClass(idx, nn); this.render(); }
             };
             document.getElementById('gs-copy-btn').onclick = () => {
@@ -51697,13 +51753,22 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 b.onclick = () => { BO.Sound.playUIClick(); this.showScreen('main_menu'); };
             });
 
-            document.getElementById('btn-edit-callsign').onclick = () => {
+            document.getElementById('btn-edit-callsign').onclick = async () => {
                 const cur = BO.Save.data.callsign || 'SPECTRE-01';
-                const next = window.prompt('Enter Operator Callsign (max 16 chars):', cur);
+                const next = await BO.Dialog.prompt({
+                    kicker: 'OPERATOR IDENTITY',
+                    title: 'EDIT CALLSIGN',
+                    message: 'Enter your Operator Callsign (max 16 characters).',
+                    defaultValue: cur,
+                    maxLength: 16,
+                    placeholder: 'SPECTRE-01',
+                    confirmLabel: 'SAVE CALLSIGN'
+                });
                 if (next !== null && next.trim()) {
                     BO.Save.data.callsign = next.trim().slice(0, 16).toUpperCase();
                     BO.Save.save();
                     this.updateAllRankBadges();
+                    BO.Events.emit('hud:toast', { text: `Callsign updated: ${BO.Save.data.callsign}`, color: '#4ade80' });
                 }
             };
 
@@ -51798,9 +51863,16 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             }
             const btnEpResetAll = document.getElementById('btn-ep-reset-all');
             if (btnEpResetAll) {
-                btnEpResetAll.onclick = () => {
+                btnEpResetAll.onclick = async () => {
                     BO.Sound.playUIClick();
-                    if (!confirm('Reset all zombie stats, start rounds, spawn % and disabled enemies back to defaults?')) return;
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'RESET ALL SETTINGS?',
+                        message: 'Reset all zombie stats, start rounds, spawn percentages, and disabled enemies back to defaults?',
+                        tone: 'danger',
+                        confirmLabel: 'RESET ALL'
+                    });
+                    if (!ok) return;
                     if (BO.ZombieCustomizer) BO.ZombieCustomizer.resetAll();
                     this._setDisabledEnemies([]);
                     this.renderEnemyPool();
@@ -51836,13 +51908,20 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             }
             const btnEpSavePreset = document.getElementById('btn-ep-save-preset');
             if (btnEpSavePreset) {
-                btnEpSavePreset.onclick = () => {
+                btnEpSavePreset.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const nameInp = document.getElementById('ep-preset-name');
                     const sel = document.getElementById('ep-preset-select');
                     const typed = (nameInp && nameInp.value.trim()) || (sel && sel.value !== '__default__' ? sel.value : '');
-                    const name = typed || prompt('Enter a name for this zombie setup:', BO.ZombieCustomizer.config.activePresetName || 'My Setup');
+                    const name = typed || await BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'SAVE ZOMBIE SETUP',
+                        message: 'Enter a name for this zombie setup.',
+                        defaultValue: BO.ZombieCustomizer.config.activePresetName || 'My Setup',
+                        maxLength: 48,
+                        confirmLabel: 'SAVE SETUP'
+                    });
                     if (!name || !name.trim()) return;
                     BO.ZombieCustomizer.savePreset(name.trim());
                     if (nameInp) nameInp.value = name.trim();
@@ -51852,13 +51931,20 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             }
             const btnEpDelPreset = document.getElementById('btn-ep-del-preset');
             if (btnEpDelPreset) {
-                btnEpDelPreset.onclick = () => {
+                btnEpDelPreset.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const sel = document.getElementById('ep-preset-select');
                     const name = sel && sel.value;
                     if (!name || name === '__default__') return;
-                    if (!confirm(`Delete saved zombie setup "${name}"?`)) return;
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'DELETE SAVED SETUP?',
+                        message: `Delete saved zombie setup "${name}"?`,
+                        tone: 'danger',
+                        confirmLabel: 'DELETE SETUP'
+                    });
+                    if (!ok) return;
                     BO.ZombieCustomizer.deletePreset(name);
                     const nameInp = document.getElementById('ep-preset-name');
                     if (nameInp && nameInp.value.trim() === name) nameInp.value = '';
@@ -51871,22 +51957,40 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
                     const json = BO.ZombieCustomizer.exportJSON();
+                    const openFallback = () => BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'EXPORT SETUP JSON',
+                        message: 'Copy your zombie setup JSON below:',
+                        defaultValue: json,
+                        multiline: true,
+                        readOnly: true,
+                        selectAll: true,
+                        confirmLabel: 'DONE',
+                        cancelLabel: ''
+                    });
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(json).then(
                             () => BO.Events.emit('hud:toast', { text: 'Zombie setup JSON copied to clipboard!', color: '#38bdf8' }),
-                            () => prompt('Copy your zombie setup JSON:', json)
+                            openFallback
                         );
                     } else {
-                        prompt('Copy your zombie setup JSON:', json);
+                        openFallback();
                     }
                 };
             }
             const btnEpImport = document.getElementById('btn-ep-import');
             if (btnEpImport) {
-                btnEpImport.onclick = () => {
+                btnEpImport.onclick = async () => {
                     BO.Sound.playUIClick();
                     if (!BO.ZombieCustomizer) return;
-                    const raw = prompt('Paste exported zombie setup JSON:');
+                    const raw = await BO.Dialog.prompt({
+                        kicker: 'ZOMBIE CUSTOMIZER',
+                        title: 'IMPORT SETUP JSON',
+                        message: 'Paste exported zombie setup JSON below:',
+                        multiline: true,
+                        placeholder: '{"version":...}',
+                        confirmLabel: 'IMPORT'
+                    });
                     if (!raw || !raw.trim()) return;
                     try {
                         BO.ZombieCustomizer.importJSON(raw.trim());
@@ -51894,7 +51998,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         this.renderEnemyPool();
                         BO.Events.emit('hud:toast', { text: 'Imported zombie setup!', color: '#4ade80' });
                     } catch (err) {
-                        alert('Could not import zombie setup JSON: ' + err.message);
+                        BO.Dialog.alert({
+                            kicker: 'IMPORT ERROR',
+                            title: 'INVALID ZOMBIE SETUP',
+                            message: err.message,
+                            tone: 'danger'
+                        });
                     }
                 };
             }
@@ -51948,7 +52057,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (btnPauseControls) btnPauseControls.onclick = () => { BO.Sound.playUIClick(); BO.ControlsPanel.open(); };
             // Survival: leaving or restarting used to drop everything since the last save without a word.
             // Save automatically when it is safe; otherwise ask, saying how much would be lost.
-            const survivalLeave = (verb) => {
+            const survivalLeave = async (verb) => {
                 const SM = BO.SurvivalMode;
                 if (BO.State.activeMode !== 'survival' || !SM?.active || !SM.campaign) return true;
                 const c = SM.campaign;
@@ -51958,16 +52067,50 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (ago != null && ago < 15) return true; // nothing meaningful to lose
                 const lost = ago == null ? 'This run has never been saved' : 'Your last save was ' + (ago >= 60 ? Math.floor(ago / 60) + ' min ' : '') + (ago % 60) + ' s of play ago';
                 const why = verb === 'exit' ? ' and enemies are too close to save now' : '';
-                return window.confirm(lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?');
+                return BO.Dialog.confirm({
+                    kicker: 'EXCLUSION ZONE SURVIVAL',
+                    title: verb === 'exit' ? 'ABANDON UNSAVED PROGRESS?' : 'RESTART EXPEDITION?',
+                    message: lost + why + '. ' + (verb === 'exit' ? 'Quit to the main menu' : 'Restart this run') + ' and lose the progress since then?',
+                    tone: 'danger',
+                    confirmLabel: verb === 'exit' ? 'QUIT TO MENU' : 'RESTART RUN'
+                });
             };
-            document.getElementById('btn-pause-restart').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('restart')) return; this.setPauseOpen(false); if (this.onRestartMatch) this.onRestartMatch(); };
+            document.getElementById('btn-pause-restart').onclick = async () => {
+                BO.Sound.playUIClick();
+                if (this._leavePromptOpen) return;
+                this._leavePromptOpen = true;
+                try {
+                    if (!(await survivalLeave('restart'))) return;
+                    this.setPauseOpen(false);
+                    if (this.onRestartMatch) this.onRestartMatch();
+                } finally {
+                    this._leavePromptOpen = false;
+                }
+            };
             // RPG: leaving suspends the delve at the start of the current floor (resume from the Haven).
-            const rpgLeave = () => {
+            const rpgLeave = async () => {
                 const RM = BO.RPGMode;
                 if (BO.State.activeMode !== 'rpg' || !RM?.active || !RM.run || RM.state === 'ended') return true;
-                return window.confirm(`Leave the delve? It is suspended at the start of floor ${RM.run.floor} — resume it from the Haven. Anything picked up on this floor is lost.`);
+                return BO.Dialog.confirm({
+                    kicker: 'ROGUE LITE',
+                    title: 'SUSPEND DELVE?',
+                    message: `Leave the delve? It is suspended at the start of floor ${RM.run.floor} — resume it from the Haven. Anything picked up on this floor is lost.`,
+                    tone: 'danger',
+                    confirmLabel: 'SUSPEND & EXIT'
+                });
             };
-            document.getElementById('btn-pause-quit').onclick = () => { BO.Sound.playUIClick(); if (!survivalLeave('exit') || !rpgLeave()) return; this.setPauseOpen(false); if (this.onExitToMenu) this.onExitToMenu(); };
+            document.getElementById('btn-pause-quit').onclick = async () => {
+                BO.Sound.playUIClick();
+                if (this._leavePromptOpen) return;
+                this._leavePromptOpen = true;
+                try {
+                    if (!(await survivalLeave('exit')) || !(await rpgLeave())) return;
+                    this.setPauseOpen(false);
+                    if (this.onExitToMenu) this.onExitToMenu();
+                } finally {
+                    this._leavePromptOpen = false;
+                }
+            };
 
             const pauseRoundInput = document.getElementById('pause-round-input');
             const btnPauseJump = document.getElementById('btn-pause-jump-round');
@@ -52173,7 +52316,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (!open && BO.ControlsPanel?.isOpen) BO.ControlsPanel.close();
             if (open && this.modalTdShop) this.modalTdShop.classList.add('hidden');
             if (open && this.modalTdAttachments) this.modalTdAttachments.classList.add('hidden');
+            if (open && this.modalTdCustomClass) this.modalTdCustomClass.classList.add('hidden');
+            if (open && this.modalTdPerks) this.modalTdPerks.classList.add('hidden');
+            if (open && this.modalTdLift) this.modalTdLift.classList.add('hidden');
+            if (open && this.modalZBuild) this.modalZBuild.classList.add('hidden');
             if (open && this.modalMpClass) this.modalMpClass.classList.add('hidden');
+            if (open && BO.ProfileHubUI?.closeModal) BO.ProfileHubUI.closeModal();
             if (!open && this.modalBoxPicker) this.modalBoxPicker.classList.add('hidden');
             if (open && document.pointerLockElement) document.exitPointerLock();
         }
@@ -52186,7 +52334,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 el.innerHTML = `
                     <div class="rank-emblem" style="color:${info.prestigeInfo.color};border-color:${info.prestigeInfo.color}">${hasHat ? '🎩' : info.prestigeInfo.icon}</div>
                     <div class="rank-meta">
-                        <div class="callsign">${callsign} ${hasHat ? '<span style="color:#fde047;font-size:11px;">[TOP HAT]</span>' : ''}</div>
+                        <div class="callsign">${escAttr(callsign)} ${hasHat ? '<span style="color:#fde047;font-size:11px;">[TOP HAT]</span>' : ''}</div>
                         <div class="rank-sub">LV ${info.level} • ${info.rankName.toUpperCase()} ${info.prestige > 0 ? `(P${info.prestige})` : ''}</div>
                         <div class="xp-track"><div class="xp-fill" style="width:${Math.round(info.levelProgress * 100)}%"></div></div>
                     </div>
@@ -53222,19 +53370,52 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     <div class="panel-title">OFFLINE SAVE MANAGEMENT</div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
                         <button class="btn btn-primary" id="btn-export-save" data-tip-title="Export Save" data-tip="Copies your entire offline profile into the text box so you can back it up.">EXPORT SAVE JSON</button>
+                        <button class="btn" id="btn-download-save" data-tip-title="Download Backup File" data-tip="Downloads your full save as a .json file.">DOWNLOAD .JSON</button>
                         <button class="btn" id="btn-import-save" data-tip-title="Import Save" data-tip="Paste a previously exported save below and click here to restore it.">IMPORT SAVE JSON</button>
+                        <button class="btn" id="btn-import-save-file" data-tip-title="Load Backup File" data-tip="Choose a .json backup file from your device.">IMPORT .JSON FILE</button>
                         <button class="btn btn-zombies" id="btn-reset-save" data-tip-title="Reset Everything" data-tip="Wipes all levels, camos, and classes back to Level 1.">RESET ALL PROGRESS</button>
                     </div>
+                    <input type="file" id="inp-save-file" accept=".json" class="hidden">
                     <textarea id="save-json-box" rows="10" style="width:100%;margin-top:10px;background:#0d131d;color:#e2e8f0;border:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:12px;" placeholder="Exported JSON appears here or paste save JSON to import..."></textarea>
                 `;
                 document.getElementById('btn-export-save').onclick = () => { document.getElementById('save-json-box').value = BO.Save.exportSave(); };
+                document.getElementById('btn-download-save').onclick = () => { BO.Save.downloadExportFile(); };
                 document.getElementById('btn-import-save').onclick = () => {
-                    try { BO.Save.importSave(document.getElementById('save-json-box').value); this.updateAllRankBadges(); alert('Save data imported successfully!'); }
-                    catch (e) { alert('Import failed: ' + e.message); }
+                    try {
+                        BO.Save.importSave(document.getElementById('save-json-box').value);
+                        this.updateAllRankBadges();
+                        BO.Events.emit('hud:toast', { text: 'Save data imported successfully!', color: '#4ade80' });
+                    } catch (e) {
+                        BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                    }
                 };
-                document.getElementById('btn-reset-save').onclick = () => {
-                    if (window.confirm('Reset ALL rank, prestige, weapon levels, camos, and combat stats?')) {
-                        BO.Save.resetSave(); this.updateAllRankBadges(); this.renderBarracks();
+                const inpFile = document.getElementById('inp-save-file');
+                document.getElementById('btn-import-save-file').onclick = () => inpFile?.click();
+                if (inpFile) {
+                    inpFile.onchange = () => {
+                        const file = inpFile.files && inpFile.files[0];
+                        if (!file) return;
+                        BO.Save.importFromFile(file).then(() => {
+                            this.updateAllRankBadges();
+                            this.renderBarracks();
+                        }).catch((e) => {
+                            BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                        });
+                    };
+                }
+                document.getElementById('btn-reset-save').onclick = async () => {
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'DANGER ZONE',
+                        title: 'RESET ALL PROGRESS?',
+                        message: 'This permanently wipes rank, prestige, weapon levels, camos, and combat stats back to Level 1.',
+                        tone: 'danger',
+                        confirmLabel: 'WIPE SAVE'
+                    });
+                    if (ok) {
+                        BO.Save.resetSave();
+                        this.updateAllRankBadges();
+                        this.renderBarracks();
+                        BO.Events.emit('hud:toast', { text: 'Save data reset to Level 1.', color: '#f59e0b' });
                     }
                 };
             }
@@ -53970,9 +54151,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     </div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
                         <button class="btn btn-primary" id="btn-set-export-save">EXPORT SAVE JSON</button>
+                        <button class="btn" id="btn-set-download-save">DOWNLOAD .JSON</button>
                         <button class="btn" id="btn-set-import-save">IMPORT SAVE JSON</button>
+                        <button class="btn" id="btn-set-import-save-file">IMPORT .JSON FILE</button>
                         <button class="btn btn-zombies" id="btn-set-reset-save">RESET ALL PROGRESS</button>
                     </div>
+                    <input type="file" id="inp-set-save-file" accept=".json" class="hidden">
                     <textarea id="set-save-json-box" rows="9" style="width:100%;margin-top:10px;background:#0d131d;color:#e2e8f0;border:1px solid var(--border-subtle);font-family:var(--font-mono);font-size:12px;" placeholder="Click EXPORT SAVE JSON to copy your offline profile or paste a backup JSON here to import..."></textarea>
                 `;
                 document.getElementById('set-unlockall').onchange = (e) => {
@@ -53982,20 +54166,45 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 document.getElementById('btn-set-export-save').onclick = () => {
                     document.getElementById('set-save-json-box').value = BO.Save.exportSave();
                 };
+                document.getElementById('btn-set-download-save').onclick = () => {
+                    BO.Save.downloadExportFile();
+                };
                 document.getElementById('btn-set-import-save').onclick = () => {
                     try {
                         BO.Save.importSave(document.getElementById('set-save-json-box').value);
                         this.updateAllRankBadges();
-                        alert('Save data imported successfully!');
+                        BO.Events.emit('hud:toast', { text: 'Save data imported successfully!', color: '#4ade80' });
                     } catch (e) {
-                        alert('Import failed: ' + e.message);
+                        BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
                     }
                 };
-                document.getElementById('btn-set-reset-save').onclick = () => {
-                    if (window.confirm('Reset ALL rank, prestige, weapon levels, camos, and combat stats?')) {
+                const inpSetFile = document.getElementById('inp-set-save-file');
+                document.getElementById('btn-set-import-save-file').onclick = () => inpSetFile?.click();
+                if (inpSetFile) {
+                    inpSetFile.onchange = () => {
+                        const file = inpSetFile.files && inpSetFile.files[0];
+                        if (!file) return;
+                        BO.Save.importFromFile(file).then(() => {
+                            this.updateAllRankBadges();
+                            this.renderSettings();
+                        }).catch((e) => {
+                            BO.Dialog.alert({ kicker: 'SAVE SYSTEM', title: 'IMPORT FAILED', message: e.message, tone: 'danger' });
+                        });
+                    };
+                }
+                document.getElementById('btn-set-reset-save').onclick = async () => {
+                    const ok = await BO.Dialog.confirm({
+                        kicker: 'DANGER ZONE',
+                        title: 'RESET ALL PROGRESS?',
+                        message: 'This permanently wipes rank, prestige, weapon levels, camos, and combat stats back to Level 1.',
+                        tone: 'danger',
+                        confirmLabel: 'WIPE SAVE'
+                    });
+                    if (ok) {
                         BO.Save.resetSave();
                         this.updateAllRankBadges();
                         this.renderSettings();
+                        BO.Events.emit('hud:toast', { text: 'Save data reset to Level 1.', color: '#f59e0b' });
                     }
                 };
             } else if (this.settingsTab === 'legend') {
@@ -56391,7 +56600,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (p[key].includes(id)) return false;
             p[key].push(id);
             this.save();
-            if (notify) BO.Events?.emit?.('hud:toast', { text: `UNLOCKED ${slot.toUpperCase()}: ${id}`, color: '#4ade80' });
+            BO.Events?.emit?.('profile:updated', p);
+            if (notify) {
+                const label = slot === 'card'
+                    ? (CALLING_CARDS.find((c) => c.id === id)?.name || id)
+                    : (slot === 'emblem' ? (EMBLEMS.find((e) => e.id === id)?.name || id) : id);
+                BO.Events?.emit?.('hud:toast', { text: `UNLOCKED ${slot.toUpperCase()}: ${label}`, color: '#4ade80' });
+            }
             return true;
         },
 
@@ -56464,7 +56679,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     }
                 }
             }
-            if (changed) this.save();
+            if (changed) {
+                this.save();
+                BO.Events?.emit?.('profile:updated', this.getState());
+            }
         },
 
         claimChallenge(id) {
@@ -56548,6 +56766,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 p.lastPlayedAt = Date.now();
                 if (d.mode === 'survival') this.progressChallengeKind('survival_runs', 1);
                 this.save();
+                BO.Events?.emit?.('profile:updated', p);
             };
 
             const onMatchEnded = (rep) => {
@@ -56594,22 +56813,30 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         this.unlockCosmetic('title', 'MERIDIAN RANGER');
                     }
                 });
-            }
-
-            if (typeof document !== 'undefined') {
-                document.addEventListener('game:modeStart', (e) => onModeStart(e.detail));
-                document.addEventListener('game:survivalEnding', () => {
+                BO.Events.on('game:modeStart', onModeStart);
+                BO.Events.on('game:survivalEnding', () => {
                     this.grantXp(450, 'survival');
                     this.unlockCosmetic('card', 'card_zone_lantern', true);
                     this.unlockCosmetic('emblem', 'emb_lantern');
                     this.unlockCosmetic('title', 'ZONE SURVIVOR');
                 });
-                document.addEventListener('game:minigameDaily', () => {
+                BO.Events.on('game:minigameDaily', () => {
                     this.grantXp(220, 'minigames_daily');
                     this.progressChallengeKind('minigame_runs', 1);
                     this.unlockCosmetic('card', 'card_sharpshooter', true);
                     this.unlockCosmetic('emblem', 'emb_trophy');
                     this.unlockCosmetic('title', 'MARKSMAN');
+                });
+                BO.Events.on('game:minigameComplete', (d) => {
+                    this.progressChallengeKind('minigame_runs', 1);
+                    this.grantXp(80 + Math.min(3, d?.stars || 0) * 35, 'minigames');
+                });
+                BO.Events.on('game:rpgExtract', (d) => {
+                    this.progressChallengeKind('rpg_progress', 1);
+                    this.grantXp(160 + (d?.floor || 1) * 25, 'rpg');
+                    this.unlockCosmetic('card', 'card_vault_delver', true);
+                    this.unlockCosmetic('emblem', 'emb_relic');
+                    this.unlockCosmetic('title', 'VAULT RUNNER');
                 });
             }
         }
@@ -56750,6 +56977,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         },
 
         _openModal(html) {
+            if (typeof document !== 'undefined' && document.pointerLockElement) {
+                try { document.exitPointerLock(); } catch (_) {}
+            }
             if (!this.modalEl) {
                 const bd = document.createElement('div');
                 bd.id = 'ph-modal-backdrop';
@@ -56779,6 +57009,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         closeModal() {
             if (this.modalEl) this.modalEl.classList.add('hidden');
+            if (typeof this._onCloseHook === 'function') {
+                const fn = this._onCloseHook;
+                this._onCloseHook = null;
+                fn();
+            }
             BO.Sound?.playUIClick?.();
         },
 
@@ -56820,10 +57055,17 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     }).join('')}
                 </div>
                 <h4 style="margin:12px 0 8px">EMBLEMS (${p.unlockedEmblems.length}/${PS.EMBLEMS.length})</h4>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
                     ${PS.EMBLEMS.map((e) => {
                         const ok = p.unlockedEmblems.includes(e.id);
                         return `<button type="button" class="btn btn-sm ${p.emblem === e.id ? 'btn-primary' : ''}" data-eq-emb="${e.id}" ${ok ? '' : 'disabled'} title="${esc(e.name)}">${e.icon} ${esc(e.name)}</button>`;
+                    }).join('')}
+                </div>
+                <h4 style="margin:12px 0 8px">TITLES (${p.unlockedTitles.length}/${PS.TITLES.length})</h4>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${PS.TITLES.map((t) => {
+                        const ok = p.unlockedTitles.includes(t);
+                        return `<button type="button" class="btn btn-sm ${p.title === t ? 'btn-primary' : ''}" data-eq-title="${esc(t)}" ${ok ? '' : 'disabled'}>${esc(t)}</button>`;
                     }).join('')}
                 </div>`);
 
@@ -56832,6 +57074,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             });
             box.querySelectorAll('[data-eq-emb]').forEach((b) => {
                 b.onclick = () => { PS.equipCosmetic('emblem', b.dataset.eqEmb); this.openProfileModal(); };
+            });
+            box.querySelectorAll('[data-eq-title]').forEach((b) => {
+                b.onclick = () => { PS.equipCosmetic('title', b.dataset.eqTitle); this.openProfileModal(); };
             });
         },
 
@@ -56894,11 +57139,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             try {
                 if (global.self !== global.top) return;
             } catch (e) { return; }
-            if (/_qa_runner|_qa_owrpg|[?&]qa=1/i.test(location.href)) return;
+            if (/_qa_runner|_qa_owrpg|_qa_hitboxes|[?&]qa=1/i.test(location.href)) return;
             if (BO.State?.screen && BO.State.screen !== 'main_menu') return;
             const p = BO.ProfileSystem?.getState();
             if (!p || p.onboardingDone || p.totalXp > 0 || p.lastMode) return;
 
+            this._onCloseHook = () => BO.ProfileSystem?.markOnboardingDone?.();
             const box = this._openModal(`
                 <div class="ph-modal-head">
                     <div><span class="ph-kicker">BLACKOUT OPS 1.0 · FIRST DEPLOYMENT</span><h2 style="margin:2px 0">WELCOME, OPERATIVE</h2></div>
@@ -57267,6 +57513,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (BO.Events) {
                 BO.Events.on('campaign:completed', () => this.syncMenuCard());
                 BO.Events.on('profile:updated', () => this.syncMenuCard());
+                BO.Events.on('game:modeStart', () => setTimeout(() => UI.syncHudPill(), 150));
+                BO.Events.on('game:modeStop', () => UI.syncHudPill());
             }
         },
 
@@ -57424,9 +57672,6 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         document.addEventListener('DOMContentLoaded', () => UI.init());
     } else {
         UI.init();
-    }
-    if (typeof document !== 'undefined') {
-        document.addEventListener('game:modeStart', () => setTimeout(() => UI.syncHudPill(), 150));
     }
 })(window);
 ;
@@ -58288,6 +58533,228 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 })(window.BO = window.BO || {});
 ;
 
+/* --- src/ui/TacticalDialog.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Tactical Dialog System (BO.Dialog)
+   Replaces blocking browser alert/confirm/prompt popups with a non-blocking
+   Promise-based tactical modal aligned with --ui-* / --aaa-* styling.
+   ============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO = global.BO || {};
+
+    let backdrop = null;
+    let activeResolve = null;
+    let activeCancelValue = false;
+    let activeMode = 'confirm';
+    let keyListenerBound = false;
+
+    function releasePointerLock() {
+        if (typeof document !== 'undefined' && document.pointerLockElement) {
+            try { document.exitPointerLock(); } catch (_) {}
+        }
+    }
+
+    function ensureDom() {
+        if (backdrop) return backdrop;
+        backdrop = document.createElement('div');
+        backdrop.id = 'bo-dialog-backdrop';
+        backdrop.className = 'bo-dialog-backdrop hidden';
+        backdrop.setAttribute('role', 'dialog');
+        backdrop.setAttribute('aria-modal', 'true');
+        backdrop.setAttribute('aria-labelledby', 'bo-dialog-title');
+        backdrop.innerHTML = `
+            <div class="bo-dialog-box" data-tone="amber">
+                <div class="bo-dialog-head">
+                    <div>
+                        <div class="bo-dialog-kicker" id="bo-dialog-kicker"></div>
+                        <h3 class="bo-dialog-title" id="bo-dialog-title"></h3>
+                    </div>
+                    <button type="button" class="btn btn-sm bo-dialog-x" id="bo-dialog-x" aria-label="Close">✕</button>
+                </div>
+                <p class="bo-dialog-msg" id="bo-dialog-msg"></p>
+                <div class="bo-dialog-field hidden" id="bo-dialog-field">
+                    <input type="text" class="bo-dialog-input" id="bo-dialog-input" autocomplete="off" spellcheck="false">
+                    <textarea class="bo-dialog-textarea hidden" id="bo-dialog-textarea" rows="6" spellcheck="false"></textarea>
+                </div>
+                <div class="bo-dialog-actions">
+                    <button type="button" class="btn btn-sm" id="bo-dialog-cancel">CANCEL</button>
+                    <button type="button" class="btn btn-sm btn-primary" id="bo-dialog-confirm">CONFIRM</button>
+                </div>
+            </div>`;
+        document.body.appendChild(backdrop);
+
+        backdrop.addEventListener('mousedown', (e) => {
+            if (e.target === backdrop) finish(activeCancelValue);
+        });
+        backdrop.querySelector('#bo-dialog-x').onclick = () => finish(activeCancelValue);
+        backdrop.querySelector('#bo-dialog-cancel').onclick = () => finish(activeCancelValue);
+        backdrop.querySelector('#bo-dialog-confirm').onclick = () => submitCurrent();
+
+        const inp = backdrop.querySelector('#bo-dialog-input');
+        inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitCurrent();
+            }
+        });
+        const ta = backdrop.querySelector('#bo-dialog-textarea');
+        ta.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                submitCurrent();
+            }
+        });
+
+        if (!keyListenerBound) {
+            keyListenerBound = true;
+            window.addEventListener('keydown', (e) => {
+                if (!backdrop || backdrop.classList.contains('hidden')) return;
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    finish(activeCancelValue);
+                } else if (e.key === 'Enter' && activeMode !== 'prompt') {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    submitCurrent();
+                }
+            }, true);
+        }
+        return backdrop;
+    }
+
+    function submitCurrent() {
+        if (!backdrop) return;
+        if (activeMode === 'prompt') {
+            const ta = backdrop.querySelector('#bo-dialog-textarea');
+            const inp = backdrop.querySelector('#bo-dialog-input');
+            const val = ta.classList.contains('hidden') ? inp.value : ta.value;
+            finish(val);
+        } else if (activeMode === 'confirm') {
+            finish(true);
+        } else {
+            finish(undefined);
+        }
+    }
+
+    function finish(value) {
+        if (!backdrop || backdrop.classList.contains('hidden')) return;
+        backdrop.classList.add('hidden');
+        BO.Sound?.playUIClick?.();
+        const resolve = activeResolve;
+        activeResolve = null;
+        if (resolve) resolve(value);
+    }
+
+    function normalizeOpts(input, defaults) {
+        if (typeof input === 'string') return Object.assign({}, defaults, { message: input });
+        return Object.assign({}, defaults, input || {});
+    }
+
+    function openDialog(mode, rawOpts, cancelVal) {
+        if (activeResolve) finish(activeCancelValue);
+        releasePointerLock();
+        const el = ensureDom();
+        const box = el.querySelector('.bo-dialog-box');
+        const opts = normalizeOpts(rawOpts, {
+            kicker: 'BLACKOUT OPS',
+            title: mode === 'alert' ? 'NOTICE' : (mode === 'prompt' ? 'INPUT REQUIRED' : 'CONFIRM ACTION'),
+            message: '',
+            tone: 'amber',
+            confirmLabel: mode === 'alert' ? 'OK' : 'CONFIRM',
+            cancelLabel: mode === 'alert' ? '' : 'CANCEL',
+            defaultValue: '',
+            placeholder: '',
+            maxLength: 0,
+            multiline: false,
+            readOnly: false,
+            selectAll: false
+        });
+
+        activeMode = mode;
+        activeCancelValue = cancelVal;
+        box.dataset.tone = opts.tone || 'amber';
+
+        const kickerEl = el.querySelector('#bo-dialog-kicker');
+        kickerEl.textContent = opts.kicker || 'BLACKOUT OPS';
+        kickerEl.classList.toggle('hidden', !opts.kicker);
+
+        el.querySelector('#bo-dialog-title').textContent = opts.title || 'CONFIRM';
+        const msgEl = el.querySelector('#bo-dialog-msg');
+        msgEl.textContent = opts.message || '';
+        msgEl.classList.toggle('hidden', !opts.message);
+
+        const fieldEl = el.querySelector('#bo-dialog-field');
+        const inp = el.querySelector('#bo-dialog-input');
+        const ta = el.querySelector('#bo-dialog-textarea');
+        box.classList.toggle('is-wide', !!opts.multiline);
+
+        if (mode === 'prompt') {
+            fieldEl.classList.remove('hidden');
+            const activeField = opts.multiline ? ta : inp;
+            const inactiveField = opts.multiline ? inp : ta;
+            inactiveField.classList.add('hidden');
+            activeField.classList.remove('hidden');
+            activeField.value = opts.defaultValue != null ? String(opts.defaultValue) : '';
+            activeField.placeholder = opts.placeholder || '';
+            activeField.readOnly = !!opts.readOnly;
+            if (opts.maxLength > 0) activeField.maxLength = opts.maxLength;
+            else activeField.removeAttribute('maxlength');
+        } else {
+            fieldEl.classList.add('hidden');
+        }
+
+        const cancelBtn = el.querySelector('#bo-dialog-cancel');
+        const confirmBtn = el.querySelector('#bo-dialog-confirm');
+        const showCancel = opts.cancelLabel !== '' && opts.cancelLabel !== false && opts.cancelLabel !== null;
+        cancelBtn.classList.toggle('hidden', !showCancel);
+        cancelBtn.textContent = opts.cancelLabel || 'CANCEL';
+
+        confirmBtn.textContent = opts.confirmLabel || 'CONFIRM';
+        confirmBtn.className = 'btn btn-sm ' + (opts.tone === 'danger' ? 'btn-zombies' : 'btn-primary');
+
+        el.classList.remove('hidden');
+        BO.Sound?.playUIClick?.();
+
+        setTimeout(() => {
+            if (mode === 'prompt') {
+                const target = opts.multiline ? ta : inp;
+                target.focus();
+                if (opts.selectAll || opts.defaultValue) {
+                    try { target.select(); } catch (_) {}
+                }
+            } else {
+                confirmBtn.focus();
+            }
+        }, 0);
+
+        return new Promise((resolve) => {
+            activeResolve = resolve;
+        });
+    }
+
+    BO.Dialog = {
+        confirm(opts) {
+            return openDialog('confirm', opts, false);
+        },
+        prompt(opts) {
+            return openDialog('prompt', opts, null);
+        },
+        alert(opts) {
+            return openDialog('alert', opts, undefined);
+        },
+        close(value) {
+            finish(value !== undefined ? value : activeCancelValue);
+        },
+        get isOpen() {
+            return !!(backdrop && !backdrop.classList.contains('hidden'));
+        }
+    };
+})(window);
+;
+
 /* --- src/ui/UISounds.js --- */
 /* ============================================================================
    BLACKOUT OPS — Global Delegated UI Audio Feedback
@@ -59039,8 +59506,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
             BO.HUD?.resetForMode?.(opts.mode);
-            BO.CampaignUI?.syncHudPill?.();
             BO.Menus.showScreen('playing');
+            BO.CampaignUI?.syncHudPill?.();
             this._safePointerLock();
         }
 
@@ -59113,11 +59580,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.State.activeMode = null;
             BO.State.paused = false;
             BO.HUD?.resetForMode?.(null);
-            BO.CampaignUI?.syncHudPill?.();
-            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();
             else BO.Menus.showScreen(mgReturn || 'main_menu');
+            BO.CampaignUI?.syncHudPill?.();
+            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
         }
 
         _bindInputs() {
@@ -59330,7 +59797,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (ow && firstDown && BO.OWRPGMode.handleKey(code, kb, e)) return;
                 if (ow && BO.OWRPGMode.isSuppressed(code, kb)) return;
 
-                if (code === 'Tab' && !survival && !ow) {
+                if (code === 'Tab' && (BO.State.activeMode === 'mp' || BO.State.activeMode === 'td' || BO.State.activeMode === 'zombies')) {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {

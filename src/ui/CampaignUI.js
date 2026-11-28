@@ -20,6 +20,8 @@
             if (BO.Events) {
                 BO.Events.on('campaign:completed', () => this.syncMenuCard());
                 BO.Events.on('profile:updated', () => this.syncMenuCard());
+                BO.Events.on('game:modeStart', () => setTimeout(() => UI.syncHudPill(), 150));
+                BO.Events.on('game:modeStop', () => UI.syncHudPill());
             }
         },
 
@@ -177,8 +179,5 @@
         document.addEventListener('DOMContentLoaded', () => UI.init());
     } else {
         UI.init();
-    }
-    if (typeof document !== 'undefined') {
-        document.addEventListener('game:modeStart', () => setTimeout(() => UI.syncHudPill(), 150));
     }
 })(window);

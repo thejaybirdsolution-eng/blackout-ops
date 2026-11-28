@@ -5,6 +5,7 @@
     'use strict';
 
     const BO = global.BO;
+    const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     const PERK_SHORT = {
         quick_revive: ['QR', '#38bdf8'],
@@ -29,6 +30,7 @@
             this.bannerTimer = 0;
             this.medalTimer = 0;
             this.toastTimer = 0;
+            this._toastInterval = null;
             this._customPromptTimer = 0;
             this.killfeedItems = [];
             this.fpsAccum = 0;
@@ -144,6 +146,7 @@
                     if (this._toastStack.length > 3) this._toastStack.length = 3;
                 }
                 this._renderToastStack();
+                this._ensureToastTicker();
             });
 
             BO.Events.on('progression:medal', (m) => {
@@ -158,11 +161,34 @@
                 BO.Events.emit('hud:banner', { title: `RANK UP! LEVEL ${r.level}`, sub: r.rankName.toUpperCase(), color: '#fde047' });
             });
 
+            BO.Events.on('progression:weapon_levelup', (w) => {
+                if (!w) return;
+                BO.Events.emit('hud:toast', { text: `WEAPON LEVEL UP: ${w.weaponName || w.weaponId} LV ${w.level}`, color: '#38bdf8' });
+                BO.Sound?.playMedal?.();
+            });
+
+            BO.Events.on('progression:camo_unlock', (c) => {
+                if (!c) return;
+                BO.Events.emit('hud:banner', { title: 'CAMO UNLOCKED', sub: `${c.weaponName || c.weaponId} — ${c.camoName}`, color: '#c084fc' });
+                BO.Sound?.playRankUp?.();
+            });
+
+            BO.Events.on('progression:challenge', (ch) => {
+                if (!ch) return;
+                BO.Events.emit('hud:banner', { title: 'CHALLENGE COMPLETE', sub: `${ch.name} (+${ch.rewardXp} XP)`, color: '#4ade80' });
+                BO.Sound?.playMedal?.();
+            });
+
+            BO.Events.on('progression:prestige', (p) => {
+                if (!p) return;
+                BO.Events.emit('hud:banner', { title: `PRESTIGE ${p.prestige} UNLOCKED!`, sub: 'NEW CALLING EMBLEM & PERMANENT UNLOCK TOKEN', color: '#fde047' });
+            });
+
             this._kfNextId = 1;
             BO.Events.on('hud:killfeed', (k) => {
                 this.killfeedItems.unshift({
                     id: this._kfNextId++,
-                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${k.killer}</span> <span style="color:#64748b">[${k.weapon}${k.headshot ? ' ⌖ HS' : ''}]</span> <span style="color:#f8fafc">${k.victim}</span>`,
+                    html: `<span style="color:${k.isPlayerKiller ? '#f5a623' : '#94a3b8'}">${escHtml(k.killer)}</span> <span style="color:#64748b">[${escHtml(k.weapon)}${k.headshot ? ' ⌖ HS' : ''}]</span> <span style="color:#f8fafc">${escHtml(k.victim)}</span>`,
                     timer: 5.0,
                     leaving: false
                 });
@@ -178,6 +204,33 @@
                 this.elPointsPopups.appendChild(div);
                 setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 750);
             });
+        }
+
+        _ensureToastTicker() {
+            if (this._toastInterval || !this._toastStack?.length) return;
+            this._toastInterval = setInterval(() => {
+                if (!this._toastStack || !this._toastStack.length) {
+                    clearInterval(this._toastInterval);
+                    this._toastInterval = null;
+                    this.toastTimer = 0;
+                    if (this.elToast) this.elToast.classList.add('hidden');
+                    return;
+                }
+                let changed = false;
+                for (let i = this._toastStack.length - 1; i >= 0; i--) {
+                    this._toastStack[i].timer -= 0.1;
+                    if (this._toastStack[i].timer <= 0) {
+                        this._toastStack.splice(i, 1);
+                        changed = true;
+                    }
+                }
+                if (changed) this._renderToastStack();
+                if (!this._toastStack.length) {
+                    clearInterval(this._toastInterval);
+                    this._toastInterval = null;
+                    this.toastTimer = 0;
+                }
+            }, 100);
         }
 
         _renderToastStack() {
@@ -257,6 +310,14 @@
                 else delete this.elHud.dataset.mode;
                 const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
                 this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
+                if (mode !== 'survival') {
+                    this.elHud.classList.remove('is-survival');
+                    const topSv = document.getElementById('hud-survival');
+                    if (topSv) topSv.hidden = true;
+                    const svHud = document.getElementById('sv-hud');
+                    if (svHud) svHud.hidden = true;
+                    BO.SurvivalUI?.updateHud?.();
+                }
             }
         }
 
@@ -276,6 +337,7 @@
         }
 
         setScoreboardOpen(open) {
+            if (open && !['mp', 'td', 'zombies'].includes(BO.State.activeMode)) return;
             this.scoreboardOpen = open;
             if (!this.elScoreboardModal) return;
             this.elScoreboardModal.classList.toggle('hidden', !open);
@@ -292,7 +354,7 @@
                 const rows = mp.getScoreboard();
                 body.innerHTML = rows.map((r) => `
                     <tr class="${r.isPlayer ? 'sb-row-player' : ''}">
-                        <td>${r.name}</td>
+                        <td>${escHtml(r.name)}</td>
                         <td>${r.team === 0 ? '<span style="color:#38bdf8">◆ ALLIES</span>' : '<span style="color:#ef4444">✕ HOSTILES</span>'}</td>
                         <td>${r.kills}</td>
                         <td>${r.deaths}</td>
@@ -307,7 +369,7 @@
                         if (pid === BO.Net.myPeerId) continue;
                         peerRows.push(`
                             <tr>
-                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td>★ ${escHtml(prof.callsign || 'FRIEND')}</td>
                                 <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
                                 <td>${prof.kills || 0}</td>
                                 <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
@@ -317,7 +379,7 @@
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'COMMANDER'} (YOU)</td>
+                        <td>${escHtml(BO.Save.data.callsign || 'COMMANDER')} (YOU)</td>
                         <td><span style="color:#22c55e">DEFENDERS</span></td>
                         <td>${td.kills}</td>
                         <td>${td.heartHp}/${td.heartMaxHp} HEART</td>
@@ -332,7 +394,7 @@
                         if (pid === BO.Net.myPeerId) continue;
                         peerRows.push(`
                             <tr>
-                                <td>★ ${prof.callsign || 'FRIEND'}</td>
+                                <td>★ ${escHtml(prof.callsign || 'FRIEND')}</td>
                                 <td><span style="color:#38bdf8">CO-OP SQUAD</span></td>
                                 <td>${prof.kills || 0}</td>
                                 <td>ALIVE</td>
@@ -342,7 +404,7 @@
                 }
                 body.innerHTML = `
                     <tr class="sb-row-player">
-                        <td>${BO.Save.data.callsign || 'SURVIVOR'} (YOU)</td>
+                        <td>${escHtml(BO.Save.data.callsign || 'SURVIVOR')} (YOU)</td>
                         <td><span style="color:#dc2626">${BO.Net && BO.Net.active && BO.Net.players.size > 1 ? 'CO-OP SQUAD' : 'SOLO'}</span></td>
                         <td>${zm.kills}</td>
                         <td>${zm.headshots} HS</td>
@@ -383,20 +445,6 @@
             if (this.medalTimer > 0) {
                 this.medalTimer -= dt;
                 if (this.medalTimer <= 0 && this.elMedal) this.elMedal.classList.add('hidden');
-            }
-            if (this._toastStack && this._toastStack.length) {
-                let toastChanged = false;
-                for (let i = this._toastStack.length - 1; i >= 0; i--) {
-                    this._toastStack[i].timer -= dt;
-                    if (this._toastStack[i].timer <= 0) {
-                        this._toastStack.splice(i, 1);
-                        toastChanged = true;
-                    }
-                }
-                if (toastChanged) this._renderToastStack();
-            } else if (this.toastTimer > 0) {
-                this.toastTimer -= dt;
-                if (this.toastTimer <= 0 && this.elToast) this.elToast.classList.add('hidden');
             }
 
             // Killfeed decay (keyed DOM: only mutate on transition)

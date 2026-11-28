@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "defd1691ce",
-      "fileCount": 77,
-      "rawBytes": 3335100,
-      "gzipBytes": 748579,
+      "hash": "ebd8fcf1ff",
+      "fileCount": 78,
+      "rawBytes": 3357021,
+      "gzipBytes": 752931,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -96,6 +96,7 @@
         "src/core/CoreStability.js",
         "src/graphics/PerfOverlay.js",
         "src/ui/UIPolish.js",
+        "src/ui/TacticalDialog.js",
         "src/ui/UISounds.js",
         "src/graphics/HitboxDebug.js",
         "src/main.js"
@@ -104,10 +105,10 @@
     "rpg": {
       "name": "rpg",
       "path": "dist/bundles/rpg.bundle.js",
-      "hash": "ec0df006fc",
+      "hash": "7f2f641b94",
       "fileCount": 13,
-      "rawBytes": 455224,
-      "gzipBytes": 113627,
+      "rawBytes": 456212,
+      "gzipBytes": 113795,
       "files": [
         "src/data/RPGData.js",
         "src/data/RPGItemsData.js",
@@ -127,10 +128,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "09d1608388",
+      "hash": "e5c9542eb9",
       "fileCount": 31,
-      "rawBytes": 747190,
-      "gzipBytes": 192990,
+      "rawBytes": 747577,
+      "gzipBytes": 193115,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",
@@ -168,10 +169,10 @@
     "survival": {
       "name": "survival",
       "path": "dist/bundles/survival.bundle.js",
-      "hash": "fe2442b7eb",
+      "hash": "7f6f982463",
       "fileCount": 66,
-      "rawBytes": 1884223,
-      "gzipBytes": 516206,
+      "rawBytes": 1884741,
+      "gzipBytes": 516342,
       "files": [
         "src/data/SurvivalData.js",
         "src/data/SurvivalCampaignData.js",

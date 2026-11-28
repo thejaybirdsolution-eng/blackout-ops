@@ -309,7 +309,7 @@
 #hud-layer #hud-banner .banner-title {
     font-family: var(--aaa-display); font-stretch: 75%; letter-spacing: 0.12em; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
 }
-#hud-layer #hud-prompt, #hud-layer #hud-toast {
+#hud-layer #hud-prompt, #hud-toast {
     background: rgba(6, 8, 10, 0.7); border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 2px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px);
     letter-spacing: 0.04em;

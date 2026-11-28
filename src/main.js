@@ -432,8 +432,8 @@
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
             BO.HUD?.resetForMode?.(opts.mode);
-            BO.CampaignUI?.syncHudPill?.();
             BO.Menus.showScreen('playing');
+            BO.CampaignUI?.syncHudPill?.();
             this._safePointerLock();
         }
 
@@ -506,11 +506,11 @@
             BO.State.activeMode = null;
             BO.State.paused = false;
             BO.HUD?.resetForMode?.(null);
-            BO.CampaignUI?.syncHudPill?.();
-            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();
             else BO.Menus.showScreen(mgReturn || 'main_menu');
+            BO.CampaignUI?.syncHudPill?.();
+            BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
         }
 
         _bindInputs() {
@@ -723,7 +723,7 @@
                 if (ow && firstDown && BO.OWRPGMode.handleKey(code, kb, e)) return;
                 if (ow && BO.OWRPGMode.isSuppressed(code, kb)) return;
 
-                if (code === 'Tab' && !survival && !ow) {
+                if (code === 'Tab' && (BO.State.activeMode === 'mp' || BO.State.activeMode === 'td' || BO.State.activeMode === 'zombies')) {
                     e.preventDefault();
                     BO.HUD.setScoreboardOpen(true);
                 } else if (code === 'KeyM' && firstDown && BO.State.activeMode === 'mp') {

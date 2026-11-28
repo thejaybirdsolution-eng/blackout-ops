@@ -334,7 +334,7 @@
                     if (this.active && !this.isHost && this.status === 'connecting') {
                         this.status = 'error';
                         this.statusText = `CONNECTION TIMEOUT [${clean}] — CLICK JOIN TO RETRY`;
-                        BO.Events.emit('hud:toast', { text: `Lobby [${clean}] timed out after 10s.`, color: '#ef4444' });
+                        BO.Events.emit('net:error', { message: `Lobby [${clean}] timed out after 10s.` });
                         this.addChatMessage('SYSTEM', `Connection to [${clean}] timed out. Verify code and retry.`, '#ef4444');
                         BO.Events.emit('net:updated');
                     }
@@ -385,6 +385,7 @@
                         }
                         this.status = 'error';
                         this.statusText = `ROOM [${clean}] NOT FOUND`;
+                        BO.Events.emit('net:error', { message: `Room [${clean}] not found.` });
                         this.addChatMessage('SYSTEM', `Room [${clean}] not found. Check the code or click Host Online Lobby.`, '#ef4444');
                         BO.Events.emit('net:updated');
                     }

@@ -673,7 +673,19 @@
                     return;
                 }
                 case 'repairAll': for (const pc of c.placed) if (pc.alive && pc.part) pc.part.hp = pc.part.maxHp || pc.part.hp; return this.say('Every structure repaired.');
-                case 'wipeBase': if (!window.confirm('Delete every structure you built in this run?')) return; for (const pc of c.placed) if (pc.alive) this.removePiece(pc); return this.say('Base wiped.');
+                case 'wipeBase':
+                    BO.Dialog.confirm({
+                        kicker: 'DEV PANEL',
+                        title: 'WIPE BASE?',
+                        message: 'Delete every structure you built in this run?',
+                        tone: 'danger',
+                        confirmLabel: 'WIPE BASE'
+                    }).then((ok) => {
+                        if (!ok) return;
+                        for (const pc of c.placed) if (pc.alive) this.removePiece(pc);
+                        this.say('Base wiped.');
+                    });
+                    return;
                 // debug
                 case 'copyPos': { const t = this.posText(); navigator.clipboard?.writeText?.(t); return this.say('Copied ' + t); }
                 case 'save': c.save(false, true); return;

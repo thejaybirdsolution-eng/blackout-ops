@@ -192,6 +192,8 @@
             this._aliveBots.length = 0;
             this._aliveZombies.length = 0;
             this.scene = null;
+            BO.SurvivalUI?.updateHud?.();
+            if (BO.SurvivalUI?._subHost) BO.SurvivalUI._subHost.innerHTML = '';
         }
 
         disposeOwned(mesh) {

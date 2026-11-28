@@ -127,6 +127,9 @@
         },
 
         _openModal(html) {
+            if (typeof document !== 'undefined' && document.pointerLockElement) {
+                try { document.exitPointerLock(); } catch (_) {}
+            }
             if (!this.modalEl) {
                 const bd = document.createElement('div');
                 bd.id = 'ph-modal-backdrop';
@@ -156,6 +159,11 @@
 
         closeModal() {
             if (this.modalEl) this.modalEl.classList.add('hidden');
+            if (typeof this._onCloseHook === 'function') {
+                const fn = this._onCloseHook;
+                this._onCloseHook = null;
+                fn();
+            }
             BO.Sound?.playUIClick?.();
         },
 
@@ -197,10 +205,17 @@
                     }).join('')}
                 </div>
                 <h4 style="margin:12px 0 8px">EMBLEMS (${p.unlockedEmblems.length}/${PS.EMBLEMS.length})</h4>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
                     ${PS.EMBLEMS.map((e) => {
                         const ok = p.unlockedEmblems.includes(e.id);
                         return `<button type="button" class="btn btn-sm ${p.emblem === e.id ? 'btn-primary' : ''}" data-eq-emb="${e.id}" ${ok ? '' : 'disabled'} title="${esc(e.name)}">${e.icon} ${esc(e.name)}</button>`;
+                    }).join('')}
+                </div>
+                <h4 style="margin:12px 0 8px">TITLES (${p.unlockedTitles.length}/${PS.TITLES.length})</h4>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    ${PS.TITLES.map((t) => {
+                        const ok = p.unlockedTitles.includes(t);
+                        return `<button type="button" class="btn btn-sm ${p.title === t ? 'btn-primary' : ''}" data-eq-title="${esc(t)}" ${ok ? '' : 'disabled'}>${esc(t)}</button>`;
                     }).join('')}
                 </div>`);
 
@@ -209,6 +224,9 @@
             });
             box.querySelectorAll('[data-eq-emb]').forEach((b) => {
                 b.onclick = () => { PS.equipCosmetic('emblem', b.dataset.eqEmb); this.openProfileModal(); };
+            });
+            box.querySelectorAll('[data-eq-title]').forEach((b) => {
+                b.onclick = () => { PS.equipCosmetic('title', b.dataset.eqTitle); this.openProfileModal(); };
             });
         },
 
@@ -271,11 +289,12 @@
             try {
                 if (global.self !== global.top) return;
             } catch (e) { return; }
-            if (/_qa_runner|_qa_owrpg|[?&]qa=1/i.test(location.href)) return;
+            if (/_qa_runner|_qa_owrpg|_qa_hitboxes|[?&]qa=1/i.test(location.href)) return;
             if (BO.State?.screen && BO.State.screen !== 'main_menu') return;
             const p = BO.ProfileSystem?.getState();
             if (!p || p.onboardingDone || p.totalXp > 0 || p.lastMode) return;
 
+            this._onCloseHook = () => BO.ProfileSystem?.markOnboardingDone?.();
             const box = this._openModal(`
                 <div class="ph-modal-head">
                     <div><span class="ph-kicker">BLACKOUT OPS 1.0 · FIRST DEPLOYMENT</span><h2 style="margin:2px 0">WELCOME, OPERATIVE</h2></div>

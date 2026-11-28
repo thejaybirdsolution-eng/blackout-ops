@@ -241,8 +241,15 @@
                 this.render();
                 this.refresh3D();
             };
-            document.getElementById('gs-rename-btn').onclick = () => {
-                const nn = window.prompt('Class name (max 22 characters):', cls.name);
+            document.getElementById('gs-rename-btn').onclick = async () => {
+                const nn = await BO.Dialog.prompt({
+                    kicker: 'GUNSMITH',
+                    title: 'RENAME CLASS',
+                    message: 'Enter a name for this custom loadout (max 22 characters).',
+                    defaultValue: cls.name,
+                    maxLength: 22,
+                    confirmLabel: 'RENAME'
+                });
                 if (nn !== null) { BO.Loadout.renameClass(idx, nn); this.render(); }
             };
             document.getElementById('gs-copy-btn').onclick = () => {
