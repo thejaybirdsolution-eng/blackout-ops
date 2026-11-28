@@ -1,4 +1,4 @@
-/* BLACKOUT OPS — core.bundle.js (74 files) | Dev-generated IIFE bundle (ADR-002) */
+/* BLACKOUT OPS — core.bundle.js (77 files) | Dev-generated IIFE bundle (ADR-002) */
 
 /* --- src/core/Namespace.js --- */
 /* ============================================================================
@@ -149,6 +149,15 @@
         return 'staged_assets/' + defaultDir + clean;
     }
 
+    // Grazing-angle texture clarity scales with the graphics preset, capped by what the GPU supports.
+    function anisoLevel() {
+        const q = (BO.Settings && BO.Settings.get && BO.Settings.get('quality')) || 'high';
+        const want = q === 'ultra' ? 16 : q === 'high' ? 8 : q === 'medium' ? 4 : 2;
+        const r = BO.App && BO.App.renderer;
+        const max = r && r.capabilities && r.capabilities.getMaxAnisotropy ? r.capabilities.getMaxAnisotropy() : 4;
+        return Math.max(1, Math.min(want, max || 4));
+    }
+
     function loadTex(relPath, repeatX = 1, repeatY = 1) {
         const full = resolvePath(relPath, 'textures/');
         const key = 'ftex:' + full + ':' + repeatX + ':' + repeatY;
@@ -158,7 +167,7 @@
         tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(repeatX, repeatY);
         if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-        tex.anisotropy = 4;
+        tex.anisotropy = anisoLevel();
         texCache.set(key, tex);
         return tex;
     }
@@ -205,6 +214,8 @@
         let hasSkinned = false;
         source.traverse((o) => { if (o.isSkinnedMesh) hasSkinned = true; });
         const clone = source.clone(true);
+        // Object3D.clone in r149 does not carry the GLTF clips; every instance needs them for its mixer.
+        clone.animations = source.animations || [];
         if (!hasSkinned) return clone;
 
         const sourceToClone = new Map();
@@ -1624,6 +1635,8 @@
                     shadows: false,
                     shadowMapSize: 512,
                     maxShadowCasters: 0,
+                    shadowCasterBudget: 0,
+                    shadowCasterMinRadius: 99,
                     postFx: false,
                     drawDistance: 360,
                     maxParticles: 60,
@@ -1640,6 +1653,8 @@
                     shadows: true,
                     shadowMapSize: 1024,
                     maxShadowCasters: 1,
+                    shadowCasterBudget: 450,
+                    shadowCasterMinRadius: 0.8,
                     postFx: postFxUser,
                     drawDistance: 650,
                     maxParticles: 140,
@@ -1656,6 +1671,8 @@
                     shadows: true,
                     shadowMapSize: 2048,
                     maxShadowCasters: 3,
+                    shadowCasterBudget: 4000,
+                    shadowCasterMinRadius: 0.18,
                     postFx: postFxUser,
                     drawDistance: 1500,
                     maxParticles: 340,
@@ -1671,6 +1688,8 @@
                 shadows: true,
                 shadowMapSize: 1536,
                 maxShadowCasters: 2,
+                shadowCasterBudget: 1600,
+                shadowCasterMinRadius: 0.35,
                 postFx: postFxUser,
                 drawDistance: 1100,
                 maxParticles: 240,
@@ -3250,11 +3269,11 @@
                 if (parts.bodyPivot) parts.bodyPivot.userData.baseY = parts.bodyPivot.position.y;
                 parts.root.position.set(st.x || 0, st.y || 0, st.z || 0);
                 BO.World.scene.add(parts.root);
+                remoteEnt.parts = parts;
 
-                const hitboxes = [];
-                parts.root.traverse((obj) => {
-                    if (obj.isMesh && obj.userData.entity === remoteEnt) hitboxes.push(obj);
-                });
+                // Every visible body part (helmet, hands, boots…) is a hit surface; see Hitboxes.js.
+                const hitboxes = BO.Hitboxes ? BO.Hitboxes.prepare(remoteEnt, parts).slice() : [];
+                if (!BO.Hitboxes) parts.root.traverse((obj) => { if (obj.isMesh && obj.userData.entity === remoteEnt) hitboxes.push(obj); });
 
                 this._ensureNameplateLayer();
                 const plateEl = document.createElement('div');
@@ -3288,18 +3307,26 @@
             if (av.lastWeaponKey === key) return;
             av.lastWeaponKey = key;
 
-            if (av.weaponRoot && av.parts.armR) {
-                av.parts.armR.remove(av.weaponRoot);
+            if (av.weaponRoot && av.weaponRoot.parent) {
+                av.weaponRoot.parent.remove(av.weaponRoot);
                 av.weaponRoot = null;
+                av.parts.heldWeapon = null;
             }
             try {
                 const built = BO.WeaponMesh.buildWeapon(wId, {}, camo, isPaP, false, false);
                 built.root.scale.setScalar(0.85);
-                built.root.position.set(-0.08, -0.35, 0.24);
-                built.root.rotation.set(0.95, Math.PI, 0);
-                av.parts.armR.add(built.root);
+                const spec = BO.WeaponsData.get(wId);
+                const cat = spec && spec.category;
+                built.root.userData.isWeapon = true;
+                built.root.userData.hold = spec && spec.kind === 'melee' ? 'melee' : (cat === 'Pistol' ? 'pistol' : (cat === 'LMG' || cat === 'Launcher' ? 'heavy' : 'rifle'));
+                built.root.traverse((o) => { o.userData.noHit = true; });
+                // Held on the torso; the soldier rig's IK puts both hands on it.
+                av.parts.bodyPivot.add(built.root);
+                av.parts.heldWeapon = built.root;
                 av.weaponRoot = built.root;
-            } catch (e) {}
+            } catch (e) {
+                BO.log?.('NetworkManager', 'debug', 'remote weapon build failed', e);
+            }
         }
 
         sendPlayerFx(fx) {
@@ -3313,6 +3340,8 @@
         _playRemoteFx(fx, senderId) {
             if (!fx || !BO.World.scene || BO.State.screen !== 'playing') return;
             if (fx.kind === 'shot') {
+                const kickAv = this.remoteAvatars.get(senderId);
+                if (kickAv) kickAv.shotKick = 1;
                 const st = this.remoteStates.get(senderId);
                 if (st) BO.Sound.playGunshot(fx.soundProfile || 'ar_light', !!fx.suppressed, !!fx.isPaP,
                     { x: st.x, y: st.y + 1.35, z: st.z });
@@ -3339,7 +3368,8 @@
                 const st = this.remoteStates.get(pid);
                 if (!st || !st.alive) continue;
                 const hostile = isFFA || (st.team !== undefined && st.team !== this.myTeam);
-                if (hostile && av.hitboxes) {
+                if (hostile && BO.Hitboxes && av.entity.parts) BO.Hitboxes.collect(av.entity, out);
+                else if (hostile && av.hitboxes) {
                     for (let i = 0; i < av.hitboxes.length; i++) {
                         out.push(av.hitboxes[i]);
                     }
@@ -3456,6 +3486,9 @@
                         alive: P.alive,
                         inLastStand: P.inLastStand,
                         crouching: P.crouching || P.sliding,
+                        ads: Number((P.adsAlpha || 0).toFixed(2)),
+                        reloading: !!P.reloading,
+                        sprinting: !!(P.sprinting || P.tacSprinting),
                         weaponId: aw ? aw.cfg.id : 'm4a1',
                         camo: aw ? (aw.cfg.camo || 'default') : 'default',
                         isPaP: !!(aw && aw.isPaP),
@@ -3524,14 +3557,17 @@
                 av.parts.root.position.copy(av.pos);
                 av.parts.root.rotation.y = av.yaw;
 
-                if (av.parts.bodyPivot) {
-                    const baseY = av.parts.bodyPivot.userData.baseY || 0.82;
-                    av.parts.bodyPivot.position.y = isDowned ? 0.32 : (st.crouching ? baseY - 0.32 : baseY);
-                }
-
                 const spd = Math.hypot(st.vx || 0, st.vz || 0);
                 av.animPhase += dt * (spd * 2.3 + 1.0);
-                BO.CharacterMesh.animateLimbs(av.parts, isDowned ? 0 : spd, av.animPhase, 0, 0);
+                av.shotKick = Math.max(0, (av.shotKick || 0) - dt * 8);
+                av.aimHold = Math.max(av.shotKick > 0 ? 1 : 0, (av.aimHold || 0) - dt * 0.8);
+                BO.CharacterMesh.animateSoldier(av.parts, {
+                    speed: isDowned ? 0 : spd, phase: av.animPhase,
+                    aim: Math.max(st.ads || 0, av.aimHold > 0 ? 1 : 0, st.sprinting ? 0 : 0.15),
+                    recoil: av.shotKick, reload: st.reloading ? 0.8 : 0,
+                    crouch: st.crouching ? 1 : 0, downed: !!isDowned, sprint: !!st.sprinting,
+                    pitch: -(st.pitch || 0)
+                }, dt);
 
                 // Project 3D head position to 2D screen coordinates for floating squad nameplate
                 if (av.plateEl && worldCamera) {
@@ -12272,7 +12308,7 @@
         project: 'Blackout Ops',
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
-        period: 'Nov 22 – Nov 27, 2026 (ET)',
+        period: 'Nov 22 – Nov 28, 2026 (ET)',
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -16034,6 +16070,229 @@
                                         "Mode Depth 1.0: Added Zombies power-on clarity, per-map leaderboards, and co-op roles; Tower Defense active turret/defender synergies and wave previews; Multiplayer post-match 3-map voting and rule presets; Survival dawn/dusk phase alerts; Rogue Lite Floor-5 synergy banners and instructive run-end debriefs; and Minigames Daily Seeded Challenge plus Personal-Best Ghost deltas.",
                                         "Unified Profile & 165-Weapon Armory: Migrated saves cleanly to v3 with shared Account Levels (1–100), Calling Cards, Emblems, Titles, Offline Seeded Daily (3) & Weekly (5) Challenges, Unified Weapon Armory modal, Main Menu Continue Banner, per-mode progress tags, and first-launch Range Day warmup.",
                                         "Online Co-op & Operation Blackout Capstone: Documented ADR-021 and added Rogue Lite 2–4p delve sync + Minigames Same-Room Versus leaderboards alongside Operation Blackout, a 10-mission story campaign spanning all 7 game modes."
+                                ]
+                        }
+                ]
+        },
+
+        {
+                "id": 186,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:05 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Enemy Hitboxes Rebuilt: If You See It, You Can Hit It",
+                "major": true,
+                "tags": [
+                        "mp",
+                        "zombies",
+                        "owrpg",
+                        "rogue",
+                        "td",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Every enemy in Multiplayer, Zombies, Rogue Lite, Tower Defense and the Open World now takes hits exactly where its model is drawn:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Helmets, hands, boots, hips, plate carriers and pouches are hit surfaces. Before, shots on a helmet's crown, a hand or a boot passed straight through.",
+                                        "Zones follow the body: anything on the head (including the helmet) is a headshot, arms and legs are limb hits, everything else is torso.",
+                                        "Hidden parts no longer catch bullets, and held weapons, magic auras, orbiting crystals and ground shadows never block or absorb a shot.",
+                                        "Monster models (Imp, Puglin, skeletons, orcs, vampires, ghosts, archers, templars) are hit on their own mesh. Before, an invisible old zombie body underneath took the hits, so shooting a Puglin's head or an Imp's arm often did nothing.",
+                                        "Combat skips the precise test for enemies a shot can't reach, so the larger hit surfaces cost nothing."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 187,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:10 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Sculpted Monsters Come Alive: Imp & Puglin Animation",
+                "major": false,
+                "tags": [
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Sprinters, spitters, fiends, bloaters, goliaths, berserkers and golems wearing the Imp and Puglin models no longer slide around in a T-pose:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Relaxed stance with arms down, then walk and run cycles with knee bend, hip sway, arm swing and forward lean that scale with speed.",
+                                        "Attacks: single-claw swipes alternate sides, brutes sometimes swing two-handed, spitters and casters thrust forward when they fire.",
+                                        "Hit reactions depend on where you hit (head snaps back, limb hits twist the body), plus stun wobble, dance-bomb dancing and a limp death fall.",
+                                        "Headshot kills remove the monster's head, big-head mode scales it, and Tower Defense gun zombies hold their rifle in the monster's hand."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 188,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:15 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Soldier Rig 2.0: Real Rifle Handling for Bots & Online Players",
+                "major": false,
+                "tags": [
+                        "mp",
+                        "owrpg",
+                        "survival",
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Soldiers used the zombie animation: arms out front, rifle pointing at the sky, and every shot flung both arms upward. Rebuilt from the joints up:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Elbow, knee and ankle joints, with the weapon carried on the torso and both hands placed on the grip and handguard by inverse kinematics.",
+                                        "Shouldered aim stays level whatever the body is doing; low ready when idle, port arms when sprinting, pistols two-handed, LMGs from the hip, knives in hand.",
+                                        "Small recoil kick, reload with the support hand going to the magazine, flinch by hit zone, and pitch toward the target.",
+                                        "Real crouch (online players no longer sink their torso into their legs), downed pose, and boots that stay on the ground.",
+                                        "Killed bots drop their weapon instead of it floating with the body."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 189,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:20 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World Creatures: Clip Animation, Death Clips & Corpses",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Kenney-kit enemies in the Open World now use the animations their models ship with. The asset loader had been dropping them from every copy:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Idle, walk and sprint, with playback speed tied to movement so feet don't skate.",
+                                        "Melee attacks play on the upper body while the legs keep moving; armed archers and templars aim and fire their weapons.",
+                                        "Death clips for GLB creatures and bots, and procedural bandits and raiders now ragdoll into a corpse instead of vanishing.",
+                                        "Monster bodies get the same translucent skin shading as the sculpted zombies."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 190,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:25 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Zombie Animation Fixes: Deaths, Dancing, Stuns & Gun Zombies",
+                "major": false,
+                "tags": [
+                        "zombies",
+                        "td",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Several zombie animations pointed at body parts that don't exist or used the wrong frame of reference:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Deaths: knees buckle first, then the body topples along its own facing (it used to roll sideways depending on compass direction) with limp arms. Hounds roll onto their side.",
+                                        "Dance-bomb victims now actually wave their arms, bounce and sway.",
+                                        "Stunned zombies sway dazed instead of freezing mid-stride. Frozen still means frozen.",
+                                        "Tower Defense gun zombies finally carry their gun, and it stays aimed where they face."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 191,
+                "hash": "3e29511",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:40 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Graphics: Shadows Restored Everywhere, Stable Sun Shadows, Sharper Textures",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "survival",
+                        "owrpg",
+                        "mp",
+                        "zombies",
+                        "td",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A graphics pass across every mode, led by a fix for shadows that had quietly disappeared:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Restored world shadows: the 1.0 performance budget let only 1–3 objects in the whole world cast a shadow. Trees, buildings, walls and props cast again, within a real per-preset budget (Medium 450, High 1,600, Ultra 4,000 objects, largest first). Raising the preset now brings shadows back mid-session.",
+                                        "Stable sun shadows: small maps get a tight shadow frame; Survival and the Open World get one that follows you and leans toward where you look, so shadows exist wherever you go (Survival used to have none outside the middle of the map).",
+                                        "Shadow edges are snapped to the shadow map grid, so they no longer crawl and shimmer as you walk or turn.",
+                                        "Sharper textures at grazing angles: anisotropic filtering now follows the graphics preset (up to 16× on Ultra) instead of a fixed 4×."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 192,
+                "hash": "qa-suite",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:50 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "New QA Suite: Enemy Hitbox & Animation Audit",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added _qa_hitboxes.html, 44 automated checks that prove the hitbox and animation work in every mode:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Fires a grid of rays at each enemy from the front and side and compares the visible body to the hitboxes: 0% miss and 0% ghost on soldiers, zombies and online avatars, and every one of the 70 zombie archetypes and the first six bosses within limits.",
+                                        "Checks soldiers keep both hands on the weapon and the barrel on target when aiming, walking, crouched and firing, with boots on the ground.",
+                                        "Checks rigged monsters are out of their T-pose, swing their legs and wind up attacks, and that their hitboxes ride the bones.",
+                                        "Checks clip-driven creatures walk, attack and play death clips, bots leave corpses, gun zombies aim forward, and the combat broad-phase agrees with brute force on every test ray."
                                 ]
                         }
                 ]
@@ -23525,7 +23784,20 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             return { root, sign };
         }
 
-        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0, hitZone = 'torso') {
+        /** Full-state soldier animation (aim, recoil, reload, crouch, downed, pitch). */
+        animateSoldier(parts, st, dt) {
+            if (parts.glbRig) { parts.glbRig.update(dt, { speed: st.speed, attackSwing: 0, flinch: st.flinch, hitZone: st.hitZone, firing: st.recoil > 0.3, aim: st.aim }); return; }
+            if (parts.isSoldier && BO.SoldierModel) BO.SoldierModel.animate(parts, st, dt);
+            else this.animateLimbs(parts, st.speed || 0, st.phase || 0, 0, st.flinch || 0, st.hitZone || 'torso', dt);
+        }
+
+        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0, hitZone = 'torso', dt) {
+            // GLB bodies animate through their own rig; soldiers through the jointed IK rig.
+            if (parts.glbRig) { parts.glbRig.update(dt, { speed, attackSwing, flinch, hitZone }); return; }
+            if (parts.isSoldier && BO.SoldierModel) {
+                BO.SoldierModel.animate(parts, { speed, phase, aim: parts.anim ? parts.anim.idleAim || 0 : 0, recoil: attackSwing > 0 ? Math.min(1, attackSwing * 2.9) : 0, flinch, hitZone }, dt);
+                return;
+            }
             const amp = BO.Math.clamp(speed / 4.0, 0, 1) * 0.68;
             const headKick = hitZone === 'head' ? 1.45 : 0.7;
             const bodyHunch = hitZone === 'head' ? 0.35 : (hitZone === 'limb' ? 0.45 : 1.0);
@@ -23964,19 +24236,24 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         // ------------------------------------------------------------ arms
         _buildArm(side, M, entity) {
             const g = this._g.bind(this);
+            // Shoulder pivot › upper arm, elbow pad; elbow pivot › forearm, cuff, glove.
             const arm = new THREE.Group();
             const upper = this._tag(new THREE.Mesh(g('uarm', () => capsule(0.058, 0.2, 5, 12)), M.fatigue), entity, 'limb');
             upper.position.y = -0.13;
             const pocket = this._mesh(g('slvpocket', () => new THREE.BoxGeometry(0.03, 0.08, 0.07)), M.fatigue, side * 0.055, -0.1, 0.0);
             const flag = this._mesh(g('slvflag', () => new THREE.BoxGeometry(0.006, 0.035, 0.05)), M.carrier, side * 0.072, -0.09, 0.0);
             const elbow = this._mesh(g('elbowpad', () => new THREE.SphereGeometry(0.055, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.27, -0.02, -Math.PI / 2 - 0.3);
-            const fore = this._tag(new THREE.Mesh(g('farm', () => capsule(0.05, 0.18, 5, 12)), M.fatigue), entity, 'limb');
-            fore.position.set(0, -0.37, 0.02);
-            fore.rotation.x = 0.12;
-            const cuff = this._mesh(g('cuff', () => new THREE.CylinderGeometry(0.052, 0.054, 0.04, 14)), M.glove, 0, -0.47, 0.035);
-            const hand = this._mesh(g('hand', () => new THREE.BoxGeometry(0.075, 0.1, 0.05)), M.glove, 0, -0.53, 0.04);
-            const knuckle = this._mesh(g('knuckle', () => new THREE.BoxGeometry(0.07, 0.025, 0.02)), M.polymer, 0, -0.55, 0.068);
-            arm.add(upper, pocket, flag, elbow, fore, cuff, hand, knuckle);
+            const fore = new THREE.Group();
+            fore.name = 'forearm';
+            fore.position.y = -0.27;
+            const foreMesh = this._tag(new THREE.Mesh(g('farm', () => capsule(0.05, 0.18, 5, 12)), M.fatigue), entity, 'limb');
+            foreMesh.position.set(0, -0.10, 0.0);
+            const cuff = this._mesh(g('cuff', () => new THREE.CylinderGeometry(0.052, 0.054, 0.04, 14)), M.glove, 0, -0.20, 0.005);
+            const hand = this._mesh(g('hand', () => new THREE.BoxGeometry(0.075, 0.1, 0.05)), M.glove, 0, -0.26, 0.008);
+            const knuckle = this._mesh(g('knuckle', () => new THREE.BoxGeometry(0.07, 0.025, 0.02)), M.polymer, 0, -0.28, 0.036);
+            fore.add(foreMesh, cuff, hand, knuckle);
+            arm.add(upper, pocket, flag, elbow, fore);
+            arm.userData.fore = fore;
             return arm;
         }
 
@@ -24024,28 +24301,37 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         // ------------------------------------------------------------ legs
         _buildLeg(side, M, entity) {
             const g = this._g.bind(this);
+            // Hip pivot › thigh; knee pivot (-0.37) › shin; ankle pivot (-0.32 below knee) › boot.
             const leg = new THREE.Group();
             const thigh = this._tag(new THREE.Mesh(g('thigh', () => capsule(0.078, 0.24, 5, 12)), M.fatigue), entity, 'limb');
             thigh.position.y = -0.18;
             const cargo = this._mesh(g('cargo', () => new THREE.BoxGeometry(0.03, 0.12, 0.1)), M.fatigue, side * 0.08, -0.2, 0.0);
             const cargoFlap = this._mesh(g('cargoflap', () => new THREE.BoxGeometry(0.034, 0.03, 0.104)), M.fatigue, side * 0.082, -0.145, 0.0);
-            const knee = this._mesh(g('kneepad', () => new THREE.SphereGeometry(0.068, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.37, 0.04, Math.PI / 2 - 0.15);
+            const shinG = new THREE.Group();
+            shinG.name = 'shin';
+            shinG.position.y = -0.37;
+            const knee = this._mesh(g('kneepad', () => new THREE.SphereGeometry(0.068, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, 0, 0.04, Math.PI / 2 - 0.15);
             knee.scale.set(1, 1.15, 0.7);
-            const kneeStrap = this._mesh(g('kneestrap', () => lathe([[0.072, 0.0], [0.072, 0.018]], 16, 1.0)), M.rubber, 0, -0.39, 0.0);
+            const kneeStrap = this._mesh(g('kneestrap', () => lathe([[0.072, 0.0], [0.072, 0.018]], 16, 1.0)), M.rubber, 0, -0.02, 0.0);
             const shin = this._tag(new THREE.Mesh(g('shin', () => capsule(0.062, 0.24, 5, 12)), M.fatigue), entity, 'limb');
-            shin.position.set(0, -0.54, -0.005);
+            shin.position.set(0, -0.17, -0.005);
+            const footG = new THREE.Group();
+            footG.name = 'ankle';
+            footG.position.y = -0.32;
             // Boot: lugged sole, upper, toe cap, laces.
-            const upper = this._mesh(g('bootup', () => new THREE.CylinderGeometry(0.066, 0.07, 0.12, 14)), M.polymer, 0, -0.69, 0.0);
-            const foot = this._mesh(g('bootfoot', () => new THREE.BoxGeometry(0.11, 0.075, 0.23)), M.polymer, 0, -0.735, 0.045);
-            const toe = this._mesh(g('boottoe', () => new THREE.SphereGeometry(0.056, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.75, 0.15, Math.PI / 2);
+            const upper = this._mesh(g('bootup', () => new THREE.CylinderGeometry(0.066, 0.07, 0.12, 14)), M.polymer, 0, 0, 0.0);
+            const foot = this._mesh(g('bootfoot', () => new THREE.BoxGeometry(0.11, 0.075, 0.23)), M.polymer, 0, -0.045, 0.045);
+            const toe = this._mesh(g('boottoe', () => new THREE.SphereGeometry(0.056, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.06, 0.15, Math.PI / 2);
             toe.scale.set(1, 0.85, 0.7);
-            const sole = this._mesh(g('sole', () => new THREE.BoxGeometry(0.118, 0.024, 0.25)), M.rubber, 0, -0.774, 0.05);
+            const sole = this._mesh(g('sole', () => new THREE.BoxGeometry(0.118, 0.024, 0.25)), M.rubber, 0, -0.084, 0.05);
             for (let i = 0; i < 4; i++) {
-                const lug = this._mesh(g('lug', () => new THREE.BoxGeometry(0.11, 0.01, 0.018)), M.rubber, 0, -0.79, -0.04 + i * 0.06);
-                leg.add(lug);
+                const lug = this._mesh(g('lug', () => new THREE.BoxGeometry(0.11, 0.01, 0.018)), M.rubber, 0, -0.10, -0.04 + i * 0.06);
+                footG.add(lug);
             }
-            const laces = this._mesh(g('laces', () => new THREE.BoxGeometry(0.04, 0.012, 0.11)), M.webbing, 0, -0.695, 0.09, -0.35);
-            leg.add(thigh, cargo, cargoFlap, knee, kneeStrap, shin, upper, foot, toe, sole, laces);
+            const laces = this._mesh(g('laces', () => new THREE.BoxGeometry(0.04, 0.012, 0.11)), M.webbing, 0, -0.005, 0.09, -0.35);
+            footG.add(upper, foot, toe, sole, laces);
+            shinG.add(knee, kneeStrap, shin, footG);
+            leg.add(thigh, cargo, cargoFlap, shinG);
             if (side > 0) {
                 // Drop-leg holster on the strong side.
                 const holster = this._mesh(g('holster', () => new THREE.BoxGeometry(0.04, 0.16, 0.08)), M.polymer, 0.1, -0.18, 0.01, 0, 0, 0.06);
@@ -24053,6 +24339,8 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 const legStrap = this._mesh(g('legstrap', () => lathe([[0.084, 0.0], [0.084, 0.02]], 16, 1.0)), M.webbing, 0, -0.22, 0.0);
                 leg.add(holster, pistol, legStrap);
             }
+            leg.userData.shin = shinG;
+            leg.userData.foot = footG;
             return leg;
         }
 
@@ -24095,9 +24383,11 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 const grip = this._mesh(this._g('blade_grip', () => new THREE.BoxGeometry(0.042, 0.049, 0.12)), M.polymer, 0, 0, 0.058);
                 gunBody.add(blade, grip);
             }
-            gunBody.position.set(-0.08, -0.4, 0.2);
-            gunBody.rotation.x = 0.95;
-            armR.add(gunBody);
+            // The weapon rides on the torso and the arms reach for it (two-bone IK), so the grip,
+            // foregrip and stock stay planted whatever the pose.
+            gunBody.userData.isWeapon = true;
+            gunBody.userData.hold = weapon?.kind === 'melee' ? 'melee' : (category === 'Pistol' ? 'pistol' : (category === 'LMG' || category === 'Launcher' ? 'heavy' : 'rifle'));
+            bodyPivot.add(gunBody);
             bodyPivot.add(armL, armR);
 
             const legL = this._buildLeg(-1, M, entity);
@@ -24106,8 +24396,221 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             legR.position.set(0.1, 0.78, 0);
             root.add(legL, legR);
 
-            return { root, bodyPivot, headGroup, armL, armR, legL, legR, gunBody, haloGroup: null };
+            const parts = {
+                root, bodyPivot, headGroup, armL, armR, legL, legR, gunBody, haloGroup: null,
+                forearmL: armL.userData.fore, forearmR: armR.userData.fore,
+                shinL: legL.userData.shin, shinR: legR.userData.shin,
+                footL: legL.userData.foot, footR: legR.userData.foot,
+                isSoldier: true
+            };
+            this.animate(parts, { speed: 0, phase: Math.random() * 6 }, 1);
+            return parts;
         }
+
+        /* ================================================================ ANIMATION
+           State: { speed, phase, aim 0..1, recoil 0..1, flinch 0..1, hitZone, reload 0..1,
+                    crouch 0..1, downed, sprint, melee 0..1, pitch (rad, + = down), look (rad) }
+           Legs: hip/knee/ankle with the stance leg setting hip height (natural bob, real crouch).
+           Arms: two-bone IK onto the weapon's grip and foregrip; relaxed swing when unarmed. */
+        animate(parts, st, dt) {
+            const A = parts.anim || (parts.anim = { a: 0, run: 0, crouch: 0, aim: 0, sprint: 0, recoil: 0, flinch: 0, reload: 0, melee: 0, downed: 0, t: Math.random() * 9, lastT: performance.now() });
+            const nowT = performance.now();
+            if (dt == null) dt = Math.min(0.1, (nowT - A.lastT) / 1000);
+            A.lastT = nowT;
+            dt = Math.min(0.1, Math.max(0, dt));
+            const k = (rate) => Math.min(1, rate * dt);
+            const speed = st.speed || 0;
+            A.t += dt;
+            A.a += (clamp01(speed / 2.6) - A.a) * k(9);
+            A.run += (clamp01((speed - 3.6) / 2.2) - A.run) * k(7);
+            A.crouch += ((st.crouch || 0) - A.crouch) * k(10);
+            A.downed += ((st.downed ? 1 : 0) - A.downed) * k(6);
+            A.aim += ((st.aim || 0) - A.aim) * k(10);
+            A.sprint += ((st.sprint || (A.run > 0.6 && (st.aim || 0) < 0.3) ? 1 : 0) - A.sprint) * k(8);
+            A.recoil = Math.max(st.recoil || 0, A.recoil - dt * 9);
+            A.flinch = Math.max(st.flinch || 0, A.flinch - dt * 6);
+            A.reload += ((st.reload || 0) - A.reload) * k(14);
+            A.melee = st.melee || 0;
+            const phase = st.phase || 0;
+            const a = A.a * (1 - A.downed), run = A.run * (1 - A.downed);
+            const crouch = Math.max(A.crouch, A.downed);
+            const aim = A.aim * (1 - A.sprint * 0.85);
+
+            // ---------------------------------------------------------------- legs
+            const LT = 0.37, LS = 0.32, LF = 0.10;
+            let hip = 0;
+            const legPose = (leg, shin, foot, ph) => {
+                const sp = Math.sin(ph), cp = Math.cos(ph);
+                const thigh = sp * (0.42 + 0.3 * run) * a * (1 - crouch * 0.5) + crouch * 1.0 + A.downed * 0.35;
+                const knee = a * (0.1 + (0.62 + 0.55 * run) * Math.max(0, cp)) * (1 - crouch * 0.4) + crouch * 1.72 + A.downed * 0.25;
+                leg.rotation.set(-thigh, 0, 0);
+                shin.rotation.set(knee, 0, 0);
+                foot.rotation.set(thigh - knee + Math.max(0, -sp) * 0.25 * a, 0, 0);
+                hip = Math.max(hip, LT * Math.cos(thigh) + LS * Math.cos(thigh - knee) + LF);
+            };
+            if (parts.shinL && parts.footL) {
+                legPose(parts.legL, parts.shinL, parts.footL, phase);
+                legPose(parts.legR, parts.shinR, parts.footR, phase + Math.PI);
+            }
+            const drop = Math.max(0, (LT + LS + LF) - hip) + A.downed * 0.08;
+            parts.legL.position.y = 0.78 - drop;
+            parts.legR.position.y = 0.78 - drop;
+            parts.legL.rotation.z = -0.04 * crouch;
+            parts.legR.rotation.z = 0.04 * crouch;
+
+            // ---------------------------------------------------------------- torso & head
+            const held = parts.heldWeapon && parts.heldWeapon.parent ? parts.heldWeapon : parts.gunBody;
+            const hold = held && held.visible !== false ? (held.userData.hold || 'rifle') : 'none';
+            const bladed = (hold === 'rifle' || hold === 'heavy') ? 0.12 + 0.18 * aim : 0;
+            const BP = parts.bodyPivot;
+            BP.position.y = (BP.userData.baseY || 0.84) - drop + Math.sin(A.t * 1.6) * 0.004;
+            BP.rotation.x = 0.04 * a + 0.2 * A.sprint * a + 0.22 * crouch - A.flinch * (st.hitZone === 'head' ? 0.12 : 0.24) - A.recoil * 0.03 + A.reload * 0.06;
+            BP.rotation.y = bladed - Math.sin(phase) * 0.07 * a + (st.hitZone === 'limb' ? A.flinch * 0.16 : 0);
+            BP.rotation.z = Math.sin(phase) * 0.03 * a + (st.hitZone === 'limb' ? A.flinch * 0.12 : 0);
+            const pitch = clamp(st.pitch || 0, -0.7, 0.7);
+            if (parts.headGroup) {
+                const hg = parts.headGroup;
+                const idleLook = (1 - a) * (1 - aim) * Math.sin(A.t * 0.37) * 0.3;
+                hg.rotation.set(
+                    -BP.rotation.x * 0.8 + pitch * 0.7 - A.flinch * (st.hitZone === 'head' ? 0.5 : 0.22) + A.reload * 0.3,
+                    -BP.rotation.y + (st.look || 0) + idleLook,
+                    -BP.rotation.z * 0.6
+                );
+            }
+
+            // ---------------------------------------------------------------- weapon + arms
+            if (hold === 'none') {
+                // Unarmed: arms hang and swing against the legs.
+                const sw = Math.sin(phase) * (0.35 + 0.4 * run) * a;
+                parts.armL.rotation.set(sw + A.flinch * 0.3, 0, -0.1);
+                parts.armR.rotation.set(-sw + A.flinch * 0.3, 0, 0.1);
+                if (parts.forearmL) parts.forearmL.rotation.set(-0.25 - 0.9 * run, 0, 0);
+                if (parts.forearmR) parts.forearmR.rotation.set(-0.25 - 0.9 * run, 0, 0);
+                return;
+            }
+            const gun = held;
+            const anc = gripAnchors(gun);
+            // Pose the weapon in torso space.
+            const bob = Math.sin(phase * 2) * 0.012 * a;
+            let bx, by, bz, gp, gy, gr;
+            if (hold === 'pistol') {
+                // Grip-anchored: two-handed extension when aiming, tucked low-ready otherwise.
+                bx = lerp(0.07, 0.02, aim); by = lerp(0.26, 0.47, aim) + bob; bz = lerp(0.24, 0.44, aim);
+                gp = lerp(0.85, 0, aim); gy = -bladed; gr = 0;
+            } else if (hold === 'melee') {
+                bx = 0.16; by = 0.3 + bob; bz = 0.28; gp = -0.5 + A.melee * 2.0; gy = 0.2; gr = 0;
+            } else {
+                const heavy = hold === 'heavy';
+                // Butt position: aim = shouldered; low ready = muzzle down and across the body;
+                // sprint = port arms, muzzle up toward the support shoulder.
+                bx = lerp(heavy ? 0.15 : 0.1, 0.12, aim); by = lerp(heavy ? 0.33 : 0.42, heavy ? 0.36 : 0.5, aim) + bob; bz = lerp(0.06, 0.03, aim);
+                gp = lerp(heavy ? 0.15 : 0.45, 0, aim); gy = lerp(heavy ? -0.1 : -0.35, 0, aim) - bladed; gr = 0;
+                bx = lerp(bx, 0.15, A.sprint); by = lerp(by, 0.3, A.sprint); bz = lerp(bz, 0.12, A.sprint);
+                gp = lerp(gp, -0.6, A.sprint); gy = lerp(gy, -0.85 - bladed, A.sprint);
+            }
+            gp += pitch * aim;
+            // Recoil kicks the butt back and the muzzle up; reload rolls the gun and dips it.
+            bz -= A.recoil * 0.045; gp -= A.recoil * 0.12;
+            gr += A.reload * 0.75; gp += A.reload * 0.35; by -= A.reload * 0.06;
+            gp -= A.flinch * 0.25;
+            _q1.setFromAxisAngle(_Y, gy).multiply(_q2.setFromAxisAngle(_X, gp)).multiply(_q2.setFromAxisAngle(_Y, Math.PI)).multiply(_q2.setFromAxisAngle(_Z, gr));
+            if (aim > 0.01 && hold !== 'melee') {
+                // When aiming the barrel is laid in body space (feet frame), so torso lean, bob and twist never tip it off target.
+                _q3.setFromAxisAngle(_X, gp).multiply(_q2.setFromAxisAngle(_Y, Math.PI)).multiply(_q2.setFromAxisAngle(_Z, gr));
+                _q2.setFromEuler(BP.rotation).invert();
+                _q3.premultiply(_q2);
+                _q1.slerp(_q3, clamp01(aim * 1.4));
+            }
+            gun.quaternion.copy(_q1);
+            if (hold === 'pistol' || hold === 'melee') {
+                _v1.copy(anc.grip).multiply(gun.scale).applyQuaternion(_q1);
+                gun.position.set(bx, by, bz).sub(_v1);
+            } else {
+                _v1.copy(anc.butt).multiply(gun.scale).applyQuaternion(_q1);
+                gun.position.set(bx, by, bz).sub(_v1);
+            }
+            // Hand targets in torso space.
+            const tR = _v2.copy(anc.grip).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            let tL;
+            if (hold === 'pistol') tL = _v3.copy(anc.grip).add(_v4.set(-0.035, -0.02, 0.01)).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            else if (hold === 'melee') tL = null;
+            else tL = _v3.copy(anc.fore).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            // Reload: support hand goes to the magazine, then down to the belt and back.
+            if (tL && A.reload > 0.02) {
+                const r = A.reload;
+                _v5.copy(anc.mag).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+                const belt = _v4.set(-0.12, 0.08, 0.12);
+                const cyc = Math.sin(A.t * 5.5) * 0.5 + 0.5;
+                _v5.lerp(belt, cyc * 0.6);
+                tL.lerp(_v5, Math.min(1, r * 1.4));
+            }
+            ikArm(parts.armR, parts.forearmR, tR, 1);
+            if (tL) ikArm(parts.armL, parts.forearmL, tL, -1);
+            else {
+                const sw = Math.sin(phase) * 0.4 * a;
+                parts.armL.rotation.set(sw - 0.2, 0, -0.18);
+                if (parts.forearmL) parts.forearmL.rotation.set(-0.7, 0, 0);
+            }
+        }
+    }
+
+    const _X = new THREE.Vector3(1, 0, 0), _Y = new THREE.Vector3(0, 1, 0), _Z = new THREE.Vector3(0, 0, 1);
+    const _DOWN = new THREE.Vector3(0, -1, 0);
+    const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+    const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3();
+    const _d = new THREE.Vector3(), _pole = new THREE.Vector3(), _e = new THREE.Vector3(), _u = new THREE.Vector3(), _f = new THREE.Vector3();
+    const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+    const clamp01 = (v) => clamp(v, 0, 1);
+    const lerp = (x, y, t) => x + (y - x) * t;
+
+    /** Grip / foregrip / magazine / butt points of a held weapon in its own space, measured once from its bounds. */
+    function gripAnchors(gun) {
+        if (gun.userData.anchors) return gun.userData.anchors;
+        const sq = gun.quaternion.clone(), sp = gun.position.clone(), ss = gun.scale.clone(), par = gun.parent;
+        if (par) par.remove(gun);
+        gun.position.set(0, 0, 0); gun.quaternion.identity(); gun.scale.set(1, 1, 1);
+        gun.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(gun);
+        gun.position.copy(sp); gun.quaternion.copy(sq); gun.scale.copy(ss);
+        if (par) par.add(gun);
+        if (box.isEmpty()) box.set(new THREE.Vector3(-0.03, -0.1, -0.5), new THREE.Vector3(0.03, 0.06, 0.31));
+        const L = box.max.z - box.min.z, cx = (box.min.x + box.max.x) / 2;
+        const top = box.max.y, bot = box.min.y;
+        const midY = lerp(bot, top, 0.62);
+        const hold = gun.userData.hold || 'rifle';
+        const anchors = hold === 'pistol' || L < 0.32
+            ? { butt: new THREE.Vector3(cx, midY, box.max.z), grip: new THREE.Vector3(cx, lerp(bot, top, 0.3), box.max.z - L * 0.22), fore: new THREE.Vector3(cx, lerp(bot, top, 0.3), box.max.z - L * 0.22), mag: new THREE.Vector3(cx, bot, box.max.z - L * 0.25) }
+            : hold === 'melee'
+                ? { butt: new THREE.Vector3(cx, 0, box.max.z), grip: new THREE.Vector3(cx, 0, box.max.z - L * 0.22), fore: new THREE.Vector3(cx, 0, box.max.z - L * 0.22), mag: new THREE.Vector3(cx, 0, box.max.z - L * 0.22) }
+                : { butt: new THREE.Vector3(cx, midY, box.max.z), grip: new THREE.Vector3(cx, lerp(bot, top, 0.45), box.max.z - L * 0.29), fore: new THREE.Vector3(cx, lerp(bot, top, 0.72), box.max.z - L * 0.56), mag: new THREE.Vector3(cx, lerp(bot, top, 0.35), box.max.z - L * 0.42) };
+        gun.userData.anchors = anchors;
+        return anchors;
+    }
+
+    /** Two-bone IK in the torso frame: shoulder (arm.position) → elbow (0.27) → palm (0.265). */
+    function ikArm(arm, fore, target, side) {
+        if (!arm || !fore) return;
+        const LU = 0.27, LFo = 0.265;
+        const S = arm.position;
+        _d.copy(target).sub(S);
+        let D = _d.length();
+        if (D < 1e-4) return;
+        _d.divideScalar(D);
+        D = clamp(D, 0.1, LU + LFo - 0.003);
+        // Elbows point down, out and slightly back.
+        _pole.set(side * 0.65, -0.9, -0.35);
+        _pole.addScaledVector(_d, -_pole.dot(_d));
+        if (_pole.lengthSq() < 1e-6) _pole.set(0, -1, 0);
+        _pole.normalize();
+        const cosA = clamp((LU * LU + D * D - LFo * LFo) / (2 * LU * D), -1, 1);
+        const sinA = Math.sqrt(1 - cosA * cosA);
+        _u.copy(_d).multiplyScalar(cosA).addScaledVector(_pole, sinA); // upper-arm direction
+        arm.quaternion.setFromUnitVectors(_DOWN, _u);
+        _e.copy(S).addScaledVector(_u, LU);
+        _f.copy(S).addScaledVector(_d, D).sub(_e).normalize();
+        _q3.copy(arm.quaternion).invert();
+        _f.applyQuaternion(_q3);
+        fore.quaternion.setFromUnitVectors(_DOWN, _f);
     }
 
     const model = new SoldierModel();
@@ -24905,63 +25408,9 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             const parts = { root, bodyPivot, headGroup, armL, armR, legL, legR, haloGroup, forearmL, forearmR, jaws };
             BO.ArsenalDetails.undeadDetails(parts, spec, chestW, chestD);
 
-            // Upgrade select fiend/spitter/brute archetypes across Zombies, OWRPG, Rogue Lite & TD with sculpted 3D GLB monsters
-            if (BO.Assets && typeof BO.Assets.loadGLB === 'function' && !bs.missingLegs && !isFloating && !spec.isSuperBoss) {
-                const sid = String(spec.id || '').toLowerCase();
-                const sname = String(spec.name || '').toLowerCase();
-                let monsterPath = null;
-                let targetH = 1.72;
-                if (/imp|flame|pyro|hell|demon|hunch_spitter|acid|spitter|ankle_biter|stalker|sprinter/.test(sid) || /imp|fiend|spitter|stalker|crawler/.test(sname)) {
-                    monsterPath = 'monsters/Imp.glb';
-                    targetH = 1.65;
-                } else if (/club_goliath|bloater|brute|berserker|mauler|golem|ogre/.test(sid) || /brute|matriarch|goliath|ogre/.test(sname)) {
-                    monsterPath = 'monsters/Puglin.glb';
-                    targetH = 1.92;
-                }
-                if (monsterPath) {
-                    const hitboxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false });
-                    BO.Assets.loadGLB(monsterPath).then((sc) => {
-                        if (!root.parent && !bodyPivot.parent) return;
-                        const wrap = new THREE.Group();
-                        wrap.add(sc);
-                        wrap.updateMatrixWorld(true);
-                        const box = new THREE.Box3().setFromObject(sc);
-                        if (!box.isEmpty()) {
-                            const sz = new THREE.Vector3();
-                            box.getSize(sz);
-                            const scale = targetH / Math.max(sz.y, 1e-4);
-                            sc.scale.multiplyScalar(scale);
-                            sc.updateMatrixWorld(true);
-                            box.setFromObject(sc);
-                            const ctr = new THREE.Vector3();
-                            box.getCenter(ctr);
-                            sc.position.x -= ctr.x;
-                            sc.position.z -= ctr.z;
-                            sc.position.y -= box.min.y;
-                        }
-                        // Offset downward by bodyPivot.position.y so feet stand cleanly on ground while bobbing with bodyPivot
-                        wrap.position.y = -(bodyPivot.position.y || 0.84);
-                        // Keep raycast hitbox meshes invisible (preserving headshots & hit detection) and hide decorative meshes
-                        root.traverse((o) => {
-                            if (!o.isMesh) return;
-                            if (o.userData && o.userData.hitbox) {
-                                o.material = hitboxMat;
-                                o.castShadow = false;
-                                o.receiveShadow = false;
-                            } else {
-                                o.visible = false;
-                            }
-                        });
-                        sc.traverse((o) => {
-                            if (!o.isMesh) return;
-                            o.userData.noHit = true;
-                            o.castShadow = true;
-                            o.receiveShadow = true;
-                        });
-                        bodyPivot.add(wrap);
-                    }).catch(() => {});
-                }
-            }
+            // Select fiend/spitter/brute archetypes wear sculpted GLB monsters (Zombies, Open World, Rogue Lite, TD).
+            // EnemyRig animates the skeleton and moves the hitboxes onto the model once it loads.
+            if (BO.EnemyRig) BO.EnemyRig.mountZombieOverlay(parts, spec, entity);
 
             return parts;
         };
@@ -25133,6 +25582,1130 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
 })(window);
 ;
 
+/* --- src/graphics/Hitboxes.js --- */
+/* ============================================================================
+   BLACKOUT OPS — Hitboxes
+   One place that decides what a bullet can hit on an enemy.
+
+   • Procedural rigs (soldiers, zombies, beasts): every visible body mesh is a
+     hit surface, zoned head / torso / limb by which part of the rig it hangs
+     from. Helmets, hands, boots and gear count; held weapons, auras, contact
+     shadows and other effects do not.
+   • Hidden parts never count (a crawler's missing legs, a decapitated head, a
+     procedural body that a GLB model has replaced). Far-LOD detail that
+     MeshProxy hides still counts, because the proxy shows the same pose.
+   • GLB models: rigid parts are hit directly; skinned meshes are cut into
+     rigid per-bone copies of their own triangles (built once per geometry
+     from skin weights) and parented to the bones, so the hit surface is the
+     model itself and follows every animation frame.
+   • Each entity carries a bounding radius so CombatSystem can skip the
+     triangle test for enemies a ray cannot reach.
+============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO;
+    const _v = new THREE.Vector3();
+    const _m = new THREE.Matrix4();
+    const _inv = new THREE.Matrix4();
+    const _sphere = new THREE.Sphere();
+
+    // Invisible but raycastable: the renderer skips material.visible === false, the raycaster does not.
+    const PROXY_MAT = new THREE.MeshBasicMaterial({ visible: false });
+    PROXY_MAT.name = 'bo-hitbox-proxy';
+
+    const LIMB_RE = /arm|hand|leg|thigh|calf|shin|foot|ball|toe|tail|wing|finger|thumb|index|middle|ring|pinky/i;
+    const HEAD_RE = /^head|[-_ ]head|skull|helm|face|jaw/i;
+
+    function isEffectMaterial(mat) {
+        const list = Array.isArray(mat) ? mat : [mat];
+        for (const m of list) {
+            if (!m) return true;
+            if (m.visible === false || m.colorWrite === false) return true;
+            if (m.blending === THREE.AdditiveBlending) return true;
+            if (m.transparent && (m.opacity < 0.45 || m.depthWrite === false)) return true;
+            if (m.wireframe) return true;
+        }
+        return false;
+    }
+
+    function zoneByAncestry(obj, parts, root) {
+        for (let o = obj; o && o !== root; o = o.parent) {
+            if (o.userData.hitZone) return o.userData.hitZone;
+            if (o === parts.headGroup) return 'head';
+            if (o === parts.armL || o === parts.armR || o === parts.legL || o === parts.legR ||
+                o === parts.forearmL || o === parts.forearmR || o === parts.tail) return 'limb';
+        }
+        return 'torso';
+    }
+
+    function zoneByName(name) {
+        if (!name) return 'torso';
+        if (HEAD_RE.test(name)) return 'head';
+        if (LIMB_RE.test(name)) return 'limb';
+        return 'torso';
+    }
+
+    /** Bounding sphere of every hit mesh, expressed in root-local space (radius before root scale). */
+    function measure(entity, list, root) {
+        root.updateMatrixWorld(true);
+        _inv.copy(root.matrixWorld).invert();
+        const rootScale = root.matrixWorld.getMaxScaleOnAxis() || 1;
+        let minY = Infinity, maxY = -Infinity;
+        const centers = [];
+        for (const m of list) {
+            const g = m.geometry;
+            if (!g) continue;
+            if (!g.boundingSphere) g.computeBoundingSphere();
+            _sphere.copy(g.boundingSphere).applyMatrix4(_m.multiplyMatrices(_inv, m.matrixWorld));
+            centers.push(_sphere.center.x, _sphere.center.y, _sphere.center.z, _sphere.radius);
+            minY = Math.min(minY, _sphere.center.y - _sphere.radius);
+            maxY = Math.max(maxY, _sphere.center.y + _sphere.radius);
+        }
+        if (!centers.length) { entity._hitCY = 0.9; entity._hitR = 1.2; return; }
+        const cy = (minY + maxY) * 0.5;
+        let r = 0;
+        for (let i = 0; i < centers.length; i += 4) {
+            const d = Math.hypot(centers[i], centers[i + 1] - cy, centers[i + 2]) + centers[i + 3];
+            if (d > r) r = d;
+        }
+        // Stored unscaled so a later sizeMult/scale change is picked up from the root matrix.
+        entity._hitCY = cy * 1;
+        entity._hitR = r;
+        entity._hitScale0 = rootScale;
+    }
+
+    /* ---------------------------------------------------------------- skinned proxies */
+    const proxyCache = new WeakMap(); // geometry -> [{ joint, box: Box3 }]
+
+    function segmentJoint(bones, idx) {
+        // Fingers, toes, clavicles and twist bones fold into the nearest parent that is a real body segment.
+        let b = bones[idx];
+        while (b && b.isBone) {
+            const n = b.name || '';
+            const minor = /index|middle|ring|pinky|thumb|leaf|ball|toe|clavicle|twist|_end$|-end$/i.test(n) || /^root$/i.test(n);
+            if (!minor) break;
+            if (!b.parent || !b.parent.isBone) break;
+            b = b.parent;
+        }
+        return b;
+    }
+
+    // BufferAttribute.getComponent arrived after r149.
+    const comp = (attr, i, k) => (k === 0 ? attr.getX(i) : k === 1 ? attr.getY(i) : k === 2 ? attr.getZ(i) : attr.getW(i));
+
+    /**
+     * Splits a skinned mesh into rigid per-bone pieces: every triangle goes to the body segment that
+     * dominates its vertices, expressed in that bone's bind space. Parented to the bone, a piece moves
+     * exactly like the skin it was cut from, so the hit surface is the model itself, frame by frame.
+     * Built once per geometry and shared by every instance.
+     */
+    function buildSkinBoxes(skinned) {
+        const geo = skinned.geometry;
+        const cached = proxyCache.get(geo);
+        if (cached) return cached;
+        const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+        const index = geo.index;
+        const bones = skinned.skeleton.bones;
+        const bindM = skinned.bindMatrix;
+        const segOf = new Int32Array(pos.count);
+        for (let i = 0; i < pos.count; i++) {
+            let best = 0, bw = -1;
+            for (let k = 0; k < 4; k++) {
+                const w = comp(sw, i, k);
+                if (w > bw) { bw = w; best = comp(si, i, k); }
+            }
+            const seg = segmentJoint(bones, best);
+            segOf[i] = seg ? bones.indexOf(seg) : -1;
+        }
+        const buckets = new Map(); // segIdx -> number[] (positions in bone space)
+        const toBone = new Map();
+        const v = new THREE.Vector3();
+        const triCount = index ? index.count / 3 : pos.count / 3;
+        for (let t = 0; t < triCount; t++) {
+            const a = index ? index.getX(t * 3) : t * 3, b = index ? index.getX(t * 3 + 1) : t * 3 + 1, c = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+            // Majority vote of the three vertices' segments.
+            const sa = segOf[a], sb = segOf[b], sc = segOf[c];
+            const seg = (sa === sb || sa === sc) ? sa : (sb === sc ? sb : sa);
+            if (seg < 0) continue;
+            let mtx = toBone.get(seg);
+            if (!mtx) { mtx = new THREE.Matrix4().multiplyMatrices(skinned.skeleton.boneInverses[seg], bindM); toBone.set(seg, mtx); }
+            let arr = buckets.get(seg);
+            if (!arr) { arr = []; buckets.set(seg, arr); }
+            for (const vi of [a, b, c]) { v.fromBufferAttribute(pos, vi).applyMatrix4(mtx); arr.push(v.x, v.y, v.z); }
+        }
+        const out = [];
+        for (const [seg, arr] of buckets) {
+            if (arr.length < 9 * 4) continue; // fewer than 4 triangles: decoration fragment
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+            g.computeBoundingSphere();
+            g.computeBoundingBox();
+            out.push({ joint: bones[seg].name, geometry: g, center: new THREE.Vector3() });
+        }
+        proxyCache.set(geo, out);
+        return out;
+    }
+
+    const Hitboxes = {
+        PROXY_MAT,
+        zoneByName,
+
+        /**
+         * Tags every visible body mesh of a procedural rig and caches the hit list on the entity.
+         * Call again after the rig changes (e.g. a GLB replaced the body).
+         */
+        prepare(entity, parts) {
+            parts = parts || entity.parts;
+            if (!parts || !parts.root) return [];
+            const root = parts.root;
+            const list = [];
+            const skipTree = (o) => o === parts.gunBody || o === parts.haloGroup || o.userData.noHit || o.userData.isWeapon || o.name === 'MeshProxy' || o.name === 'bo-contact-shadow';
+            const walk = (o) => {
+                if (skipTree(o) || o.isSprite || o.isPoints || o.isLine) return;
+                if (o.isMesh && !o.userData.hitDisabled) {
+                    if (o.userData.entity === entity && o.userData.hitbox) list.push(o);
+                    else if ((!o.userData.entity || o.userData.autoHit) && !isEffectMaterial(o.material)) {
+                        o.userData.entity = entity;
+                        o.userData.hitbox = zoneByAncestry(o, parts, root);
+                        o.userData.autoHit = true;
+                        list.push(o);
+                    }
+                }
+                for (let i = 0; i < o.children.length; i++) walk(o.children[i]);
+            };
+            walk(root);
+            entity._hitList = list;
+            measure(entity, list, root);
+            return list;
+        },
+
+        /** Replaces an entity's hit list with surfaces taken from a GLB model mounted under its root. */
+        fromModel(entity, model, opts = {}) {
+            const root = entity.parts.root;
+            const list = [];
+            let hasHead = false;
+            const torsoMeshes = [];
+            model.updateMatrixWorld(true);
+            model.traverse((o) => {
+                if (!o.isMesh || o.userData.hitProxy) return;
+                o.userData.noHit = true;
+                o.userData.glbPart = true;
+                if (o.isSkinnedMesh && o.skeleton) {
+                    for (const entry of buildSkinBoxes(o)) {
+                        const { joint } = entry;
+                        const bone = o.skeleton.bones.find((b) => b.name === joint);
+                        if (!bone) continue;
+                        const proxy = new THREE.Mesh(entry.geometry, PROXY_MAT);
+                        proxy.position.copy(entry.center);
+                        proxy.castShadow = false;
+                        proxy.receiveShadow = false;
+                        proxy.frustumCulled = false;
+                        proxy.name = 'hit:' + joint + ':' + (o.name || 'skin');
+                        proxy.userData.entity = entity;
+                        proxy.userData.hitbox = opts.zone ? opts.zone(joint) : zoneByName(joint);
+                        proxy.userData.hitProxy = true;
+                        proxy.userData.sharedGeometry = true;
+                        if (proxy.userData.hitbox === 'head') hasHead = true;
+                        bone.add(proxy);
+                        list.push(proxy);
+                    }
+                } else {
+                    // Rigid part: the visible geometry is the hit surface.
+                    let name = o.name;
+                    for (let p = o; p && p !== model && (!name || /^(mesh|object|node)/i.test(name)); p = p.parent) name = p.name;
+                    const zone = opts.zone ? opts.zone(name) : zoneByName(name);
+                    o.userData.noHit = false;
+                    o.userData.entity = entity;
+                    o.userData.hitbox = zone;
+                    if (zone === 'head') hasHead = true;
+                    if (zone === 'torso') torsoMeshes.push(o);
+                    list.push(o);
+                }
+            });
+            // Models whose head is modelled into the torso (ghosts) get a head sphere over the top of the torso.
+            if (!hasHead && torsoMeshes.length) {
+                const t = torsoMeshes[0];
+                t.geometry.computeBoundingBox();
+                const bb = t.geometry.boundingBox;
+                const h = bb.max.y - bb.min.y;
+                const r = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) * 0.36;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(Math.max(r, h * 0.16), 10, 8), PROXY_MAT);
+                head.position.set((bb.min.x + bb.max.x) / 2, bb.max.y - Math.max(r, h * 0.16), (bb.min.z + bb.max.z) / 2);
+                head.userData.entity = entity;
+                head.userData.hitbox = 'head';
+                head.userData.hitProxy = true;
+                head.userData.ownedGeometry = true;
+                head.name = 'hit:head';
+                t.add(head);
+                list.push(head);
+            }
+            // The procedural body underneath no longer takes hits.
+            for (const m of entity._hitList || []) if (!list.includes(m)) m.userData.hitDisabled = true;
+            entity._hitList = list;
+            measure(entity, list, root);
+            return list;
+        },
+
+        /** Appends the entity's currently hittable meshes to `out`. */
+        collect(entity, out = []) {
+            const parts = entity.parts;
+            if (!parts || !parts.root || !parts.root.visible) return out;
+            const list = entity._hitList || this.prepare(entity, parts);
+            const root = parts.root;
+            for (let i = 0; i < list.length; i++) {
+                const m = list[i];
+                if (m.userData.hitDisabled || !m.parent) continue;
+                let live = true;
+                for (let o = m.userData.hitProxy ? m.parent : m; o && o !== root; o = o.parent) {
+                    if (!o.visible && !o.userData.lodDetail) { live = false; break; }
+                }
+                if (live) out.push(m);
+            }
+            return out;
+        },
+
+        /** World-space bounding sphere used for ray broad-phase. Generous on purpose: it must never cull a real hit. */
+        sphere(entity, target) {
+            const root = entity.parts && entity.parts.root;
+            if (!root) return null;
+            if (entity._hitR == null) this.prepare(entity, entity.parts);
+            const s = root.matrixWorld.getMaxScaleOnAxis() || 1;
+            target.center.set(0, entity._hitCY || 0.9, 0).applyMatrix4(root.matrixWorld);
+            target.radius = (entity._hitR || 1.2) * s * 1.35 + 0.35;
+            return target;
+        },
+
+        /** Frees geometry created for GLB proxies. */
+        dispose(entity) {
+            for (const m of entity._hitList || []) {
+                if (m.userData.ownedGeometry && m.geometry) m.geometry.dispose();
+            }
+            entity._hitList = null;
+        }
+    };
+
+    BO.Hitboxes = Hitboxes;
+})(window);
+;
+
+/* --- src/graphics/EnemyRig.js --- */
+/* ============================================================================
+   BLACKOUT OPS — EnemyRig
+   Animation + hit volumes for enemies whose body is a GLB model.
+
+   Three drivers, picked from what the model contains:
+   • ClipDriver      — Kenney-style characters with named clips (idle, walk,
+                       sprint, attack-melee-*, holding-*-shoot, die …). Legs keep
+                       walking while the upper body attacks or aims, through
+                       split upper/lower clips. Playback speed follows ground
+                       speed so feet do not skate.
+   • HumanoidDriver  — skinned humanoids without clips (the Imp and Puglin
+                       monsters). Builds a relaxed rest pose out of the bind
+                       T-pose, then drives walk/run cycles, idle breathing,
+                       claw swipes and two-handed smashes, spit/cast thrusts,
+                       hit flinches by zone, stun wobble, dance and a limp death,
+                       all as character-space bone rotations.
+   • BobDriver       — rigid models with no skeleton: bob, sway and lean.
+
+   Every rig also replaces the entity's hit list with surfaces taken from the
+   model (BO.Hitboxes.fromModel), so the hitboxes follow the animation.
+
+   Public:
+     EnemyRig.mount(entity|null, parts, holder, model, opts) -> rig
+     EnemyRig.mountZombieOverlay(parts, spec, entity)        (ZombieModel hook)
+     rig.update(dt, state)   state: { speed, attackSwing, flinch, hitZone, dead, firing, aim }
+============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO;
+    const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+    const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion();
+    const _va = new THREE.Vector3(), _vb = new THREE.Vector3();
+    const _ma = new THREE.Matrix4(), _mb = new THREE.Matrix4();
+    const _s = new THREE.Vector3(), _p = new THREE.Vector3();
+
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    const smooth = (cur, target, rate, dt) => cur + (target - cur) * Math.min(1, rate * dt);
+    const ease = (t) => t * t * (3 - 2 * t);
+
+    /** Rotation of `obj` expressed in `frame`'s space (scale discarded). */
+    function frameQuat(obj, frame, out) {
+        frame.updateMatrixWorld(true);
+        _ma.copy(frame.matrixWorld).invert().multiply(obj.matrixWorld);
+        _ma.decompose(_p, out, _s);
+        return out;
+    }
+    function framePos(obj, frame, out) {
+        _ma.copy(frame.matrixWorld).invert().multiply(obj.matrixWorld);
+        return out.setFromMatrixPosition(_ma);
+    }
+
+    // Composes a character-space rotation from Euler-like components (x: pitch, y: yaw, z: roll).
+    function deltaQ(out, x, y, z) {
+        out.identity();
+        if (y) out.multiply(_qc.setFromAxisAngle(Y, y));
+        if (x) out.multiply(_qc.setFromAxisAngle(X, x));
+        if (z) out.multiply(_qc.setFromAxisAngle(Z, z));
+        return out;
+    }
+
+    /* ======================================================================
+       HumanoidDriver — UE-mannequin style skeletons without clips
+    ====================================================================== */
+    const BONE_PATTERNS = {
+        pelvis: /^(pelvis|hips?)$/i,
+        spine1: /^spine_?0?1$|^spine$/i,
+        spine2: /^spine_?0?2$|^chest$/i,
+        spine3: /^spine_?0?3$|^upper_?chest$/i,
+        neck: /^neck(_?0?1)?$/i,
+        head: /^head$/i,
+        claL: /^clavicle_l$|^l(eft)?_?shoulder$/i, claR: /^clavicle_r$|^r(ight)?_?shoulder$/i,
+        uaL: /^upperarm_l$|^l(eft)?_?(upper)?arm$/i, uaR: /^upperarm_r$|^r(ight)?_?(upper)?arm$/i,
+        laL: /^lowerarm_l$|^l(eft)?_?fore_?arm$/i, laR: /^lowerarm_r$|^r(ight)?_?fore_?arm$/i,
+        handL: /^hand_l$|^l(eft)?_?hand$/i, handR: /^hand_r$|^r(ight)?_?hand$/i,
+        thL: /^thigh_l$|^l(eft)?_?(up_?)?leg$/i, thR: /^thigh_r$|^r(ight)?_?(up_?)?leg$/i,
+        caL: /^calf_l$|^l(eft)?_?(low_?|shin)/i, caR: /^calf_r$|^r(ight)?_?(low_?|shin)/i,
+        ftL: /^foot_l$|^l(eft)?_?foot$/i, ftR: /^foot_r$|^r(ight)?_?foot$/i
+    };
+
+    class HumanoidDriver {
+        static detect(model) {
+            let bones = 0, pelvis = false, ua = false, th = false;
+            model.traverse((o) => {
+                if (!o.isBone) return;
+                bones++;
+                if (BONE_PATTERNS.pelvis.test(o.name)) pelvis = true;
+                if (BONE_PATTERNS.uaL.test(o.name)) ua = true;
+                if (BONE_PATTERNS.thL.test(o.name)) th = true;
+            });
+            return bones > 8 && pelvis && ua && th;
+        }
+
+        constructor(rig, model, opts) {
+            this.rig = rig;
+            this.frame = rig.holder;
+            this.style = opts.style || 'fiend'; // 'fiend' (lean, clawed) | 'brute' (heavy, two-handed)
+            const b = this.b = {};
+            model.traverse((o) => {
+                if (!o.isBone) return;
+                for (const k in BONE_PATTERNS) if (!b[k] && BONE_PATTERNS[k].test(o.name)) b[k] = o;
+            });
+            this.frame.updateMatrixWorld(true);
+            // Tracked bones (topologically ordered) and their bind data.
+            const tracked = Object.values(b).filter(Boolean);
+            const depth = (o) => { let d = 0; for (let p = o.parent; p; p = p.parent) d++; return d; };
+            tracked.sort((p, q) => depth(p) - depth(q));
+            this.order = tracked;
+            this.isTracked = new Set(tracked);
+            this.L0 = new Map(); this.F0 = new Map(); this.Fstatic = new Map(); this.Lrest = new Map();
+            for (const bone of tracked) {
+                this.L0.set(bone, bone.quaternion.clone());
+                this.F0.set(bone, frameQuat(bone, this.frame, new THREE.Quaternion()));
+                if (bone.parent && !this.isTracked.has(bone.parent)) this.Fstatic.set(bone.parent, frameQuat(bone.parent, this.frame, new THREE.Quaternion()));
+            }
+            this.Frest = new Map();
+            for (const bone of tracked) this.Frest.set(bone, this.F0.get(bone).clone());
+            this._buildRest();
+            for (const bone of tracked) {
+                const Fp = this._parentRest(bone);
+                this.Lrest.set(bone, Fp.clone().invert().multiply(this.Frest.get(bone)));
+            }
+            // Pelvis bob axis: one frame-space metre expressed in the pelvis parent's local units.
+            if (b.pelvis && b.pelvis.parent) {
+                _mb.copy(this.frame.matrixWorld).invert().multiply(b.pelvis.parent.matrixWorld).invert();
+                this.bobAxis = new THREE.Vector3(0, 1, 0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(_mb));
+                this.fwdAxis = new THREE.Vector3(0, 0, 1).applyMatrix3(new THREE.Matrix3().setFromMatrix4(_mb));
+                this.pelvis0 = b.pelvis.position.clone();
+            }
+            // Character height in frame units drives stride length.
+            const top = b.head ? framePos(b.head, this.frame, new THREE.Vector3()).y : 1.6;
+            this.h = Math.max(0.6, top * 1.08);
+            this.D = new Map();
+            for (const bone of tracked) this.D.set(bone, new THREE.Quaternion());
+            this.Fanim = new Map();
+            this.t = Math.random() * 10;
+            this.gait = Math.random() * Math.PI * 2;
+            this.s = { a: 0, run: 0, flinch: 0, attack: 0, stun: 0, dance: 0, dead: 0, cast: 0 };
+            this.attackSide = 1;
+            this.lastSwing = 0;
+            this.headScale = 1;
+            this.ok = !!(b.pelvis && b.uaL && b.uaR && b.thL && b.thR);
+            this.apply();
+        }
+
+        _parentRest(bone) {
+            const p = bone.parent;
+            if (this.isTracked.has(p)) return this.Frest.get(p);
+            return this.Fstatic.get(p) || _qa.identity();
+        }
+
+        // Turns the bind T/A-pose into a relaxed stance: arms down at the sides, elbows soft.
+        _buildRest() {
+            const b = this.b;
+            const fiend = this.style === 'fiend';
+            for (const side of ['L', 'R']) {
+                const ua = b['ua' + side], la = b['la' + side], hand = b['hand' + side];
+                if (!ua || !la) continue;
+                const sUa = framePos(ua, this.frame, new THREE.Vector3());
+                const sLa = framePos(la, this.frame, new THREE.Vector3());
+                const sHand = hand ? framePos(hand, this.frame, new THREE.Vector3()) : sLa.clone().add(sLa.clone().sub(sUa));
+                const sign = Math.sign(sUa.x) || (side === 'L' ? 1 : -1);
+                const dUa = sLa.clone().sub(sUa).normalize();
+                const dLa = sHand.clone().sub(sLa).normalize();
+                const tUa = new THREE.Vector3(sign * (fiend ? 0.3 : 0.42), -1, fiend ? 0.22 : 0.06).normalize();
+                const tLa = new THREE.Vector3(sign * (fiend ? 0.12 : 0.2), -0.75, fiend ? 0.75 : 0.42).normalize();
+                const R1 = new THREE.Quaternion().setFromUnitVectors(dUa, tUa);
+                this.Frest.set(ua, R1.clone().multiply(this.F0.get(ua)));
+                // Forearm moved rigidly with the upper arm; now bend it toward its own target.
+                const cur = dLa.clone().applyQuaternion(R1);
+                const R2 = new THREE.Quaternion().setFromUnitVectors(cur, tLa);
+                const FlaRigid = this.Frest.get(ua).clone().multiply(this.L0.get(la));
+                this.Frest.set(la, R2.clone().multiply(FlaRigid));
+                if (hand) this.Frest.set(hand, this.Frest.get(la).clone().multiply(this.L0.get(hand)));
+            }
+            // Legs: pull wide A-pose legs in under the hips.
+            for (const side of ['L', 'R']) {
+                const th = b['th' + side], ca = b['ca' + side];
+                if (!th || !ca) continue;
+                const p0 = framePos(th, this.frame, new THREE.Vector3());
+                const p1 = framePos(ca, this.frame, new THREE.Vector3());
+                const d = p1.clone().sub(p0).normalize();
+                const sign = Math.sign(p0.x) || (side === 'L' ? 1 : -1);
+                const t = new THREE.Vector3(sign * 0.07, -1, 0.02).normalize();
+                if (d.angleTo(t) > 0.06) {
+                    const R = new THREE.Quaternion().setFromUnitVectors(d, t);
+                    this.Frest.set(th, R.clone().multiply(this.F0.get(th)));
+                    for (const k of ['ca', 'ft']) {
+                        const bone = b[k + side];
+                        if (!bone) continue;
+                        const par = bone.parent;
+                        this.Frest.set(bone, this.Frest.get(par).clone().multiply(this.L0.get(bone)));
+                    }
+                }
+            }
+        }
+
+        apply() {
+            for (const bone of this.order) {
+                const p = bone.parent;
+                const Fp = this.isTracked.has(p) ? this.Fanim.get(p) : (this.Fstatic.get(p) || _qa.identity());
+                let Fb = this.Fanim.get(bone);
+                if (!Fb) { Fb = new THREE.Quaternion(); this.Fanim.set(bone, Fb); }
+                Fb.copy(this.D.get(bone)).multiply(Fp).multiply(this.Lrest.get(bone));
+                bone.quaternion.copy(_qb.copy(Fp).invert().multiply(Fb));
+            }
+            if (this.b.head && this.headScale !== 1) this.b.head.scale.setScalar(this.headScale);
+        }
+
+        _set(key, x, y, z) {
+            const bone = this.b[key];
+            if (bone) deltaQ(this.D.get(bone), x, y, z);
+        }
+
+        update(dt, st) {
+            const ent = this.rig.entity;
+            const s = this.s;
+            this.t += dt;
+            const speed = st.speed || 0;
+            const hS = this.h / 1.75;
+            const brute = this.style === 'brute';
+            s.a = smooth(s.a, clamp(speed / (1.7 * hS), 0, 1), 8, dt);
+            s.run = smooth(s.run, clamp((speed / hS - 3.0) / 2.4, 0, 1), 6, dt);
+            const cycle = (1.45 + 0.85 * s.run) * hS * (brute ? 1.12 : 1);
+            this.gait += (Math.PI * 2 * speed / cycle) * dt;
+            const ph = this.gait;
+
+            // Attacks: rising edge of the entity's swing timer starts a new strike.
+            const swing = st.attackSwing || 0;
+            if (swing > this.lastSwing + 0.25) {
+                this.attackSide = -this.attackSide;
+                this.attackRanged = !!st.ranged;
+                this.attackTwoHand = brute && Math.random() < 0.55;
+            }
+            this.lastSwing = swing;
+            const p = swing > 0 ? 1 - swing : 1;
+            s.flinch = Math.max(st.flinch || 0, s.flinch - dt * 5);
+            s.stun = smooth(s.stun, st.stunned ? 1 : 0, 6, dt);
+            s.dance = smooth(s.dance, st.dance ? 1 : 0, 5, dt);
+            s.dead = st.dead ? Math.min(1, s.dead + dt * 2.2) : 0;
+
+            const a = s.a * (1 - s.dead), run = s.run * (1 - s.dead);
+            const sinP = Math.sin(ph), cosP = Math.cos(ph);
+            const lean = (this.style === 'fiend' ? 0.2 : 0.1) + 0.08 * a + 0.2 * run;
+
+            // ---- legs
+            const A = (0.42 + 0.3 * run) * a;
+            const legs = (side, phase) => {
+                const sp = Math.sin(phase), cp = Math.cos(phase);
+                const fwd = sp * A;
+                const knee = a * (0.12 + (0.7 + 0.55 * run) * Math.max(0, cp)) + s.dead * 0.75 + s.dance * (0.22 + 0.22 * Math.abs(Math.sin(this.t * 7)));
+                this._set('th' + side, -fwd - s.dead * 0.35 - s.dance * 0.1, 0, 0);
+                this._set('ca' + side, knee, 0, 0);
+                this._set('ft' + side, fwd - knee * 0.75, 0, 0);
+            };
+            legs('L', ph);
+            legs('R', ph + Math.PI);
+
+            // ---- pelvis / spine
+            const breathe = Math.sin(this.t * 1.7) * 0.03;
+            const flinchBack = s.flinch * (st.hitZone === 'head' ? 0.22 : st.hitZone === 'limb' ? 0.12 : 0.34);
+            const twistLimb = st.hitZone === 'limb' ? s.flinch * 0.28 : 0;
+            const stunRoll = s.stun * Math.sin(this.t * 7.5) * 0.14;
+            const danceRoll = s.dance * Math.sin(this.t * 6) * 0.2;
+
+            // Attack curve: windup (0..0.32) → strike (0.32..0.62) → recover.
+            let raise = 0, strike = 0;
+            if (swing > 0) {
+                if (p < 0.32) raise = ease(p / 0.32);
+                else if (p < 0.62) { const k = (p - 0.32) / 0.3; raise = 1 - ease(k) * 1.25; strike = Math.sin(k * Math.PI); }
+                else raise = -0.25 * (1 - (p - 0.62) / 0.38);
+            }
+            const ranged = swing > 0 && this.attackRanged;
+            const melee = swing > 0 && !ranged;
+            const side = this.attackSide;
+
+            this._set('pelvis', 0, Math.sin(ph) * 0.09 * a + (melee ? side * 0.18 * strike : 0), Math.sin(ph) * 0.05 * a + danceRoll);
+            this._set('spine1', lean * 0.45 - flinchBack * 0.5 + (melee ? 0.12 * strike : 0), -Math.sin(ph) * 0.06 * a + twistLimb, stunRoll * 0.5);
+            this._set('spine2', lean * 0.35 + breathe - flinchBack * 0.5 + (melee ? 0.1 * strike - 0.08 * raise : 0) + (ranged ? 0.12 * strike : 0),
+                (melee ? -side * 0.35 * raise + side * 0.5 * strike : 0), stunRoll * 0.5);
+            this._set('spine3', lean * 0.2 + breathe * 0.6, 0, 0);
+            const headPitch = -lean * 0.6 - s.flinch * (st.hitZone === 'head' ? 0.6 : 0.3) + s.stun * 0.35 + s.dead * 0.45 + (ranged ? -0.35 * raise + 0.5 * strike : 0);
+            this._set('neck', headPitch * 0.4, Math.sin(this.t * 0.45) * 0.18 * (1 - a), 0);
+            this._set('head', headPitch * 0.6, Math.sin(this.t * 0.3 + 1) * 0.22 * (1 - a) * (1 - s.dead), s.stun * Math.sin(this.t * 5) * 0.2 + s.dead * 0.35);
+
+            // ---- arms
+            const armSwing = (0.42 + 0.35 * run) * a;
+            const elbowRun = 0.15 + 1.0 * run;
+            for (const sd of ['L', 'R']) {
+                const sgn = sd === 'L' ? 1 : -1;     // +X is the character's left
+                const legPhase = sd === 'L' ? ph : ph + Math.PI;
+                let x = Math.sin(legPhase) * armSwing;  // arm swings opposite its leg
+                let y = 0, z = 0, elbow = -elbowRun * a;
+                x += s.flinch * 0.35;
+                // Strike arm(s).
+                const strikeArm = melee && (this.attackTwoHand || (sd === 'L' ? side > 0 : side < 0));
+                if (strikeArm) {
+                    x += -2.5 * Math.max(0, raise) + 0.45 * Math.max(0, -raise);
+                    z += sgn * (this.attackTwoHand ? 0.1 : -0.35) * strike;
+                    elbow += -0.9 * Math.max(0, raise) + 0.4 * strike;
+                } else if (melee) {
+                    x += 0.25 * strike;
+                }
+                if (ranged) { x += -1.35 * Math.max(0, raise + strike * 0.6); elbow += -0.2; }
+                // Stun: arms dangle and sway.
+                x += s.stun * Math.sin(this.t * 3 + sgn) * 0.25;
+                // Dance: arms up, waving.
+                x += s.dance * (-2.6 + Math.sin(this.t * 8 + sgn) * 0.45);
+                z += s.dance * sgn * 0.35;
+                // Death: limp, flung outward.
+                x += s.dead * -0.35;
+                z += s.dead * sgn * 0.9;
+                elbow += s.dead * 0.3;
+                this._set('ua' + sd, x, y, z);
+                this._set('la' + sd, elbow, 0, 0);
+            }
+            // Pelvis bob in metres.
+            if (this.bobAxis && this.pelvis0) {
+                const bob = (Math.abs(cosP) - 0.5) * (0.045 + 0.03 * run) * a * hS - 0.04 * hS * (s.dance * Math.abs(Math.sin(this.t * 7)));
+                this.b.pelvis.position.copy(this.pelvis0).addScaledVector(this.bobAxis, bob);
+            }
+            this.apply();
+        }
+
+        setHeadScale(sc) { this.headScale = sc; if (this.b.head) this.b.head.scale.setScalar(sc); }
+        handBone(side) { return this.b[side === 'L' ? 'handL' : 'handR'] || this.b[side === 'L' ? 'laL' : 'laR']; }
+        headBone() { return this.b.head; }
+    }
+
+    /* ======================================================================
+       ClipDriver — models that ship named clips (Kenney character kits)
+    ====================================================================== */
+    const UPPER_NODES = ['torso', 'arm-left', 'arm-right', 'head'];
+    const clipFind = (clips, ...names) => {
+        for (const n of names) {
+            const c = clips.find((cl) => cl.name === n) || clips.find((cl) => cl.name.toLowerCase().includes(n));
+            if (c) return c;
+        }
+        return null;
+    };
+    function filterClip(clip, keep, suffix) {
+        const tracks = clip.tracks.filter((t) => keep(t.name.split('.')[0]));
+        return new THREE.AnimationClip(clip.name + suffix, clip.duration, tracks);
+    }
+
+    class ClipDriver {
+        static detect(clips) {
+            return !!(clips && clips.length && clipFind(clips, 'walk', 'run') && clipFind(clips, 'idle'));
+        }
+
+        constructor(rig, model, clips, opts) {
+            this.rig = rig;
+            this.mixer = new THREE.AnimationMixer(model);
+            this.clips = clips;
+            this.h = opts.height || 1.8;
+            const upperNames = new Set();
+            model.traverse((o) => { if (UPPER_NODES.includes(o.name)) upperNames.add(THREE.PropertyBinding.sanitizeNodeName(o.name)); });
+            const isUpper = (n) => upperNames.has(n);
+            const hasSplit = upperNames.size > 0;
+            this.split = hasSplit;
+            const mk = (clip, part, fullIfUnsplit) => {
+                if (!clip) return null;
+                if (!hasSplit && part === 'upper' && !fullIfUnsplit) return null;
+                const c = part === 'full' || !hasSplit ? clip : filterClip(clip, part === 'upper' ? isUpper : (n) => !isUpper(n), '#' + part);
+                const act = this.mixer.clipAction(c);
+                act.enabled = true;
+                act.setEffectiveWeight(0);
+                act.play();
+                return act;
+            };
+            const base = {
+                idle: clipFind(clips, 'idle'),
+                walk: clipFind(clips, 'walk'),
+                sprint: clipFind(clips, 'sprint', 'run') || clipFind(clips, 'walk'),
+                dance: clipFind(clips, 'emote-yes', 'dance', 'emote') || clipFind(clips, 'idle')
+            };
+            this.loco = {};
+            for (const k in base) this.loco[k] = { lower: mk(base[k], 'lower'), upper: mk(base[k], 'upper'), w: k === 'idle' ? 1 : 0 };
+            this.loco.idle.lower.setEffectiveWeight(1);
+            if (this.loco.idle.upper) this.loco.idle.upper.setEffectiveWeight(1);
+            // Upper-body overlays.
+            const armed = opts.armed;
+            this.ov = {
+                meleeR: mk(clipFind(clips, 'attack-melee-right', 'attack', 'punch'), 'upper', true),
+                meleeL: mk(clipFind(clips, 'attack-melee-left'), 'upper', true),
+                cast: mk(clipFind(clips, 'interact-right'), 'upper', true),
+                hold: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both' : 'holding-right'), 'upper', true) : null,
+                shoot: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both-shoot' : 'holding-right-shoot'), 'upper', true) : null
+            };
+            if (!this.ov.meleeL) this.ov.meleeL = this.ov.meleeR;
+            for (const k of ['meleeR', 'meleeL', 'cast']) {
+                const a = this.ov[k];
+                if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.stop(); }
+            }
+            this.ovW = {};
+            for (const k in this.ov) this.ovW[k] = 0;
+            const dieClip = clipFind(clips, 'die', 'death');
+            this.die = dieClip ? this.mixer.clipAction(dieClip) : null;
+            if (this.die) { this.die.setLoop(THREE.LoopOnce, 1); this.die.clampWhenFinished = true; this.die.timeScale = 0.55; }
+            this.handlesDeath = !!this.die;
+            this.lastSwing = 0;
+            this.attackSide = 1;
+            this.active = null;
+            this.dead = false;
+            this.flinch = 0;
+            this.t = 0;
+        }
+
+        _trigger(name) {
+            const a = this.ov[name];
+            if (!a) return;
+            a.reset();
+            a.play();
+            this.active = name;
+        }
+
+        update(dt, st) {
+            const rig = this.rig;
+            this.t += dt;
+            if (st.frozen) return;
+            if (st.dead) {
+                if (!this.dead && this.die) {
+                    this.dead = true;
+                    for (const k in this.loco) { this.loco[k].lower.fadeOut(0.12); if (this.loco[k].upper) this.loco[k].upper.fadeOut(0.12); }
+                    for (const k in this.ov) if (this.ov[k]) this.ov[k].fadeOut(0.1);
+                    this.die.reset().setEffectiveWeight(1).fadeIn(0.08).play();
+                }
+                this.mixer.update(dt);
+                return;
+            }
+            const speed = st.speed || 0;
+            const hS = this.h / 1.8;
+            let want = 'idle', ts = 1;
+            if (st.dance) want = 'dance';
+            else if (speed > 3.3 * hS) { want = 'sprint'; ts = clamp(speed / (4.8 * hS), 0.75, 1.7); }
+            else if (speed > 0.25) { want = 'walk'; ts = clamp(speed / (1.6 * hS), 0.55, 2.0); }
+            for (const k in this.loco) {
+                const L = this.loco[k];
+                L.w = smooth(L.w, k === want ? 1 : 0, 9, dt);
+                L.lower.setEffectiveWeight(L.w);
+                L.lower.timeScale = k === want ? ts : L.lower.timeScale;
+            }
+            // Upper body: attack edge → one-shot overlay.
+            const swing = st.attackSwing || 0;
+            if (swing > this.lastSwing + 0.25) {
+                if (st.ranged) this._trigger(this.ov.cast ? 'cast' : 'meleeR');
+                else { this.attackSide = -this.attackSide; this._trigger(this.attackSide > 0 ? 'meleeR' : 'meleeL'); }
+            }
+            this.lastSwing = swing;
+            let ovTotal = 0;
+            for (const k in this.ov) {
+                const a = this.ov[k];
+                if (!a) continue;
+                let target = 0;
+                if (k === this.active) {
+                    const done = !a.isRunning() || a.time >= a.getClip().duration - 0.001;
+                    if (done) this.active = null; else target = 1;
+                }
+                if (k === 'hold') target = this.active ? 0 : (st.aim != null ? st.aim : 1) * (st.firing ? 0 : 1);
+                if (k === 'shoot') target = this.active ? 0 : (st.firing ? 1 : 0);
+                this.ovW[k] = smooth(this.ovW[k], target, k === this.active ? 30 : 12, dt);
+                a.setEffectiveWeight(this.ovW[k]);
+                ovTotal += this.ovW[k];
+            }
+            const locoUpper = clamp(1 - ovTotal, 0, 1);
+            for (const k in this.loco) {
+                const L = this.loco[k];
+                if (!L.upper) continue;
+                L.upper.setEffectiveWeight(L.w * locoUpper);
+                L.upper.timeScale = L.lower.timeScale;
+                L.upper.time = L.lower.time;
+            }
+            this.mixer.timeScale = st.stunned ? 0.35 : 1;
+            this.mixer.update(dt);
+            // Hit reaction and stun wobble on the whole model.
+            this.flinch = Math.max(st.flinch || 0, this.flinch - dt * 5);
+            const zoneK = st.hitZone === 'head' ? 1.3 : st.hitZone === 'limb' ? 0.6 : 1;
+            rig.model.rotation.x = -0.2 * this.flinch * zoneK;
+            rig.model.rotation.z = st.stunned ? Math.sin(this.t * 7) * 0.1 : (st.hitZone === 'limb' ? 0.08 * this.flinch : 0);
+        }
+
+        handBone(side) {
+            let n = null;
+            this.rig.model.traverse((o) => { if (!n && o.name === (side === 'L' ? 'arm-left' : 'arm-right')) n = o; });
+            return n;
+        }
+        headBone() {
+            let n = null;
+            this.rig.model.traverse((o) => { if (!n && o.name === 'head') n = o; });
+            return n;
+        }
+        setHeadScale(sc) { const h = this.headBone(); if (h) h.scale.setScalar(sc); }
+    }
+
+    /* ======================================================================
+       BobDriver — rigid models without a skeleton or clips
+    ====================================================================== */
+    class BobDriver {
+        constructor(rig) { this.rig = rig; this.t = Math.random() * 6; this.flinch = 0; }
+        update(dt, st) {
+            if (st.frozen) return;
+            this.t += dt * (1 + (st.speed || 0) * 1.6);
+            const m = this.rig.model;
+            const a = clamp((st.speed || 0) / 3, 0, 1);
+            this.flinch = Math.max(st.flinch || 0, this.flinch - dt * 5);
+            m.position.y = this.rig.modelY + Math.abs(Math.sin(this.t * 2)) * 0.06 * a + Math.sin(this.t * 0.9) * 0.01;
+            m.rotation.z = Math.sin(this.t * 2) * 0.05 * a;
+            m.rotation.x = 0.06 * a - 0.2 * this.flinch + ((st.attackSwing || 0) > 0 ? Math.sin((st.attackSwing || 0) * Math.PI) * 0.25 : 0);
+        }
+        handBone() { return null; }
+        headBone() { return null; }
+        setHeadScale() {}
+    }
+
+    /* ======================================================================
+       Rig — owns the driver, the hit volumes and any held weapon
+    ====================================================================== */
+    class Rig {
+        constructor(entity, parts, holder, model, opts = {}) {
+            this.entity = entity;
+            this.parts = parts;
+            this.holder = holder;
+            this.model = model;
+            this.modelY = model.position.y;
+            this.opts = opts;
+            this.lastT = performance.now();
+            holder.updateMatrixWorld(true);
+            const clips = opts.clips || model.animations || [];
+            if (ClipDriver.detect(clips)) this.driver = new ClipDriver(this, model, clips, opts);
+            else if (HumanoidDriver.detect(model)) this.driver = new HumanoidDriver(this, model, opts);
+            else this.driver = new BobDriver(this);
+            this.kind = this.driver.constructor.name;
+            this.handlesDeath = !!this.driver.handlesDeath;
+            this.weapon = null;
+            if (entity && BO.Hitboxes) BO.Hitboxes.fromModel(entity, model, opts.hitbox || {});
+            if (parts) parts.glbRig = this;
+            this._q = new THREE.Quaternion();
+        }
+
+        /** Per-frame drive. `dt` may be omitted; wall-clock delta is used then. */
+        update(dt, st = {}) {
+            const nowT = performance.now();
+            if (dt == null) dt = (nowT - this.lastT) / 1000;
+            this.lastT = nowT;
+            dt = clamp(dt, 0, 0.1);
+            const e = this.entity;
+            if (e) {
+                if (st.dead == null) st.dead = !e.alive;
+                if (st.frozen == null) st.frozen = (e.frozenTimer || 0) > 0;
+                if (st.stunned == null) st.stunned = (e.stunTimer || 0) > 0 || (e.stunnedTimer || 0) > 0;
+                if (st.dance == null) st.dance = (e.danceTimer || 0) > 0;
+                if (st.ranged == null) st.ranged = ['acid_spit', 'fire_bolt', 'frost_shard', 'life_drain', 'aether_bolt'].includes(e.attackType) || this.opts.ranged;
+                if (st.hitZone == null) st.hitZone = e.lastHitZone || (e.animPose && e.animPose.hitZone) || 'torso';
+            }
+            this.driver.update(dt, st);
+            if (this.weapon) this._poseWeapon(st);
+        }
+
+        /** Mounts a weapon in the right hand; it tracks the hand and stays aimed along the facing. */
+        attachWeapon(weaponId) {
+            if (!BO.WeaponMesh || !weaponId || this.weapon) return null;
+            const hand = this.driver.handBone('R');
+            if (!hand) return null;
+            try {
+                const w = BO.WeaponMesh.buildWeapon(weaponId, {}, 'default', false, false);
+                w.root.traverse((o) => { o.userData.noHit = true; o.userData.isWeapon = true; if (o.isMesh) { o.castShadow = true; } });
+                w.root.userData.isWeapon = true;
+                this.holder.add(w.root);
+                // Hand point: tip of the arm node for rigid kits, the hand bone origin for skeletons.
+                const local = new THREE.Vector3();
+                if (this.kind === 'ClipDriver') {
+                    const box = new THREE.Box3();
+                    hand.traverse((o) => { if (o.isMesh && o.geometry) { o.geometry.computeBoundingBox(); box.union(o.geometry.boundingBox); } });
+                    const proxy = hand.children.find((c) => c.userData.hitProxy);
+                    if (box.isEmpty() && proxy) { proxy.geometry.computeBoundingBox(); box.copy(proxy.geometry.boundingBox).translate(proxy.position); }
+                    if (!box.isEmpty()) local.set((box.min.x + box.max.x) / 2, box.min.y * 0.92, (box.min.z + box.max.z) / 2);
+                }
+                this.weapon = { root: w.root, hand, local };
+                return w.root;
+            } catch (err) {
+                BO.log?.('EnemyRig', 'debug', 'weapon attach failed', err);
+                return null;
+            }
+        }
+
+        _poseWeapon(st) {
+            const W = this.weapon;
+            W.hand.updateWorldMatrix(true, false);
+            _va.copy(W.local).applyMatrix4(W.hand.matrixWorld);
+            this.holder.worldToLocal(_va);
+            W.root.position.copy(_va);
+            // Barrel along the character's facing (+Z), pitched down a touch at rest.
+            const pitch = st.dead ? 1.2 : (st.firing ? 0 : 0.18);
+            W.root.quaternion.setFromAxisAngle(Y, Math.PI).premultiply(_qa.setFromAxisAngle(X, pitch));
+            W.root.visible = !st.dead || this.kind !== 'ClipDriver';
+        }
+
+        decapitate() { this.driver.setHeadScale(0.001); }
+        setHeadScale(s) { this.driver.setHeadScale(s); }
+
+        dispose() {
+            if (this.driver.mixer) this.driver.mixer.stopAllAction();
+            if (this.entity && BO.Hitboxes) BO.Hitboxes.dispose(this.entity);
+            if (this.parts && this.parts.glbRig === this) this.parts.glbRig = null;
+        }
+    }
+
+    /* ======================================================================
+       Zombie overlays: sculpted GLB monsters replacing select archetypes
+    ====================================================================== */
+    function overlayFor(spec) {
+        const bs = spec.bodySpec || {};
+        if (bs.missingLegs || bs.floating || bs.quadruped || spec.isSuperBoss) return null;
+        const sid = String(spec.id || '').toLowerCase();
+        const sname = String(spec.name || '').toLowerCase();
+        // Silhouettes the monster models cannot represent keep their sculpted procedural bodies.
+        if (/ankle_biter|crawler|stilts|spider|twin|kangaroo|hopper|siren|witch|shaman|nova/.test(sid)) return null;
+        if (/imp|flame|pyro|demon|hunch_spitter|acid|spitter|sprinter|shadow_stalker/.test(sid) || /\bimp\b|fiend|spitter/.test(sname)) {
+            return { path: 'monsters/Imp.glb', height: 1.65, style: 'fiend' };
+        }
+        if (/club_goliath|bloater|brute|berserker|mauler|golem|ogre/.test(sid) || /brute|matriarch|goliath|ogre/.test(sname)) {
+            return { path: 'monsters/Puglin.glb', height: 1.92, style: 'brute' };
+        }
+        return null;
+    }
+
+    function fitModel(sc, height) {
+        const wrap = new THREE.Group();
+        wrap.add(sc);
+        wrap.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(sc);
+        if (!box.isEmpty()) {
+            const sz = box.getSize(new THREE.Vector3());
+            sc.scale.multiplyScalar(height / Math.max(sz.y, 1e-4));
+            sc.updateMatrixWorld(true);
+            box.setFromObject(sc);
+            const c = box.getCenter(new THREE.Vector3());
+            sc.position.x -= c.x;
+            sc.position.z -= c.z;
+            sc.position.y -= box.min.y;
+        }
+        return wrap;
+    }
+
+    /** Hides a procedural body that a GLB now stands in for. Keeps auras, shadows, bars and weapons. */
+    function hideProcedural(parts, keep) {
+        const root = parts.root;
+        root.userData.glbBody = true;
+        for (const c of root.children) {
+            if (c === keep || c.name === 'bo-contact-shadow' || c.isSprite || c.userData.keepVisible || c.userData.isWeapon || c.name === 'MeshProxy') continue;
+            c.visible = false;
+        }
+    }
+
+    const EnemyRig = {
+        Rig, ClipDriver, HumanoidDriver, BobDriver,
+        overlayFor,
+
+        mount(entity, parts, holder, model, opts) {
+            return new Rig(entity, parts, holder, model, opts);
+        },
+
+        mountZombieOverlay(parts, spec, entity) {
+            const ov = overlayFor(spec);
+            if (!ov || !BO.Assets || typeof BO.Assets.loadGLB !== 'function') return;
+            parts.glbPending = ov.path;
+            BO.Assets.loadGLB(ov.path).then((sc) => {
+                if (parts.glbPending !== ov.path) return;
+                parts.glbPending = null;
+                if (entity && entity.alive === false) return; // died before the model arrived
+                const holder = fitModel(sc, ov.height);
+                holder.name = 'glb-holder';
+                sc.traverse((o) => {
+                    if (!o.isMesh) return;
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+                    if (o.isSkinnedMesh) {
+                        // Bind-pose bounds are wrong once posed: keep it drawn and give the raycast sphere slack.
+                        o.frustumCulled = false;
+                    }
+                });
+                if (BO.CharacterShading && BO.CharacterShading.applySkinToModel) BO.CharacterShading.applySkinToModel(sc);
+                parts.root.add(holder);
+                hideProcedural(parts, holder);
+                const rig = new Rig(entity, parts, holder, sc, { style: ov.style, height: ov.height });
+                if (entity && entity.hasGun) rig.attachWeapon(entity.isBoss ? 'm249' : 'ak47');
+                if (parts.headGroup && parts.headGroup.scale.x > 1.5) rig.setHeadScale(parts.headGroup.scale.x * 0.6);
+                if (entity && entity.decapitated) rig.decapitate();
+                rig.update(0, { speed: 0 });
+            }).catch((err) => { parts.glbPending = null; BO.log?.('EnemyRig', 'debug', 'overlay load failed', err); });
+        }
+    };
+
+    BO.EnemyRig = EnemyRig;
+})(window);
+;
+
+/* --- src/graphics/SunShadow.js --- */
+/* ============================================================================
+   BLACKOUT OPS — SunShadow: stable, camera-following sun shadows
+
+   Before: arena maps used one fixed shadow box at the map origin (anything
+   past ~36 m had no shadow), Survival stretched a 2048 map over ±85 m (blurry
+   8 cm texels), and the Open World re-centred on the player every frame with
+   no snapping, so shadow edges crawled whenever you moved.
+
+   Now, every frame before the world renders:
+   • maps that fit inside the quality extent are framed once, tightly;
+   • larger worlds get a shadow box that follows the camera, biased toward
+     where you are looking, and is snapped to whole shadow-map texels in light
+     space, so edges stay rock steady while you walk, strafe or turn;
+   • extent, bias and filter softness scale with the graphics preset, and the
+     Open World keeps its time-of-day sun direction.
+============================================================================ */
+(function (global) {
+    'use strict';
+
+    const BO = global.BO;
+    const _basis = new THREE.Matrix4(), _basisInv = new THREE.Matrix4();
+    const _c = new THREE.Vector3(), _f = new THREE.Vector3(), _d = new THREE.Vector3(), _zero = new THREE.Vector3();
+    const UP = new THREE.Vector3(0, 1, 0), UPZ = new THREE.Vector3(0, 0, 1);
+
+    const EXTENT = { low: 0, medium: 30, high: 38, ultra: 48 };
+
+    const SunShadow = {
+        scene: null,
+        sun: null,
+        offset: new THREE.Vector3(30, 60, 20),
+        mapCenter: new THREE.Vector3(),
+        mapHalf: Infinity,
+        stats: { mode: 'none', extent: 0, texel: 0 },
+
+        _bind(scene) {
+            this.scene = scene;
+            this.sun = scene.children.find((o) => o.isDirectionalLight && o.castShadow) || null;
+            if (!this.sun) return;
+            const sun = this.sun;
+            if (!sun.target.parent) scene.add(sun.target);
+            this.offset.copy(sun.position).sub(sun.target.position);
+            if (this.offset.lengthSq() < 4) this.offset.set(30, 60, 20);
+            // Playable bounds from the map's boxes (arena maps) or its declared size (terrain worlds).
+            const md = BO.World.mapData || {};
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            for (const b of md.boxes || []) {
+                const hw = (b.w || 0) / 2, hd = (b.d || 0) / 2;
+                if (b.x - hw < minX) minX = b.x - hw; if (b.x + hw > maxX) maxX = b.x + hw;
+                if (b.z - hd < minZ) minZ = b.z - hd; if (b.z + hd > maxZ) maxZ = b.z + hd;
+            }
+            const large = BO.World.large || md.mode === 'survival' || md.mode === 'owrpg' || !isFinite(minX);
+            if (large) { this.mapHalf = Infinity; return; }
+            this.mapCenter.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+            this.mapHalf = Math.max(maxX - minX, maxZ - minZ) / 2 + 3;
+        },
+
+        update(camera) {
+            const scene = BO.World && BO.World.scene;
+            if (!scene || !camera) return;
+            if (scene !== this.scene || (this.sun && this.sun.parent !== scene)) this._bind(scene);
+            const sun = this.sun;
+            if (!sun || !sun.castShadow || !sun.shadow) return;
+            const q = BO.Settings.getQualityPreset();
+            if (!q.shadows) return;
+            const mode = BO.State.activeMode;
+            const open = mode === 'owrpg' || mode === 'survival';
+            let ext = (EXTENT[q.name] || 38) * (open ? 1.3 : 1);
+            // The Open World animates the sun (time of day); keep its current direction.
+            const offset = mode === 'owrpg' ? _d.copy(sun.position).sub(sun.target.position) : this.offset;
+            if (offset.lengthSq() < 4) offset.set(30, 60, 20);
+            let follow = true;
+            if (!open && this.mapHalf <= ext) {
+                // Whole map fits: frame it tightly and leave it still.
+                ext = this.mapHalf;
+                _c.copy(this.mapCenter);
+                follow = false;
+            } else {
+                camera.getWorldDirection(_f);
+                _f.y = 0;
+                if (_f.lengthSq() < 1e-6) _f.set(0, 0, -1);
+                _f.normalize();
+                _c.copy(camera.position).addScaledVector(_f, ext * 0.42);
+                _c.y = camera.position.y - 1.6;
+            }
+            const cam = sun.shadow.camera;
+            const dist = offset.length();
+            if (Math.abs(cam.right - ext) > 1e-3 || Math.abs(cam.far - (dist + ext * 2.5)) > 0.5) {
+                cam.left = -ext; cam.right = ext; cam.top = ext; cam.bottom = -ext;
+                cam.near = 0.5;
+                cam.far = dist + ext * 2.5;
+                cam.updateProjectionMatrix();
+                // Bias tuned to texel size: larger boxes need a little more normal offset.
+                const texel = (2 * ext) / sun.shadow.mapSize.x;
+                sun.shadow.bias = -0.00025 - texel * 0.0015;
+                sun.shadow.normalBias = Math.min(0.06, 0.012 + texel * 0.55);
+            }
+            // Snap the box centre to whole texels in light space so edges never crawl.
+            const texel = (2 * ext) / sun.shadow.mapSize.x;
+            _d.copy(offset).normalize();
+            _basis.lookAt(_d, _zero, Math.abs(_d.y) > 0.98 ? UPZ : UP);
+            _basisInv.copy(_basis).transpose();
+            _c.applyMatrix4(_basisInv);
+            _c.x = Math.round(_c.x / texel) * texel;
+            _c.y = Math.round(_c.y / texel) * texel;
+            _c.applyMatrix4(_basis);
+            sun.target.position.copy(_c);
+            sun.position.copy(_c).add(offset);
+            sun.target.updateMatrixWorld();
+            this.stats.mode = follow ? 'follow' : 'framed';
+            this.stats.extent = ext;
+            this.stats.texel = texel;
+        }
+    };
+
+    BO.SunShadow = SunShadow;
+})(window);
+;
+
 /* --- src/graphics/CharacterShading.js --- */
 /* ============================================================================
    BLACKOUT OPS — Character shading upgrades for the whole zombie/creature roster.
@@ -25227,8 +26800,22 @@ uniform float uSSSStrength;`)
     }
 
     let t = 0;
+    const skinClones = new Map();
     BO.CharacterShading = {
         init: hook,
+        /** Organic GLB bodies (Imp, Puglin) share the procedural zombies' translucent skin rim. */
+        applySkinToModel(model, bodyPattern = /body/i) {
+            model.traverse((o) => {
+                if (!o.isMesh || !bodyPattern.test(o.name || '') || !o.material || !o.material.isMeshStandardMaterial) return;
+                let m = skinClones.get(o.material.uuid);
+                if (!m) {
+                    m = o.material.clone();
+                    applySkinShader(m);
+                    skinClones.set(o.material.uuid, m);
+                }
+                o.material = m;
+            });
+        },
         update(dt) {
             t += dt;
             const k = 0.82 + 0.18 * Math.sin(t * 2.6);
@@ -25352,14 +26939,19 @@ uniform float uSSSStrength;`)
                 proxy.add(m);
             }
             proxy.visible = false;
-            const detail = root.children.filter((c) => !c.isSprite && c.name !== 'MeshProxy');
+            const detail = root.children.filter((c) => !c.isSprite && c.name !== 'MeshProxy' && c.visible);
+            // Hitboxes treat LOD-hidden detail as present: the proxy shows the same body.
+            for (const c of detail) c.userData.lodDetail = true;
             root.add(proxy);
             return { root, proxy, detail, far: false, parts: parts.length };
         },
 
         /** Switch an LOD handle between full detail and the merged proxy. */
         set(lod, far) {
-            if (!lod || lod.far === far) return;
+            if (!lod) return;
+            // A GLB model replaced this body: the procedural detail and its proxy both stay hidden.
+            if (lod.root.userData.glbBody) { if (lod.proxy.visible) lod.proxy.visible = false; lod.far = far; return; }
+            if (lod.far === far) return;
             lod.far = far;
             lod.proxy.visible = far;
             for (const c of lod.detail) c.visible = !far;
@@ -25418,6 +27010,7 @@ uniform float uSSSStrength;`)
         }
 
         clear() {
+            if (this._extraUpdaters) this._extraUpdaters.length = 0;
             if (this.scene) {
                 for (let i = 0; i < this.particles.length; i++) {
                     const p = this.particles[i];
@@ -25593,6 +27186,15 @@ uniform float uSSSStrength;`)
         }
 
         update(dt) {
+            // Short-lived scripted props (dropped weapons, debris) register a tick that returns false when done.
+            const extra = this._extraUpdaters;
+            if (extra && extra.length) {
+                for (let i = extra.length - 1; i >= 0; i--) {
+                    let keep = false;
+                    try { keep = extra[i](dt); } catch (e) { keep = false; }
+                    if (!keep) extra.splice(i, 1);
+                }
+            }
             for (let i = this.particles.length - 1; i >= 0; i--) {
                 const p = this.particles[i];
                 p.life -= dt;
@@ -26031,6 +27633,7 @@ uniform float uSSSStrength;`)
         }
         const m = new THREE.Mesh(shadowGeo, shadowMat);
         m.name = 'bo-contact-shadow';
+        m.userData.noHit = true;
         m.scale.set(radiusX * 2, 1, radiusZ * 2);
         m.position.y = 0.025;
         m.renderOrder = 2;
@@ -35746,6 +37349,44 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.targetPool = meshes || [];
         }
 
+        /**
+         * Raycasts the current ray (this.raycaster) against the target pool with an
+         * entity broad-phase: only enemies whose bounding sphere the ray passes through
+         * get the per-triangle test. Pool meshes are grouped once per pool array.
+         */
+        _castTargets() {
+            const pool = this.targetPool;
+            const rc = this.raycaster;
+            if (pool.length < 40 || !BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (this._groupedPool !== pool) {
+                this._groupedPool = pool;
+                const byEnt = this._poolGroups || (this._poolGroups = new Map());
+                byEnt.clear();
+                const loose = this._poolLoose || (this._poolLoose = []);
+                loose.length = 0;
+                for (let i = 0; i < pool.length; i++) {
+                    const m = pool[i];
+                    const ent = m.userData.entity;
+                    if (!ent || !ent.parts || !ent.parts.root || ent._hitR == null) { loose.push(m); continue; }
+                    let g = byEnt.get(ent);
+                    if (!g) { g = []; byEnt.set(ent, g); }
+                    g.push(m);
+                }
+            }
+            const cand = this._castCand || (this._castCand = []);
+            cand.length = 0;
+            for (let i = 0; i < this._poolLoose.length; i++) cand.push(this._poolLoose[i]);
+            const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
+            const far = rc.far;
+            for (const [ent, meshes] of this._poolGroups) {
+                BO.Hitboxes.sphere(ent, sph);
+                if (!rc.ray.intersectsSphere(sph)) continue;
+                if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
+                for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
+            }
+            return cand.length ? rc.intersectObjects(cand, false) : [];
+        }
+
         cancelCharge() {
             this.busterCharging = false;
             this.busterChargeTime = 0;
@@ -36079,7 +37720,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.FX.spawnParticles(endPt, 14, rpgMod.tracerColor || 0xef4444, 5, 4, 0.45, 1.3);
             this.raycaster.set(origin, dir);
             this.raycaster.far = wh ? wh.distance : range;
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             const seen = new Set();
             let hit = false, headshot = false, kills = 0;
             for (const h of hits) {
@@ -36129,7 +37770,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
             this.raycaster.set(origin, castDir);
             this.raycaster.far = worldDist;
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
 
             if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
             if (worldHit) _tmpEnd.copy(worldHit.point);
@@ -36909,7 +38550,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     const worldHit = BO.World.raycastWorld(p.pos, dir, dist + 0.15);
                     this.raycaster.set(p.pos, dir);
                     this.raycaster.far = dist + 0.2;
-                    const entHits = this.raycaster.intersectObjects(this.targetPool, false);
+                    const entHits = this._castTargets();
 
                     let proximityHit = null;
                     if (p.hitRadius && p.hitRadius > 0.35) {
@@ -37409,7 +39050,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             const hit = hits.find((result) => result.object.userData.entity?.alive);
             if (!hit || !this.onHitEnemy) {
                 // No enemy in reach: bare hands still break deposits, trees and timber (slowly).
@@ -37480,7 +39121,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
-            const hit = this.raycaster.intersectObjects(this.targetPool, false).find((r) => r.object.userData.entity?.alive);
+            const hit = this._castTargets().find((r) => r.object.userData.entity?.alive);
             if (hit && this.onHitEnemy) {
                 const deep = m.campaign.deep;
                 const base = { axe: 58, pick: 52, shovel: 40 }[tool.family] || 45;
@@ -37518,7 +39159,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const aim = P.getAimRay(this.camera);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = (P.mpPerks.includes('bayonet_drill') ? 3.55 : 2.55) + (P.activeWeapon?.stats.meleeReach || 0);
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             for (const h of hits) {
                 const ent = h.object.userData.entity;
                 if (ent && ent.alive && this.onHitEnemy) {
@@ -37584,7 +39225,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 BO.FX.spawnTracer(aim.origin.clone().addScaledVector(aim.dir, 0.8), endPt, 0xfde047, 0.14, 0.45);
                 this.raycaster.set(aim.origin, aim.dir);
                 this.raycaster.far = 75;
-                const hits = this.raycaster.intersectObjects(this.targetPool, false);
+                const hits = this._castTargets();
                 const seen = new Set();
                 let count = 0;
                 for (const h of hits) {
@@ -37643,6 +39284,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     'use strict';
 
     const BO = global.BO;
+    const _gm = new THREE.Matrix4(), _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3();
+    const _GUN_FWD = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
     class ZombieEntity {
         constructor(opts) {
@@ -37730,14 +39373,17 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.parts.root.scale.setScalar(this.sizeMult);
                 this.radius = BO.Math.clamp(this.radius * this.sizeMult, 0.24, 1.35);
             }
-            if (this.hasGun && this.parts.rightArmPivot && BO.WeaponMesh) {
+            if (this.hasGun && (this.parts.forearmR || this.parts.armR) && BO.WeaponMesh && !this.parts.glbPending) {
                 try {
                     const gunId = this.isBoss ? 'm249' : (Math.random() < 0.5 ? 'ak47' : 'mp5');
                     const wBuilt = BO.WeaponMesh.buildWeapon(gunId, {}, 'default', false, false);
                     wBuilt.root.scale.setScalar(0.95);
-                    wBuilt.root.position.set(0, -0.42, 0.28);
-                    wBuilt.root.rotation.set(0.15, Math.PI, 0);
-                    this.parts.rightArmPivot.add(wBuilt.root);
+                    wBuilt.root.userData.isWeapon = true;
+                    wBuilt.root.traverse((o) => { o.userData.noHit = true; });
+                    const holdIn = this.parts.forearmR || this.parts.armR;
+                    wBuilt.root.position.set(0, this.parts.forearmR ? -0.25 : -0.5, 0.05);
+                    holdIn.add(wBuilt.root);
+                    this._heldGun = wBuilt.root;
                 } catch (e) {
                     BO.log?.('ZombieEntity', 'debug', 'Weapon mesh build skipped for gunner zombie', e);
                 }
@@ -37749,6 +39395,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 );
                 aura.rotation.x = Math.PI * 0.5;
                 aura.position.y = 1.1;
+                aura.userData.noHit = true;
+                aura.userData.keepVisible = true;
                 this.parts.root.add(aura);
                 this._magicAura = aura;
             }
@@ -37759,14 +39407,29 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.parts.bodyPivot.userData.baseY = this.parts.bodyPivot.position.y;
                 this.parts.bodyPivot.userData.baseRotX = this.parts.bodyPivot.rotation.x;
             }
+            this.parts.root.rotation.order = 'YXZ';
             BO.World.scene.add(this.parts.root);
+            if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+        }
+
+        /** Keeps a held gun pointing along the facing however the arm is posed. */
+        _aimHeldGun() {
+            const g = this._heldGun;
+            if (!g || !g.parent) return;
+            const root = this.parts.root;
+            root.updateMatrix();
+            g.parent.updateWorldMatrix(true, false);
+            _gm.copy(root.matrixWorld).invert().multiply(g.parent.matrixWorld);
+            _gm.decompose(_gp, _gq, _gs);
+            g.quaternion.copy(_gq.invert()).multiply(_GUN_FWD);
         }
 
         getHitboxMeshes() {
             if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
             });
             return list;
         }
@@ -37838,6 +39501,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (hitbox === 'head' && !this.spec.bodySpec?.quadruped && !this.spec.bodySpec?.headless && this.parts.headGroup) {
                     this.decapitated = true;
                     this.parts.headGroup.visible = false;
+                    if (this.parts.glbRig) this.parts.glbRig.decapitate();
                     const bloodLv = (BO.Settings && BO.Settings.get('bloodLevel')) || 'normal';
                     if (bloodLv !== 'off') {
                         const cnt = bloodLv === 'ultra' ? 28 : 14;
@@ -37862,17 +39526,63 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             return false;
         }
 
+        /**
+         * Death: knees buckle, then the body tips backward relative to its facing (rotation order YXZ),
+         * arms go limp, and the corpse sinks once settled. A GLB with its own death clip plays that instead.
+         */
+        _animateDeath(dt) {
+            const parts = this.parts;
+            const total = this.isBoss ? 2.6 : 1.5;
+            const fall = BO.Math.clamp(1 - this.deathTimer / total, 0, 1);
+            const rig = parts.glbRig;
+            if (!this.deathSide) {
+                this.deathSide = Math.random() < 0.5 ? -1 : 1;
+                // Fall away from the killing shot when we know where it came from.
+                this.deathDir = this.lastHitZone === 'head' ? -1 : (Math.random() < 0.8 ? -1 : 1);
+            }
+            const sink = Math.max(0, fall - 0.68) * 1.2;
+            if (rig) rig.update(dt, { speed: 0, dead: true, hitZone: this.lastHitZone });
+            if (rig && rig.handlesDeath) {
+                parts.root.position.y = this.pos.y - sink;
+                return;
+            }
+            // Buckle (0..0.18) then topple (0.12..0.55).
+            const buckle = BO.Math.clamp(fall / 0.18, 0, 1);
+            const topple = Math.sin(BO.Math.clamp((fall - 0.1) / 0.42, 0, 1) * Math.PI * 0.5);
+            const pitch = this.deathDir < 0 ? -Math.PI * 0.47 : Math.PI * 0.45;
+            parts.root.rotation.x = pitch * topple;
+            parts.root.rotation.z = topple * this.deathSide * 0.16;
+            parts.root.position.y = this.pos.y - buckle * 0.12 * (1 - topple) - sink;
+            if (!rig && !parts.isQuadruped) {
+                const limp = buckle;
+                if (parts.legL && parts.legR) {
+                    parts.legL.rotation.x = BO.Math.lerp(parts.legL.rotation.x, -0.55 * limp, Math.min(1, dt * 10));
+                    parts.legR.rotation.x = BO.Math.lerp(parts.legR.rotation.x, -0.2 * limp, Math.min(1, dt * 10));
+                }
+                if (parts.armL && parts.armR) {
+                    parts.armL.rotation.x = BO.Math.lerp(parts.armL.rotation.x, -0.6 + 0.4 * this.deathSide, Math.min(1, dt * 6));
+                    parts.armR.rotation.x = BO.Math.lerp(parts.armR.rotation.x, -0.6 - 0.4 * this.deathSide, Math.min(1, dt * 6));
+                    parts.armL.rotation.z = BO.Math.lerp(parts.armL.rotation.z, 0.55 * limp, Math.min(1, dt * 6));
+                    parts.armR.rotation.z = BO.Math.lerp(parts.armR.rotation.z, -0.55 * limp, Math.min(1, dt * 6));
+                }
+                if (parts.forearmL) parts.forearmL.rotation.x = BO.Math.lerp(parts.forearmL.rotation.x, -0.1, Math.min(1, dt * 6));
+                if (parts.forearmR) parts.forearmR.rotation.x = BO.Math.lerp(parts.forearmR.rotation.x, -0.1, Math.min(1, dt * 6));
+                if (parts.headGroup) parts.headGroup.rotation.x = BO.Math.lerp(parts.headGroup.rotation.x, 0.45 * this.deathDir * -1, Math.min(1, dt * 5));
+                if (parts.bodyPivot) parts.bodyPivot.rotation.z = BO.Math.lerp(parts.bodyPivot.rotation.z, 0, Math.min(1, dt * 5));
+            } else if (parts.isQuadruped) {
+                // Hounds roll onto their side.
+                parts.root.rotation.x = 0;
+                parts.root.rotation.z = this.deathSide * Math.PI * 0.48 * topple;
+                parts.root.position.y = this.pos.y - sink;
+            }
+        }
+
         update(dt, allZombies, callbacks) {
             if (this.alive && (this.powerAlly || this.powerCarried)) return true;
             // callbacks: { onMeleePlayer, onRangedAttack }
             if (!this.alive) {
                 this.deathTimer -= dt;
-                const fall = BO.Math.clamp(1 - this.deathTimer / (this.isBoss ? 2.6 : 1.5), 0, 1);
-                const easeFall = Math.sin(Math.min(1, fall * 3.4) * Math.PI * 0.5);
-                if (!this.deathSide) this.deathSide = Math.random() < 0.5 ? -1 : 1;
-                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, easeFall);
-                this.parts.root.rotation.z = easeFall * this.deathSide * 0.14;
-                this.parts.root.position.y = this.pos.y - Math.max(0, fall - 0.65) * 1.2;
+                this._animateDeath(dt);
                 return this.deathTimer > 0;
             }
 
@@ -37890,7 +39600,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const hoverOffset = this.movementHabit === 'hover_drift' ? Math.sin(this.habitPhase) * 0.16 : 0;
                 this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
                 this.parts.root.rotation.y = this.yaw;
-                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, this.attackSwing, 0);
+                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, this.attackSwing, 0, 'torso', dt);
+                this._aimHeldGun();
                 return true;
             }
 
@@ -37965,8 +39676,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.yaw += dt * 7.5;
                 this.parts.root.rotation.y = this.yaw;
                 this.parts.root.position.set(this.pos.x, this.pos.y + Math.abs(Math.sin(t)) * 0.35, this.pos.z);
-                if (this.parts.leftArmPivot) this.parts.leftArmPivot.rotation.x = -2.3 + Math.sin(t * 1.4) * 0.65;
-                if (this.parts.rightArmPivot) this.parts.rightArmPivot.rotation.x = -2.3 - Math.sin(t * 1.4) * 0.65;
+                const { armL, armR, legL, legR, bodyPivot, headGroup, glbRig } = this.parts;
+                if (glbRig) glbRig.update(dt, { speed: 0, dance: true });
+                else {
+                    if (armL) { armL.rotation.x = -2.5 + Math.sin(t * 1.4) * 0.6; armL.rotation.z = 0.3; }
+                    if (armR) { armR.rotation.x = -2.5 - Math.sin(t * 1.4) * 0.6; armR.rotation.z = -0.3; }
+                    if (legL && legR) { legL.rotation.x = Math.sin(t) * 0.35; legR.rotation.x = -Math.sin(t) * 0.35; }
+                    if (bodyPivot) bodyPivot.rotation.z = Math.sin(t * 0.7) * 0.18;
+                    if (headGroup) headGroup.rotation.z = Math.sin(t * 1.4 + 1) * 0.25;
+                }
                 if (Math.random() < 0.18) {
                     BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), 1, 0xe879f9, 2.5, 1, 0.35, 1.1);
                 }
@@ -37975,6 +39693,16 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
             if (this.stunTimer > 0 || this.frozenTimer > 0) {
                 this.parts.root.position.copy(this.pos);
+                if (this.frozenTimer <= 0) {
+                    // Stunned: dazed sway instead of a freeze-frame.
+                    this.animPhase += dt * 1.2;
+                    if (this.parts.glbRig) this.parts.glbRig.update(dt, { speed: 0, stunned: true });
+                    else {
+                        BO.CharacterMesh.animateLimbs(this.parts, 0, this.animPhase, 0, 0, 'torso', dt);
+                        if (this.parts.bodyPivot && !this.parts.isQuadruped) this.parts.bodyPivot.rotation.z = Math.sin(performance.now() * 0.007) * 0.16;
+                        if (this.parts.headGroup) this.parts.headGroup.rotation.x = 0.35 + Math.sin(performance.now() * 0.005) * 0.12;
+                    }
+                }
                 return true;
             }
 
@@ -38240,7 +39968,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
             this.parts.root.rotation.y = this.yaw;
             const flinchAmt = this.flinchTimer > 0 ? BO.Math.clamp(this.flinchTimer / 0.16, 0, 1) : 0;
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso');
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso', dt);
+            this._aimHeldGun();
 
             return true;
         }
@@ -38520,6 +40249,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.parts.bodyPivot.userData.baseY = this.parts.bodyPivot.position.y;
             }
             BO.World.scene.add(this.parts.root);
+            if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
         }
 
         _addSquadMark() {
@@ -38542,9 +40272,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         getHitboxMeshes() {
             if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
             });
             return list;
         }
@@ -38585,12 +40316,52 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.alive = false;
                 this.deaths++;
                 this.respawnTimer = this.respawnDelay;
-                if (BO.State.activeMode === 'mp') this._startCorpse(attacker, impulse ?? dmg);
+                if (this.parts.glbRig) this.deathT = 0;
+                else if (BO.State.activeMode === 'mp' || BO.State.activeMode === 'owrpg') this._startCorpse(attacker, impulse ?? dmg);
                 else this.parts.root.visible = false;
+                if (this.parts.gunBody && !this.parts.glbRig) this._dropWeapon();
                 BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 12, 0x991b1b, 4.2, 11, 0.45, 1.2);
                 return true;
             }
             return false;
+        }
+
+        /** The held weapon falls out of the hands instead of floating with a dead torso. */
+        _dropWeapon() {
+            const gun = this.parts.heldWeapon || this.parts.gunBody;
+            if (!gun || !gun.visible || !BO.World.scene) return;
+            gun.updateWorldMatrix(true, false);
+            const drop = gun.clone(true);
+            gun.matrixWorld.decompose(drop.position, drop.quaternion, drop.scale);
+            drop.traverse((o) => { o.userData.entity = null; o.userData.noHit = true; });
+            BO.World.scene.add(drop);
+            gun.visible = false;
+            const vel = new THREE.Vector3((Math.random() - 0.5) * 1.6, 1.4, (Math.random() - 0.5) * 1.6);
+            const spin = new THREE.Vector3(Math.random() * 6 - 3, Math.random() * 4 - 2, Math.random() * 6 - 3);
+            const floor = BO.World.getGroundHeight(drop.position.x, drop.position.z, drop.position.y) + 0.04;
+            let life = 0;
+            const tick = (dt) => {
+                life += dt;
+                if (drop.position.y > floor + 0.001 || vel.y > 0) {
+                    vel.y -= 14 * dt;
+                    drop.position.addScaledVector(vel, dt);
+                    drop.rotation.x += spin.x * dt; drop.rotation.y += spin.y * dt; drop.rotation.z += spin.z * dt;
+                    if (drop.position.y < floor) { drop.position.y = floor; vel.multiplyScalar(0.25); vel.y = Math.abs(vel.y) * 0.2; spin.multiplyScalar(0.3); drop.rotation.x = Math.PI / 2 * Math.sign(drop.rotation.x || 1); drop.rotation.z = 0; }
+                }
+                if (life > 6 || BO.State.screen !== 'playing') { if (drop.parent) drop.parent.remove(drop); return false; }
+                return true;
+            };
+            (BO.FX._extraUpdaters || (BO.FX._extraUpdaters = [])).push(tick);
+            this._droppedGun = drop;
+        }
+
+        /** GLB-bodied bots (Open World): play the death clip, then sink. Returns false once gone. */
+        updateGlbDeath(dt) {
+            if (!this.parts.glbRig) return false;
+            this.deathT = (this.deathT || 0) + dt;
+            this.parts.glbRig.update(dt, { speed: 0, dead: true });
+            if (this.deathT > 2.2) this.parts.root.position.y = this.pos.y - (this.deathT - 2.2) * 0.8;
+            return this.deathT < 3.4;
         }
 
         _startCorpse(attacker, force, snapshot = null) {
@@ -38746,7 +40517,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 this.animPhase += dt * (moveSpd * 2.2 + 1.0);
                 this.parts.root.position.copy(this.pos);
                 this.parts.root.rotation.y = this.yaw;
-                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, 0, 0);
+                BO.CharacterMesh.animateSoldier(this.parts, { speed: moveSpd, phase: this.animPhase, aim: this.netAiming ? 1 : 0.2 }, dt);
                 return;
             }
 
@@ -38797,6 +40568,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const dist = Math.hypot(dx, dz);
                 const targetYaw = Math.atan2(dx, dz);
                 this.yaw += BO.Math.angleDiff(this.yaw, targetYaw) * Math.min(1, dt * 11);
+                this._aimPitch = Math.atan2((this.pos.y + 1.45) - (target.y != null ? target.y : this.pos.y + 1.3), Math.max(0.5, dist));
 
                 // Tactical strafe while engaging
                 this.strafeTimer -= dt;
@@ -38882,18 +40654,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             pose.aim += ((this.cachedTarget ? 1 : 0) - pose.aim) * Math.min(1, 9 * dt);
             pose.recoil = Math.max(0, pose.recoil - dt * 7);
             pose.flinch = Math.max(0, pose.flinch - dt * 5);
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, pose.recoil * 0.34, pose.flinch * 0.48, pose.hitZone || 'torso');
-            if (BO.State.activeMode === 'mp') {
-                const { bodyPivot, armL, armR, headGroup } = this.parts;
-                const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;
-                bodyPivot.rotation.z += (this.cachedTarget ? this.strafeDir : 0) * pose.aim * 0.085;
-                bodyPivot.position.y -= reloadPose * 0.035;
-                bodyPivot.rotation.x += Math.min(0.12, moveSpeed * 0.019) - pose.aim * 0.03;
-                headGroup.rotation.y = Math.sin(this.animPhase * 0.45) * (1 - pose.aim) * 0.14;
-                armL.rotation.x += pose.aim * -0.14 + reloadPose * 0.46;
-                armR.rotation.x += pose.aim * -0.21 + reloadPose * 0.4 - pose.recoil * 0.17;
-                armR.rotation.z = reloadPose * 0.34;
-            }
+            const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;
+            const melee = this.weaponId && BO.WeaponsData.get(this.weaponId)?.kind === 'melee';
+            BO.CharacterMesh.animateSoldier(this.parts, {
+                speed: moveSpeed, phase: this.animPhase,
+                aim: pose.aim, recoil: melee ? 0 : pose.recoil, melee: melee ? pose.recoil : 0,
+                flinch: pose.flinch, hitZone: pose.hitZone || 'torso',
+                reload: reloadPose, pitch: this.cachedTarget ? (this._aimPitch || 0) : 0,
+                sprint: !this.cachedTarget && moveSpeed > 4.2
+            }, dt);
         }
 
         isHostile(other, modeType) {
@@ -55244,33 +57013,34 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
     }
 
+    /**
+     * Shadow-caster budget. Each preset allows a number of world meshes to cast sun shadows
+     * (largest first) above a minimum size; characters always cast. The authored castShadow
+     * flag is remembered, so raising the preset later brings shadows back.
+     * (maxShadowCasters stays the preset's count of shadow-casting lights.)
+     */
     function applySceneQualityBudgets(scene) {
         if (!scene || !BO.Settings?.getQualityPreset) return;
         const q = BO.Settings.getQualityPreset();
-        const maxCasters = Number.isFinite(q.maxShadowCasters) ? q.maxShadowCasters : 120;
-        let castersKept = 0;
+        const budget = Number.isFinite(q.shadowCasterBudget) ? q.shadowCasterBudget : 1200;
+        const minR = Number.isFinite(q.shadowCasterMinRadius) ? q.shadowCasterMinRadius : 0.4;
+        const candidates = [];
         scene.traverse((obj) => {
             if (!obj || (!obj.isMesh && !obj.isInstancedMesh)) return;
-            if (!q.shadows || maxCasters <= 0) {
-                obj.castShadow = false;
-                return;
-            }
-            if (!obj.castShadow) return;
-            if (obj.userData && (obj.userData.entity || obj.userData.isHeroShadow)) {
-                castersKept++;
-                return;
-            }
+            const ud = obj.userData || (obj.userData = {});
+            if (ud.boCastShadow === undefined) ud.boCastShadow = !!obj.castShadow;
+            if (!ud.boCastShadow) return;
+            if (!q.shadows || budget <= 0) { obj.castShadow = false; return; }
+            if (ud.entity || ud.isHeroShadow || ud.glbPart) { obj.castShadow = true; return; }
             const g = obj.geometry;
-            if (g && !g.boundingSphere && typeof g.computeBoundingSphere === 'function') {
-                g.computeBoundingSphere();
-            }
+            if (g && !g.boundingSphere && typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
             const rad = g && g.boundingSphere ? g.boundingSphere.radius * Math.max(obj.scale.x, obj.scale.y, obj.scale.z) : 1.0;
-            if (rad < 1.35 || castersKept >= maxCasters) {
-                obj.castShadow = false;
-            } else {
-                castersKept++;
-            }
+            if (rad < minR) { obj.castShadow = false; return; }
+            candidates.push({ obj, rad });
         });
+        candidates.sort((a, b) => b.rad - a.rad);
+        for (let i = 0; i < candidates.length; i++) candidates[i].obj.castShadow = i < budget;
+        return { candidates: candidates.length, kept: Math.min(budget, candidates.length) };
     }
 
     // Wrap MenuController.renderLegend so invalid/retired legendTab keys (e.g. 'bosses') fall back safely
@@ -57093,6 +58863,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
 
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+                if (BO.SunShadow && BO.State.activeMode !== 'minigame') BO.SunShadow.update(this.worldCamera);
                 if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
                 this.renderer.info.reset();

@@ -9,7 +9,7 @@
         project: 'Blackout Ops',
         repo: 'https://github.com/thejaybirdsolution-eng/blackout-ops',
         liveUrl: 'https://thejaybirdsolution-eng.github.io/blackout-ops/',
-        period: 'Nov 22 – Nov 27, 2026 (ET)',
+        period: 'Nov 22 – Nov 28, 2026 (ET)',
         tagMeta: {
             survival:  { label: 'Survival',       color: '#34d399' },
             minigames: { label: 'Minigames',      color: '#f472b6' },
@@ -3771,6 +3771,229 @@
                                         "Mode Depth 1.0: Added Zombies power-on clarity, per-map leaderboards, and co-op roles; Tower Defense active turret/defender synergies and wave previews; Multiplayer post-match 3-map voting and rule presets; Survival dawn/dusk phase alerts; Rogue Lite Floor-5 synergy banners and instructive run-end debriefs; and Minigames Daily Seeded Challenge plus Personal-Best Ghost deltas.",
                                         "Unified Profile & 165-Weapon Armory: Migrated saves cleanly to v3 with shared Account Levels (1–100), Calling Cards, Emblems, Titles, Offline Seeded Daily (3) & Weekly (5) Challenges, Unified Weapon Armory modal, Main Menu Continue Banner, per-mode progress tags, and first-launch Range Day warmup.",
                                         "Online Co-op & Operation Blackout Capstone: Documented ADR-021 and added Rogue Lite 2–4p delve sync + Minigames Same-Room Versus leaderboards alongside Operation Blackout, a 10-mission story campaign spanning all 7 game modes."
+                                ]
+                        }
+                ]
+        },
+
+        {
+                "id": 186,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:05 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Enemy Hitboxes Rebuilt: If You See It, You Can Hit It",
+                "major": true,
+                "tags": [
+                        "mp",
+                        "zombies",
+                        "owrpg",
+                        "rogue",
+                        "td",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Every enemy in Multiplayer, Zombies, Rogue Lite, Tower Defense and the Open World now takes hits exactly where its model is drawn:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Helmets, hands, boots, hips, plate carriers and pouches are hit surfaces. Before, shots on a helmet's crown, a hand or a boot passed straight through.",
+                                        "Zones follow the body: anything on the head (including the helmet) is a headshot, arms and legs are limb hits, everything else is torso.",
+                                        "Hidden parts no longer catch bullets, and held weapons, magic auras, orbiting crystals and ground shadows never block or absorb a shot.",
+                                        "Monster models (Imp, Puglin, skeletons, orcs, vampires, ghosts, archers, templars) are hit on their own mesh. Before, an invisible old zombie body underneath took the hits, so shooting a Puglin's head or an Imp's arm often did nothing.",
+                                        "Combat skips the precise test for enemies a shot can't reach, so the larger hit surfaces cost nothing."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 187,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:10 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Sculpted Monsters Come Alive: Imp & Puglin Animation",
+                "major": false,
+                "tags": [
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Sprinters, spitters, fiends, bloaters, goliaths, berserkers and golems wearing the Imp and Puglin models no longer slide around in a T-pose:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Relaxed stance with arms down, then walk and run cycles with knee bend, hip sway, arm swing and forward lean that scale with speed.",
+                                        "Attacks: single-claw swipes alternate sides, brutes sometimes swing two-handed, spitters and casters thrust forward when they fire.",
+                                        "Hit reactions depend on where you hit (head snaps back, limb hits twist the body), plus stun wobble, dance-bomb dancing and a limp death fall.",
+                                        "Headshot kills remove the monster's head, big-head mode scales it, and Tower Defense gun zombies hold their rifle in the monster's hand."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 188,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:15 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Soldier Rig 2.0: Real Rifle Handling for Bots & Online Players",
+                "major": false,
+                "tags": [
+                        "mp",
+                        "owrpg",
+                        "survival",
+                        "td"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Soldiers used the zombie animation: arms out front, rifle pointing at the sky, and every shot flung both arms upward. Rebuilt from the joints up:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Elbow, knee and ankle joints, with the weapon carried on the torso and both hands placed on the grip and handguard by inverse kinematics.",
+                                        "Shouldered aim stays level whatever the body is doing; low ready when idle, port arms when sprinting, pistols two-handed, LMGs from the hip, knives in hand.",
+                                        "Small recoil kick, reload with the support hand going to the magazine, flinch by hit zone, and pitch toward the target.",
+                                        "Real crouch (online players no longer sink their torso into their legs), downed pose, and boots that stay on the ground.",
+                                        "Killed bots drop their weapon instead of it floating with the body."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 189,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:20 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Open World Creatures: Clip Animation, Death Clips & Corpses",
+                "major": false,
+                "tags": [
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Kenney-kit enemies in the Open World now use the animations their models ship with. The asset loader had been dropping them from every copy:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Idle, walk and sprint, with playback speed tied to movement so feet don't skate.",
+                                        "Melee attacks play on the upper body while the legs keep moving; armed archers and templars aim and fire their weapons.",
+                                        "Death clips for GLB creatures and bots, and procedural bandits and raiders now ragdoll into a corpse instead of vanishing.",
+                                        "Monster bodies get the same translucent skin shading as the sculpted zombies."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 190,
+                "hash": "d89524b",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:25 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Zombie Animation Fixes: Deaths, Dancing, Stuns & Gun Zombies",
+                "major": false,
+                "tags": [
+                        "zombies",
+                        "td",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Several zombie animations pointed at body parts that don't exist or used the wrong frame of reference:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Deaths: knees buckle first, then the body topples along its own facing (it used to roll sideways depending on compass direction) with limp arms. Hounds roll onto their side.",
+                                        "Dance-bomb victims now actually wave their arms, bounce and sway.",
+                                        "Stunned zombies sway dazed instead of freezing mid-stride. Frozen still means frozen.",
+                                        "Tower Defense gun zombies finally carry their gun, and it stays aimed where they face."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 191,
+                "hash": "3e29511",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:40 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Graphics: Shadows Restored Everywhere, Stable Sun Shadows, Sharper Textures",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "survival",
+                        "owrpg",
+                        "mp",
+                        "zombies",
+                        "td",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "A graphics pass across every mode, led by a fix for shadows that had quietly disappeared:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Restored world shadows: the 1.0 performance budget let only 1–3 objects in the whole world cast a shadow. Trees, buildings, walls and props cast again, within a real per-preset budget (Medium 450, High 1,600, Ultra 4,000 objects, largest first). Raising the preset now brings shadows back mid-session.",
+                                        "Stable sun shadows: small maps get a tight shadow frame; Survival and the Open World get one that follows you and leans toward where you look, so shadows exist wherever you go (Survival used to have none outside the middle of the map).",
+                                        "Shadow edges are snapped to the shadow map grid, so they no longer crawl and shimmer as you walk or turn.",
+                                        "Sharper textures at grazing angles: anisotropic filtering now follows the graphics preset (up to 16× on Ultra) instead of a fixed 4×."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 192,
+                "hash": "qa-suite",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "05:50 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "New QA Suite: Enemy Hitbox & Animation Audit",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Added _qa_hitboxes.html, 44 automated checks that prove the hitbox and animation work in every mode:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Fires a grid of rays at each enemy from the front and side and compares the visible body to the hitboxes: 0% miss and 0% ghost on soldiers, zombies and online avatars, and every one of the 70 zombie archetypes and the first six bosses within limits.",
+                                        "Checks soldiers keep both hands on the weapon and the barrel on target when aiming, walking, crouched and firing, with boots on the ground.",
+                                        "Checks rigged monsters are out of their T-pose, swing their legs and wind up attacks, and that their hitboxes ride the bones.",
+                                        "Checks clip-driven creatures walk, attack and play death clips, bots leave corpses, gun zombies aim forward, and the combat broad-phase agrees with brute force on every test ray."
                                 ]
                         }
                 ]

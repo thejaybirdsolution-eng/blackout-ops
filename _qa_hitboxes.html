@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Blackout Ops — Enemy Hitbox &amp; Animation QA</title>
+<style>
+  body { margin: 0; background: #070b12; color: #e2e8f0; font-family: monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  #bar { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #0b1220; border-bottom: 1px solid #1e293b; }
+  #status { font-weight: bold; color: #38bdf8; }
+  #main { display: flex; flex: 1; min-height: 0; }
+  #log { width: 470px; overflow-y: auto; padding: 10px; border-right: 1px solid #1e293b; font-size: 11.5px; line-height: 1.45; }
+  iframe { flex: 1; border: 0; height: 100%; width: 100%; }
+  .pass { color: #4ade80; } .fail { color: #f87171; font-weight: bold; } .info { color: #94a3b8; }
+</style>
+</head>
+<body>
+<div id="bar"><span id="status">RUNNING...</span><span class="info">Silhouette ray audit: every visible body pixel must be hittable, nothing invisible may be.</span></div>
+<div id="main"><div id="log"></div><iframe id="game" src="about:blank"></iframe></div>
+<script>
+/* Blackout Ops — Enemy Hitbox & Animation QA
+   For every enemy family in Multiplayer, Zombies, Rogue Lite, Tower Defense and the Open World:
+   • fires a grid of parallel rays at the model from the front and side and compares what the ray
+     hits on the VISIBLE body against what it hits on the HITBOXES (miss-through and ghost rates);
+   • checks zones (the top of a humanoid is a head hit), hidden parts are never hittable, and the
+     combat broad-phase returns exactly the same first hit as a brute-force raycast;
+   • checks animation: soldiers' hands on the weapon and barrel on target, feet on the ground,
+     monsters out of their bind T-pose, clip-driven models playing walk/attack/death, zombie deaths
+     falling relative to facing, held guns aimed forward, corpses instead of vanishing bots. */
+(async function () {
+  const logEl = document.getElementById('log');
+  const statusEl = document.getElementById('status');
+  const results = [];
+  const errors = [];
+  const log = (msg, cls = '') => { const d = document.createElement('div'); if (cls) d.className = cls; d.textContent = msg; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; };
+  const check = (name, cond, detail = '') => { results.push({ name, pass: !!cond, detail }); log(`${cond ? 'PASS' : 'FAIL'} — ${name}${detail ? ' (' + detail + ')' : ''}`, cond ? 'pass' : 'fail'); };
+  const info = (msg) => log(msg, 'info');
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const savedStorage = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); savedStorage[k] = localStorage.getItem(k); }
+  const restoreRealStorage = () => { localStorage.clear(); for (const [k, v] of Object.entries(savedStorage)) if (v !== null) localStorage.setItem(k, v); };
+  window.addEventListener('beforeunload', restoreRealStorage);
+
+  const frame = document.getElementById('game');
+  let BO, THREE, win;
+
+  try {
+    frame.src = 'index.html?qa=1&hb=1';
+    await new Promise((res) => frame.addEventListener('load', res, { once: true }));
+    win = frame.contentWindow;
+    win.addEventListener('error', (e) => errors.push(e.message || String(e)));
+    win.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
+    for (let i = 0; i < 120 && !(win.BO && win.BO.App && win.BO.App.renderer && win.BO.Hitboxes && win.BO.EnemyRig && win.BO.SoldierModel); i++) await wait(100);
+    BO = win.BO; THREE = win.THREE;
+    check('Hitboxes, EnemyRig and SoldierModel modules loaded', !!(BO && BO.Hitboxes && BO.EnemyRig && BO.SoldierModel));
+    BO.App._safePointerLock = () => {};
+
+    const MODE = { zombies: () => BO.ZombiesMode, mp: () => BO.MPMode, rpg: () => BO.RPGMode, owrpg: () => BO.OWRPGMode, td: () => BO.TowerDefenseMode };
+    const step = (frames) => {
+      const cam = BO.App.worldCamera, dt = 1 / 60;
+      for (let i = 0; i < frames; i++) {
+        if (BO.State.screen !== 'playing' || BO.State.paused) break;
+        BO.Player.update(dt, cam);
+        BO.Combat.updateBurstAndProjectiles(dt, cam);
+        BO.FX.update(dt);
+        const m = MODE[BO.State.activeMode] && MODE[BO.State.activeMode]();
+        if (m) m.update(dt);
+      }
+      if (BO.World.scene) BO.World.scene.updateMatrixWorld(true);
+    };
+    const start = async (cfg) => {
+      BO.App.startMatch(cfg);
+      for (let i = 0; i < 100 && BO.State.screen !== 'playing'; i++) await wait(100);
+      await wait(500);
+      BO.App._loop = () => {};          // drive frames ourselves
+      BO.Player.invulnerable = true;
+      if (BO.Player) BO.Player.hp = BO.Player.maxHp = 1e6;
+      step(2);
+    };
+    const exit = async () => { try { BO.App.exitToMenu(); } catch (e) { /* ignore */ } await wait(300); };
+    const waitRigs = async (ents, ms = 90000) => {
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) {
+        if (ents.every((e) => !e.parts.glbPending)) return true;
+        await wait(250);
+      }
+      return false;
+    };
+
+    /* ------------------------------------------------------------ silhouette audit */
+    const isEffect = (m) => { const l = Array.isArray(m) ? m : [m]; return l.some((x) => !x || x.visible === false || x.colorWrite === false || x.blending === THREE.AdditiveBlending || (x.transparent && (x.opacity < 0.45 || x.depthWrite === false)) || x.wireframe); };
+    function visibleBody(ent) {
+      const root = ent.parts.root, out = [];
+      const walk = (o, chainVisible) => {
+        const vis = chainVisible && o.visible;
+        if (!vis) return;
+        if (o.userData.isWeapon || o === ent.parts.haloGroup || o.name === 'bo-contact-shadow' || o.name === 'MeshProxy' || o.isSprite || o.isLine || o.isPoints) return;
+        if (o.isMesh && !o.userData.hitProxy && !isEffect(o.material) && (!o.userData.noHit || o.isSkinnedMesh || o.userData.glbPart) && !(o.userData.keepVisible && o.userData.noHit)) out.push(o);
+        for (const c of o.children) walk(c, vis);
+      };
+      walk(root, true);
+      return out;
+    }
+    const rc = () => { const r = new THREE.Raycaster(); r.far = 50; return r; };
+    function audit(ent, label, opts = {}) {
+      const root = ent.parts.root;
+      root.updateMatrixWorld(true);
+      const hits = BO.Hitboxes.collect(ent, []);
+      const vis = visibleBody(ent);
+      // Skinned meshes: widen the bind-pose bounding sphere so posed triangles are not culled early.
+      const restore = [];
+      // Skinned meshes: bind-pose bounds would cull posed triangles, so widen the sphere and drop the box while auditing.
+      for (const m of vis) if (m.isSkinnedMesh) { const g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); restore.push([g, g.boundingSphere.radius, g.boundingBox]); g.boundingSphere.radius *= 3; g.boundingBox = null; }
+      const box = new THREE.Box3();
+      for (const m of hits) box.expandByObject(m);
+      for (const m of vis) if (!m.isSkinnedMesh) box.expandByObject(m);
+      const q = root.getWorldQuaternion(new THREE.Quaternion());
+      const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(q).setY(0).normalize();
+      const views = opts.views || ['front', 'side'];
+      const res = { rays: 0, visRays: 0, miss: 0, ghost: 0, topZone: null, label };
+      const r = rc();
+      const c = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const cols = opts.cols || 12, rows = opts.rows || 20;
+      for (const v of views) {
+        const dir = v === 'front' ? fwd.clone() : new THREE.Vector3(fwd.z, 0, -fwd.x);
+        const right = new THREE.Vector3(-dir.z, 0, dir.x);
+        const halfW = Math.max(size.x, size.z) * 0.62, halfH = size.y * 0.55;
+        for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+          const u = -halfW + (i + 0.5) / cols * halfW * 2, w = -halfH + (j + 0.5) / rows * halfH * 2;
+          const o = c.clone().addScaledVector(right, u).add(new THREE.Vector3(0, w, 0)).addScaledVector(dir, 8);
+          r.set(o, dir.clone().negate());
+          const hv = r.intersectObjects(vis, false)[0];
+          const hh = r.intersectObjects(hits, false)[0];
+          res.rays++;
+          if (hv) res.visRays++;
+          if (hv && !hh) res.miss++;
+          if (hh && !hv) res.ghost++;
+        }
+      }
+      // Top-down probe through the vertical centre: the first hitbox touched should be the head.
+      r.set(new THREE.Vector3(c.x, box.max.y + 3, c.z), new THREE.Vector3(0, -1, 0));
+      const top = r.intersectObjects(hits, false)[0];
+      res.topZone = top ? top.object.userData.hitbox : null;
+      for (const [g, rad, bb] of restore) { g.boundingSphere.radius = rad; g.boundingBox = bb; }
+      res.missRate = res.visRays ? res.miss / res.visRays : 0;
+      res.ghostRate = res.visRays ? res.ghost / res.visRays : 0;
+      res.hitCount = hits.length;
+      return res;
+    }
+    const pct = (x) => (x * 100).toFixed(1) + '%';
+    function judge(res, kind) {
+      const lim = kind === 'skinned' ? { miss: 0.06, ghost: 0.12 } : kind === 'rigid' ? { miss: 0.04, ghost: 0.08 } : { miss: 0.03, ghost: 0.03 };
+      return { ok: res.visRays > 10 && res.missRate <= lim.miss && res.ghostRate <= lim.ghost, detail: `miss ${pct(res.missRate)} / ghost ${pct(res.ghostRate)} over ${res.visRays} body rays, ${res.hitCount} surfaces` };
+    }
+    const kindOf = (ent) => { const rig = ent.parts.glbRig; if (!rig) return 'procedural'; let sk = false; rig.model.traverse((o) => { if (o.isSkinnedMesh) sk = true; }); return rig.kind === 'HumanoidDriver' || (sk && rig.kind !== 'ClipDriver') ? 'skinned' : (sk ? 'skinned' : 'rigid'); };
+
+    /* ------------------------------------------------------------ soldier metrics */
+    function soldierMetrics(parts) {
+      parts.root.updateMatrixWorld(true);
+      const gun = parts.heldWeapon && parts.heldWeapon.parent ? parts.heldWeapon : parts.gunBody;
+      const anc = gun.userData.anchors;
+      const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(gun.getWorldQuaternion(new THREE.Quaternion()));
+      const facing = new THREE.Vector3(0, 0, 1).applyQuaternion(parts.root.getWorldQuaternion(new THREE.Quaternion()));
+      const hand = (fore) => fore.localToWorld(new THREE.Vector3(0, -0.265, 0));
+      let soleY = Infinity;
+      for (const ft of [parts.footL, parts.footR]) ft.traverse((o) => { if (o.isMesh) { o.geometry.computeBoundingBox(); soleY = Math.min(soleY, o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld).min.y); } });
+      return {
+        barrelErrDeg: fwd.angleTo(facing) * 57.3,
+        rErr: hand(parts.forearmR).distanceTo(gun.localToWorld(anc.grip.clone())),
+        lErr: hand(parts.forearmL).distanceTo(gun.localToWorld(anc.fore.clone())),
+        soleY: soleY - parts.root.position.y
+      };
+    }
+
+    /* ================================================================ 1. MULTIPLAYER */
+    info('— Multiplayer —');
+    await start({ mode: 'mp', mapId: 'killhouse', modeType: 'tdm', difficulty: 'regular' });
+    step(30);
+    const bots = (BO.MPMode.bots || []).filter((b) => b.alive);
+    check('MP: bots spawned', bots.length >= 4, bots.length + ' bots');
+    const b0 = bots.find((b) => b.team !== 0) || bots[0];
+    b0.cachedTarget = null;
+    for (const [label, st] of [['aiming', { speed: 0, aim: 1 }], ['walking', { speed: 2.4, aim: 1 }], ['crouched', { speed: 0, aim: 1, crouch: 1 }]]) {
+      for (let f = 0; f < 45; f++) BO.SoldierModel.animate(b0.parts, Object.assign({ phase: f * 0.12 }, st), 1 / 60);
+      const m = soldierMetrics(b0.parts);
+      check(`MP soldier ${label}: rifle on target and both hands on it`, m.barrelErrDeg < 6 && m.rErr < 0.03 && m.lErr < 0.04, `barrel ${m.barrelErrDeg.toFixed(1)}°, hands ${(m.rErr * 100).toFixed(1)}/${(m.lErr * 100).toFixed(1)} cm`);
+      if (label !== 'walking') check(`MP soldier ${label}: boots on the ground`, Math.abs(m.soleY) < 0.04, `sole ${m.soleY.toFixed(3)} m`);
+    }
+    for (let f = 0; f < 30; f++) BO.SoldierModel.animate(b0.parts, { speed: 0, phase: 0, aim: 1, recoil: 1 }, 1 / 60);
+    const rec = soldierMetrics(b0.parts);
+    check('MP soldier firing: recoil kicks the muzzle a little, arms stay on the gun', rec.barrelErrDeg < 15 && rec.rErr < 0.03, `muzzle ${rec.barrelErrDeg.toFixed(1)}°`);
+    for (let f = 0; f < 45; f++) BO.SoldierModel.animate(b0.parts, { speed: 0, phase: 0, aim: 1 }, 1 / 60);
+    const ab = audit(b0, 'soldier');
+    let j = judge(ab, 'procedural');
+    check('MP soldier: every visible part is hittable (helmet, hands, boots, gear)', j.ok, j.detail);
+    check('MP soldier: top of the model is a head hit', ab.topZone === 'head', 'top = ' + ab.topZone);
+    const hz = new Set(BO.Hitboxes.collect(b0, []).map((m) => m.userData.hitbox));
+    check('MP soldier: head, torso and limb zones present', hz.has('head') && hz.has('torso') && hz.has('limb'));
+    const gunTagged = BO.Hitboxes.collect(b0, []).some((m) => { for (let o = m; o; o = o.parent) if (o === b0.parts.gunBody) return true; return false; });
+    check('MP soldier: held rifle is not a hit surface', !gunTagged);
+    // Hidden parts never count.
+    b0.parts.headGroup.visible = false;
+    const headHidden = BO.Hitboxes.collect(b0, []).some((m) => m.userData.hitbox === 'head');
+    b0.parts.headGroup.visible = true;
+    check('Hidden body parts are never hittable', !headHidden);
+    // Broad-phase must agree with brute force.
+    const pool = []; for (const b of bots) for (const m of b.getHitboxMeshes()) pool.push(m);
+    BO.Combat.setTargetPool(pool);
+    let agree = 0, total = 0;
+    for (let i = 0; i < 160; i++) {
+      const t = bots[i % bots.length];
+      const o = t.pos.clone().add(new THREE.Vector3(Math.sin(i) * 9, 1.4 + Math.cos(i * 1.7) * 0.6, Math.cos(i) * 9));
+      const target = t.pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.2, 0.2 + Math.random() * 1.6, (Math.random() - 0.5) * 1.2));
+      BO.Combat.raycaster.set(o, target.sub(o).normalize()); BO.Combat.raycaster.far = 200;
+      const a = BO.Combat._castTargets()[0], bf = BO.Combat.raycaster.intersectObjects(pool, false)[0];
+      total++; if ((a && a.object) === (bf && bf.object)) agree++;
+    }
+    check('Combat broad-phase returns the same first hit as brute force', agree === total, `${agree}/${total}`);
+    // Death: corpse + dropped weapon instead of vanishing.
+    b0.takeDamage(99999, 'player', 300, 'head');
+    step(30);
+    check('MP bot death: ragdoll corpse, weapon dropped from the hands', !!b0.corpse && b0.parts.root.visible && !b0.parts.gunBody.visible);
+    await exit();
+
+    /* ================================================================ 2. ZOMBIES */
+    info('— Zombies —');
+    await start({ mode: 'zombies', mapId: 'der_bunker', difficulty: 'normal' });
+    const ZM = BO.ZombiesMode;
+    for (const z of ZM.zombies) z.destroy(); ZM.zombies.length = 0; ZM.spawnQueue = 0;
+    const P = BO.Player.pos.clone();
+    const zTypes = BO.ZombiesData.ZOMBIE_TYPES.map((t) => t.id);
+    const zs = zTypes.map((id, i) => new BO.ZombieEntity({ id: 5000 + i, spec: BO.ZombiesData.get(id), x: P.x + (i % 8) * 3 - 10, y: P.y, z: P.z - 8 - Math.floor(i / 8) * 3 }));
+    zs.forEach((z) => { z.parts.root.rotation.y = 0; z.yaw = 0; });
+    const loaded = await waitRigs(zs);
+    check('Zombies: monster models finished loading', loaded);
+    zs.forEach((z) => { for (let f = 0; f < 20; f++) BO.CharacterMesh.animateLimbs(z.parts, 1.6, f * 0.1, 0, 0, 'torso', 1 / 60); });
+    let worst = null, failN = 0, auditedSkinned = new Set();
+    for (const z of zs) {
+      const kind = kindOf(z);
+      if (kind === 'skinned') { const k = z.parts.glbRig.model.name || z.spec.id; if (auditedSkinned.has(z.parts.glbPending || z.parts.glbRig.opts.style)) continue; auditedSkinned.add(z.parts.glbRig.opts.style); }
+      const res = audit(z, z.spec.id, kind === 'skinned' ? { cols: 12, rows: 18 } : {});
+      const jj = judge(res, kind);
+      if (!jj.ok) { failN++; info(`   ${z.spec.id} (${kind}): ${jj.detail}`); }
+      if (!worst || res.missRate > worst.missRate) worst = res;
+    }
+    check(`Zombies: all ${zTypes.length} archetypes — visible body == hitbox`, failN === 0, `${failN} over limit; worst miss ${pct(worst.missRate)} (${worst.label})`);
+    const rigged = zs.filter((z) => z.parts.glbRig);
+    check('Zombies: sculpted monster archetypes wear rigged models', rigged.length >= 3, rigged.map((z) => z.spec.id).join(', '));
+    // No bind T-pose: hands well below shoulders at rest.
+    let tpose = 0;
+    for (const z of rigged) {
+      const d = z.parts.glbRig.driver;
+      if (!d.b) continue;
+      for (const s of ['L', 'R']) {
+        const sh = d.b['ua' + s].getWorldPosition(new THREE.Vector3()), hd = (d.b['hand' + s] || d.b['la' + s]).getWorldPosition(new THREE.Vector3());
+        if (sh.y - hd.y < 0.18 * (z.parts.root.scale.y || 1)) tpose++;
+      }
+    }
+    check('Zombies: rigged monsters are out of their bind T-pose (arms down)', tpose === 0, tpose + ' arms raised');
+    if (rigged.length) {
+      const rz = rigged[0], d = rz.parts.glbRig.driver;
+      const before = d.b.uaR.quaternion.clone();
+      let thSwing = 0;
+      for (let f = 0; f < 60; f++) { BO.CharacterMesh.animateLimbs(rz.parts, 2.5, f * 0.1, 0, 0, 'torso', 1 / 60); thSwing = Math.max(thSwing, d.D.get(d.b.thL).angleTo(new THREE.Quaternion())); }
+      let sw = 1; for (let f = 0; f < 8; f++) { sw -= 2.5 / 60; BO.CharacterMesh.animateLimbs(rz.parts, 0, 0, sw, 0, 'torso', 1 / 60); }
+      const hand = (d.attackSide < 0 ? d.b.handR : d.b.handL).getWorldPosition(new THREE.Vector3());
+      const head = d.b.head.getWorldPosition(new THREE.Vector3());
+      check('Zombies: rigged monster walk cycle swings the legs', thSwing > 0.12, thSwing.toFixed(2) + ' rad');
+      check('Zombies: rigged monster attack winds the arm up overhead', d.attackTwoHand || hand.y > head.y - 0.25, `hand ${hand.y.toFixed(2)} vs head ${head.y.toFixed(2)}`);
+      // Rigged hitboxes follow the pose.
+      const proxy = BO.Hitboxes.collect(rz, []).find((m) => /hand|lowerarm/i.test(m.name));
+      check('Zombies: monster hitboxes ride the animated bones', !!proxy && proxy.parent.isBone);
+    }
+    // Death falls backward relative to facing, whatever the facing.
+    const victim = zs.find((z) => !z.parts.glbRig && !z.parts.isQuadruped);
+    victim.yaw = Math.PI / 2; victim.parts.root.rotation.y = victim.yaw;
+    victim.takeDamage(99999, victim.pos.clone().add(new THREE.Vector3(2, 0, 0)), 'torso');
+    for (let f = 0; f < 50; f++) victim.update(1 / 60, zs, {});
+    victim.parts.root.updateMatrixWorld(true);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(victim.parts.root.getWorldQuaternion(new THREE.Quaternion()));
+    const facing = new THREE.Vector3(Math.sin(victim.yaw), 0, Math.cos(victim.yaw));
+    check('Zombie death: body falls along its facing axis, not the world axis', up.y < 0.35 && Math.abs(up.dot(facing)) > 0.8, `up·facing ${up.dot(facing).toFixed(2)}`);
+    // Bosses (procedural) audit.
+    const bossIds = BO.ZombiesData.ORDERED_BOSSES.slice(0, 6).map((b) => b.id);
+    let bossFail = 0;
+    for (const id of bossIds) {
+      const bz = new BO.ZombieEntity({ id: 6100 + bossIds.indexOf(id), spec: BO.ZombiesData.get(id), x: P.x + 30, y: P.y, z: P.z });
+      await waitRigs([bz], 30000);
+      const res = audit(bz, id, kindOf(bz) === 'skinned' ? { cols: 9, rows: 14, views: ['front'] } : {});
+      const jb = judge(res, kindOf(bz));
+      if (!jb.ok) { bossFail++; info(`   ${id}: ${jb.detail}`); }
+      bz.destroy();
+    }
+    check('Zombies bosses: visible body == hitbox', bossFail === 0, bossIds.length + ' bosses');
+    zs.forEach((z) => z.destroy());
+    await exit();
+
+    /* ================================================================ 3. ROGUE LITE */
+    info('— Rogue Lite —');
+    await start({ mode: 'rpg', difficulty: 'normal' });
+    step(30);
+    const rEnemies = (BO.RPGMode.enemies || []).filter((z) => z.alive);
+    check('Rogue Lite: enemies spawned', rEnemies.length > 0, rEnemies.length + '');
+    await waitRigs(rEnemies);
+    step(20);
+    let rFail = 0;
+    for (const z of rEnemies) { const res = audit(z, z.spec.id, kindOf(z) === 'skinned' ? { cols: 9, rows: 14, views: ['front'] } : {}); const jr = judge(res, kindOf(z)); if (!jr.ok) { rFail++; info(`   ${z.spec.id}: ${jr.detail}`); } }
+    check('Rogue Lite: visible body == hitbox for every enemy', rFail === 0, rEnemies.length + ' enemies');
+    const idleRig = rEnemies.find((z) => z.parts.glbRig);
+    if (idleRig) { const t0 = idleRig.parts.glbRig.driver.t; BO.RPGMode._idleTick(idleRig, 1 / 60); check('Rogue Lite: idle enemies animate through their rig', idleRig.parts.glbRig.driver.t !== t0 || idleRig.parts.glbRig.kind !== 'HumanoidDriver'); }
+    await exit();
+
+    /* ================================================================ 4. TOWER DEFENSE */
+    info('— Tower Defense —');
+    await start({ mode: 'td', difficulty: 'normal' });
+    const P2 = BO.Player.pos.clone();
+    const gunSpec = Object.assign({}, BO.ZombiesData.get('shambler'));
+    const gz = new BO.ZombieEntity({ id: 7001, spec: gunSpec, x: P2.x + 2, y: P2.y, z: P2.z - 6, hasGun: true });
+    gz.hasGun = true;
+    if (!gz._heldGun) { gz.destroy(); }
+    const gz2 = gz._heldGun ? gz : null;
+    check('TD gun zombies carry a visible gun', !!gz2);
+    if (gz2) {
+      for (let f = 0; f < 30; f++) { BO.CharacterMesh.animateLimbs(gz2.parts, 1.4, f * 0.1, 0, 0, 'torso', 1 / 60); gz2._aimHeldGun(); }
+      gz2.parts.root.updateMatrixWorld(true);
+      const bar = new THREE.Vector3(0, 0, -1).applyQuaternion(gz2._heldGun.getWorldQuaternion(new THREE.Quaternion()));
+      const face = new THREE.Vector3(Math.sin(gz2.yaw), 0, Math.cos(gz2.yaw));
+      check('TD gun zombie: barrel points where the zombie faces', bar.angleTo(face) * 57.3 < 10, (bar.angleTo(face) * 57.3).toFixed(1) + '°');
+      check('TD gun zombie: the gun itself is not a hit surface', !BO.Hitboxes.collect(gz2, []).some((m) => { for (let o = m; o; o = o.parent) if (o === gz2._heldGun) return true; return false; }));
+      gz2.destroy();
+    }
+    // Spawn real wave enemies through the mode's own spawner (with its modifiers and size rolls).
+    for (let i = 0; i < 8; i++) { try { BO.TowerDefenseMode._spawnWaveZombie(); } catch (e) { /* wave spawner needs a lane */ } }
+    step(5);
+    const tdz = (BO.TowerDefenseMode.zombies || []).filter((z) => z.alive);
+    await waitRigs(tdz, 60000);
+    step(2);
+    let tFail = 0;
+    for (const z of tdz.slice(0, 8)) { const res = audit(z, z.spec.id, kindOf(z) === 'skinned' ? { cols: 9, rows: 14, views: ['front'] } : {}); const jt = judge(res, kindOf(z)); if (!jt.ok) { tFail++; info(`   ${z.spec.id}: ${jt.detail}`); } }
+    check('TD: visible body == hitbox for wave enemies', tdz.length > 0 && tFail === 0, tdz.length + ' alive');
+    await exit();
+
+    /* ================================================================ 5. OPEN WORLD */
+    info('— Open World —');
+    localStorage.removeItem('blackout_owrpg_slot_2');
+    await start({ mode: 'owrpg', slot: 2, newChar: { name: 'QA', attrs: { BRW: 7, RFX: 5, TCH: 7, PRC: 7, PRS: 7 }, difficulty: 'tactical' } });
+    await wait(1200);
+    const AI = BO.OWRPGAI;
+    for (const a of AI.agents.slice()) AI.despawn(a);
+    const P3 = BO.Player.pos.clone();
+    const owIds = ['skeleton_warrior', 'barrow_ghost', 'blood_vampire', 'orc_reaver', 'forest_poacher', 'frost_knight', 'imp_firestarter', 'puglin_scamp'];
+    const procIds = Object.keys(BO.OWRPGStatsData.ENEMIES).filter((k) => !BO.OWRPGStatsData.ENEMIES[k].glb && !BO.OWRPGStatsData.ENEMIES[k].boss).slice(0, 6);
+    const ags = owIds.concat(procIds).map((id, i) => AI.spawn(id, P3.x + (i % 7) * 3 - 9, P3.z - 9 - Math.floor(i / 7) * 4, { y: P3.y })).filter(Boolean);
+    const t0 = performance.now();
+    while (performance.now() - t0 < 90000 && !ags.filter((a) => a.def.glb).every((a) => a.rig)) await wait(300);
+    check('Open World: every GLB enemy mounted an animation rig', ags.filter((a) => a.def.glb).every((a) => a.rig), ags.filter((a) => a.def.glb && !a.rig).map((a) => a.def.name).join(', '));
+    const kinds = {};
+    ags.forEach((a) => { if (a.rig) kinds[a.def.name] = a.rig.kind; });
+    check('Open World: Kenney characters drive their clips, monsters their skeleton', Object.values(kinds).includes('ClipDriver') && Object.values(kinds).includes('HumanoidDriver') && !Object.values(kinds).includes('BobDriver'), JSON.stringify(kinds).slice(0, 200));
+    ags.forEach((a) => { a.ent.yaw = 0; a.ent.parts.root.rotation.set(0, 0, 0); a.ent.parts.root.position.copy(a.ent.pos); if (a.rig) for (let f = 0; f < 30; f++) a.rig.update(1 / 60, { speed: 0 }); });
+    let oFail = 0;
+    for (const a of ags) {
+      const kind = kindOf(a.ent);
+      const res = audit(a.ent, a.def.name, kind === 'skinned' ? { cols: 9, rows: 14, views: ['front'] } : {});
+      const jo = judge(res, kind);
+      if (!jo.ok) { oFail++; info(`   ${a.def.name} (${kind}): ${jo.detail}`); }
+    }
+    check('Open World: GLB and procedural enemies — visible body == hitbox', oFail === 0, ags.length + ' enemies');
+    const procHidden = ags.filter((a) => a.rig).some((a) => BO.Hitboxes.collect(a.ent, []).some((m) => !m.userData.hitProxy && !m.userData.glbPart && !(function inModel() { let f = false; a.rig.model.traverse((o) => { if (o === m) f = true; }); return f; })()));
+    check('Open World: replaced procedural bodies take no hits', !procHidden);
+    const kenney = ags.find((a) => a.rig && a.rig.kind === 'ClipDriver' && a.def.kind === 'beast');
+    if (kenney) {
+      const drv = kenney.rig.driver;
+      for (let f = 0; f < 30; f++) kenney.rig.update(1 / 60, { speed: 2.0 });
+      check('Open World: clip models play walk while moving', drv.loco.walk.w > 0.8, 'walk weight ' + drv.loco.walk.w.toFixed(2));
+      kenney.rig.update(1 / 60, { speed: 0, attackSwing: 1 });
+      for (let f = 0; f < 6; f++) kenney.rig.update(1 / 60, { speed: 0, attackSwing: 1 - f * 0.04 });
+      check('Open World: clip models play an attack on the upper body', !!drv.active && drv.ovW[drv.active] > 0.5, String(drv.active));
+    }
+    const glbBot = ags.find((a) => a.rig && a.def.kind === 'bot');
+    if (glbBot) check('Open World: armed GLB bots hold their weapon', !!glbBot.rig.weapon);
+    const procBot = ags.find((a) => !a.def.glb && a.def.kind === 'bot');
+    if (procBot) {
+      procBot.ent.takeDamage(1e9, 'player', 200, 'torso');
+      step(10);
+      check('Open World: killed bots leave a corpse instead of vanishing', !!procBot.ent.corpse && procBot.ent.parts.root.visible);
+    }
+    if (glbBot) {
+      glbBot.ent.takeDamage(1e9, 'player', 200, 'torso');
+      for (let f = 0; f < 40; f++) glbBot.ent.updateGlbDeath(1 / 60);
+      check('Open World: GLB bots play their death clip', glbBot.rig.driver.dead === true && glbBot.ent.parts.root.visible);
+    }
+    await exit();
+
+    /* ================================================================ 6. ONLINE AVATARS */
+    info('— Online player avatars —');
+    await start({ mode: 'mp', mapId: 'killhouse', modeType: 'tdm', difficulty: 'regular' });
+    const remoteEnt = { isRemotePlayer: true, peerId: 'qa', alive: true, pos: BO.Player.pos.clone().add(new THREE.Vector3(0, 0, -5)) };
+    const rp = BO.CharacterMesh.buildSoldier(1, remoteEnt);
+    rp.root.position.copy(remoteEnt.pos);
+    BO.World.scene.add(rp.root);
+    remoteEnt.parts = rp;
+    rp.gunBody.visible = false;
+    BO.Hitboxes.prepare(remoteEnt, rp);
+    const wb = BO.WeaponMesh.buildWeapon('m4a1', {}, 'default', false, false, false);
+    wb.root.scale.setScalar(0.85); wb.root.userData.isWeapon = true; wb.root.userData.hold = 'rifle';
+    rp.bodyPivot.add(wb.root); rp.heldWeapon = wb.root;
+    for (let f = 0; f < 45; f++) BO.CharacterMesh.animateSoldier(rp, { speed: 0, phase: 0, aim: 1 }, 1 / 60);
+    const rm = soldierMetrics(rp);
+    check('Online avatar: real weapon model held with both hands, aimed', rm.barrelErrDeg < 6 && rm.rErr < 0.03 && rm.lErr < 0.05, `barrel ${rm.barrelErrDeg.toFixed(1)}°, hands ${(rm.rErr * 100).toFixed(1)}/${(rm.lErr * 100).toFixed(1)} cm`);
+    for (let f = 0; f < 45; f++) BO.CharacterMesh.animateSoldier(rp, { speed: 0, phase: 0, aim: 1, crouch: 1 }, 1 / 60);
+    const cm = soldierMetrics(rp);
+    rp.root.updateMatrixWorld(true);
+    const hipY = rp.legL.getWorldPosition(new THREE.Vector3()).y - rp.root.position.y;
+    check('Online avatar crouch: knees bend and boots stay planted (no torso sinking into legs)', hipY < 0.6 && Math.abs(cm.soleY) < 0.04, `hip ${hipY.toFixed(2)} m, sole ${cm.soleY.toFixed(3)}`);
+    const ra = audit(remoteEnt, 'remote');
+    const jra = judge(ra, 'procedural');
+    check('Online avatar: visible body == hitbox (crouched)', jra.ok, jra.detail);
+    await exit();
+
+    check('No runtime errors during the audit', errors.length === 0, errors.slice(0, 3).join(' | '));
+  } catch (e) {
+    check('Audit crashed', false, e.message + ' ' + (e.stack || '').split('\n').slice(0, 3).join(' | '));
+  }
+  restoreRealStorage();
+  const pass = results.filter((r) => r.pass).length, fail = results.length - pass;
+  statusEl.textContent = `DONE — ${pass}/${results.length} passed`;
+  statusEl.style.color = fail ? '#f87171' : '#4ade80';
+  window.__QA_DONE = { pass, fail, total: results.length, results, errors };
+})();
+</script>
+</body>
+</html>
