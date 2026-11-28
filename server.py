@@ -36,6 +36,7 @@ class NoCacheHandler(http.server.SimpleHTTPRequestHandler):
 class ReusableThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
+    request_queue_size = 256
 
 
 def find_free_port(preferred_port: int) -> int:

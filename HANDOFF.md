@@ -1,5 +1,17 @@
 # HANDOFF — BLACKOUT OPS 1.0 Complete (`release/1.0-complete`)
 
+## Phase A0 — Permanent QA Test Harness (`tools/qa/`, Nov 28, 2026)
+- **Harness scripts (`tools/qa/`):**
+  - `_common.py`: shared Playwright/Chromium launcher, `boot_game()` (`load` + module-ready check + bundle preloading), baseline loader/diffing, and single-frame WebGL renderer.
+  - `mg_audit.py`: deterministic `1/30 s` stepped runner across all 63 minigames (uses `def.qaBot` if present, else LOS aim-bot with ADS + trigger taps) enforcing Plan A0.4 contract items 1, 2, 3, 4, 6, 8 (and 5 under `--check-stars`). Outputs `tools/qa/out/mg_audit.json` & `.md`. Baseline: `21/63` passing on single-seed run (`45` courses in `mg_baseline.json` across 3-seed stochastic union), `0` new failures.
+  - `mg_bounds.py`: 8-direction `12 s` sprint walk-out probe on non-rail courses (`52/63` passing/skipped, `11` known escapes/falls). Outputs `tools/qa/out/mg_bounds.json` & `.md`.
+  - `mg_hud.py`: inspects `#mg-hud` + `#hud-layer` bounding boxes at `2.0 s` for central `30% x 30%` crosshair safe-zone intersections and `> 4 px` overlaps (`29/63` passing, `34` known). Outputs `tools/qa/out/mg_hud.json` & `.md`.
+  - `mg_sheet.py`: captures `1.4 s` spawn screenshots for all 63 courses into 4x4 labelled PNG contact sheets (`tools/qa/out/sheet_01.png`–`sheet_04.png`, gitignored).
+  - `ow_content.py`: boots Open World (slot 2) and outputs `tools/qa/out/ow_content.json` & `.md` (baseline: `13` NPCs, `8` attr/skill checks, `50` quests, `5` trigger types, `1/12` unique dungeons, `21` resource nodes, `0` recipes/activities/achievements).
+  - `run_all.py`: single gate running `_qa_runner.html` (`30/30`), `_qa_hitboxes.html` (`56/56`), `_qa_owrpg.html` (`143/143`), `69/69` smoke on both `index.html` and `index.bundled.html`, 3-match profiler + GPU flatness (`dGeo=0, dTex=0` across `mp`, `zombies`, `owrpg`, `minigame:range_day`), `mg_audit`, `mg_bounds`, `mg_hud`, and `ow_content` against `tools/qa/mg_baseline.json`.
+- **Dev server fix (`server.py`):** raised `ReusableThreadingTCPServer.request_queue_size` from `5` to `256` so unbundled `index.html`'s ~190 parallel `<script defer>` requests never trigger `WSAECONNREFUSED` drops on Windows.
+- **ADRs:** `DECISIONS.md` (`ADR-033`).
+
 ## Release Snapshot
 - **Branch:** `master` (merged `release/1.0-complete` + `origin/master` flagship-2 `#174–#182`).
 - **QA Suites:** `_qa_runner.html` (30 checks) + `_qa_owrpg.html` (OWRPG 143 checks including Cartography, 156 hidden sites, Champions & `OWRPGValidator`) + `_qa_hitboxes.html` (56 checks).

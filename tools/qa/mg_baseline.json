@@ -1,0 +1,312 @@
+{
+  "audit": {
+    "aim_lab": [
+      "A0.4.2_first_target_bearing"
+    ],
+    "balloon_fest": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "bandit_town": [
+      "A0.4.4_never_visible"
+    ],
+    "bottle_juggler": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "cab_night_terrors": [
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "coaster": [
+      "A0.4.2_first_target_bearing",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "color_lock": [
+      "A0.4.1_no_results",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "contracts": [
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "drone_swarm": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "echo_panels": [
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "fishing_hole": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "fun_360_trickshot": [
+      "A0.4.4_never_visible"
+    ],
+    "fun_bumper_derby": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "fun_colosseum": [
+      "A0.4.2_first_target_bearing"
+    ],
+    "fun_combat_kitchen": [
+      "A0.4.2_first_target_bearing"
+    ],
+    "fun_dino_safari": [
+      "A0.4.1_errors: handleFireInput: orbMat.setHex is not a function"
+    ],
+    "fun_final_fantasy": [
+      "A0.4.1_no_results"
+    ],
+    "fun_inspection": [
+      "A0.4.1_no_results"
+    ],
+    "fun_kaiju": [
+      "A0.4.1_errors: _simulate: st.damage is not a function",
+      "A0.4.1_no_results",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "fun_mario_fps": [
+      "A0.4.1_no_results"
+    ],
+    "fun_master_zombie": [
+      "A0.4.4_never_visible"
+    ],
+    "fun_orbital_breach": [
+      "A0.4.2_first_target_bearing",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "fun_pinball_arena": [
+      "A0.4.4_never_visible"
+    ],
+    "fun_prophunt": [
+      "A0.4.4_never_visible",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "fun_toy_war": [
+      "A0.4.4_never_visible"
+    ],
+    "heli_gunner": [
+      "A0.4.2_first_target_bearing",
+      "A0.4.4_never_visible",
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "killhouse_blitz": [
+      "A0.4.4_never_visible"
+    ],
+    "mansion_raid": [
+      "A0.4.1_no_results",
+      "A0.4.4_never_visible"
+    ],
+    "number_crunch": [
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "outlaw_pursuit": [
+      "A0.4.2_first_target_bearing",
+      "A0.4.4_never_visible",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "quickdraw": [
+      "A0.4.1_no_results"
+    ],
+    "range_day": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "safe_cracker": [
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sniper_ridge": [
+      "A0.4.2_spawn_in_collider",
+      "A0.4.4_never_visible"
+    ],
+    "sr_chase": [
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sr_freefall": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "sr_gauntlet": [
+      "A0.4.1_no_results",
+      "A0.4.4_never_visible",
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sr_hydra_dragon": [
+      "A0.4.1_no_results",
+      "A0.4.4_never_visible"
+    ],
+    "sr_last50": [
+      "A0.4.2_first_target_bearing",
+      "A0.4.4_never_visible",
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sr_outposts": [
+      "A0.4.1_no_results",
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sr_skysnipers": [
+      "A0.4.1_no_results",
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "sr_splitter": [
+      "A0.4.4_never_visible",
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "starfall_shield": [
+      "A0.4.6_kills_gt_spawned"
+    ],
+    "switchyard": [
+      "A0.4.6_kills_gt_spawned",
+      "A0.4.6_zero_score_from_hits"
+    ],
+    "temple_run": [
+      "A0.4.6_kills_gt_spawned"
+    ]
+  },
+  "bounds": {
+    "cab_night_terrors": [
+      "escaped"
+    ],
+    "cab_wild_hunt": [
+      "escaped"
+    ],
+    "fun_360_trickshot": [
+      "fell"
+    ],
+    "fun_abyssal_mech": [
+      "escaped"
+    ],
+    "fun_castle_siege": [
+      "fell"
+    ],
+    "fun_final_fantasy": [
+      "escaped"
+    ],
+    "fun_master_zombie": [
+      "escaped"
+    ],
+    "mansion_raid": [
+      "escaped"
+    ],
+    "sr_gauntlet": [
+      "escaped"
+    ],
+    "sr_ninja": [
+      "escaped"
+    ],
+    "sr_outposts": [
+      "escaped"
+    ]
+  },
+  "hud": {
+    "ball_brawl": [
+      "overlap"
+    ],
+    "boss_rush": [
+      "overlap"
+    ],
+    "bottle_juggler": [
+      "safe_zone"
+    ],
+    "color_lock": [
+      "safe_zone"
+    ],
+    "contracts": [
+      "safe_zone"
+    ],
+    "echo_panels": [
+      "safe_zone"
+    ],
+    "fishing_hole": [
+      "safe_zone"
+    ],
+    "fun_360_trickshot": [
+      "overlap"
+    ],
+    "fun_abyssal_mech": [
+      "overlap"
+    ],
+    "fun_castle_siege": [
+      "overlap"
+    ],
+    "fun_colosseum": [
+      "overlap"
+    ],
+    "fun_combat_kitchen": [
+      "safe_zone"
+    ],
+    "fun_dino_safari": [
+      "overlap"
+    ],
+    "fun_ghost_hunters": [
+      "overlap"
+    ],
+    "fun_hoverbike_highway": [
+      "overlap"
+    ],
+    "fun_kaiju": [
+      "overlap"
+    ],
+    "fun_orbital_breach": [
+      "overlap",
+      "safe_zone"
+    ],
+    "fun_pinball_arena": [
+      "overlap"
+    ],
+    "fun_prophunt": [
+      "overlap"
+    ],
+    "fun_sky_pirate": [
+      "overlap"
+    ],
+    "number_crunch": [
+      "safe_zone"
+    ],
+    "paint_wars": [
+      "safe_zone"
+    ],
+    "safe_cracker": [
+      "safe_zone"
+    ],
+    "sr_chase": [
+      "safe_zone"
+    ],
+    "sr_freefall": [
+      "safe_zone"
+    ],
+    "sr_gauntlet": [
+      "safe_zone"
+    ],
+    "sr_hydra_dragon": [
+      "safe_zone"
+    ],
+    "sr_last50": [
+      "safe_zone"
+    ],
+    "sr_ninja": [
+      "safe_zone"
+    ],
+    "sr_outposts": [
+      "safe_zone"
+    ],
+    "sr_skysnipers": [
+      "safe_zone"
+    ],
+    "sr_splitter": [
+      "safe_zone"
+    ],
+    "starfall_shield": [
+      "safe_zone"
+    ],
+    "switchyard": [
+      "safe_zone"
+    ]
+  },
+  "profiler": {
+    "minigame:range_day": 0.4,
+    "mp": 1.6,
+    "owrpg": 3.9,
+    "zombies": 0.3
+  }
+}
