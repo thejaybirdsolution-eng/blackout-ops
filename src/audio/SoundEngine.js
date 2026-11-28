@@ -1018,6 +1018,28 @@
             });
         }
 
+        /**
+         * Bought barricade: lock clunk, then a rolling-shutter rattle and motor rumble that
+         * rise with the 0.16 s judder + 0.7 s retract in WorldBuilder.updateAnimatedProps.
+         */
+        playDoorOpen(sourcePos = null) {
+            const { gain, pan } = sourcePos ? this._spatialMetrics(sourcePos, 45) : { gain: 1, pan: 0 };
+            if (gain <= 0.01) return;
+            this._metalImpact(0.52, 0.9 * gain, pan);
+            this.synthTone(70, 52, 0.2, 'triangle', 0.2 * gain, { pan, attack: 0.003 });
+            // Slats rattling past the lintel: quickening ticks over the retract.
+            for (let i = 0; i < 11; i++) {
+                const u = i / 10;
+                const delay = 0.16 + 0.7 * (u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2);
+                this.synthNoise(0.035, 1500 + u * 900, 'bandpass', 3.2, (0.13 - u * 0.05) * gain, { delay, pan, endFrequency: 900 + u * 500 });
+            }
+            this.synthNoise(0.78, 180, 'lowpass', 0.9, 0.16 * gain, { delay: 0.14, pan, attack: 0.08, endFrequency: 420 });
+            this.synthTone(58, 96, 0.72, 'sawtooth', 0.05 * gain, { delay: 0.16, pan, attack: 0.1, filter: ['lowpass', 260, 0.8, 380] });
+            // Slab seats in the lintel.
+            this.synthTone(185, 176, 0.16, 'triangle', 0.16 * gain, { delay: 0.86, pan, attack: 0.002 });
+            this.synthNoise(0.07, 1200, 'bandpass', 1.8, 0.14 * gain, { delay: 0.86, pan, endFrequency: 700 });
+        }
+
         playPerkBuy() {
             this._metalImpact(1.42, 0.48);
             this.synthNoise(0.22, 1880, 'bandpass', 2.2, 0.19, { delay: 0.068, endFrequency: 680 });

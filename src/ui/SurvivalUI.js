@@ -2917,9 +2917,9 @@
             if (prompt) {
                 prompt.classList.toggle('hidden', !mode.prompt || !!BO.ZoneBuild?.active);
                 const text = mode.prompt ? '[' + keyOf('interact') + '] ' + mode.prompt : '';
-                if (prompt.textContent !== text) prompt.textContent = text;
-                prompt.style.color = '#e6f4ee';
-                prompt.style.borderColor = '#8fe3c8';
+                BO.HUD.setText(prompt, text);
+                BO.HUD.setStyle(prompt, 'color', '#e6f4ee');
+                BO.HUD.setStyle(prompt, 'borderColor', '#8fe3c8');
             }
         }
     }

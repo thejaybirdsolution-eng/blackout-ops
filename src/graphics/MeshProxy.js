@@ -106,12 +106,16 @@
             }
             const proxy = new THREE.Group();
             proxy.name = 'MeshProxy';
+            // Keyed bakes are shared by every rig with that key and stay cached; an un-keyed bake
+            // belongs to this one rig, so scene teardown and detach() must free it.
+            const shared = !!key;
             for (const p of parts) {
                 const m = new THREE.Mesh(p.geometry, p.material);
                 m.castShadow = true;
                 m.receiveShadow = false;
                 m.userData.noProxy = true;
-                m.userData.sharedGeometry = true;
+                if (shared) m.userData.sharedGeometry = true;
+                else m.userData.ownedGeometry = true;
                 proxy.add(m);
             }
             proxy.visible = false;
@@ -177,7 +181,7 @@
             for (const c of lod.detail) c.visible = !far;
         },
 
-        /** Remove the proxy group (shared geometry stays cached). */
+        /** Remove the proxy (keyed, shared geometry stays cached; per-rig geometry is freed). */
         detach(lod) {
             if (!lod) return;
             this.set(lod, false);
@@ -187,6 +191,7 @@
                     mesh.geometry.dispose();
                 }
             } else {
+                for (const m of lod.proxy.children) if (m.userData.ownedGeometry) m.geometry.dispose();
                 lod.proxy.removeFromParent();
             }
         },

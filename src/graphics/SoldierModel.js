@@ -43,6 +43,7 @@
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
         t.anisotropy = 8;
         if (srgb && THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding;
+        t.userData.sharedAsset = true; // cached in texCache and reused by every soldier
         return t;
     }
 

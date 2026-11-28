@@ -6743,9 +6743,12 @@
         get D() { return BO.OWRPGWorldData; },
 
         clear() {
-            for (const p of this.props) p.mesh.removeFromParent();
-            for (const n of this.npcs) n.parts.root.removeFromParent();
-            for (const b of this.bags) b.mesh.removeFromParent();
+            // Props, NPC rigs (with their merged LOD proxy and name tags) and loot bags are built
+            // per session with their own geometry, materials and canvas textures: free them.
+            const free = (obj) => BO.SceneCleanup.disposeObject(obj, { detach: true });
+            for (const p of this.props) free(p.mesh);
+            for (const n of this.npcs) free(n.parts.root);
+            for (const b of this.bags) free(b.mesh);
             this.props = []; this.npcs = []; this.bags = [];
         },
 

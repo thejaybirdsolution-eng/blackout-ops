@@ -5,6 +5,7 @@
    - BO.emitGameEvent(type, payload): canonical gameplay event dispatcher
    - BO.SceneCleanup.disposeScene(scene, renderer): deterministic leak teardown
    - BO.SceneCleanup.disposeObject(root, { keep, detach }): subtree teardown for rebuilt meshes
+   - BO.GPULedger: per-match GPU upload ledger; sweep() frees what a finished match left behind
    - Wraps BO.Menus.renderLegend so unknown legendTab keys (e.g. 'bosses') fall back safely
    ============================================================================ */
 (function (global) {
@@ -59,7 +60,9 @@
     }
 
     function isCachedTexture(tex) {
-        if (!tex || !BO.Textures) return false;
+        if (!tex) return false;
+        if (tex.userData && tex.userData.sharedAsset) return true;
+        if (!BO.Textures) return false;
         if (tex === BO.Textures.darkMatterTex || tex === BO.Textures.papTex) return true;
         for (const k in BO.Textures.textures) if (BO.Textures.textures[k] === tex) return true;
         for (const k in BO.Textures.heightMaps) if (BO.Textures.heightMaps[k] === tex) return true;
@@ -117,6 +120,11 @@
             const ch = obj.children;
             for (let i = 0; i < ch.length; i++) stack.push(ch[i]);
             if (isSharedAsset(obj)) continue;
+            // Shadow-casting lights own a depth render target (up to 2048²) that three.js never
+            // frees when the light leaves the scene.
+            if (obj.isLight && obj.shadow && obj.shadow.map && typeof obj.shadow.dispose === 'function') {
+                try { obj.shadow.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'shadow dispose', err); }
+            }
             if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
                 try { obj.dispose(); } catch (_) {}
             }
@@ -165,6 +173,133 @@
             try { renderer.renderLists.dispose(); } catch (_) {}
         }
     }
+
+    /* ------------------------------------------------------------------ GPU ledger
+       Mode code removes plenty of props, markers and NPCs from the scene on its own
+       (stop(), clear(), despawn) before disposeScene() can reach them, so their GPU
+       buffers used to outlive the match (Survival +~95 geometries and Open World
+       +~70 per match). The ledger records every geometry and texture the renderer
+       uploads, stamped with the match it was uploaded in. At teardown it frees
+       whatever a finished match uploaded that no persistent scene still uses and
+       no shared cache owns. three.js keeps the CPU data on dispose() and simply
+       re-uploads on next use, so a false positive costs one upload, never a crash. */
+    const GPULedger = {
+        installed: false,
+        epoch: 0,          // 0 = menus / boot; every match gets a fresh epoch
+        _nextEpoch: 1,
+        geometries: new Map(),
+        textures: new Map(),
+        lastSweep: null,
+
+        install() {
+            if (this.installed || typeof THREE === 'undefined') return this.installed;
+            const ledger = this;
+            const track = (proto, map) => {
+                const orig = proto.addEventListener;
+                proto.addEventListener = function (type, listener) {
+                    // WebGLRenderer subscribes to 'dispose' exactly once per resource, on first upload.
+                    if (type === 'dispose' && !map.has(this)) {
+                        map.set(this, ledger.epoch);
+                        const self = this;
+                        orig.call(this, 'dispose', function onLedgerDispose() {
+                            map.delete(self);
+                            self.removeEventListener('dispose', onLedgerDispose);
+                        });
+                    }
+                    return orig.call(this, type, listener);
+                };
+            };
+            track(THREE.BufferGeometry.prototype, this.geometries);
+            track(THREE.Texture.prototype, this.textures);
+            this.installed = true;
+            return true;
+        },
+
+        /** Stamps everything uploaded from now on as belonging to a new match. */
+        beginMatch() {
+            this.epoch = this._nextEpoch++;
+            return this.epoch;
+        },
+
+        /** Back in the menus: later uploads (showcase, gunsmith, previews) are never swept. */
+        endMatch() {
+            this.epoch = 0;
+        },
+
+        /** Everything reachable from scenes that live across matches. */
+        _collectKept() {
+            const geos = new Set();
+            const texs = new Set();
+            const addMaterial = (mat) => {
+                if (!mat) return;
+                for (const key in mat) {
+                    const v = mat[key];
+                    if (v && v.isTexture) texs.add(v);
+                }
+                const u = mat.uniforms;
+                if (u) for (const k in u) { const v = u[k] && u[k].value; if (v && v.isTexture) texs.add(v); }
+            };
+            const visit = (root) => {
+                if (!root || typeof root.traverse !== 'function') return;
+                root.traverse((o) => {
+                    if (o.geometry) geos.add(o.geometry);
+                    if (Array.isArray(o.material)) o.material.forEach(addMaterial); else addMaterial(o.material);
+                    if (o.skeleton && o.skeleton.boneTexture) texs.add(o.skeleton.boneTexture);
+                });
+                if (root.isScene) {
+                    if (root.background && root.background.isTexture) texs.add(root.background);
+                    if (root.environment && root.environment.isTexture) texs.add(root.environment);
+                }
+            };
+            const App = BO.App, P = BO.Player;
+            [
+                P && P.vmScene, P && P.fistRig && P.fistRig.root,
+                App && App.showcaseScene,
+                BO.Atmosphere && BO.Atmosphere.envScene,
+                BO.PostFX && BO.PostFX.qscene,
+                BO.Menus && BO.Menus._epScene,
+                BO.World && BO.World.scene // empty after disposeScene; kept for direct match→match restarts
+            ].forEach(visit);
+            if (App && App.weaponStudioBackground && App.weaponStudioBackground.isTexture) texs.add(App.weaponStudioBackground);
+            return { geos, texs };
+        },
+
+        _cachedTextures() {
+            const set = new Set();
+            const T = BO.Textures;
+            if (!T) return set;
+            if (T.darkMatterTex) set.add(T.darkMatterTex);
+            if (T.papTex) set.add(T.papTex);
+            for (const bag of [T.textures, T.heightMaps, T.roughMaps, T.camoTextures]) {
+                if (bag) for (const k in bag) if (bag[k]) set.add(bag[k]);
+            }
+            if (BO.Assets && typeof BO.Assets.sharedTextures === 'function') BO.Assets.sharedTextures(set);
+            return set;
+        },
+
+        /**
+         * Frees resources uploaded by finished matches that nothing persistent still uses.
+         * Returns { geometries, textures } freed.
+         */
+        sweep() {
+            if (!this.installed) return { geometries: 0, textures: 0 };
+            const { geos, texs } = this._collectKept();
+            const cachedTex = this._cachedTextures();
+            let freedGeo = 0, freedTex = 0;
+            for (const [geo, epoch] of Array.from(this.geometries)) {
+                if (epoch === 0 || geos.has(geo) || isCachedGeometry(geo)) continue;
+                try { geo.dispose(); freedGeo++; } catch (err) { log('GPULedger', 'debug', 'geo dispose', err); }
+            }
+            for (const [tex, epoch] of Array.from(this.textures)) {
+                if (epoch === 0 || tex.isRenderTargetTexture || texs.has(tex) || cachedTex.has(tex) || (tex.userData && tex.userData.sharedAsset)) continue;
+                try { tex.dispose(); freedTex++; } catch (err) { log('GPULedger', 'debug', 'tex dispose', err); }
+            }
+            this.lastSweep = { geometries: freedGeo, textures: freedTex, at: Date.now() };
+            if (freedGeo || freedTex) log('GPULedger', 'debug', `Freed ${freedGeo} geometries, ${freedTex} textures left by the last match`);
+            return this.lastSweep;
+        }
+    };
+    GPULedger.install();
 
     /**
      * Shadow-caster budget. Each preset allows a number of world meshes to cast sun shadows
@@ -228,9 +363,11 @@
 
     BO.log = log;
     BO.emitGameEvent = emitGameEvent;
+    BO.GPULedger = GPULedger;
     BO.SceneCleanup = {
         disposeScene,
         disposeObject,
+        ledger: GPULedger,
         applySceneQualityBudgets,
         installLegendGuard
     };

@@ -383,22 +383,27 @@
             }
             if (this.fireTimer > 0) this.fireTimer -= dt;
 
-            // Find nearest visible hostile (Player or opposing Bot)
-            const scanInterval = context.bots.length >= 40 ? 0.12 : 0;
+            // Find nearest visible hostile (Player or opposing Bot). Scans run at ~10 Hz, staggered
+            // by id: line-of-sight rays against every hostile every frame were ~80% of a 12-bot
+            // match's simulation cost, and 100 ms is below both human reaction time and the bots'
+            // own sight-reaction delay. Normal matches re-pick the nearest hostile on every scan;
+            // 40+ bot crowds keep a still-visible target to spare the full sweep.
+            const crowd = context.bots.length >= 40;
+            const scanInterval = crowd ? 0.12 : 0.1;
             this.targetScan = (this.targetScan ?? (this.id % 12) * 0.01) - dt;
-            if (!scanInterval || this.targetScan <= 0 || this.powerAlly !== this.scannedAsAlly) {
+            if (this.targetScan <= 0 || this.powerAlly !== this.scannedAsAlly) {
                 this.targetScan = scanInterval;
                 this.scannedAsAlly = this.powerAlly;
-                const retained = scanInterval && this.cachedTarget && this.canKeepTarget(this.cachedTarget, context);
+                const retained = crowd && this.cachedTarget && this.canKeepTarget(this.cachedTarget, context);
                 if (!retained) this.cachedTarget = this._acquireTarget(context);
             }
             const target = this.cachedTarget;
             if (target?.kind === 'player') {
                 if (context.playerConcealed || !context.playerAlive || BO.Player.aetherActive || this.powerAlly || this.team === context.playerTeam) this.cachedTarget = null;
-                else Object.assign(target, { x: context.playerPos.x, y: context.playerPos.y + 1.25, z: context.playerPos.z });
+                else { target.x = context.playerPos.x; target.y = context.playerPos.y + 1.25; target.z = context.playerPos.z; }
             } else if (target?.bot) {
                 if (!target.bot.alive || !this.isHostile(target.bot, context.modeType)) this.cachedTarget = null;
-                else Object.assign(target, { x: target.bot.pos.x, y: target.bot.pos.y + 1.25, z: target.bot.pos.z });
+                else { target.x = target.bot.pos.x; target.y = target.bot.pos.y + 1.25; target.z = target.bot.pos.z; }
             }
 
             let moveSpeed = 0;

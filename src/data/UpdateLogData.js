@@ -4246,6 +4246,63 @@
                                 ]
                         }
                 ]
+        },
+        {
+                "id": 200,
+                "hash": "gpu-ledger-5",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "11:30 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Leak-Free Matches, Faster Bots & HUD, Animated Zombies Doors",
+                "major": true,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "survival",
+                        "owrpg"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Another full audit: every mode was played headless by an aim bot that shoots enemies in the head, every enemy family was checked for animation and exact hit surfaces, and video memory was measured across repeated matches. These are the fixes that came out of it."
+                        },
+                        {
+                                "type": "p",
+                                "text": "Performance:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Fixed video memory growing every match: Survival kept about 95 meshes and Open World about 70 from each session, and every mode kept its old sun shadow map. Memory now stays flat no matter how many matches you play.",
+                                        "Multiplayer bots look for targets ten times a second instead of every frame, and their sight checks stop at the first wall: a full Nuketown match spends about 80% less time on bot AI.",
+                                        "The HUD only touches the page when a value actually changes, instead of rebuilding the score bar, power-up badges, perk tray, killstreaks and Tower Defense panel every frame."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Animation:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Bought Zombies doors and debris no longer vanish: the barricade judders as the lock releases, then rolls up into its frame like a security shutter with a dust curtain and a matching metal rattle. You can walk through the moment you buy it.",
+                                        "The pulsing warnings on expiring power-ups and on a critical Tower Defense heart now actually pulse (they restarted every frame before)."
+                                ]
+                        },
+                        {
+                                "type": "p",
+                                "text": "Stability:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "If any game system ever throws an error mid-match, the game keeps drawing and running instead of freezing on one frame, and the error is logged once.",
+                                        "Every game file now carries a fingerprint of its contents, so your browser always loads the newest version after an update."
+                                ]
+                        }
+                ]
         }
 ]
     };

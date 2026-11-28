@@ -5,6 +5,14 @@
     'use strict';
 
     const BO = global.BO;
+    // Line-of-sight scratch (AI calls hasLineOfSight dozens of times per frame).
+    const _losOrigin = new THREE.Vector3();
+    const _losDir = new THREE.Vector3();
+    const _losHits = [];
+    // Purchased-door retract animation.
+    const DOOR_JUDDER = 0.16;
+    const DOOR_RETRACT = 0.7;
+    const _doorDust = new THREE.Vector3();
 
     class WorldBuilder {
         constructor() {
@@ -17,6 +25,7 @@
             this.powerLights = [];
             this.fireFlames = [];
             this.animatedProps = [];
+            this.openingDoors = []; // barricades retracting after purchase (see openDoor)
             this.mysteryBoxObj = null;
             this.domFlagObjs = [];
             this.hardpointRing = null;
@@ -43,6 +52,7 @@
             this.powerLights = [];
             this.fireFlames = [];
             this.animatedProps = [];
+            this.openingDoors = []; // barricades retracting after purchase (see openDoor)
             this.mysteryBoxObj = null;
             this.domFlagObjs = [];
             this.hardpointRing = null;
@@ -2882,15 +2892,19 @@
         openDoor(doorInteractive) {
             if (!doorInteractive || doorInteractive.opened) return;
             doorInteractive.opened = true;
-            doorInteractive.mesh.visible = false;
+            // Passable the instant it is bought; the barricade then judders and retracts into its
+            // lintel like a security shutter (updateAnimatedProps) instead of popping out of existence.
             doorInteractive.collider.active = false;
+            const m = doorInteractive.mesh, h = doorInteractive.data.h || 2.6;
+            this.openingDoors.push({ mesh: m, t: 0, baseSY: m.scale.y, baseX: m.position.x, baseY: m.position.y, baseZ: m.position.z, h, dustAt: 0.42, x: doorInteractive.x, z: doorInteractive.z });
             const idx = this.worldMeshes.indexOf(doorInteractive.mesh);
             if (idx !== -1) this.worldMeshes.splice(idx, 1);
 
             this.unlockedZones.add(doorInteractive.data.fromZone);
             this.unlockedZones.add(doorInteractive.data.toZone);
-            BO.Sound.playUIClick();
-            BO.FX.spawnParticles(new THREE.Vector3(doorInteractive.x, doorInteractive.y, doorInteractive.z), 16, 0x8b6f47, 5, 10, 0.6, 1.8);
+            _doorDust.set(doorInteractive.x, doorInteractive.y, doorInteractive.z);
+            BO.Sound.playDoorOpen(_doorDust);
+            BO.FX.spawnParticles(_doorDust, 16, 0x8b6f47, 5, 10, 0.6, 1.8);
         }
 
         moveMysteryBox(padIndex) {
@@ -3213,22 +3227,39 @@
         }
 
         hasLineOfSight(ax, ay, az, bx, by, bz) {
-            const origin = new THREE.Vector3(ax, ay, az);
-            const target = new THREE.Vector3(bx, by, bz);
-            const dir = target.sub(origin);
+            const origin = _losOrigin.set(ax, ay, az);
+            const dir = _losDir.set(bx - ax, by - ay, bz - az);
             const dist = dir.length();
             if (dist < 0.1) return true;
             dir.divideScalar(dist);
+            const far = dist - 0.15;
             if (this.large) {
-                if (this.terrain.ray(origin, dir, dist - 0.15)) return false;
+                if (this.terrain.ray(origin, dir, far)) return false;
                 this.raycaster.set(origin, dir);
-                this.raycaster.far = dist - 0.15;
-                return this.raycaster.intersectObjects(this._rayCandidates(origin, dir, dist), false).length === 0;
+                return !this._anyRayHit(this._rayCandidates(origin, dir, dist), far);
             }
             this.raycaster.set(origin, dir);
-            this.raycaster.far = dist - 0.15;
-            const hits = this.raycaster.intersectObjects(this.worldMeshes, false);
-            return hits.length === 0;
+            return !this._anyRayHit(this.worldMeshes, far);
+        }
+
+        /**
+         * Occlusion query: true as soon as any mesh blocks the current ray before `far`.
+         * Same per-object rules as Raycaster.intersectObjects(list, false) (layers, then
+         * Object3D.raycast), but it stops at the first blocker instead of collecting and
+         * distance-sorting every intersection along the ray.
+         */
+        _anyRayHit(meshes, far) {
+            const rc = this.raycaster;
+            rc.far = far;
+            const out = _losHits;
+            for (let i = 0; i < meshes.length; i++) {
+                const m = meshes[i];
+                if (!m.layers.test(rc.layers)) continue;
+                out.length = 0;
+                m.raycast(rc, out);
+                if (out.length) { out.length = 0; return true; }
+            }
+            return false;
         }
 
         raycastWorld(origin, dir, maxDist) {
@@ -3345,6 +3376,35 @@
             }
             if (this.exfilBeacon) {
                 this.exfilBeacon.rotation.y += dt * 1.2;
+            }
+
+            // Purchased barricades: 0.16 s unlock judder, then a 0.7 s eased retract into the lintel.
+            for (let i = this.openingDoors.length - 1; i >= 0; i--) {
+                const od = this.openingDoors[i];
+                od.t += dt;
+                const m = od.mesh;
+                if (od.t < DOOR_JUDDER) {
+                    const k = 1 - od.t / DOOR_JUDDER;
+                    m.position.set(od.baseX + Math.sin(od.t * 95) * 0.025 * k, od.baseY + Math.sin(od.t * 71) * 0.012 * k, od.baseZ + Math.cos(od.t * 83) * 0.025 * k);
+                    continue;
+                }
+                const u = Math.min(1, (od.t - DOOR_JUDDER) / DOOR_RETRACT);
+                const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; // easeInOutCubic
+                const s = Math.max(0.001, 1 - e);
+                // Scale toward the top edge so the slab rolls up into the frame.
+                m.scale.y = s * od.baseSY;
+                m.position.set(od.baseX, od.baseY + od.h * 0.5 * (1 - s), od.baseZ);
+                if (od.dustAt && u >= od.dustAt) {
+                    od.dustAt = 0;
+                    _doorDust.set(od.x, od.baseY - od.h * 0.5 + 0.15, od.z);
+                    BO.FX.spawnParticles(_doorDust, 22, 0x8b6f47, 4.2, 7, 0.75, 1.6);
+                }
+                if (u >= 1) {
+                    m.visible = false;
+                    m.scale.y = od.baseSY;
+                    m.position.set(od.baseX, od.baseY, od.baseZ);
+                    this.openingDoors.splice(i, 1);
+                }
             }
 
             // Animate Flogger trap rotor spin + Electric/Fire FX flicker

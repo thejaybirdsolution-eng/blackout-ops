@@ -513,7 +513,14 @@
             for (const m of sharedMats) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) if (m && m[k] && m[k].isTexture) m[k].dispose();
         },
         isSharedMat: (m) => sharedMats.has(m) || matCache.has(m),
-        isCachedTex: (t) => texCache.has(t),
+        /** Every texture the loader owns: path-cached textures plus the maps of cached GLB materials. */
+        sharedTextures(out = new Set()) {
+            for (const t of texCache.values()) if (t && t.isTexture) out.add(t);
+            for (const m of sharedMats) {
+                for (const k in m) { const v = m[k]; if (v && v.isTexture) out.add(v); }
+            }
+            return out;
+        },
         hasSharedMatValue: (m) => {
             if (sharedMats.has(m)) return true;
             for (const v of matCache.values()) if (v === m) return true;

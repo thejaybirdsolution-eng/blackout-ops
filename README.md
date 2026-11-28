@@ -26,5 +26,5 @@ Select **OPERATION BLACKOUT** at the top of the Main Menu to play a connected 10
 7. **Minigames Hub (Solo & Same-Room Versus)**: 63 courses across Fun & Specials (22), Target & Action (16), Speed Runs (9), Arcade Hall (15), and Boss Rush, plus `MinigameFeel` sampled impacts/announcer, **Daily Seeded Courses & Featured Streaks**, and **Personal-Best Ghost deltas**.
 
 ## Quick Start & Automated QA
-- **Local Play**: Double-click `play.bat` or run `python server.py` (dev fast bundle build: `python tools/bundle.py` -> `index.bundled.html`).
+- **Local Play**: Double-click `play.bat` or run `python server.py` (before committing: `python tools/stamp_versions.py` content-hashes every script/stylesheet URL for cache busting, then `python tools/bundle.py` rebuilds `index.bundled.html`).
 - **QA Suites**: Open `_qa_runner.html` (`30/30` target checks across core, modes, saves, netcode, profile & Operation Blackout) `_qa_owrpg.html` (`143/143` checks & `BO.OWRPGValidator.runAll()`) and `_qa_hitboxes.html` (`56/56` silhouette-vs-hitbox ray audits per enemy family plus rig animation checks).

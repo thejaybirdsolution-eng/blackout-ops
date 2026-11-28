@@ -1482,7 +1482,8 @@
 		}
 		extendTexture( texture, transform ) {
 
-			if ( transform.texCoord !== undefined ) {
+			// texCoord 0 is the default UV set (Kenney kits write it explicitly): only a different set is unsupported.
+			if ( transform.texCoord !== undefined && transform.texCoord !== 0 ) {
 
 				console.warn( 'THREE.GLTFLoader: Custom UV sets in "' + this.name + '" extension not yet supported.' );
 

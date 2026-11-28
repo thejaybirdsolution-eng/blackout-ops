@@ -5,6 +5,8 @@
     'use strict';
 
     const BO = global.BO;
+    // Survival menus that pause the Zone (all other Survival menus keep it running).
+    const FROZEN_SURVIVAL_SECTIONS = new Set(['respawn', 'briefing', 'ending', 'epilogue']);
 
     class BlackoutApp {
         constructor() {
@@ -391,6 +393,8 @@
             if (BO.OWRPGMode) BO.OWRPGMode.stop();
             BO.Sound.stopEffects();
             BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
+            BO.GPULedger?.sweep();
+            BO.GPULedger?.beginMatch();
 
             BO.State.activeMode = opts.mode;
             BO.State.activeMapId = opts.mapId;
@@ -532,6 +536,8 @@
             BO.Superpowers.reset();
             BO.Sound.stopEffects();
             BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
+            BO.GPULedger?.sweep();
+            BO.GPULedger?.endMatch();
             BO.State.activeMode = null;
             BO.State.paused = false;
             BO.HUD?.resetForMode?.(null);
@@ -933,64 +939,11 @@
             BO.Textures.updateAnimatedTextures(dt, this.elapsed);
 
             if (BO.State.screen === 'playing') {
-                if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
-                if (!BO.State.paused && !BO.SurvivalUI?.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
-                    const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
-                    if (inKillcam) {
-                        BO.FX.update(dt);
-                        BO.MPMode.update(dt);
-                    } else {
-                        if (this.mouseDown) BO.Combat.handleFireInput(true, false);
-                        if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
-                        BO.GamepadInput?.poll?.(dt);
-                        BO.Player.update(dt, this.worldCamera);
-                        BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
-                        BO.Superpowers.tick(dt);
-                        BO.World.updateAnimatedProps(dt, this.elapsed);
-                        BO.FX.update(dt);
-
-                        if (BO.State.activeMode === 'survival') BO.SurvivalMode.update(dt);
-                        else if (BO.State.activeMode === 'minigame') BO.Minigames.update(dt);
-                        else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
-                        else if (BO.State.activeMode === 'mp') BO.MPMode.update(dt);
-                        else if (BO.State.activeMode === 'rpg') BO.RPGMode.update(dt);
-                        else if (BO.State.activeMode === 'owrpg') BO.OWRPGMode.update(dt);
-                        else if (BO.State.activeMode === 'td') {
-                            BO.TowerDefenseMode.update(dt);
-                            if (BO.Menus && BO.Menus.modalTdShop && !BO.Menus.modalTdShop.classList.contains('hidden')) {
-                                const secNow = Math.ceil(BO.TowerDefenseMode.intermissionTimer);
-                                const subEl = document.getElementById('td-shop-sub');
-                                if (BO.TowerDefenseMode.state !== 'intermission') {
-                                    BO.Menus.modalTdShop.classList.add('hidden');
-                                    this._safePointerLock();
-                                } else if (subEl) {
-                                    subEl.textContent = `Intermission: ${secNow}s remaining • Press [N] or button above to skip wait!`;
-                                }
-                            }
-                        }
-                    }
-
-                    BO.HUD.update(dt);
-                    BO.ExpansionShop.updateHud();
-                    BO.SurvivalUI?.updateHud?.();
-                    if (BO.RPGUI) BO.RPGUI.updateHud(dt);
-                    if (BO.OWRPGUI && BO.State.activeMode === 'owrpg') BO.OWRPGUI.updateHud(dt);
-                } else if (!BO.State.paused && BO.SurvivalUI?.open && BO.State.activeMode === 'survival' && BO.SurvivalMode?.active &&
-                    !['respawn', 'briefing', 'ending', 'epilogue'].includes(BO.SurvivalUI.section)) {
-                    // Real-time menus: the Zone keeps moving while you rummage through your pack.
-                    BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
-                    BO.World.updateAnimatedProps(dt, this.elapsed);
-                    BO.FX.update(dt);
-                    BO.SurvivalMode.update(dt);
-                    BO.HUD.update(dt);
-                    if (BO.SurvivalUI.liveRefresh) BO.SurvivalUI.liveRefresh(dt);
+                try {
+                    this._simulate(dt);
+                } catch (err) {
+                    this._reportFrameError(err);
                 }
-
-                if (BO.Net) BO.Net.update(dt, this.worldCamera);
-
-                if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
-                if (BO.SunShadow && BO.State.activeMode !== 'minigame') BO.SunShadow.update(this.worldCamera);
-                if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
                 this.renderer.info.reset();
                 const post = BO.PostFX && BO.PostFX.begin(this.renderer);
@@ -1026,6 +979,82 @@
                 if (post) BO.PostFX.end(this.renderer, dt, this.showcaseCamera);
                 BO.PerfOverlay?.tick?.(rawDt, this.renderer);
             }
+        }
+
+        /**
+         * A throw inside one subsystem must not freeze the game on a still frame: the frame
+         * still renders, and each distinct error is logged once (with a dev toast under
+         * ?debug=errors) instead of flooding the console 60 times a second.
+         */
+        _reportFrameError(err) {
+            const key = (err && (err.stack || err.message)) || String(err);
+            this._frameErrors ??= new Map();
+            const seen = this._frameErrors.get(key) || 0;
+            this._frameErrors.set(key, seen + 1);
+            if (seen === 0) BO.log?.('Loop', 'error', 'Frame update failed: ' + (err && err.message ? err.message : String(err)), err);
+            if (this._frameErrors.size > 64) this._frameErrors.clear();
+        }
+
+        /** One gameplay tick: input, simulation, mode logic, HUD, networking, atmosphere. */
+        _simulate(dt) {
+            if (BO.ExpansionShop.open && !BO.Player.alive) BO.ExpansionShop.close();
+            if (!BO.State.paused && !BO.SurvivalUI?.open && !BO.RPGUI?.modalOpen && !BO.OWRPGUI?.modalOpen && !BO.ZoneThrill?.picking && !BO.ZoneWild?.boxOpen && !BO.ZoneArmory?.uiOpen && !BO.ZoneLegends?.dialog && (!BO.ExpansionShop.open || BO.Net?.active)) {
+                const inKillcam = BO.State.activeMode === 'mp' && BO.MPMode && BO.MPMode.killcamActive;
+                if (inKillcam) {
+                    BO.FX.update(dt);
+                    BO.MPMode.update(dt);
+                } else {
+                    if (this.mouseDown) BO.Combat.handleFireInput(true, false);
+                    if (BO.State.activeMode === 'minigame') BO.Minigames.preUpdate(dt);
+                    BO.GamepadInput?.poll?.(dt);
+                    BO.Player.update(dt, this.worldCamera);
+                    BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
+                    BO.Superpowers.tick(dt);
+                    BO.World.updateAnimatedProps(dt, this.elapsed);
+                    BO.FX.update(dt);
+
+                    if (BO.State.activeMode === 'survival') BO.SurvivalMode.update(dt);
+                    else if (BO.State.activeMode === 'minigame') BO.Minigames.update(dt);
+                    else if (BO.State.activeMode === 'zombies') BO.ZombiesMode.update(dt);
+                    else if (BO.State.activeMode === 'mp') BO.MPMode.update(dt);
+                    else if (BO.State.activeMode === 'rpg') BO.RPGMode.update(dt);
+                    else if (BO.State.activeMode === 'owrpg') BO.OWRPGMode.update(dt);
+                    else if (BO.State.activeMode === 'td') {
+                        BO.TowerDefenseMode.update(dt);
+                        if (BO.Menus && BO.Menus.modalTdShop && !BO.Menus.modalTdShop.classList.contains('hidden')) {
+                            const secNow = Math.ceil(BO.TowerDefenseMode.intermissionTimer);
+                            const subEl = document.getElementById('td-shop-sub');
+                            if (BO.TowerDefenseMode.state !== 'intermission') {
+                                BO.Menus.modalTdShop.classList.add('hidden');
+                                this._safePointerLock();
+                            } else if (subEl) {
+                                subEl.textContent = `Intermission: ${secNow}s remaining • Press [N] or button above to skip wait!`;
+                            }
+                        }
+                    }
+                }
+
+                BO.HUD.update(dt);
+                BO.ExpansionShop.updateHud();
+                BO.SurvivalUI?.updateHud?.();
+                if (BO.RPGUI) BO.RPGUI.updateHud(dt);
+                if (BO.OWRPGUI && BO.State.activeMode === 'owrpg') BO.OWRPGUI.updateHud(dt);
+            } else if (!BO.State.paused && BO.SurvivalUI?.open && BO.State.activeMode === 'survival' && BO.SurvivalMode?.active &&
+                !FROZEN_SURVIVAL_SECTIONS.has(BO.SurvivalUI.section)) {
+                // Real-time menus: the Zone keeps moving while you rummage through your pack.
+                BO.Combat.updateBurstAndProjectiles(dt, this.worldCamera);
+                BO.World.updateAnimatedProps(dt, this.elapsed);
+                BO.FX.update(dt);
+                BO.SurvivalMode.update(dt);
+                BO.HUD.update(dt);
+                if (BO.SurvivalUI.liveRefresh) BO.SurvivalUI.liveRefresh(dt);
+            }
+
+            if (BO.Net) BO.Net.update(dt, this.worldCamera);
+
+            if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+            if (BO.SunShadow && BO.State.activeMode !== 'minigame') BO.SunShadow.update(this.worldCamera);
+            if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
         }
     }
 

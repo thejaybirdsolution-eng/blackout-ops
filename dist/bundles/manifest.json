@@ -4,10 +4,10 @@
     "vendor": {
       "name": "vendor",
       "path": "dist/bundles/vendor.bundle.js",
-      "hash": "7fe08f76a2",
+      "hash": "d8b7137e10",
       "fileCount": 3,
-      "rawBytes": 804458,
-      "gzipBytes": 200750,
+      "rawBytes": 804597,
+      "gzipBytes": 200124,
       "files": [
         "vendor/three.min.js",
         "vendor/GLTFLoader.js",
@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "f539d6ec1e",
+      "hash": "f098c3f29f",
       "fileCount": 78,
-      "rawBytes": 3374105,
-      "gzipBytes": 758028,
+      "rawBytes": 3393778,
+      "gzipBytes": 763617,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -108,7 +108,7 @@
       "hash": "7f2f641b94",
       "fileCount": 13,
       "rawBytes": 456212,
-      "gzipBytes": 113864,
+      "gzipBytes": 113795,
       "files": [
         "src/data/RPGData.js",
         "src/data/RPGItemsData.js",
@@ -128,10 +128,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "dd072fe240",
+      "hash": "d2621312b7",
       "fileCount": 31,
-      "rawBytes": 747590,
-      "gzipBytes": 193140,
+      "rawBytes": 747832,
+      "gzipBytes": 193247,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",
@@ -169,10 +169,10 @@
     "survival": {
       "name": "survival",
       "path": "dist/bundles/survival.bundle.js",
-      "hash": "f8aa800083",
+      "hash": "0ac5a708d7",
       "fileCount": 66,
-      "rawBytes": 1884724,
-      "gzipBytes": 516736,
+      "rawBytes": 1884720,
+      "gzipBytes": 516336,
       "files": [
         "src/data/SurvivalData.js",
         "src/data/SurvivalCampaignData.js",
@@ -248,7 +248,7 @@
       "hash": "8203d089d8",
       "fileCount": 42,
       "rawBytes": 2423812,
-      "gzipBytes": 633094,
+      "gzipBytes": 631913,
       "files": [
         "src/minigames/MinigameHelpers.js",
         "src/minigames/MinigameCore.js",

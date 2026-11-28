@@ -3,8 +3,17 @@
 ## Release Snapshot
 - **Branch:** `master` (merged `release/1.0-complete` + `origin/master` flagship-2 `#174–#182`).
 - **QA Suites:** `_qa_runner.html` (30 checks) + `_qa_owrpg.html` (OWRPG 143 checks including Cartography, 156 hidden sites, Champions & `OWRPGValidator`) + `_qa_hitboxes.html` (56 checks).
-- **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-023`).
+- **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-032`).
 - **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
+
+## GPU Ledger, HUD, Bot AI & Door Pass (Nov 28, 2026)
+- **GPU ledger (ADR-030):** `BO.GPULedger` (`src/core/CoreStability.js`) stamps every uploaded geometry/texture with its match; `startMatch` / `exitToMenu` call `sweep()` after `disposeScene()`. Persistent roots are listed in `_collectKept()` — add any new long-lived scene there. Source fixes: `OWRPGInteriors.clear()` disposes, un-keyed `MeshProxy.attach` geometry is `ownedGeometry` (freed by `detach` and teardown), `disposeObject` disposes light shadow maps, `SoldierModel` canvas textures are `sharedAsset`, `BO.Assets.sharedTextures()` replaces the broken `isCachedTex`. Measured: geometry/texture counts are flat across repeated matches in all modes.
+- **HUD (ADR-031):** per-frame HUD writes go through `BO.HUD.setText / setHtml / setStyle`. Never write `innerHTML`/`style` of a gated element directly from elsewhere; use the helpers (the hitmarker stays direct on purpose).
+- **Bot AI (ADR-032):** 10 Hz staggered target scans; `World._anyRayHit` for occlusion queries. MP simulation 2.3 → 0.4 ms/frame.
+- **Main loop:** `_loop` renders every frame; simulation lives in `_simulate(dt)` behind a try/catch, and `_reportFrameError` logs each distinct error once.
+- **Zombies doors:** `World.openDoor` keeps the collider/LOS change instant and queues `openingDoors`; `updateAnimatedProps` plays a 0.16 s judder + 0.7 s eased shutter retract with a dust curtain, and `Sound.playDoorOpen(pos)` is the matching spatial clunk/rattle/seat.
+- **Cache busting:** `python tools/stamp_versions.py` stamps every `index.html` script/stylesheet with `?v=<sha256[:8]>` (`--check` verifies); run it, then `python tools/bundle.py`, before committing.
+- **GLTFLoader:** no longer warns for `KHR_texture_transform.texCoord: 0` (default UV set used by all Kenney kits).
 
 ## Performance, Mocap Animation & Spawn Audit (Nov 28, 2026)
 - **Rig merge (ADR-028):** `BotAI` and procedural `ZombieEntity` keep `MeshProxy.attachArticulated` on while alive (136 → 54 draw calls per operator, ~65 → ~38 per zombie). Bots return to detail at death and re-merge in `spawnAt`; `destroy()` detaches. The hitbox audit treats `lodDetail` as visible body.
