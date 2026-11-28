@@ -7,7 +7,7 @@
 - **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
 
 ## Enemy Rigs, Hitboxes & Graphics Pass (Nov 28, 2026)
-- `src/graphics/Hitboxes.js` — hit surfaces = visible body (ADR-024). Entities call `BO.Hitboxes.prepare(ent, parts)` once and `collect(ent, out)` per frame; GLB bodies call `fromModel`. Mark anything that must never take hits with `userData.noHit` (or `isWeapon` on a weapon root).
+- `src/graphics/Hitboxes.js` — hit surfaces = visible body (ADR-024). Entities call `BO.Hitboxes.prepare(ent, parts)` once and `collect(ent, out)` per frame; GLB bodies call `fromModel`. Skinned hit groups are re-skinned by `Hitboxes.refresh(ent)`, which `CombatSystem._castTargets` calls for enemies a ray reaches; any other raycaster against skinned enemies should call it first. Mark anything that must never take hits with `userData.noHit` (or `isWeapon` on a weapon root).
 - `src/graphics/EnemyRig.js` — GLB animation drivers (ADR-025). Zombie archetype overlays mount through `EnemyRig.mountZombieOverlay`; Open World GLB enemies through `EnemyRig.mount`. `rig.attachWeapon(id)` puts a gun in a GLB hand.
 - `src/graphics/SoldierModel.js` — jointed soldier (elbow/knee/ankle pivots), weapon on the torso, two-bone IK hands, `SoldierModel.animate(parts, state, dt)` (aim, recoil, reload, crouch, downed, sprint, pitch). `CharacterMesh.animateSoldier` is the entry point; `animateLimbs` forwards soldiers automatically.
 - `src/graphics/SunShadow.js` + `CoreStability.applySceneQualityBudgets` — stable sun shadows and the reversible caster budget (ADR-026).

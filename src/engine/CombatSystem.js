@@ -78,7 +78,19 @@
         _castTargets() {
             const pool = this.targetPool;
             const rc = this.raycaster;
-            if (pool.length < 40 || !BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (!BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (pool.length < 40) {
+                // Small pools skip grouping, but skinned hit groups still need the current pose.
+                const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
+                let last = null;
+                for (let i = 0; i < pool.length; i++) {
+                    const ent = pool[i].userData.entity;
+                    if (!ent || ent === last || !ent._skinSnaps) continue;
+                    last = ent;
+                    if (BO.Hitboxes.sphere(ent, sph) && rc.ray.intersectsSphere(sph)) BO.Hitboxes.refresh(ent);
+                }
+                return rc.intersectObjects(pool, false);
+            }
             if (this._groupedPool !== pool) {
                 this._groupedPool = pool;
                 const byEnt = this._poolGroups || (this._poolGroups = new Map());
@@ -103,6 +115,7 @@
                 BO.Hitboxes.sphere(ent, sph);
                 if (!rc.ray.intersectsSphere(sph)) continue;
                 if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
+                if (ent._skinSnaps) BO.Hitboxes.refresh(ent);
                 for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
             }
             return cand.length ? rc.intersectObjects(cand, false) : [];

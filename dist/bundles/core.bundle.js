@@ -16296,6 +16296,72 @@
                                 ]
                         }
                 ]
+        },
+
+        {
+                "id": 193,
+                "hash": "exact-2",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "06:20 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Exact Monster Hitboxes: The Hit Surface Is the Moving Skin",
+                "major": true,
+                "tags": [
+                        "zombies",
+                        "rogue",
+                        "td",
+                        "owrpg",
+                        "engine"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "Animated monsters (Imp and Puglin archetypes, the Open World creatures built on them, and every skinned enemy model) now take hits on their exact deformed skin:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Before: rigid copies of each bone's piece, which left gaps and overhangs where joints bend (up to 6% of shots on the body missed, and the hit area overhung the body by up to 12%).",
+                                        "Now: each monster's vertices are re-skinned from its live skeleton the moment a shot's path reaches it (at most once per frame, about a millisecond), and the hit groups sit on that exact surface.",
+                                        "Zones still come from the bone under the hit: head, torso or limb. A claw raised overhead is hittable exactly where it's drawn.",
+                                        "The audit's limit for these models dropped from 6%/12% to 2%/2%. Measured worst case: 0.0% miss across all 70 zombie archetypes, the bosses, Rogue Lite, Tower Defense and the Open World."
+                                ]
+                        }
+                ]
+        },
+        {
+                "id": 194,
+                "hash": "exact-2",
+                "date": "Nov 28, 2026",
+                "fullDate": "November 28, 2026",
+                "time": "06:30 AM ET",
+                "dayKey": "2026-11-28",
+                "title": "Graphics: Rebuilt Concrete, Asphalt, Sand & Stone Surfaces",
+                "major": false,
+                "tags": [
+                        "engine",
+                        "mp",
+                        "zombies",
+                        "td",
+                        "survival",
+                        "rogue"
+                ],
+                "blocks": [
+                        {
+                                "type": "p",
+                                "text": "The procedural ground and wall surfaces used in every arena map were stamped with hard 1–3 pixel squares that looked like blocky noise up close. Rebuilt:"
+                        },
+                        {
+                                "type": "ul",
+                                "items": [
+                                        "Aggregate is now thousands of fine, irregular, anti-aliased grains and chips instead of square pixels, with tones varied per grain.",
+                                        "Each surface gets a real height field: lighter stones stand proud, darker pits sink in, and expansion joints and mortar lines are recessed. This drives the normal map, so surfaces catch light with depth.",
+                                        "Matching roughness maps let aggregate read slightly smoother than the binder.",
+                                        "Applies to concrete, asphalt, desert sand, sandbags and bunker stone wherever they appear."
+                                ]
+                        }
+                ]
         }
 ]
     };
@@ -17956,13 +18022,18 @@
             return out;
         }
 
+        /**
+         * Tileable surface texture (concrete, asphalt, sand, sandbag, bunker stone…).
+         * Albedo from 5-octave value noise; aggregate stamped as soft round stones and pits (no
+         * square pixels); an authored heightfield (raised stones, sunken pits, recessed joints)
+         * becomes the normal map, and a matching roughness map makes polished aggregate catch light.
+         */
         _createNoiseTexture(key, w, h, baseHex, variance, speckColor, gridOpts) {
             if (this.textures[key]) return this.textures[key];
             const c = this._makeCanvas(w, h);
             const ctx = c.getContext('2d');
             const rng = seededNoise(key.length * 1337 + baseHex.charCodeAt(1) * 97);
 
-            // Tileable fractal value noise (replaces hard-edged blotch circles).
             const S = 2; // supersample: author at 2x for crisper close-up detail
             if (c.width !== w * S) { c.width = w * S; c.height = h * S; }
             const W = w * S, H = h * S;
@@ -17971,44 +18042,96 @@
             const img = ctx.createImageData(W, H);
             const d = img.data;
             const v = variance / 255;
-            for (let i = 0, j = 0; i < field.length; i++, j += 4) {
-                const n = (field[i] - 0.5) * 2 * v + (rng() - 0.5) * v * 0.35;
-                d[j] = Math.max(0, Math.min(255, (base.r + n) * 255));
-                d[j + 1] = Math.max(0, Math.min(255, (base.g + n * 0.96) * 255));
-                d[j + 2] = Math.max(0, Math.min(255, (base.b + n * 0.9) * 255));
-                d[j + 3] = 255;
+            const col = new Float32Array(W * H * 3);
+            const height = new Float32Array(W * H);
+            const rough = new Float32Array(W * H);
+            const roughBase = ({ asphalt: 0.93, desert_sand: 0.96, sandbag: 0.95, bunker_stone: 0.91, concrete: 0.88 })[key] || 0.9;
+            for (let i = 0; i < field.length; i++) {
+                const grain = (rng() - 0.5);
+                const n = (field[i] - 0.5) * 2 * v + grain * v * 0.35;
+                col[i * 3] = base.r + n;
+                col[i * 3 + 1] = base.g + n * 0.96;
+                col[i * 3 + 2] = base.b + n * 0.9;
+                height[i] = 0.5 + (field[i] - 0.5) * 0.45 + grain * 0.05;
+                rough[i] = roughBase + (0.5 - field[i]) * 0.08;
             }
-            ctx.putImageData(img, 0, 0);
-            ctx.save();
-            ctx.scale(S, S);
 
+            // Aggregate: soft-edged round stones (light, raised) and pits (dark, sunken), wrapped for tiling.
             if (speckColor) {
-                ctx.fillStyle = speckColor;
-                for (let i = 0; i < 900; i++) {
-                    ctx.fillRect(rng() * w, rng() * h, 1 + rng() * 2, 1 + rng() * 2);
+                const m = /rgba?\(([^)]+)\)/.exec(speckColor);
+                const parts = m ? m[1].split(',').map((x) => parseFloat(x)) : [128, 128, 128, 0.2];
+                const sr = parts[0] / 255, sg = parts[1] / 255, sb = parts[2] / 255, sa = parts.length > 3 ? parts[3] : 1;
+                const lumS = sr * 0.3 + sg * 0.59 + sb * 0.11, lumB = base.r * 0.3 + base.g * 0.59 + base.b * 0.11;
+                const raised = lumS >= lumB; // lighter aggregate stands proud, darker reads as pits
+                const count = Math.round(2600 * (w * h) / (256 * 256));
+                for (let k = 0; k < count; k++) {
+                    const cx = rng() * W, cy = rng() * H;
+                    // Fine, irregular aggregate: mostly sub-centimetre grains, occasional larger chips.
+                    const r = (0.32 + Math.pow(rng(), 2.8) * 1.25) * S;
+                    const a = sa * (0.45 + rng() * 0.8);
+                    const tone = 0.8 + rng() * 0.4;
+                    const ang = rng() * Math.PI, ca = Math.cos(ang), sa2 = Math.sin(ang), stretch = 1 + rng() * 0.7;
+                    const R = Math.ceil(r * stretch + 1);
+                    for (let oy = -R; oy <= R; oy++) {
+                        for (let ox = -R; ox <= R; ox++) {
+                            const ux = (ox * ca + oy * sa2) / stretch, uy = -ox * sa2 + oy * ca;
+                            const dist = Math.hypot(ux, uy);
+                            if (dist > r + 1) continue;
+                            const fall = dist < r - 0.5 ? 1 : Math.max(0, (r + 0.5 - dist)); // anti-aliased rim
+                            const dome = Math.sqrt(Math.max(0, 1 - (dist * dist) / (r * r)));
+                            const x = ((Math.floor(cx) + ox) % W + W) % W, y = ((Math.floor(cy) + oy) % H + H) % H;
+                            const i = y * W + x, a2 = a * fall;
+                            col[i * 3] += (sr * tone - col[i * 3]) * a2;
+                            col[i * 3 + 1] += (sg * tone - col[i * 3 + 1]) * a2;
+                            col[i * 3 + 2] += (sb * tone - col[i * 3 + 2]) * a2;
+                            height[i] += (raised ? 0.2 : -0.22) * dome * fall * Math.min(1, a * 2.5);
+                            rough[i] += (raised ? -0.06 : 0.03) * fall * Math.min(1, a * 2.5);
+                        }
+                    }
                 }
             }
 
+            // Expansion joints / mortar lines are recessed in the heightfield as well as painted.
             if (gridOpts) {
+                const stepX = (gridOpts.stepX || 64) * S, stepY = (gridOpts.stepY || 64) * S;
+                const half = Math.max(1, (gridOpts.lineWidth || 2) * S * 0.5);
+                for (let y = 0; y < H; y++) {
+                    const dy = Math.min(y % stepY, stepY - (y % stepY));
+                    for (let x = 0; x < W; x++) {
+                        const dx = Math.min(x % stepX, stepX - (x % stepX));
+                        const dd = Math.min(dx, dy);
+                        if (dd > half + 1.5) continue;
+                        const k = dd <= half ? 1 : 1 - (dd - half) / 1.5;
+                        const i = y * W + x;
+                        height[i] -= 0.38 * k;
+                        rough[i] += 0.05 * k;
+                    }
+                }
+            }
+
+            for (let i = 0, j = 0; i < height.length; i++, j += 4) {
+                d[j] = Math.max(0, Math.min(255, col[i * 3] * 255));
+                d[j + 1] = Math.max(0, Math.min(255, col[i * 3 + 1] * 255));
+                d[j + 2] = Math.max(0, Math.min(255, col[i * 3 + 2] * 255));
+                d[j + 3] = 255;
+                rough[i] = Math.max(0.3, Math.min(1, rough[i]));
+            }
+            ctx.putImageData(img, 0, 0);
+
+            if (gridOpts) {
+                ctx.save();
+                ctx.scale(S, S);
                 ctx.strokeStyle = gridOpts.color;
                 ctx.lineWidth = gridOpts.lineWidth || 2;
                 const stepX = gridOpts.stepX || 64;
                 const stepY = gridOpts.stepY || 64;
-                for (let x = 0; x <= w; x += stepX) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, 0);
-                    ctx.lineTo(x, h);
-                    ctx.stroke();
-                }
-                for (let y = 0; y <= h; y += stepY) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y);
-                    ctx.lineTo(w, y);
-                    ctx.stroke();
-                }
+                for (let x = 0; x <= w; x += stepX) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+                for (let y = 0; y <= h; y += stepY) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+                ctx.restore();
             }
 
-            ctx.restore();
+            this.heightMaps[key] = this._normalFromHeight(height, W, H, /sand/.test(key) ? 1.6 : 2.3);
+            this.roughMaps[key] = this._roughnessTex(rough, W, H);
             const tex = this._toTex(c, 1, 1, true);
             this.textures[key] = tex;
             return tex;
@@ -25594,10 +25717,10 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
    • Hidden parts never count (a crawler's missing legs, a decapitated head, a
      procedural body that a GLB model has replaced). Far-LOD detail that
      MeshProxy hides still counts, because the proxy shows the same pose.
-   • GLB models: rigid parts are hit directly; skinned meshes are cut into
-     rigid per-bone copies of their own triangles (built once per geometry
-     from skin weights) and parented to the bones, so the hit surface is the
-     model itself and follows every animation frame.
+   • GLB models: rigid parts are hit directly; skinned meshes get per-bone hit
+     groups over a CPU-skinned copy of their vertices, re-skinned from the live
+     skeleton whenever a shot reaches them, so the hit surface is the deformed
+     skin itself, joints included.
    • Each entity carries a bounding radius so CombatSystem can skip the
      triangle test for enemies a ray cannot reach.
 ============================================================================ */
@@ -25676,7 +25799,6 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
     }
 
     /* ---------------------------------------------------------------- skinned proxies */
-    const proxyCache = new WeakMap(); // geometry -> [{ joint, box: Box3 }]
 
     function segmentJoint(bones, idx) {
         // Fingers, toes, clavicles and twist bones fold into the nearest parent that is a real body segment.
@@ -25695,56 +25817,107 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
     const comp = (attr, i, k) => (k === 0 ? attr.getX(i) : k === 1 ? attr.getY(i) : k === 2 ? attr.getZ(i) : attr.getW(i));
 
     /**
-     * Splits a skinned mesh into rigid per-bone pieces: every triangle goes to the body segment that
-     * dominates its vertices, expressed in that bone's bind space. Parented to the bone, a piece moves
-     * exactly like the skin it was cut from, so the hit surface is the model itself, frame by frame.
-     * Built once per geometry and shared by every instance.
+     * Skinned hit groups. Per geometry (cached, shared by every instance): each vertex's bind-space
+     * position, its four bone influences, and the triangle list split by body segment (fingers and
+     * toes folded into hand/foot). Per instance: one Float32Array of CPU-skinned vertex positions
+     * shared by all of that mesh's segment groups. `refresh()` re-skins it from the live skeleton,
+     * so the hit surface is the deformed skin itself, joints included.
      */
-    function buildSkinBoxes(skinned) {
+    const skinCache = new WeakMap();
+    function skinLayout(skinned) {
         const geo = skinned.geometry;
-        const cached = proxyCache.get(geo);
-        if (cached) return cached;
+        let L = skinCache.get(geo);
+        if (L) return L;
         const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
-        const index = geo.index;
+        const n = pos.count;
         const bones = skinned.skeleton.bones;
-        const bindM = skinned.bindMatrix;
-        const segOf = new Int32Array(pos.count);
-        for (let i = 0; i < pos.count; i++) {
-            let best = 0, bw = -1;
+        const bindPos = new Float32Array(n * 3);
+        const be = skinned.bindMatrix.elements;
+        const idx = new Uint16Array(n * 4), wts = new Float32Array(n * 4);
+        const segOf = new Int32Array(n);
+        for (let i = 0; i < n; i++) {
+            const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+            bindPos[i * 3] = be[0] * x + be[4] * y + be[8] * z + be[12];
+            bindPos[i * 3 + 1] = be[1] * x + be[5] * y + be[9] * z + be[13];
+            bindPos[i * 3 + 2] = be[2] * x + be[6] * y + be[10] * z + be[14];
+            let best = 0, bw = -1, sum = 0;
             for (let k = 0; k < 4; k++) {
-                const w = comp(sw, i, k);
-                if (w > bw) { bw = w; best = comp(si, i, k); }
+                const w = comp(sw, i, k), b = comp(si, i, k);
+                idx[i * 4 + k] = b; wts[i * 4 + k] = w; sum += w;
+                if (w > bw) { bw = w; best = b; }
             }
+            if (sum > 0 && Math.abs(sum - 1) > 1e-3) for (let k = 0; k < 4; k++) wts[i * 4 + k] /= sum;
             const seg = segmentJoint(bones, best);
             segOf[i] = seg ? bones.indexOf(seg) : -1;
         }
-        const buckets = new Map(); // segIdx -> number[] (positions in bone space)
-        const toBone = new Map();
-        const v = new THREE.Vector3();
-        const triCount = index ? index.count / 3 : pos.count / 3;
+        const index = geo.index;
+        const triCount = index ? index.count / 3 : n / 3;
+        const buckets = new Map();
         for (let t = 0; t < triCount; t++) {
             const a = index ? index.getX(t * 3) : t * 3, b = index ? index.getX(t * 3 + 1) : t * 3 + 1, c = index ? index.getX(t * 3 + 2) : t * 3 + 2;
-            // Majority vote of the three vertices' segments.
             const sa = segOf[a], sb = segOf[b], sc = segOf[c];
             const seg = (sa === sb || sa === sc) ? sa : (sb === sc ? sb : sa);
             if (seg < 0) continue;
-            let mtx = toBone.get(seg);
-            if (!mtx) { mtx = new THREE.Matrix4().multiplyMatrices(skinned.skeleton.boneInverses[seg], bindM); toBone.set(seg, mtx); }
             let arr = buckets.get(seg);
             if (!arr) { arr = []; buckets.set(seg, arr); }
-            for (const vi of [a, b, c]) { v.fromBufferAttribute(pos, vi).applyMatrix4(mtx); arr.push(v.x, v.y, v.z); }
+            arr.push(a, b, c);
         }
-        const out = [];
+        const groups = [];
         for (const [seg, arr] of buckets) {
-            if (arr.length < 9 * 4) continue; // fewer than 4 triangles: decoration fragment
-            const g = new THREE.BufferGeometry();
-            g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
-            g.computeBoundingSphere();
-            g.computeBoundingBox();
-            out.push({ joint: bones[seg].name, geometry: g, center: new THREE.Vector3() });
+            if (arr.length < 12) continue; // fewer than 4 triangles: decoration fragment
+            const verts = Array.from(new Set(arr));
+            groups.push({ joint: bones[seg].name, index: n > 65535 ? new Uint32Array(arr) : new Uint16Array(arr), verts: Uint32Array.from(verts) });
         }
-        proxyCache.set(geo, out);
-        return out;
+        L = { n, bindPos, idx, wts, groups };
+        skinCache.set(geo, L);
+        return L;
+    }
+
+    /** Re-skins one instance's vertices from its live skeleton and refits each group's bounding sphere. */
+    function reskin(snap) {
+        const sk = snap.skinned;
+        const L = snap.layout;
+        const skel = sk.skeleton;
+        skel.update();
+        const bm = skel.boneMatrices;
+        const inv = sk.bindMatrixInverse.elements;
+        const out = snap.positions, bp = L.bindPos, idx = L.idx, wts = L.wts;
+        for (let i = 0, n = L.n; i < n; i++) {
+            const x = bp[i * 3], y = bp[i * 3 + 1], z = bp[i * 3 + 2];
+            let ox = 0, oy = 0, oz = 0;
+            for (let k = 0; k < 4; k++) {
+                const w = wts[i * 4 + k];
+                if (w === 0) continue;
+                const o = idx[i * 4 + k] * 16;
+                ox += w * (bm[o] * x + bm[o + 4] * y + bm[o + 8] * z + bm[o + 12]);
+                oy += w * (bm[o + 1] * x + bm[o + 5] * y + bm[o + 9] * z + bm[o + 13]);
+                oz += w * (bm[o + 2] * x + bm[o + 6] * y + bm[o + 10] * z + bm[o + 14]);
+            }
+            out[i * 3] = inv[0] * ox + inv[4] * oy + inv[8] * oz + inv[12];
+            out[i * 3 + 1] = inv[1] * ox + inv[5] * oy + inv[9] * oz + inv[13];
+            out[i * 3 + 2] = inv[2] * ox + inv[6] * oy + inv[10] * oz + inv[14];
+        }
+        snap.attr.needsUpdate = true;
+        for (const g of snap.groups) {
+            const vs = g.verts;
+            let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+            for (let j = 0; j < vs.length; j++) {
+                const o = vs[j] * 3, px = out[o], py = out[o + 1], pz = out[o + 2];
+                if (px < minX) minX = px; if (px > maxX) maxX = px;
+                if (py < minY) minY = py; if (py > maxY) maxY = py;
+                if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
+            }
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
+            let r2 = 0;
+            for (let j = 0; j < vs.length; j++) {
+                const o = vs[j] * 3, dx = out[o] - cx, dy = out[o + 1] - cy, dz = out[o + 2] - cz;
+                const d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 > r2) r2 = d2;
+            }
+            g.sphere.center.set(cx, cy, cz);
+            g.sphere.radius = Math.sqrt(r2) + 1e-4;
+        }
+        snap.t = performance.now();
     }
 
     const Hitboxes = {
@@ -25792,24 +25965,33 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 o.userData.noHit = true;
                 o.userData.glbPart = true;
                 if (o.isSkinnedMesh && o.skeleton) {
-                    for (const entry of buildSkinBoxes(o)) {
-                        const { joint } = entry;
-                        const bone = o.skeleton.bones.find((b) => b.name === joint);
-                        if (!bone) continue;
-                        const proxy = new THREE.Mesh(entry.geometry, PROXY_MAT);
-                        proxy.position.copy(entry.center);
+                    const layout = skinLayout(o);
+                    const positions = new Float32Array(layout.n * 3);
+                    const attr = new THREE.BufferAttribute(positions, 3);
+                    const snap = { skinned: o, layout, positions, attr, groups: [], t: 0 };
+                    for (const g of layout.groups) {
+                        const geom = new THREE.BufferGeometry();
+                        geom.setAttribute('position', attr);
+                        geom.setIndex(new THREE.BufferAttribute(g.index, 1));
+                        geom.boundingSphere = new THREE.Sphere();
+                        const proxy = new THREE.Mesh(geom, PROXY_MAT);
                         proxy.castShadow = false;
                         proxy.receiveShadow = false;
                         proxy.frustumCulled = false;
-                        proxy.name = 'hit:' + joint + ':' + (o.name || 'skin');
+                        proxy.matrixAutoUpdate = false; // identity: lives in the skinned mesh's own space
+                        proxy.name = 'hit:' + g.joint + ':' + (o.name || 'skin');
                         proxy.userData.entity = entity;
-                        proxy.userData.hitbox = opts.zone ? opts.zone(joint) : zoneByName(joint);
+                        proxy.userData.hitbox = opts.zone ? opts.zone(g.joint) : zoneByName(g.joint);
                         proxy.userData.hitProxy = true;
-                        proxy.userData.sharedGeometry = true;
+                        proxy.userData.skinSnap = snap;
+                        proxy.userData.ownedGeometry = true;
                         if (proxy.userData.hitbox === 'head') hasHead = true;
-                        bone.add(proxy);
+                        o.add(proxy);
+                        snap.groups.push({ verts: g.verts, sphere: geom.boundingSphere });
                         list.push(proxy);
                     }
+                    reskin(snap);
+                    (entity._skinSnaps || (entity._skinSnaps = [])).push(snap);
                 } else {
                     // Rigid part: the visible geometry is the hit surface.
                     let name = o.name;
@@ -25876,12 +26058,24 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             return target;
         },
 
+        /**
+         * Brings an entity's skinned hit groups up to the current pose. CombatSystem calls this only
+         * for enemies a ray actually reaches, at most once per ~frame; `force` skips the time gate.
+         */
+        refresh(entity, force) {
+            const snaps = entity && entity._skinSnaps;
+            if (!snaps) return;
+            const now = performance.now();
+            for (let i = 0; i < snaps.length; i++) if (force || now - snaps[i].t > 12) reskin(snaps[i]);
+        },
+
         /** Frees geometry created for GLB proxies. */
         dispose(entity) {
             for (const m of entity._hitList || []) {
                 if (m.userData.ownedGeometry && m.geometry) m.geometry.dispose();
             }
             entity._hitList = null;
+            entity._skinSnaps = null;
         }
     };
 
@@ -37357,7 +37551,19 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         _castTargets() {
             const pool = this.targetPool;
             const rc = this.raycaster;
-            if (pool.length < 40 || !BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (!BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (pool.length < 40) {
+                // Small pools skip grouping, but skinned hit groups still need the current pose.
+                const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
+                let last = null;
+                for (let i = 0; i < pool.length; i++) {
+                    const ent = pool[i].userData.entity;
+                    if (!ent || ent === last || !ent._skinSnaps) continue;
+                    last = ent;
+                    if (BO.Hitboxes.sphere(ent, sph) && rc.ray.intersectsSphere(sph)) BO.Hitboxes.refresh(ent);
+                }
+                return rc.intersectObjects(pool, false);
+            }
             if (this._groupedPool !== pool) {
                 this._groupedPool = pool;
                 const byEnt = this._poolGroups || (this._poolGroups = new Map());
@@ -37382,6 +37588,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 BO.Hitboxes.sphere(ent, sph);
                 if (!rc.ray.intersectsSphere(sph)) continue;
                 if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
+                if (ent._skinSnaps) BO.Hitboxes.refresh(ent);
                 for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
             }
             return cand.length ? rc.intersectObjects(cand, false) : [];
