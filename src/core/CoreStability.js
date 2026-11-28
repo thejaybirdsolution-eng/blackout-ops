@@ -146,33 +146,34 @@
         }
     }
 
+    /**
+     * Shadow-caster budget. Each preset allows a number of world meshes to cast sun shadows
+     * (largest first) above a minimum size; characters always cast. The authored castShadow
+     * flag is remembered, so raising the preset later brings shadows back.
+     * (maxShadowCasters stays the preset's count of shadow-casting lights.)
+     */
     function applySceneQualityBudgets(scene) {
         if (!scene || !BO.Settings?.getQualityPreset) return;
         const q = BO.Settings.getQualityPreset();
-        const maxCasters = Number.isFinite(q.maxShadowCasters) ? q.maxShadowCasters : 120;
-        let castersKept = 0;
+        const budget = Number.isFinite(q.shadowCasterBudget) ? q.shadowCasterBudget : 1200;
+        const minR = Number.isFinite(q.shadowCasterMinRadius) ? q.shadowCasterMinRadius : 0.4;
+        const candidates = [];
         scene.traverse((obj) => {
             if (!obj || (!obj.isMesh && !obj.isInstancedMesh)) return;
-            if (!q.shadows || maxCasters <= 0) {
-                obj.castShadow = false;
-                return;
-            }
-            if (!obj.castShadow) return;
-            if (obj.userData && (obj.userData.entity || obj.userData.isHeroShadow)) {
-                castersKept++;
-                return;
-            }
+            const ud = obj.userData || (obj.userData = {});
+            if (ud.boCastShadow === undefined) ud.boCastShadow = !!obj.castShadow;
+            if (!ud.boCastShadow) return;
+            if (!q.shadows || budget <= 0) { obj.castShadow = false; return; }
+            if (ud.entity || ud.isHeroShadow || ud.glbPart) { obj.castShadow = true; return; }
             const g = obj.geometry;
-            if (g && !g.boundingSphere && typeof g.computeBoundingSphere === 'function') {
-                g.computeBoundingSphere();
-            }
+            if (g && !g.boundingSphere && typeof g.computeBoundingSphere === 'function') g.computeBoundingSphere();
             const rad = g && g.boundingSphere ? g.boundingSphere.radius * Math.max(obj.scale.x, obj.scale.y, obj.scale.z) : 1.0;
-            if (rad < 1.35 || castersKept >= maxCasters) {
-                obj.castShadow = false;
-            } else {
-                castersKept++;
-            }
+            if (rad < minR) { obj.castShadow = false; return; }
+            candidates.push({ obj, rad });
         });
+        candidates.sort((a, b) => b.rad - a.rad);
+        for (let i = 0; i < candidates.length; i++) candidates[i].obj.castShadow = i < budget;
+        return { candidates: candidates.length, kept: Math.min(budget, candidates.length) };
     }
 
     // Wrap MenuController.renderLegend so invalid/retired legendTab keys (e.g. 'bosses') fall back safely
