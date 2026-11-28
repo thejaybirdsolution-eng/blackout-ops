@@ -148,14 +148,13 @@
             g.quaternion.copy(_gq.invert()).multiply(_GUN_FWD);
         }
 
-        getHitboxMeshes() {
-            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
-            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
-            const list = [];
+        getHitboxMeshes(out = []) {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return out;
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, out);
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) out.push(obj);
             });
-            return list;
+            return out;
         }
 
         takeDamage(amount, hitbox = 'torso', isCrit = false, dirVec = null, damageKind = 'bullet') {
@@ -868,6 +867,8 @@
         }
 
         destroy() {
+            this.parts.glbPending = null;
+            this.parts.glbRig?.dispose();
             if (this._superBolts && BO.World.scene) {
                 for (const b of this._superBolts) {
                     if (b.mesh) BO.World.scene.remove(b.mesh);

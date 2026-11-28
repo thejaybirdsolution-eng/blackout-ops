@@ -157,10 +157,8 @@
             };
             ent.owAgent = agent;
             this.agents.push(agent);
-            if (!def.glb && BO.MeshProxy) {
-                // Far LOD shared by every agent of the same rig type (see MeshProxy.js).
-                const key = def.kind === 'bot' ? 'ow-bot:' + def.faction + ':' + !!def.boss + ':' + def.weapon : 'ow-beast:' + def.body + ':' + !!def.boss;
-                agent.lod = BO.MeshProxy.attach(ent.parts.root, key);
+            if (!def.glb && !ent.parts.glbPending && BO.MeshProxy) {
+                agent.lod = BO.MeshProxy.attachArticulated(ent.parts.root);
             }
             if (def.glb && BO.Assets) {
                 const root = ent.parts.root;
@@ -402,7 +400,8 @@
                 onMeleePlayer: (z) => { P.takeDamage(z.damage, z.pos, false, z); BO.Sound.playZombieGroan(z.soundProfile, 0.9); },
                 onRangedAttack: (z, tx, ty, tz) => this._spit(z, tx, ty, tz)
             };
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             for (let i = this.agents.length - 1; i >= 0; i--) {
                 const a = this.agents[i];
                 const ent = a.ent;
@@ -446,12 +445,11 @@
                     a.investigate.t -= dt;
                     if (this._walk(a, a.investigate.x, a.investigate.z, 2.2, dt) < 1.5 || a.investigate.t <= 0) { a.investigate = null; a.detect *= 0.6; }
                 } else this._idle(a, dt);
-                if (dist < 130 && ent.parts.root.visible) {
-                    const meshes = ent.getHitboxMeshes();
-                    for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
+                if (ent.parts.root.visible) {
+                    targets.push(ent);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
             this._updateProjectiles(dt);
         },
 
@@ -470,7 +468,7 @@
             a.idlePhase += dt * (d > 0.3 ? speed * 2.2 : 1);
             ent.parts.root.position.copy(ent.pos);
             ent.parts.root.rotation.y = ent.yaw;
-            BO.CharacterMesh.animateLimbs(ent.parts, d > 0.3 ? speed : 0, a.idlePhase, 0, 0);
+            BO.CharacterMesh.animateLimbs(ent.parts, d > 0.3 ? speed : 0, a.idlePhase, 0, 0, 'torso', dt);
             return d;
         },
 
@@ -491,7 +489,7 @@
                     const ent = a.ent;
                     ent.yaw = a.lookYaw + Math.sin(a.idlePhase * 0.5) * 0.9;
                     ent.parts.root.rotation.y = ent.yaw;
-                    BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.4, 0, 0);
+                    BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.4, 0, 0, 'torso', dt);
                 } else this._walk(a, a.goal.x, a.goal.z, 1.3, dt);
             } else {
                 a.idlePhase += dt;
@@ -499,7 +497,7 @@
                 ent.yaw += Math.sin(a.idlePhase * 0.4) * dt * 0.4;
                 ent.parts.root.position.copy(ent.pos);
                 ent.parts.root.rotation.y = ent.yaw;
-                BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.5, 0, 0);
+                BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.5, 0, 0, 'torso', dt);
             }
         },
 

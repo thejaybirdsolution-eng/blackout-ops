@@ -176,8 +176,16 @@
             this.mats = {};
         }
 
-        _g(key, fn) { return this.geos[key] || (this.geos[key] = fn()); }
-        _m(key, fn) { return this.mats[key] || (this.mats[key] = fn()); }
+        _g(key, fn) {
+            let g = this.geos[key];
+            if (!g) { g = fn(); if (g?.userData) g.userData.sharedAsset = true; this.geos[key] = g; }
+            return g;
+        }
+        _m(key, fn) {
+            let m = this.mats[key];
+            if (!m) { m = fn(); if (m?.userData) m.userData.sharedAsset = true; this.mats[key] = m; }
+            return m;
+        }
 
         _materials(team) {
             const T = TEAM[team] || TEAM[1];

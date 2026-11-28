@@ -21,7 +21,7 @@
         other: 0xe879f9
     };
 
-    const MATS = {};
+    const MATS = {}, SKIN_MATS = {};
     const wireMap = new WeakMap();
     const attached = new Set();
 
@@ -59,8 +59,13 @@
 
         let line = wireMap.get(mesh);
         if (!line) {
-            const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
-            line = new THREE.LineSegments(edges, getMat(zone));
+            if (mesh.userData.skinSnap) {
+                SKIN_MATS[zone] ||= new THREE.MeshBasicMaterial({ color: COLORS[zone], wireframe: true, depthTest: false });
+                line = new THREE.Mesh(mesh.geometry, SKIN_MATS[zone]);
+                line.frustumCulled = false;
+            } else {
+                line = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 20), getMat(zone));
+            }
             line.renderOrder = 998;
             line.raycast = () => {};
             line.userData.isHitboxDebug = true;
@@ -70,9 +75,19 @@
         } else if (line.parent !== mesh) {
             mesh.add(line);
         }
+        if (mesh.userData.skinSnap) mesh.visible = true;
         line.visible = true;
         attached.add(line);
         return line;
+    }
+
+    function removeWire(line) {
+        const mesh = line.parent;
+        if (mesh) wireMap.delete(mesh);
+        if (mesh?.userData.skinSnap) mesh.visible = false;
+        else line.geometry.dispose();
+        line.removeFromParent();
+        attached.delete(line);
     }
 
     function hasUrlFlag() {
@@ -106,9 +121,7 @@
         },
 
         clear() {
-            attached.forEach((line) => {
-                if (line) line.visible = false;
-            });
+            attached.forEach(removeWire);
         },
 
         update(force) {
@@ -119,13 +132,15 @@
 
             // Prune detached wires whose parent mesh left the scene
             attached.forEach((line) => {
-                if (!line || !line.parent || !line.parent.visible) {
-                    if (line) line.visible = false;
-                }
+                let ancestor = line.parent;
+                while (ancestor && ancestor !== BO.World.scene) ancestor = ancestor.parent;
+                if (!ancestor) removeWire(line);
+                else line.visible = false;
             });
 
             const pool = BO.Combat && BO.Combat.targetPool;
             if (Array.isArray(pool)) {
+                const refreshed = new Set();
                 for (let i = 0; i < pool.length; i++) {
                     const m = pool[i];
                     if (!m) continue;
@@ -136,6 +151,10 @@
                         if (existing) existing.visible = false;
                         continue;
                     }
+                    if (m.userData.skinSnap && !refreshed.has(ent)) {
+                        BO.Hitboxes.refresh(ent, true);
+                        refreshed.add(ent);
+                    }
                     ensureWire(m);
                 }
             }
@@ -144,13 +163,24 @@
             const scene = BO.World && BO.World.scene;
             if (scene) {
                 scene.traverse((obj) => {
-                    if (!obj.isMesh || !obj.visible) return;
+                    if (!obj.isMesh || !obj.visible || obj.userData?.hitDisabled) return;
                     if (obj.userData && (obj.userData.hitbox || obj.userData.hitZone || obj.userData.hitboxZone || obj.userData.damageZone || obj.userData.isHitbox)) {
                         const ent = obj.userData.entity;
                         if (ent && (ent.alive === false || ent.dead === true || (typeof ent.hp === 'number' && ent.hp <= 0))) {
                             const existing = wireMap.get(obj);
                             if (existing) existing.visible = false;
                             return;
+                        }
+                        if (!obj.userData.skinSnap) {
+                            let hidden = false;
+                            for (let p = obj.parent; p && p !== scene; p = p.parent) {
+                                if (!p.visible && !p.userData?.lodDetail) { hidden = true; break; }
+                            }
+                            if (hidden) {
+                                const existing = wireMap.get(obj);
+                                if (existing) existing.visible = false;
+                                return;
+                            }
                         }
                         ensureWire(obj);
                     }

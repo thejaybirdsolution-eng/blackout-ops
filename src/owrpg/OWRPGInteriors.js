@@ -426,7 +426,7 @@
                 n.parts.root.rotation.y = n.yaw;
                 const far = d > NPC_DETAIL_DIST;
                 if (n.lod) BO.MeshProxy.set(n.lod, far);
-                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
+                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0, 'torso', dt);
             }
             for (let i = this.bags.length - 1; i >= 0; i--) {
                 const b = this.bags[i];

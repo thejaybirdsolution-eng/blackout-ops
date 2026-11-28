@@ -50,6 +50,7 @@
         GEO.horseHead.rotateX(-Math.PI * 0.5);
         GEO.horseLeg = new THREE.CapsuleGeometry(0.062, 0.82, 5, 10);
         GEO.hoof = new THREE.CylinderGeometry(0.072, 0.084, 0.10, 12);
+        for (const k in GEO) if (GEO[k]?.isBufferGeometry) GEO[k].userData.sharedAsset = true;
         return GEO;
     }
 
@@ -164,7 +165,8 @@
                 shoe.position.set(0, -0.90, 0.05);
                 leg.add(thigh, shin, shoe);
                 hips.add(leg);
-                hit.push(thigh, shin);
+                shoe.userData.hitbox = 'torso';
+                hit.push(thigh, shin, shoe);
                 P[s < 0 ? 'legL' : 'legR'] = leg;
             }
 
@@ -222,7 +224,8 @@
                 hand.userData.hitbox = 'torso';
                 arm.add(shCap, upper, fore, hand);
                 chest.add(arm);
-                hit.push(upper, fore, hand);
+                shCap.userData.hitbox = 'torso';
+                hit.push(upper, fore, hand, shCap);
                 P[s < 0 ? 'armL' : 'armR'] = arm;
                 P[s < 0 ? 'handL' : 'handR'] = hand;
             }

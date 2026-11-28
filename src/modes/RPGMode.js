@@ -1765,7 +1765,8 @@
                 },
                 onRangedAttack: (attacker, tx, ty, tz) => this._spawnProjectile(attacker, tx, ty, tz)
             };
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             for (let i = this.enemies.length - 1; i >= 0; i--) {
                 const z = this.enemies[i];
                 const r = z.rpg;
@@ -1834,15 +1835,10 @@
                     z.pos.z = BO.Math.clamp(z.pos.z, -L.hl + 0.8, L.hl - 0.8);
                 }
                 if (this.isAlive(z)) {
-                    const meshes = z.getHitboxMeshes();
-                    for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
+                    targets.push(z);
                 }
             }
-            if (BO.RPGItems) {
-                const propMeshes = BO.RPGItems.getPropHitMeshes();
-                for (let m = 0; m < propMeshes.length; m++) hitMeshes.push(propMeshes[m]);
-            }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets, BO.RPGItems?.getPropHitMeshes());
         }
 
         _idleTick(z, dt) {
@@ -1851,7 +1847,7 @@
             z.yaw = r.idleYaw + Math.sin(r.idlePhase * 0.6) * 0.5;
             z.parts.root.position.copy(z.pos);
             z.parts.root.rotation.y = z.yaw;
-            BO.CharacterMesh.animateLimbs(z.parts, 0, r.idlePhase * 1.5, 0, 0);
+            BO.CharacterMesh.animateLimbs(z.parts, 0, r.idlePhase * 1.5, 0, 0, 'torso', dt);
         }
 
         _aiTarget(z) {

@@ -569,12 +569,15 @@
             c.attackCd = Math.max(0, c.attackCd - dt);
             const aggroRange = c.stance === 'stealth' ? 4.2 : c.stance === 'guard' ? 22 : 24;
             let best = null, bestD = aggroRange;
-            for (const u of [...m.zombies, ...m.bots]) {
-                if (!u.alive || u.team === 0) continue;
-                const da = Math.hypot(u.pos.x - anchor.x, u.pos.z - anchor.z);
-                if (da > aggroRange) continue;
-                const dc = Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z);
-                if (dc < bestD) { bestD = dc; best = u; }
+            for (const pool of [m.zombies, m.bots]) {
+                for (let i = 0; i < pool.length; i++) {
+                    const u = pool[i];
+                    if (!u.alive || u.team === 0) continue;
+                    const da = Math.hypot(u.pos.x - anchor.x, u.pos.z - anchor.z);
+                    if (da > aggroRange) continue;
+                    const dc = Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z);
+                    if (dc < bestD) { bestD = dc; best = u; }
+                }
             }
 
             const spec = c.spec;

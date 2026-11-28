@@ -204,8 +204,8 @@ uniform vec3 uCam; uniform float uFar;`)
         start(s, scene) {
             this.stop();
             const q = (BO.Settings && BO.Settings.get('quality')) || 'high';
-            this.radius = RADIUS[q] || 60;
-            this.density = DENSITY[q] || 1;
+            this.radius = RADIUS[q] ?? 60;
+            this.density = DENSITY[q] ?? 1;
             if (!this.radius || !scene || !BO.World.terrain) return;
             this.scene = scene;
             this.D = BO.OWRPGWorldData;
@@ -256,6 +256,8 @@ uniform vec3 uCam; uniform float uFar;`)
             this.wanted.clear();
             this.queue.length = 0;
             this.active = false;
+            this.scene = this.U = this.blockGrid = null;
+            this.stats.chunks = this.stats.instances = this.stats.drawCalls = 0;
         },
 
         // Spatial hash of solid world colliders (buildings, walls, props, big rocks) so plants never poke through floors.
@@ -399,8 +401,12 @@ uniform vec3 uCam; uniform float uFar;`)
                     n += take;
                 }
                 im.count = n;
-                im.instanceMatrix.needsUpdate = true;
-                im.instanceColor.needsUpdate = true;
+                if (n) {
+                    // r149 resets count after upload. Only the populated prefix changed.
+                    im.instanceMatrix.updateRange.count = n * 16;
+                    im.instanceColor.updateRange.count = n * 3;
+                    im.instanceMatrix.needsUpdate = im.instanceColor.needsUpdate = true;
+                }
                 im.visible = n > 0;
                 total += n;
             }

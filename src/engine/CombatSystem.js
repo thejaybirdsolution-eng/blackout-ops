@@ -25,7 +25,10 @@
             this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
-            this.targetPool = []; // Enemy meshes populated by active game mode
+            this._flatTargets = [];
+            this._castCand = [];
+            this._castSphere = new THREE.Sphere();
+            this.setTargetPool([]);
             this.onHitEnemy = null; // Callback (entity, dmg, hitbox, isCrit, weaponId, impactPos, rayDir)
             this.onExplodeAt = null; // Callback (pos, radius, damage, owner, isFlash, stunDur, weaponId)
             this.onActivateKillstreak = null;
@@ -63,62 +66,68 @@
             this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
-            this.targetPool = [];
+            this.setTargetPool([]);
+        }
+
+        // Modes publish entities cheaply each tick. Expand the mesh list only for callers
+        // that need it (area effects and debug overlays). Shots collect the current pose.
+        setEntityTargets(entities, extraMeshes) {
+            this._entities = entities;
+            this._extraMeshes = extraMeshes;
+            this._flatTargets.length = 0;
+            this._flatReady = false;
+            this._castCand.length = 0;
         }
 
         setTargetPool(meshes) {
-            this.targetPool = meshes || [];
+            this.setEntityTargets(null, meshes);
         }
 
-        /**
-         * Raycasts the current ray (this.raycaster) against the target pool with an
-         * entity broad-phase: only enemies whose bounding sphere the ray passes through
-         * get the per-triangle test. Pool meshes are grouped once per pool array.
-         */
-        _castTargets() {
-            const pool = this.targetPool;
-            const rc = this.raycaster;
-            if (!BO.Hitboxes) return rc.intersectObjects(pool, false);
-            if (pool.length < 40) {
-                // Small pools skip grouping, but skinned hit groups still need the current pose.
-                const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
-                let last = null;
-                for (let i = 0; i < pool.length; i++) {
-                    const ent = pool[i].userData.entity;
-                    if (!ent || ent === last || !ent._skinSnaps) continue;
-                    last = ent;
-                    if (BO.Hitboxes.sphere(ent, sph) && rc.ray.intersectsSphere(sph)) BO.Hitboxes.refresh(ent);
-                }
-                return rc.intersectObjects(pool, false);
+        get targetPool() {
+            if (!this._entities) return this._extraMeshes || this._flatTargets;
+            if (!this._flatReady) {
+                for (const ent of this._entities) ent.getHitboxMeshes(this._flatTargets);
+                if (this._extraMeshes) for (const m of this._extraMeshes) this._flatTargets.push(m);
+                this._flatReady = true;
             }
-            if (this._groupedPool !== pool) {
-                this._groupedPool = pool;
-                const byEnt = this._poolGroups || (this._poolGroups = new Map());
-                byEnt.clear();
-                const loose = this._poolLoose || (this._poolLoose = []);
-                loose.length = 0;
-                for (let i = 0; i < pool.length; i++) {
-                    const m = pool[i];
-                    const ent = m.userData.entity;
-                    if (!ent || !ent.parts || !ent.parts.root || ent._hitR == null) { loose.push(m); continue; }
-                    let g = byEnt.get(ent);
-                    if (!g) { g = []; byEnt.set(ent, g); }
-                    g.push(m);
+            return this._flatTargets;
+        }
+
+        _livingTargets() {
+            const targets = new Set();
+            for (const ent of this._entities || []) {
+                if (ent.alive && ent.parts?.root.visible) targets.add(ent);
+            }
+            for (const mesh of this._extraMeshes || []) {
+                const ent = mesh.userData.entity;
+                if (ent?.alive) targets.add(ent);
+            }
+            return targets;
+        }
+
+        _castTargets(rc = this.raycaster) {
+            const candidates = this._castCand;
+            candidates.length = 0;
+            if (this._entities) {
+                for (const ent of this._entities) {
+                    if (!ent.alive || !ent.parts?.root.visible) continue;
+                    if (!BO.Hitboxes.inRay(ent, rc, this._castSphere)) continue;
+                    BO.Hitboxes.refresh(ent);
+                    ent.getHitboxMeshes(candidates);
                 }
             }
-            const cand = this._castCand || (this._castCand = []);
-            cand.length = 0;
-            for (let i = 0; i < this._poolLoose.length; i++) cand.push(this._poolLoose[i]);
-            const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
-            const far = rc.far;
-            for (const [ent, meshes] of this._poolGroups) {
-                BO.Hitboxes.sphere(ent, sph);
-                if (!rc.ray.intersectsSphere(sph)) continue;
-                if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
-                if (ent._skinSnaps) BO.Hitboxes.refresh(ent);
-                for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
+            // Minigames, breakable props and remote players can publish selected surfaces.
+            // Respect that selection even when several targets share one rendered model.
+            let lastSkin = null;
+            for (const mesh of this._extraMeshes || []) {
+                const ent = mesh.userData.entity;
+                if (ent?._skinSnaps && ent !== lastSkin) {
+                    BO.Hitboxes.refresh(ent);
+                    lastSkin = ent;
+                }
+                if (!mesh.userData.hitDisabled) candidates.push(mesh);
             }
-            return cand.length ? rc.intersectObjects(cand, false) : [];
+            return rc.intersectObjects(candidates, false);
         }
 
         cancelCharge() {
@@ -461,7 +470,7 @@
                 const ent = h.object.userData.entity;
                 if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || seen.has(ent)) continue;
                 seen.add(ent); hit = true;
-                const hb = h.object.userData.hitbox || 'torso';
+                const hb = BO.Hitboxes.zoneAt(h);
                 if (hb === 'head') headshot = true;
                 const dmg = w.stats.damage * (rpgMod.damageMult || 1) * (hb === 'head' ? (w.stats.headMult || 1.5) : 1) * 1.35;
                 if (this.onHitEnemy && this.onHitEnemy(ent, dmg, hb, h.distance, w, h.point, dir)) kills++;
@@ -476,8 +485,7 @@
             // Homing assist (Spoon Bender / Sacred Heart) subtly bends shot toward nearest enemy in front cone!
             if (rpgMod && rpgMod.homing && segDepth === 0) {
                 let bestDot = 0.72, hasBest = false;
-                for (let i = 0; i < this.targetPool.length; i++) {
-                    const ent = this.targetPool[i].userData.entity;
+                for (const ent of this._livingTargets()) {
                     if (!ent || !ent.alive || !ent.pos) continue;
                     _tmpHoming.set(ent.pos.x, ent.pos.y + 1.15, ent.pos.z).sub(origin);
                     const d = _tmpHoming.length();
@@ -522,7 +530,7 @@
                 const ent = h.object.userData.entity;
                 if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || hitEntities.has(ent)) continue;
                 hitEntities.add(ent);
-                const hitbox = h.object.userData.hitbox || 'torso';
+                const hitbox = BO.Hitboxes.zoneAt(h);
                 if (hitbox === 'shield') {
                     // Shield blocks penetration and ricochets sparks/sound while preserving existing 0.25x chip math
                     pierceLeft = 0;
@@ -662,16 +670,12 @@
             const eff = w.stats.meleeEffect || 'slash';
 
             const unique = [];
-            const seen = new Set();
-            for (const m of this.targetPool) {
-                const ent = m.userData.entity;
-                if (ent && ent.alive && !seen.has(ent)) {
-                    seen.add(ent);
-                    const d = ent.pos.distanceTo(P.pos);
-                    if (d <= reach + 0.6) {
-                        const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)).sub(aim.origin).normalize();
-                        if (aim.dir.dot(toEnt) > 0.38) unique.push({ ent, d });
-                    }
+            for (const ent of this._livingTargets()) {
+                if (!ent.pos) continue;
+                const d = ent.pos.distanceTo(P.pos);
+                if (d <= reach + 0.6) {
+                    const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)).sub(aim.origin).normalize();
+                    if (aim.dir.dot(toEnt) > 0.38) unique.push({ ent, d });
                 }
             }
             unique.sort((a, b) => a.d - b.d);
@@ -836,10 +840,7 @@
 
         _fireShrinkRay(origin, dir, w) {
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -864,10 +865,7 @@
         _fireMicrowavePop(origin, dir, w) {
             const endPt = origin.clone().addScaledVector(dir, w.stats.range);
             BO.FX.spawnTracer(origin.clone().addScaledVector(dir, 0.6), endPt, 0xe879f9, 0.12, 0.22);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -894,10 +892,7 @@
                 P.vel.y = Math.max(P.vel.y, 7.8);
                 P.onGround = false;
             }
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -941,10 +936,7 @@
         }
 
         _fireChainLightning(origin, dir, w, color) {
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             const candidates = Array.from(unique).filter((e) => e.pos.distanceTo(origin) <= w.stats.range);
             candidates.sort((a, b) => a.pos.distanceTo(origin) - b.pos.distanceTo(origin));
 
@@ -974,10 +966,7 @@
             BO.FX.spawnParticles(flamePt, 12, 0xf97316, 7.5, -1.5, 0.35, 2.2);
             BO.FX.spawnTracer(origin.clone().addScaledVector(dir, 0.6), origin.clone().addScaledVector(dir, 12), 0xf97316, 0.14, 0.12);
 
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -993,10 +982,7 @@
 
         _fireFrostCone(origin, dir, w) {
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -1030,11 +1016,7 @@
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
             BO.Player.cameraShake = 0.06;
 
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                const ent = m.userData.entity;
-                if (ent && ent.alive) unique.add(ent);
-            }
+            const unique = this._livingTargets();
 
             let kills = 0;
             let hitAny = false;
@@ -1256,10 +1238,7 @@
                     p.mesh.rotation.y += dt * 6;
                     p.mesh.rotation.x += dt * 4;
                     // Pull nearby enemies inward toward singularity!
-                    const unique = new Set();
-                    for (const m of this.targetPool) {
-                        if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                    }
+                    const unique = this._livingTargets();
                     for (const ent of unique) {
                         const d = ent.pos.distanceTo(p.pos);
                         if (d < p.radius && d > 0.5) {
@@ -1283,13 +1262,12 @@
                     const dir = step.clone().normalize();
                     const worldHit = BO.World.raycastWorld(p.pos, dir, dist + 0.15);
                     this.raycaster.set(p.pos, dir);
-                    this.raycaster.far = dist + 0.2;
+                    this.raycaster.far = worldHit ? worldHit.distance : dist + 0.2;
                     const entHits = this._castTargets();
 
                     let proximityHit = null;
                     if (p.hitRadius && p.hitRadius > 0.35) {
-                        for (let t = 0; t < this.targetPool.length; t++) {
-                            const ent = this.targetPool[t].userData.entity;
+                        for (const ent of this._livingTargets()) {
                             if (!ent || !ent.alive) continue;
                             const ey = ent.pos.y + (ent.height || 1.7) * 0.5;
                             if (BO.Math.dist3D(p.pos.x, p.pos.y, p.pos.z, ent.pos.x, ey, ent.pos.z) <= p.hitRadius + (ent.radius || 0.45)) {
@@ -1373,15 +1351,18 @@
                 }
 
                 if (p.kind === 'tomahawk') {
-                    const target = this.targetPool.find((mesh) => {
-                        const enemy = mesh.userData.entity;
-                        if (!enemy?.alive || !enemy.pos) return false;
-                        return Math.abs(p.pos.y - enemy.pos.y - 0.9) < 0.84 &&
-                            BO.Math.dist2D(p.pos.x, p.pos.z, enemy.pos.x, enemy.pos.z) < 0.73;
-                    });
-                    if (target) {
+                    let targetEnt = null;
+                    for (const enemy of this._livingTargets()) {
+                        if (!enemy?.pos) continue;
+                        if (Math.abs(p.pos.y - enemy.pos.y - 0.9) < 0.84 &&
+                            BO.Math.dist2D(p.pos.x, p.pos.z, enemy.pos.x, enemy.pos.z) < 0.73) {
+                            targetEnt = enemy;
+                            break;
+                        }
+                    }
+                    if (targetEnt) {
                         const blade = { cfg: { id: 'tomahawk_axe' }, stats: { kind: 'melee', shortName: 'TOMAHAWK' } };
-                        const killed = this.onHitEnemy?.(target.userData.entity, p.damage, 'torso',
+                        const killed = this.onHitEnemy?.(targetEnt, p.damage, 'torso',
                             p.pos.distanceTo(BO.Player.pos), blade, p.pos, p.vel.clone().normalize());
                         BO.Sound.playHitmarker(false, killed);
                         BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: !!killed });
@@ -1392,10 +1373,12 @@
                 }
                 if (p.proximity) {
                     p.armTime -= dt;
-                    if (p.armTime <= 0 && this.targetPool.some((mesh) => {
-                        const entity = mesh.userData.entity;
-                        return entity?.alive && entity.pos?.distanceToSquared(p.pos) < p.proximity * p.proximity;
-                    })) p.life = 0;
+                    if (p.armTime <= 0) {
+                        const proxSq = p.proximity * p.proximity;
+                        for (const entity of this._livingTargets()) {
+                            if (entity.pos?.distanceToSquared(p.pos) < proxSq) { p.life = 0; break; }
+                        }
+                    }
                 }
                 if (p.life <= 0 && p.kind !== 'c4') {
                     if (p === this.activeMonkeyBomb) this.activeMonkeyBomb = null;
@@ -1479,10 +1462,7 @@
                 }
                 if (np.tickTimer <= 0) {
                     np.tickTimer = 0.35;
-                    const unique = new Set();
-                    for (const m of this.targetPool) {
-                        if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                    }
+                    const unique = this._livingTargets();
                     for (const ent of unique) {
                         if (BO.Math.dist2D(ent.pos.x, ent.pos.z, np.pos.x, np.pos.z) <= np.radius) {
                             ent.burnTimer = Math.max(ent.burnTimer || 0, 3.5);
@@ -1603,10 +1583,7 @@
                 }
 
                 // Collect living enemies
-                const unique = new Set();
-                for (const m of this.targetPool) {
-                    if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                }
+                const unique = this._livingTargets();
                 const enemies = Array.from(unique);
                 enemies.sort((a, b) => a.pos.distanceTo(ally.pos) - b.pos.distanceTo(ally.pos));
 

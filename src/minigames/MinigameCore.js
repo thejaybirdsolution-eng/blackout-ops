@@ -1001,7 +1001,8 @@
             if (def.update) def.update(S, dt, this.lib, this.state);
 
             // Targets + scenery.
-            const pool = [];
+            const pool = S.hitPool || (S.hitPool = []);
+            pool.length = 0;
             for (let i = S.targets.length - 1; i >= 0; i--) {
                 const tg = S.targets[i];
                 tg.update(dt);

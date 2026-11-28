@@ -218,6 +218,11 @@
                 const visible = near(p.pos, contact.npc, 60);
                 contact.avatar.root.visible = visible;
                 contact.badge.visible = visible;
+                if (visible) {
+                    contact.phase = (contact.phase || 0) + dt;
+                    contact.badge.rotation.y += dt * 1.6;
+                    BO.CharacterMesh.animateSoldier(contact.avatar, { speed: 0, phase: contact.phase, aim: 0 }, dt);
+                }
             }
             if (this.vehicle === 'rover' || this.vehicle === 'bike') {
                 if (Math.hypot(p.vel.x, p.vel.z) > 4) m.noise = Math.max(m.noise, this.vehicle === 'rover' ? 5 : 1.8);

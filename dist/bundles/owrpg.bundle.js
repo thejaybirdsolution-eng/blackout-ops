@@ -5112,7 +5112,7 @@
             const cam = BO.OWRPGMode.camera;
             _ray.setFromCamera(_center, cam);
             _ray.far = maxDist;
-            const hits = _ray.intersectObjects(BO.Combat.targetPool || [], false);
+            const hits = BO.Combat._castTargets(_ray);
             const hit = hits.find((h) => h.object.userData.entity && h.object.userData.entity.owAgent && h.object.userData.entity.alive);
             const wh = BO.World.raycastWorld(_ray.ray.origin, _ray.ray.direction, maxDist);
             if (hit && (!wh || hit.distance < wh.distance)) return { agent: hit.object.userData.entity.owAgent, point: hit.point.clone(), dist: hit.distance };
@@ -5260,14 +5260,16 @@
             this.removeDecoy();
             const parts = BO.CharacterMesh.buildSoldier(0, {});
             parts.root.position.copy(point);
-            parts.root.traverse((o) => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 }); o.userData = {}; } });
+            const mat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 });
+            parts.root.traverse((o) => { if (o.isMesh) { o.material = mat; o.userData = {}; } });
             BO.World.scene.add(parts.root);
-            this.decoy = { mesh: parts.root, pos: point.clone(), t: dur };
+            this.decoy = { mesh: parts.root, parts, mat, pos: point.clone(), t: dur, phase: 0 };
             BO.OWRPGAI.noise(point, 30, true);
         },
 
         removeDecoy() {
             if (this.decoy && this.decoy.mesh) this.decoy.mesh.removeFromParent();
+            if (this.decoy && this.decoy.mat) this.decoy.mat.dispose();
             this.decoy = null;
         },
 
@@ -5286,7 +5288,9 @@
             }
             if (this.decoy) {
                 this.decoy.t -= dt;
+                this.decoy.phase += dt;
                 this.decoy.mesh.rotation.y += dt * 1.5;
+                BO.CharacterMesh.animateSoldier(this.decoy.parts, { speed: 0, phase: this.decoy.phase, aim: 0.85 }, dt);
                 if (this.decoy.t <= 0) this.removeDecoy();
             }
         }
@@ -5456,10 +5460,8 @@
             };
             ent.owAgent = agent;
             this.agents.push(agent);
-            if (!def.glb && BO.MeshProxy) {
-                // Far LOD shared by every agent of the same rig type (see MeshProxy.js).
-                const key = def.kind === 'bot' ? 'ow-bot:' + def.faction + ':' + !!def.boss + ':' + def.weapon : 'ow-beast:' + def.body + ':' + !!def.boss;
-                agent.lod = BO.MeshProxy.attach(ent.parts.root, key);
+            if (!def.glb && !ent.parts.glbPending && BO.MeshProxy) {
+                agent.lod = BO.MeshProxy.attachArticulated(ent.parts.root);
             }
             if (def.glb && BO.Assets) {
                 const root = ent.parts.root;
@@ -5701,7 +5703,8 @@
                 onMeleePlayer: (z) => { P.takeDamage(z.damage, z.pos, false, z); BO.Sound.playZombieGroan(z.soundProfile, 0.9); },
                 onRangedAttack: (z, tx, ty, tz) => this._spit(z, tx, ty, tz)
             };
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             for (let i = this.agents.length - 1; i >= 0; i--) {
                 const a = this.agents[i];
                 const ent = a.ent;
@@ -5745,12 +5748,11 @@
                     a.investigate.t -= dt;
                     if (this._walk(a, a.investigate.x, a.investigate.z, 2.2, dt) < 1.5 || a.investigate.t <= 0) { a.investigate = null; a.detect *= 0.6; }
                 } else this._idle(a, dt);
-                if (dist < 130 && ent.parts.root.visible) {
-                    const meshes = ent.getHitboxMeshes();
-                    for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
+                if (ent.parts.root.visible) {
+                    targets.push(ent);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
             this._updateProjectiles(dt);
         },
 
@@ -5769,7 +5771,7 @@
             a.idlePhase += dt * (d > 0.3 ? speed * 2.2 : 1);
             ent.parts.root.position.copy(ent.pos);
             ent.parts.root.rotation.y = ent.yaw;
-            BO.CharacterMesh.animateLimbs(ent.parts, d > 0.3 ? speed : 0, a.idlePhase, 0, 0);
+            BO.CharacterMesh.animateLimbs(ent.parts, d > 0.3 ? speed : 0, a.idlePhase, 0, 0, 'torso', dt);
             return d;
         },
 
@@ -5790,7 +5792,7 @@
                     const ent = a.ent;
                     ent.yaw = a.lookYaw + Math.sin(a.idlePhase * 0.5) * 0.9;
                     ent.parts.root.rotation.y = ent.yaw;
-                    BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.4, 0, 0);
+                    BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.4, 0, 0, 'torso', dt);
                 } else this._walk(a, a.goal.x, a.goal.z, 1.3, dt);
             } else {
                 a.idlePhase += dt;
@@ -5798,7 +5800,7 @@
                 ent.yaw += Math.sin(a.idlePhase * 0.4) * dt * 0.4;
                 ent.parts.root.position.copy(ent.pos);
                 ent.parts.root.rotation.y = ent.yaw;
-                BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.5, 0, 0);
+                BO.CharacterMesh.animateLimbs(ent.parts, 0, a.idlePhase * 1.5, 0, 0, 'torso', dt);
             }
         },
 
@@ -7133,7 +7135,7 @@
                 n.parts.root.rotation.y = n.yaw;
                 const far = d > NPC_DETAIL_DIST;
                 if (n.lod) BO.MeshProxy.set(n.lod, far);
-                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0);
+                if (!far || !n.lod) BO.CharacterMesh.animateLimbs(n.parts, 0, n.phase * 1.4, 0, 0, 'torso', dt);
             }
             for (let i = this.bags.length - 1; i >= 0; i--) {
                 const b = this.bags[i];
@@ -9657,8 +9659,8 @@ uniform vec3 uCam; uniform float uFar;`)
         start(s, scene) {
             this.stop();
             const q = (BO.Settings && BO.Settings.get('quality')) || 'high';
-            this.radius = RADIUS[q] || 60;
-            this.density = DENSITY[q] || 1;
+            this.radius = RADIUS[q] ?? 60;
+            this.density = DENSITY[q] ?? 1;
             if (!this.radius || !scene || !BO.World.terrain) return;
             this.scene = scene;
             this.D = BO.OWRPGWorldData;
@@ -9709,6 +9711,8 @@ uniform vec3 uCam; uniform float uFar;`)
             this.wanted.clear();
             this.queue.length = 0;
             this.active = false;
+            this.scene = this.U = this.blockGrid = null;
+            this.stats.chunks = this.stats.instances = this.stats.drawCalls = 0;
         },
 
         // Spatial hash of solid world colliders (buildings, walls, props, big rocks) so plants never poke through floors.
@@ -9852,8 +9856,12 @@ uniform vec3 uCam; uniform float uFar;`)
                     n += take;
                 }
                 im.count = n;
-                im.instanceMatrix.needsUpdate = true;
-                im.instanceColor.needsUpdate = true;
+                if (n) {
+                    // r149 resets count after upload. Only the populated prefix changed.
+                    im.instanceMatrix.updateRange.count = n * 16;
+                    im.instanceColor.updateRange.count = n * 3;
+                    im.instanceMatrix.needsUpdate = im.instanceColor.needsUpdate = true;
+                }
                 im.visible = n > 0;
                 total += n;
             }
@@ -10113,15 +10121,24 @@ uniform vec3 uCam; uniform float uFar;`)
             if (!BO.World || !BO.World.scene || !BO.CharacterMesh) return;
             const P = BO.Player;
             this.pos.set(P.pos.x - 2.6, P.pos.y, P.pos.z - 2.2);
-            const built = BO.CharacterMesh.buildSoldier(0, def.weapon || 'm4a1_tech');
+            const built = BO.CharacterMesh.buildSoldier(0, { weaponId: def.weapon || 'm4a1' });
             const root = built.root || built;
             root.position.copy(this.pos);
+            const tinted = new Map();
+            const color = new THREE.Color(def.color || '#f5a623');
             root.traverse((o) => {
-                if (o.isMesh && o.material && o.material.color) {
-                    o.material = o.material.clone();
-                    o.material.color.lerp(new THREE.Color(def.color || '#f5a623'), 0.25);
+                if (!o.isMesh || !o.material?.color) return;
+                if (!tinted.has(o.material)) {
+                    const mat = o.material.clone();
+                    mat.color.lerp(color, 0.25);
+                    tinted.set(o.material, mat);
                 }
+                o.material = tinted.get(o.material);
             });
+            this.materials = tinted;
+            this.parts = built;
+            this.phase = 0;
+            this.aimT = 0;
             BO.World.scene.add(root);
             this.mesh = root;
             this.fireCd = 0.6;
@@ -10129,6 +10146,9 @@ uniform vec3 uCam; uniform float uFar;`)
 
         _despawnMesh() {
             if (this.mesh && this.mesh.parent) this.mesh.parent.remove(this.mesh);
+            this.materials?.forEach((mat) => mat.dispose());
+            this.materials = null;
+            this.parts = null;
             this.mesh = null;
         },
 
@@ -10157,6 +10177,8 @@ uniform vec3 uCam; uniform float uFar;`)
             if (!this.mesh && BO.World?.scene) this._spawnMesh(def);
             if (!this.mesh) return;
 
+            let speed = 0, recoil = 0;
+            this.aimT = Math.max(0, this.aimT - dt);
             // Keep companion near player unless stance === 'hold'
             if (this.stance === 'follow') {
                 _vA.set(P.pos.x - Math.cos(P.yaw) * 2.8, P.pos.y, P.pos.z - Math.sin(P.yaw) * 2.8);
@@ -10169,6 +10191,7 @@ uniform vec3 uCam; uniform float uFar;`)
                     const len = _vB.length();
                     if (len > 0.01) {
                         _vB.multiplyScalar(Math.min(1, (6.2 * dt) / len));
+                        speed = _vB.length() / Math.max(0.0001, dt);
                         this.pos.x += _vB.x;
                         this.pos.z += _vB.z;
                     }
@@ -10191,6 +10214,8 @@ uniform vec3 uCam; uniform float uFar;`)
                     if (d2 < bestD2) { bestD2 = d2; best = a; }
                 }
                 if (best) {
+                    this.aimT = def.cooldown;
+                    recoil = 1;
                     this.fireCd = def.cooldown;
                     this.mesh.rotation.y = Math.atan2(best.ent.pos.x - this.pos.x, best.ent.pos.z - this.pos.z);
                     const lvlMult = 1 + 0.06 * Math.max(0, (s.player.level || 1) - 1);
@@ -10201,6 +10226,8 @@ uniform vec3 uCam; uniform float uFar;`)
                     this.fireCd = 0.25;
                 }
             }
+            this.phase += speed * 2.4 * dt;
+            BO.CharacterMesh.animateSoldier(this.parts, { speed, phase: this.phase, aim: this.aimT > 0 ? 1 : 0, recoil }, dt);
         },
 
         _syncHudPill() {

@@ -1828,7 +1828,8 @@
             BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
             BO.Mods.tickMode('zombies', dt, { zombies: this.zombies });
             const allowProj = !(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.round < 20));
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             const zCallbacks = {
                 allowProjectiles: allowProj,
                 getTarget: (z) => {
@@ -1863,11 +1864,10 @@
                     z.destroy();
                     this.zombies.splice(i, 1);
                 } else if (z.alive && !z.powerAlly) {
-                    const meshes = z.getHitboxMeshes();
-                    for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
+                    targets.push(z);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
 
             // Update Enemy Ranged Projectiles
             const P = BO.Player;

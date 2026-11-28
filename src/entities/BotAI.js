@@ -107,14 +107,13 @@
             return BO.Math.randRange(this.difficulty.sightDelayMin, this.difficulty.sightDelayMax);
         }
 
-        getHitboxMeshes() {
-            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
-            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
-            const list = [];
+        getHitboxMeshes(out = []) {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return out;
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, out);
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) out.push(obj);
             });
-            return list;
+            return out;
         }
 
         spawnAt(sp) {
@@ -634,6 +633,8 @@
         }
 
         destroy() {
+            this.parts.glbPending = null;
+            this.parts.glbRig?.dispose();
             this.squadMark?.material.dispose();
             this.squadMark?.geometry.dispose();
             if (this.parts && this.parts.root && BO.World.scene) {

@@ -22,15 +22,21 @@
     const BO = global.BO;
     const _v = new THREE.Vector3();
     const _m = new THREE.Matrix4();
-    const _inv = new THREE.Matrix4();
     const _sphere = new THREE.Sphere();
+    const _skinWorld = new THREE.Matrix4();
+    const _bounds = new THREE.Box3(), _boneBox = new THREE.Box3();
 
     // Invisible but raycastable: the renderer skips material.visible === false, the raycaster does not.
     const PROXY_MAT = new THREE.MeshBasicMaterial({ visible: false });
     PROXY_MAT.name = 'bo-hitbox-proxy';
+    const proxyMaterials = [PROXY_MAT,
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+    ];
+    for (const m of proxyMaterials) m.userData.sharedAsset = true;
 
     const LIMB_RE = /arm|hand|leg|thigh|calf|shin|foot|ball|toe|tail|wing|finger|thumb|index|middle|ring|pinky/i;
-    const HEAD_RE = /^head|[-_ ]head|skull|helm|face|jaw/i;
+    const HEAD_RE = /^head|[-_ ]head|skull|helm|face|jaw|(?:^|[-_ ])ear(?:$|[-_ .])/i;
 
     function isEffectMaterial(mat) {
         const list = Array.isArray(mat) ? mat : [mat];
@@ -61,33 +67,20 @@
         return 'torso';
     }
 
-    /** Bounding sphere of every hit mesh, expressed in root-local space (radius before root scale). */
-    function measure(entity, list, root) {
-        root.updateMatrixWorld(true);
-        _inv.copy(root.matrixWorld).invert();
-        const rootScale = root.matrixWorld.getMaxScaleOnAxis() || 1;
-        let minY = Infinity, maxY = -Infinity;
-        const centers = [];
-        for (const m of list) {
-            const g = m.geometry;
-            if (!g) continue;
-            if (!g.boundingSphere) g.computeBoundingSphere();
-            _sphere.copy(g.boundingSphere).applyMatrix4(_m.multiplyMatrices(_inv, m.matrixWorld));
-            centers.push(_sphere.center.x, _sphere.center.y, _sphere.center.z, _sphere.radius);
-            minY = Math.min(minY, _sphere.center.y - _sphere.radius);
-            maxY = Math.max(maxY, _sphere.center.y + _sphere.radius);
+    // SoldierModel animates joints. Its rigid pieces (including ear cups and
+    // stretched armor) keep their local transforms on those joints.
+    function soldierJointBounds(list) {
+        const groups = new Map();
+        for (const mesh of list) {
+            const joint = mesh.parent;
+            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+            mesh.updateMatrix();
+            _sphere.copy(mesh.geometry.boundingSphere).applyMatrix4(mesh.matrix);
+            const box = groups.get(joint) || new THREE.Box3();
+            box.union(_sphere.getBoundingBox(_boneBox));
+            groups.set(joint, box);
         }
-        if (!centers.length) { entity._hitCY = 0.9; entity._hitR = 1.2; return; }
-        const cy = (minY + maxY) * 0.5;
-        let r = 0;
-        for (let i = 0; i < centers.length; i += 4) {
-            const d = Math.hypot(centers[i], centers[i + 1] - cy, centers[i + 2]) + centers[i + 3];
-            if (d > r) r = d;
-        }
-        // Stored unscaled so a later sizeMult/scale change is picked up from the root matrix.
-        entity._hitCY = cy * 1;
-        entity._hitR = r;
-        entity._hitScale0 = rootScale;
+        return Array.from(groups, ([joint, box]) => ({ joint, sphere: box.getBoundingSphere(new THREE.Sphere()) }));
     }
 
     /* ---------------------------------------------------------------- skinned proxies */
@@ -123,24 +116,27 @@
         const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
         const n = pos.count;
         const bones = skinned.skeleton.bones;
+        const boneBounds = bones.map(() => new THREE.Box3());
         const bindPos = new Float32Array(n * 3);
         const be = skinned.bindMatrix.elements;
         const idx = new Uint16Array(n * 4), wts = new Float32Array(n * 4);
         const segOf = new Int32Array(n);
+        const segments = bones.map((_, i) => bones.indexOf(segmentJoint(bones, i)));
         for (let i = 0; i < n; i++) {
             const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
             bindPos[i * 3] = be[0] * x + be[4] * y + be[8] * z + be[12];
             bindPos[i * 3 + 1] = be[1] * x + be[5] * y + be[9] * z + be[13];
             bindPos[i * 3 + 2] = be[2] * x + be[6] * y + be[10] * z + be[14];
+            _v.fromArray(bindPos, i * 3);
             let best = 0, bw = -1, sum = 0;
             for (let k = 0; k < 4; k++) {
                 const w = comp(sw, i, k), b = comp(si, i, k);
                 idx[i * 4 + k] = b; wts[i * 4 + k] = w; sum += w;
+                if (w > 0) boneBounds[b].expandByPoint(_v);
                 if (w > bw) { bw = w; best = b; }
             }
             if (sum > 0 && Math.abs(sum - 1) > 1e-3) for (let k = 0; k < 4; k++) wts[i * 4 + k] /= sum;
-            const seg = segmentJoint(bones, best);
-            segOf[i] = seg ? bones.indexOf(seg) : -1;
+            segOf[i] = segments[best];
         }
         const index = geo.index;
         const triCount = index ? index.count / 3 : n / 3;
@@ -156,23 +152,32 @@
         }
         const groups = [];
         for (const [seg, arr] of buckets) {
-            if (arr.length < 12) continue; // fewer than 4 triangles: decoration fragment
             const verts = Array.from(new Set(arr));
             groups.push({ joint: bones[seg].name, index: n > 65535 ? new Uint32Array(arr) : new Uint16Array(arr), verts: Uint32Array.from(verts) });
         }
-        L = { n, bindPos, idx, wts, groups };
+        const influences = [];
+        boneBounds.forEach((box, bone) => {
+            if (!box.isEmpty()) influences.push({ bone, box });
+        });
+        L = { n, bindPos, idx, wts, groups, influences };
         skinCache.set(geo, L);
         return L;
     }
 
     /** Re-skins one instance's vertices from its live skeleton and refits each group's bounding sphere. */
-    function reskin(snap) {
+    function reskin(snap, force = false) {
         const sk = snap.skinned;
         const L = snap.layout;
         const skel = sk.skeleton;
         skel.update();
         const bm = skel.boneMatrices;
         const inv = sk.bindMatrixInverse.elements;
+        // Compare the actual transforms. Consecutive pellets can share work even on a
+        // slow frame, while two different poses within 12 ms must remain distinct.
+        if (!force && snap.lastBones.every((value, i) => value === bm[i]) &&
+            snap.lastInverse.equals(sk.bindMatrixInverse)) return;
+        snap.lastBones.set(bm.subarray(0, snap.lastBones.length));
+        snap.lastInverse.copy(sk.bindMatrixInverse);
         const out = snap.positions, bp = L.bindPos, idx = L.idx, wts = L.wts;
         for (let i = 0, n = L.n; i < n; i++) {
             const x = bp[i * 3], y = bp[i * 3 + 1], z = bp[i * 3 + 2];
@@ -189,7 +194,7 @@
             out[i * 3 + 1] = inv[1] * ox + inv[5] * oy + inv[9] * oz + inv[13];
             out[i * 3 + 2] = inv[2] * ox + inv[6] * oy + inv[10] * oz + inv[14];
         }
-        snap.attr.needsUpdate = true;
+        if (BO.HitboxDebug?.enabled) snap.attr.needsUpdate = true;
         for (const g of snap.groups) {
             const vs = g.verts;
             let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
@@ -200,16 +205,11 @@
                 if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
             }
             const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
-            let r2 = 0;
-            for (let j = 0; j < vs.length; j++) {
-                const o = vs[j] * 3, dx = out[o] - cx, dy = out[o + 1] - cy, dz = out[o + 2] - cz;
-                const d2 = dx * dx + dy * dy + dz * dz;
-                if (d2 > r2) r2 = d2;
-            }
+            g.box.min.set(minX, minY, minZ);
+            g.box.max.set(maxX, maxY, maxZ);
             g.sphere.center.set(cx, cy, cz);
-            g.sphere.radius = Math.sqrt(r2) + 1e-4;
+            g.sphere.radius = Math.hypot(maxX - cx, maxY - cy, maxZ - cz) + 1e-4;
         }
-        snap.t = performance.now();
     }
 
     const Hitboxes = {
@@ -240,8 +240,8 @@
                 for (let i = 0; i < o.children.length; i++) walk(o.children[i]);
             };
             walk(root);
+            entity._jointBounds = parts.isSoldier ? soldierJointBounds(list) : null;
             entity._hitList = list;
-            measure(entity, list, root);
             return list;
         },
 
@@ -251,7 +251,8 @@
             const list = [];
             let hasHead = false;
             const torsoMeshes = [];
-            model.updateMatrixWorld(true);
+            root.updateWorldMatrix(true, false);
+            root.updateMatrixWorld(true);
             model.traverse((o) => {
                 if (!o.isMesh || o.userData.hitProxy) return;
                 o.userData.noHit = true;
@@ -260,13 +261,17 @@
                     const layout = skinLayout(o);
                     const positions = new Float32Array(layout.n * 3);
                     const attr = new THREE.BufferAttribute(positions, 3);
-                    const snap = { skinned: o, layout, positions, attr, groups: [], t: 0 };
+                    const snap = { skinned: o, layout, positions, attr, groups: [],
+                        lastBones: new Float32Array(o.skeleton.bones.length * 16), lastInverse: new THREE.Matrix4() };
                     for (const g of layout.groups) {
                         const geom = new THREE.BufferGeometry();
                         geom.setAttribute('position', attr);
                         geom.setIndex(new THREE.BufferAttribute(g.index, 1));
+                        geom.boundingBox = new THREE.Box3();
                         geom.boundingSphere = new THREE.Sphere();
-                        const proxy = new THREE.Mesh(geom, PROXY_MAT);
+                        const matSide = Array.isArray(o.material) ? o.material[0]?.side : o.material?.side;
+                        const proxy = new THREE.Mesh(geom, proxyMaterials[matSide] || PROXY_MAT);
+                        proxy.visible = false; // CPU collision geometry, never upload it for drawing.
                         proxy.castShadow = false;
                         proxy.receiveShadow = false;
                         proxy.frustumCulled = false;
@@ -279,10 +284,10 @@
                         proxy.userData.ownedGeometry = true;
                         if (proxy.userData.hitbox === 'head') hasHead = true;
                         o.add(proxy);
-                        snap.groups.push({ verts: g.verts, sphere: geom.boundingSphere });
+                        snap.groups.push({ verts: g.verts, sphere: geom.boundingSphere, box: geom.boundingBox });
                         list.push(proxy);
                     }
-                    reskin(snap);
+                    reskin(snap, true);
                     (entity._skinSnaps || (entity._skinSnaps = [])).push(snap);
                 } else {
                     // Rigid part: the visible geometry is the hit surface.
@@ -297,27 +302,19 @@
                     list.push(o);
                 }
             });
-            // Models whose head is modelled into the torso (ghosts) get a head sphere over the top of the torso.
+            // Some rigid models have a single head-and-body mesh. Classify the actual
+            // triangle impact in mesh space so empty space beside the head stays empty.
             if (!hasHead && torsoMeshes.length) {
-                const t = torsoMeshes[0];
-                t.geometry.computeBoundingBox();
-                const bb = t.geometry.boundingBox;
-                const h = bb.max.y - bb.min.y;
-                const r = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) * 0.36;
-                const head = new THREE.Mesh(new THREE.SphereGeometry(Math.max(r, h * 0.16), 10, 8), PROXY_MAT);
-                head.position.set((bb.min.x + bb.max.x) / 2, bb.max.y - Math.max(r, h * 0.16), (bb.min.z + bb.max.z) / 2);
-                head.userData.entity = entity;
-                head.userData.hitbox = 'head';
-                head.userData.hitProxy = true;
-                head.userData.ownedGeometry = true;
-                head.name = 'hit:head';
-                t.add(head);
-                list.push(head);
+                const torso = torsoMeshes[0];
+                if (!torso.geometry.boundingBox) torso.geometry.computeBoundingBox();
+                const bb = torso.geometry.boundingBox;
+                torso.userData.headMinY = bb.max.y - (bb.max.y - bb.min.y) * 0.30;
             }
             // The procedural body underneath no longer takes hits.
             for (const m of entity._hitList || []) if (!list.includes(m)) m.userData.hitDisabled = true;
+            entity._jointBounds = null;
             entity._hitList = list;
-            measure(entity, list, root);
+
             return list;
         },
 
@@ -330,42 +327,74 @@
             for (let i = 0; i < list.length; i++) {
                 const m = list[i];
                 if (m.userData.hitDisabled || !m.parent) continue;
-                let live = true;
-                for (let o = m.userData.hitProxy ? m.parent : m; o && o !== root; o = o.parent) {
-                    if (!o.visible && !o.userData.lodDetail) { live = false; break; }
-                }
-                if (live) out.push(m);
+                let o = m.userData.hitProxy ? m.parent : m;
+                while (o && o !== root && (o.visible || o.userData.lodDetail)) o = o.parent;
+                if (o === root) out.push(m);
             }
             return out;
         },
 
-        /** World-space bounding sphere used for ray broad-phase. Generous on purpose: it must never cull a real hit. */
-        sphere(entity, target) {
-            const root = entity.parts && entity.parts.root;
-            if (!root) return null;
-            if (entity._hitR == null) this.prepare(entity, entity.parts);
-            const s = root.matrixWorld.getMaxScaleOnAxis() || 1;
-            target.center.set(0, entity._hitCY || 0.9, 0).applyMatrix4(root.matrixWorld);
-            target.radius = (entity._hitR || 1.2) * s * 1.35 + 0.35;
-            return target;
+        zoneAt(hit) {
+            const mesh = hit.object;
+            if (mesh.userData.headMinY != null &&
+                mesh.worldToLocal(_v.copy(hit.point)).y >= mesh.userData.headMinY) return 'head';
+            return mesh.userData.hitbox || 'torso';
         },
 
-        /**
-         * Brings an entity's skinned hit groups up to the current pose. CombatSystem calls this only
-         * for enemies a ray actually reaches, at most once per ~frame; `force` skips the time gate.
-         */
-        refresh(entity, force) {
-            const snaps = entity && entity._skinSnaps;
-            if (!snaps) return;
-            const now = performance.now();
-            for (let i = 0; i < snaps.length; i++) if (force || now - snaps[i].t > 12) reskin(snaps[i]);
+        // Broad phase over live rigid surfaces and bone influence bounds. A weighted
+        // skinned vertex is inside the union's AABB even at the extremes of a pose.
+        inRay(entity, rc, sphere) {
+            const root = entity.parts.root;
+            if (entity._jointBounds) {
+                for (const group of entity._jointBounds) {
+                    group.joint.updateWorldMatrix(true, false);
+                    sphere.copy(group.sphere).applyMatrix4(group.joint.matrixWorld);
+                    if (rc.ray.intersectsSphere(sphere) && rc.ray.origin.distanceTo(sphere.center) <= rc.far + sphere.radius) {
+                        root.updateMatrixWorld(true);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            root.updateWorldMatrix(true, false);
+            root.updateMatrixWorld(true);
+            const list = entity._hitList || this.prepare(entity);
+            for (const mesh of list) {
+                if (mesh.userData.skinSnap || mesh.userData.hitDisabled) continue;
+                const g = mesh.geometry;
+                if (!g.boundingSphere) g.computeBoundingSphere();
+                sphere.copy(g.boundingSphere).applyMatrix4(mesh.matrixWorld);
+                if (rc.ray.intersectsSphere(sphere) && rc.ray.origin.distanceTo(sphere.center) <= rc.far + sphere.radius) return true;
+            }
+            for (const snap of entity._skinSnaps || []) {
+                const sk = snap.skinned, skeleton = sk.skeleton;
+                _skinWorld.multiplyMatrices(sk.matrixWorld, sk.bindMatrixInverse);
+                _bounds.makeEmpty();
+                for (const { bone, box } of snap.layout.influences) {
+                    _m.multiplyMatrices(_skinWorld, skeleton.bones[bone].matrixWorld).multiply(skeleton.boneInverses[bone]);
+                    _bounds.union(_boneBox.copy(box).applyMatrix4(_m));
+                }
+                if (_bounds.distanceToPoint(rc.ray.origin) <= rc.far && rc.ray.intersectsBox(_bounds)) return true;
+            }
+            return false;
+        },
+
+        refresh(entity, force = false) {
+            if (!entity._skinSnaps) return;
+            entity.parts.root.updateWorldMatrix(true, false);
+            entity.parts.root.updateMatrixWorld(true);
+            for (const snap of entity._skinSnaps) reskin(snap, force);
         },
 
         /** Frees geometry created for GLB proxies. */
         dispose(entity) {
             for (const m of entity._hitList || []) {
-                if (m.userData.ownedGeometry && m.geometry) m.geometry.dispose();
+                if (m.userData.ownedGeometry && m.geometry) {
+                    m.removeFromParent();
+                    m.geometry.dispose();
+                }
             }
+            entity._jointBounds = null;
             entity._hitList = null;
             entity._skinSnaps = null;
         }

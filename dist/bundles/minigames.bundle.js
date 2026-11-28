@@ -1076,7 +1076,8 @@
             if (def.update) def.update(S, dt, this.lib, this.state);
 
             // Targets + scenery.
-            const pool = [];
+            const pool = S.hitPool || (S.hitPool = []);
+            pool.length = 0;
             for (let i = S.targets.length - 1; i >= 0; i--) {
                 const tg = S.targets[i];
                 tg.update(dt);
@@ -5370,6 +5371,7 @@
         GEO.horseHead.rotateX(-Math.PI * 0.5);
         GEO.horseLeg = new THREE.CapsuleGeometry(0.062, 0.82, 5, 10);
         GEO.hoof = new THREE.CylinderGeometry(0.072, 0.084, 0.10, 12);
+        for (const k in GEO) if (GEO[k]?.isBufferGeometry) GEO[k].userData.sharedAsset = true;
         return GEO;
     }
 
@@ -5484,7 +5486,8 @@
                 shoe.position.set(0, -0.90, 0.05);
                 leg.add(thigh, shin, shoe);
                 hips.add(leg);
-                hit.push(thigh, shin);
+                shoe.userData.hitbox = 'torso';
+                hit.push(thigh, shin, shoe);
                 P[s < 0 ? 'legL' : 'legR'] = leg;
             }
 
@@ -5542,7 +5545,8 @@
                 hand.userData.hitbox = 'torso';
                 arm.add(shCap, upper, fore, hand);
                 chest.add(arm);
-                hit.push(upper, fore, hand);
+                shCap.userData.hitbox = 'torso';
+                hit.push(upper, fore, hand, shCap);
                 P[s < 0 ? 'armL' : 'armR'] = arm;
                 P[s < 0 ? 'handL' : 'handR'] = hand;
             }
@@ -19584,22 +19588,15 @@
 
             // Collateral Headshot Pierce: check 1 lined-up zombie head along bullet direction
             if (info.dir && D.killed < 50) {
-                const headPool = [];
-                for (const z of D.zs) {
-                    if (!z.alive || z === ent) continue;
-                    for (const hm of z.getHitboxMeshes()) if (hm.userData.hitbox === 'head') headPool.push(hm);
-                }
-                if (headPool.length) {
-                    const wallHit = BO.World.raycastWorld(info.pt, info.dir, 22);
-                    _srRay.set(info.pt, info.dir);
-                    _srRay.near = 0.05;
-                    _srRay.far = wallHit ? wallHit.distance : 22;
-                    const pHits = _srRay.intersectObjects(headPool, false);
-                    if (pHits.length) {
-                        const sec = pHits[0].object.userData.entity;
-                        if (sec && sec.alive) killHead(sec, pHits[0].point, true);
-                    }
-                }
+                const wallHit = BO.World.raycastWorld(info.pt, info.dir, 22);
+                _srRay.set(info.pt, info.dir);
+                _srRay.near = 0.05;
+                _srRay.far = wallHit ? wallHit.distance : 22;
+                const next = BO.Combat._castTargets(_srRay).find((hit) => {
+                    const z = hit.object.userData.entity;
+                    return z !== ent && z?.alive && D.zs.includes(z) && BO.Hitboxes.zoneAt(hit) === 'head';
+                });
+                if (next) killHead(next.object.userData.entity, next.point, true);
             }
             return true;
         },

@@ -192,15 +192,24 @@
             if (!BO.World || !BO.World.scene || !BO.CharacterMesh) return;
             const P = BO.Player;
             this.pos.set(P.pos.x - 2.6, P.pos.y, P.pos.z - 2.2);
-            const built = BO.CharacterMesh.buildSoldier(0, def.weapon || 'm4a1_tech');
+            const built = BO.CharacterMesh.buildSoldier(0, { weaponId: def.weapon || 'm4a1' });
             const root = built.root || built;
             root.position.copy(this.pos);
+            const tinted = new Map();
+            const color = new THREE.Color(def.color || '#f5a623');
             root.traverse((o) => {
-                if (o.isMesh && o.material && o.material.color) {
-                    o.material = o.material.clone();
-                    o.material.color.lerp(new THREE.Color(def.color || '#f5a623'), 0.25);
+                if (!o.isMesh || !o.material?.color) return;
+                if (!tinted.has(o.material)) {
+                    const mat = o.material.clone();
+                    mat.color.lerp(color, 0.25);
+                    tinted.set(o.material, mat);
                 }
+                o.material = tinted.get(o.material);
             });
+            this.materials = tinted;
+            this.parts = built;
+            this.phase = 0;
+            this.aimT = 0;
             BO.World.scene.add(root);
             this.mesh = root;
             this.fireCd = 0.6;
@@ -208,6 +217,9 @@
 
         _despawnMesh() {
             if (this.mesh && this.mesh.parent) this.mesh.parent.remove(this.mesh);
+            this.materials?.forEach((mat) => mat.dispose());
+            this.materials = null;
+            this.parts = null;
             this.mesh = null;
         },
 
@@ -236,6 +248,8 @@
             if (!this.mesh && BO.World?.scene) this._spawnMesh(def);
             if (!this.mesh) return;
 
+            let speed = 0, recoil = 0;
+            this.aimT = Math.max(0, this.aimT - dt);
             // Keep companion near player unless stance === 'hold'
             if (this.stance === 'follow') {
                 _vA.set(P.pos.x - Math.cos(P.yaw) * 2.8, P.pos.y, P.pos.z - Math.sin(P.yaw) * 2.8);
@@ -248,6 +262,7 @@
                     const len = _vB.length();
                     if (len > 0.01) {
                         _vB.multiplyScalar(Math.min(1, (6.2 * dt) / len));
+                        speed = _vB.length() / Math.max(0.0001, dt);
                         this.pos.x += _vB.x;
                         this.pos.z += _vB.z;
                     }
@@ -270,6 +285,8 @@
                     if (d2 < bestD2) { bestD2 = d2; best = a; }
                 }
                 if (best) {
+                    this.aimT = def.cooldown;
+                    recoil = 1;
                     this.fireCd = def.cooldown;
                     this.mesh.rotation.y = Math.atan2(best.ent.pos.x - this.pos.x, best.ent.pos.z - this.pos.z);
                     const lvlMult = 1 + 0.06 * Math.max(0, (s.player.level || 1) - 1);
@@ -280,6 +297,8 @@
                     this.fireCd = 0.25;
                 }
             }
+            this.phase += speed * 2.4 * dt;
+            BO.CharacterMesh.animateSoldier(this.parts, { speed, phase: this.phase, aim: this.aimT > 0 ? 1 : 0, recoil }, dt);
         },
 
         _syncHudPill() {

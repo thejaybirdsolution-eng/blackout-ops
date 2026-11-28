@@ -2422,7 +2422,8 @@
                 d.animPhase += dt * (spd * 2.5 + 1.5);
                 d.parts.root.position.copy(d.pos);
                 d.parts.root.rotation.y = d.yaw;
-                BO.CharacterMesh.animateLimbs(d.parts, spd, d.animPhase, 0, 0);
+                const biteSwing = d.attackCd > 0.45 ? (d.attackCd - 0.45) / 0.27 : 0;
+                BO.CharacterMesh.animateLimbs(d.parts, spd, d.animPhase, biteSwing, 0, 'torso', dt);
 
                 if (d.hp <= 0) {
                     BO.FX.spawnParticles(d.pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 14, 0xef4444, 4, 3, 0.5, 1.3);
@@ -2442,11 +2443,13 @@
                         bestD = dist; nearest = z;
                     }
                 }
+                let fired = false;
                 if (nearest) {
                     a.yaw = Math.atan2(nearest.pos.x - a.pos.x, nearest.pos.z - a.pos.z);
                     a.parts.root.rotation.y = a.yaw;
                     if (a.cooldown <= 0) {
                         a.cooldown = 0.22;
+                        fired = true;
                         BO.Sound.playGunshot('ar_light', false, false, 0.45);
                         BO.FX.spawnTracer(a.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), nearest.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xfde047, 0.025, 0.08);
                         if (nearest.takeDamage(34, 'torso', false, null, 'bullet')) {
@@ -2455,6 +2458,8 @@
                         }
                     }
                 }
+                a.animPhase = (a.animPhase || 0) + dt * 1.4;
+                BO.CharacterMesh.animateSoldier(a.parts, { speed: 0, phase: a.animPhase, aim: nearest ? 1 : 0.25, recoil: fired ? 1 : 0 }, dt);
             }
 
             // Update Zombies & Populate Hit Pool
@@ -2482,7 +2487,8 @@
                 }
             };
 
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
             BO.Mods.tickMode('td', dt, { zombies: this.zombies });
             for (let i = this.zombies.length - 1; i >= 0; i--) {
@@ -2494,11 +2500,10 @@
                     continue;
                 }
                 if (z.alive) {
-                    const ms = z.getHitboxMeshes();
-                    for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
+                    targets.push(z);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
         }
 
         getPromptText() {

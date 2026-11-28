@@ -55,7 +55,7 @@
             const point = wall?.point || aim.origin.clone().addScaledVector(aim.dir, 60);
             if (power.id === 'mind_control') {
                 const ray = new THREE.Raycaster(aim.origin, aim.dir, 0, Math.min(35, wall?.distance ?? 35));
-                const hit = ray.intersectObjects(BO.Combat.targetPool, false)
+                const hit = BO.Combat._castTargets(ray)
                     .find((result) => result.object.userData.entity?.alive && !result.object.userData.entity.powerAlly);
                 if (!hit) {
                     this.notify(power, 'Aim at a hostile within 35 m');
@@ -294,7 +294,7 @@
             if (mesh) {
                 mesh.position.copy(ally.pos);
                 mesh.rotation.y = ally.yaw;
-                BO.CharacterMesh.animateLimbs(ally.parts, distance > 1.65 ? ally.speed : 0, this.time * 7, 0, 0);
+                BO.CharacterMesh.animateLimbs(ally.parts, distance > 1.65 ? ally.speed : 0, this.time * 7, 0, 0, 'torso', dt);
             }
         }
 
