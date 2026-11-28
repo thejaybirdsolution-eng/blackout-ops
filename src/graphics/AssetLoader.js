@@ -29,6 +29,15 @@
         return 'staged_assets/' + defaultDir + clean;
     }
 
+    // Grazing-angle texture clarity scales with the graphics preset, capped by what the GPU supports.
+    function anisoLevel() {
+        const q = (BO.Settings && BO.Settings.get && BO.Settings.get('quality')) || 'high';
+        const want = q === 'ultra' ? 16 : q === 'high' ? 8 : q === 'medium' ? 4 : 2;
+        const r = BO.App && BO.App.renderer;
+        const max = r && r.capabilities && r.capabilities.getMaxAnisotropy ? r.capabilities.getMaxAnisotropy() : 4;
+        return Math.max(1, Math.min(want, max || 4));
+    }
+
     function loadTex(relPath, repeatX = 1, repeatY = 1) {
         const full = resolvePath(relPath, 'textures/');
         const key = 'ftex:' + full + ':' + repeatX + ':' + repeatY;
@@ -38,7 +47,7 @@
         tex.wrapT = THREE.RepeatWrapping;
         tex.repeat.set(repeatX, repeatY);
         if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
-        tex.anisotropy = 4;
+        tex.anisotropy = anisoLevel();
         texCache.set(key, tex);
         return tex;
     }
@@ -85,6 +94,8 @@
         let hasSkinned = false;
         source.traverse((o) => { if (o.isSkinnedMesh) hasSkinned = true; });
         const clone = source.clone(true);
+        // Object3D.clone in r149 does not carry the GLTF clips; every instance needs them for its mixer.
+        clone.animations = source.animations || [];
         if (!hasSkinned) return clone;
 
         const sourceToClone = new Map();

@@ -70,6 +70,44 @@
             this.targetPool = meshes || [];
         }
 
+        /**
+         * Raycasts the current ray (this.raycaster) against the target pool with an
+         * entity broad-phase: only enemies whose bounding sphere the ray passes through
+         * get the per-triangle test. Pool meshes are grouped once per pool array.
+         */
+        _castTargets() {
+            const pool = this.targetPool;
+            const rc = this.raycaster;
+            if (pool.length < 40 || !BO.Hitboxes) return rc.intersectObjects(pool, false);
+            if (this._groupedPool !== pool) {
+                this._groupedPool = pool;
+                const byEnt = this._poolGroups || (this._poolGroups = new Map());
+                byEnt.clear();
+                const loose = this._poolLoose || (this._poolLoose = []);
+                loose.length = 0;
+                for (let i = 0; i < pool.length; i++) {
+                    const m = pool[i];
+                    const ent = m.userData.entity;
+                    if (!ent || !ent.parts || !ent.parts.root || ent._hitR == null) { loose.push(m); continue; }
+                    let g = byEnt.get(ent);
+                    if (!g) { g = []; byEnt.set(ent, g); }
+                    g.push(m);
+                }
+            }
+            const cand = this._castCand || (this._castCand = []);
+            cand.length = 0;
+            for (let i = 0; i < this._poolLoose.length; i++) cand.push(this._poolLoose[i]);
+            const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
+            const far = rc.far;
+            for (const [ent, meshes] of this._poolGroups) {
+                BO.Hitboxes.sphere(ent, sph);
+                if (!rc.ray.intersectsSphere(sph)) continue;
+                if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
+                for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
+            }
+            return cand.length ? rc.intersectObjects(cand, false) : [];
+        }
+
         cancelCharge() {
             this.busterCharging = false;
             this.busterChargeTime = 0;
@@ -403,7 +441,7 @@
             BO.FX.spawnParticles(endPt, 14, rpgMod.tracerColor || 0xef4444, 5, 4, 0.45, 1.3);
             this.raycaster.set(origin, dir);
             this.raycaster.far = wh ? wh.distance : range;
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             const seen = new Set();
             let hit = false, headshot = false, kills = 0;
             for (const h of hits) {
@@ -453,7 +491,7 @@
 
             this.raycaster.set(origin, castDir);
             this.raycaster.far = worldDist;
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
 
             if (BO.State.activeMode === 'survival') BO.SurvivalMode.impact(worldHit, w.stats.damage, 'bullet');
             if (worldHit) _tmpEnd.copy(worldHit.point);
@@ -1233,7 +1271,7 @@
                     const worldHit = BO.World.raycastWorld(p.pos, dir, dist + 0.15);
                     this.raycaster.set(p.pos, dir);
                     this.raycaster.far = dist + 0.2;
-                    const entHits = this.raycaster.intersectObjects(this.targetPool, false);
+                    const entHits = this._castTargets();
 
                     let proximityHit = null;
                     if (p.hitRadius && p.hitRadius > 0.35) {
@@ -1733,7 +1771,7 @@
             const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             const hit = hits.find((result) => result.object.userData.entity?.alive);
             if (!hit || !this.onHitEnemy) {
                 // No enemy in reach: bare hands still break deposits, trees and timber (slowly).
@@ -1804,7 +1842,7 @@
             const wall = BO.World.raycastWorld(aim.origin, aim.dir, reach);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = Math.min(reach, wall?.distance ?? reach);
-            const hit = this.raycaster.intersectObjects(this.targetPool, false).find((r) => r.object.userData.entity?.alive);
+            const hit = this._castTargets().find((r) => r.object.userData.entity?.alive);
             if (hit && this.onHitEnemy) {
                 const deep = m.campaign.deep;
                 const base = { axe: 58, pick: 52, shovel: 40 }[tool.family] || 45;
@@ -1842,7 +1880,7 @@
             const aim = P.getAimRay(this.camera);
             this.raycaster.set(aim.origin, aim.dir);
             this.raycaster.far = (P.mpPerks.includes('bayonet_drill') ? 3.55 : 2.55) + (P.activeWeapon?.stats.meleeReach || 0);
-            const hits = this.raycaster.intersectObjects(this.targetPool, false);
+            const hits = this._castTargets();
             for (const h of hits) {
                 const ent = h.object.userData.entity;
                 if (ent && ent.alive && this.onHitEnemy) {
@@ -1908,7 +1946,7 @@
                 BO.FX.spawnTracer(aim.origin.clone().addScaledVector(aim.dir, 0.8), endPt, 0xfde047, 0.14, 0.45);
                 this.raycaster.set(aim.origin, aim.dir);
                 this.raycaster.far = 75;
-                const hits = this.raycaster.intersectObjects(this.targetPool, false);
+                const hits = this._castTargets();
                 const seen = new Set();
                 let count = 0;
                 for (const h of hits) {

@@ -8,6 +8,8 @@
     'use strict';
 
     const BO = global.BO;
+    const _gm = new THREE.Matrix4(), _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3();
+    const _GUN_FWD = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
     class ZombieEntity {
         constructor(opts) {
@@ -95,14 +97,17 @@
                 this.parts.root.scale.setScalar(this.sizeMult);
                 this.radius = BO.Math.clamp(this.radius * this.sizeMult, 0.24, 1.35);
             }
-            if (this.hasGun && this.parts.rightArmPivot && BO.WeaponMesh) {
+            if (this.hasGun && (this.parts.forearmR || this.parts.armR) && BO.WeaponMesh && !this.parts.glbPending) {
                 try {
                     const gunId = this.isBoss ? 'm249' : (Math.random() < 0.5 ? 'ak47' : 'mp5');
                     const wBuilt = BO.WeaponMesh.buildWeapon(gunId, {}, 'default', false, false);
                     wBuilt.root.scale.setScalar(0.95);
-                    wBuilt.root.position.set(0, -0.42, 0.28);
-                    wBuilt.root.rotation.set(0.15, Math.PI, 0);
-                    this.parts.rightArmPivot.add(wBuilt.root);
+                    wBuilt.root.userData.isWeapon = true;
+                    wBuilt.root.traverse((o) => { o.userData.noHit = true; });
+                    const holdIn = this.parts.forearmR || this.parts.armR;
+                    wBuilt.root.position.set(0, this.parts.forearmR ? -0.25 : -0.5, 0.05);
+                    holdIn.add(wBuilt.root);
+                    this._heldGun = wBuilt.root;
                 } catch (e) {
                     BO.log?.('ZombieEntity', 'debug', 'Weapon mesh build skipped for gunner zombie', e);
                 }
@@ -114,6 +119,8 @@
                 );
                 aura.rotation.x = Math.PI * 0.5;
                 aura.position.y = 1.1;
+                aura.userData.noHit = true;
+                aura.userData.keepVisible = true;
                 this.parts.root.add(aura);
                 this._magicAura = aura;
             }
@@ -124,14 +131,29 @@
                 this.parts.bodyPivot.userData.baseY = this.parts.bodyPivot.position.y;
                 this.parts.bodyPivot.userData.baseRotX = this.parts.bodyPivot.rotation.x;
             }
+            this.parts.root.rotation.order = 'YXZ';
             BO.World.scene.add(this.parts.root);
+            if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
+        }
+
+        /** Keeps a held gun pointing along the facing however the arm is posed. */
+        _aimHeldGun() {
+            const g = this._heldGun;
+            if (!g || !g.parent) return;
+            const root = this.parts.root;
+            root.updateMatrix();
+            g.parent.updateWorldMatrix(true, false);
+            _gm.copy(root.matrixWorld).invert().multiply(g.parent.matrixWorld);
+            _gm.decompose(_gp, _gq, _gs);
+            g.quaternion.copy(_gq.invert()).multiply(_GUN_FWD);
         }
 
         getHitboxMeshes() {
             if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
             });
             return list;
         }
@@ -203,6 +225,7 @@
                 if (hitbox === 'head' && !this.spec.bodySpec?.quadruped && !this.spec.bodySpec?.headless && this.parts.headGroup) {
                     this.decapitated = true;
                     this.parts.headGroup.visible = false;
+                    if (this.parts.glbRig) this.parts.glbRig.decapitate();
                     const bloodLv = (BO.Settings && BO.Settings.get('bloodLevel')) || 'normal';
                     if (bloodLv !== 'off') {
                         const cnt = bloodLv === 'ultra' ? 28 : 14;
@@ -227,17 +250,63 @@
             return false;
         }
 
+        /**
+         * Death: knees buckle, then the body tips backward relative to its facing (rotation order YXZ),
+         * arms go limp, and the corpse sinks once settled. A GLB with its own death clip plays that instead.
+         */
+        _animateDeath(dt) {
+            const parts = this.parts;
+            const total = this.isBoss ? 2.6 : 1.5;
+            const fall = BO.Math.clamp(1 - this.deathTimer / total, 0, 1);
+            const rig = parts.glbRig;
+            if (!this.deathSide) {
+                this.deathSide = Math.random() < 0.5 ? -1 : 1;
+                // Fall away from the killing shot when we know where it came from.
+                this.deathDir = this.lastHitZone === 'head' ? -1 : (Math.random() < 0.8 ? -1 : 1);
+            }
+            const sink = Math.max(0, fall - 0.68) * 1.2;
+            if (rig) rig.update(dt, { speed: 0, dead: true, hitZone: this.lastHitZone });
+            if (rig && rig.handlesDeath) {
+                parts.root.position.y = this.pos.y - sink;
+                return;
+            }
+            // Buckle (0..0.18) then topple (0.12..0.55).
+            const buckle = BO.Math.clamp(fall / 0.18, 0, 1);
+            const topple = Math.sin(BO.Math.clamp((fall - 0.1) / 0.42, 0, 1) * Math.PI * 0.5);
+            const pitch = this.deathDir < 0 ? -Math.PI * 0.47 : Math.PI * 0.45;
+            parts.root.rotation.x = pitch * topple;
+            parts.root.rotation.z = topple * this.deathSide * 0.16;
+            parts.root.position.y = this.pos.y - buckle * 0.12 * (1 - topple) - sink;
+            if (!rig && !parts.isQuadruped) {
+                const limp = buckle;
+                if (parts.legL && parts.legR) {
+                    parts.legL.rotation.x = BO.Math.lerp(parts.legL.rotation.x, -0.55 * limp, Math.min(1, dt * 10));
+                    parts.legR.rotation.x = BO.Math.lerp(parts.legR.rotation.x, -0.2 * limp, Math.min(1, dt * 10));
+                }
+                if (parts.armL && parts.armR) {
+                    parts.armL.rotation.x = BO.Math.lerp(parts.armL.rotation.x, -0.6 + 0.4 * this.deathSide, Math.min(1, dt * 6));
+                    parts.armR.rotation.x = BO.Math.lerp(parts.armR.rotation.x, -0.6 - 0.4 * this.deathSide, Math.min(1, dt * 6));
+                    parts.armL.rotation.z = BO.Math.lerp(parts.armL.rotation.z, 0.55 * limp, Math.min(1, dt * 6));
+                    parts.armR.rotation.z = BO.Math.lerp(parts.armR.rotation.z, -0.55 * limp, Math.min(1, dt * 6));
+                }
+                if (parts.forearmL) parts.forearmL.rotation.x = BO.Math.lerp(parts.forearmL.rotation.x, -0.1, Math.min(1, dt * 6));
+                if (parts.forearmR) parts.forearmR.rotation.x = BO.Math.lerp(parts.forearmR.rotation.x, -0.1, Math.min(1, dt * 6));
+                if (parts.headGroup) parts.headGroup.rotation.x = BO.Math.lerp(parts.headGroup.rotation.x, 0.45 * this.deathDir * -1, Math.min(1, dt * 5));
+                if (parts.bodyPivot) parts.bodyPivot.rotation.z = BO.Math.lerp(parts.bodyPivot.rotation.z, 0, Math.min(1, dt * 5));
+            } else if (parts.isQuadruped) {
+                // Hounds roll onto their side.
+                parts.root.rotation.x = 0;
+                parts.root.rotation.z = this.deathSide * Math.PI * 0.48 * topple;
+                parts.root.position.y = this.pos.y - sink;
+            }
+        }
+
         update(dt, allZombies, callbacks) {
             if (this.alive && (this.powerAlly || this.powerCarried)) return true;
             // callbacks: { onMeleePlayer, onRangedAttack }
             if (!this.alive) {
                 this.deathTimer -= dt;
-                const fall = BO.Math.clamp(1 - this.deathTimer / (this.isBoss ? 2.6 : 1.5), 0, 1);
-                const easeFall = Math.sin(Math.min(1, fall * 3.4) * Math.PI * 0.5);
-                if (!this.deathSide) this.deathSide = Math.random() < 0.5 ? -1 : 1;
-                this.parts.root.rotation.x = BO.Math.lerp(0, -Math.PI * 0.48, easeFall);
-                this.parts.root.rotation.z = easeFall * this.deathSide * 0.14;
-                this.parts.root.position.y = this.pos.y - Math.max(0, fall - 0.65) * 1.2;
+                this._animateDeath(dt);
                 return this.deathTimer > 0;
             }
 
@@ -255,7 +324,8 @@
                 const hoverOffset = this.movementHabit === 'hover_drift' ? Math.sin(this.habitPhase) * 0.16 : 0;
                 this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
                 this.parts.root.rotation.y = this.yaw;
-                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, this.attackSwing, 0);
+                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, this.attackSwing, 0, 'torso', dt);
+                this._aimHeldGun();
                 return true;
             }
 
@@ -330,8 +400,15 @@
                 this.yaw += dt * 7.5;
                 this.parts.root.rotation.y = this.yaw;
                 this.parts.root.position.set(this.pos.x, this.pos.y + Math.abs(Math.sin(t)) * 0.35, this.pos.z);
-                if (this.parts.leftArmPivot) this.parts.leftArmPivot.rotation.x = -2.3 + Math.sin(t * 1.4) * 0.65;
-                if (this.parts.rightArmPivot) this.parts.rightArmPivot.rotation.x = -2.3 - Math.sin(t * 1.4) * 0.65;
+                const { armL, armR, legL, legR, bodyPivot, headGroup, glbRig } = this.parts;
+                if (glbRig) glbRig.update(dt, { speed: 0, dance: true });
+                else {
+                    if (armL) { armL.rotation.x = -2.5 + Math.sin(t * 1.4) * 0.6; armL.rotation.z = 0.3; }
+                    if (armR) { armR.rotation.x = -2.5 - Math.sin(t * 1.4) * 0.6; armR.rotation.z = -0.3; }
+                    if (legL && legR) { legL.rotation.x = Math.sin(t) * 0.35; legR.rotation.x = -Math.sin(t) * 0.35; }
+                    if (bodyPivot) bodyPivot.rotation.z = Math.sin(t * 0.7) * 0.18;
+                    if (headGroup) headGroup.rotation.z = Math.sin(t * 1.4 + 1) * 0.25;
+                }
                 if (Math.random() < 0.18) {
                     BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), 1, 0xe879f9, 2.5, 1, 0.35, 1.1);
                 }
@@ -340,6 +417,16 @@
 
             if (this.stunTimer > 0 || this.frozenTimer > 0) {
                 this.parts.root.position.copy(this.pos);
+                if (this.frozenTimer <= 0) {
+                    // Stunned: dazed sway instead of a freeze-frame.
+                    this.animPhase += dt * 1.2;
+                    if (this.parts.glbRig) this.parts.glbRig.update(dt, { speed: 0, stunned: true });
+                    else {
+                        BO.CharacterMesh.animateLimbs(this.parts, 0, this.animPhase, 0, 0, 'torso', dt);
+                        if (this.parts.bodyPivot && !this.parts.isQuadruped) this.parts.bodyPivot.rotation.z = Math.sin(performance.now() * 0.007) * 0.16;
+                        if (this.parts.headGroup) this.parts.headGroup.rotation.x = 0.35 + Math.sin(performance.now() * 0.005) * 0.12;
+                    }
+                }
                 return true;
             }
 
@@ -605,7 +692,8 @@
             this.parts.root.position.set(this.pos.x, this.pos.y + hoverOffset, this.pos.z);
             this.parts.root.rotation.y = this.yaw;
             const flinchAmt = this.flinchTimer > 0 ? BO.Math.clamp(this.flinchTimer / 0.16, 0, 1) : 0;
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso');
+            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, this.attackSwing, flinchAmt, this.lastHitZone || 'torso', dt);
+            this._aimHeldGun();
 
             return true;
         }

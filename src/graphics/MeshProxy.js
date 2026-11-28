@@ -107,14 +107,19 @@
                 proxy.add(m);
             }
             proxy.visible = false;
-            const detail = root.children.filter((c) => !c.isSprite && c.name !== 'MeshProxy');
+            const detail = root.children.filter((c) => !c.isSprite && c.name !== 'MeshProxy' && c.visible);
+            // Hitboxes treat LOD-hidden detail as present: the proxy shows the same body.
+            for (const c of detail) c.userData.lodDetail = true;
             root.add(proxy);
             return { root, proxy, detail, far: false, parts: parts.length };
         },
 
         /** Switch an LOD handle between full detail and the merged proxy. */
         set(lod, far) {
-            if (!lod || lod.far === far) return;
+            if (!lod) return;
+            // A GLB model replaced this body: the procedural detail and its proxy both stay hidden.
+            if (lod.root.userData.glbBody) { if (lod.proxy.visible) lod.proxy.visible = false; lod.far = far; return; }
+            if (lod.far === far) return;
             lod.far = far;
             lod.proxy.visible = far;
             for (const c of lod.detail) c.visible = !far;

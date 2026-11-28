@@ -86,6 +86,7 @@
                 this.parts.bodyPivot.userData.baseY = this.parts.bodyPivot.position.y;
             }
             BO.World.scene.add(this.parts.root);
+            if (BO.Hitboxes) BO.Hitboxes.prepare(this, this.parts);
         }
 
         _addSquadMark() {
@@ -108,9 +109,10 @@
 
         getHitboxMeshes() {
             if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
             const list = [];
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
             });
             return list;
         }
@@ -151,12 +153,52 @@
                 this.alive = false;
                 this.deaths++;
                 this.respawnTimer = this.respawnDelay;
-                if (BO.State.activeMode === 'mp') this._startCorpse(attacker, impulse ?? dmg);
+                if (this.parts.glbRig) this.deathT = 0;
+                else if (BO.State.activeMode === 'mp' || BO.State.activeMode === 'owrpg') this._startCorpse(attacker, impulse ?? dmg);
                 else this.parts.root.visible = false;
+                if (this.parts.gunBody && !this.parts.glbRig) this._dropWeapon();
                 BO.FX.spawnParticles(this.pos.clone().add(new THREE.Vector3(0, 1.0, 0)), 12, 0x991b1b, 4.2, 11, 0.45, 1.2);
                 return true;
             }
             return false;
+        }
+
+        /** The held weapon falls out of the hands instead of floating with a dead torso. */
+        _dropWeapon() {
+            const gun = this.parts.heldWeapon || this.parts.gunBody;
+            if (!gun || !gun.visible || !BO.World.scene) return;
+            gun.updateWorldMatrix(true, false);
+            const drop = gun.clone(true);
+            gun.matrixWorld.decompose(drop.position, drop.quaternion, drop.scale);
+            drop.traverse((o) => { o.userData.entity = null; o.userData.noHit = true; });
+            BO.World.scene.add(drop);
+            gun.visible = false;
+            const vel = new THREE.Vector3((Math.random() - 0.5) * 1.6, 1.4, (Math.random() - 0.5) * 1.6);
+            const spin = new THREE.Vector3(Math.random() * 6 - 3, Math.random() * 4 - 2, Math.random() * 6 - 3);
+            const floor = BO.World.getGroundHeight(drop.position.x, drop.position.z, drop.position.y) + 0.04;
+            let life = 0;
+            const tick = (dt) => {
+                life += dt;
+                if (drop.position.y > floor + 0.001 || vel.y > 0) {
+                    vel.y -= 14 * dt;
+                    drop.position.addScaledVector(vel, dt);
+                    drop.rotation.x += spin.x * dt; drop.rotation.y += spin.y * dt; drop.rotation.z += spin.z * dt;
+                    if (drop.position.y < floor) { drop.position.y = floor; vel.multiplyScalar(0.25); vel.y = Math.abs(vel.y) * 0.2; spin.multiplyScalar(0.3); drop.rotation.x = Math.PI / 2 * Math.sign(drop.rotation.x || 1); drop.rotation.z = 0; }
+                }
+                if (life > 6 || BO.State.screen !== 'playing') { if (drop.parent) drop.parent.remove(drop); return false; }
+                return true;
+            };
+            (BO.FX._extraUpdaters || (BO.FX._extraUpdaters = [])).push(tick);
+            this._droppedGun = drop;
+        }
+
+        /** GLB-bodied bots (Open World): play the death clip, then sink. Returns false once gone. */
+        updateGlbDeath(dt) {
+            if (!this.parts.glbRig) return false;
+            this.deathT = (this.deathT || 0) + dt;
+            this.parts.glbRig.update(dt, { speed: 0, dead: true });
+            if (this.deathT > 2.2) this.parts.root.position.y = this.pos.y - (this.deathT - 2.2) * 0.8;
+            return this.deathT < 3.4;
         }
 
         _startCorpse(attacker, force, snapshot = null) {
@@ -312,7 +354,7 @@
                 this.animPhase += dt * (moveSpd * 2.2 + 1.0);
                 this.parts.root.position.copy(this.pos);
                 this.parts.root.rotation.y = this.yaw;
-                BO.CharacterMesh.animateLimbs(this.parts, moveSpd, this.animPhase, 0, 0);
+                BO.CharacterMesh.animateSoldier(this.parts, { speed: moveSpd, phase: this.animPhase, aim: this.netAiming ? 1 : 0.2 }, dt);
                 return;
             }
 
@@ -363,6 +405,7 @@
                 const dist = Math.hypot(dx, dz);
                 const targetYaw = Math.atan2(dx, dz);
                 this.yaw += BO.Math.angleDiff(this.yaw, targetYaw) * Math.min(1, dt * 11);
+                this._aimPitch = Math.atan2((this.pos.y + 1.45) - (target.y != null ? target.y : this.pos.y + 1.3), Math.max(0.5, dist));
 
                 // Tactical strafe while engaging
                 this.strafeTimer -= dt;
@@ -448,18 +491,15 @@
             pose.aim += ((this.cachedTarget ? 1 : 0) - pose.aim) * Math.min(1, 9 * dt);
             pose.recoil = Math.max(0, pose.recoil - dt * 7);
             pose.flinch = Math.max(0, pose.flinch - dt * 5);
-            BO.CharacterMesh.animateLimbs(this.parts, moveSpeed, this.animPhase, pose.recoil * 0.34, pose.flinch * 0.48, pose.hitZone || 'torso');
-            if (BO.State.activeMode === 'mp') {
-                const { bodyPivot, armL, armR, headGroup } = this.parts;
-                const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;
-                bodyPivot.rotation.z += (this.cachedTarget ? this.strafeDir : 0) * pose.aim * 0.085;
-                bodyPivot.position.y -= reloadPose * 0.035;
-                bodyPivot.rotation.x += Math.min(0.12, moveSpeed * 0.019) - pose.aim * 0.03;
-                headGroup.rotation.y = Math.sin(this.animPhase * 0.45) * (1 - pose.aim) * 0.14;
-                armL.rotation.x += pose.aim * -0.14 + reloadPose * 0.46;
-                armR.rotation.x += pose.aim * -0.21 + reloadPose * 0.4 - pose.recoil * 0.17;
-                armR.rotation.z = reloadPose * 0.34;
-            }
+            const reloadPose = this.reloadTimer > 0 ? Math.sin(Math.min(1, this.reloadTimer / 1.6) * Math.PI) : 0;
+            const melee = this.weaponId && BO.WeaponsData.get(this.weaponId)?.kind === 'melee';
+            BO.CharacterMesh.animateSoldier(this.parts, {
+                speed: moveSpeed, phase: this.animPhase,
+                aim: pose.aim, recoil: melee ? 0 : pose.recoil, melee: melee ? pose.recoil : 0,
+                flinch: pose.flinch, hitZone: pose.hitZone || 'torso',
+                reload: reloadPose, pitch: this.cachedTarget ? (this._aimPitch || 0) : 0,
+                sprint: !this.cachedTarget && moveSpeed > 4.2
+            }, dt);
         }
 
         isHostile(other, modeType) {

@@ -909,11 +909,11 @@
                 if (parts.bodyPivot) parts.bodyPivot.userData.baseY = parts.bodyPivot.position.y;
                 parts.root.position.set(st.x || 0, st.y || 0, st.z || 0);
                 BO.World.scene.add(parts.root);
+                remoteEnt.parts = parts;
 
-                const hitboxes = [];
-                parts.root.traverse((obj) => {
-                    if (obj.isMesh && obj.userData.entity === remoteEnt) hitboxes.push(obj);
-                });
+                // Every visible body part (helmet, hands, boots…) is a hit surface; see Hitboxes.js.
+                const hitboxes = BO.Hitboxes ? BO.Hitboxes.prepare(remoteEnt, parts).slice() : [];
+                if (!BO.Hitboxes) parts.root.traverse((obj) => { if (obj.isMesh && obj.userData.entity === remoteEnt) hitboxes.push(obj); });
 
                 this._ensureNameplateLayer();
                 const plateEl = document.createElement('div');
@@ -947,18 +947,26 @@
             if (av.lastWeaponKey === key) return;
             av.lastWeaponKey = key;
 
-            if (av.weaponRoot && av.parts.armR) {
-                av.parts.armR.remove(av.weaponRoot);
+            if (av.weaponRoot && av.weaponRoot.parent) {
+                av.weaponRoot.parent.remove(av.weaponRoot);
                 av.weaponRoot = null;
+                av.parts.heldWeapon = null;
             }
             try {
                 const built = BO.WeaponMesh.buildWeapon(wId, {}, camo, isPaP, false, false);
                 built.root.scale.setScalar(0.85);
-                built.root.position.set(-0.08, -0.35, 0.24);
-                built.root.rotation.set(0.95, Math.PI, 0);
-                av.parts.armR.add(built.root);
+                const spec = BO.WeaponsData.get(wId);
+                const cat = spec && spec.category;
+                built.root.userData.isWeapon = true;
+                built.root.userData.hold = spec && spec.kind === 'melee' ? 'melee' : (cat === 'Pistol' ? 'pistol' : (cat === 'LMG' || cat === 'Launcher' ? 'heavy' : 'rifle'));
+                built.root.traverse((o) => { o.userData.noHit = true; });
+                // Held on the torso; the soldier rig's IK puts both hands on it.
+                av.parts.bodyPivot.add(built.root);
+                av.parts.heldWeapon = built.root;
                 av.weaponRoot = built.root;
-            } catch (e) {}
+            } catch (e) {
+                BO.log?.('NetworkManager', 'debug', 'remote weapon build failed', e);
+            }
         }
 
         sendPlayerFx(fx) {
@@ -972,6 +980,8 @@
         _playRemoteFx(fx, senderId) {
             if (!fx || !BO.World.scene || BO.State.screen !== 'playing') return;
             if (fx.kind === 'shot') {
+                const kickAv = this.remoteAvatars.get(senderId);
+                if (kickAv) kickAv.shotKick = 1;
                 const st = this.remoteStates.get(senderId);
                 if (st) BO.Sound.playGunshot(fx.soundProfile || 'ar_light', !!fx.suppressed, !!fx.isPaP,
                     { x: st.x, y: st.y + 1.35, z: st.z });
@@ -998,7 +1008,8 @@
                 const st = this.remoteStates.get(pid);
                 if (!st || !st.alive) continue;
                 const hostile = isFFA || (st.team !== undefined && st.team !== this.myTeam);
-                if (hostile && av.hitboxes) {
+                if (hostile && BO.Hitboxes && av.entity.parts) BO.Hitboxes.collect(av.entity, out);
+                else if (hostile && av.hitboxes) {
                     for (let i = 0; i < av.hitboxes.length; i++) {
                         out.push(av.hitboxes[i]);
                     }
@@ -1115,6 +1126,9 @@
                         alive: P.alive,
                         inLastStand: P.inLastStand,
                         crouching: P.crouching || P.sliding,
+                        ads: Number((P.adsAlpha || 0).toFixed(2)),
+                        reloading: !!P.reloading,
+                        sprinting: !!(P.sprinting || P.tacSprinting),
                         weaponId: aw ? aw.cfg.id : 'm4a1',
                         camo: aw ? (aw.cfg.camo || 'default') : 'default',
                         isPaP: !!(aw && aw.isPaP),
@@ -1183,14 +1197,17 @@
                 av.parts.root.position.copy(av.pos);
                 av.parts.root.rotation.y = av.yaw;
 
-                if (av.parts.bodyPivot) {
-                    const baseY = av.parts.bodyPivot.userData.baseY || 0.82;
-                    av.parts.bodyPivot.position.y = isDowned ? 0.32 : (st.crouching ? baseY - 0.32 : baseY);
-                }
-
                 const spd = Math.hypot(st.vx || 0, st.vz || 0);
                 av.animPhase += dt * (spd * 2.3 + 1.0);
-                BO.CharacterMesh.animateLimbs(av.parts, isDowned ? 0 : spd, av.animPhase, 0, 0);
+                av.shotKick = Math.max(0, (av.shotKick || 0) - dt * 8);
+                av.aimHold = Math.max(av.shotKick > 0 ? 1 : 0, (av.aimHold || 0) - dt * 0.8);
+                BO.CharacterMesh.animateSoldier(av.parts, {
+                    speed: isDowned ? 0 : spd, phase: av.animPhase,
+                    aim: Math.max(st.ads || 0, av.aimHold > 0 ? 1 : 0, st.sprinting ? 0 : 0.15),
+                    recoil: av.shotKick, reload: st.reloading ? 0.8 : 0,
+                    crouch: st.crouching ? 1 : 0, downed: !!isDowned, sprint: !!st.sprinting,
+                    pitch: -(st.pitch || 0)
+                }, dt);
 
                 // Project 3D head position to 2D screen coordinates for floating squad nameplate
                 if (av.plateEl && worldCamera) {
