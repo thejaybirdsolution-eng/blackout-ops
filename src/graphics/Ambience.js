@@ -49,6 +49,7 @@
         }
         const m = new THREE.Mesh(shadowGeo, shadowMat);
         m.name = 'bo-contact-shadow';
+        m.userData.noHit = true;
         m.scale.set(radiusX * 2, 1, radiusZ * 2);
         m.position.y = 0.025;
         m.renderOrder = 2;

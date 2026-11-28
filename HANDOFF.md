@@ -6,6 +6,14 @@
 - **ADRs:** `DECISIONS.md` (`ADR-001` through `ADR-023`).
 - **Merged `origin/master` Flagship-2 Systems:** `MeshProxy.js`, `OWRPGDiscoveryData.js`, `OWRPGCartography.js`, `OWRPGChampions.js`, `OWRPGDiscoveries.js`, `MinigameFeel.js`, `MinigameDaily.js`, and 259 committed `staged_assets/` files.
 
+## Enemy Rigs, Hitboxes & Graphics Pass (Nov 28, 2026)
+- `src/graphics/Hitboxes.js` — hit surfaces = visible body (ADR-024). Entities call `BO.Hitboxes.prepare(ent, parts)` once and `collect(ent, out)` per frame; GLB bodies call `fromModel`. Mark anything that must never take hits with `userData.noHit` (or `isWeapon` on a weapon root).
+- `src/graphics/EnemyRig.js` — GLB animation drivers (ADR-025). Zombie archetype overlays mount through `EnemyRig.mountZombieOverlay`; Open World GLB enemies through `EnemyRig.mount`. `rig.attachWeapon(id)` puts a gun in a GLB hand.
+- `src/graphics/SoldierModel.js` — jointed soldier (elbow/knee/ankle pivots), weapon on the torso, two-bone IK hands, `SoldierModel.animate(parts, state, dt)` (aim, recoil, reload, crouch, downed, sprint, pitch). `CharacterMesh.animateSoldier` is the entry point; `animateLimbs` forwards soldiers automatically.
+- `src/graphics/SunShadow.js` + `CoreStability.applySceneQualityBudgets` — stable sun shadows and the reversible caster budget (ADR-026).
+- `AssetLoader._cloneGLBScene` now copies `animations` onto clones (r149's `clone()` drops them), which is what lets clip-driven models animate at all.
+- QA: `_qa_hitboxes.html` (44 checks: silhouette ray audit per enemy family in MP, Zombies, Rogue Lite, TD, Open World and online avatars, plus animation checks).
+
 ## 1.0 Feature Modules Added
 - `src/data/OWRPGAct2Data.js` & `src/owrpg/OWRPGCompanions.js`: Multi-path Act II–VI questlines across Rust Sprawl, Mire Delta, Ash Quarry, Alpine Array, Meridian Core, and Dragonwilds; 3 Companions (`soren`, `kael`, `torque`) with passive auras & Soldier mesh AI; NPC dawn/day/night schedule labels; territory shifts; New Game+.
 - `src/systems/ZoneFinale.js`: Emits `game:survivalEnding` + `survival:ending` into Profile & Operation Blackout progression.

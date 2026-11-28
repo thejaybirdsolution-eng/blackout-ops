@@ -36,6 +36,7 @@
         }
 
         clear() {
+            if (this._extraUpdaters) this._extraUpdaters.length = 0;
             if (this.scene) {
                 for (let i = 0; i < this.particles.length; i++) {
                     const p = this.particles[i];
@@ -211,6 +212,15 @@
         }
 
         update(dt) {
+            // Short-lived scripted props (dropped weapons, debris) register a tick that returns false when done.
+            const extra = this._extraUpdaters;
+            if (extra && extra.length) {
+                for (let i = extra.length - 1; i >= 0; i--) {
+                    let keep = false;
+                    try { keep = extra[i](dt); } catch (e) { keep = false; }
+                    if (!keep) extra.splice(i, 1);
+                }
+            }
             for (let i = this.particles.length - 1; i >= 0; i--) {
                 const p = this.particles[i];
                 p.life -= dt;

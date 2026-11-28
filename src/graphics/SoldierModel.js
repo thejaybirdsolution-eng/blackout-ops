@@ -355,19 +355,24 @@
         // ------------------------------------------------------------ arms
         _buildArm(side, M, entity) {
             const g = this._g.bind(this);
+            // Shoulder pivot › upper arm, elbow pad; elbow pivot › forearm, cuff, glove.
             const arm = new THREE.Group();
             const upper = this._tag(new THREE.Mesh(g('uarm', () => capsule(0.058, 0.2, 5, 12)), M.fatigue), entity, 'limb');
             upper.position.y = -0.13;
             const pocket = this._mesh(g('slvpocket', () => new THREE.BoxGeometry(0.03, 0.08, 0.07)), M.fatigue, side * 0.055, -0.1, 0.0);
             const flag = this._mesh(g('slvflag', () => new THREE.BoxGeometry(0.006, 0.035, 0.05)), M.carrier, side * 0.072, -0.09, 0.0);
             const elbow = this._mesh(g('elbowpad', () => new THREE.SphereGeometry(0.055, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.27, -0.02, -Math.PI / 2 - 0.3);
-            const fore = this._tag(new THREE.Mesh(g('farm', () => capsule(0.05, 0.18, 5, 12)), M.fatigue), entity, 'limb');
-            fore.position.set(0, -0.37, 0.02);
-            fore.rotation.x = 0.12;
-            const cuff = this._mesh(g('cuff', () => new THREE.CylinderGeometry(0.052, 0.054, 0.04, 14)), M.glove, 0, -0.47, 0.035);
-            const hand = this._mesh(g('hand', () => new THREE.BoxGeometry(0.075, 0.1, 0.05)), M.glove, 0, -0.53, 0.04);
-            const knuckle = this._mesh(g('knuckle', () => new THREE.BoxGeometry(0.07, 0.025, 0.02)), M.polymer, 0, -0.55, 0.068);
-            arm.add(upper, pocket, flag, elbow, fore, cuff, hand, knuckle);
+            const fore = new THREE.Group();
+            fore.name = 'forearm';
+            fore.position.y = -0.27;
+            const foreMesh = this._tag(new THREE.Mesh(g('farm', () => capsule(0.05, 0.18, 5, 12)), M.fatigue), entity, 'limb');
+            foreMesh.position.set(0, -0.10, 0.0);
+            const cuff = this._mesh(g('cuff', () => new THREE.CylinderGeometry(0.052, 0.054, 0.04, 14)), M.glove, 0, -0.20, 0.005);
+            const hand = this._mesh(g('hand', () => new THREE.BoxGeometry(0.075, 0.1, 0.05)), M.glove, 0, -0.26, 0.008);
+            const knuckle = this._mesh(g('knuckle', () => new THREE.BoxGeometry(0.07, 0.025, 0.02)), M.polymer, 0, -0.28, 0.036);
+            fore.add(foreMesh, cuff, hand, knuckle);
+            arm.add(upper, pocket, flag, elbow, fore);
+            arm.userData.fore = fore;
             return arm;
         }
 
@@ -415,28 +420,37 @@
         // ------------------------------------------------------------ legs
         _buildLeg(side, M, entity) {
             const g = this._g.bind(this);
+            // Hip pivot › thigh; knee pivot (-0.37) › shin; ankle pivot (-0.32 below knee) › boot.
             const leg = new THREE.Group();
             const thigh = this._tag(new THREE.Mesh(g('thigh', () => capsule(0.078, 0.24, 5, 12)), M.fatigue), entity, 'limb');
             thigh.position.y = -0.18;
             const cargo = this._mesh(g('cargo', () => new THREE.BoxGeometry(0.03, 0.12, 0.1)), M.fatigue, side * 0.08, -0.2, 0.0);
             const cargoFlap = this._mesh(g('cargoflap', () => new THREE.BoxGeometry(0.034, 0.03, 0.104)), M.fatigue, side * 0.082, -0.145, 0.0);
-            const knee = this._mesh(g('kneepad', () => new THREE.SphereGeometry(0.068, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.37, 0.04, Math.PI / 2 - 0.15);
+            const shinG = new THREE.Group();
+            shinG.name = 'shin';
+            shinG.position.y = -0.37;
+            const knee = this._mesh(g('kneepad', () => new THREE.SphereGeometry(0.068, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, 0, 0.04, Math.PI / 2 - 0.15);
             knee.scale.set(1, 1.15, 0.7);
-            const kneeStrap = this._mesh(g('kneestrap', () => lathe([[0.072, 0.0], [0.072, 0.018]], 16, 1.0)), M.rubber, 0, -0.39, 0.0);
+            const kneeStrap = this._mesh(g('kneestrap', () => lathe([[0.072, 0.0], [0.072, 0.018]], 16, 1.0)), M.rubber, 0, -0.02, 0.0);
             const shin = this._tag(new THREE.Mesh(g('shin', () => capsule(0.062, 0.24, 5, 12)), M.fatigue), entity, 'limb');
-            shin.position.set(0, -0.54, -0.005);
+            shin.position.set(0, -0.17, -0.005);
+            const footG = new THREE.Group();
+            footG.name = 'ankle';
+            footG.position.y = -0.32;
             // Boot: lugged sole, upper, toe cap, laces.
-            const upper = this._mesh(g('bootup', () => new THREE.CylinderGeometry(0.066, 0.07, 0.12, 14)), M.polymer, 0, -0.69, 0.0);
-            const foot = this._mesh(g('bootfoot', () => new THREE.BoxGeometry(0.11, 0.075, 0.23)), M.polymer, 0, -0.735, 0.045);
-            const toe = this._mesh(g('boottoe', () => new THREE.SphereGeometry(0.056, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.75, 0.15, Math.PI / 2);
+            const upper = this._mesh(g('bootup', () => new THREE.CylinderGeometry(0.066, 0.07, 0.12, 14)), M.polymer, 0, 0, 0.0);
+            const foot = this._mesh(g('bootfoot', () => new THREE.BoxGeometry(0.11, 0.075, 0.23)), M.polymer, 0, -0.045, 0.045);
+            const toe = this._mesh(g('boottoe', () => new THREE.SphereGeometry(0.056, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), M.polymer, 0, -0.06, 0.15, Math.PI / 2);
             toe.scale.set(1, 0.85, 0.7);
-            const sole = this._mesh(g('sole', () => new THREE.BoxGeometry(0.118, 0.024, 0.25)), M.rubber, 0, -0.774, 0.05);
+            const sole = this._mesh(g('sole', () => new THREE.BoxGeometry(0.118, 0.024, 0.25)), M.rubber, 0, -0.084, 0.05);
             for (let i = 0; i < 4; i++) {
-                const lug = this._mesh(g('lug', () => new THREE.BoxGeometry(0.11, 0.01, 0.018)), M.rubber, 0, -0.79, -0.04 + i * 0.06);
-                leg.add(lug);
+                const lug = this._mesh(g('lug', () => new THREE.BoxGeometry(0.11, 0.01, 0.018)), M.rubber, 0, -0.10, -0.04 + i * 0.06);
+                footG.add(lug);
             }
-            const laces = this._mesh(g('laces', () => new THREE.BoxGeometry(0.04, 0.012, 0.11)), M.webbing, 0, -0.695, 0.09, -0.35);
-            leg.add(thigh, cargo, cargoFlap, knee, kneeStrap, shin, upper, foot, toe, sole, laces);
+            const laces = this._mesh(g('laces', () => new THREE.BoxGeometry(0.04, 0.012, 0.11)), M.webbing, 0, -0.005, 0.09, -0.35);
+            footG.add(upper, foot, toe, sole, laces);
+            shinG.add(knee, kneeStrap, shin, footG);
+            leg.add(thigh, cargo, cargoFlap, shinG);
             if (side > 0) {
                 // Drop-leg holster on the strong side.
                 const holster = this._mesh(g('holster', () => new THREE.BoxGeometry(0.04, 0.16, 0.08)), M.polymer, 0.1, -0.18, 0.01, 0, 0, 0.06);
@@ -444,6 +458,8 @@
                 const legStrap = this._mesh(g('legstrap', () => lathe([[0.084, 0.0], [0.084, 0.02]], 16, 1.0)), M.webbing, 0, -0.22, 0.0);
                 leg.add(holster, pistol, legStrap);
             }
+            leg.userData.shin = shinG;
+            leg.userData.foot = footG;
             return leg;
         }
 
@@ -486,9 +502,11 @@
                 const grip = this._mesh(this._g('blade_grip', () => new THREE.BoxGeometry(0.042, 0.049, 0.12)), M.polymer, 0, 0, 0.058);
                 gunBody.add(blade, grip);
             }
-            gunBody.position.set(-0.08, -0.4, 0.2);
-            gunBody.rotation.x = 0.95;
-            armR.add(gunBody);
+            // The weapon rides on the torso and the arms reach for it (two-bone IK), so the grip,
+            // foregrip and stock stay planted whatever the pose.
+            gunBody.userData.isWeapon = true;
+            gunBody.userData.hold = weapon?.kind === 'melee' ? 'melee' : (category === 'Pistol' ? 'pistol' : (category === 'LMG' || category === 'Launcher' ? 'heavy' : 'rifle'));
+            bodyPivot.add(gunBody);
             bodyPivot.add(armL, armR);
 
             const legL = this._buildLeg(-1, M, entity);
@@ -497,8 +515,221 @@
             legR.position.set(0.1, 0.78, 0);
             root.add(legL, legR);
 
-            return { root, bodyPivot, headGroup, armL, armR, legL, legR, gunBody, haloGroup: null };
+            const parts = {
+                root, bodyPivot, headGroup, armL, armR, legL, legR, gunBody, haloGroup: null,
+                forearmL: armL.userData.fore, forearmR: armR.userData.fore,
+                shinL: legL.userData.shin, shinR: legR.userData.shin,
+                footL: legL.userData.foot, footR: legR.userData.foot,
+                isSoldier: true
+            };
+            this.animate(parts, { speed: 0, phase: Math.random() * 6 }, 1);
+            return parts;
         }
+
+        /* ================================================================ ANIMATION
+           State: { speed, phase, aim 0..1, recoil 0..1, flinch 0..1, hitZone, reload 0..1,
+                    crouch 0..1, downed, sprint, melee 0..1, pitch (rad, + = down), look (rad) }
+           Legs: hip/knee/ankle with the stance leg setting hip height (natural bob, real crouch).
+           Arms: two-bone IK onto the weapon's grip and foregrip; relaxed swing when unarmed. */
+        animate(parts, st, dt) {
+            const A = parts.anim || (parts.anim = { a: 0, run: 0, crouch: 0, aim: 0, sprint: 0, recoil: 0, flinch: 0, reload: 0, melee: 0, downed: 0, t: Math.random() * 9, lastT: performance.now() });
+            const nowT = performance.now();
+            if (dt == null) dt = Math.min(0.1, (nowT - A.lastT) / 1000);
+            A.lastT = nowT;
+            dt = Math.min(0.1, Math.max(0, dt));
+            const k = (rate) => Math.min(1, rate * dt);
+            const speed = st.speed || 0;
+            A.t += dt;
+            A.a += (clamp01(speed / 2.6) - A.a) * k(9);
+            A.run += (clamp01((speed - 3.6) / 2.2) - A.run) * k(7);
+            A.crouch += ((st.crouch || 0) - A.crouch) * k(10);
+            A.downed += ((st.downed ? 1 : 0) - A.downed) * k(6);
+            A.aim += ((st.aim || 0) - A.aim) * k(10);
+            A.sprint += ((st.sprint || (A.run > 0.6 && (st.aim || 0) < 0.3) ? 1 : 0) - A.sprint) * k(8);
+            A.recoil = Math.max(st.recoil || 0, A.recoil - dt * 9);
+            A.flinch = Math.max(st.flinch || 0, A.flinch - dt * 6);
+            A.reload += ((st.reload || 0) - A.reload) * k(14);
+            A.melee = st.melee || 0;
+            const phase = st.phase || 0;
+            const a = A.a * (1 - A.downed), run = A.run * (1 - A.downed);
+            const crouch = Math.max(A.crouch, A.downed);
+            const aim = A.aim * (1 - A.sprint * 0.85);
+
+            // ---------------------------------------------------------------- legs
+            const LT = 0.37, LS = 0.32, LF = 0.10;
+            let hip = 0;
+            const legPose = (leg, shin, foot, ph) => {
+                const sp = Math.sin(ph), cp = Math.cos(ph);
+                const thigh = sp * (0.42 + 0.3 * run) * a * (1 - crouch * 0.5) + crouch * 1.0 + A.downed * 0.35;
+                const knee = a * (0.1 + (0.62 + 0.55 * run) * Math.max(0, cp)) * (1 - crouch * 0.4) + crouch * 1.72 + A.downed * 0.25;
+                leg.rotation.set(-thigh, 0, 0);
+                shin.rotation.set(knee, 0, 0);
+                foot.rotation.set(thigh - knee + Math.max(0, -sp) * 0.25 * a, 0, 0);
+                hip = Math.max(hip, LT * Math.cos(thigh) + LS * Math.cos(thigh - knee) + LF);
+            };
+            if (parts.shinL && parts.footL) {
+                legPose(parts.legL, parts.shinL, parts.footL, phase);
+                legPose(parts.legR, parts.shinR, parts.footR, phase + Math.PI);
+            }
+            const drop = Math.max(0, (LT + LS + LF) - hip) + A.downed * 0.08;
+            parts.legL.position.y = 0.78 - drop;
+            parts.legR.position.y = 0.78 - drop;
+            parts.legL.rotation.z = -0.04 * crouch;
+            parts.legR.rotation.z = 0.04 * crouch;
+
+            // ---------------------------------------------------------------- torso & head
+            const held = parts.heldWeapon && parts.heldWeapon.parent ? parts.heldWeapon : parts.gunBody;
+            const hold = held && held.visible !== false ? (held.userData.hold || 'rifle') : 'none';
+            const bladed = (hold === 'rifle' || hold === 'heavy') ? 0.12 + 0.18 * aim : 0;
+            const BP = parts.bodyPivot;
+            BP.position.y = (BP.userData.baseY || 0.84) - drop + Math.sin(A.t * 1.6) * 0.004;
+            BP.rotation.x = 0.04 * a + 0.2 * A.sprint * a + 0.22 * crouch - A.flinch * (st.hitZone === 'head' ? 0.12 : 0.24) - A.recoil * 0.03 + A.reload * 0.06;
+            BP.rotation.y = bladed - Math.sin(phase) * 0.07 * a + (st.hitZone === 'limb' ? A.flinch * 0.16 : 0);
+            BP.rotation.z = Math.sin(phase) * 0.03 * a + (st.hitZone === 'limb' ? A.flinch * 0.12 : 0);
+            const pitch = clamp(st.pitch || 0, -0.7, 0.7);
+            if (parts.headGroup) {
+                const hg = parts.headGroup;
+                const idleLook = (1 - a) * (1 - aim) * Math.sin(A.t * 0.37) * 0.3;
+                hg.rotation.set(
+                    -BP.rotation.x * 0.8 + pitch * 0.7 - A.flinch * (st.hitZone === 'head' ? 0.5 : 0.22) + A.reload * 0.3,
+                    -BP.rotation.y + (st.look || 0) + idleLook,
+                    -BP.rotation.z * 0.6
+                );
+            }
+
+            // ---------------------------------------------------------------- weapon + arms
+            if (hold === 'none') {
+                // Unarmed: arms hang and swing against the legs.
+                const sw = Math.sin(phase) * (0.35 + 0.4 * run) * a;
+                parts.armL.rotation.set(sw + A.flinch * 0.3, 0, -0.1);
+                parts.armR.rotation.set(-sw + A.flinch * 0.3, 0, 0.1);
+                if (parts.forearmL) parts.forearmL.rotation.set(-0.25 - 0.9 * run, 0, 0);
+                if (parts.forearmR) parts.forearmR.rotation.set(-0.25 - 0.9 * run, 0, 0);
+                return;
+            }
+            const gun = held;
+            const anc = gripAnchors(gun);
+            // Pose the weapon in torso space.
+            const bob = Math.sin(phase * 2) * 0.012 * a;
+            let bx, by, bz, gp, gy, gr;
+            if (hold === 'pistol') {
+                // Grip-anchored: two-handed extension when aiming, tucked low-ready otherwise.
+                bx = lerp(0.07, 0.02, aim); by = lerp(0.26, 0.47, aim) + bob; bz = lerp(0.24, 0.44, aim);
+                gp = lerp(0.85, 0, aim); gy = -bladed; gr = 0;
+            } else if (hold === 'melee') {
+                bx = 0.16; by = 0.3 + bob; bz = 0.28; gp = -0.5 + A.melee * 2.0; gy = 0.2; gr = 0;
+            } else {
+                const heavy = hold === 'heavy';
+                // Butt position: aim = shouldered; low ready = muzzle down and across the body;
+                // sprint = port arms, muzzle up toward the support shoulder.
+                bx = lerp(heavy ? 0.15 : 0.1, 0.12, aim); by = lerp(heavy ? 0.33 : 0.42, heavy ? 0.36 : 0.5, aim) + bob; bz = lerp(0.06, 0.03, aim);
+                gp = lerp(heavy ? 0.15 : 0.45, 0, aim); gy = lerp(heavy ? -0.1 : -0.35, 0, aim) - bladed; gr = 0;
+                bx = lerp(bx, 0.15, A.sprint); by = lerp(by, 0.3, A.sprint); bz = lerp(bz, 0.12, A.sprint);
+                gp = lerp(gp, -0.6, A.sprint); gy = lerp(gy, -0.85 - bladed, A.sprint);
+            }
+            gp += pitch * aim;
+            // Recoil kicks the butt back and the muzzle up; reload rolls the gun and dips it.
+            bz -= A.recoil * 0.045; gp -= A.recoil * 0.12;
+            gr += A.reload * 0.75; gp += A.reload * 0.35; by -= A.reload * 0.06;
+            gp -= A.flinch * 0.25;
+            _q1.setFromAxisAngle(_Y, gy).multiply(_q2.setFromAxisAngle(_X, gp)).multiply(_q2.setFromAxisAngle(_Y, Math.PI)).multiply(_q2.setFromAxisAngle(_Z, gr));
+            if (aim > 0.01 && hold !== 'melee') {
+                // When aiming the barrel is laid in body space (feet frame), so torso lean, bob and twist never tip it off target.
+                _q3.setFromAxisAngle(_X, gp).multiply(_q2.setFromAxisAngle(_Y, Math.PI)).multiply(_q2.setFromAxisAngle(_Z, gr));
+                _q2.setFromEuler(BP.rotation).invert();
+                _q3.premultiply(_q2);
+                _q1.slerp(_q3, clamp01(aim * 1.4));
+            }
+            gun.quaternion.copy(_q1);
+            if (hold === 'pistol' || hold === 'melee') {
+                _v1.copy(anc.grip).multiply(gun.scale).applyQuaternion(_q1);
+                gun.position.set(bx, by, bz).sub(_v1);
+            } else {
+                _v1.copy(anc.butt).multiply(gun.scale).applyQuaternion(_q1);
+                gun.position.set(bx, by, bz).sub(_v1);
+            }
+            // Hand targets in torso space.
+            const tR = _v2.copy(anc.grip).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            let tL;
+            if (hold === 'pistol') tL = _v3.copy(anc.grip).add(_v4.set(-0.035, -0.02, 0.01)).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            else if (hold === 'melee') tL = null;
+            else tL = _v3.copy(anc.fore).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+            // Reload: support hand goes to the magazine, then down to the belt and back.
+            if (tL && A.reload > 0.02) {
+                const r = A.reload;
+                _v5.copy(anc.mag).multiply(gun.scale).applyQuaternion(_q1).add(gun.position);
+                const belt = _v4.set(-0.12, 0.08, 0.12);
+                const cyc = Math.sin(A.t * 5.5) * 0.5 + 0.5;
+                _v5.lerp(belt, cyc * 0.6);
+                tL.lerp(_v5, Math.min(1, r * 1.4));
+            }
+            ikArm(parts.armR, parts.forearmR, tR, 1);
+            if (tL) ikArm(parts.armL, parts.forearmL, tL, -1);
+            else {
+                const sw = Math.sin(phase) * 0.4 * a;
+                parts.armL.rotation.set(sw - 0.2, 0, -0.18);
+                if (parts.forearmL) parts.forearmL.rotation.set(-0.7, 0, 0);
+            }
+        }
+    }
+
+    const _X = new THREE.Vector3(1, 0, 0), _Y = new THREE.Vector3(0, 1, 0), _Z = new THREE.Vector3(0, 0, 1);
+    const _DOWN = new THREE.Vector3(0, -1, 0);
+    const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+    const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3();
+    const _d = new THREE.Vector3(), _pole = new THREE.Vector3(), _e = new THREE.Vector3(), _u = new THREE.Vector3(), _f = new THREE.Vector3();
+    const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+    const clamp01 = (v) => clamp(v, 0, 1);
+    const lerp = (x, y, t) => x + (y - x) * t;
+
+    /** Grip / foregrip / magazine / butt points of a held weapon in its own space, measured once from its bounds. */
+    function gripAnchors(gun) {
+        if (gun.userData.anchors) return gun.userData.anchors;
+        const sq = gun.quaternion.clone(), sp = gun.position.clone(), ss = gun.scale.clone(), par = gun.parent;
+        if (par) par.remove(gun);
+        gun.position.set(0, 0, 0); gun.quaternion.identity(); gun.scale.set(1, 1, 1);
+        gun.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(gun);
+        gun.position.copy(sp); gun.quaternion.copy(sq); gun.scale.copy(ss);
+        if (par) par.add(gun);
+        if (box.isEmpty()) box.set(new THREE.Vector3(-0.03, -0.1, -0.5), new THREE.Vector3(0.03, 0.06, 0.31));
+        const L = box.max.z - box.min.z, cx = (box.min.x + box.max.x) / 2;
+        const top = box.max.y, bot = box.min.y;
+        const midY = lerp(bot, top, 0.62);
+        const hold = gun.userData.hold || 'rifle';
+        const anchors = hold === 'pistol' || L < 0.32
+            ? { butt: new THREE.Vector3(cx, midY, box.max.z), grip: new THREE.Vector3(cx, lerp(bot, top, 0.3), box.max.z - L * 0.22), fore: new THREE.Vector3(cx, lerp(bot, top, 0.3), box.max.z - L * 0.22), mag: new THREE.Vector3(cx, bot, box.max.z - L * 0.25) }
+            : hold === 'melee'
+                ? { butt: new THREE.Vector3(cx, 0, box.max.z), grip: new THREE.Vector3(cx, 0, box.max.z - L * 0.22), fore: new THREE.Vector3(cx, 0, box.max.z - L * 0.22), mag: new THREE.Vector3(cx, 0, box.max.z - L * 0.22) }
+                : { butt: new THREE.Vector3(cx, midY, box.max.z), grip: new THREE.Vector3(cx, lerp(bot, top, 0.45), box.max.z - L * 0.29), fore: new THREE.Vector3(cx, lerp(bot, top, 0.72), box.max.z - L * 0.56), mag: new THREE.Vector3(cx, lerp(bot, top, 0.35), box.max.z - L * 0.42) };
+        gun.userData.anchors = anchors;
+        return anchors;
+    }
+
+    /** Two-bone IK in the torso frame: shoulder (arm.position) → elbow (0.27) → palm (0.265). */
+    function ikArm(arm, fore, target, side) {
+        if (!arm || !fore) return;
+        const LU = 0.27, LFo = 0.265;
+        const S = arm.position;
+        _d.copy(target).sub(S);
+        let D = _d.length();
+        if (D < 1e-4) return;
+        _d.divideScalar(D);
+        D = clamp(D, 0.1, LU + LFo - 0.003);
+        // Elbows point down, out and slightly back.
+        _pole.set(side * 0.65, -0.9, -0.35);
+        _pole.addScaledVector(_d, -_pole.dot(_d));
+        if (_pole.lengthSq() < 1e-6) _pole.set(0, -1, 0);
+        _pole.normalize();
+        const cosA = clamp((LU * LU + D * D - LFo * LFo) / (2 * LU * D), -1, 1);
+        const sinA = Math.sqrt(1 - cosA * cosA);
+        _u.copy(_d).multiplyScalar(cosA).addScaledVector(_pole, sinA); // upper-arm direction
+        arm.quaternion.setFromUnitVectors(_DOWN, _u);
+        _e.copy(S).addScaledVector(_u, LU);
+        _f.copy(S).addScaledVector(_d, D).sub(_e).normalize();
+        _q3.copy(arm.quaternion).invert();
+        _f.applyQuaternion(_q3);
+        fore.quaternion.setFromUnitVectors(_DOWN, _f);
     }
 
     const model = new SoldierModel();

@@ -91,8 +91,22 @@ uniform float uSSSStrength;`)
     }
 
     let t = 0;
+    const skinClones = new Map();
     BO.CharacterShading = {
         init: hook,
+        /** Organic GLB bodies (Imp, Puglin) share the procedural zombies' translucent skin rim. */
+        applySkinToModel(model, bodyPattern = /body/i) {
+            model.traverse((o) => {
+                if (!o.isMesh || !bodyPattern.test(o.name || '') || !o.material || !o.material.isMeshStandardMaterial) return;
+                let m = skinClones.get(o.material.uuid);
+                if (!m) {
+                    m = o.material.clone();
+                    applySkinShader(m);
+                    skinClones.set(o.material.uuid, m);
+                }
+                o.material = m;
+            });
+        },
         update(dt) {
             t += dt;
             const k = 0.82 + 0.18 * Math.sin(t * 2.6);

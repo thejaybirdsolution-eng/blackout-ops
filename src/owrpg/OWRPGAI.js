@@ -164,7 +164,9 @@
             }
             if (def.glb && BO.Assets) {
                 const root = ent.parts.root;
-                const fallback = root.children.filter(child => child !== bar.sprite);
+                // This model replaces the body outright, so cancel any archetype overlay the zombie builder queued.
+                ent.parts.glbPending = null;
+                const fallback = root.children.filter(child => child !== bar.sprite && child.name !== 'bo-contact-shadow');
                 agent.visual = BO.Assets.placeGLB(root, def.glb, {
                     fitSize: [100, (def.glbScale || 1.8) / root.scale.y, 100], uniform: true,
                     guardScene: BO.World.scene, ownerSession: null,
@@ -172,11 +174,18 @@
                         if (!agent.alive || !this.agents.includes(agent)) { holder.removeFromParent(); return; }
                         for (const child of fallback) child.visible = false;
                         bar.sprite.position.y = (def.glbScale || 1.8) / root.scale.y + 0.35;
-                        if (model.animations?.length) {
-                            agent.mixer = new THREE.AnimationMixer(model);
-                            agent.clips = model.animations;
-                            agent.actions = {};
-                        }
+                        model.traverse((o) => { if (o.isSkinnedMesh) o.frustumCulled = false; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+                        if (/monsters\//.test(def.glb) && BO.CharacterShading && BO.CharacterShading.applySkinToModel) BO.CharacterShading.applySkinToModel(model);
+                        // EnemyRig picks clip, skeletal or bob animation and moves the hitboxes onto this model.
+                        const isBot = def.kind === 'bot';
+                        const longGun = isBot && !/pistol|deagle|usp|glock|revolver|knife|blade/i.test(def.weapon || '');
+                        agent.rig = BO.EnemyRig.mount(ent, ent.parts, holder, model, {
+                            height: (def.glbScale || 1.8) / root.scale.y,
+                            armed: isBot ? (longGun ? 'both' : 'right') : null,
+                            style: def.boss || (def.glbScale || 1.8) > 2.2 ? 'brute' : 'fiend'
+                        });
+                        if (isBot && def.weapon) agent.rig.attachWeapon(def.weapon);
+                        agent.rig.update(0, { speed: 0 });
                     }
                 });
             }
@@ -186,7 +195,7 @@
 
         despawn(agent) {
             if (agent.lod) { BO.MeshProxy.detach(agent.lod); agent.lod = null; }
-            if (agent.mixer) { agent.mixer.stopAllAction(); agent.mixer.uncacheRoot(agent.mixer.getRoot()); }
+            if (agent.rig) { agent.rig.dispose(); agent.rig = null; }
             if (agent.bar) { agent.bar.tex.dispose(); agent.bar.sprite.material.dispose(); }
             agent.ent.destroy();
             const i = this.agents.indexOf(agent);
@@ -402,6 +411,8 @@
                 if (!a.alive) {
                     if (a.lod) BO.MeshProxy.set(a.lod, false);
                     if (a.kind === 'beast') { if (!ent.update(dt, ents, beastCb)) { this.despawn(a); } }
+                    else if (ent.parts.glbRig) { if (!ent.updateGlbDeath(dt)) this.despawn(a); }
+                    else if (ent.corpse) { ent.updateCorpse(dt); if (ent.corpse.age >= 4.5) this.despawn(a); }
                     else { a.deadT = (a.deadT || 0) + dt; if (a.deadT > 0.2) this.despawn(a); }
                     continue;
                 }
@@ -435,23 +446,6 @@
                     a.investigate.t -= dt;
                     if (this._walk(a, a.investigate.x, a.investigate.z, 2.2, dt) < 1.5 || a.investigate.t <= 0) { a.investigate = null; a.detect *= 0.6; }
                 } else this._idle(a, dt);
-                if (a.visual && dist < 130) {
-                    const speed = a.lastVisualPos ? ent.pos.distanceTo(a.lastVisualPos) / Math.max(0.001, dt) : 0;
-                    a.lastVisualPos = ent.pos.clone();
-                    if (a.mixer) {
-                        const desired = speed > 0.2 ? /walk|run/i : engaged && dist < 3 ? /attack|punch|bite/i : /idle/i;
-                        const clip = a.clips.find(c => desired.test(c.name)) || a.clips[0];
-                        if (clip && a.clip !== clip.name) {
-                            const next = a.actions[clip.name] || (a.actions[clip.name] = a.mixer.clipAction(clip));
-                            if (a.action) a.action.fadeOut(0.18);
-                            next.reset().fadeIn(0.18).play(); a.action = next; a.clip = clip.name;
-                        }
-                        a.mixer.update(dt);
-                    } else {
-                        a.visual.position.y = speed > 0.2 ? Math.abs(Math.sin((a.idlePhase += dt * 8))) * 0.06 : Math.sin((a.idlePhase += dt * 1.6)) * 0.015;
-                        a.visual.rotation.z = speed > 0.2 ? Math.sin(a.idlePhase) * 0.035 : 0;
-                    }
-                }
                 if (dist < 130 && ent.parts.root.visible) {
                     const meshes = ent.getHitboxMeshes();
                     for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);

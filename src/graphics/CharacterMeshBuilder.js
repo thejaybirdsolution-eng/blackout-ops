@@ -1076,7 +1076,20 @@
             return { root, sign };
         }
 
-        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0, hitZone = 'torso') {
+        /** Full-state soldier animation (aim, recoil, reload, crouch, downed, pitch). */
+        animateSoldier(parts, st, dt) {
+            if (parts.glbRig) { parts.glbRig.update(dt, { speed: st.speed, attackSwing: 0, flinch: st.flinch, hitZone: st.hitZone, firing: st.recoil > 0.3, aim: st.aim }); return; }
+            if (parts.isSoldier && BO.SoldierModel) BO.SoldierModel.animate(parts, st, dt);
+            else this.animateLimbs(parts, st.speed || 0, st.phase || 0, 0, st.flinch || 0, st.hitZone || 'torso', dt);
+        }
+
+        animateLimbs(parts, speed, phase, attackSwing = 0, flinch = 0, hitZone = 'torso', dt) {
+            // GLB bodies animate through their own rig; soldiers through the jointed IK rig.
+            if (parts.glbRig) { parts.glbRig.update(dt, { speed, attackSwing, flinch, hitZone }); return; }
+            if (parts.isSoldier && BO.SoldierModel) {
+                BO.SoldierModel.animate(parts, { speed, phase, aim: parts.anim ? parts.anim.idleAim || 0 : 0, recoil: attackSwing > 0 ? Math.min(1, attackSwing * 2.9) : 0, flinch, hitZone }, dt);
+                return;
+            }
             const amp = BO.Math.clamp(speed / 4.0, 0, 1) * 0.68;
             const headKick = hitZone === 'head' ? 1.45 : 0.7;
             const bodyHunch = hitZone === 'head' ? 0.35 : (hitZone === 'limb' ? 0.45 : 1.0);

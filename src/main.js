@@ -945,6 +945,7 @@
                 if (BO.Net) BO.Net.update(dt, this.worldCamera);
 
                 if (BO.Atmosphere) BO.Atmosphere.update(this.renderer, dt);
+                if (BO.SunShadow && BO.State.activeMode !== 'minigame') BO.SunShadow.update(this.worldCamera);
                 if (BO.HitboxDebug && BO.HitboxDebug.isEnabled()) BO.HitboxDebug.update();
                 if (BO.PostFX) BO.PostFX.setGrade(BO.State.activeMode || 'default');
                 this.renderer.info.reset();
