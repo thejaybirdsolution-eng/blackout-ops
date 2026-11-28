@@ -65,8 +65,9 @@
             BO.CampaignUI?.closeModal?.();
 
             if (m.launchOpts.mode === 'minigame') {
-                if (BO.Menus?.onStartMatch) BO.Menus.onStartMatch(Object.assign({}, m.launchOpts));
-                else BO.Minigames?.launch?.(m.launchOpts.id, m.launchOpts);
+                const mgId = m.launchOpts.mgId || m.launchOpts.id;
+                if (BO.Minigames?.launch) BO.Minigames.launch(mgId, Object.assign({}, m.launchOpts));
+                else BO.Menus?.onStartMatch?.(Object.assign({ mgId, mapId: mgId }, m.launchOpts));
             } else if (BO.Menus?.onStartMatch) {
                 BO.Menus.onStartMatch(Object.assign({}, m.launchOpts));
             }

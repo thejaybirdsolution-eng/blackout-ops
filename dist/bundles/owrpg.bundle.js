@@ -10373,6 +10373,7 @@ uniform vec3 uCam; uniform float uFar;`)
             this.panel = root.querySelector('#ow-panel');
             this.panel.addEventListener('click', (e) => this._onClick(e));
             this.panel.addEventListener('input', (e) => this._onInput(e));
+            this.modal.addEventListener('click', (e) => { if (e.target === this.modal && this.closable) this.close(); });
         },
 
         /* ================================================== modal framework */
@@ -10648,7 +10649,8 @@ uniform vec3 uCam; uniform float uFar;`)
             this._set('ow-cr', `◈ ${p.credits} cr`);
             this._set('ow-cells', `⚡ ${p.relayCells}`);
             this._set('ow-enc', `${enc.weight.toFixed(0)}/${enc.max} kg · ${enc.label}`);
-            this._set('ow-clock', `${BO.OWRPGWorldSim.timeLabel()} · ${(BO.OWRPGWorldSim.region || {}).name || ''}`);
+            const regName = BO.OWRPGWorldSim.region?.name;
+            this._set('ow-clock', regName ? `${BO.OWRPGWorldSim.timeLabel()} · ${regName}` : BO.OWRPGWorldSim.timeLabel());
             // Quest tracker: up to three tracked quests with live distance to their marker.
             const trackedList = this.trackedQuests();
             const tracked = trackedList[0] || null;
@@ -10876,20 +10878,21 @@ uniform vec3 uCam; uniform float uFar;`)
     'use strict';
 
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const _owIco = (d) => `<svg class="ui-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px;margin-right:5px" aria-hidden="true">${d}</svg>`;
     const TABS = [
-        ['character', 'Character', 'staged_assets/ui/military_icons/Field Gear/ballistic-document-clipboard-001.png'],
-        ['mastery', 'Mastery', 'staged_assets/ui/fantasy_rpg_icons/Classes/warrior-class-001.png'],
-        ['perks', 'Perks', 'staged_assets/ui/scifi_icons/Power Cores/amber-overdrive-cell-001.png'],
-        ['inventory', 'Inventory', 'staged_assets/ui/military_icons/Field Gear/assault-day-pack-001.png'],
-        ['abilities', 'Abilities', 'staged_assets/ui/scifi_icons/Gadgets/acoustic-hull-probe-001.png'],
-        ['mounts', 'Mounts', 'staged_assets/ui/military_icons/Vehicles/recon-dirt-bike-001.png'],
-        ['quests', 'Quests', 'staged_assets/ui/military_icons/Maps Data/fire-support-target-card-001.png'],
-        ['bounties', 'Bounties', 'staged_assets/ui/fantasy_rpg_icons/Classes/bounty-hunter-class-001.png'],
-        ['codex', 'Codex', 'staged_assets/ui/military_icons/Field Gear/encrypted-field-notebook-001.png'],
-        ['map', 'Map', 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png'],
-        ['atlas', 'Atlas', 'staged_assets/ui/fantasy_rpg_icons/Items/protection-scroll-001.png'],
-        ['factions', 'Factions', 'staged_assets/ui/military_icons/Communications/antenna-relay-puck-001.png'],
-        ['system', 'System', 'staged_assets/ui/dieselpunk_icons/Tools/antenna-splice-kit-001.png']
+        ['character', 'Character', _owIco('<circle cx="8" cy="5.5" r="2.5"/><path d="M3 13.5a5 5 0 0 1 10 0"/>')],
+        ['mastery', 'Mastery', _owIco('<path d="M3 13L13 3M9 3h4v4"/>')],
+        ['perks', 'Perks', _owIco('<path d="M8 2l1.8 3.8 4.2.6-3 3 .7 4.1L8 11.5l-3.7 2 .7-4.1-3-3 4.2-.6z"/>')],
+        ['inventory', 'Inventory', _owIco('<rect x="3" y="4.5" width="10" height="8.5" rx="1.5"/><path d="M5.5 4.5V3h5v1.5"/>')],
+        ['abilities', 'Abilities', _owIco('<path d="M9 2L4 9h4l-1 5 5-7H8z"/>')],
+        ['mounts', 'Mounts', _owIco('<circle cx="4.5" cy="11" r="2"/><circle cx="11.5" cy="11" r="2"/><path d="M4.5 11L7 6h4l.5 5"/>')],
+        ['quests', 'Quests', _owIco('<path d="M3.5 3h9v10h-9z"/><path d="M5.5 6h5M5.5 9h3.5"/>')],
+        ['bounties', 'Bounties', _owIco('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.8"/>')],
+        ['codex', 'Codex', _owIco('<path d="M3 3h5v10H3zM8 3h5v10H8z"/>')],
+        ['map', 'Map', _owIco('<path d="M2 4l4-1 4 1 4-1v9l-4 1-4-1-4 1z"/>')],
+        ['atlas', 'Atlas', _owIco('<circle cx="8" cy="8" r="5.5"/><path d="M2.5 8h11M8 2.5a7 7 0 0 1 0 11"/>')],
+        ['factions', 'Factions', _owIco('<path d="M4 2.5v11M4 3.5h8l-1.5 2.5L12 8.5H4"/>')],
+        ['system', 'System', _owIco('<circle cx="8" cy="8" r="2.2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2"/>')]
     ];
     const ATTR_COL = { BRW: '#f97316', RFX: '#a3e635', TCH: '#38bdf8', PRC: '#facc15', PRS: '#f472b6' };
     const ELEM_BADGE = {
@@ -10913,7 +10916,7 @@ uniform vec3 uCam; uniform float uFar;`)
         },
 
         render() {
-            const nav = TABS.map(([id, n, ico]) => `<button class="ow-tab ${this.tab === id ? 'on' : ''}" data-act="padTab" data-v="${id}"><img src="${ico}" alt="" style="width:15px;height:15px;object-fit:contain;vertical-align:-2px;margin-right:5px;border-radius:3px">${n}</button>`).join('');
+            const nav = TABS.map(([id, n, ico]) => `<button class="ow-tab ${this.tab === id ? 'on' : ''}" data-act="padTab" data-v="${id}">${ico}${n}</button>`).join('');
             const body = this['_' + this.tab] ? this['_' + this.tab]() : '';
             const p = this.s.player;
             this.UI.open('pippad', `

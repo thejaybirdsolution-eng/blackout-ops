@@ -703,6 +703,7 @@
                 if (el) el.classList.toggle('hidden', k !== name);
             });
             BO.HUD.setVisible(name === 'playing');
+            if (name !== 'playing' && BO.SurvivalUI?.open) BO.SurvivalUI.close?.();
             if (name !== 'minigames' && BO.BeatSongs?.stopPreview) BO.BeatSongs.stopPreview(false);
             this.updateCheatMenuVisibility();
             if (BO.RPGUI && BO.RPGUI.haven) BO.RPGUI.onScreenChanged(name);
@@ -728,6 +729,26 @@
             BO.State.paused = open;
             if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
             this.updateCheatMenuVisibility();
+            if (open) {
+                const modeMap = {
+                    zombies: 'ZOMBIES', mp: 'MULTIPLAYER', td: 'TOWER DEFENSE',
+                    survival: 'SURVIVAL', rpg: 'ROGUE LITE', owrpg: 'OPEN WORLD RPG', minigame: 'MINIGAMES'
+                };
+                const mode = BO.State.activeMode || 'zombies';
+                const badge = document.getElementById('pause-mode-badge');
+                const meta = document.getElementById('pause-meta-sub');
+                if (badge) badge.textContent = modeMap[mode] || 'COMBAT';
+                if (meta) {
+                    if (mode === 'zombies') meta.textContent = `Round ${BO.ZombiesMode?.round || 1} • ${BO.ZombiesMode?.aliveCount || 0} hostiles`;
+                    else if (mode === 'td') meta.textContent = `Wave ${BO.TowerDefenseMode?.wave || 1} • ${BO.TowerDefenseMode?.gold || 0} Gold`;
+                    else if (mode === 'mp') meta.textContent = BO.MultiplayerMode?.formatName || 'Arena Combat';
+                    else if (mode === 'minigame') meta.textContent = BO.Minigames?.def?.name || 'Minigame';
+                    else if (mode === 'owrpg') meta.textContent = BO.OWRPGWorldSim?.region?.name || 'Meridian';
+                    else if (mode === 'rpg') meta.textContent = `Depth ${BO.RPGMode?.depth || 1}`;
+                    else if (mode === 'survival') meta.textContent = `Day ${BO.ZoneDayCycle?.day || 1}`;
+                    else meta.textContent = 'Combat suspended';
+                }
+            }
             const btnDev = document.getElementById('btn-pause-dev');
             if (btnDev) {
                 const dev = BO.GM?.active ? BO.GM.get('dev') : null;
@@ -827,27 +848,38 @@
            DEPLOYMENT LOBBY — step-by-step setup (left) + live summary (right)
         ==================================================================== */
         _lobbySections(mode) {
+            const ico = {
+                map: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+                gear: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>',
+                gun: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h13l3 2v3h-3l-1-2H9l-1.5 4H4.5L6 13H3z"/></svg>',
+                skull: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/><circle cx="10" cy="9.5" r="1" fill="currentColor"/><circle cx="14" cy="9.5" r="1" fill="currentColor"/></svg>',
+                mod: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 17l-5-9V3"/></svg>',
+                bots: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="11" rx="2"/><path d="M12 3v4M9 12h.01M15 12h.01M9 15h6"/></svg>',
+                rules: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+                castle: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20V9h12v11M5 9V5h3v2h2V5h4v2h2V5h3v4"/></svg>',
+                field: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L20 4M4 4h6v6H4zM14 14h6v6h-6z"/></svg>'
+            };
             if (mode === 'zombies') return [
-                { id: 'map', label: 'Map', icon: '🗺' },
-                { id: 'difficulty', label: 'Difficulty', icon: '⚙' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'enemies', label: 'Enemies & Values', icon: '🧟' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'map', label: 'Map', icon: ico.map },
+                { id: 'difficulty', label: 'Difficulty', icon: ico.gear },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'enemies', label: 'Enemies & Values', icon: ico.skull },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
             if (mode === 'mp') return [
-                { id: 'mode', label: 'Mode & Map', icon: '🗺' },
-                { id: 'bots', label: 'Bots', icon: '🤖' },
-                { id: 'rules', label: 'Match Rules', icon: '📜' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'mode', label: 'Mode & Map', icon: ico.map },
+                { id: 'bots', label: 'Bots', icon: ico.bots },
+                { id: 'rules', label: 'Match Rules', icon: ico.rules },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
             return [
-                { id: 'castle', label: 'Castle', icon: '🏰' },
-                { id: 'difficulty', label: 'Mode & Difficulty', icon: '⚙' },
-                { id: 'battlefield', label: 'Battlefield', icon: '📐' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'enemies', label: 'Enemy Pool', icon: '🧟' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'castle', label: 'Castle', icon: ico.castle },
+                { id: 'difficulty', label: 'Mode & Difficulty', icon: ico.gear },
+                { id: 'battlefield', label: 'Battlefield', icon: ico.field },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'enemies', label: 'Enemy Pool', icon: ico.skull },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
         }
 
@@ -1087,7 +1119,7 @@
                 const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
                 body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start rounds, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-z-open-ep">
-                        <span class="big-action-ico">🧟</span>
+                        <span class="big-action-ico" aria-hidden="true"><svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/></svg></span>
                         <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`) + this._section('Exact values', 'Fine-tune the horde with precise numbers.', this._valueGrid([
@@ -1372,7 +1404,7 @@
                 const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
                 body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start waves, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-td-open-ep">
-                        <span class="big-action-ico">🧟</span>
+                        <span class="big-action-ico" aria-hidden="true"><svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/></svg></span>
                         <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`);
@@ -1431,7 +1463,7 @@
 
             right.innerHTML = `
                 <div class="side-card side-card-net">
-                    <div class="side-title" style="color:#4ade80;">🌐 ONLINE SQUAD</div>
+                    <div class="side-title" style="color:#4ade80;">ONLINE SQUAD</div>
                     <div id="net-lobby-box" class="net-lobby-box"></div>
                 </div>
                 <div class="side-card">
@@ -1527,7 +1559,7 @@
                         Create an Online Room to get a shareable link—anyone who opens your link automatically lands in this lobby with you!
                     </div>
                     <button class="btn btn-sm" id="btn-net-create" style="background:linear-gradient(135deg,#15803d,#22c55e);color:#052e16;border-color:#4ade80;font-weight:800;padding:10px;">
-                        🔗 CREATE ONLINE LOBBY &amp; GET FRIEND LINK
+                        CREATE ONLINE LOBBY &amp; GET FRIEND LINK
                     </button>
                     <div style="display:flex;gap:6px;align-items:center;">
                         <input type="text" id="inp-net-code" placeholder="ENTER ROOM CODE" maxlength="8" style="flex:1;background:#070a0f;color:#fde047;border:1px solid var(--border-subtle);padding:6px 8px;font-family:var(--font-mono);font-weight:800;text-transform:uppercase;">
@@ -1562,7 +1594,7 @@
                 </div>
                 <div style="display:flex;gap:4px;">
                     <input type="text" readonly value="${escAttr(inviteUrl)}" id="inp-invite-url" style="flex:1;background:#070a0f;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);padding:5px 7px;font-family:var(--font-mono);font-size:11px;user-select:all;">
-                    <button class="btn btn-sm btn-primary" id="btn-net-copy-link" title="Copy link to send to your friend">📋 COPY LINK</button>
+                    <button class="btn btn-sm btn-primary" id="btn-net-copy-link" title="Copy link to send to your friend">COPY LINK</button>
                 </div>
                 <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;">
                     <span>SQUAD IN LOBBY (${players.length} / 8)</span>
@@ -1675,28 +1707,28 @@
                     <div class="panel-title" style="color:#fde047;">SPECIAL UNLOCKABLES &amp; ENDGAME MODES</div>
                     <div class="card-grid">
                         <div class="select-card ${goldUnlocked ? 'active' : ''}">
-                            <div class="card-head" style="color:#fde047;">1. 24K GOLD CAMO (${goldUnlocked ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#fde047;">1. 24K GOLD CAMO (${goldUnlocked ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Score 1,000 Headshots with your selected weapon (or use the <b>unlock</b> cheat).<br>Active Primary (${BO.WeaponsData.get(cls.primary.id).shortName}): <b>${pRec.headshots || 0} / 1,000 Headshots</b></div>
                         </div>
                         <div class="select-card ${hatUnlocked ? 'active' : ''}">
-                            <div class="card-head" style="color:#fde047;">2. 🎩 GENTLEMAN TOP HAT (${hatUnlocked ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#fde047;">2. GENTLEMAN TOP HAT (${hatUnlocked ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Score 1,000 Headshots in a single game! Displays a 3D Black &amp; Gold Top Hat on your podium and grants +15% Headshot Points in Zombies!</div>
-                            ${hatUnlocked ? `<button class="btn btn-sm ${hatEq ? 'btn-primary' : ''}" id="btn-toggle-tophat" style="margin-top:8px;">${hatEq ? '🎩 TOP HAT EQUIPPED (CLICK TO UNEQUIP)' : 'EQUIP 3D TOP HAT'}</button>` : ''}
+                            ${hatUnlocked ? `<button class="btn btn-sm ${hatEq ? 'btn-primary' : ''}" id="btn-toggle-tophat" style="margin-top:8px;">${hatEq ? 'TOP HAT EQUIPPED (CLICK TO UNEQUIP)' : 'EQUIP 3D TOP HAT'}</button>` : ''}
                         </div>
                         <div class="select-card ${(u.hardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#f87171;">3. HARD MODE (${(u.hardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#f87171;">3. HARD MODE (${(u.hardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 in Zombies! Zombies have 1.5x HP, +18% Speed, and 1.35x Attack.</div>
                         </div>
                         <div class="select-card ${(u.veryHardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#ef4444;">4. VERY HARD MODE (${(u.veryHardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#ef4444;">4. VERY HARD MODE (${(u.veryHardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 on Hard Mode! Zombies have 2.25x HP, +32% Speed, and 1.7x Attack.</div>
                         </div>
                         <div class="select-card ${(u.insanelyHardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#dc2626;">5. INSANELY HARD MODE (${(u.insanelyHardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#dc2626;">5. INSANELY HARD MODE (${(u.insanelyHardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 on Very Hard Mode! Zombies have 3.5x HP, +48% Speed, and 2.2x Attack.</div>
                         </div>
                         <div class="select-card ${(u.bossRushUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#c084fc;">6. ★ BOSS RUSH MODE (${(u.bossRushUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#c084fc;">6. BOSS RUSH MODE (${(u.bossRushUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 in Zombies! Start with 10,000 Points and fight a Boss every single round!</div>
                         </div>
                     </div>
@@ -1778,13 +1810,27 @@
             } else if (this.barracksTab === 'record') {
                 const kd = (stats.mpKills / Math.max(1, stats.mpDeaths)).toFixed(2);
                 const acc = stats.shotsFired > 0 ? Math.round((stats.shotsHit / stats.shotsFired) * 100) + '%' : '0%';
+                const xpCur = info.xpIntoLevel || 0;
+                const xpSpan = Math.max(1, xpCur + (info.xpNeededForNext || 1));
+                const xpPct = Math.min(100, Math.round((xpCur / xpSpan) * 100));
+                const profSums = BO.ProfileSystem?.getModeSummaries?.() || {};
                 body.innerHTML = `
+                    <div class="rec-hero">
+                        <div class="rec-hero-meta">
+                            <span class="rec-hero-kicker">SERVICE DOSSIER • ${escAttr(info.prestigeInfo.title)}</span>
+                            <div class="rec-hero-title">RANK ${info.level} / 55 — ${escAttr(info.rankName)}</div>
+                            <div class="rec-xp-bar"><span style="width:${xpPct}%"></span></div>
+                        </div>
+                        <div style="text-align:right;font-family:var(--font-mono);">
+                            <div style="font-size:13px;font-weight:700;color:var(--accent-hi);">${info.xpNeededForNext} XP TO NEXT</div>
+                            <div style="font-size:11px;color:var(--text-dim);">+${info.prestige * 10}% PRESTIGE BONUS • TOKENS: ${BO.Save.data.player.tokens}</div>
+                        </div>
+                    </div>
                     <div class="card-grid">
-                        <div class="select-card" data-tip-title="Military Rank" data-tip="Play matches to level up from 1 to 55 and unlock weapons and perks."><div class="card-head">RANK ${info.level} / 55</div><div class="card-sub">${info.rankName} • ${info.xpNeededForNext} XP to Next</div></div>
-                        <div class="select-card" data-tip-title="Prestige Tier" data-tip="At Level 55 you can reset your rank for a shiny new emblem and +10% permanent XP boost!"><div class="card-head" style="color:${info.prestigeInfo.color}">${info.prestigeInfo.title}</div><div class="card-sub">+${info.prestige * 10}% Permanent XP Bonus • Tokens: ${BO.Save.data.player.tokens}</div></div>
                         <div class="select-card" data-tip-title="Multiplayer Stats" data-tip="Your lifetime stats across recorded Multiplayer matches."><div class="card-head">MP K/D: ${kd}</div><div class="card-sub">${stats.mpKills} Kills / ${stats.mpDeaths} Deaths • Headshots: ${stats.mpHeadshots} • Wins: ${stats.mpWins} • Acc: ${acc}</div></div>
                         <div class="select-card"><div class="card-head">MP MATCH RECORD</div><div class="card-sub">Objectives completed: ${stats.mpObjectives} • Matches played: ${stats.mpMatches} • Most kills in a match: ${stats.mpBestKills}</div></div>
                         <div class="select-card" data-tip-title="Zombies Survival Stats" data-tip="Total zombies eliminated and your highest wave reached on each Zombies map."><div class="card-head">ZOMBIES KILLS: ${stats.zombiesKills}</div><div class="card-sub">Headshots: ${stats.zombiesHeadshots} • Der Bunker Best: ${stats.highestRoundByMap.der_bunker || 0} • Station Omega: ${stats.highestRoundByMap.station_omega || 0}</div></div>
+                        <div class="select-card"><div class="card-head">EXPEDITION &amp; CAMPAIGN</div><div class="card-sub">Survival: ${escAttr(profSums.survival || 'Day 1')} • Rogue Lite: ${escAttr(profSums.rpg || 'Depth 0')}<br>Open World: ${escAttr(profSums.owrpg || 'New Game')} • Tower Defense: ${escAttr(profSums.td || 'Wave 0')}</div></div>
                     </div>
                     <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
                         <button class="btn btn-primary" id="btn-enter-prestige" ${canPres ? '' : 'disabled'}
@@ -2733,55 +2779,57 @@
             const cycleDeps = td.getCycleDeployables ? td.getCycleDeployables() : [];
             const items = td.getShopItems();
 
-            const depIcon = (id) => ({
-                sniper_nest: 'staged_assets/ui/military_icons/Firearms/bolt-action-sniper-rifle-001.png',
-                attack_drone: 'staged_assets/ui/military_icons/Drones Robots/autonomous-sentry-robot-001.png',
-                combat_mech: 'staged_assets/ui/scifi_icons/Drones Robots/alien-artifact-handler-001.png',
-                tesla_coil: 'staged_assets/ui/scifi_icons/Turrets Defenses/antimissile-coil-turret-001.png',
-                flame_turret: 'staged_assets/ui/dieselpunk_icons/Turrets Defenses/armored-flak-cupola-001.png',
-                cryo_projector: 'staged_assets/ui/scifi_icons/Power Cores/antimatter-quench-rod-001.png',
-                mortar_battery: 'staged_assets/ui/dieselpunk_icons/Weapons/boiler-spike-mortar-001.png',
-                laser_beacon: 'staged_assets/ui/scifi_icons/Ui Symbols/air-supply-symbol-001.png',
-                shield_gen: 'staged_assets/ui/scifi_icons/Turrets Defenses/anti-drone-dome-001.png',
-                healing_fountain: 'staged_assets/ui/military_icons/Medical/autoinjector-case-001.png',
-                ammo_fabricator: 'staged_assets/ui/military_icons/Resources/ammunition-crate-001.png',
-                gravity_well: 'staged_assets/ui/scifi_icons/Gadgets/adaptive-signal-buoy-001.png',
-                gold_miner: 'staged_assets/ui/dieselpunk_icons/Machinery/ammo-drum-coupler-001.png',
-                airstrike_beacon: 'staged_assets/ui/military_icons/Ui Symbols/air-support-symbol-001.png',
-                barrier: 'staged_assets/ui/military_icons/Emplacements Defenses/anti-vehicle-hedgehog-001.png'
-            }[id] || 'staged_assets/ui/military_icons/Emplacements Defenses/anti-air-gun-mount-001.png');
+            const ico = (path, color) => `<svg class="ui-ico td-shop-ico" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="float:right;width:22px;height:22px;opacity:.85">${path}</svg>`;
+            const depSvg = (id) => ({
+                sniper_nest: ico('<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>', '#38bdf8'),
+                attack_drone: ico('<path d="M4 9l8-4 8 4-8 4z"/><path d="M7 13v4M17 13v4"/>', '#c084fc'),
+                combat_mech: ico('<rect x="6" y="4" width="12" height="10" rx="2"/><path d="M8 14v6M16 14v6"/>', '#f59e0b'),
+                tesla_coil: ico('<path d="M13 2L6 13h5l-1 9 7-11h-5z"/>', '#38bdf8'),
+                flame_turret: ico('<path d="M12 3c3 4 5 7 5 10a5 5 0 1 1-10 0c0-2 1-4 2-6 1 2 2 2 3-4z"/>', '#fb923c'),
+                cryo_projector: ico('<path d="M12 2v20M4 7l16 10M20 7L4 17"/>', '#67e8f9'),
+                mortar_battery: ico('<path d="M4 18h16M7 18l8-11 3 2-6 9"/>', '#f87171'),
+                laser_beacon: ico('<path d="M12 2v10M5 17h14M8 21h8"/>', '#f472b6'),
+                shield_gen: ico('<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>', '#60a5fa'),
+                healing_fountain: ico('<path d="M12 5v14M5 12h14"/>', '#4ade80'),
+                ammo_fabricator: ico('<rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M8 7V4h8v3"/>', '#eab308'),
+                gravity_well: ico('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>', '#a78bfa'),
+                gold_miner: ico('<path d="M12 3l8 5-8 5-8-5zM4 13l8 5 8-5"/>', '#fde047'),
+                airstrike_beacon: ico('<path d="M12 3v12M8 11l4 4 4-4M4 20h16"/>', '#ef4444'),
+                barrier: ico('<path d="M4 18l4-10h8l4 10M6 13h12"/>', '#94a3b8')
+            }[id] || ico('<path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7z"/>', '#38bdf8'));
+            const wSvg = (c) => ico('<path d="M3 10h13l3 2v3h-3l-1-2H9l-1.5 4H4.5L6 13H3z"/>', c || '#fde047');
 
             body.innerHTML = `
-                <div class="td-shop-section" style="color:#fde047;">★ 5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
+                <div class="td-shop-section" style="color:#fde047;">5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${weapons.map((o) => `
                         <button class="select-card td-shop-card js-td-buy-w" data-slot="${o.slotIndex}" ${o.sold ? 'disabled' : ''} style="border-color:${o.sold ? '#334155' : o.color};">
-                            <img src="staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.9;border-radius:4px">
+                            ${wSvg(o.sold ? '#475569' : o.color)}
                             <div style="font-size:10px;font-weight:900;letter-spacing:0.6px;color:${o.color};">${o.badge}</div>
                             <div class="card-head" style="margin-top:3px;">${o.spec.name}</div>
                             <div class="card-sub">${o.spec.category} • ${o.spec.damage}${o.spec.pellets > 1 ? 'x' + o.spec.pellets : ''} DMG • ${o.spec.rpm} RPM</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${o.sold ? '#64748b' : (o.cost === 0 ? '#4ade80' : '#fde047')};">
-                                ${o.sold ? 'PURCHASED ✓' : (o.cost === 0 ? '★ FREE WEAPON (0 GOLD)!' : `${o.cost} GOLD`)}
+                                ${o.sold ? 'PURCHASED' : (o.cost === 0 ? 'FREE WEAPON (0 GOLD)' : `${o.cost} GOLD`)}
                             </div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="td-shop-section" style="color:#c084fc;">★ ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 BESPOKE UNITS)</div>
+                <div class="td-shop-section" style="color:#c084fc;">ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 BESPOKE UNITS)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${cycleDeps.map((d) => `
                         <button class="select-card td-shop-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
-                            <img src="${depIcon(d.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
+                            ${depSvg(d.id)}
                             <div class="card-head" style="color:${d.color || '#c084fc'};">${d.name}</div>
                             <div class="card-sub">${d.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= d.cost ? '#fde047' : '#ef4444'};">${d.cost} GOLD</div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="td-shop-section" style="color:#38bdf8;">★ CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
+                <div class="td-shop-section" style="color:#38bdf8;">CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
                 <div class="card-grid">
                     ${items.map((it) => `
                         <button class="select-card td-shop-card js-td-buy-it" data-itid="${it.id}" style="border-color:${td.gold >= it.cost ? 'rgba(56,189,248,0.55)' : '#334155'};">
-                            <img src="${depIcon(it.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
+                            ${depSvg(it.id)}
                             <div class="card-head" style="color:#38bdf8;">${it.name}</div>
                             <div class="card-sub">${it.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= it.cost ? '#fde047' : '#ef4444'};">${it.cost} GOLD</div>

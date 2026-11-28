@@ -81,7 +81,7 @@
             Z.getMapStatusBadges = () => {
                 const list = origBadges() || [];
                 if (BO.World?.mapData?.powerSwitch && !BO.World.powerOn) {
-                    list.unshift({ text: '⚡ OBJECTIVE: FLIP POWER SWITCH FOR PERKS & PaP', color: '#facc15' });
+                    list.unshift({ text: 'OBJECTIVE: FLIP POWER SWITCH FOR PERKS & PaP', color: '#facc15' });
                 } else if (BO.World?.powerOn) {
                     const best = this.getZombiesBest(Z.mapId).round || Z.round;
                     list.push({ text: `MAP BEST: R${best}${Z.round >= 10 ? ' · EXFIL AVAILABLE' : ''}`, color: '#4ade80' });

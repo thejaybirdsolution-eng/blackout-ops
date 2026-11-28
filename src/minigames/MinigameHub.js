@@ -8,12 +8,13 @@
     const MG = BO.Minigames;
     const esc = BO.MinigameLib.esc;
 
+    const _mgIco = (d) => `<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
     const CATS = [
-        { id: 'fun', name: 'Fun & Specials', icon: '🎉', unit: 'featured modes', accent: '#ec4899', blurb: '' },
-        { id: 'target', name: 'Target & Action', icon: '🎯', unit: 'courses', accent: '#f59e0b', blurb: '16 curated action courses: Classic Range, Thunderbolt Coaster, Beat Drop rhythm stage (with 1st-person example), Classic Whack-a-Mole, Sweetheart Shore, Mansion Raid, Outlaw Pursuit & more!' },
-        { id: 'speed', name: 'Speed Runs', icon: '⏱️', unit: 'timed runs', accent: '#06b6d4', blurb: '9 high-intensity timed gauntlets: Neon Gauntlet, Outpost Valley, Linear 3-Act Getaway Chase, Deagle Meteor Splitter, Last 50, Freefall, 3x-expanded Ninja Fortress & Titan Three-Headed Dragon!' },
-        { id: 'arcade', name: 'Arcade Hall', icon: '🕹️', unit: 'mini games', accent: '#a855f7', blurb: '15 carnival booths & party brawlers: Quickdraw Duels, Ball Brawl, Aim Diagnostics, Contracts, Switchyard, Shell Game, Shooting Gallery & more!' },
-        { id: 'boss', name: 'Boss Rush', icon: '💀', unit: '3 max heals', accent: '#dc2626', blurb: 'Fight every boss in the game back to back. Bottomless ammo, no regen, three heals for the whole run.' }
+        { id: 'fun', name: 'Fun & Specials', icon: _mgIco('<path d="M12 3l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L4.8 8.3l5-.7z"/>'), unit: 'featured modes', accent: '#ec4899', blurb: '' },
+        { id: 'target', name: 'Target & Action', icon: _mgIco('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>'), unit: 'courses', accent: '#f59e0b', blurb: '16 curated action courses: Classic Range, Thunderbolt Coaster, Beat Drop rhythm stage (with 1st-person example), Classic Whack-a-Mole, Sweetheart Shore, Mansion Raid, Outlaw Pursuit & more!' },
+        { id: 'speed', name: 'Speed Runs', icon: _mgIco('<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 1.5M9.5 3h5"/>'), unit: 'timed runs', accent: '#06b6d4', blurb: '9 high-intensity timed gauntlets: Neon Gauntlet, Outpost Valley, Linear 3-Act Getaway Chase, Deagle Meteor Splitter, Last 50, Freefall, 3x-expanded Ninja Fortress & Titan Three-Headed Dragon!' },
+        { id: 'arcade', name: 'Arcade Hall', icon: _mgIco('<rect x="3" y="6" width="18" height="12" rx="3"/><path d="M7.5 10.5v3M6 12h3M15.5 11h.01M17.5 13h.01"/>'), unit: 'mini games', accent: '#a855f7', blurb: '15 carnival booths & party brawlers: Quickdraw Duels, Ball Brawl, Aim Diagnostics, Contracts, Switchyard, Shell Game, Shooting Gallery & more!' },
+        { id: 'boss', name: 'Boss Rush', icon: _mgIco('<circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3M10 9.5h.01M14 9.5h.01"/>'), unit: '3 max heals', accent: '#dc2626', blurb: 'Fight every boss in the game back to back. Bottomless ammo, no regen, three heals for the whole run.' }
     ];
 
     const STAR_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2.6l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';
@@ -116,11 +117,11 @@
                             <div><b>${co.name.toUpperCase()}</b>${co.blurb ? `<small>${esc(co.blurb)}</small>` : ''}</div>
                             <button type="button" id="mgh-countdown-toggle" class="mgh-cd-toggle ${skipCd ? 'instant' : ''}" title="Toggle the 3-2-1-GO! starting countdown across minigames">
                                 <span class="mgh-cd-dot"></span>
-                                <span><b>${skipCd ? '⚡ 3-2-1 COUNTDOWN: OFF' : '⏱️ 3-2-1 COUNTDOWN: ON'}</b><small>${skipCd ? 'Instant Start Enabled' : 'Standard 3s Countdown'}</small></span>
+                                <span><b>${skipCd ? '3-2-1 COUNTDOWN: OFF' : '3-2-1 COUNTDOWN: ON'}</b><small>${skipCd ? 'Instant Start Enabled' : 'Standard 3s Countdown'}</small></span>
                             </button>
                         </div>
-                        ${daily && daily.def ? `<div id="mgh-daily-banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin:0 0 10px;border:1px solid rgba(255,178,63,.35);background:rgba(255,178,63,.08);border-radius:6px;font-size:12px;">
-                            <div><b style="color:#ffb23f">📅 DAILY SEED (${esc(daily.date)})</b> · <span>${esc(daily.def.name)}</span> <small style="color:#94a3b8">${dBest ? '· Daily Best: ' + esc(dBest) : '· +50% Bonus XP & Ghost Tracking'}</small></div>
+                        ${daily && daily.def ? `<div id="mgh-daily-banner" class="mgh-daily-banner">
+                            <div><b style="color:#ffb23f">DAILY SEED (${esc(daily.date)})</b> · <span>${esc(daily.def.name)}</span> <small style="color:#94a3b8">${dBest ? '· Daily Best: ' + esc(dBest) : '· +50% Bonus XP & Ghost Tracking'}</small></div>
                             <button type="button" class="btn btn-sm btn-primary" id="btn-mg-daily-go" data-daily-id="${esc(daily.def.id)}">PLAY DAILY →</button>
                         </div>` : ''}`;
                     })()}
@@ -210,11 +211,23 @@
                         <button class="mgh-play" id="mgh-g-play" style="position:static;margin:0;padding:10px 18px;font-size:13px;">▶ PLAY NOW</button>
                     </div>
                 </div>`;
-            modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+            const onEsc = (e) => {
+                if (e.key === 'Escape' && document.body.contains(modal)) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    closeModal();
+                }
+            };
+            const closeModal = () => {
+                window.removeEventListener('keydown', onEsc, true);
+                modal.remove();
+            };
+            window.addEventListener('keydown', onEsc, true);
             document.body.appendChild(modal);
-            modal.querySelector('#mgh-g-close').onclick = () => modal.remove();
-            modal.querySelector('#mgh-g-close2').onclick = () => modal.remove();
-            modal.querySelector('#mgh-g-play').onclick = () => { modal.remove(); this._play(def.id); };
+            modal.querySelector('#mgh-g-close').onclick = closeModal;
+            modal.querySelector('#mgh-g-close2').onclick = closeModal;
+            modal.querySelector('#mgh-g-play').onclick = () => { closeModal(); this._play(def.id); };
         },
 
         _detail(def) {
@@ -275,7 +288,7 @@
                 <div class="mgh-d-hero"><span>${def.icon}</span><div><small>${def.heroLabel ? esc(def.heroLabel) : def.cat === 'fun' ? 'FUN & SPECIALS' : def.cat === 'target' ? 'TARGET PRACTICE • 60 SECONDS' : def.cat === 'boss' ? 'BOSS RUSH • ENDURANCE' : def.cat === 'arcade' ? 'ARCADE HALL' : def.cat === 'speed' ? 'SPEED RUN • TIMED' : 'WHACK-A-MOLE • 60 SECONDS'}</small><h2>${esc(def.name)}</h2><em>${esc(def.tagline || '')}</em></div></div>
                 <p class="mgh-d-desc">${esc(def.desc || '')}</p>
                 <div class="mgh-guide">
-                    <div class="mgh-guide-head"><b>📖 START MENU GUIDE</b><button class="mgh-guide-btn" data-guide="${def.id}">FULL GUIDE</button></div>
+                    <div class="mgh-guide-head"><b>START MENU GUIDE</b><button class="mgh-guide-btn" data-guide="${def.id}">FULL GUIDE</button></div>
                     <ul>
                         <li><b>GOAL:</b> ${esc(gd.objective.length > 125 ? gd.objective.slice(0, 122) + '...' : gd.objective)}</li>
                         ${gd.tips.slice(0, 2).map((t) => `<li><b>TIP:</b> ${esc(t)}</li>`).join('')}
@@ -285,7 +298,7 @@
                 ${dual}
                 ${options}
                 <div class="mgh-keys">${def.keys ? def.keys.map(([k, t]) => `<span><kbd>${esc(k)}</kbd> ${esc(t)}</span>`).join('') : def.cat === 'boss' ? '<span><kbd>H</kbd> Max heal (rest only)</span><span><kbd>N</kbd> Skip rest</span>' : '<span><kbd>R</kbd> Retry from results</span><span><kbd>N</kbd> Next course</span>'}<span><kbd>ESC</kbd> Pause</span></div>
-                ${def.hasSandbox ? `<button class="mgh-example mgh-sandbox-btn" data-sandbox="${def.id}">🧪 OPEN SANDBOX MODE (NO HIGH SCORE)</button>` : ''}
+                ${def.hasSandbox ? `<button class="mgh-example mgh-sandbox-btn" data-sandbox="${def.id}">OPEN SANDBOX MODE (NO HIGH SCORE)</button>` : ''}
                 ${def.hasExample ? `<button class="mgh-example" data-example="${def.id}">▶ EXAMPLE</button>` : ''}
                 <button class="mgh-play" data-play="${def.id}">▶ PLAY ${esc(def.name.toUpperCase())}</button>`;
         },

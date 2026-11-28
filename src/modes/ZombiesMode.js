@@ -2342,7 +2342,7 @@
 
         getMapStatusBadges() {
             const out = [];
-            out.push({ text: `📦 SUPPLIES: ${this.supplies.toLocaleString()} • [B] BUILD`, color: '#38bdf8' });
+            out.push({ text: `SUPPLIES: ${this.supplies.toLocaleString()} • [B] BUILD`, color: '#38bdf8' });
             const mq = this.mapQuest;
             if (this.mapId === 'shi_no_numa' && BO.Player.inSwampMud) {
                 out.push({ text: 'SWAMP MUD (-38% SPEED)', color: '#84cc16' });

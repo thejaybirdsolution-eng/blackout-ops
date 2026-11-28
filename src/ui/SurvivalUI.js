@@ -1603,17 +1603,17 @@
                 ${(() => {
                     const w = p.activeWeapon;
                     const cond = w && BO.ZoneLoot.caliberOf(w) ? Math.round(w.cond ?? 75) : null;
-                    return cond === null ? '' : `<div class="sv-vital chip ${cond < 30 ? 'warn' : ''}"${tip('Weapon condition', (w.name || 'Weapon') + ' at ' + cond + '%. Below 45% it can jam (press reload to clear); below 15% it misfires. Repair with a gun repair kit.')}><img src="staged_assets/ui/military_icons/Tools/armor-repair-tape-001.png" alt="" style="width:15px;height:15px;object-fit:contain"><b>${cond}%</b></div>`;
+                    return cond === null ? '' : `<div class="sv-vital chip ${cond < 30 ? 'warn' : ''}"${tip('Weapon condition', (w.name || 'Weapon') + ' at ' + cond + '%. Below 45% it can jam (press reload to clear); below 15% it misfires. Repair with a gun repair kit.')}>${Icons().named('wrench', cond < 30 ? '#fbbf24' : '#c7d3dc', 15)}<b>${cond}%</b></div>`;
                 })()}
-                <div class="sv-vital chip"${tip('Campus keycards', 'Recovered from burned nests and named infected. Three open the Black Pine campus gate.')}><img src="staged_assets/ui/military_icons/Maps Data/encrypted-optical-data-disc-001.png" alt="" style="width:15px;height:15px;object-fit:contain"><b>${c.objectives.keycards}/3</b></div>
-                ${mode.fracture ? `<div class="sv-vital chip warn"${tip('Fractured leg', 'You limp and cannot sprint. Craft and use a splint; painkillers dull it for a while.')}><img src="staged_assets/ui/military_icons/Medical/autoinjector-case-001.png" alt="" style="width:15px;height:15px;object-fit:contain"><b>Fracture</b></div>` : ''}
+                <div class="sv-vital chip"${tip('Campus keycards', 'Recovered from burned nests and named infected. Three open the Black Pine campus gate.')}>${Icons().named('keycard', '#38bdf8', 15)}<b>${c.objectives.keycards}/3</b></div>
+                ${mode.fracture ? `<div class="sv-vital chip warn"${tip('Fractured leg', 'You limp and cannot sprint. Craft and use a splint; painkillers dull it for a while.')}>${Icons().named('medkit', '#fbbf24', 15)}<b>Fracture</b></div>` : ''}
                 <div class="sv-vital chip"${tip('Armor', 'Armor absorbs damage. Insert spare plates with ' + keyOf('survPlate') + '.')}>${Icons().named('plate', '#c7d3dc', 15)}<b>${Math.round(p.armor)} · ${p.armorReservePlates}</b></div>
             </div>`;
             const status = `<div class="sv-clock"${tip('Time & threat', 'Day ' + c.day + (c.isNight ? ' (night)' : '') + '. ' + (t ? 'Up to ' + t.cap + ' infected may roam right now, drawn from the ' + t.poolSize + ' weakest types.' : 'Hostiles are not active yet.'))}>
                 <b>Day ${c.day}</b><span>${c.clockFace}</span><span>${esc(mode.localWeather || mode.weather)}</span>${mode.hostilesReleased ? `<span class="sv-threat-pill ${c.isNight ? 'night' : ''}">${mode.roamingCount}/${t?.cap ?? '-'} roaming</span>` : `<span class="sv-threat-pill safe">Safe ${safeLeft}s</span>`}</div>`;
             return `<div class="sv-frame">
                 <header class="sv-thead">
-                    <div class="sv-brand"><img src="staged_assets/ui/military_icons/Field Gear/assault-day-pack-001.png" alt="" style="width:22px;height:22px;object-fit:contain;float:left;margin-right:8px;border-radius:4px"><span class="sv-kicker">Field terminal</span><b>${esc(c.area?.name || 'Exclusion Zone')}</b></div>
+                    <div class="sv-brand">${Icons().named('pack', '#8fe3c8', 20)}<div><span class="sv-kicker">Field terminal</span><b>${esc(c.area?.name || 'Exclusion Zone')}</b></div></div>
                     <nav class="sv-tabs">${tabs}</nav>
                     ${status}
                     ${s === 'respawn' || s === 'gmRespawn' ? '' : `<button class="sv-close" data-act="close"${tip('Close', 'Return to the game (ESC, or press the tab hotkey again).')}>✕</button>`}

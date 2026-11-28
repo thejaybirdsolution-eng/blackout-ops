@@ -10,7 +10,7 @@
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const tip = (title, body, sub) => ` data-tip-title="${esc(title)}" data-tip="${esc(body)}"${sub ? ` data-tip-sub="${esc(sub)}"` : ''}`;
     const CONTEXTS = [
-        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite']
+        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite'], ['owrpg', 'Open World RPG']
     ];
     const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense', rpg: 'Rogue Lite', owrpg: 'Open World RPG' };
 

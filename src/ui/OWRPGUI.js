@@ -53,6 +53,7 @@
             this.panel = root.querySelector('#ow-panel');
             this.panel.addEventListener('click', (e) => this._onClick(e));
             this.panel.addEventListener('input', (e) => this._onInput(e));
+            this.modal.addEventListener('click', (e) => { if (e.target === this.modal && this.closable) this.close(); });
         },
 
         /* ================================================== modal framework */
@@ -328,7 +329,8 @@
             this._set('ow-cr', `◈ ${p.credits} cr`);
             this._set('ow-cells', `⚡ ${p.relayCells}`);
             this._set('ow-enc', `${enc.weight.toFixed(0)}/${enc.max} kg · ${enc.label}`);
-            this._set('ow-clock', `${BO.OWRPGWorldSim.timeLabel()} · ${(BO.OWRPGWorldSim.region || {}).name || ''}`);
+            const regName = BO.OWRPGWorldSim.region?.name;
+            this._set('ow-clock', regName ? `${BO.OWRPGWorldSim.timeLabel()} · ${regName}` : BO.OWRPGWorldSim.timeLabel());
             // Quest tracker: up to three tracked quests with live distance to their marker.
             const trackedList = this.trackedQuests();
             const tracked = trackedList[0] || null;

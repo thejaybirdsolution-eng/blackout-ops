@@ -38,26 +38,44 @@
         _injectMenuWidgets() {
             const col = document.querySelector('#screen-main-menu .menu-col');
             const cards = document.querySelector('#screen-main-menu .mode-cards');
-            if (col && cards && !document.getElementById('menu-continue-banner')) {
-                const cont = document.createElement('div');
-                cont.id = 'menu-continue-banner';
-                cont.className = 'ph-continue-banner';
-                col.insertBefore(cont, cards);
+            if (col && cards) {
+                let strip = document.getElementById('ph-command-strip');
+                if (!strip) {
+                    strip = document.createElement('div');
+                    strip.id = 'ph-command-strip';
+                    strip.className = 'ph-command-strip';
+                    col.insertBefore(strip, cards);
+                }
+                const campBtn = document.getElementById('btn-menu-campaign');
+                if (campBtn && campBtn.parentElement !== strip) {
+                    strip.insertBefore(campBtn, strip.firstChild);
+                }
+                if (!document.getElementById('menu-continue-banner')) {
+                    const cont = document.createElement('div');
+                    cont.id = 'menu-continue-banner';
+                    cont.className = 'ph-continue-banner';
+                    strip.appendChild(cont);
+                }
             }
 
             const mini = document.querySelector('#screen-main-menu .menu-mini-grid');
             if (mini && !document.getElementById('btn-menu-profile')) {
+                const icoSvg = {
+                    profile: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+                    challenges: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+                    armory: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v4H4zM6 11v6h12v-6M10 14h4"/></svg>'
+                };
                 const addTile = (id, ico, title, sub, fn) => {
                     const b = document.createElement('button');
                     b.className = 'mini-tile';
                     b.id = id;
-                    b.innerHTML = `<span class="mini-ico">${ico}</span><b>${title}</b><small>${sub}</small>`;
+                    b.innerHTML = `<span class="mini-ico" aria-hidden="true">${ico}</span><b>${title}</b><small>${sub}</small>`;
                     b.onclick = () => { BO.Sound?.playUIClick?.(); fn(); };
                     mini.appendChild(b);
                 };
-                addTile('btn-menu-profile', '🪪', 'Operator', 'Level, card & emblem', () => this.openProfileModal());
-                addTile('btn-menu-challenges', '🎯', 'Challenges', 'Daily & Weekly XP ops', () => this.openChallengesModal());
-                addTile('btn-menu-armory', '🔫', 'Armory', 'All weapons & camos', () => this.openArmoryModal());
+                addTile('btn-menu-profile', icoSvg.profile, 'Operator', 'Level, card & emblem', () => this.openProfileModal());
+                addTile('btn-menu-challenges', icoSvg.challenges, 'Challenges', 'Daily & Weekly XP ops', () => this.openChallengesModal());
+                addTile('btn-menu-armory', icoSvg.armory, 'Armory', 'All weapons & camos', () => this.openArmoryModal());
             }
         },
 
@@ -113,10 +131,20 @@
                 const bd = document.createElement('div');
                 bd.id = 'ph-modal-backdrop';
                 bd.className = 'ph-modal-backdrop hidden';
-                bd.innerHTML = '<div class="ph-modal" id="ph-modal-box"></div>';
+                bd.innerHTML = '<div class="ph-modal" id="ph-modal-box" role="dialog" aria-modal="true"></div>';
                 bd.onclick = (e) => { if (e.target === bd) this.closeModal(); };
                 document.body.appendChild(bd);
                 this.modalEl = bd;
+                if (!this._escBound) {
+                    this._escBound = true;
+                    window.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape' && this.modalEl && !this.modalEl.classList.contains('hidden')) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            this.closeModal();
+                        }
+                    }, true);
+                }
             }
             const box = this.modalEl.querySelector('#ph-modal-box');
             box.innerHTML = html;
@@ -255,16 +283,17 @@
                 </div>
                 <p style="color:#cbd5e1;margin-bottom:14px;">All 7 combat modes, 70 weapons, and the 10-mission <b>Operation Blackout</b> story campaign share your single Operative Profile. Choose how you want to start:</p>
                 <div class="ph-grid">
-                    <div class="ph-card"><b>🎯 Range Day Warmup</b><p style="font-size:12px;color:#94a3b8">Jump into a crisp 60-second aim warmup course with live target feedback.</p><button type="button" class="btn btn-sm btn-primary" id="btn-ob-range">START WARMUP →</button></div>
-                    <div class="ph-card"><b>⚡ Operation Blackout</b><p style="font-size:12px;color:#94a3b8">Begin Mission 01 of the cross-mode 10-mission 1.0 capstone campaign.</p><button type="button" class="btn btn-sm" id="btn-ob-campaign">OPEN CAMPAIGN</button></div>
-                    <div class="ph-card"><b>🧭 Free Selection</b><p style="font-size:12px;color:#94a3b8">Explore Zombies, Multiplayer, Survival, Rogue Lite, or Open World RPG.</p><button type="button" class="btn btn-sm" id="btn-ob-skip">ENTER MENU</button></div>
+                    <div class="ph-card"><b>Range Day Warmup</b><p style="font-size:12px;color:#94a3b8">Jump into a crisp 60-second aim warmup course with live target feedback.</p><button type="button" class="btn btn-sm btn-primary" id="btn-ob-range">START WARMUP →</button></div>
+                    <div class="ph-card"><b>Operation Blackout</b><p style="font-size:12px;color:#94a3b8">Begin Mission 01 of the cross-mode 10-mission 1.0 capstone campaign.</p><button type="button" class="btn btn-sm" id="btn-ob-campaign">OPEN CAMPAIGN</button></div>
+                    <div class="ph-card"><b>Free Selection</b><p style="font-size:12px;color:#94a3b8">Explore Zombies, Multiplayer, Survival, Rogue Lite, or Open World RPG.</p><button type="button" class="btn btn-sm" id="btn-ob-skip">ENTER MENU</button></div>
                 </div>`);
 
             const done = () => { BO.ProfileSystem.markOnboardingDone(); this.closeModal(); };
             const rBtn = box.querySelector('#btn-ob-range');
             if (rBtn) rBtn.onclick = () => {
                 done();
-                if (BO.Menus) BO.Menus.onStartMatch?.({ mode: 'minigame', id: 'range_day' });
+                if (BO.Minigames?.launch) BO.Minigames.launch('range_day', {});
+                else BO.Menus?.onStartMatch?.({ mode: 'minigame', mgId: 'range_day', mapId: 'range_day' });
             };
             const cBtn = box.querySelector('#btn-ob-campaign');
             if (cBtn) cBtn.onclick = () => {

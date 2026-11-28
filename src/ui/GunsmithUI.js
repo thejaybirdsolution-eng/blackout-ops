@@ -18,12 +18,13 @@
         MOBILITY: 'How fast you move and aim with it.'
     };
 
+    const _attIco = (d) => `<svg class="ui-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;opacity:.9" aria-hidden="true">${d}</svg>`;
     const ATT_CATS = [
-        { id: 'optic', label: 'Optic', icon: 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png', tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
-        { id: 'muzzle', label: 'Muzzle', icon: 'staged_assets/ui/military_icons/Attachments/suppressor-heat-cover-001.png', tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
-        { id: 'underbarrel', label: 'Underbarrel', icon: 'staged_assets/ui/military_icons/Attachments/hand-stop-grip-001.png', tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
-        { id: 'magazine', label: 'Magazine', icon: 'staged_assets/ui/military_icons/Attachments/drum-magazine-001.png', tip: 'Bigger magazines or faster reloads.' },
-        { id: 'stock', label: 'Stock', icon: 'staged_assets/ui/military_icons/Attachments/adjustable-rifle-stock-001.png', tip: 'Faster movement and aiming, or steadier recoil.' }
+        { id: 'optic', label: 'Optic', icon: _attIco('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.5"/>'), tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
+        { id: 'muzzle', label: 'Muzzle', icon: _attIco('<rect x="2" y="5" width="12" height="6" rx="1"/><path d="M5 5v6M10 5v6"/>'), tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
+        { id: 'underbarrel', label: 'Underbarrel', icon: _attIco('<path d="M2 6h12M6 6l-1 7h3l1-7"/>'), tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
+        { id: 'magazine', label: 'Magazine', icon: _attIco('<path d="M5 3h6l-1 10H6z"/>'), tip: 'Bigger magazines or faster reloads.' },
+        { id: 'stock', label: 'Stock', icon: _attIco('<path d="M2 5l12 1v5l-12 2z"/>'), tip: 'Faster movement and aiming, or steadier recoil.' }
     ];
 
     const SHORT_CLASS_LABELS = {
@@ -349,11 +350,11 @@
                         ${views.map((v) => {
                             const cat = ATT_CATS.find((c) => c.id === v.id);
                             const ico = v.id === 'weapon'
-                                ? 'staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png'
-                                : (v.id === 'camo' ? 'staged_assets/ui/military_icons/Consumables/camouflage-face-paint-tin-001.png' : (cat ? cat.icon : ''));
+                                ? _attIco('<path d="M2 7h9l3 2v2h-3l-1-1.5H5.5L4.5 13H2.5L3.5 9H2z"/>')
+                                : (v.id === 'camo' ? _attIco('<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11M2.5 8h11"/>') : (cat ? cat.icon : ''));
                             return `
                             <button class="picker-tab ${this.weaponView === v.id ? 'active' : ''} ${v.changed ? 'changed' : ''}" data-view="${v.id}" ${v.id !== 'weapon' && v.id !== 'camo' ? `data-tip-title="${v.label}" data-tip="${escAttr((cat || {}).tip || '')}"` : ''}>
-                                ${ico ? `<img src="${ico}" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:-2px;margin-right:4px">` : ''}<span>${v.label}</span><small>${escAttr(v.cur)}</small>
+                                ${ico}<span>${v.label}</span><small>${escAttr(v.cur)}</small>
                             </button>`;
                         }).join('')}
                     </div>

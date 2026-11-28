@@ -420,6 +420,8 @@
 
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
+            BO.HUD?.resetForMode?.(opts.mode);
+            BO.CampaignUI?.syncHudPill?.();
             BO.Menus.showScreen('playing');
             this._safePointerLock();
         }
@@ -492,6 +494,8 @@
             BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
             BO.State.activeMode = null;
             BO.State.paused = false;
+            BO.HUD?.resetForMode?.(null);
+            BO.CampaignUI?.syncHudPill?.();
             BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();

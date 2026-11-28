@@ -1078,6 +1078,10 @@
             );
             const retEl = el.querySelector('#mg-reticle');
             if (retPath && retEl) {
+                retEl.onerror = () => {
+                    retEl.classList.add('hidden');
+                    document.body.classList.remove('mg-custom-reticle');
+                };
                 retEl.src = retPath;
                 document.body.classList.add('mg-custom-reticle');
             } else {

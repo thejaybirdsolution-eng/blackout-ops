@@ -2591,12 +2591,6 @@
                     };
                 }
             }
-            if (this.state === 'intermission') {
-                return {
-                    text: `INTERMISSION ${Math.ceil(this.intermissionTimer)}s • [T] SHOPKEEPER • [N] SKIP WAIT`,
-                    affordable: true
-                };
-            }
             return null;
         }
 

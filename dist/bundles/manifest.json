@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "955c43f121",
+      "hash": "d3f8370a6e",
       "fileCount": 77,
-      "rawBytes": 3321517,
-      "gzipBytes": 745306,
+      "rawBytes": 3331210,
+      "gzipBytes": 747938,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -104,10 +104,10 @@
     "rpg": {
       "name": "rpg",
       "path": "dist/bundles/rpg.bundle.js",
-      "hash": "ac790b4f37",
+      "hash": "ffc77eccde",
       "fileCount": 13,
-      "rawBytes": 455172,
-      "gzipBytes": 113386,
+      "rawBytes": 455139,
+      "gzipBytes": 113596,
       "files": [
         "src/data/RPGData.js",
         "src/data/RPGItemsData.js",
@@ -127,10 +127,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "7ef28e5280",
+      "hash": "7e285a0fe9",
       "fileCount": 31,
-      "rawBytes": 746909,
-      "gzipBytes": 192817,
+      "rawBytes": 747202,
+      "gzipBytes": 192999,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",
@@ -168,10 +168,10 @@
     "survival": {
       "name": "survival",
       "path": "dist/bundles/survival.bundle.js",
-      "hash": "205e37aa3a",
+      "hash": "c907133747",
       "fileCount": 66,
-      "rawBytes": 1884616,
-      "gzipBytes": 516356,
+      "rawBytes": 1884220,
+      "gzipBytes": 516206,
       "files": [
         "src/data/SurvivalData.js",
         "src/data/SurvivalCampaignData.js",
@@ -244,10 +244,10 @@
     "minigames": {
       "name": "minigames",
       "path": "dist/bundles/minigames.bundle.js",
-      "hash": "380e2e2157",
+      "hash": "3217e41702",
       "fileCount": 42,
-      "rawBytes": 2422759,
-      "gzipBytes": 631633,
+      "rawBytes": 2423827,
+      "gzipBytes": 631948,
       "files": [
         "src/minigames/MinigameHelpers.js",
         "src/minigames/MinigameCore.js",

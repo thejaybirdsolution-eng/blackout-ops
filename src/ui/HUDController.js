@@ -227,6 +227,37 @@
             this.elHud.classList.toggle('hidden', !visible);
         }
 
+        resetForMode(mode) {
+            this._toastStack = [];
+            this.toastTimer = 0;
+            this._renderToastStack();
+            this.bannerTimer = 0;
+            this.medalTimer = 0;
+            this.killfeedItems = [];
+            this._renderKillfeed(false);
+            if (this.elBanner) this.elBanner.classList.add('hidden');
+            if (this.elMedal) { this.elMedal.classList.add('hidden'); this.elMedal.innerHTML = ''; }
+            if (this.elPrompt) this.elPrompt.classList.add('hidden');
+            if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
+            if (this.elMultiBoss) { this.elMultiBoss.classList.add('hidden'); this.elMultiBoss.innerHTML = ''; }
+            if (this.elEnemyTracker) { this.elEnemyTracker.classList.add('hidden'); this.elEnemyTracker.innerHTML = ''; }
+            if (this.elTdStatus) this.elTdStatus.classList.add('hidden');
+            if (this.elTdDirHints) this.elTdDirHints.innerHTML = '';
+            if (this.elMpScore) this.elMpScore.classList.add('hidden');
+            if (this.elKsDock) this.elKsDock.classList.add('hidden');
+            if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
+            if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
+            if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+            const spHud = document.getElementById('hud-superpower');
+            if (spHud) spHud.hidden = true;
+            if (this.elHud) {
+                if (mode) this.elHud.dataset.mode = mode;
+                else delete this.elHud.dataset.mode;
+                const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
+                this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
+            }
+        }
+
         setScoreboardOpen(open) {
             this.scoreboardOpen = open;
             if (!this.elScoreboardModal) return;
@@ -578,12 +609,18 @@
                     this.elAmmoRes.textContent = (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
                 }
             }
+            const SHORT_GEAR = {
+                frag: 'FRAG', semtex: 'SEMTX', c4: 'C4', claymore: 'CLAY', tomahawk: 'AXE', molotov: 'MOLOT',
+                flashbang: 'FLASH', stun: 'STUN', smoke: 'SMOKE', stim: 'STIM', emp: 'EMP', decoy: 'DECOY'
+            };
             if (this.elLethalInfo) {
-                const lName = (BO.AttachmentsData.LETHALS[P.lethalId]?.id || 'frag').toUpperCase().slice(0, 4);
+                const lid = BO.AttachmentsData.LETHALS[P.lethalId]?.id || 'frag';
+                const lName = SHORT_GEAR[lid] || lid.toUpperCase().slice(0, 5);
                 this.elLethalInfo.textContent = P.cookingFrag ? `COOK ${P.cookTimer.toFixed(1)}s` : `${lName} x${infAmmo ? '∞' : P.lethalCount}`;
             }
             if (this.elTacticalInfo) {
-                const tName = (BO.AttachmentsData.TACTICALS[P.tacticalId]?.id || 'tac').toUpperCase().slice(0, 4);
+                const tid = BO.AttachmentsData.TACTICALS[P.tacticalId]?.id || 'tac';
+                const tName = SHORT_GEAR[tid] || tid.toUpperCase().slice(0, 5);
                 this.elTacticalInfo.textContent = `${tName} x${infAmmo ? '∞' : P.tacticalCount}`;
             }
             {
@@ -594,16 +631,16 @@
                     const text = '[' + BO.Settings.keyLabel(code) + ']';
                     if (tag && tag.textContent !== text) tag.textContent = text;
                 }
-                const hideSuper = mode === 'survival' || mode === 'rpg' || mode === 'owrpg';
+                const hideSuper = mode === 'survival' || mode === 'rpg' || mode === 'owrpg' || mode === 'minigame';
                 this.elFieldInfo?.parentElement?.classList.toggle('hidden', hideSuper);
                 this.elUltInfo?.parentElement?.classList.toggle('hidden', hideSuper);
-                // RPG & OWRPG abilities replace COD grenades.
-                this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
-                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                const hideGearDock = mode === 'rpg' || mode === 'owrpg' || mode === 'survival' || mode === 'minigame';
+                this.elLethalInfo?.parentElement?.classList.toggle('hidden', hideGearDock);
+                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', hideGearDock);
                 const gearDock = this.elLethalInfo?.closest('.gear-dock');
                 if (gearDock) {
-                    gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
-                    gearDock.style.display = (mode === 'rpg' || mode === 'owrpg') ? 'none' : '';
+                    gearDock.classList.toggle('hidden', hideGearDock);
+                    gearDock.style.display = hideGearDock ? 'none' : '';
                 }
             }
             if (this.elFieldInfo) {
@@ -690,10 +727,10 @@
 
                 if (this.elZPowerUps) {
                     const badges = [];
-                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge ${zm.instaKillTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#facc15;color:#facc15">💀 INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
-                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge ${zm.doublePointsTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#38bdf8;color:#38bdf8">⚡ 2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
-                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge ${zm.fireSaleTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#ec4899;color:#ec4899">🔥 FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
-                    if (zm.exfilActive) badges.push(`<div class="pu-badge ${zm.exfilTimer < 12 ? 'pu-badge-urgent' : ''}" style="border-color:#22c55e;color:#22c55e">🚁 EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
+                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge ${zm.instaKillTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#facc15;color:#facc15">INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
+                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge ${zm.doublePointsTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#38bdf8;color:#38bdf8">2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
+                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge ${zm.fireSaleTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#ec4899;color:#ec4899">FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
+                    if (zm.exfilActive) badges.push(`<div class="pu-badge ${zm.exfilTimer < 12 ? 'pu-badge-urgent' : ''}" style="border-color:#22c55e;color:#22c55e">EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
                     if (zm.getMapStatusBadges) {
                         for (const mb of zm.getMapStatusBadges()) {
                             badges.push(`<div class="pu-badge" style="border-color:${mb.color};color:${mb.color}">${mb.text}</div>`);
@@ -841,7 +878,7 @@
                             const sy = cy - Math.cos(rel) * ry;
                             const col = z.isBoss ? '#ef4444' : (z.isMagical ? '#c084fc' : (z.hasGun ? '#f59e0b' : '#4ade80'));
                             return `<div class="td-radar-tag" style="position:absolute;left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px;transform:translate(-50%,-50%);opacity:${opacity};color:${col};filter:drop-shadow(0 0 8px ${col});">
-                                <span>${z.isBoss ? '💀' : '🧟'}</span><span>${dist}m</span>
+                                <span>${z.isBoss ? '◆' : '▲'}</span><span>${dist}m</span>
                             </div>`;
                         }).join('');
                     } else {
@@ -940,22 +977,26 @@
             const totalLeft = living.length + rem;
 
             if (this.elEnemyTracker) {
-                this.elEnemyTracker.classList.remove('hidden');
-                const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-                const top = entries.slice(0, 10).map(([name, c]) =>
-                    `<span style="display:inline-block;margin:1px 3px 1px 0;padding:1px 5px;border-radius:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:10px"><b>${c}x</b> ${name}</span>`
-                );
-                if (entries.length > 10) {
-                    top.push(`<span style="color:#94a3b8;font-size:10px">+${entries.length - 10} more</span>`);
+                if (totalLeft <= 0) {
+                    this.elEnemyTracker.classList.add('hidden');
+                } else {
+                    this.elEnemyTracker.classList.remove('hidden');
+                    const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+                    const top = entries.slice(0, 10).map(([name, c]) =>
+                        `<span style="display:inline-block;margin:1px 3px 1px 0;padding:1px 5px;border-radius:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:10px"><b>${c}x</b> ${name}</span>`
+                    );
+                    if (entries.length > 10) {
+                        top.push(`<span style="color:#94a3b8;font-size:10px">+${entries.length - 10} more</span>`);
+                    }
+                    const listHtml = top.join('');
+                    this.elEnemyTracker.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:4px">
+                            <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
+                            <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:2px">${listHtml}</div>
+                    `;
                 }
-                const listHtml = top.length > 0 ? top.join('') : '<span style="color:#64748b;font-size:10px">No active hostiles on field</span>';
-                this.elEnemyTracker.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:4px">
-                        <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
-                        <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
-                    </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:2px">${listHtml}</div>
-                `;
             }
 
             if (this.elMultiBoss) {

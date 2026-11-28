@@ -43614,7 +43614,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         getMapStatusBadges() {
             const out = [];
-            out.push({ text: `📦 SUPPLIES: ${this.supplies.toLocaleString()} • [B] BUILD`, color: '#38bdf8' });
+            out.push({ text: `SUPPLIES: ${this.supplies.toLocaleString()} • [B] BUILD`, color: '#38bdf8' });
             const mq = this.mapQuest;
             if (this.mapId === 'shi_no_numa' && BO.Player.inSwampMud) {
                 out.push({ text: 'SWAMP MUD (-38% SPEED)', color: '#84cc16' });
@@ -47753,12 +47753,6 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     };
                 }
             }
-            if (this.state === 'intermission') {
-                return {
-                    text: `INTERMISSION ${Math.ceil(this.intermissionTimer)}s • [T] SHOPKEEPER • [N] SKIP WAIT`,
-                    affordable: true
-                };
-            }
             return null;
         }
 
@@ -48477,6 +48471,37 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.elHud.classList.toggle('hidden', !visible);
         }
 
+        resetForMode(mode) {
+            this._toastStack = [];
+            this.toastTimer = 0;
+            this._renderToastStack();
+            this.bannerTimer = 0;
+            this.medalTimer = 0;
+            this.killfeedItems = [];
+            this._renderKillfeed(false);
+            if (this.elBanner) this.elBanner.classList.add('hidden');
+            if (this.elMedal) { this.elMedal.classList.add('hidden'); this.elMedal.innerHTML = ''; }
+            if (this.elPrompt) this.elPrompt.classList.add('hidden');
+            if (this.elBossWrap) this.elBossWrap.classList.add('hidden');
+            if (this.elMultiBoss) { this.elMultiBoss.classList.add('hidden'); this.elMultiBoss.innerHTML = ''; }
+            if (this.elEnemyTracker) { this.elEnemyTracker.classList.add('hidden'); this.elEnemyTracker.innerHTML = ''; }
+            if (this.elTdStatus) this.elTdStatus.classList.add('hidden');
+            if (this.elTdDirHints) this.elTdDirHints.innerHTML = '';
+            if (this.elMpScore) this.elMpScore.classList.add('hidden');
+            if (this.elKsDock) this.elKsDock.classList.add('hidden');
+            if (this.elZChalkRow) this.elZChalkRow.classList.add('hidden');
+            if (this.elZPowerUps) this.elZPowerUps.innerHTML = '';
+            if (this.elPerkTray) this.elPerkTray.innerHTML = '';
+            const spHud = document.getElementById('hud-superpower');
+            if (spHud) spHud.hidden = true;
+            if (this.elHud) {
+                if (mode) this.elHud.dataset.mode = mode;
+                else delete this.elHud.dataset.mode;
+                const hideMgVitals = mode === 'minigame' && BO.Minigames?.def?.cat !== 'boss';
+                this.elHud.classList.toggle('mg-hide-vitals', !!hideMgVitals);
+            }
+        }
+
         setScoreboardOpen(open) {
             this.scoreboardOpen = open;
             if (!this.elScoreboardModal) return;
@@ -48828,12 +48853,18 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     this.elAmmoRes.textContent = (isMeleeW || infAmmo) ? '/ ∞' : ('/ ' + w.reserve);
                 }
             }
+            const SHORT_GEAR = {
+                frag: 'FRAG', semtex: 'SEMTX', c4: 'C4', claymore: 'CLAY', tomahawk: 'AXE', molotov: 'MOLOT',
+                flashbang: 'FLASH', stun: 'STUN', smoke: 'SMOKE', stim: 'STIM', emp: 'EMP', decoy: 'DECOY'
+            };
             if (this.elLethalInfo) {
-                const lName = (BO.AttachmentsData.LETHALS[P.lethalId]?.id || 'frag').toUpperCase().slice(0, 4);
+                const lid = BO.AttachmentsData.LETHALS[P.lethalId]?.id || 'frag';
+                const lName = SHORT_GEAR[lid] || lid.toUpperCase().slice(0, 5);
                 this.elLethalInfo.textContent = P.cookingFrag ? `COOK ${P.cookTimer.toFixed(1)}s` : `${lName} x${infAmmo ? '∞' : P.lethalCount}`;
             }
             if (this.elTacticalInfo) {
-                const tName = (BO.AttachmentsData.TACTICALS[P.tacticalId]?.id || 'tac').toUpperCase().slice(0, 4);
+                const tid = BO.AttachmentsData.TACTICALS[P.tacticalId]?.id || 'tac';
+                const tName = SHORT_GEAR[tid] || tid.toUpperCase().slice(0, 5);
                 this.elTacticalInfo.textContent = `${tName} x${infAmmo ? '∞' : P.tacticalCount}`;
             }
             {
@@ -48844,16 +48875,16 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     const text = '[' + BO.Settings.keyLabel(code) + ']';
                     if (tag && tag.textContent !== text) tag.textContent = text;
                 }
-                const hideSuper = mode === 'survival' || mode === 'rpg' || mode === 'owrpg';
+                const hideSuper = mode === 'survival' || mode === 'rpg' || mode === 'owrpg' || mode === 'minigame';
                 this.elFieldInfo?.parentElement?.classList.toggle('hidden', hideSuper);
                 this.elUltInfo?.parentElement?.classList.toggle('hidden', hideSuper);
-                // RPG & OWRPG abilities replace COD grenades.
-                this.elLethalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
-                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
+                const hideGearDock = mode === 'rpg' || mode === 'owrpg' || mode === 'survival' || mode === 'minigame';
+                this.elLethalInfo?.parentElement?.classList.toggle('hidden', hideGearDock);
+                this.elTacticalInfo?.parentElement?.classList.toggle('hidden', hideGearDock);
                 const gearDock = this.elLethalInfo?.closest('.gear-dock');
                 if (gearDock) {
-                    gearDock.classList.toggle('hidden', mode === 'rpg' || mode === 'owrpg');
-                    gearDock.style.display = (mode === 'rpg' || mode === 'owrpg') ? 'none' : '';
+                    gearDock.classList.toggle('hidden', hideGearDock);
+                    gearDock.style.display = hideGearDock ? 'none' : '';
                 }
             }
             if (this.elFieldInfo) {
@@ -48940,10 +48971,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
                 if (this.elZPowerUps) {
                     const badges = [];
-                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge ${zm.instaKillTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#facc15;color:#facc15">💀 INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
-                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge ${zm.doublePointsTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#38bdf8;color:#38bdf8">⚡ 2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
-                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge ${zm.fireSaleTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#ec4899;color:#ec4899">🔥 FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
-                    if (zm.exfilActive) badges.push(`<div class="pu-badge ${zm.exfilTimer < 12 ? 'pu-badge-urgent' : ''}" style="border-color:#22c55e;color:#22c55e">🚁 EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
+                    if (zm.instaKillTimer > 0) badges.push(`<div class="pu-badge ${zm.instaKillTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#facc15;color:#facc15">INSTA-KILL ${zm.instaKillTimer.toFixed(0)}s</div>`);
+                    if (zm.doublePointsTimer > 0) badges.push(`<div class="pu-badge ${zm.doublePointsTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#38bdf8;color:#38bdf8">2X POINTS ${zm.doublePointsTimer.toFixed(0)}s</div>`);
+                    if (zm.fireSaleTimer > 0) badges.push(`<div class="pu-badge ${zm.fireSaleTimer < 5 ? 'pu-badge-urgent' : ''}" style="border-color:#ec4899;color:#ec4899">FIRE SALE ${zm.fireSaleTimer.toFixed(0)}s</div>`);
+                    if (zm.exfilActive) badges.push(`<div class="pu-badge ${zm.exfilTimer < 12 ? 'pu-badge-urgent' : ''}" style="border-color:#22c55e;color:#22c55e">EXFIL ${zm.exfilTimer.toFixed(0)}s</div>`);
                     if (zm.getMapStatusBadges) {
                         for (const mb of zm.getMapStatusBadges()) {
                             badges.push(`<div class="pu-badge" style="border-color:${mb.color};color:${mb.color}">${mb.text}</div>`);
@@ -49091,7 +49122,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                             const sy = cy - Math.cos(rel) * ry;
                             const col = z.isBoss ? '#ef4444' : (z.isMagical ? '#c084fc' : (z.hasGun ? '#f59e0b' : '#4ade80'));
                             return `<div class="td-radar-tag" style="position:absolute;left:${sx.toFixed(0)}px;top:${sy.toFixed(0)}px;transform:translate(-50%,-50%);opacity:${opacity};color:${col};filter:drop-shadow(0 0 8px ${col});">
-                                <span>${z.isBoss ? '💀' : '🧟'}</span><span>${dist}m</span>
+                                <span>${z.isBoss ? '◆' : '▲'}</span><span>${dist}m</span>
                             </div>`;
                         }).join('');
                     } else {
@@ -49190,22 +49221,26 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const totalLeft = living.length + rem;
 
             if (this.elEnemyTracker) {
-                this.elEnemyTracker.classList.remove('hidden');
-                const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-                const top = entries.slice(0, 10).map(([name, c]) =>
-                    `<span style="display:inline-block;margin:1px 3px 1px 0;padding:1px 5px;border-radius:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:10px"><b>${c}x</b> ${name}</span>`
-                );
-                if (entries.length > 10) {
-                    top.push(`<span style="color:#94a3b8;font-size:10px">+${entries.length - 10} more</span>`);
+                if (totalLeft <= 0) {
+                    this.elEnemyTracker.classList.add('hidden');
+                } else {
+                    this.elEnemyTracker.classList.remove('hidden');
+                    const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+                    const top = entries.slice(0, 10).map(([name, c]) =>
+                        `<span style="display:inline-block;margin:1px 3px 1px 0;padding:1px 5px;border-radius:3px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.28);color:#e2e8f0;font-size:10px"><b>${c}x</b> ${name}</span>`
+                    );
+                    if (entries.length > 10) {
+                        top.push(`<span style="color:#94a3b8;font-size:10px">+${entries.length - 10} more</span>`);
+                    }
+                    const listHtml = top.join('');
+                    this.elEnemyTracker.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:4px">
+                            <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
+                            <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:2px">${listHtml}</div>
+                    `;
                 }
-                const listHtml = top.length > 0 ? top.join('') : '<span style="color:#64748b;font-size:10px">No active hostiles on field</span>';
-                this.elEnemyTracker.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:4px">
-                        <span style="color:#f87171;font-weight:800;letter-spacing:1px;font-size:11px">ENEMIES: ${totalLeft} LEFT</span>
-                        <span style="color:#94a3b8;font-size:10px">${living.length} ON FIELD • ${rem} QUEUED</span>
-                    </div>
-                    <div style="display:flex;flex-wrap:wrap;gap:2px">${listHtml}</div>
-                `;
             }
 
             if (this.elMultiBoss) {
@@ -49643,12 +49678,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         MOBILITY: 'How fast you move and aim with it.'
     };
 
+    const _attIco = (d) => `<svg class="ui-ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;opacity:.9" aria-hidden="true">${d}</svg>`;
     const ATT_CATS = [
-        { id: 'optic', label: 'Optic', icon: 'staged_assets/ui/military_icons/Optics Sensors/compact-binocular-optic-001.png', tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
-        { id: 'muzzle', label: 'Muzzle', icon: 'staged_assets/ui/military_icons/Attachments/suppressor-heat-cover-001.png', tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
-        { id: 'underbarrel', label: 'Underbarrel', icon: 'staged_assets/ui/military_icons/Attachments/hand-stop-grip-001.png', tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
-        { id: 'magazine', label: 'Magazine', icon: 'staged_assets/ui/military_icons/Attachments/drum-magazine-001.png', tip: 'Bigger magazines or faster reloads.' },
-        { id: 'stock', label: 'Stock', icon: 'staged_assets/ui/military_icons/Attachments/adjustable-rifle-stock-001.png', tip: 'Faster movement and aiming, or steadier recoil.' }
+        { id: 'optic', label: 'Optic', icon: _attIco('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1.5"/>'), tip: 'Your sight. Iron sights, red dot, holographic, ACOG or a sniper scope.' },
+        { id: 'muzzle', label: 'Muzzle', icon: _attIco('<rect x="2" y="5" width="12" height="6" rx="1"/><path d="M5 5v6M10 5v6"/>'), tip: 'Suppressor (quieter, hidden from radar), compensator (less kick) or muzzle brake.' },
+        { id: 'underbarrel', label: 'Underbarrel', icon: _attIco('<path d="M2 6h12M6 6l-1 7h3l1-7"/>'), tip: 'Foregrip for stability, laser for hip-fire, or a barrel swap for range versus speed.' },
+        { id: 'magazine', label: 'Magazine', icon: _attIco('<path d="M5 3h6l-1 10H6z"/>'), tip: 'Bigger magazines or faster reloads.' },
+        { id: 'stock', label: 'Stock', icon: _attIco('<path d="M2 5l12 1v5l-12 2z"/>'), tip: 'Faster movement and aiming, or steadier recoil.' }
     ];
 
     const SHORT_CLASS_LABELS = {
@@ -49974,11 +50010,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         ${views.map((v) => {
                             const cat = ATT_CATS.find((c) => c.id === v.id);
                             const ico = v.id === 'weapon'
-                                ? 'staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png'
-                                : (v.id === 'camo' ? 'staged_assets/ui/military_icons/Consumables/camouflage-face-paint-tin-001.png' : (cat ? cat.icon : ''));
+                                ? _attIco('<path d="M2 7h9l3 2v2h-3l-1-1.5H5.5L4.5 13H2.5L3.5 9H2z"/>')
+                                : (v.id === 'camo' ? _attIco('<circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11M2.5 8h11"/>') : (cat ? cat.icon : ''));
                             return `
                             <button class="picker-tab ${this.weaponView === v.id ? 'active' : ''} ${v.changed ? 'changed' : ''}" data-view="${v.id}" ${v.id !== 'weapon' && v.id !== 'camo' ? `data-tip-title="${v.label}" data-tip="${escAttr((cat || {}).tip || '')}"` : ''}>
-                                ${ico ? `<img src="${ico}" alt="" style="width:14px;height:14px;object-fit:contain;vertical-align:-2px;margin-right:4px">` : ''}<span>${v.label}</span><small>${escAttr(v.cur)}</small>
+                                ${ico}<span>${v.label}</span><small>${escAttr(v.cur)}</small>
                             </button>`;
                         }).join('')}
                     </div>
@@ -51946,6 +51982,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 if (el) el.classList.toggle('hidden', k !== name);
             });
             BO.HUD.setVisible(name === 'playing');
+            if (name !== 'playing' && BO.SurvivalUI?.open) BO.SurvivalUI.close?.();
             if (name !== 'minigames' && BO.BeatSongs?.stopPreview) BO.BeatSongs.stopPreview(false);
             this.updateCheatMenuVisibility();
             if (BO.RPGUI && BO.RPGUI.haven) BO.RPGUI.onScreenChanged(name);
@@ -51971,6 +52008,26 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.State.paused = open;
             if (BO.App && BO.App._clearInputState) BO.App._clearInputState();
             this.updateCheatMenuVisibility();
+            if (open) {
+                const modeMap = {
+                    zombies: 'ZOMBIES', mp: 'MULTIPLAYER', td: 'TOWER DEFENSE',
+                    survival: 'SURVIVAL', rpg: 'ROGUE LITE', owrpg: 'OPEN WORLD RPG', minigame: 'MINIGAMES'
+                };
+                const mode = BO.State.activeMode || 'zombies';
+                const badge = document.getElementById('pause-mode-badge');
+                const meta = document.getElementById('pause-meta-sub');
+                if (badge) badge.textContent = modeMap[mode] || 'COMBAT';
+                if (meta) {
+                    if (mode === 'zombies') meta.textContent = `Round ${BO.ZombiesMode?.round || 1} • ${BO.ZombiesMode?.aliveCount || 0} hostiles`;
+                    else if (mode === 'td') meta.textContent = `Wave ${BO.TowerDefenseMode?.wave || 1} • ${BO.TowerDefenseMode?.gold || 0} Gold`;
+                    else if (mode === 'mp') meta.textContent = BO.MultiplayerMode?.formatName || 'Arena Combat';
+                    else if (mode === 'minigame') meta.textContent = BO.Minigames?.def?.name || 'Minigame';
+                    else if (mode === 'owrpg') meta.textContent = BO.OWRPGWorldSim?.region?.name || 'Meridian';
+                    else if (mode === 'rpg') meta.textContent = `Depth ${BO.RPGMode?.depth || 1}`;
+                    else if (mode === 'survival') meta.textContent = `Day ${BO.ZoneDayCycle?.day || 1}`;
+                    else meta.textContent = 'Combat suspended';
+                }
+            }
             const btnDev = document.getElementById('btn-pause-dev');
             if (btnDev) {
                 const dev = BO.GM?.active ? BO.GM.get('dev') : null;
@@ -52070,27 +52127,38 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
            DEPLOYMENT LOBBY — step-by-step setup (left) + live summary (right)
         ==================================================================== */
         _lobbySections(mode) {
+            const ico = {
+                map: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg>',
+                gear: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>',
+                gun: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h13l3 2v3h-3l-1-2H9l-1.5 4H4.5L6 13H3z"/></svg>',
+                skull: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/><circle cx="10" cy="9.5" r="1" fill="currentColor"/><circle cx="14" cy="9.5" r="1" fill="currentColor"/></svg>',
+                mod: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v5l-5 9a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 17l-5-9V3"/></svg>',
+                bots: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="14" height="11" rx="2"/><path d="M12 3v4M9 12h.01M15 12h.01M9 15h6"/></svg>',
+                rules: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
+                castle: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 20V9h12v11M5 9V5h3v2h2V5h4v2h2V5h3v4"/></svg>',
+                field: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L20 4M4 4h6v6H4zM14 14h6v6h-6z"/></svg>'
+            };
             if (mode === 'zombies') return [
-                { id: 'map', label: 'Map', icon: '🗺' },
-                { id: 'difficulty', label: 'Difficulty', icon: '⚙' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'enemies', label: 'Enemies & Values', icon: '🧟' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'map', label: 'Map', icon: ico.map },
+                { id: 'difficulty', label: 'Difficulty', icon: ico.gear },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'enemies', label: 'Enemies & Values', icon: ico.skull },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
             if (mode === 'mp') return [
-                { id: 'mode', label: 'Mode & Map', icon: '🗺' },
-                { id: 'bots', label: 'Bots', icon: '🤖' },
-                { id: 'rules', label: 'Match Rules', icon: '📜' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'mode', label: 'Mode & Map', icon: ico.map },
+                { id: 'bots', label: 'Bots', icon: ico.bots },
+                { id: 'rules', label: 'Match Rules', icon: ico.rules },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
             return [
-                { id: 'castle', label: 'Castle', icon: '🏰' },
-                { id: 'difficulty', label: 'Mode & Difficulty', icon: '⚙' },
-                { id: 'battlefield', label: 'Battlefield', icon: '📐' },
-                { id: 'loadout', label: 'Starting Weapons', icon: '🔫' },
-                { id: 'enemies', label: 'Enemy Pool', icon: '🧟' },
-                { id: 'modifiers', label: 'Modifiers', icon: '🧪' }
+                { id: 'castle', label: 'Castle', icon: ico.castle },
+                { id: 'difficulty', label: 'Mode & Difficulty', icon: ico.gear },
+                { id: 'battlefield', label: 'Battlefield', icon: ico.field },
+                { id: 'loadout', label: 'Starting Weapons', icon: ico.gun },
+                { id: 'enemies', label: 'Enemy Pool', icon: ico.skull },
+                { id: 'modifiers', label: 'Modifiers', icon: ico.mod }
             ];
         }
 
@@ -52330,7 +52398,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
                 body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start rounds, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-z-open-ep">
-                        <span class="big-action-ico">🧟</span>
+                        <span class="big-action-ico" aria-hidden="true"><svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/></svg></span>
                         <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`) + this._section('Exact values', 'Fine-tune the horde with precise numbers.', this._valueGrid([
@@ -52615,7 +52683,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const setupName = zc ? (zc.config.activePresetName || 'Default') : 'Default';
                 body.innerHTML = this._section('Enemy pool & zombie customizer', 'Edit zombie stats, start waves, per-zombie & category spawn %, and save setups.', `
                     <button class="big-action" id="btn-td-open-ep">
-                        <span class="big-action-ico">🧟</span>
+                        <span class="big-action-ico" aria-hidden="true"><svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="6"/><path d="M9 16v3h6v-3"/></svg></span>
                         <span><b>Customize zombies, stats &amp; spawn %</b><small>${totalEp - disabledCount} of ${totalEp} enabled • Setup: ${escAttr(setupName)}${modCnt ? ` • ${modCnt} edited` : ''}</small></span>
                         <span class="big-action-go">OPEN →</span>
                     </button>`);
@@ -52674,7 +52742,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
             right.innerHTML = `
                 <div class="side-card side-card-net">
-                    <div class="side-title" style="color:#4ade80;">🌐 ONLINE SQUAD</div>
+                    <div class="side-title" style="color:#4ade80;">ONLINE SQUAD</div>
                     <div id="net-lobby-box" class="net-lobby-box"></div>
                 </div>
                 <div class="side-card">
@@ -52770,7 +52838,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         Create an Online Room to get a shareable link—anyone who opens your link automatically lands in this lobby with you!
                     </div>
                     <button class="btn btn-sm" id="btn-net-create" style="background:linear-gradient(135deg,#15803d,#22c55e);color:#052e16;border-color:#4ade80;font-weight:800;padding:10px;">
-                        🔗 CREATE ONLINE LOBBY &amp; GET FRIEND LINK
+                        CREATE ONLINE LOBBY &amp; GET FRIEND LINK
                     </button>
                     <div style="display:flex;gap:6px;align-items:center;">
                         <input type="text" id="inp-net-code" placeholder="ENTER ROOM CODE" maxlength="8" style="flex:1;background:#070a0f;color:#fde047;border:1px solid var(--border-subtle);padding:6px 8px;font-family:var(--font-mono);font-weight:800;text-transform:uppercase;">
@@ -52805,7 +52873,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 </div>
                 <div style="display:flex;gap:4px;">
                     <input type="text" readonly value="${escAttr(inviteUrl)}" id="inp-invite-url" style="flex:1;background:#070a0f;color:#38bdf8;border:1px solid rgba(56,189,248,0.4);padding:5px 7px;font-family:var(--font-mono);font-size:11px;user-select:all;">
-                    <button class="btn btn-sm btn-primary" id="btn-net-copy-link" title="Copy link to send to your friend">📋 COPY LINK</button>
+                    <button class="btn btn-sm btn-primary" id="btn-net-copy-link" title="Copy link to send to your friend">COPY LINK</button>
                 </div>
                 <div style="font-size:11px;font-weight:800;color:var(--amber);letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;">
                     <span>SQUAD IN LOBBY (${players.length} / 8)</span>
@@ -52918,28 +52986,28 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     <div class="panel-title" style="color:#fde047;">SPECIAL UNLOCKABLES &amp; ENDGAME MODES</div>
                     <div class="card-grid">
                         <div class="select-card ${goldUnlocked ? 'active' : ''}">
-                            <div class="card-head" style="color:#fde047;">1. 24K GOLD CAMO (${goldUnlocked ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#fde047;">1. 24K GOLD CAMO (${goldUnlocked ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Score 1,000 Headshots with your selected weapon (or use the <b>unlock</b> cheat).<br>Active Primary (${BO.WeaponsData.get(cls.primary.id).shortName}): <b>${pRec.headshots || 0} / 1,000 Headshots</b></div>
                         </div>
                         <div class="select-card ${hatUnlocked ? 'active' : ''}">
-                            <div class="card-head" style="color:#fde047;">2. 🎩 GENTLEMAN TOP HAT (${hatUnlocked ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#fde047;">2. GENTLEMAN TOP HAT (${hatUnlocked ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Score 1,000 Headshots in a single game! Displays a 3D Black &amp; Gold Top Hat on your podium and grants +15% Headshot Points in Zombies!</div>
-                            ${hatUnlocked ? `<button class="btn btn-sm ${hatEq ? 'btn-primary' : ''}" id="btn-toggle-tophat" style="margin-top:8px;">${hatEq ? '🎩 TOP HAT EQUIPPED (CLICK TO UNEQUIP)' : 'EQUIP 3D TOP HAT'}</button>` : ''}
+                            ${hatUnlocked ? `<button class="btn btn-sm ${hatEq ? 'btn-primary' : ''}" id="btn-toggle-tophat" style="margin-top:8px;">${hatEq ? 'TOP HAT EQUIPPED (CLICK TO UNEQUIP)' : 'EQUIP 3D TOP HAT'}</button>` : ''}
                         </div>
                         <div class="select-card ${(u.hardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#f87171;">3. HARD MODE (${(u.hardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#f87171;">3. HARD MODE (${(u.hardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 in Zombies! Zombies have 1.5x HP, +18% Speed, and 1.35x Attack.</div>
                         </div>
                         <div class="select-card ${(u.veryHardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#ef4444;">4. VERY HARD MODE (${(u.veryHardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#ef4444;">4. VERY HARD MODE (${(u.veryHardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 on Hard Mode! Zombies have 2.25x HP, +32% Speed, and 1.7x Attack.</div>
                         </div>
                         <div class="select-card ${(u.insanelyHardModeUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#dc2626;">5. INSANELY HARD MODE (${(u.insanelyHardModeUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#dc2626;">5. INSANELY HARD MODE (${(u.insanelyHardModeUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 on Very Hard Mode! Zombies have 3.5x HP, +48% Speed, and 2.2x Attack.</div>
                         </div>
                         <div class="select-card ${(u.bossRushUnlocked || allOn) ? 'active' : ''}">
-                            <div class="card-head" style="color:#c084fc;">6. ★ BOSS RUSH MODE (${(u.bossRushUnlocked || allOn) ? 'UNLOCKED ✓' : 'LOCKED 🔒'})</div>
+                            <div class="card-head" style="color:#c084fc;">6. BOSS RUSH MODE (${(u.bossRushUnlocked || allOn) ? 'UNLOCKED' : 'LOCKED'})</div>
                             <div class="card-sub"><b>Requirement:</b> Pass Round 50 in Zombies! Start with 10,000 Points and fight a Boss every single round!</div>
                         </div>
                     </div>
@@ -53021,13 +53089,27 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             } else if (this.barracksTab === 'record') {
                 const kd = (stats.mpKills / Math.max(1, stats.mpDeaths)).toFixed(2);
                 const acc = stats.shotsFired > 0 ? Math.round((stats.shotsHit / stats.shotsFired) * 100) + '%' : '0%';
+                const xpCur = info.xpIntoLevel || 0;
+                const xpSpan = Math.max(1, xpCur + (info.xpNeededForNext || 1));
+                const xpPct = Math.min(100, Math.round((xpCur / xpSpan) * 100));
+                const profSums = BO.ProfileSystem?.getModeSummaries?.() || {};
                 body.innerHTML = `
+                    <div class="rec-hero">
+                        <div class="rec-hero-meta">
+                            <span class="rec-hero-kicker">SERVICE DOSSIER • ${escAttr(info.prestigeInfo.title)}</span>
+                            <div class="rec-hero-title">RANK ${info.level} / 55 — ${escAttr(info.rankName)}</div>
+                            <div class="rec-xp-bar"><span style="width:${xpPct}%"></span></div>
+                        </div>
+                        <div style="text-align:right;font-family:var(--font-mono);">
+                            <div style="font-size:13px;font-weight:700;color:var(--accent-hi);">${info.xpNeededForNext} XP TO NEXT</div>
+                            <div style="font-size:11px;color:var(--text-dim);">+${info.prestige * 10}% PRESTIGE BONUS • TOKENS: ${BO.Save.data.player.tokens}</div>
+                        </div>
+                    </div>
                     <div class="card-grid">
-                        <div class="select-card" data-tip-title="Military Rank" data-tip="Play matches to level up from 1 to 55 and unlock weapons and perks."><div class="card-head">RANK ${info.level} / 55</div><div class="card-sub">${info.rankName} • ${info.xpNeededForNext} XP to Next</div></div>
-                        <div class="select-card" data-tip-title="Prestige Tier" data-tip="At Level 55 you can reset your rank for a shiny new emblem and +10% permanent XP boost!"><div class="card-head" style="color:${info.prestigeInfo.color}">${info.prestigeInfo.title}</div><div class="card-sub">+${info.prestige * 10}% Permanent XP Bonus • Tokens: ${BO.Save.data.player.tokens}</div></div>
                         <div class="select-card" data-tip-title="Multiplayer Stats" data-tip="Your lifetime stats across recorded Multiplayer matches."><div class="card-head">MP K/D: ${kd}</div><div class="card-sub">${stats.mpKills} Kills / ${stats.mpDeaths} Deaths • Headshots: ${stats.mpHeadshots} • Wins: ${stats.mpWins} • Acc: ${acc}</div></div>
                         <div class="select-card"><div class="card-head">MP MATCH RECORD</div><div class="card-sub">Objectives completed: ${stats.mpObjectives} • Matches played: ${stats.mpMatches} • Most kills in a match: ${stats.mpBestKills}</div></div>
                         <div class="select-card" data-tip-title="Zombies Survival Stats" data-tip="Total zombies eliminated and your highest wave reached on each Zombies map."><div class="card-head">ZOMBIES KILLS: ${stats.zombiesKills}</div><div class="card-sub">Headshots: ${stats.zombiesHeadshots} • Der Bunker Best: ${stats.highestRoundByMap.der_bunker || 0} • Station Omega: ${stats.highestRoundByMap.station_omega || 0}</div></div>
+                        <div class="select-card"><div class="card-head">EXPEDITION &amp; CAMPAIGN</div><div class="card-sub">Survival: ${escAttr(profSums.survival || 'Day 1')} • Rogue Lite: ${escAttr(profSums.rpg || 'Depth 0')}<br>Open World: ${escAttr(profSums.owrpg || 'New Game')} • Tower Defense: ${escAttr(profSums.td || 'Wave 0')}</div></div>
                     </div>
                     <div style="margin-top:16px;display:flex;align-items:center;gap:14px;">
                         <button class="btn btn-primary" id="btn-enter-prestige" ${canPres ? '' : 'disabled'}
@@ -53976,55 +54058,57 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const cycleDeps = td.getCycleDeployables ? td.getCycleDeployables() : [];
             const items = td.getShopItems();
 
-            const depIcon = (id) => ({
-                sniper_nest: 'staged_assets/ui/military_icons/Firearms/bolt-action-sniper-rifle-001.png',
-                attack_drone: 'staged_assets/ui/military_icons/Drones Robots/autonomous-sentry-robot-001.png',
-                combat_mech: 'staged_assets/ui/scifi_icons/Drones Robots/alien-artifact-handler-001.png',
-                tesla_coil: 'staged_assets/ui/scifi_icons/Turrets Defenses/antimissile-coil-turret-001.png',
-                flame_turret: 'staged_assets/ui/dieselpunk_icons/Turrets Defenses/armored-flak-cupola-001.png',
-                cryo_projector: 'staged_assets/ui/scifi_icons/Power Cores/antimatter-quench-rod-001.png',
-                mortar_battery: 'staged_assets/ui/dieselpunk_icons/Weapons/boiler-spike-mortar-001.png',
-                laser_beacon: 'staged_assets/ui/scifi_icons/Ui Symbols/air-supply-symbol-001.png',
-                shield_gen: 'staged_assets/ui/scifi_icons/Turrets Defenses/anti-drone-dome-001.png',
-                healing_fountain: 'staged_assets/ui/military_icons/Medical/autoinjector-case-001.png',
-                ammo_fabricator: 'staged_assets/ui/military_icons/Resources/ammunition-crate-001.png',
-                gravity_well: 'staged_assets/ui/scifi_icons/Gadgets/adaptive-signal-buoy-001.png',
-                gold_miner: 'staged_assets/ui/dieselpunk_icons/Machinery/ammo-drum-coupler-001.png',
-                airstrike_beacon: 'staged_assets/ui/military_icons/Ui Symbols/air-support-symbol-001.png',
-                barrier: 'staged_assets/ui/military_icons/Emplacements Defenses/anti-vehicle-hedgehog-001.png'
-            }[id] || 'staged_assets/ui/military_icons/Emplacements Defenses/anti-air-gun-mount-001.png');
+            const ico = (path, color) => `<svg class="ui-ico td-shop-ico" viewBox="0 0 24 24" fill="none" stroke="${color || 'currentColor'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="float:right;width:22px;height:22px;opacity:.85">${path}</svg>`;
+            const depSvg = (id) => ({
+                sniper_nest: ico('<circle cx="12" cy="12" r="7"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>', '#38bdf8'),
+                attack_drone: ico('<path d="M4 9l8-4 8 4-8 4z"/><path d="M7 13v4M17 13v4"/>', '#c084fc'),
+                combat_mech: ico('<rect x="6" y="4" width="12" height="10" rx="2"/><path d="M8 14v6M16 14v6"/>', '#f59e0b'),
+                tesla_coil: ico('<path d="M13 2L6 13h5l-1 9 7-11h-5z"/>', '#38bdf8'),
+                flame_turret: ico('<path d="M12 3c3 4 5 7 5 10a5 5 0 1 1-10 0c0-2 1-4 2-6 1 2 2 2 3-4z"/>', '#fb923c'),
+                cryo_projector: ico('<path d="M12 2v20M4 7l16 10M20 7L4 17"/>', '#67e8f9'),
+                mortar_battery: ico('<path d="M4 18h16M7 18l8-11 3 2-6 9"/>', '#f87171'),
+                laser_beacon: ico('<path d="M12 2v10M5 17h14M8 21h8"/>', '#f472b6'),
+                shield_gen: ico('<path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6z"/>', '#60a5fa'),
+                healing_fountain: ico('<path d="M12 5v14M5 12h14"/>', '#4ade80'),
+                ammo_fabricator: ico('<rect x="4" y="7" width="16" height="12" rx="1.5"/><path d="M8 7V4h8v3"/>', '#eab308'),
+                gravity_well: ico('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>', '#a78bfa'),
+                gold_miner: ico('<path d="M12 3l8 5-8 5-8-5zM4 13l8 5 8-5"/>', '#fde047'),
+                airstrike_beacon: ico('<path d="M12 3v12M8 11l4 4 4-4M4 20h16"/>', '#ef4444'),
+                barrier: ico('<path d="M4 18l4-10h8l4 10M6 13h12"/>', '#94a3b8')
+            }[id] || ico('<path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7z"/>', '#38bdf8'));
+            const wSvg = (c) => ico('<path d="M3 10h13l3 2v3h-3l-1-2H9l-1.5 4H4.5L6 13H3z"/>', c || '#fde047');
 
             body.innerHTML = `
-                <div class="td-shop-section" style="color:#fde047;">★ 5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
+                <div class="td-shop-section" style="color:#fde047;">5 ROLLED WEAPONS (COMMON / MELEE / UNCOMMON / FREE / MAGIC)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${weapons.map((o) => `
                         <button class="select-card td-shop-card js-td-buy-w" data-slot="${o.slotIndex}" ${o.sold ? 'disabled' : ''} style="border-color:${o.sold ? '#334155' : o.color};">
-                            <img src="staged_assets/ui/military_icons/Firearms/compact-folding-carbine-001.png" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.9;border-radius:4px">
+                            ${wSvg(o.sold ? '#475569' : o.color)}
                             <div style="font-size:10px;font-weight:900;letter-spacing:0.6px;color:${o.color};">${o.badge}</div>
                             <div class="card-head" style="margin-top:3px;">${o.spec.name}</div>
                             <div class="card-sub">${o.spec.category} • ${o.spec.damage}${o.spec.pellets > 1 ? 'x' + o.spec.pellets : ''} DMG • ${o.spec.rpm} RPM</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${o.sold ? '#64748b' : (o.cost === 0 ? '#4ade80' : '#fde047')};">
-                                ${o.sold ? 'PURCHASED ✓' : (o.cost === 0 ? '★ FREE WEAPON (0 GOLD)!' : `${o.cost} GOLD`)}
+                                ${o.sold ? 'PURCHASED' : (o.cost === 0 ? 'FREE WEAPON (0 GOLD)' : `${o.cost} GOLD`)}
                             </div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="td-shop-section" style="color:#c084fc;">★ ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 BESPOKE UNITS)</div>
+                <div class="td-shop-section" style="color:#c084fc;">ROTATING SUPPORT DEPLOYABLES (6 ROLLED THIS CYCLE FROM 20 BESPOKE UNITS)</div>
                 <div class="card-grid" style="margin-bottom:14px;">
                     ${cycleDeps.map((d) => `
                         <button class="select-card td-shop-card js-td-buy-dep" data-depid="${d.id}" style="border-color:${d.color || '#c084fc'};">
-                            <img src="${depIcon(d.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
+                            ${depSvg(d.id)}
                             <div class="card-head" style="color:${d.color || '#c084fc'};">${d.name}</div>
                             <div class="card-sub">${d.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= d.cost ? '#fde047' : '#ef4444'};">${d.cost} GOLD</div>
                         </button>
                     `).join('')}
                 </div>
-                <div class="td-shop-section" style="color:#38bdf8;">★ CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
+                <div class="td-shop-section" style="color:#38bdf8;">CORE CASTLE DEFENSES, ALLIES &amp; HEAVY ORDNANCE</div>
                 <div class="card-grid">
                     ${items.map((it) => `
                         <button class="select-card td-shop-card js-td-buy-it" data-itid="${it.id}" style="border-color:${td.gold >= it.cost ? 'rgba(56,189,248,0.55)' : '#334155'};">
-                            <img src="${depIcon(it.id)}" alt="" style="width:26px;height:26px;object-fit:contain;float:right;opacity:0.92;border-radius:4px">
+                            ${depSvg(it.id)}
                             <div class="card-head" style="color:#38bdf8;">${it.name}</div>
                             <div class="card-sub">${it.desc}</div>
                             <div style="margin-top:7px;font-family:var(--font-mono);font-weight:900;color:${td.gold >= it.cost ? '#fde047' : '#ef4444'};">${it.cost} GOLD</div>
@@ -55441,7 +55525,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const tip = (title, body, sub) => ` data-tip-title="${esc(title)}" data-tip="${esc(body)}"${sub ? ` data-tip-sub="${esc(sub)}"` : ''}`;
     const CONTEXTS = [
-        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite']
+        ['current', 'This mode'], ['all', 'All modes'], ['survival', 'Survival'], ['zombies', 'Zombies'], ['mp', 'Multiplayer'], ['td', 'Tower Defense'], ['rpg', 'Rogue Lite'], ['owrpg', 'Open World RPG']
     ];
     const MODE_NAME = { survival: 'Survival', zombies: 'Zombies', mp: 'Multiplayer', td: 'Tower Defense', rpg: 'Rogue Lite', owrpg: 'Open World RPG' };
 
@@ -55738,7 +55822,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             Z.getMapStatusBadges = () => {
                 const list = origBadges() || [];
                 if (BO.World?.mapData?.powerSwitch && !BO.World.powerOn) {
-                    list.unshift({ text: '⚡ OBJECTIVE: FLIP POWER SWITCH FOR PERKS & PaP', color: '#facc15' });
+                    list.unshift({ text: 'OBJECTIVE: FLIP POWER SWITCH FOR PERKS & PaP', color: '#facc15' });
                 } else if (BO.World?.powerOn) {
                     const best = this.getZombiesBest(Z.mapId).round || Z.round;
                     list.push({ text: `MAP BEST: R${best}${Z.round >= 10 ? ' · EXFIL AVAILABLE' : ''}`, color: '#4ade80' });
@@ -56503,26 +56587,44 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         _injectMenuWidgets() {
             const col = document.querySelector('#screen-main-menu .menu-col');
             const cards = document.querySelector('#screen-main-menu .mode-cards');
-            if (col && cards && !document.getElementById('menu-continue-banner')) {
-                const cont = document.createElement('div');
-                cont.id = 'menu-continue-banner';
-                cont.className = 'ph-continue-banner';
-                col.insertBefore(cont, cards);
+            if (col && cards) {
+                let strip = document.getElementById('ph-command-strip');
+                if (!strip) {
+                    strip = document.createElement('div');
+                    strip.id = 'ph-command-strip';
+                    strip.className = 'ph-command-strip';
+                    col.insertBefore(strip, cards);
+                }
+                const campBtn = document.getElementById('btn-menu-campaign');
+                if (campBtn && campBtn.parentElement !== strip) {
+                    strip.insertBefore(campBtn, strip.firstChild);
+                }
+                if (!document.getElementById('menu-continue-banner')) {
+                    const cont = document.createElement('div');
+                    cont.id = 'menu-continue-banner';
+                    cont.className = 'ph-continue-banner';
+                    strip.appendChild(cont);
+                }
             }
 
             const mini = document.querySelector('#screen-main-menu .menu-mini-grid');
             if (mini && !document.getElementById('btn-menu-profile')) {
+                const icoSvg = {
+                    profile: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>',
+                    challenges: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+                    armory: '<svg class="ui-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v4H4zM6 11v6h12v-6M10 14h4"/></svg>'
+                };
                 const addTile = (id, ico, title, sub, fn) => {
                     const b = document.createElement('button');
                     b.className = 'mini-tile';
                     b.id = id;
-                    b.innerHTML = `<span class="mini-ico">${ico}</span><b>${title}</b><small>${sub}</small>`;
+                    b.innerHTML = `<span class="mini-ico" aria-hidden="true">${ico}</span><b>${title}</b><small>${sub}</small>`;
                     b.onclick = () => { BO.Sound?.playUIClick?.(); fn(); };
                     mini.appendChild(b);
                 };
-                addTile('btn-menu-profile', '🪪', 'Operator', 'Level, card & emblem', () => this.openProfileModal());
-                addTile('btn-menu-challenges', '🎯', 'Challenges', 'Daily & Weekly XP ops', () => this.openChallengesModal());
-                addTile('btn-menu-armory', '🔫', 'Armory', 'All weapons & camos', () => this.openArmoryModal());
+                addTile('btn-menu-profile', icoSvg.profile, 'Operator', 'Level, card & emblem', () => this.openProfileModal());
+                addTile('btn-menu-challenges', icoSvg.challenges, 'Challenges', 'Daily & Weekly XP ops', () => this.openChallengesModal());
+                addTile('btn-menu-armory', icoSvg.armory, 'Armory', 'All weapons & camos', () => this.openArmoryModal());
             }
         },
 
@@ -56578,10 +56680,20 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const bd = document.createElement('div');
                 bd.id = 'ph-modal-backdrop';
                 bd.className = 'ph-modal-backdrop hidden';
-                bd.innerHTML = '<div class="ph-modal" id="ph-modal-box"></div>';
+                bd.innerHTML = '<div class="ph-modal" id="ph-modal-box" role="dialog" aria-modal="true"></div>';
                 bd.onclick = (e) => { if (e.target === bd) this.closeModal(); };
                 document.body.appendChild(bd);
                 this.modalEl = bd;
+                if (!this._escBound) {
+                    this._escBound = true;
+                    window.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape' && this.modalEl && !this.modalEl.classList.contains('hidden')) {
+                            e.preventDefault();
+                            e.stopImmediatePropagation();
+                            this.closeModal();
+                        }
+                    }, true);
+                }
             }
             const box = this.modalEl.querySelector('#ph-modal-box');
             box.innerHTML = html;
@@ -56720,16 +56832,17 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 </div>
                 <p style="color:#cbd5e1;margin-bottom:14px;">All 7 combat modes, 70 weapons, and the 10-mission <b>Operation Blackout</b> story campaign share your single Operative Profile. Choose how you want to start:</p>
                 <div class="ph-grid">
-                    <div class="ph-card"><b>🎯 Range Day Warmup</b><p style="font-size:12px;color:#94a3b8">Jump into a crisp 60-second aim warmup course with live target feedback.</p><button type="button" class="btn btn-sm btn-primary" id="btn-ob-range">START WARMUP →</button></div>
-                    <div class="ph-card"><b>⚡ Operation Blackout</b><p style="font-size:12px;color:#94a3b8">Begin Mission 01 of the cross-mode 10-mission 1.0 capstone campaign.</p><button type="button" class="btn btn-sm" id="btn-ob-campaign">OPEN CAMPAIGN</button></div>
-                    <div class="ph-card"><b>🧭 Free Selection</b><p style="font-size:12px;color:#94a3b8">Explore Zombies, Multiplayer, Survival, Rogue Lite, or Open World RPG.</p><button type="button" class="btn btn-sm" id="btn-ob-skip">ENTER MENU</button></div>
+                    <div class="ph-card"><b>Range Day Warmup</b><p style="font-size:12px;color:#94a3b8">Jump into a crisp 60-second aim warmup course with live target feedback.</p><button type="button" class="btn btn-sm btn-primary" id="btn-ob-range">START WARMUP →</button></div>
+                    <div class="ph-card"><b>Operation Blackout</b><p style="font-size:12px;color:#94a3b8">Begin Mission 01 of the cross-mode 10-mission 1.0 capstone campaign.</p><button type="button" class="btn btn-sm" id="btn-ob-campaign">OPEN CAMPAIGN</button></div>
+                    <div class="ph-card"><b>Free Selection</b><p style="font-size:12px;color:#94a3b8">Explore Zombies, Multiplayer, Survival, Rogue Lite, or Open World RPG.</p><button type="button" class="btn btn-sm" id="btn-ob-skip">ENTER MENU</button></div>
                 </div>`);
 
             const done = () => { BO.ProfileSystem.markOnboardingDone(); this.closeModal(); };
             const rBtn = box.querySelector('#btn-ob-range');
             if (rBtn) rBtn.onclick = () => {
                 done();
-                if (BO.Menus) BO.Menus.onStartMatch?.({ mode: 'minigame', id: 'range_day' });
+                if (BO.Minigames?.launch) BO.Minigames.launch('range_day', {});
+                else BO.Menus?.onStartMatch?.({ mode: 'minigame', mgId: 'range_day', mapId: 'range_day' });
             };
             const cBtn = box.querySelector('#btn-ob-campaign');
             if (cBtn) cBtn.onclick = () => {
@@ -56983,8 +57096,9 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.CampaignUI?.closeModal?.();
 
             if (m.launchOpts.mode === 'minigame') {
-                if (BO.Menus?.onStartMatch) BO.Menus.onStartMatch(Object.assign({}, m.launchOpts));
-                else BO.Minigames?.launch?.(m.launchOpts.id, m.launchOpts);
+                const mgId = m.launchOpts.mgId || m.launchOpts.id;
+                if (BO.Minigames?.launch) BO.Minigames.launch(mgId, Object.assign({}, m.launchOpts));
+                else BO.Menus?.onStartMatch?.(Object.assign({ mgId, mapId: mgId }, m.launchOpts));
             } else if (BO.Menus?.onStartMatch) {
                 BO.Menus.onStartMatch(Object.assign({}, m.launchOpts));
             }
@@ -57084,10 +57198,18 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         syncMenuCard() {
             const col = document.querySelector('#screen-main-menu .menu-col');
-            const cont = document.getElementById('menu-continue-banner');
             const cards = document.querySelector('#screen-main-menu .mode-cards');
-            const anchor = cont || cards;
-            if (!col || !anchor || !BO.CampaignManager || !BO.CampaignData) return;
+            if (!col || !cards || !BO.CampaignManager || !BO.CampaignData) return;
+
+            let strip = document.getElementById('ph-command-strip');
+            if (!strip) {
+                strip = document.createElement('div');
+                strip.id = 'ph-command-strip';
+                strip.className = 'ph-command-strip';
+                col.insertBefore(strip, cards);
+                const cont = document.getElementById('menu-continue-banner');
+                if (cont && cont.parentElement !== strip) strip.appendChild(cont);
+            }
 
             let btn = document.getElementById('btn-menu-campaign');
             if (!btn) {
@@ -57096,7 +57218,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 btn.type = 'button';
                 btn.className = 'ph-campaign-card';
                 btn.onclick = () => { BO.Sound?.playUIClick?.(); this.openModal(); };
-                col.insertBefore(btn, anchor);
+                strip.insertBefore(btn, strip.firstChild);
             }
 
             const total = BO.CampaignData.MISSIONS.length;
@@ -57104,11 +57226,11 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const next = BO.CampaignManager.nextMission();
             btn.innerHTML = `
                 <div>
-                    <small>CAPSTONE CAMPAIGN · ${done}/${total} MISSIONS COMPLETE</small>
+                    <small>CAMPAIGN · ${done}/${total} CLEARED</small>
                     <b>OPERATION BLACKOUT</b>
-                    <div style="font-size:12px;color:#cbd5e1;margin-top:2px;">Next: ${next ? esc(next.code + ' — ' + next.title) : 'ALL MISSIONS CLEARED'}</div>
+                    <div class="ph-campaign-next">Next: ${next ? esc(next.code + ' — ' + next.title) : 'ALL MISSIONS CLEARED'}</div>
                 </div>
-                <span class="mode-card-go" style="color:#ffb23f;transform:none;">CAMPAIGN →</span>`;
+                <span class="mode-card-go" style="color:#ffb23f;transform:none;">OPEN →</span>`;
         },
 
         openModal(focusId = null) {
@@ -58831,6 +58953,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
             BO.SceneCleanup?.applySceneQualityBudgets?.(BO.World?.scene);
             BO.ReactiveModifiers.reset();
+            BO.HUD?.resetForMode?.(opts.mode);
+            BO.CampaignUI?.syncHudPill?.();
             BO.Menus.showScreen('playing');
             this._safePointerLock();
         }
@@ -58903,6 +59027,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.SceneCleanup?.disposeScene?.(BO.World?.scene, this.renderer);
             BO.State.activeMode = null;
             BO.State.paused = false;
+            BO.HUD?.resetForMode?.(null);
+            BO.CampaignUI?.syncHudPill?.();
             BO.emitGameEvent?.('game:modeStop', { mode: prevMode });
             if (document.pointerLockElement) document.exitPointerLock();
             if (wasRpg && BO.RPGUI) BO.RPGUI.openHaven();

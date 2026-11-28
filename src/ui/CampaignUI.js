@@ -25,10 +25,18 @@
 
         syncMenuCard() {
             const col = document.querySelector('#screen-main-menu .menu-col');
-            const cont = document.getElementById('menu-continue-banner');
             const cards = document.querySelector('#screen-main-menu .mode-cards');
-            const anchor = cont || cards;
-            if (!col || !anchor || !BO.CampaignManager || !BO.CampaignData) return;
+            if (!col || !cards || !BO.CampaignManager || !BO.CampaignData) return;
+
+            let strip = document.getElementById('ph-command-strip');
+            if (!strip) {
+                strip = document.createElement('div');
+                strip.id = 'ph-command-strip';
+                strip.className = 'ph-command-strip';
+                col.insertBefore(strip, cards);
+                const cont = document.getElementById('menu-continue-banner');
+                if (cont && cont.parentElement !== strip) strip.appendChild(cont);
+            }
 
             let btn = document.getElementById('btn-menu-campaign');
             if (!btn) {
@@ -37,7 +45,7 @@
                 btn.type = 'button';
                 btn.className = 'ph-campaign-card';
                 btn.onclick = () => { BO.Sound?.playUIClick?.(); this.openModal(); };
-                col.insertBefore(btn, anchor);
+                strip.insertBefore(btn, strip.firstChild);
             }
 
             const total = BO.CampaignData.MISSIONS.length;
@@ -45,11 +53,11 @@
             const next = BO.CampaignManager.nextMission();
             btn.innerHTML = `
                 <div>
-                    <small>CAPSTONE CAMPAIGN · ${done}/${total} MISSIONS COMPLETE</small>
+                    <small>CAMPAIGN · ${done}/${total} CLEARED</small>
                     <b>OPERATION BLACKOUT</b>
-                    <div style="font-size:12px;color:#cbd5e1;margin-top:2px;">Next: ${next ? esc(next.code + ' — ' + next.title) : 'ALL MISSIONS CLEARED'}</div>
+                    <div class="ph-campaign-next">Next: ${next ? esc(next.code + ' — ' + next.title) : 'ALL MISSIONS CLEARED'}</div>
                 </div>
-                <span class="mode-card-go" style="color:#ffb23f;transform:none;">CAMPAIGN →</span>`;
+                <span class="mode-card-go" style="color:#ffb23f;transform:none;">OPEN →</span>`;
         },
 
         openModal(focusId = null) {

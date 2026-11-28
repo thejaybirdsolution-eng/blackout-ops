@@ -6802,17 +6802,18 @@
     const FLOAT_POOL = 48;
     const _proj = new THREE.Vector3();
 
+    const _rpgIco = (d, col) => `<svg class="ui-ico" viewBox="0 0 16 16" fill="none" stroke="${col || 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px;vertical-align:-2px" aria-hidden="true">${d}</svg>`;
     const TABS = [
-        ['delve', 'Delve', 'staged_assets/ui/fantasy_rpg_icons/Ui/accept-action-001.png'],
-        ['loadout', 'Loadout', 'staged_assets/ui/fantasy_rpg_icons/Armor/barbarian-armor-set-001.png'],
-        ['talents', 'Talents', 'staged_assets/ui/fantasy_rpg_icons/Skills/alchemy-001.png'],
-        ['stash', 'Stash', 'staged_assets/ui/fantasy_rpg_icons/Items/adventurer-backpack-001.png'],
-        ['merchant', 'Merchant', 'staged_assets/ui/fantasy_rpg_icons/Food/ale-mug-001.png'],
-        ['forge', 'Forge', 'staged_assets/ui/fantasy_rpg_icons/Resources/adamantite-ingot-001.png'],
-        ['upgrades', 'Haven', 'staged_assets/ui/fantasy_rpg_icons/Locations/alchemist-shop-building-001.png'],
-        ['roster', 'Roster', 'staged_assets/ui/fantasy_rpg_icons/Classes/alchemist-class-001.png'],
-        ['contracts', 'Contracts', 'staged_assets/ui/fantasy_rpg_icons/Weapons/alchemist-pistol-001.png'],
-        ['unlocks', 'Collection', 'staged_assets/ui/fantasy_rpg_icons/Jewelry/amethyst-ring-001.png']
+        ['delve', 'Delve', _rpgIco('<path d="M8 2l5 5-5 7-5-7z"/>')],
+        ['loadout', 'Loadout', _rpgIco('<path d="M4 3l4-1 4 1 2 4-2 6H4L2 7z"/>')],
+        ['talents', 'Talents', _rpgIco('<path d="M8 2l2 4 4.5.7-3.2 3.1.8 4.4L8 12.2 3.9 14.2l.8-4.4L1.5 6.7 6 6z"/>')],
+        ['stash', 'Stash', _rpgIco('<rect x="3" y="4" width="10" height="9" rx="1.5"/><path d="M3 7.5h10"/>')],
+        ['merchant', 'Merchant', _rpgIco('<circle cx="8" cy="8" r="5.5"/><path d="M8 5v6M5.5 8h5"/>')],
+        ['forge', 'Forge', _rpgIco('<path d="M3 11h10M4 11V7l4-3 4 3v4"/>')],
+        ['upgrades', 'Haven', _rpgIco('<path d="M2.5 8L8 3l5.5 5M4 7v6h8V7"/>')],
+        ['roster', 'Roster', _rpgIco('<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13.5a4.5 4.5 0 0 1 9 0"/>')],
+        ['contracts', 'Contracts', _rpgIco('<path d="M4 2.5h8v11H4z"/><path d="M6 6h4M6 9h3"/>')],
+        ['unlocks', 'Collection', _rpgIco('<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2"/>')]
     ];
 
     class RPGUI {
@@ -6973,14 +6974,14 @@
                         <div class="rpg-brand"><span class="rpg-brand-kicker">ROGUE LITE • DELVE &amp; EXTRACT</span><div class="rpg-brand-title">THE HAVEN</div></div>
                     </div>
                     <div class="rpg-wallet">
-                        <div class="rpg-coin" data-tip-title="Gold" data-tip="Banked gold. Spend it at the Merchant, the Forge and on Haven upgrades. Gold found in a delve is only banked when you extract."><span><img src="staged_assets/ui/fantasy_rpg_icons/Jewelry/angel-ring-001.png" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px"></span><b>${fmt(p.gold)}</b><small>GOLD</small></div>
-                        <div class="rpg-coin rpg-coin-scrap" data-tip-title="Scrap" data-tip="Salvaged materials for the Forge. Common items are salvaged automatically when you pick them up."><span><img src="staged_assets/ui/fantasy_rpg_icons/Resources/adamantite-ore-001.png" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px"></span><b>${fmt(p.scrap)}</b><small>SCRAP</small></div>
+                        <div class="rpg-coin" data-tip-title="Gold" data-tip="Banked gold. Spend it at the Merchant, the Forge and on Haven upgrades. Gold found in a delve is only banked when you extract."><span>${_rpgIco('<circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.2"/>', '#fbbf24')}</span><b>${fmt(p.gold)}</b><small>GOLD</small></div>
+                        <div class="rpg-coin rpg-coin-scrap" data-tip-title="Scrap" data-tip="Salvaged materials for the Forge. Common items are salvaged automatically when you pick them up."><span>${_rpgIco('<path d="M3 10l4-6 6 2-3 7z"/>', '#94a3b8')}</span><b>${fmt(p.scrap)}</b><small>SCRAP</small></div>
                         <div class="rpg-charchip" style="--c:${C.color}"><span class="rpg-charchip-ico" style="color:${crest?.color || C.color}">${crest?.icon || C.icon}</span><div><b>${esc(C.name.toUpperCase())}</b><small>LEVEL ${rec.level}${rec.level >= this.D.LEVEL_CAP ? ' • MAX' : ` • ${fmt(rec.xp)} / ${fmt(need)} XP`}</small><div class="rpg-mini-xp"><div style="width:${need ? Math.round((rec.xp / need) * 100) : 100}%"></div></div></div></div>
                     </div>
                 </header>
                 <div class="rpg-body">
                     <nav class="rpg-nav">
-                        ${TABS.map(([id, label, ico]) => `<button class="rpg-nav-btn ${this.tab === id ? 'active' : ''}" data-act="tab" data-tab="${id}"><span><img src="${ico}" alt="" style="width:16px;height:16px;object-fit:contain;vertical-align:-3px;border-radius:3px"></span>${label}${id === 'talents' && unspent ? `<em>${unspent}</em>` : ''}${id === 'delve' && p.run ? '<em>!</em>' : ''}</button>`).join('')}
+                        ${TABS.map(([id, label, ico]) => `<button class="rpg-nav-btn ${this.tab === id ? 'active' : ''}" data-act="tab" data-tab="${id}"><span>${ico}</span>${label}${id === 'talents' && unspent ? `<em>${unspent}</em>` : ''}${id === 'delve' && p.run ? '<em>!</em>' : ''}</button>`).join('')}
                         <button class="rpg-nav-btn" data-act="gameguide"><span>▤</span>Game Guide</button>
                     </nav>
                     <main class="rpg-main" data-tab="${this.tab}">${this._tabHtml()}</main>
