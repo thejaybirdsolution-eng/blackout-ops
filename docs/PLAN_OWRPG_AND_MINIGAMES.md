@@ -62,7 +62,7 @@ Bot numbers are evidence, not verdicts. Speed runs, puzzle cabinets and the Fun 
 
 The audit scripts currently live in a scratch folder. Make them permanent, so every later step has a pass/fail gate.
 
-**A0.1 Create `tools/qa/`**
+**A0.1 Create `tools/qa/`** ✅ Done (commit `7a17342`)
 - `tools/qa/mg_audit.py`: the course player (aim-bot with ADS, trigger taps for semi-auto, and the deterministic `BO.App._simulate(1/30)` stepping used in the audit). Output: `tools/qa/out/mg_audit.json`, plus a markdown table.
 - `tools/qa/mg_bounds.py`: the 8-direction walk-out test.
 - `tools/qa/mg_sheet.py`: contact sheets of spawn screenshots, for design review.
@@ -79,7 +79,7 @@ The audit scripts currently live in a scratch folder. Make them permanent, so ev
 
 **A0.3 Triage every "Verify" flag** with the golden bots plus 2 minutes of hands-on play per course. Move each item into Confirmed (it gets a fix in A1/A2) or Not-a-bug (record why in `tools/qa/README.md`).
 
-**A0.4 Per-course acceptance contract.** The audit fails a course unless all of these hold:
+**A0.4 Per-course acceptance contract.** ✅ Done — wired in `tools/qa/mg_audit.py` & `tools/qa/mg_hud.py` (commit `7a17342`; star check activates in A2.4). The audit fails a course unless all of these hold:
 1. It starts with no page or console errors, and finishes on its results screen (timed courses) or on objective completion (untimed), with no soft-lock.
 2. The spawn is on ground, not inside a collider, and faces the action (the first target is within ±35° of the initial view).
 3. The player cannot leave the play space or fall out of the world unless falling is a mechanic, in which case it respawns and counts.
