@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "ec6280c9aa",
+      "hash": "b473b0a7cb",
       "fileCount": 77,
-      "rawBytes": 3306730,
-      "gzipBytes": 742105,
+      "rawBytes": 3313870,
+      "gzipBytes": 743472,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -127,10 +127,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "a6c0911a43",
-      "fileCount": 30,
-      "rawBytes": 718369,
-      "gzipBytes": 184270,
+      "hash": "f1fdf7571a",
+      "fileCount": 31,
+      "rawBytes": 745596,
+      "gzipBytes": 192490,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",
@@ -159,6 +159,7 @@
         "src/owrpg/OWRPGCartography.js",
         "src/owrpg/OWRPGChampions.js",
         "src/owrpg/OWRPGDiscoveries.js",
+        "src/owrpg/OWRPGGroundCover.js",
         "src/owrpg/OWRPGCompanions.js",
         "src/ui/OWRPGUI.js",
         "src/ui/OWRPGPipPad.js"

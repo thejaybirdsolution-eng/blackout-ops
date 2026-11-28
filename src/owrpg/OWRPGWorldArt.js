@@ -7,6 +7,12 @@
 (function (BO) {
     'use strict';
 
+    // Multiplies the Kenney dead-trunk palette (orange-brown) toward each biome's weathered wood.
+    const DEAD_TINT = {
+        rust_sprawl: 0x8f7a6c, barrow_moor: 0x7c7684, mire_delta: 0x6e6a52, ash_quarry: 0x7a7470,
+        sunscorched_badlands: 0xd8c2a4, sunken_coast: 0xb8b2aa, meridian_core: 0x5f566a, obsidian_dragonwilds: 0x3a2f2c
+    };
+
     function rng(seed) {
         let a = seed >>> 0;
         return () => {
@@ -429,7 +435,7 @@
                 if (reg === 'alpine_array' || reg === 'frostfang_peaks') kind = 'pine';
                 else if (reg === 'whispering_woods' || reg === 'haven_basin') kind = r() < 0.5 ? 'broad' : 'pine';
                 else if (reg === 'sunken_coast') kind = r() < 0.4 ? 'broad' : 'dead';
-                lists[kind].push({ x, z, y: h, s: 0.85 + r() * 0.8 });
+                lists[kind].push({ x, z, y: h, s: 0.85 + r() * 0.8, reg });
             }
             const defs = {
                 pine: { trunk: new THREE.CylinderGeometry(0.16, 0.3, 4.2, 6), crown: new THREE.ConeGeometry(1.8, 5.4, 7), crownY: 4.7, tc: 0x5a4332, cc: 0x2f4a33 },
@@ -462,7 +468,28 @@
                     const trs = list.map((tr) => ({ pos: [tr.x, tr.y, tr.z], rot: (tr.x * 13.1 + tr.z) % 6.28, scale: tr.s * hScale }));
                     BO.Assets.placeGLBInstanced(scene, modelPath, trs, {
                         fitSize: [1, 1, 1], uniform: true, hideFallback: [trunk, crown],
-                        castShadow: false, frustumCulled: false, guardScene: scene
+                        castShadow: false, frustumCulled: false, guardScene: scene,
+                        // The dead-trunk model's bright orange wood read as clay blobs: weather it per region.
+                        onLoad: kind !== 'dead' ? null : (holder) => {
+                            const c = new THREE.Color();
+                            holder.traverse((o) => {
+                                if (!o.isInstancedMesh) return;
+                                // Own material: desaturate the atlas wood to its luminance, then the per-tree tint colours it.
+                                o.material = o.material.clone();
+                                o.material.onBeforeCompile = (sh) => {
+                                    sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>',
+                                        'float boLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));\n' +
+                                        'diffuseColor.rgb = vec3(clamp(boLum * 2.7, 0.0, 1.4));\n#include <color_fragment>');
+                                };
+                                o.material.customProgramCacheKey = () => 'boDeadWood1';
+                                list.forEach((tr, i) => {
+                                    c.setHex(DEAD_TINT[tr.reg] || 0x8a7c70).offsetHSL(0, 0, (((tr.x * 7.3 + tr.z * 3.1) % 1 + 1) % 1) * 0.08 - 0.04);
+                                    if (c.convertSRGBToLinear) c.convertSRGBToLinear();
+                                    o.setColorAt(i, c);
+                                });
+                                if (o.instanceColor) o.instanceColor.needsUpdate = true;
+                            });
+                        }
                     });
                 }
             }
