@@ -7,7 +7,7 @@
       "hash": "7fe08f76a2",
       "fileCount": 3,
       "rawBytes": 804458,
-      "gzipBytes": 200750,
+      "gzipBytes": 200053,
       "files": [
         "vendor/three.min.js",
         "vendor/GLTFLoader.js",
@@ -17,10 +17,10 @@
     "core": {
       "name": "core",
       "path": "dist/bundles/core.bundle.js",
-      "hash": "b473b0a7cb",
+      "hash": "955c43f121",
       "fileCount": 77,
-      "rawBytes": 3313870,
-      "gzipBytes": 743472,
+      "rawBytes": 3321517,
+      "gzipBytes": 745306,
       "files": [
         "src/core/Namespace.js",
         "src/graphics/AssetLoader.js",
@@ -104,10 +104,10 @@
     "rpg": {
       "name": "rpg",
       "path": "dist/bundles/rpg.bundle.js",
-      "hash": "0235d5f05c",
+      "hash": "ac790b4f37",
       "fileCount": 13,
-      "rawBytes": 455355,
-      "gzipBytes": 113495,
+      "rawBytes": 455172,
+      "gzipBytes": 113386,
       "files": [
         "src/data/RPGData.js",
         "src/data/RPGItemsData.js",
@@ -127,10 +127,10 @@
     "owrpg": {
       "name": "owrpg",
       "path": "dist/bundles/owrpg.bundle.js",
-      "hash": "f1fdf7571a",
+      "hash": "7ef28e5280",
       "fileCount": 31,
-      "rawBytes": 745596,
-      "gzipBytes": 192490,
+      "rawBytes": 746909,
+      "gzipBytes": 192817,
       "files": [
         "src/data/OWRPGStatsData.js",
         "src/data/OWRPGExpansionData.js",
@@ -168,10 +168,10 @@
     "survival": {
       "name": "survival",
       "path": "dist/bundles/survival.bundle.js",
-      "hash": "41a82243b7",
+      "hash": "205e37aa3a",
       "fileCount": 66,
-      "rawBytes": 1882741,
-      "gzipBytes": 516272,
+      "rawBytes": 1884616,
+      "gzipBytes": 516356,
       "files": [
         "src/data/SurvivalData.js",
         "src/data/SurvivalCampaignData.js",
@@ -244,10 +244,10 @@
     "minigames": {
       "name": "minigames",
       "path": "dist/bundles/minigames.bundle.js",
-      "hash": "404f68a0c4",
+      "hash": "380e2e2157",
       "fileCount": 42,
-      "rawBytes": 2422780,
-      "gzipBytes": 632792,
+      "rawBytes": 2422759,
+      "gzipBytes": 631633,
       "files": [
         "src/minigames/MinigameHelpers.js",
         "src/minigames/MinigameCore.js",

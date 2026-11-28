@@ -35,7 +35,7 @@
     const DAILY_DELIVERY_CAP = 60;
 
     const Econ = {
-        rate: 1,
+        _tickAcc: 0,
 
         start(mode, saved) {
             this.mode = mode;
@@ -155,7 +155,11 @@
                 s.avatar.root.scale.set(0.85, 0.92, 0.85);
                 m.scene.add(s.avatar.root);
             }
-            if (s.avatar) { s.avatar.root.position.set(s.x, s.y, s.z); s.avatar.root.rotation.y = -ang; }
+            if (s.avatar) {
+                s.avatar.root.position.set(s.x, s.y, s.z);
+                s.avatar.root.rotation.y = -ang;
+                BO.CharacterMesh?.animateSoldier?.(s.avatar, { speed: 0, phase: 0, aim: 0 }, 0.05);
+            }
             let mk = m.markers.find((k) => k.id === 'gmsettler:' + s.id);
             if (!mk) { mk = { id: 'gmsettler:' + s.id, alive: true, reach: 2.8 }; m.markers.push(mk); }
             Object.assign(mk, { x: s.x, y: s.y, z: s.z, name: s.name, label: 'Trade with ' + s.name + ' (' + TRADES[s.trade].name + ')' });
@@ -268,7 +272,20 @@
         },
 
         /* ---------------------------------------------------------- update */
-        update() {
+        update(dt = 0) {
+            const P = BO.Player?.pos;
+            for (const s of this.settlers) {
+                if (s.state !== 'settled' || !s.avatar) continue;
+                const near = !P || Math.hypot(P.x - s.x, P.z - s.z) < 65;
+                s.avatar.root.visible = near;
+                if (near) {
+                    s.phase = (s.phase || 0) + dt;
+                    BO.CharacterMesh?.animateSoldier?.(s.avatar, { speed: 0, phase: s.phase, aim: 0 }, dt);
+                }
+            }
+            this._tickAcc = (this._tickAcc || 0) + dt;
+            if (this._tickAcc < 1) return;
+            this._tickAcc = 0;
             const m = this.mode;
             const c = m.campaign;
             if (c.day !== this.lastDay) {

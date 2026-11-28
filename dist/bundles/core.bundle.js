@@ -22973,12 +22973,20 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         }
 
         _geo(key, creator) {
-            if (!this.geos[key]) this.geos[key] = creator();
+            if (!this.geos[key]) {
+                const g = creator();
+                if (g?.userData) g.userData.sharedAsset = true;
+                this.geos[key] = g;
+            }
             return this.geos[key];
         }
 
         _mat(key, creator) {
-            if (!this.mats[key]) this.mats[key] = creator();
+            if (!this.mats[key]) {
+                const m = creator();
+                if (m?.userData) m.userData.sharedAsset = true;
+                this.mats[key] = m;
+            }
             return this.mats[key];
         }
 
@@ -24305,8 +24313,16 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             this.mats = {};
         }
 
-        _g(key, fn) { return this.geos[key] || (this.geos[key] = fn()); }
-        _m(key, fn) { return this.mats[key] || (this.mats[key] = fn()); }
+        _g(key, fn) {
+            let g = this.geos[key];
+            if (!g) { g = fn(); if (g?.userData) g.userData.sharedAsset = true; this.geos[key] = g; }
+            return g;
+        }
+        _m(key, fn) {
+            let m = this.mats[key];
+            if (!m) { m = fn(); if (m?.userData) m.userData.sharedAsset = true; this.mats[key] = m; }
+            return m;
+        }
 
         _materials(team) {
             const T = TEAM[team] || TEAM[1];
@@ -25855,15 +25871,21 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
     const BO = global.BO;
     const _v = new THREE.Vector3();
     const _m = new THREE.Matrix4();
-    const _inv = new THREE.Matrix4();
     const _sphere = new THREE.Sphere();
+    const _skinWorld = new THREE.Matrix4();
+    const _bounds = new THREE.Box3(), _boneBox = new THREE.Box3();
 
     // Invisible but raycastable: the renderer skips material.visible === false, the raycaster does not.
     const PROXY_MAT = new THREE.MeshBasicMaterial({ visible: false });
     PROXY_MAT.name = 'bo-hitbox-proxy';
+    const proxyMaterials = [PROXY_MAT,
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.BackSide }),
+        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+    ];
+    for (const m of proxyMaterials) m.userData.sharedAsset = true;
 
     const LIMB_RE = /arm|hand|leg|thigh|calf|shin|foot|ball|toe|tail|wing|finger|thumb|index|middle|ring|pinky/i;
-    const HEAD_RE = /^head|[-_ ]head|skull|helm|face|jaw/i;
+    const HEAD_RE = /^head|[-_ ]head|skull|helm|face|jaw|(?:^|[-_ ])ear(?:$|[-_ .])/i;
 
     function isEffectMaterial(mat) {
         const list = Array.isArray(mat) ? mat : [mat];
@@ -25894,33 +25916,20 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         return 'torso';
     }
 
-    /** Bounding sphere of every hit mesh, expressed in root-local space (radius before root scale). */
-    function measure(entity, list, root) {
-        root.updateMatrixWorld(true);
-        _inv.copy(root.matrixWorld).invert();
-        const rootScale = root.matrixWorld.getMaxScaleOnAxis() || 1;
-        let minY = Infinity, maxY = -Infinity;
-        const centers = [];
-        for (const m of list) {
-            const g = m.geometry;
-            if (!g) continue;
-            if (!g.boundingSphere) g.computeBoundingSphere();
-            _sphere.copy(g.boundingSphere).applyMatrix4(_m.multiplyMatrices(_inv, m.matrixWorld));
-            centers.push(_sphere.center.x, _sphere.center.y, _sphere.center.z, _sphere.radius);
-            minY = Math.min(minY, _sphere.center.y - _sphere.radius);
-            maxY = Math.max(maxY, _sphere.center.y + _sphere.radius);
+    // SoldierModel animates joints. Its rigid pieces (including ear cups and
+    // stretched armor) keep their local transforms on those joints.
+    function soldierJointBounds(list) {
+        const groups = new Map();
+        for (const mesh of list) {
+            const joint = mesh.parent;
+            if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+            mesh.updateMatrix();
+            _sphere.copy(mesh.geometry.boundingSphere).applyMatrix4(mesh.matrix);
+            const box = groups.get(joint) || new THREE.Box3();
+            box.union(_sphere.getBoundingBox(_boneBox));
+            groups.set(joint, box);
         }
-        if (!centers.length) { entity._hitCY = 0.9; entity._hitR = 1.2; return; }
-        const cy = (minY + maxY) * 0.5;
-        let r = 0;
-        for (let i = 0; i < centers.length; i += 4) {
-            const d = Math.hypot(centers[i], centers[i + 1] - cy, centers[i + 2]) + centers[i + 3];
-            if (d > r) r = d;
-        }
-        // Stored unscaled so a later sizeMult/scale change is picked up from the root matrix.
-        entity._hitCY = cy * 1;
-        entity._hitR = r;
-        entity._hitScale0 = rootScale;
+        return Array.from(groups, ([joint, box]) => ({ joint, sphere: box.getBoundingSphere(new THREE.Sphere()) }));
     }
 
     /* ---------------------------------------------------------------- skinned proxies */
@@ -25956,24 +25965,27 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
         const n = pos.count;
         const bones = skinned.skeleton.bones;
+        const boneBounds = bones.map(() => new THREE.Box3());
         const bindPos = new Float32Array(n * 3);
         const be = skinned.bindMatrix.elements;
         const idx = new Uint16Array(n * 4), wts = new Float32Array(n * 4);
         const segOf = new Int32Array(n);
+        const segments = bones.map((_, i) => bones.indexOf(segmentJoint(bones, i)));
         for (let i = 0; i < n; i++) {
             const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
             bindPos[i * 3] = be[0] * x + be[4] * y + be[8] * z + be[12];
             bindPos[i * 3 + 1] = be[1] * x + be[5] * y + be[9] * z + be[13];
             bindPos[i * 3 + 2] = be[2] * x + be[6] * y + be[10] * z + be[14];
+            _v.fromArray(bindPos, i * 3);
             let best = 0, bw = -1, sum = 0;
             for (let k = 0; k < 4; k++) {
                 const w = comp(sw, i, k), b = comp(si, i, k);
                 idx[i * 4 + k] = b; wts[i * 4 + k] = w; sum += w;
+                if (w > 0) boneBounds[b].expandByPoint(_v);
                 if (w > bw) { bw = w; best = b; }
             }
             if (sum > 0 && Math.abs(sum - 1) > 1e-3) for (let k = 0; k < 4; k++) wts[i * 4 + k] /= sum;
-            const seg = segmentJoint(bones, best);
-            segOf[i] = seg ? bones.indexOf(seg) : -1;
+            segOf[i] = segments[best];
         }
         const index = geo.index;
         const triCount = index ? index.count / 3 : n / 3;
@@ -25989,23 +26001,32 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         }
         const groups = [];
         for (const [seg, arr] of buckets) {
-            if (arr.length < 12) continue; // fewer than 4 triangles: decoration fragment
             const verts = Array.from(new Set(arr));
             groups.push({ joint: bones[seg].name, index: n > 65535 ? new Uint32Array(arr) : new Uint16Array(arr), verts: Uint32Array.from(verts) });
         }
-        L = { n, bindPos, idx, wts, groups };
+        const influences = [];
+        boneBounds.forEach((box, bone) => {
+            if (!box.isEmpty()) influences.push({ bone, box });
+        });
+        L = { n, bindPos, idx, wts, groups, influences };
         skinCache.set(geo, L);
         return L;
     }
 
     /** Re-skins one instance's vertices from its live skeleton and refits each group's bounding sphere. */
-    function reskin(snap) {
+    function reskin(snap, force = false) {
         const sk = snap.skinned;
         const L = snap.layout;
         const skel = sk.skeleton;
         skel.update();
         const bm = skel.boneMatrices;
         const inv = sk.bindMatrixInverse.elements;
+        // Compare the actual transforms. Consecutive pellets can share work even on a
+        // slow frame, while two different poses within 12 ms must remain distinct.
+        if (!force && snap.lastBones.every((value, i) => value === bm[i]) &&
+            snap.lastInverse.equals(sk.bindMatrixInverse)) return;
+        snap.lastBones.set(bm.subarray(0, snap.lastBones.length));
+        snap.lastInverse.copy(sk.bindMatrixInverse);
         const out = snap.positions, bp = L.bindPos, idx = L.idx, wts = L.wts;
         for (let i = 0, n = L.n; i < n; i++) {
             const x = bp[i * 3], y = bp[i * 3 + 1], z = bp[i * 3 + 2];
@@ -26022,7 +26043,7 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             out[i * 3 + 1] = inv[1] * ox + inv[5] * oy + inv[9] * oz + inv[13];
             out[i * 3 + 2] = inv[2] * ox + inv[6] * oy + inv[10] * oz + inv[14];
         }
-        snap.attr.needsUpdate = true;
+        if (BO.HitboxDebug?.enabled) snap.attr.needsUpdate = true;
         for (const g of snap.groups) {
             const vs = g.verts;
             let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
@@ -26033,16 +26054,11 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 if (pz < minZ) minZ = pz; if (pz > maxZ) maxZ = pz;
             }
             const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2, cz = (minZ + maxZ) / 2;
-            let r2 = 0;
-            for (let j = 0; j < vs.length; j++) {
-                const o = vs[j] * 3, dx = out[o] - cx, dy = out[o + 1] - cy, dz = out[o + 2] - cz;
-                const d2 = dx * dx + dy * dy + dz * dz;
-                if (d2 > r2) r2 = d2;
-            }
+            g.box.min.set(minX, minY, minZ);
+            g.box.max.set(maxX, maxY, maxZ);
             g.sphere.center.set(cx, cy, cz);
-            g.sphere.radius = Math.sqrt(r2) + 1e-4;
+            g.sphere.radius = Math.hypot(maxX - cx, maxY - cy, maxZ - cz) + 1e-4;
         }
-        snap.t = performance.now();
     }
 
     const Hitboxes = {
@@ -26073,8 +26089,8 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 for (let i = 0; i < o.children.length; i++) walk(o.children[i]);
             };
             walk(root);
+            entity._jointBounds = parts.isSoldier ? soldierJointBounds(list) : null;
             entity._hitList = list;
-            measure(entity, list, root);
             return list;
         },
 
@@ -26084,7 +26100,8 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             const list = [];
             let hasHead = false;
             const torsoMeshes = [];
-            model.updateMatrixWorld(true);
+            root.updateWorldMatrix(true, false);
+            root.updateMatrixWorld(true);
             model.traverse((o) => {
                 if (!o.isMesh || o.userData.hitProxy) return;
                 o.userData.noHit = true;
@@ -26093,13 +26110,17 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                     const layout = skinLayout(o);
                     const positions = new Float32Array(layout.n * 3);
                     const attr = new THREE.BufferAttribute(positions, 3);
-                    const snap = { skinned: o, layout, positions, attr, groups: [], t: 0 };
+                    const snap = { skinned: o, layout, positions, attr, groups: [],
+                        lastBones: new Float32Array(o.skeleton.bones.length * 16), lastInverse: new THREE.Matrix4() };
                     for (const g of layout.groups) {
                         const geom = new THREE.BufferGeometry();
                         geom.setAttribute('position', attr);
                         geom.setIndex(new THREE.BufferAttribute(g.index, 1));
+                        geom.boundingBox = new THREE.Box3();
                         geom.boundingSphere = new THREE.Sphere();
-                        const proxy = new THREE.Mesh(geom, PROXY_MAT);
+                        const matSide = Array.isArray(o.material) ? o.material[0]?.side : o.material?.side;
+                        const proxy = new THREE.Mesh(geom, proxyMaterials[matSide] || PROXY_MAT);
+                        proxy.visible = false; // CPU collision geometry, never upload it for drawing.
                         proxy.castShadow = false;
                         proxy.receiveShadow = false;
                         proxy.frustumCulled = false;
@@ -26112,10 +26133,10 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                         proxy.userData.ownedGeometry = true;
                         if (proxy.userData.hitbox === 'head') hasHead = true;
                         o.add(proxy);
-                        snap.groups.push({ verts: g.verts, sphere: geom.boundingSphere });
+                        snap.groups.push({ verts: g.verts, sphere: geom.boundingSphere, box: geom.boundingBox });
                         list.push(proxy);
                     }
-                    reskin(snap);
+                    reskin(snap, true);
                     (entity._skinSnaps || (entity._skinSnaps = [])).push(snap);
                 } else {
                     // Rigid part: the visible geometry is the hit surface.
@@ -26130,27 +26151,19 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                     list.push(o);
                 }
             });
-            // Models whose head is modelled into the torso (ghosts) get a head sphere over the top of the torso.
+            // Some rigid models have a single head-and-body mesh. Classify the actual
+            // triangle impact in mesh space so empty space beside the head stays empty.
             if (!hasHead && torsoMeshes.length) {
-                const t = torsoMeshes[0];
-                t.geometry.computeBoundingBox();
-                const bb = t.geometry.boundingBox;
-                const h = bb.max.y - bb.min.y;
-                const r = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z) * 0.36;
-                const head = new THREE.Mesh(new THREE.SphereGeometry(Math.max(r, h * 0.16), 10, 8), PROXY_MAT);
-                head.position.set((bb.min.x + bb.max.x) / 2, bb.max.y - Math.max(r, h * 0.16), (bb.min.z + bb.max.z) / 2);
-                head.userData.entity = entity;
-                head.userData.hitbox = 'head';
-                head.userData.hitProxy = true;
-                head.userData.ownedGeometry = true;
-                head.name = 'hit:head';
-                t.add(head);
-                list.push(head);
+                const torso = torsoMeshes[0];
+                if (!torso.geometry.boundingBox) torso.geometry.computeBoundingBox();
+                const bb = torso.geometry.boundingBox;
+                torso.userData.headMinY = bb.max.y - (bb.max.y - bb.min.y) * 0.30;
             }
             // The procedural body underneath no longer takes hits.
             for (const m of entity._hitList || []) if (!list.includes(m)) m.userData.hitDisabled = true;
+            entity._jointBounds = null;
             entity._hitList = list;
-            measure(entity, list, root);
+
             return list;
         },
 
@@ -26163,42 +26176,74 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             for (let i = 0; i < list.length; i++) {
                 const m = list[i];
                 if (m.userData.hitDisabled || !m.parent) continue;
-                let live = true;
-                for (let o = m.userData.hitProxy ? m.parent : m; o && o !== root; o = o.parent) {
-                    if (!o.visible && !o.userData.lodDetail) { live = false; break; }
-                }
-                if (live) out.push(m);
+                let o = m.userData.hitProxy ? m.parent : m;
+                while (o && o !== root && (o.visible || o.userData.lodDetail)) o = o.parent;
+                if (o === root) out.push(m);
             }
             return out;
         },
 
-        /** World-space bounding sphere used for ray broad-phase. Generous on purpose: it must never cull a real hit. */
-        sphere(entity, target) {
-            const root = entity.parts && entity.parts.root;
-            if (!root) return null;
-            if (entity._hitR == null) this.prepare(entity, entity.parts);
-            const s = root.matrixWorld.getMaxScaleOnAxis() || 1;
-            target.center.set(0, entity._hitCY || 0.9, 0).applyMatrix4(root.matrixWorld);
-            target.radius = (entity._hitR || 1.2) * s * 1.35 + 0.35;
-            return target;
+        zoneAt(hit) {
+            const mesh = hit.object;
+            if (mesh.userData.headMinY != null &&
+                mesh.worldToLocal(_v.copy(hit.point)).y >= mesh.userData.headMinY) return 'head';
+            return mesh.userData.hitbox || 'torso';
         },
 
-        /**
-         * Brings an entity's skinned hit groups up to the current pose. CombatSystem calls this only
-         * for enemies a ray actually reaches, at most once per ~frame; `force` skips the time gate.
-         */
-        refresh(entity, force) {
-            const snaps = entity && entity._skinSnaps;
-            if (!snaps) return;
-            const now = performance.now();
-            for (let i = 0; i < snaps.length; i++) if (force || now - snaps[i].t > 12) reskin(snaps[i]);
+        // Broad phase over live rigid surfaces and bone influence bounds. A weighted
+        // skinned vertex is inside the union's AABB even at the extremes of a pose.
+        inRay(entity, rc, sphere) {
+            const root = entity.parts.root;
+            if (entity._jointBounds) {
+                for (const group of entity._jointBounds) {
+                    group.joint.updateWorldMatrix(true, false);
+                    sphere.copy(group.sphere).applyMatrix4(group.joint.matrixWorld);
+                    if (rc.ray.intersectsSphere(sphere) && rc.ray.origin.distanceTo(sphere.center) <= rc.far + sphere.radius) {
+                        root.updateMatrixWorld(true);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            root.updateWorldMatrix(true, false);
+            root.updateMatrixWorld(true);
+            const list = entity._hitList || this.prepare(entity);
+            for (const mesh of list) {
+                if (mesh.userData.skinSnap || mesh.userData.hitDisabled) continue;
+                const g = mesh.geometry;
+                if (!g.boundingSphere) g.computeBoundingSphere();
+                sphere.copy(g.boundingSphere).applyMatrix4(mesh.matrixWorld);
+                if (rc.ray.intersectsSphere(sphere) && rc.ray.origin.distanceTo(sphere.center) <= rc.far + sphere.radius) return true;
+            }
+            for (const snap of entity._skinSnaps || []) {
+                const sk = snap.skinned, skeleton = sk.skeleton;
+                _skinWorld.multiplyMatrices(sk.matrixWorld, sk.bindMatrixInverse);
+                _bounds.makeEmpty();
+                for (const { bone, box } of snap.layout.influences) {
+                    _m.multiplyMatrices(_skinWorld, skeleton.bones[bone].matrixWorld).multiply(skeleton.boneInverses[bone]);
+                    _bounds.union(_boneBox.copy(box).applyMatrix4(_m));
+                }
+                if (_bounds.distanceToPoint(rc.ray.origin) <= rc.far && rc.ray.intersectsBox(_bounds)) return true;
+            }
+            return false;
+        },
+
+        refresh(entity, force = false) {
+            if (!entity._skinSnaps) return;
+            entity.parts.root.updateWorldMatrix(true, false);
+            entity.parts.root.updateMatrixWorld(true);
+            for (const snap of entity._skinSnaps) reskin(snap, force);
         },
 
         /** Frees geometry created for GLB proxies. */
         dispose(entity) {
             for (const m of entity._hitList || []) {
-                if (m.userData.ownedGeometry && m.geometry) m.geometry.dispose();
+                if (m.userData.ownedGeometry && m.geometry) {
+                    m.removeFromParent();
+                    m.geometry.dispose();
+                }
             }
+            entity._jointBounds = null;
             entity._hitList = null;
             entity._skinSnaps = null;
         }
@@ -26251,7 +26296,6 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
 
     /** Rotation of `obj` expressed in `frame`'s space (scale discarded). */
     function frameQuat(obj, frame, out) {
-        frame.updateMatrixWorld(true);
         _ma.copy(frame.matrixWorld).invert().multiply(obj.matrixWorld);
         _ma.decompose(_p, out, _s);
         return out;
@@ -26288,6 +26332,19 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         caL: /^calf_l$|^l(eft)?_?(low_?|shin)/i, caR: /^calf_r$|^r(ight)?_?(low_?|shin)/i,
         ftL: /^foot_l$|^l(eft)?_?foot$/i, ftR: /^foot_r$|^r(ight)?_?foot$/i
     };
+
+    // Quaternius UAL2, CC0. The compact GLB contains only in-place idle/walk
+    // rotations. Each monster keeps its own proportions, root movement and combat poses.
+    let locomotionSource;
+    function loadLocomotion() {
+        if (!locomotionSource) {
+            locomotionSource = BO.Assets.loadGLB('monsters/zombie-locomotion.glb').catch((err) => {
+                BO.log?.('EnemyRig', 'debug', 'Using procedural locomotion', err);
+                return null;
+            });
+        }
+        return locomotionSource;
+    }
 
     class HumanoidDriver {
         static detect(model) {
@@ -26352,6 +26409,35 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             this.headScale = 1;
             this.ok = !!(b.pelvis && b.uaL && b.uaR && b.thL && b.thR);
             this.apply();
+            loadLocomotion().then((source) => {
+                if (!source || this.rig.disposed) return;
+                this.presets = source.animations.map((clip) => {
+                    const tracks = [];
+                    for (const track of clip.tracks) {
+                        const name = THREE.PropertyBinding.parseTrackName(track.name).nodeName;
+                        const bone = this.order.find((joint) => joint.name === name);
+                        if (!bone) continue;
+                        const rest = source.getObjectByName(name).quaternion;
+                        const basis = this.L0.get(bone).clone().multiply(rest.clone().invert());
+                        tracks.push({ bone, basis, sampler: track.createInterpolant() });
+                    }
+                    return { name: clip.name, duration: clip.duration, tracks };
+                });
+            });
+        }
+
+        _sampleLocomotion(weight, stride) {
+            if (!this.presets || weight <= 0.001) return;
+            for (const clip of this.presets) {
+                const walk = clip.name === 'Zombie_Walk_Fwd_Loop';
+                const amount = weight * (walk ? stride : 1 - stride);
+                if (amount <= 0.001) continue;
+                const phase = walk ? this.gait / (Math.PI * 2) * clip.duration : this.t;
+                for (const { bone, basis, sampler } of clip.tracks) {
+                    _qa.fromArray(sampler.evaluate(phase % clip.duration)).premultiply(basis);
+                    bone.quaternion.slerp(_qa, amount);
+                }
+            }
         }
 
         _parentRest(bone) {
@@ -26424,7 +26510,7 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         }
 
         update(dt, st) {
-            const ent = this.rig.entity;
+            if (st.frozen) return;
             const s = this.s;
             this.t += dt;
             const speed = st.speed || 0;
@@ -26531,6 +26617,8 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
                 this.b.pelvis.position.copy(this.pelvis0).addScaledVector(this.bobAxis, bob);
             }
             this.apply();
+            const combat = Math.max(s.flinch, s.stun, s.dance, s.dead, swing > 0 || st.firing ? 1 : 0);
+            this._sampleLocomotion(0.78 * (1 - clamp(combat, 0, 1)) * (1 - s.run), s.a);
         }
 
         setHeadScale(sc) { this.headScale = sc; if (this.b.head) this.b.head.scale.setScalar(sc); }
@@ -26572,7 +26660,7 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             const mk = (clip, part, fullIfUnsplit) => {
                 if (!clip) return null;
                 if (!hasSplit && part === 'upper' && !fullIfUnsplit) return null;
-                const c = part === 'full' || !hasSplit ? clip : filterClip(clip, part === 'upper' ? isUpper : (n) => !isUpper(n), '#' + part);
+                const c = part === 'full' || !hasSplit ? clip.clone() : filterClip(clip, part === 'upper' ? isUpper : (n) => !isUpper(n), '#' + part);
                 const act = this.mixer.clipAction(c);
                 act.enabled = true;
                 act.setEffectiveWeight(0);
@@ -26581,7 +26669,7 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             };
             const base = {
                 idle: clipFind(clips, 'idle'),
-                walk: clipFind(clips, 'walk'),
+                walk: clipFind(clips, 'walk', 'run'),
                 sprint: clipFind(clips, 'sprint', 'run') || clipFind(clips, 'walk'),
                 dance: clipFind(clips, 'emote-yes', 'dance', 'emote') || clipFind(clips, 'idle')
             };
@@ -26593,12 +26681,11 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
             const armed = opts.armed;
             this.ov = {
                 meleeR: mk(clipFind(clips, 'attack-melee-right', 'attack', 'punch'), 'upper', true),
-                meleeL: mk(clipFind(clips, 'attack-melee-left'), 'upper', true),
+                meleeL: mk(clipFind(clips, 'attack-melee-left', 'attack-melee-right', 'attack', 'punch'), 'upper', true),
                 cast: mk(clipFind(clips, 'interact-right'), 'upper', true),
                 hold: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both' : 'holding-right'), 'upper', true) : null,
                 shoot: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both-shoot' : 'holding-right-shoot'), 'upper', true) : null
             };
-            if (!this.ov.meleeL) this.ov.meleeL = this.ov.meleeR;
             for (const k of ['meleeR', 'meleeL', 'cast']) {
                 const a = this.ov[k];
                 if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.stop(); }
@@ -26810,6 +26897,9 @@ roughnessFactor = clamp(roughnessFactor * mix(0.90, 1.08, boN), 0.04, 1.0);`);
         setHeadScale(s) { this.driver.setHeadScale(s); }
 
         dispose() {
+            if (this.disposed) return;
+            this.disposed = true;
+            this.model.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.dispose(); });
             if (this.driver.mixer) this.driver.mixer.stopAllAction();
             if (this.entity && BO.Hitboxes) BO.Hitboxes.dispose(this.entity);
             if (this.parts && this.parts.glbRig === this) this.parts.glbRig = null;
@@ -27199,6 +27289,22 @@ uniform float uSSSStrength;`)
         return out;
     }
 
+    function copyGeometry(o, matrix) {
+        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
+        if (!g.attributes.normal) g.computeVertexNormals();
+        g.applyMatrix4(matrix);
+        if (matrix.determinant() < 0) {
+            // Mirrored part: flip winding so faces are not culled from the outside.
+            const p = g.attributes.position.array, n = g.attributes.normal.array, uv = g.attributes.uv && g.attributes.uv.array;
+            for (let i = 0; i < p.length; i += 9) {
+                for (let k = 0; k < 3; k++) { const a = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = a; const b = n[i + 3 + k]; n[i + 3 + k] = n[i + 6 + k]; n[i + 6 + k] = b; }
+                if (uv) { const j = (i / 9) * 6; for (let k = 0; k < 2; k++) { const a = uv[j + 2 + k]; uv[j + 2 + k] = uv[j + 4 + k]; uv[j + 4 + k] = a; } }
+            }
+        }
+        return g;
+    }
+
     /** Merge every visible, non-transparent, single-material mesh below `root` by material. */
     function bake(root) {
         root.updateMatrixWorld(true);
@@ -27209,18 +27315,7 @@ uniform float uSSSStrength;`)
             if (Array.isArray(o.material) || !o.geometry || !o.geometry.attributes.position) return;
             if (o.material.transparent || !visibleTo(o, root)) return;
             _m.multiplyMatrices(_inv, o.matrixWorld);
-            const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-            for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
-            if (!g.attributes.normal) g.computeVertexNormals();
-            g.applyMatrix4(_m);
-            if (_m.determinant() < 0) {
-                // Mirrored part: flip winding so faces are not culled from the outside.
-                const p = g.attributes.position.array, n = g.attributes.normal.array, uv = g.attributes.uv && g.attributes.uv.array;
-                for (let i = 0; i < p.length; i += 9) {
-                    for (let k = 0; k < 3; k++) { const a = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = a; const b = n[i + 3 + k]; n[i + 3 + k] = n[i + 6 + k]; n[i + 6 + k] = b; }
-                    if (uv) { const j = (i / 9) * 6; for (let k = 0; k < 2; k++) { const a = uv[j + 2 + k]; uv[j + 2 + k] = uv[j + 4 + k]; uv[j + 4 + k] = a; } }
-                }
-            }
+            const g = copyGeometry(o, _m);
             let list = groups.get(o.material);
             if (!list) groups.set(o.material, list = []);
             list.push(g);
@@ -27245,7 +27340,10 @@ uniform float uSSSStrength;`)
             let parts = key ? cache.get(key) : null;
             if (!parts) {
                 parts = bake(root);
-                if (key) cache.set(key, parts);
+                if (key) {
+                    for (const p of parts) if (p.geometry?.userData) p.geometry.userData.sharedAsset = true;
+                    cache.set(key, parts);
+                }
             }
             const proxy = new THREE.Group();
             proxy.name = 'MeshProxy';
@@ -27265,9 +27363,53 @@ uniform float uSSSStrength;`)
             return { root, proxy, detail, far: false, parts: parts.length };
         },
 
+        // Merge rigid siblings on their own joint. An elbow, head or boot can still
+        // move (or disappear) without diverging from the original hit surfaces.
+        attachArticulated(root) {
+            const batches = [];
+            const detail = [];
+            root.traverse((joint) => {
+                if (joint.isMesh || joint.children.length < 2) return;
+                const groups = new Map();
+                for (const m of joint.children) {
+                    if (!m.isMesh || m.children.length || !m.visible || !m.geometry?.attributes.position ||
+                        m.isSkinnedMesh || m.isInstancedMesh || m.userData.noHit || m.userData.noProxy ||
+                        Array.isArray(m.material) || m.material.transparent || !m.material.visible) continue;
+                    let list = groups.get(m.material);
+                    if (!list) groups.set(m.material, list = []);
+                    list.push(m);
+                }
+                for (const [mat, list] of groups) {
+                    if (list.length < 2) continue;
+                    const geos = list.map((m) => { m.updateMatrix(); return copyGeometry(m, m.matrix); });
+                    const geo = mergeGroup(geos, geos.every((g) => !!g.attributes.uv));
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.name = 'MeshProxy';
+                    mesh.userData.noHit = mesh.userData.noProxy = true;
+                    mesh.visible = false;
+                    mesh.castShadow = list.some((m) => m.castShadow);
+                    mesh.receiveShadow = list.some((m) => m.receiveShadow);
+                    batches.push({ mesh, joint });
+                    detail.push(...list);
+                }
+            });
+            for (const { mesh, joint } of batches) joint.add(mesh);
+            return { root, batches, detail, far: false };
+        },
+
         /** Switch an LOD handle between full detail and the merged proxy. */
         set(lod, far) {
             if (!lod) return;
+            if (lod.batches) {
+                if (lod.far === far || lod.root.userData.glbBody) return;
+                for (const { mesh } of lod.batches) mesh.visible = far;
+                for (const m of lod.detail) {
+                    m.userData.lodDetail = far;
+                    m.visible = !far;
+                }
+                lod.far = far;
+                return;
+            }
             // A GLB model replaced this body: the procedural detail and its proxy both stay hidden.
             if (lod.root.userData.glbBody) { if (lod.proxy.visible) lod.proxy.visible = false; lod.far = far; return; }
             if (lod.far === far) return;
@@ -27280,7 +27422,14 @@ uniform float uSSSStrength;`)
         detach(lod) {
             if (!lod) return;
             this.set(lod, false);
-            lod.proxy.removeFromParent();
+            if (lod.batches) {
+                for (const { mesh } of lod.batches) {
+                    mesh.removeFromParent();
+                    mesh.geometry.dispose();
+                }
+            } else {
+                lod.proxy.removeFromParent();
+            }
         },
 
         cacheSize() { return cache.size; }
@@ -37623,7 +37772,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
-            this.targetPool = []; // Enemy meshes populated by active game mode
+            this._flatTargets = [];
+            this._castCand = [];
+            this._castSphere = new THREE.Sphere();
+            this.setTargetPool([]);
             this.onHitEnemy = null; // Callback (entity, dmg, hitbox, isCrit, weaponId, impactPos, rayDir)
             this.onExplodeAt = null; // Callback (pos, radius, damage, owner, isFlash, stunDur, weaponId)
             this.onActivateKillstreak = null;
@@ -37661,62 +37813,68 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             this.smokeClouds = [];
             this.activePokemonAllies = [];
             this.activeMonkeyBomb = null;
-            this.targetPool = [];
+            this.setTargetPool([]);
+        }
+
+        // Modes publish entities cheaply each tick. Expand the mesh list only for callers
+        // that need it (area effects and debug overlays). Shots collect the current pose.
+        setEntityTargets(entities, extraMeshes) {
+            this._entities = entities;
+            this._extraMeshes = extraMeshes;
+            this._flatTargets.length = 0;
+            this._flatReady = false;
+            this._castCand.length = 0;
         }
 
         setTargetPool(meshes) {
-            this.targetPool = meshes || [];
+            this.setEntityTargets(null, meshes);
         }
 
-        /**
-         * Raycasts the current ray (this.raycaster) against the target pool with an
-         * entity broad-phase: only enemies whose bounding sphere the ray passes through
-         * get the per-triangle test. Pool meshes are grouped once per pool array.
-         */
-        _castTargets() {
-            const pool = this.targetPool;
-            const rc = this.raycaster;
-            if (!BO.Hitboxes) return rc.intersectObjects(pool, false);
-            if (pool.length < 40) {
-                // Small pools skip grouping, but skinned hit groups still need the current pose.
-                const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
-                let last = null;
-                for (let i = 0; i < pool.length; i++) {
-                    const ent = pool[i].userData.entity;
-                    if (!ent || ent === last || !ent._skinSnaps) continue;
-                    last = ent;
-                    if (BO.Hitboxes.sphere(ent, sph) && rc.ray.intersectsSphere(sph)) BO.Hitboxes.refresh(ent);
-                }
-                return rc.intersectObjects(pool, false);
+        get targetPool() {
+            if (!this._entities) return this._extraMeshes || this._flatTargets;
+            if (!this._flatReady) {
+                for (const ent of this._entities) ent.getHitboxMeshes(this._flatTargets);
+                if (this._extraMeshes) for (const m of this._extraMeshes) this._flatTargets.push(m);
+                this._flatReady = true;
             }
-            if (this._groupedPool !== pool) {
-                this._groupedPool = pool;
-                const byEnt = this._poolGroups || (this._poolGroups = new Map());
-                byEnt.clear();
-                const loose = this._poolLoose || (this._poolLoose = []);
-                loose.length = 0;
-                for (let i = 0; i < pool.length; i++) {
-                    const m = pool[i];
-                    const ent = m.userData.entity;
-                    if (!ent || !ent.parts || !ent.parts.root || ent._hitR == null) { loose.push(m); continue; }
-                    let g = byEnt.get(ent);
-                    if (!g) { g = []; byEnt.set(ent, g); }
-                    g.push(m);
+            return this._flatTargets;
+        }
+
+        _livingTargets() {
+            const targets = new Set();
+            for (const ent of this._entities || []) {
+                if (ent.alive && ent.parts?.root.visible) targets.add(ent);
+            }
+            for (const mesh of this._extraMeshes || []) {
+                const ent = mesh.userData.entity;
+                if (ent?.alive) targets.add(ent);
+            }
+            return targets;
+        }
+
+        _castTargets(rc = this.raycaster) {
+            const candidates = this._castCand;
+            candidates.length = 0;
+            if (this._entities) {
+                for (const ent of this._entities) {
+                    if (!ent.alive || !ent.parts?.root.visible) continue;
+                    if (!BO.Hitboxes.inRay(ent, rc, this._castSphere)) continue;
+                    BO.Hitboxes.refresh(ent);
+                    ent.getHitboxMeshes(candidates);
                 }
             }
-            const cand = this._castCand || (this._castCand = []);
-            cand.length = 0;
-            for (let i = 0; i < this._poolLoose.length; i++) cand.push(this._poolLoose[i]);
-            const sph = this._castSphere || (this._castSphere = new THREE.Sphere());
-            const far = rc.far;
-            for (const [ent, meshes] of this._poolGroups) {
-                BO.Hitboxes.sphere(ent, sph);
-                if (!rc.ray.intersectsSphere(sph)) continue;
-                if (rc.ray.origin.distanceTo(sph.center) - sph.radius > far) continue;
-                if (ent._skinSnaps) BO.Hitboxes.refresh(ent);
-                for (let i = 0; i < meshes.length; i++) cand.push(meshes[i]);
+            // Minigames, breakable props and remote players can publish selected surfaces.
+            // Respect that selection even when several targets share one rendered model.
+            let lastSkin = null;
+            for (const mesh of this._extraMeshes || []) {
+                const ent = mesh.userData.entity;
+                if (ent?._skinSnaps && ent !== lastSkin) {
+                    BO.Hitboxes.refresh(ent);
+                    lastSkin = ent;
+                }
+                if (!mesh.userData.hitDisabled) candidates.push(mesh);
             }
-            return cand.length ? rc.intersectObjects(cand, false) : [];
+            return rc.intersectObjects(candidates, false);
         }
 
         cancelCharge() {
@@ -38059,7 +38217,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const ent = h.object.userData.entity;
                 if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || seen.has(ent)) continue;
                 seen.add(ent); hit = true;
-                const hb = h.object.userData.hitbox || 'torso';
+                const hb = BO.Hitboxes.zoneAt(h);
                 if (hb === 'head') headshot = true;
                 const dmg = w.stats.damage * (rpgMod.damageMult || 1) * (hb === 'head' ? (w.stats.headMult || 1.5) : 1) * 1.35;
                 if (this.onHitEnemy && this.onHitEnemy(ent, dmg, hb, h.distance, w, h.point, dir)) kills++;
@@ -38074,8 +38232,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             // Homing assist (Spoon Bender / Sacred Heart) subtly bends shot toward nearest enemy in front cone!
             if (rpgMod && rpgMod.homing && segDepth === 0) {
                 let bestDot = 0.72, hasBest = false;
-                for (let i = 0; i < this.targetPool.length; i++) {
-                    const ent = this.targetPool[i].userData.entity;
+                for (const ent of this._livingTargets()) {
                     if (!ent || !ent.alive || !ent.pos) continue;
                     _tmpHoming.set(ent.pos.x, ent.pos.y + 1.15, ent.pos.z).sub(origin);
                     const d = _tmpHoming.length();
@@ -38120,7 +38277,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 const ent = h.object.userData.entity;
                 if (!ent || !ent.alive || ent.dead || (typeof ent.hp === 'number' && ent.hp <= 0) || hitEntities.has(ent)) continue;
                 hitEntities.add(ent);
-                const hitbox = h.object.userData.hitbox || 'torso';
+                const hitbox = BO.Hitboxes.zoneAt(h);
                 if (hitbox === 'shield') {
                     // Shield blocks penetration and ricochets sparks/sound while preserving existing 0.25x chip math
                     pierceLeft = 0;
@@ -38260,16 +38417,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const eff = w.stats.meleeEffect || 'slash';
 
             const unique = [];
-            const seen = new Set();
-            for (const m of this.targetPool) {
-                const ent = m.userData.entity;
-                if (ent && ent.alive && !seen.has(ent)) {
-                    seen.add(ent);
-                    const d = ent.pos.distanceTo(P.pos);
-                    if (d <= reach + 0.6) {
-                        const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)).sub(aim.origin).normalize();
-                        if (aim.dir.dot(toEnt) > 0.38) unique.push({ ent, d });
-                    }
+            for (const ent of this._livingTargets()) {
+                if (!ent.pos) continue;
+                const d = ent.pos.distanceTo(P.pos);
+                if (d <= reach + 0.6) {
+                    const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1.0, 0)).sub(aim.origin).normalize();
+                    if (aim.dir.dot(toEnt) > 0.38) unique.push({ ent, d });
                 }
             }
             unique.sort((a, b) => a.d - b.d);
@@ -38434,10 +38587,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         _fireShrinkRay(origin, dir, w) {
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -38462,10 +38612,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         _fireMicrowavePop(origin, dir, w) {
             const endPt = origin.clone().addScaledVector(dir, w.stats.range);
             BO.FX.spawnTracer(origin.clone().addScaledVector(dir, 0.6), endPt, 0xe879f9, 0.12, 0.22);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -38492,10 +38639,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 P.vel.y = Math.max(P.vel.y, 7.8);
                 P.onGround = false;
             }
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -38539,10 +38683,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         _fireChainLightning(origin, dir, w, color) {
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             const candidates = Array.from(unique).filter((e) => e.pos.distanceTo(origin) <= w.stats.range);
             candidates.sort((a, b) => a.pos.distanceTo(origin) - b.pos.distanceTo(origin));
 
@@ -38572,10 +38713,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.FX.spawnParticles(flamePt, 12, 0xf97316, 7.5, -1.5, 0.35, 2.2);
             BO.FX.spawnTracer(origin.clone().addScaledVector(dir, 0.6), origin.clone().addScaledVector(dir, 12), 0xf97316, 0.14, 0.12);
 
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -38591,10 +38729,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         _fireFrostCone(origin, dir, w) {
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-            }
+            const unique = this._livingTargets();
             let hitAny = false, kills = 0;
             for (const ent of unique) {
                 const toEnt = ent.pos.clone().add(new THREE.Vector3(0, 1, 0)).sub(origin);
@@ -38628,11 +38763,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.FX.spawnConeShockwave(origin.clone().addScaledVector(dir, 0.6), dir);
             BO.Player.cameraShake = 0.06;
 
-            const unique = new Set();
-            for (const m of this.targetPool) {
-                const ent = m.userData.entity;
-                if (ent && ent.alive) unique.add(ent);
-            }
+            const unique = this._livingTargets();
 
             let kills = 0;
             let hitAny = false;
@@ -38854,10 +38985,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     p.mesh.rotation.y += dt * 6;
                     p.mesh.rotation.x += dt * 4;
                     // Pull nearby enemies inward toward singularity!
-                    const unique = new Set();
-                    for (const m of this.targetPool) {
-                        if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                    }
+                    const unique = this._livingTargets();
                     for (const ent of unique) {
                         const d = ent.pos.distanceTo(p.pos);
                         if (d < p.radius && d > 0.5) {
@@ -38881,13 +39009,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     const dir = step.clone().normalize();
                     const worldHit = BO.World.raycastWorld(p.pos, dir, dist + 0.15);
                     this.raycaster.set(p.pos, dir);
-                    this.raycaster.far = dist + 0.2;
+                    this.raycaster.far = worldHit ? worldHit.distance : dist + 0.2;
                     const entHits = this._castTargets();
 
                     let proximityHit = null;
                     if (p.hitRadius && p.hitRadius > 0.35) {
-                        for (let t = 0; t < this.targetPool.length; t++) {
-                            const ent = this.targetPool[t].userData.entity;
+                        for (const ent of this._livingTargets()) {
                             if (!ent || !ent.alive) continue;
                             const ey = ent.pos.y + (ent.height || 1.7) * 0.5;
                             if (BO.Math.dist3D(p.pos.x, p.pos.y, p.pos.z, ent.pos.x, ey, ent.pos.z) <= p.hitRadius + (ent.radius || 0.45)) {
@@ -38971,15 +39098,18 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
 
                 if (p.kind === 'tomahawk') {
-                    const target = this.targetPool.find((mesh) => {
-                        const enemy = mesh.userData.entity;
-                        if (!enemy?.alive || !enemy.pos) return false;
-                        return Math.abs(p.pos.y - enemy.pos.y - 0.9) < 0.84 &&
-                            BO.Math.dist2D(p.pos.x, p.pos.z, enemy.pos.x, enemy.pos.z) < 0.73;
-                    });
-                    if (target) {
+                    let targetEnt = null;
+                    for (const enemy of this._livingTargets()) {
+                        if (!enemy?.pos) continue;
+                        if (Math.abs(p.pos.y - enemy.pos.y - 0.9) < 0.84 &&
+                            BO.Math.dist2D(p.pos.x, p.pos.z, enemy.pos.x, enemy.pos.z) < 0.73) {
+                            targetEnt = enemy;
+                            break;
+                        }
+                    }
+                    if (targetEnt) {
                         const blade = { cfg: { id: 'tomahawk_axe' }, stats: { kind: 'melee', shortName: 'TOMAHAWK' } };
-                        const killed = this.onHitEnemy?.(target.userData.entity, p.damage, 'torso',
+                        const killed = this.onHitEnemy?.(targetEnt, p.damage, 'torso',
                             p.pos.distanceTo(BO.Player.pos), blade, p.pos, p.vel.clone().normalize());
                         BO.Sound.playHitmarker(false, killed);
                         BO.Events.emit('hud:hitmarker', { isHeadshot: false, isKill: !!killed });
@@ -38990,10 +39120,12 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
                 if (p.proximity) {
                     p.armTime -= dt;
-                    if (p.armTime <= 0 && this.targetPool.some((mesh) => {
-                        const entity = mesh.userData.entity;
-                        return entity?.alive && entity.pos?.distanceToSquared(p.pos) < p.proximity * p.proximity;
-                    })) p.life = 0;
+                    if (p.armTime <= 0) {
+                        const proxSq = p.proximity * p.proximity;
+                        for (const entity of this._livingTargets()) {
+                            if (entity.pos?.distanceToSquared(p.pos) < proxSq) { p.life = 0; break; }
+                        }
+                    }
                 }
                 if (p.life <= 0 && p.kind !== 'c4') {
                     if (p === this.activeMonkeyBomb) this.activeMonkeyBomb = null;
@@ -39077,10 +39209,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
                 if (np.tickTimer <= 0) {
                     np.tickTimer = 0.35;
-                    const unique = new Set();
-                    for (const m of this.targetPool) {
-                        if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                    }
+                    const unique = this._livingTargets();
                     for (const ent of unique) {
                         if (BO.Math.dist2D(ent.pos.x, ent.pos.z, np.pos.x, np.pos.z) <= np.radius) {
                             ent.burnTimer = Math.max(ent.burnTimer || 0, 3.5);
@@ -39201,10 +39330,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
 
                 // Collect living enemies
-                const unique = new Set();
-                for (const m of this.targetPool) {
-                    if (m.userData.entity && m.userData.entity.alive) unique.add(m.userData.entity);
-                }
+                const unique = this._livingTargets();
                 const enemies = Array.from(unique);
                 enemies.sort((a, b) => a.pos.distanceTo(ally.pos) - b.pos.distanceTo(ally.pos));
 
@@ -39756,14 +39882,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             g.quaternion.copy(_gq.invert()).multiply(_GUN_FWD);
         }
 
-        getHitboxMeshes() {
-            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
-            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
-            const list = [];
+        getHitboxMeshes(out = []) {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return out;
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, out);
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) out.push(obj);
             });
-            return list;
+            return out;
         }
 
         takeDamage(amount, hitbox = 'torso', isCrit = false, dirVec = null, damageKind = 'bullet') {
@@ -40476,6 +40601,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         destroy() {
+            this.parts.glbPending = null;
+            this.parts.glbRig?.dispose();
             if (this._superBolts && BO.World.scene) {
                 for (const b of this._superBolts) {
                     if (b.mesh) BO.World.scene.remove(b.mesh);
@@ -40602,14 +40729,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             return BO.Math.randRange(this.difficulty.sightDelayMin, this.difficulty.sightDelayMax);
         }
 
-        getHitboxMeshes() {
-            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return [];
-            if (BO.Hitboxes) return BO.Hitboxes.collect(this, []);
-            const list = [];
+        getHitboxMeshes(out = []) {
+            if (!this.alive || this.dead || (typeof this.hp === 'number' && this.hp <= 0)) return out;
+            if (BO.Hitboxes) return BO.Hitboxes.collect(this, out);
             this.parts.root.traverse((obj) => {
-                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) list.push(obj);
+                if (obj.isMesh && obj.userData.entity === this && obj.userData.hitbox && obj.visible) out.push(obj);
             });
-            return list;
+            return out;
         }
 
         spawnAt(sp) {
@@ -41129,6 +41255,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         }
 
         destroy() {
+            this.parts.glbPending = null;
+            this.parts.glbRig?.dispose();
             this.squadMark?.material.dispose();
             this.squadMark?.geometry.dispose();
             if (this.parts && this.parts.root && BO.World.scene) {
@@ -42972,7 +43100,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
             BO.Mods.tickMode('zombies', dt, { zombies: this.zombies });
             const allowProj = !(this.modifiers.noProjectiles || (this.modifiers.noProjectilesUntil20 && this.round < 20));
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             const zCallbacks = {
                 allowProjectiles: allowProj,
                 getTarget: (z) => {
@@ -43007,11 +43136,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     z.destroy();
                     this.zombies.splice(i, 1);
                 } else if (z.alive && !z.powerAlly) {
-                    const meshes = z.getHitboxMeshes();
-                    for (let m = 0; m < meshes.length; m++) hitMeshes.push(meshes[m]);
+                    targets.push(z);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
 
             // Update Enemy Ranged Projectiles
             const P = BO.Player;
@@ -44603,7 +44731,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             else if (this.modeType === 'hardpoint') objPos = this._updateHardpoint(dt);
             else if (this.modeType === 'search_destroy') objPos = this._searchSite();
 
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             const context = {
                 playerAlive: BO.Player.alive,
                 playerConcealed: this.counterUavTimer > 0,
@@ -44681,15 +44810,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
                 b.update(dt, context);
                 if (!b.powerAlly && (this.isSolo || b.team !== myTeam)) {
-                    const ms = b.getHitboxMeshes();
-                    for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
+                    targets.push(b);
                 }
             }
-            if (BO.Net && BO.Net.active) {
-                const remoteMeshes = BO.Net.getRemoteHitboxMeshes();
-                for (let r = 0; r < remoteMeshes.length; r++) hitMeshes.push(remoteMeshes[r]);
-            }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets, BO.Net?.active ? BO.Net.getRemoteHitboxMeshes() : null);
 
             this._recordReplaySnapshot(dt);
 
@@ -47460,7 +47584,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 d.animPhase += dt * (spd * 2.5 + 1.5);
                 d.parts.root.position.copy(d.pos);
                 d.parts.root.rotation.y = d.yaw;
-                BO.CharacterMesh.animateLimbs(d.parts, spd, d.animPhase, 0, 0);
+                const biteSwing = d.attackCd > 0.45 ? (d.attackCd - 0.45) / 0.27 : 0;
+                BO.CharacterMesh.animateLimbs(d.parts, spd, d.animPhase, biteSwing, 0, 'torso', dt);
 
                 if (d.hp <= 0) {
                     BO.FX.spawnParticles(d.pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 14, 0xef4444, 4, 3, 0.5, 1.3);
@@ -47480,11 +47605,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         bestD = dist; nearest = z;
                     }
                 }
+                let fired = false;
                 if (nearest) {
                     a.yaw = Math.atan2(nearest.pos.x - a.pos.x, nearest.pos.z - a.pos.z);
                     a.parts.root.rotation.y = a.yaw;
                     if (a.cooldown <= 0) {
                         a.cooldown = 0.22;
+                        fired = true;
                         BO.Sound.playGunshot('ar_light', false, false, 0.45);
                         BO.FX.spawnTracer(a.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), nearest.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), 0xfde047, 0.025, 0.08);
                         if (nearest.takeDamage(34, 'torso', false, null, 'bullet')) {
@@ -47493,6 +47620,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         }
                     }
                 }
+                a.animPhase = (a.animPhase || 0) + dt * 1.4;
+                BO.CharacterMesh.animateSoldier(a.parts, { speed: 0, phase: a.animPhase, aim: nearest ? 1 : 0.25, recoil: fired ? 1 : 0 }, dt);
             }
 
             // Update Zombies & Populate Hit Pool
@@ -47520,7 +47649,8 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                 }
             };
 
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             BO.Mods.tickZombies(this.modifiers, this.zombies, dt);
             BO.Mods.tickMode('td', dt, { zombies: this.zombies });
             for (let i = this.zombies.length - 1; i >= 0; i--) {
@@ -47532,11 +47662,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     continue;
                 }
                 if (z.alive) {
-                    const ms = z.getHitboxMeshes();
-                    for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
+                    targets.push(z);
                 }
             }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets);
         }
 
         getPromptText() {
@@ -54645,7 +54774,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const point = wall?.point || aim.origin.clone().addScaledVector(aim.dir, 60);
             if (power.id === 'mind_control') {
                 const ray = new THREE.Raycaster(aim.origin, aim.dir, 0, Math.min(35, wall?.distance ?? 35));
-                const hit = ray.intersectObjects(BO.Combat.targetPool, false)
+                const hit = BO.Combat._castTargets(ray)
                     .find((result) => result.object.userData.entity?.alive && !result.object.userData.entity.powerAlly);
                 if (!hit) {
                     this.notify(power, 'Aim at a hostile within 35 m');
@@ -54884,7 +55013,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             if (mesh) {
                 mesh.position.copy(ally.pos);
                 mesh.rotation.y = ally.yaw;
-                BO.CharacterMesh.animateLimbs(ally.parts, distance > 1.65 ? ally.speed : 0, this.time * 7, 0, 0);
+                BO.CharacterMesh.animateLimbs(ally.parts, distance > 1.65 ? ally.speed : 0, this.time * 7, 0, 0, 'torso', dt);
             }
         }
 
@@ -57268,6 +57397,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
     function isCachedMaterial(mat) {
         if (!mat) return false;
+        if (mat.userData?.sharedAsset) return true;
         if (BO.Assets?.hasSharedMatValue && BO.Assets.hasSharedMatValue(mat)) return true;
         if (BO.Textures?.materials) {
             for (const k in BO.Textures.materials) if (BO.Textures.materials[k] === mat) return true;
@@ -57278,6 +57408,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
     function isCachedGeometry(geo) {
         if (!geo) return false;
+        if (geo.userData?.sharedAsset) return true;
         if (BO.Assets?.isSharedGeo && BO.Assets.isSharedGeo(geo)) return true;
         if (BO.FX && (geo === BO.FX.decalGeo || geo === BO.FX.particleGeo || geo === BO.FX.shellGeo)) return true;
         return false;
@@ -57306,7 +57437,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                     if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
                         try { obj.dispose(); } catch (_) {}
                     }
-                    if (obj.geometry && !isCachedGeometry(obj.geometry)) {
+                    if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
                         try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
                     }
                     const mat = obj.material;
@@ -58105,7 +58236,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         other: 0xe879f9
     };
 
-    const MATS = {};
+    const MATS = {}, SKIN_MATS = {};
     const wireMap = new WeakMap();
     const attached = new Set();
 
@@ -58143,8 +58274,13 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
         let line = wireMap.get(mesh);
         if (!line) {
-            const edges = new THREE.EdgesGeometry(mesh.geometry, 20);
-            line = new THREE.LineSegments(edges, getMat(zone));
+            if (mesh.userData.skinSnap) {
+                SKIN_MATS[zone] ||= new THREE.MeshBasicMaterial({ color: COLORS[zone], wireframe: true, depthTest: false });
+                line = new THREE.Mesh(mesh.geometry, SKIN_MATS[zone]);
+                line.frustumCulled = false;
+            } else {
+                line = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 20), getMat(zone));
+            }
             line.renderOrder = 998;
             line.raycast = () => {};
             line.userData.isHitboxDebug = true;
@@ -58154,9 +58290,19 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         } else if (line.parent !== mesh) {
             mesh.add(line);
         }
+        if (mesh.userData.skinSnap) mesh.visible = true;
         line.visible = true;
         attached.add(line);
         return line;
+    }
+
+    function removeWire(line) {
+        const mesh = line.parent;
+        if (mesh) wireMap.delete(mesh);
+        if (mesh?.userData.skinSnap) mesh.visible = false;
+        else line.geometry.dispose();
+        line.removeFromParent();
+        attached.delete(line);
     }
 
     function hasUrlFlag() {
@@ -58190,9 +58336,7 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
         },
 
         clear() {
-            attached.forEach((line) => {
-                if (line) line.visible = false;
-            });
+            attached.forEach(removeWire);
         },
 
         update(force) {
@@ -58203,13 +58347,15 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
 
             // Prune detached wires whose parent mesh left the scene
             attached.forEach((line) => {
-                if (!line || !line.parent || !line.parent.visible) {
-                    if (line) line.visible = false;
-                }
+                let ancestor = line.parent;
+                while (ancestor && ancestor !== BO.World.scene) ancestor = ancestor.parent;
+                if (!ancestor) removeWire(line);
+                else line.visible = false;
             });
 
             const pool = BO.Combat && BO.Combat.targetPool;
             if (Array.isArray(pool)) {
+                const refreshed = new Set();
                 for (let i = 0; i < pool.length; i++) {
                     const m = pool[i];
                     if (!m) continue;
@@ -58220,6 +58366,10 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
                         if (existing) existing.visible = false;
                         continue;
                     }
+                    if (m.userData.skinSnap && !refreshed.has(ent)) {
+                        BO.Hitboxes.refresh(ent, true);
+                        refreshed.add(ent);
+                    }
                     ensureWire(m);
                 }
             }
@@ -58228,13 +58378,24 @@ diffuseColor.rgb *= mix(0.62, 1.24, vBladeH);`);
             const scene = BO.World && BO.World.scene;
             if (scene) {
                 scene.traverse((obj) => {
-                    if (!obj.isMesh || !obj.visible) return;
+                    if (!obj.isMesh || !obj.visible || obj.userData?.hitDisabled) return;
                     if (obj.userData && (obj.userData.hitbox || obj.userData.hitZone || obj.userData.hitboxZone || obj.userData.damageZone || obj.userData.isHitbox)) {
                         const ent = obj.userData.entity;
                         if (ent && (ent.alive === false || ent.dead === true || (typeof ent.hp === 'number' && ent.hp <= 0))) {
                             const existing = wireMap.get(obj);
                             if (existing) existing.visible = false;
                             return;
+                        }
+                        if (!obj.userData.skinSnap) {
+                            let hidden = false;
+                            for (let p = obj.parent; p && p !== scene; p = p.parent) {
+                                if (!p.visible && !p.userData?.lodDetail) { hidden = true; break; }
+                            }
+                            if (hidden) {
+                                const existing = wireMap.get(obj);
+                                if (existing) existing.visible = false;
+                                return;
+                            }
                         }
                         ensureWire(obj);
                     }

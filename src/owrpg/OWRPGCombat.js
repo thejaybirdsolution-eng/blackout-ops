@@ -352,7 +352,7 @@
             const cam = BO.OWRPGMode.camera;
             _ray.setFromCamera(_center, cam);
             _ray.far = maxDist;
-            const hits = _ray.intersectObjects(BO.Combat.targetPool || [], false);
+            const hits = BO.Combat._castTargets(_ray);
             const hit = hits.find((h) => h.object.userData.entity && h.object.userData.entity.owAgent && h.object.userData.entity.alive);
             const wh = BO.World.raycastWorld(_ray.ray.origin, _ray.ray.direction, maxDist);
             if (hit && (!wh || hit.distance < wh.distance)) return { agent: hit.object.userData.entity.owAgent, point: hit.point.clone(), dist: hit.distance };
@@ -500,14 +500,16 @@
             this.removeDecoy();
             const parts = BO.CharacterMesh.buildSoldier(0, {});
             parts.root.position.copy(point);
-            parts.root.traverse((o) => { if (o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 }); o.userData = {}; } });
+            const mat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.45 });
+            parts.root.traverse((o) => { if (o.isMesh) { o.material = mat; o.userData = {}; } });
             BO.World.scene.add(parts.root);
-            this.decoy = { mesh: parts.root, pos: point.clone(), t: dur };
+            this.decoy = { mesh: parts.root, parts, mat, pos: point.clone(), t: dur, phase: 0 };
             BO.OWRPGAI.noise(point, 30, true);
         },
 
         removeDecoy() {
             if (this.decoy && this.decoy.mesh) this.decoy.mesh.removeFromParent();
+            if (this.decoy && this.decoy.mat) this.decoy.mat.dispose();
             this.decoy = null;
         },
 
@@ -526,7 +528,9 @@
             }
             if (this.decoy) {
                 this.decoy.t -= dt;
+                this.decoy.phase += dt;
                 this.decoy.mesh.rotation.y += dt * 1.5;
+                BO.CharacterMesh.animateSoldier(this.decoy.parts, { speed: 0, phase: this.decoy.phase, aim: 0.85 }, dt);
                 if (this.decoy.t <= 0) this.removeDecoy();
             }
         }

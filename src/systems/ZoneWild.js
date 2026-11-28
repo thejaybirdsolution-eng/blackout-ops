@@ -101,39 +101,49 @@
             const hs = bird ? 0.13 : s * (k === 'bear' ? 0.36 : k === 'rabbit' ? 0.45 : 0.3);
             const hy = by + bh * (k === 'deer' ? 0.9 : 0.35), hz = bl / 2 + hs * 0.4;
             this.head = box(hs, hs, hs * 1.3, k === 'goat' ? 0xeee8dc : body, 0, hy, hz, 'head');
-            if (k === 'deer') { box(s * 0.16, s * 0.5, s * 0.16, body, 0, by + bh * 0.55, bl / 2 - 0.05); box(0.04, 0.35, 0.04, 0xd8c8a8, 0.1, hy + 0.3, hz - 0.05); box(0.04, 0.35, 0.04, 0xd8c8a8, -0.1, hy + 0.3, hz - 0.05); }
-            if (k === 'goat') { box(0.05, 0.22, 0.05, 0x5a5048, 0.07, hy + 0.17, hz - 0.08); box(0.05, 0.22, 0.05, 0x5a5048, -0.07, hy + 0.17, hz - 0.08); }
-            if (k === 'boar') { box(0.04, 0.04, 0.16, 0xeee8d0, 0.09, hy - 0.08, hz + 0.18); box(0.04, 0.04, 0.16, 0xeee8d0, -0.09, hy - 0.08, hz + 0.18); }
-            if (k === 'cow') { box(0.05, 0.18, 0.05, 0xd8d0b8, 0.15, hy + 0.15, hz); box(0.05, 0.18, 0.05, 0xd8d0b8, -0.15, hy + 0.15, hz); }
-            if (k === 'rabbit') { box(0.05, 0.2, 0.04, body, 0.05, hy + 0.17, hz - 0.03); box(0.05, 0.2, 0.04, body, -0.05, hy + 0.17, hz - 0.03); }
-            if (bird) { box(0.05, 0.05, 0.08, 0xd8a03a, 0, hy - 0.02, hz + 0.1); box(0.08, 0.12, 0.24, 0x5a3a20, 0, by + 0.06, -bl / 2 - 0.1); }
-            if (k === 'wolf') box(0.08, 0.08, s * 0.5, dark, 0, by + 0.05, -bl / 2 - s * 0.2);
+            // Face details share the grazing head pivot. Coordinates above are root-local.
+            const headDetail = (w, h, d, c, x, y, z) => {
+                const part = box(w, h, d, c, x - this.head.position.x, y - hy, z - hz, 'head');
+                this.head.add(part);
+            };
+            if (k === 'deer') box(s * 0.16, s * 0.5, s * 0.16, body, 0, by + bh * 0.55, bl / 2 - 0.05, 'torso');
+            for (const side of [-1, 1]) {
+                if (k === 'deer') headDetail(0.04, 0.35, 0.04, 0xd8c8a8, side * 0.1, hy + 0.3, hz - 0.05);
+                if (k === 'goat') headDetail(0.05, 0.22, 0.05, 0x5a5048, side * 0.07, hy + 0.17, hz - 0.08);
+                if (k === 'boar') headDetail(0.04, 0.04, 0.16, 0xeee8d0, side * 0.09, hy - 0.08, hz + 0.18);
+                if (k === 'cow') headDetail(0.05, 0.18, 0.05, 0xd8d0b8, side * 0.15, hy + 0.15, hz);
+                if (k === 'rabbit') headDetail(0.05, 0.2, 0.04, body, side * 0.05, hy + 0.17, hz - 0.03);
+            }
+            if (bird) {
+                headDetail(0.05, 0.05, 0.08, 0xd8a03a, 0, hy - 0.02, hz + 0.1);
+                box(0.08, 0.12, 0.24, 0x5a3a20, 0, by + 0.06, -bl / 2 - 0.1, 'limb');
+            }
+            if (k === 'wolf') box(0.08, 0.08, s * 0.5, dark, 0, by + 0.05, -bl / 2 - s * 0.2, 'limb');
             this.legs = [];
-            if (!bird) {
-                const lw = Math.max(0.05, s * 0.13);
-                for (const [lx, lz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+            const lw = bird ? 0.03 : Math.max(0.05, s * 0.13);
+            for (const lz of (bird ? [0] : [1, -1])) {
+                for (const lx of [1, -1]) {
                     const pivot = new THREE.Group();
-                    pivot.position.set(lx * (bw / 2 - lw / 2), legH, lz * (bl / 2 - lw));
-                    const leg = new THREE.Mesh(new THREE.BoxGeometry(lw, legH, lw), mat(dark));
-                    leg.position.y = -legH / 2;
+                    pivot.position.set(lx * (bird ? 0.06 : bw / 2 - lw / 2), legH, lz * (bl / 2 - lw));
+                    const leg = box(lw, legH, lw, bird ? 0xd8a03a : dark, 0, -legH / 2, 0, 'limb');
                     pivot.add(leg);
                     root.add(pivot);
                     this.legs.push(pivot);
                 }
-            } else {
-                for (const lx of [0.06, -0.06]) box(0.03, legH, 0.03, 0xd8a03a, lx, legH / 2, 0);
             }
             this.height = by + bh;
             this.radius = Math.max(0.25, bw * 0.7);
             this.root = root;
-            this.hitMeshes = [this.body, this.head];
+            this.parts = { root, headGroup: this.head };
+            BO.Hitboxes.prepare(this, this.parts);
             root.position.copy(this.pos);
             BO.SurvivalMode.scene.add(root);
         }
 
-        getHitboxMeshes() { return this.alive ? this.hitMeshes : []; }
+        getHitboxMeshes(out = []) { return this.alive ? BO.Hitboxes.collect(this, out) : out; }
 
         destroy() {
+            BO.Hitboxes?.dispose?.(this);
             this.root.removeFromParent();
             this.root.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
         }

@@ -40,7 +40,6 @@
 
     /** Rotation of `obj` expressed in `frame`'s space (scale discarded). */
     function frameQuat(obj, frame, out) {
-        frame.updateMatrixWorld(true);
         _ma.copy(frame.matrixWorld).invert().multiply(obj.matrixWorld);
         _ma.decompose(_p, out, _s);
         return out;
@@ -77,6 +76,19 @@
         caL: /^calf_l$|^l(eft)?_?(low_?|shin)/i, caR: /^calf_r$|^r(ight)?_?(low_?|shin)/i,
         ftL: /^foot_l$|^l(eft)?_?foot$/i, ftR: /^foot_r$|^r(ight)?_?foot$/i
     };
+
+    // Quaternius UAL2, CC0. The compact GLB contains only in-place idle/walk
+    // rotations. Each monster keeps its own proportions, root movement and combat poses.
+    let locomotionSource;
+    function loadLocomotion() {
+        if (!locomotionSource) {
+            locomotionSource = BO.Assets.loadGLB('monsters/zombie-locomotion.glb').catch((err) => {
+                BO.log?.('EnemyRig', 'debug', 'Using procedural locomotion', err);
+                return null;
+            });
+        }
+        return locomotionSource;
+    }
 
     class HumanoidDriver {
         static detect(model) {
@@ -141,6 +153,35 @@
             this.headScale = 1;
             this.ok = !!(b.pelvis && b.uaL && b.uaR && b.thL && b.thR);
             this.apply();
+            loadLocomotion().then((source) => {
+                if (!source || this.rig.disposed) return;
+                this.presets = source.animations.map((clip) => {
+                    const tracks = [];
+                    for (const track of clip.tracks) {
+                        const name = THREE.PropertyBinding.parseTrackName(track.name).nodeName;
+                        const bone = this.order.find((joint) => joint.name === name);
+                        if (!bone) continue;
+                        const rest = source.getObjectByName(name).quaternion;
+                        const basis = this.L0.get(bone).clone().multiply(rest.clone().invert());
+                        tracks.push({ bone, basis, sampler: track.createInterpolant() });
+                    }
+                    return { name: clip.name, duration: clip.duration, tracks };
+                });
+            });
+        }
+
+        _sampleLocomotion(weight, stride) {
+            if (!this.presets || weight <= 0.001) return;
+            for (const clip of this.presets) {
+                const walk = clip.name === 'Zombie_Walk_Fwd_Loop';
+                const amount = weight * (walk ? stride : 1 - stride);
+                if (amount <= 0.001) continue;
+                const phase = walk ? this.gait / (Math.PI * 2) * clip.duration : this.t;
+                for (const { bone, basis, sampler } of clip.tracks) {
+                    _qa.fromArray(sampler.evaluate(phase % clip.duration)).premultiply(basis);
+                    bone.quaternion.slerp(_qa, amount);
+                }
+            }
         }
 
         _parentRest(bone) {
@@ -213,7 +254,7 @@
         }
 
         update(dt, st) {
-            const ent = this.rig.entity;
+            if (st.frozen) return;
             const s = this.s;
             this.t += dt;
             const speed = st.speed || 0;
@@ -320,6 +361,8 @@
                 this.b.pelvis.position.copy(this.pelvis0).addScaledVector(this.bobAxis, bob);
             }
             this.apply();
+            const combat = Math.max(s.flinch, s.stun, s.dance, s.dead, swing > 0 || st.firing ? 1 : 0);
+            this._sampleLocomotion(0.78 * (1 - clamp(combat, 0, 1)) * (1 - s.run), s.a);
         }
 
         setHeadScale(sc) { this.headScale = sc; if (this.b.head) this.b.head.scale.setScalar(sc); }
@@ -361,7 +404,7 @@
             const mk = (clip, part, fullIfUnsplit) => {
                 if (!clip) return null;
                 if (!hasSplit && part === 'upper' && !fullIfUnsplit) return null;
-                const c = part === 'full' || !hasSplit ? clip : filterClip(clip, part === 'upper' ? isUpper : (n) => !isUpper(n), '#' + part);
+                const c = part === 'full' || !hasSplit ? clip.clone() : filterClip(clip, part === 'upper' ? isUpper : (n) => !isUpper(n), '#' + part);
                 const act = this.mixer.clipAction(c);
                 act.enabled = true;
                 act.setEffectiveWeight(0);
@@ -370,7 +413,7 @@
             };
             const base = {
                 idle: clipFind(clips, 'idle'),
-                walk: clipFind(clips, 'walk'),
+                walk: clipFind(clips, 'walk', 'run'),
                 sprint: clipFind(clips, 'sprint', 'run') || clipFind(clips, 'walk'),
                 dance: clipFind(clips, 'emote-yes', 'dance', 'emote') || clipFind(clips, 'idle')
             };
@@ -382,12 +425,11 @@
             const armed = opts.armed;
             this.ov = {
                 meleeR: mk(clipFind(clips, 'attack-melee-right', 'attack', 'punch'), 'upper', true),
-                meleeL: mk(clipFind(clips, 'attack-melee-left'), 'upper', true),
+                meleeL: mk(clipFind(clips, 'attack-melee-left', 'attack-melee-right', 'attack', 'punch'), 'upper', true),
                 cast: mk(clipFind(clips, 'interact-right'), 'upper', true),
                 hold: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both' : 'holding-right'), 'upper', true) : null,
                 shoot: armed ? mk(clipFind(clips, armed === 'both' ? 'holding-both-shoot' : 'holding-right-shoot'), 'upper', true) : null
             };
-            if (!this.ov.meleeL) this.ov.meleeL = this.ov.meleeR;
             for (const k of ['meleeR', 'meleeL', 'cast']) {
                 const a = this.ov[k];
                 if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.stop(); }
@@ -599,6 +641,9 @@
         setHeadScale(s) { this.driver.setHeadScale(s); }
 
         dispose() {
+            if (this.disposed) return;
+            this.disposed = true;
+            this.model.traverse((o) => { if (o.isSkinnedMesh) o.skeleton.dispose(); });
             if (this.driver.mixer) this.driver.mixer.stopAllAction();
             if (this.entity && BO.Hitboxes) BO.Hitboxes.dispose(this.entity);
             if (this.parts && this.parts.glbRig === this) this.parts.glbRig = null;

@@ -5895,6 +5895,11 @@
                 const visible = near(p.pos, contact.npc, 60);
                 contact.avatar.root.visible = visible;
                 contact.badge.visible = visible;
+                if (visible) {
+                    contact.phase = (contact.phase || 0) + dt;
+                    contact.badge.rotation.y += dt * 1.6;
+                    BO.CharacterMesh.animateSoldier(contact.avatar, { speed: 0, phase: contact.phase, aim: 0 }, dt);
+                }
             }
             if (this.vehicle === 'rover' || this.vehicle === 'bike') {
                 if (Math.hypot(p.vel.x, p.vel.z) > 4) m.noise = Math.max(m.noise, this.vehicle === 'rover' ? 5 : 1.8);
@@ -11704,39 +11709,49 @@
             const hs = bird ? 0.13 : s * (k === 'bear' ? 0.36 : k === 'rabbit' ? 0.45 : 0.3);
             const hy = by + bh * (k === 'deer' ? 0.9 : 0.35), hz = bl / 2 + hs * 0.4;
             this.head = box(hs, hs, hs * 1.3, k === 'goat' ? 0xeee8dc : body, 0, hy, hz, 'head');
-            if (k === 'deer') { box(s * 0.16, s * 0.5, s * 0.16, body, 0, by + bh * 0.55, bl / 2 - 0.05); box(0.04, 0.35, 0.04, 0xd8c8a8, 0.1, hy + 0.3, hz - 0.05); box(0.04, 0.35, 0.04, 0xd8c8a8, -0.1, hy + 0.3, hz - 0.05); }
-            if (k === 'goat') { box(0.05, 0.22, 0.05, 0x5a5048, 0.07, hy + 0.17, hz - 0.08); box(0.05, 0.22, 0.05, 0x5a5048, -0.07, hy + 0.17, hz - 0.08); }
-            if (k === 'boar') { box(0.04, 0.04, 0.16, 0xeee8d0, 0.09, hy - 0.08, hz + 0.18); box(0.04, 0.04, 0.16, 0xeee8d0, -0.09, hy - 0.08, hz + 0.18); }
-            if (k === 'cow') { box(0.05, 0.18, 0.05, 0xd8d0b8, 0.15, hy + 0.15, hz); box(0.05, 0.18, 0.05, 0xd8d0b8, -0.15, hy + 0.15, hz); }
-            if (k === 'rabbit') { box(0.05, 0.2, 0.04, body, 0.05, hy + 0.17, hz - 0.03); box(0.05, 0.2, 0.04, body, -0.05, hy + 0.17, hz - 0.03); }
-            if (bird) { box(0.05, 0.05, 0.08, 0xd8a03a, 0, hy - 0.02, hz + 0.1); box(0.08, 0.12, 0.24, 0x5a3a20, 0, by + 0.06, -bl / 2 - 0.1); }
-            if (k === 'wolf') box(0.08, 0.08, s * 0.5, dark, 0, by + 0.05, -bl / 2 - s * 0.2);
+            // Face details share the grazing head pivot. Coordinates above are root-local.
+            const headDetail = (w, h, d, c, x, y, z) => {
+                const part = box(w, h, d, c, x - this.head.position.x, y - hy, z - hz, 'head');
+                this.head.add(part);
+            };
+            if (k === 'deer') box(s * 0.16, s * 0.5, s * 0.16, body, 0, by + bh * 0.55, bl / 2 - 0.05, 'torso');
+            for (const side of [-1, 1]) {
+                if (k === 'deer') headDetail(0.04, 0.35, 0.04, 0xd8c8a8, side * 0.1, hy + 0.3, hz - 0.05);
+                if (k === 'goat') headDetail(0.05, 0.22, 0.05, 0x5a5048, side * 0.07, hy + 0.17, hz - 0.08);
+                if (k === 'boar') headDetail(0.04, 0.04, 0.16, 0xeee8d0, side * 0.09, hy - 0.08, hz + 0.18);
+                if (k === 'cow') headDetail(0.05, 0.18, 0.05, 0xd8d0b8, side * 0.15, hy + 0.15, hz);
+                if (k === 'rabbit') headDetail(0.05, 0.2, 0.04, body, side * 0.05, hy + 0.17, hz - 0.03);
+            }
+            if (bird) {
+                headDetail(0.05, 0.05, 0.08, 0xd8a03a, 0, hy - 0.02, hz + 0.1);
+                box(0.08, 0.12, 0.24, 0x5a3a20, 0, by + 0.06, -bl / 2 - 0.1, 'limb');
+            }
+            if (k === 'wolf') box(0.08, 0.08, s * 0.5, dark, 0, by + 0.05, -bl / 2 - s * 0.2, 'limb');
             this.legs = [];
-            if (!bird) {
-                const lw = Math.max(0.05, s * 0.13);
-                for (const [lx, lz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+            const lw = bird ? 0.03 : Math.max(0.05, s * 0.13);
+            for (const lz of (bird ? [0] : [1, -1])) {
+                for (const lx of [1, -1]) {
                     const pivot = new THREE.Group();
-                    pivot.position.set(lx * (bw / 2 - lw / 2), legH, lz * (bl / 2 - lw));
-                    const leg = new THREE.Mesh(new THREE.BoxGeometry(lw, legH, lw), mat(dark));
-                    leg.position.y = -legH / 2;
+                    pivot.position.set(lx * (bird ? 0.06 : bw / 2 - lw / 2), legH, lz * (bl / 2 - lw));
+                    const leg = box(lw, legH, lw, bird ? 0xd8a03a : dark, 0, -legH / 2, 0, 'limb');
                     pivot.add(leg);
                     root.add(pivot);
                     this.legs.push(pivot);
                 }
-            } else {
-                for (const lx of [0.06, -0.06]) box(0.03, legH, 0.03, 0xd8a03a, lx, legH / 2, 0);
             }
             this.height = by + bh;
             this.radius = Math.max(0.25, bw * 0.7);
             this.root = root;
-            this.hitMeshes = [this.body, this.head];
+            this.parts = { root, headGroup: this.head };
+            BO.Hitboxes.prepare(this, this.parts);
             root.position.copy(this.pos);
             BO.SurvivalMode.scene.add(root);
         }
 
-        getHitboxMeshes() { return this.alive ? this.hitMeshes : []; }
+        getHitboxMeshes(out = []) { return this.alive ? BO.Hitboxes.collect(this, out) : out; }
 
         destroy() {
+            BO.Hitboxes?.dispose?.(this);
             this.root.removeFromParent();
             this.root.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
         }
@@ -13078,12 +13093,15 @@
             c.attackCd = Math.max(0, c.attackCd - dt);
             const aggroRange = c.stance === 'stealth' ? 4.2 : c.stance === 'guard' ? 22 : 24;
             let best = null, bestD = aggroRange;
-            for (const u of [...m.zombies, ...m.bots]) {
-                if (!u.alive || u.team === 0) continue;
-                const da = Math.hypot(u.pos.x - anchor.x, u.pos.z - anchor.z);
-                if (da > aggroRange) continue;
-                const dc = Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z);
-                if (dc < bestD) { bestD = dc; best = u; }
+            for (const pool of [m.zombies, m.bots]) {
+                for (let i = 0; i < pool.length; i++) {
+                    const u = pool[i];
+                    if (!u.alive || u.team === 0) continue;
+                    const da = Math.hypot(u.pos.x - anchor.x, u.pos.z - anchor.z);
+                    if (da > aggroRange) continue;
+                    const dc = Math.hypot(u.pos.x - c.pos.x, u.pos.z - c.pos.z);
+                    if (dc < bestD) { bestD = dc; best = u; }
+                }
             }
 
             const spec = c.spec;
@@ -15524,9 +15542,9 @@
             for (const g of this.ownedGroups) {
                 g.removeFromParent();
                 g.traverse?.((c) => {
-                    c.geometry?.dispose?.();
-                    if (Array.isArray(c.material)) c.material.forEach((m) => m?.dispose?.());
-                    else c.material?.dispose?.();
+                    if (c.geometry && !c.geometry.userData?.sharedAsset && !c.userData?.sharedGeometry) c.geometry.dispose?.();
+                    if (Array.isArray(c.material)) c.material.forEach((m) => { if (m && !m.userData?.sharedAsset) m.dispose?.(); });
+                    else if (c.material && !c.material.userData?.sharedAsset) c.material.dispose?.();
                 });
             }
             this.ownedGroups.length = 0;
@@ -15895,7 +15913,7 @@
                 const wx = fort.x + dSpec.dx;
                 const wz = fort.z + dSpec.dz;
                 const wy = BO.World.getGroundHeight(wx, wz, fort.y + 3);
-                const rig = BO.CharacterMesh.buildSoldier(0, dSpec.weapon || 'm4a1');
+                const rig = BO.CharacterMesh.buildSoldier(0, { weaponId: dSpec.weapon || 'm4a1' });
                 rig.root.position.set(wx, wy, wz);
                 rig.root.scale.set(0.92, 0.95, 0.92);
 
@@ -16075,16 +16093,14 @@
                     const dx = tx - d.pos.x;
                     const dz = tz - d.pos.z;
                     const dist = Math.hypot(dx, dz);
+                    let speed = 0;
                     if (dist > 0.12) {
                         const step = Math.min(dist, 1.85 * dt);
+                        speed = step / Math.max(1e-4, dt);
                         d.pos.x += (dx / dist) * step;
                         d.pos.z += (dz / dist) * step;
                         d.pos.y = BO.World.getGroundHeight(d.pos.x, d.pos.z, f.y + 2.5);
                         d.walkPhase += dt * 7;
-                        if (d.rig.legL && d.rig.legR) {
-                            d.rig.legL.rotation.x = Math.sin(d.walkPhase) * 0.42;
-                            d.rig.legR.rotation.x = -Math.sin(d.walkPhase) * 0.42;
-                        }
                     }
                     d.marker.x = d.pos.x;
                     d.marker.y = d.pos.y;
@@ -16099,6 +16115,7 @@
 
                     // Target & shoot nearby zombies!
                     d.fireCd -= dt;
+                    d.aimT = Math.max(0, (d.aimT || 0) - dt);
                     let bestZ = null;
                     let bestZDist = 32;
                     for (const z of infected) {
@@ -16108,10 +16125,13 @@
                             bestZ = z;
                         }
                     }
+                    let fired = false;
                     if (bestZ) {
                         d.rig.root.rotation.y = Math.atan2(bestZ.pos.x - d.pos.x, bestZ.pos.z - d.pos.z);
                         if (d.fireCd <= 0) {
                             d.fireCd = 0.56;
+                            d.aimT = 0.9;
+                            fired = true;
                             const muzzle = d.pos.clone().add(new THREE.Vector3(0, 1.38, 0));
                             const hitPt = bestZ.pos.clone().add(new THREE.Vector3(0, 1.0, 0));
                             BO.FX.spawnTracer(muzzle, hitPt, 0x60a5fa);
@@ -16121,6 +16141,7 @@
                     } else if (dist > 0.12) {
                         d.rig.root.rotation.y = Math.atan2(dx, dz);
                     }
+                    BO.CharacterMesh.animateSoldier(d.rig, { speed, phase: d.walkPhase, aim: (bestZ || d.aimT > 0) ? 1 : 0.25, recoil: fired ? 1 : 0 }, dt);
                 }
             }
         }
@@ -16130,7 +16151,7 @@
             const m = this.mode;
             for (const spec of BROKERS) {
                 const start = safeGroundPos(spec.route[0][0], spec.route[0][1]);
-                const rig = BO.CharacterMesh.buildSoldier(1, 'mp5');
+                const rig = BO.CharacterMesh.buildSoldier(1, { weaponId: 'mp5' });
                 rig.root.position.set(start.x, start.y, start.z);
                 rig.root.scale.set(0.92, 0.96, 0.92);
 
@@ -16169,7 +16190,7 @@
             const m = this.mode;
             for (const spec of GATED_NPCS) {
                 const pos = safeGroundPos(spec.x, spec.z);
-                const rig = BO.CharacterMesh.buildSoldier(0, 'ak47');
+                const rig = BO.CharacterMesh.buildSoldier(0, { weaponId: 'ak47' });
                 rig.root.position.set(pos.x, pos.y, pos.z);
                 rig.root.scale.set(0.94, 0.97, 0.94);
 
@@ -16202,6 +16223,7 @@
                 const nearPlayer = p.distanceTo(b.pos) < 3.8;
                 b.rig.root.visible = p.distanceTo(b.pos) < 95;
                 b.lantern.rotation.y += dt * 2.2;
+                let speed = 0;
                 if (!nearPlayer) {
                     const [wx, wz] = b.route[b.wpIndex];
                     const dx = wx - b.pos.x;
@@ -16211,22 +16233,38 @@
                         b.wpIndex = (b.wpIndex + 1) % b.route.length;
                     } else {
                         const step = Math.min(dist, b.speed * dt);
+                        speed = step / Math.max(1e-4, dt);
                         b.pos.x += (dx / dist) * step;
                         b.pos.z += (dz / dist) * step;
                         b.pos.y = BO.World.getGroundHeight(b.pos.x, b.pos.z, b.pos.y + 3);
                         b.rig.root.rotation.y = Math.atan2(dx, dz);
                         b.walkPhase += dt * 5.8;
-                        if (b.rig.legL && b.rig.legR) {
-                            b.rig.legL.rotation.x = Math.sin(b.walkPhase) * 0.38;
-                            b.rig.legR.rotation.x = -Math.sin(b.walkPhase) * 0.38;
-                        }
                     }
                 } else {
                     b.rig.root.rotation.y = Math.atan2(p.x - b.pos.x, p.z - b.pos.z);
+                    b.walkPhase += dt * 1.2;
+                }
+                if (b.rig.root.visible) {
+                    BO.CharacterMesh.animateSoldier(b.rig, { speed, phase: b.walkPhase, aim: 0 }, dt);
                 }
                 b.marker.x = b.pos.x;
                 b.marker.y = b.pos.y;
                 b.marker.z = b.pos.z;
+            }
+        }
+
+        _updateGatedNpcs(dt) {
+            const p = BO.Player.pos;
+            for (const g of this.gatedNpcs.values()) {
+                const d = p.distanceTo(g.rig.root.position);
+                g.rig.root.visible = d < 95;
+                if (!g.rig.root.visible) continue;
+                g.crest.rotation.y += dt * 1.8;
+                if (d < 5.0) {
+                    g.rig.root.rotation.y = Math.atan2(p.x - g.rig.root.position.x, p.z - g.rig.root.position.z);
+                }
+                g.idlePhase = (g.idlePhase || 0) + dt;
+                BO.CharacterMesh.animateSoldier(g.rig, { speed: 0, phase: g.idlePhase, aim: 0 }, dt);
             }
         }
 
@@ -17336,6 +17374,7 @@
 
             this._updateForts(dt);
             this._updateBrokers(dt);
+            this._updateGatedNpcs(dt);
             this._updatePickups(dt);
         }
 
@@ -20463,7 +20502,7 @@
     const DAILY_DELIVERY_CAP = 60;
 
     const Econ = {
-        rate: 1,
+        _tickAcc: 0,
 
         start(mode, saved) {
             this.mode = mode;
@@ -20583,7 +20622,11 @@
                 s.avatar.root.scale.set(0.85, 0.92, 0.85);
                 m.scene.add(s.avatar.root);
             }
-            if (s.avatar) { s.avatar.root.position.set(s.x, s.y, s.z); s.avatar.root.rotation.y = -ang; }
+            if (s.avatar) {
+                s.avatar.root.position.set(s.x, s.y, s.z);
+                s.avatar.root.rotation.y = -ang;
+                BO.CharacterMesh?.animateSoldier?.(s.avatar, { speed: 0, phase: 0, aim: 0 }, 0.05);
+            }
             let mk = m.markers.find((k) => k.id === 'gmsettler:' + s.id);
             if (!mk) { mk = { id: 'gmsettler:' + s.id, alive: true, reach: 2.8 }; m.markers.push(mk); }
             Object.assign(mk, { x: s.x, y: s.y, z: s.z, name: s.name, label: 'Trade with ' + s.name + ' (' + TRADES[s.trade].name + ')' });
@@ -20696,7 +20739,20 @@
         },
 
         /* ---------------------------------------------------------- update */
-        update() {
+        update(dt = 0) {
+            const P = BO.Player?.pos;
+            for (const s of this.settlers) {
+                if (s.state !== 'settled' || !s.avatar) continue;
+                const near = !P || Math.hypot(P.x - s.x, P.z - s.z) < 65;
+                s.avatar.root.visible = near;
+                if (near) {
+                    s.phase = (s.phase || 0) + dt;
+                    BO.CharacterMesh?.animateSoldier?.(s.avatar, { speed: 0, phase: s.phase, aim: 0 }, dt);
+                }
+            }
+            this._tickAcc = (this._tickAcc || 0) + dt;
+            if (this._tickAcc < 1) return;
+            this._tickAcc = 0;
             const m = this.mode;
             const c = m.campaign;
             if (c.day !== this.lastDay) {
@@ -26268,8 +26324,6 @@
             this.markers = [];
             this.structures = new Map();
             this._targetPoolBuf = [];
-            this._targetsDirty = true;
-            this._lastUnitSig = '';
             this._markerGrid = null;
             this._markerIndexedCount = 0;
             this._nearQueryBuf = [];
@@ -26306,7 +26360,7 @@
                 fire: [], structures: new Map(), markers: [], rider: false, near: null, threat: null, lastDay: 1, lastNight: 0,
                 patrolsDeployed: true, commanderDeployed: true, commander: null, commanderRetreated: false, commanderReturnAt: Infinity,
                 fracture: false, fallPeak: 0, wasAirborne: false, deaths: 0, lodClock: 0,
-                _targetsDirty: true, _lastUnitSig: '', _markerIndexedCount: 0, _discClock: 0, _sysClock: 0
+                _markerIndexedCount: 0, _discClock: 0, _sysClock: 0
             });
             this._markerGrid = BO.SpatialHash ? new BO.SpatialHash(12) : null;
             this._discoverMarkers.length = 0;
@@ -26438,7 +26492,6 @@
             this._targetPoolBuf.length = 0;
             this._aliveBots.length = 0;
             this._aliveZombies.length = 0;
-            this._targetsDirty = true;
             this.scene = null;
         }
 
@@ -26754,7 +26807,6 @@
         }
 
         refreshTargets() {
-            this._targetsDirty = false;
             const pool = this._targetPoolBuf;
             pool.length = 0;
             const pushMeshes = (list) => {
@@ -26762,14 +26814,13 @@
                 for (let i = 0; i < list.length; i++) {
                     const u = list[i];
                     if (!u || !u.alive || u.team === 0) continue;
-                    const meshes = u.getHitboxMeshes();
-                    for (let j = 0; j < meshes.length; j++) pool.push(meshes[j]);
+                    pool.push(u);
                 }
             };
             pushMeshes(this.zombies);
             pushMeshes(this.bots);
             pushMeshes(BO.ZoneWild?.animals);
-            BO.Combat.setTargetPool(pool);
+            BO.Combat.setEntityTargets(pool);
         }
 
         _distSqXZ(a, b) {
@@ -26797,13 +26848,6 @@
             const infected = this._aliveZombies;
             infected.length = 0;
             for (let i = 0; i < this.zombies.length; i++) if (this.zombies[i].alive) infected.push(this.zombies[i]);
-
-            const animalsLen = BO.ZoneWild?.animals?.length || 0;
-            const sig = `${this.zombies.length}:${infected.length}:${this.bots.length}:${bots.length}:${animalsLen}`;
-            if (sig !== this._lastUnitSig) {
-                this._lastUnitSig = sig;
-                this._targetsDirty = true;
-            }
 
             if (!this._factionCallbacks) {
                 this._factionCallbacks = {
@@ -26853,7 +26897,6 @@
                 if (!z.update(step, this.zombies, callbacks)) {
                     z.destroy();
                     this.zombies.splice(i, 1);
-                    this._targetsDirty = true;
                 }
             }
             const context = this._botContext || (this._botContext = {
@@ -26884,7 +26927,7 @@
                     D.noise(bot.pos.x, bot.pos.z, 90, 'gunshot');
                 }
             }
-            if (this._targetsDirty) this.refreshTargets();
+            this.refreshTargets();
         }
 
         /* ================================================================ frame */

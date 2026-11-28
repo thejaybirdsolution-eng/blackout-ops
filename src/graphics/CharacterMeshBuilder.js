@@ -17,12 +17,20 @@
         }
 
         _geo(key, creator) {
-            if (!this.geos[key]) this.geos[key] = creator();
+            if (!this.geos[key]) {
+                const g = creator();
+                if (g?.userData) g.userData.sharedAsset = true;
+                this.geos[key] = g;
+            }
             return this.geos[key];
         }
 
         _mat(key, creator) {
-            if (!this.mats[key]) this.mats[key] = creator();
+            if (!this.mats[key]) {
+                const m = creator();
+                if (m?.userData) m.userData.sharedAsset = true;
+                this.mats[key] = m;
+            }
             return this.mats[key];
         }
 

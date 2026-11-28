@@ -1062,7 +1062,8 @@
             else if (this.modeType === 'hardpoint') objPos = this._updateHardpoint(dt);
             else if (this.modeType === 'search_destroy') objPos = this._searchSite();
 
-            const hitMeshes = [];
+            const targets = this._combatEntities || (this._combatEntities = []);
+            targets.length = 0;
             const context = {
                 playerAlive: BO.Player.alive,
                 playerConcealed: this.counterUavTimer > 0,
@@ -1140,15 +1141,10 @@
                 }
                 b.update(dt, context);
                 if (!b.powerAlly && (this.isSolo || b.team !== myTeam)) {
-                    const ms = b.getHitboxMeshes();
-                    for (let m = 0; m < ms.length; m++) hitMeshes.push(ms[m]);
+                    targets.push(b);
                 }
             }
-            if (BO.Net && BO.Net.active) {
-                const remoteMeshes = BO.Net.getRemoteHitboxMeshes();
-                for (let r = 0; r < remoteMeshes.length; r++) hitMeshes.push(remoteMeshes[r]);
-            }
-            BO.Combat.setTargetPool(hitMeshes);
+            BO.Combat.setEntityTargets(targets, BO.Net?.active ? BO.Net.getRemoteHitboxMeshes() : null);
 
             this._recordReplaySnapshot(dt);
 

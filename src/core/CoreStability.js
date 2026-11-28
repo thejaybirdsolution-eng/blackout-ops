@@ -69,6 +69,7 @@
 
     function isCachedMaterial(mat) {
         if (!mat) return false;
+        if (mat.userData?.sharedAsset) return true;
         if (BO.Assets?.hasSharedMatValue && BO.Assets.hasSharedMatValue(mat)) return true;
         if (BO.Textures?.materials) {
             for (const k in BO.Textures.materials) if (BO.Textures.materials[k] === mat) return true;
@@ -79,6 +80,7 @@
 
     function isCachedGeometry(geo) {
         if (!geo) return false;
+        if (geo.userData?.sharedAsset) return true;
         if (BO.Assets?.isSharedGeo && BO.Assets.isSharedGeo(geo)) return true;
         if (BO.FX && (geo === BO.FX.decalGeo || geo === BO.FX.particleGeo || geo === BO.FX.shellGeo)) return true;
         return false;
@@ -107,7 +109,7 @@
                     if (obj.isInstancedMesh && typeof obj.dispose === 'function') {
                         try { obj.dispose(); } catch (_) {}
                     }
-                    if (obj.geometry && !isCachedGeometry(obj.geometry)) {
+                    if (obj.geometry && !obj.userData?.sharedGeometry && !isCachedGeometry(obj.geometry)) {
                         try { obj.geometry.dispose(); } catch (err) { log('SceneCleanup', 'debug', 'geo dispose', err); }
                     }
                     const mat = obj.material;

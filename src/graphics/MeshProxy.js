@@ -48,6 +48,22 @@
         return out;
     }
 
+    function copyGeometry(o, matrix) {
+        const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+        for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
+        if (!g.attributes.normal) g.computeVertexNormals();
+        g.applyMatrix4(matrix);
+        if (matrix.determinant() < 0) {
+            // Mirrored part: flip winding so faces are not culled from the outside.
+            const p = g.attributes.position.array, n = g.attributes.normal.array, uv = g.attributes.uv && g.attributes.uv.array;
+            for (let i = 0; i < p.length; i += 9) {
+                for (let k = 0; k < 3; k++) { const a = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = a; const b = n[i + 3 + k]; n[i + 3 + k] = n[i + 6 + k]; n[i + 6 + k] = b; }
+                if (uv) { const j = (i / 9) * 6; for (let k = 0; k < 2; k++) { const a = uv[j + 2 + k]; uv[j + 2 + k] = uv[j + 4 + k]; uv[j + 4 + k] = a; } }
+            }
+        }
+        return g;
+    }
+
     /** Merge every visible, non-transparent, single-material mesh below `root` by material. */
     function bake(root) {
         root.updateMatrixWorld(true);
@@ -58,18 +74,7 @@
             if (Array.isArray(o.material) || !o.geometry || !o.geometry.attributes.position) return;
             if (o.material.transparent || !visibleTo(o, root)) return;
             _m.multiplyMatrices(_inv, o.matrixWorld);
-            const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
-            for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
-            if (!g.attributes.normal) g.computeVertexNormals();
-            g.applyMatrix4(_m);
-            if (_m.determinant() < 0) {
-                // Mirrored part: flip winding so faces are not culled from the outside.
-                const p = g.attributes.position.array, n = g.attributes.normal.array, uv = g.attributes.uv && g.attributes.uv.array;
-                for (let i = 0; i < p.length; i += 9) {
-                    for (let k = 0; k < 3; k++) { const a = p[i + 3 + k]; p[i + 3 + k] = p[i + 6 + k]; p[i + 6 + k] = a; const b = n[i + 3 + k]; n[i + 3 + k] = n[i + 6 + k]; n[i + 6 + k] = b; }
-                    if (uv) { const j = (i / 9) * 6; for (let k = 0; k < 2; k++) { const a = uv[j + 2 + k]; uv[j + 2 + k] = uv[j + 4 + k]; uv[j + 4 + k] = a; } }
-                }
-            }
+            const g = copyGeometry(o, _m);
             let list = groups.get(o.material);
             if (!list) groups.set(o.material, list = []);
             list.push(g);
@@ -94,7 +99,10 @@
             let parts = key ? cache.get(key) : null;
             if (!parts) {
                 parts = bake(root);
-                if (key) cache.set(key, parts);
+                if (key) {
+                    for (const p of parts) if (p.geometry?.userData) p.geometry.userData.sharedAsset = true;
+                    cache.set(key, parts);
+                }
             }
             const proxy = new THREE.Group();
             proxy.name = 'MeshProxy';
@@ -114,9 +122,53 @@
             return { root, proxy, detail, far: false, parts: parts.length };
         },
 
+        // Merge rigid siblings on their own joint. An elbow, head or boot can still
+        // move (or disappear) without diverging from the original hit surfaces.
+        attachArticulated(root) {
+            const batches = [];
+            const detail = [];
+            root.traverse((joint) => {
+                if (joint.isMesh || joint.children.length < 2) return;
+                const groups = new Map();
+                for (const m of joint.children) {
+                    if (!m.isMesh || m.children.length || !m.visible || !m.geometry?.attributes.position ||
+                        m.isSkinnedMesh || m.isInstancedMesh || m.userData.noHit || m.userData.noProxy ||
+                        Array.isArray(m.material) || m.material.transparent || !m.material.visible) continue;
+                    let list = groups.get(m.material);
+                    if (!list) groups.set(m.material, list = []);
+                    list.push(m);
+                }
+                for (const [mat, list] of groups) {
+                    if (list.length < 2) continue;
+                    const geos = list.map((m) => { m.updateMatrix(); return copyGeometry(m, m.matrix); });
+                    const geo = mergeGroup(geos, geos.every((g) => !!g.attributes.uv));
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.name = 'MeshProxy';
+                    mesh.userData.noHit = mesh.userData.noProxy = true;
+                    mesh.visible = false;
+                    mesh.castShadow = list.some((m) => m.castShadow);
+                    mesh.receiveShadow = list.some((m) => m.receiveShadow);
+                    batches.push({ mesh, joint });
+                    detail.push(...list);
+                }
+            });
+            for (const { mesh, joint } of batches) joint.add(mesh);
+            return { root, batches, detail, far: false };
+        },
+
         /** Switch an LOD handle between full detail and the merged proxy. */
         set(lod, far) {
             if (!lod) return;
+            if (lod.batches) {
+                if (lod.far === far || lod.root.userData.glbBody) return;
+                for (const { mesh } of lod.batches) mesh.visible = far;
+                for (const m of lod.detail) {
+                    m.userData.lodDetail = far;
+                    m.visible = !far;
+                }
+                lod.far = far;
+                return;
+            }
             // A GLB model replaced this body: the procedural detail and its proxy both stay hidden.
             if (lod.root.userData.glbBody) { if (lod.proxy.visible) lod.proxy.visible = false; lod.far = far; return; }
             if (lod.far === far) return;
@@ -129,7 +181,14 @@
         detach(lod) {
             if (!lod) return;
             this.set(lod, false);
-            lod.proxy.removeFromParent();
+            if (lod.batches) {
+                for (const { mesh } of lod.batches) {
+                    mesh.removeFromParent();
+                    mesh.geometry.dispose();
+                }
+            } else {
+                lod.proxy.removeFromParent();
+            }
         },
 
         cacheSize() { return cache.size; }

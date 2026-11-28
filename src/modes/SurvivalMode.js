@@ -23,8 +23,6 @@
             this.markers = [];
             this.structures = new Map();
             this._targetPoolBuf = [];
-            this._targetsDirty = true;
-            this._lastUnitSig = '';
             this._markerGrid = null;
             this._markerIndexedCount = 0;
             this._nearQueryBuf = [];
@@ -61,7 +59,7 @@
                 fire: [], structures: new Map(), markers: [], rider: false, near: null, threat: null, lastDay: 1, lastNight: 0,
                 patrolsDeployed: true, commanderDeployed: true, commander: null, commanderRetreated: false, commanderReturnAt: Infinity,
                 fracture: false, fallPeak: 0, wasAirborne: false, deaths: 0, lodClock: 0,
-                _targetsDirty: true, _lastUnitSig: '', _markerIndexedCount: 0, _discClock: 0, _sysClock: 0
+                _markerIndexedCount: 0, _discClock: 0, _sysClock: 0
             });
             this._markerGrid = BO.SpatialHash ? new BO.SpatialHash(12) : null;
             this._discoverMarkers.length = 0;
@@ -193,7 +191,6 @@
             this._targetPoolBuf.length = 0;
             this._aliveBots.length = 0;
             this._aliveZombies.length = 0;
-            this._targetsDirty = true;
             this.scene = null;
         }
 
@@ -509,7 +506,6 @@
         }
 
         refreshTargets() {
-            this._targetsDirty = false;
             const pool = this._targetPoolBuf;
             pool.length = 0;
             const pushMeshes = (list) => {
@@ -517,14 +513,13 @@
                 for (let i = 0; i < list.length; i++) {
                     const u = list[i];
                     if (!u || !u.alive || u.team === 0) continue;
-                    const meshes = u.getHitboxMeshes();
-                    for (let j = 0; j < meshes.length; j++) pool.push(meshes[j]);
+                    pool.push(u);
                 }
             };
             pushMeshes(this.zombies);
             pushMeshes(this.bots);
             pushMeshes(BO.ZoneWild?.animals);
-            BO.Combat.setTargetPool(pool);
+            BO.Combat.setEntityTargets(pool);
         }
 
         _distSqXZ(a, b) {
@@ -552,13 +547,6 @@
             const infected = this._aliveZombies;
             infected.length = 0;
             for (let i = 0; i < this.zombies.length; i++) if (this.zombies[i].alive) infected.push(this.zombies[i]);
-
-            const animalsLen = BO.ZoneWild?.animals?.length || 0;
-            const sig = `${this.zombies.length}:${infected.length}:${this.bots.length}:${bots.length}:${animalsLen}`;
-            if (sig !== this._lastUnitSig) {
-                this._lastUnitSig = sig;
-                this._targetsDirty = true;
-            }
 
             if (!this._factionCallbacks) {
                 this._factionCallbacks = {
@@ -608,7 +596,6 @@
                 if (!z.update(step, this.zombies, callbacks)) {
                     z.destroy();
                     this.zombies.splice(i, 1);
-                    this._targetsDirty = true;
                 }
             }
             const context = this._botContext || (this._botContext = {
@@ -639,7 +626,7 @@
                     D.noise(bot.pos.x, bot.pos.z, 90, 'gunshot');
                 }
             }
-            if (this._targetsDirty) this.refreshTargets();
+            this.refreshTargets();
         }
 
         /* ================================================================ frame */

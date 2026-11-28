@@ -1316,22 +1316,15 @@
 
             // Collateral Headshot Pierce: check 1 lined-up zombie head along bullet direction
             if (info.dir && D.killed < 50) {
-                const headPool = [];
-                for (const z of D.zs) {
-                    if (!z.alive || z === ent) continue;
-                    for (const hm of z.getHitboxMeshes()) if (hm.userData.hitbox === 'head') headPool.push(hm);
-                }
-                if (headPool.length) {
-                    const wallHit = BO.World.raycastWorld(info.pt, info.dir, 22);
-                    _srRay.set(info.pt, info.dir);
-                    _srRay.near = 0.05;
-                    _srRay.far = wallHit ? wallHit.distance : 22;
-                    const pHits = _srRay.intersectObjects(headPool, false);
-                    if (pHits.length) {
-                        const sec = pHits[0].object.userData.entity;
-                        if (sec && sec.alive) killHead(sec, pHits[0].point, true);
-                    }
-                }
+                const wallHit = BO.World.raycastWorld(info.pt, info.dir, 22);
+                _srRay.set(info.pt, info.dir);
+                _srRay.near = 0.05;
+                _srRay.far = wallHit ? wallHit.distance : 22;
+                const next = BO.Combat._castTargets(_srRay).find((hit) => {
+                    const z = hit.object.userData.entity;
+                    return z !== ent && z?.alive && D.zs.includes(z) && BO.Hitboxes.zoneAt(hit) === 'head';
+                });
+                if (next) killHead(next.object.userData.entity, next.point, true);
             }
             return true;
         },

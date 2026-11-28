@@ -19,6 +19,7 @@
 - `src/graphics/SunShadow.js` + `CoreStability.applySceneQualityBudgets` — stable sun shadows and the reversible caster budget (ADR-026).
 - `AssetLoader._cloneGLBScene` now copies `animations` onto clones (r149's `clone()` drops them), which is what lets clip-driven models animate at all.
 - QA: `_qa_hitboxes.html` (44 checks: silhouette ray audit per enemy family in MP, Zombies, Rogue Lite, TD, Open World and online avatars, plus animation checks).
+- **Performance, Animation & Hitbox Accuracy Completion:** Fixed `ZoneWorldPlus` NPC weapon/entity wiring and defender/broker/gated-NPC soldier animations, `SurvivalCampaign` Haven NPC & `GMEconomy` settler idle animations, `TowerDefenseMode` allied soldier & guard-dog bite animations, `OWRPGCombat` decoy animation/material reuse, explicit `dt` propagation to `animateLimbs`, allocation-free `_livingTargets()` / companion targeting loops, `Hitboxes.fromModel` multi-material proxy safety + `HitboxDebug` hidden-chain pruning, `ZoneWild` hitbox disposal, and `sharedAsset` protection in `CoreStability` / `ZoneWorldPlus`.
 
 ## 1.0 Feature Modules Added
 - `src/data/OWRPGAct2Data.js` & `src/owrpg/OWRPGCompanions.js`: Multi-path Act II–VI questlines across Rust Sprawl, Mire Delta, Ash Quarry, Alpine Array, Meridian Core, and Dragonwilds; 3 Companions (`soren`, `kael`, `torque`) with passive auras & Soldier mesh AI; NPC dawn/day/night schedule labels; territory shifts; New Game+.

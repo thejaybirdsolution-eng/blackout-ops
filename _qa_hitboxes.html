@@ -205,9 +205,30 @@
     const headHidden = BO.Hitboxes.collect(b0, []).some((m) => m.userData.hitbox === 'head');
     b0.parts.headGroup.visible = true;
     check('Hidden body parts are never hittable', !headHidden);
+    // A one-triangle ear on an animated bone exercises both narrow and broad phase.
+    {
+      const root = new THREE.Group(), bone = new THREE.Bone(), geo = new THREE.BufferGeometry();
+      bone.name = 'ear_l';
+      geo.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 0.04,0,0, 0,0.04,0], 3));
+      geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(12), 4));
+      geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute([1,0,0,0,1,0,0,0,1,0,0,0], 4));
+      const skin = new THREE.SkinnedMesh(geo, new THREE.MeshBasicMaterial());
+      root.add(skin); skin.add(bone); skin.bind(new THREE.Skeleton([bone]));
+      const ent = { alive: true, parts: { root }, getHitboxMeshes(out) { return BO.Hitboxes.collect(this, out); } };
+      BO.Hitboxes.fromModel(ent, root);
+      BO.Combat.setEntityTargets([ent]);
+      const ray = rc(), dir = new THREE.Vector3(0,0,-1);
+      const cast = (x) => { ray.set(new THREE.Vector3(x,0.01,1), dir); return BO.Combat._castTargets(ray)[0]; };
+      const first = cast(0.01);
+      bone.position.x = 4;
+      const moved = cast(4.01), old = cast(0.01), outside = cast(4.05);
+      check('A single-triangle ear follows the bone immediately and clear space misses',
+        first && moved && BO.Hitboxes.zoneAt(moved) === 'head' && !old && !outside);
+      BO.Hitboxes.dispose(ent); geo.dispose(); skin.material.dispose(); skin.skeleton.dispose();
+    }
     // Broad-phase must agree with brute force.
     const pool = []; for (const b of bots) for (const m of b.getHitboxMeshes()) pool.push(m);
-    BO.Combat.setTargetPool(pool);
+    BO.Combat.setEntityTargets(bots);
     let agree = 0, total = 0;
     for (let i = 0; i < 160; i++) {
       const t = bots[i % bots.length];
@@ -261,6 +282,10 @@
     check('Zombies: rigged monsters are out of their bind T-pose (arms down)', tpose === 0, tpose + ' arms raised');
     if (rigged.length) {
       const rz = rigged[0], d = rz.parts.glbRig.driver;
+      await BO.Assets.loadGLB('monsters/zombie-locomotion.glb');
+      await wait(0);
+      check('Both authored monster locomotion presets bind to the live skeleton',
+        d.presets?.length === 2 && d.presets.every((c) => c.tracks.length >= 16 && c.duration > 0));
       const before = d.b.uaR.quaternion.clone();
       let thSwing = 0;
       for (let f = 0; f < 60; f++) { BO.CharacterMesh.animateLimbs(rz.parts, 2.5, f * 0.1, 0, 0, 'torso', 1 / 60); thSwing = Math.max(thSwing, d.D.get(d.b.thL).angleTo(new THREE.Quaternion())); }
@@ -343,7 +368,57 @@
     step(2);
     let tFail = 0;
     for (const z of tdz.slice(0, 8)) { const res = audit(z, z.spec.id, kindOf(z) === 'skinned' ? { cols: 9, rows: 14, views: ['front'] } : {}); const jt = judge(res, kindOf(z)); if (!jt.ok) { tFail++; info(`   ${z.spec.id}: ${jt.detail}`); } }
+    // Hired allied soldier animates with hands on rifle when aiming.
+    {
+      const TD = BO.TowerDefenseMode;
+      TD.gold = 99999;
+      const savedState = TD.state; TD.state = 'intermission';
+      TD.buyShopItem('teammate');
+      TD.state = savedState;
+      const ally = TD.allies[TD.allies.length - 1];
+      if (ally && tdz.length) {
+        ally.pos.copy(tdz[0].pos).add(new THREE.Vector3(0, 0, 4));
+        ally.parts.root.position.copy(ally.pos);
+        for (let f = 0; f < 30; f++) step(1);
+        const am = soldierMetrics(ally.parts);
+        check('TD allied soldier: animates with both hands on rifle', am.rErr < 0.03 && am.lErr < 0.04, `hands ${(am.rErr * 100).toFixed(1)}/${(am.lErr * 100).toFixed(1)} cm`);
+      }
+    }
     check('TD: visible body == hitbox for wave enemies', tdz.length > 0 && tFail === 0, tdz.length + ' alive');
+    await exit();
+
+    info('— Survival wildlife & NPCs —');
+    await start({ mode: 'survival', mapId: 'exclusion_zone', gameType: 'freeplay', difficulty: 'standard', autosave: false });
+    {
+      const wild = BO.ZoneWild, pick = wild.pickSpecies;
+      let rabbit;
+      try {
+        wild.pickSpecies = () => 'rabbit';
+        for (let i = 0; !rabbit && i < 60; i++) { wild.spawnAround(); rabbit = wild.animals.find((a) => a.kind === 'rabbit'); }
+      } finally { wild.pickSpecies = pick; }
+      if (!rabbit) throw Error('Survival rabbit failed to spawn');
+      rabbit.head.rotation.x = 0.55;
+      const ear = rabbit.head.children[0], ray = rc(), pool = [rabbit];
+      BO.Combat.setEntityTargets(pool);
+      const shootEar = (x) => {
+        const aim = ear.localToWorld(new THREE.Vector3(x, 0.065, 0));
+        const start = ear.localToWorld(new THREE.Vector3(x, 0.065, 0.3));
+        ray.set(start, aim.sub(start).normalize()); return BO.Combat._castTargets(ray)[0];
+      };
+      const hit = shootEar(0.018);
+      check('Survival grazing rabbit ear registers a head hit', hit?.object === ear && BO.Hitboxes.zoneAt(hit) === 'head');
+      check('Clear space beside the rabbit ear misses', !shootEar(-0.04));
+      const leg = rabbit.legs[0].children[0];
+      check('Survival animated feet register as limbs', rabbit.getHitboxMeshes().includes(leg) && leg.userData.hitbox === 'limb');
+      pool.length = 0; BO.Combat.setEntityTargets(pool);
+      check('Republishing an emptied target list removes the previous animal', !shootEar(0.018));
+
+      const b0 = BO.ZoneWorldPlus?.brokers?.[0];
+      let stringEnt = false;
+      if (b0) b0.rig.root.traverse((o) => { if (typeof o.userData?.entity === 'string') stringEnt = true; });
+      const sharedOk = Object.values(BO.SoldierModel.geos).every((g) => g.userData?.sharedAsset) && Object.values(BO.SoldierModel.mats).every((m) => m.userData?.sharedAsset);
+      check('Survival NPC rigs carry object entity refs and protect shared soldier assets', !stringEnt && sharedOk);
+    }
     await exit();
 
     /* ================================================================ 5. OPEN WORLD */
@@ -353,6 +428,15 @@
     await wait(1200);
     const AI = BO.OWRPGAI;
     for (const a of AI.agents.slice()) AI.despawn(a);
+    {
+      const comp = BO.OWRPGCompanions;
+      comp.setActive('soren');
+      comp.pos.x -= 10;
+      const leg = comp.parts.legL, from = leg.quaternion.clone();
+      for (let i = 0; i < 12; i++) comp._update(1 / 60);
+      check('Following companion takes animated steps', comp.phase > 0 && from.angleTo(leg.quaternion) > 0.05);
+      comp.setActive(null);
+    }
     const P3 = BO.Player.pos.clone();
     const owIds = ['skeleton_warrior', 'barrow_ghost', 'blood_vampire', 'orc_reaver', 'forest_poacher', 'frost_knight', 'imp_firestarter', 'puglin_scamp'];
     const procIds = Object.keys(BO.OWRPGStatsData.ENEMIES).filter((k) => !BO.OWRPGStatsData.ENEMIES[k].glb && !BO.OWRPGStatsData.ENEMIES[k].boss).slice(0, 6);
@@ -374,6 +458,14 @@
     check('Open World: GLB and procedural enemies — visible body == hitbox', oFail === 0, ags.length + ' enemies');
     const procHidden = ags.filter((a) => a.rig).some((a) => BO.Hitboxes.collect(a.ent, []).some((m) => !m.userData.hitProxy && !m.userData.glbPart && !(function inModel() { let f = false; a.rig.model.traverse((o) => { if (o === m) f = true; }); return f; })()));
     check('Open World: replaced procedural bodies take no hits', !procHidden);
+    if (BO.HitboxDebug) {
+      BO.HitboxDebug.setEnabled(true);
+      BO.HitboxDebug.update(true);
+      let ghostWire = false;
+      BO.World.scene.traverse((o) => { if (o.userData?.isHitboxDebug && o.visible && o.parent?.userData?.hitDisabled) ghostWire = true; });
+      BO.HitboxDebug.setEnabled(false);
+      check('HitboxDebug does not attach wires to disabled procedural meshes', !ghostWire);
+    }
     const kenney = ags.find((a) => a.rig && a.rig.kind === 'ClipDriver' && a.def.kind === 'beast');
     if (kenney) {
       const drv = kenney.rig.driver;
